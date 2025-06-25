@@ -1,7 +1,8 @@
-import { Star, Clock, CheckCircle, AlertTriangle, Scale } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { ProductWithOffers } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Star, ShoppingCart, ExternalLink } from "lucide-react";
+import { ProductWithOffers } from "@shared/schema";
 
 interface ProductCardProps {
   product: ProductWithOffers;
@@ -9,64 +10,27 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
-  // Get the best offer (lowest price) - handle empty offers array
-  const bestOffer = product.offers.length > 0 
-    ? product.offers.reduce((best, current) => 
-        parseFloat(current.price) < parseFloat(best.price) ? current : best
-      )
+  const bestOffer = product.offers && product.offers.length > 0 
+    ? product.offers.reduce((best, offer) => 
+        offer.price < best.price ? offer : best
+      ) 
     : null;
 
-  const getAvailabilityIcon = (availability: string) => {
-    switch (availability) {
-      case "in_stock":
-        return <CheckCircle className="h-4 w-4" aria-hidden="true" />;
-      case "limited_stock":
-        return <Clock className="h-4 w-4" aria-hidden="true" />;
-      case "out_of_stock":
-        return <AlertTriangle className="h-4 w-4" aria-hidden="true" />;
-      default:
-        return <CheckCircle className="h-4 w-4" aria-hidden="true" />;
-    }
-  };
+  if (!bestOffer) {
+    return (
+      <Card className="p-4">
+        <div className="text-center text-muted-foreground">
+          <p className="font-medium">{product.name}</p>
+          <p className="text-sm">No offers available</p>
+        </div>
+      </Card>
+    );
+  }
 
-  const getAvailabilityText = (availability: string) => {
-    switch (availability) {
-      case "in_stock":
-        return "In Stock";
-      case "limited_stock":
-        return "Limited Stock";
-      case "out_of_stock":
-        return "Out of Stock";
-      default:
-        return "In Stock";
-    }
-  };
-
-  const getAvailabilityClass = (availability: string) => {
-    switch (availability) {
-      case "in_stock":
-        return "availability-indicator in-stock";
-      case "limited_stock":
-        return "availability-indicator limited-stock";
-      case "out_of_stock":
-        return "availability-indicator out-of-stock";
-      default:
-        return "availability-indicator in-stock";
-    }
-  };
-
-  const getDealBadge = (dealType: string | null) => {
-    if (!dealType) return null;
-
-    const badgeProps = {
-      "best_price": { text: "Best Price", className: "deal-badge best-price" },
-      "bundle_deal": { text: "Bundle Deal", className: "deal-badge bundle" },
-      "limited_time": { text: "Limited Time", className: "deal-badge limited" },
-    };
-
-    const badge = badgeProps[dealType as keyof typeof badgeProps];
-    return badge ? <Badge variant="secondary" className={badge.className}>{badge.text}</Badge> : null;
-  };
+  const originalPrice = bestOffer.originalPrice ? Number(bestOffer.originalPrice) : Number(bestOffer.price);
+  const currentPrice = Number(bestOffer.price);
+  const savings = originalPrice > currentPrice ? originalPrice - currentPrice : 0;
+  const savingsPercentage = savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
 
   const renderStars = (rating: string | null) => {
     if (!rating) return null;
@@ -77,23 +41,23 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
     
     return (
       <div className="flex items-center space-x-1">
-        <div className="flex rating-star" aria-label={`${rating} out of 5 stars`}>
+        <div className="flex" aria-label={`${rating} out of 5 stars`}>
           {Array.from({ length: 5 }, (_, i) => (
             <Star
               key={i}
               className={`h-4 w-4 ${
                 i < fullStars 
-                  ? "fill-accent text-accent" 
+                  ? "fill-yellow-400 text-yellow-400" 
                   : i === fullStars && hasHalfStar 
-                    ? "fill-accent/50 text-accent" 
-                    : "text-muted-foreground"
+                    ? "fill-yellow-400/50 text-yellow-400" 
+                    : "text-gray-300"
               }`}
               aria-hidden="true"
             />
           ))}
         </div>
-        <span className="text-sm text-muted-foreground">{rating}</span>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-gray-600">{rating}</span>
+        <span className="text-sm text-gray-600">
           ({bestOffer.reviewCount?.toLocaleString() || 0})
         </span>
       </div>
@@ -101,7 +65,7 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
   };
 
   return (
-    <article className="product-card bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
       <div className="relative">
         <img
           src={product.image || "/api/placeholder/400/300"}
@@ -109,82 +73,83 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
           className="w-full h-48 object-cover"
           loading="lazy"
         />
-        <div className="absolute top-2 left-2">
-          {getDealBadge(bestOffer.dealType)}
-        </div>
+        {bestOffer.dealType && (
+          <div className="absolute top-2 left-2">
+            <Badge variant="secondary" className="bg-red-100 text-red-800">
+              {bestOffer.dealType === "best_price" && "Best Price"}
+              {bestOffer.dealType === "bundle_deal" && "Bundle Deal"}
+              {bestOffer.dealType === "limited_time" && "Limited Time"}
+            </Badge>
+          </div>
+        )}
       </div>
       
       <div className="p-4">
-        <header className="mb-3">
-          <h3 className="font-semibold text-foreground text-lg mb-1 line-clamp-2">
+        <div className="mb-3">
+          <h3 className="font-semibold text-lg mb-1 line-clamp-2">
             {product.name}
           </h3>
-          <p className="text-sm text-muted-foreground">
-            {bestOffer.retailer.name}
-          </p>
-        </header>
-        
-        {/* Rating */}
-        <div className="mb-3">
-          {renderStars(bestOffer.rating)}
-        </div>
-        
-        {/* Pricing */}
-        <div className="mb-4">
-          <div className="flex items-baseline space-x-2">
-            <span className="price-highlight">
-              ${parseFloat(bestOffer.price).toFixed(2)}
-            </span>
-            {bestOffer.originalPrice && (
-              <span className="price-original">
-                ${parseFloat(bestOffer.originalPrice).toFixed(2)}
-              </span>
-            )}
-          </div>
-          {product.savings && (
-            <div className="flex items-center space-x-2 mt-1">
-              <span className="price-savings">
-                Save ${product.savings.toFixed(2)} ({product.savingsPercentage}%)
-              </span>
-              {bestOffer.shippingInfo && (
-                <Badge variant="outline" className="text-xs">
-                  {bestOffer.shippingInfo}
-                </Badge>
-              )}
-            </div>
+          {product.brand && (
+            <p className="text-sm text-gray-600">{product.brand}</p>
           )}
         </div>
-        
-        {/* Availability */}
-        <div className="flex items-center justify-between mb-4">
-          <span className={getAvailabilityClass(bestOffer.availability || "in_stock")}>
-            {getAvailabilityIcon(bestOffer.availability || "in_stock")}
-            {getAvailabilityText(bestOffer.availability || "in_stock")}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {product.offers.length} offer{product.offers.length !== 1 ? 's' : ''}
-          </span>
+
+        {renderStars(bestOffer.rating)}
+
+        <div className="mt-3 mb-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-2xl font-bold text-primary">
+              ${currentPrice.toFixed(2)}
+            </span>
+            {savings > 0 && (
+              <>
+                <span className="text-sm text-gray-500 line-through">
+                  ${originalPrice.toFixed(2)}
+                </span>
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  Save {savingsPercentage}%
+                </Badge>
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center mt-2">
+            <span className={`text-sm ${
+              bestOffer.availability === "in_stock" ? "text-green-600" :
+              bestOffer.availability === "limited_stock" ? "text-yellow-600" :
+              "text-red-600"
+            }`}>
+              {bestOffer.availability === "in_stock" && "✓ In Stock"}
+              {bestOffer.availability === "limited_stock" && "⚠ Limited Stock"}
+              {bestOffer.availability === "out_of_stock" && "✗ Out of Stock"}
+            </span>
+          </div>
         </div>
-        
-        {/* Action Buttons */}
+
         <div className="flex space-x-2">
           <Button 
-            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible"
-            onClick={() => window.open(bestOffer.productUrl, '_blank')}
+            variant="outline" 
+            size="sm" 
+            onClick={onAddToComparison}
+            className="flex-1"
           >
+            <ShoppingCart className="h-4 w-4 mr-1" />
+            Compare
+          </Button>
+          <Button 
+            size="sm" 
+            className="flex-1"
+            onClick={() => bestOffer.productUrl && window.open(bestOffer.productUrl, '_blank')}
+          >
+            <ExternalLink className="h-4 w-4 mr-1" />
             View Deal
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="focus-visible"
-            onClick={onAddToComparison}
-            aria-label={`Add ${product.name} to comparison`}
-          >
-            <Scale className="h-4 w-4" aria-hidden="true" />
-          </Button>
+        </div>
+        
+        <div className="mt-2 text-xs text-gray-500 text-center">
+          at {bestOffer.retailer.name}
         </div>
       </div>
-    </article>
+    </Card>
   );
 }
