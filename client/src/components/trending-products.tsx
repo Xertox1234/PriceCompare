@@ -13,12 +13,12 @@ export function TrendingProducts() {
           </p>
         </div>
 
-        {/* Two-column layout with exact spacing */}
-        <div className="grid grid-cols-2 gap-6 items-center">
+        {/* Two-column layout with exact spacing - 24px gap */}
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
           
           {/* Left side - Product image - exact 550x400px */}
-          <div className="bg-white rounded overflow-hidden" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-            <div className="w-[550px] h-[400px]">
+          <div className="bg-white rounded overflow-hidden" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)', width: '550px' }}>
+            <div style={{ width: '550px', height: '400px' }}>
               <img
                 src="https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=550&h=400&fit=crop"
                 alt="Professional Camera"
