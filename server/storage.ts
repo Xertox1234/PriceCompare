@@ -125,7 +125,13 @@ export class MemStorage implements IStorage {
 
   async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
     const id = this.currentRetailerId++;
-    const newRetailer: Retailer = { ...retailer, id };
+    const newRetailer: Retailer = { 
+      ...retailer, 
+      id,
+      logo: retailer.logo || null,
+      website: retailer.website || null,
+      isActive: retailer.isActive ?? true
+    };
     this.retailers.set(id, newRetailer);
     return newRetailer;
   }
@@ -136,7 +142,16 @@ export class MemStorage implements IStorage {
 
   async createProduct(product: InsertProduct): Promise<Product> {
     const id = this.currentProductId++;
-    const newProduct: Product = { ...product, id, createdAt: new Date() };
+    const newProduct: Product = { 
+      ...product, 
+      id, 
+      createdAt: new Date(),
+      image: product.image || null,
+      category: product.category || null,
+      brand: product.brand || null,
+      description: product.description || null,
+      model: product.model || null
+    };
     this.products.set(id, newProduct);
     return newProduct;
   }
@@ -274,7 +289,18 @@ export class MemStorage implements IStorage {
 
   async createProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
     const id = this.currentOfferId++;
-    const newOffer: ProductOffer = { ...offer, id, lastUpdated: new Date() };
+    const newOffer: ProductOffer = { 
+      ...offer, 
+      id, 
+      lastUpdated: new Date(),
+      availability: offer.availability || null,
+      rating: offer.rating || null,
+      originalPrice: offer.originalPrice || null,
+      reviewCount: offer.reviewCount || null,
+      shippingInfo: offer.shippingInfo || null,
+      dealType: offer.dealType || null,
+      productUrl: offer.productUrl || null
+    };
     this.productOffers.set(id, newOffer);
     return newOffer;
   }
