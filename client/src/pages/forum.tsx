@@ -76,7 +76,7 @@ function ForumPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
         {/* Forum Guidelines Card */}
         <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-white dark:bg-gray-900">
+          <CardHeader className="bg-white dark:bg-white">
             <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Forum Guidelines
@@ -106,7 +106,7 @@ function ForumPage() {
 
         {/* Popular Topics Card */}
         <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-white dark:bg-gray-900">
+          <CardHeader className="bg-white dark:bg-white">
             <CardTitle className="text-purple-700 dark:text-purple-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
               Popular Topics
@@ -132,7 +132,7 @@ function ForumPage() {
 
         {/* Community Stats Card */}
         <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-white dark:bg-gray-900">
+          <CardHeader className="bg-white dark:bg-white">
             <CardTitle className="text-green-700 dark:text-green-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               Community Stats
