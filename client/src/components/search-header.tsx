@@ -21,156 +21,51 @@ export function SearchHeader({ onSearch, searchQuery }: SearchHeaderProps) {
   };
 
   return (
-    <header 
-      style={{
-        backgroundColor: '#fff',
-        borderBottom: '1px solid #e5e7eb',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 40
-      }}
-      role="banner"
-    >
-      <div 
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: '0 32px'
-        }}
-      >
-        <div 
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            height: '80px'
-          }}
-        >
+    <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40" role="banner">
+      <div className="max-w-[1280px] mx-auto px-8">
+        <div className="flex items-center justify-between h-20">
           {/* Logo and Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="flex items-center gap-4">
             <div>
-              <h1 
-                style={{
-                  fontSize: '32px',
-                  fontWeight: '900',
-                  background: 'linear-gradient(135deg, #5A5DFF 0%, #8B5FF5 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  fontFamily: 'Inter, sans-serif'
-                }}
-              >
+              <h1 className="text-3xl font-black bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent font-sans">
                 PriceCompare Community
               </h1>
             </div>
           </div>
 
           {/* Search Bar */}
-          <div 
-            style={{
-              flex: 1,
-              maxWidth: '600px',
-              margin: '0 32px'
-            }}
-            role="search"
-          >
-            <form onSubmit={handleSubmit} style={{ position: 'relative' }}>
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '16px',
-                  transform: 'translateY(-50%)',
-                  pointerEvents: 'none'
-                }}
-              >
-                <Search 
-                  size={20} 
-                  style={{ color: '#9ca3af' }}
-                  aria-hidden="true" 
-                />
+          <div className="flex-1 max-w-[600px] mx-8" role="search">
+            <form onSubmit={handleSubmit} className="relative">
+              <div className="absolute top-1/2 left-4 -translate-y-1/2 pointer-events-none">
+                <Search size={20} className="text-gray-400" aria-hidden="true" />
               </div>
               <input
                 type="search"
                 placeholder="Search for products to compare prices..."
-                style={{
-                  width: '100%',
-                  paddingLeft: '48px',
-                  paddingRight: '16px',
-                  paddingTop: '16px',
-                  paddingBottom: '16px',
-                  fontSize: '18px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '16px',
-                  backgroundColor: '#f9fafb',
-                  outline: 'none',
-                  transition: 'all 0.3s ease',
-                  fontFamily: 'Inter, sans-serif'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#5A5DFF';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(90, 93, 255, 0.1)';
-                  e.target.style.backgroundColor = '#fff';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = '#e5e7eb';
-                  e.target.style.boxShadow = 'none';
-                  e.target.style.backgroundColor = '#f9fafb';
-                }}
-                aria-label="Search for products"
+                className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-2xl bg-gray-50 outline-none transition-all duration-300 font-sans focus:border-primary focus:shadow-primary/10 focus:shadow-lg focus:bg-white"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
+                aria-label="Search for products"
               />
             </form>
           </div>
 
-          {/* User Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Right side buttons */}
+          <div className="flex items-center gap-4">
             <button
-              style={{
-                color: '#6b7280',
-                padding: '12px',
-                borderRadius: '12px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#5A5DFF';
-                e.currentTarget.style.backgroundColor = '#f0f9ff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#6b7280';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              aria-label="Price alerts"
+              className="p-3 bg-gray-100 border-0 rounded-xl cursor-pointer transition-all duration-300 hover:bg-gray-200 hover:scale-105"
+              aria-label="Notifications"
             >
-              <Bell size={20} aria-hidden="true" />
+              <Bell size={20} className="text-gray-700" />
             </button>
+            
             <button
-              style={{
-                color: '#6b7280',
-                padding: '12px',
-                borderRadius: '12px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#5A5DFF';
-                e.currentTarget.style.backgroundColor = '#f0f9ff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#6b7280';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              aria-label="User menu"
+              className="bg-primary text-primary-foreground px-5 py-3 border-0 rounded-xl text-base font-semibold cursor-pointer flex items-center gap-2 transition-all duration-300 font-sans hover:bg-primary/90 hover:-translate-y-0.5"
+              aria-label="User profile"
             >
-              <User size={20} aria-hidden="true" />
+              <User size={18} />
+              Profile
             </button>
           </div>
         </div>
