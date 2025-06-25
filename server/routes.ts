@@ -8,6 +8,7 @@ import { passport, createUser, findUserByEmail, findUserById } from "./auth";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
 import * as schema from "@shared/schema";
+import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 
 
 // Extend Express Request to include user
@@ -415,8 +416,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/analytics/user-growth", requireAuth, async (req, res) => {
     try {
       const userGrowth = await db.select({
-        date: sql`DATE(${schema.users.createdAt})`,
-        count: sql`count(*)`
+        date: sql`DATE(${schema.users.createdAt})`.as('date'),
+        count: sql`count(*)`.as('count')
       })
       .from(schema.users)
       .groupBy(sql`DATE(${schema.users.createdAt})`)
@@ -432,8 +433,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/analytics/forum-activity", requireAuth, async (req, res) => {
     try {
       const postActivity = await db.select({
-        date: sql`DATE(${schema.forumPosts.createdAt})`,
-        count: sql`count(*)`
+        date: sql`DATE(${schema.forumPosts.createdAt})`.as('date'),
+        count: sql`count(*)`.as('count')
       })
       .from(schema.forumPosts)
       .groupBy(sql`DATE(${schema.forumPosts.createdAt})`)
@@ -450,7 +451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const topCategories = await db.select({
         categoryName: schema.forumCategories.name,
-        topicCount: sql`count(${schema.forumTopics.id})`
+        topicCount: sql`count(${schema.forumTopics.id})`.as('topicCount')
       })
       .from(schema.forumCategories)
       .leftJoin(schema.forumTopics, eq(schema.forumCategories.id, schema.forumTopics.categoryId))
