@@ -45,13 +45,13 @@ export default function AdminPage() {
   });
 
   // Fetch categories
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ['/api/admin/categories'],
     queryFn: () => apiRequest('/api/admin/categories'),
   });
 
   // Fetch users
-  const { data: users = [] } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: () => apiRequest('/api/admin/users'),
   });
@@ -285,7 +285,10 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {categories.map((category: ForumCategory) => (
+                  {categoriesLoading ? (
+                    <div>Loading categories...</div>
+                  ) : Array.isArray(categories) && categories.length > 0 ? (
+                    categories.map((category: ForumCategory) => (
                     <div key={category.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <div 

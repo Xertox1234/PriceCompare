@@ -109,10 +109,7 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
                   </Link>
                 </DropdownMenuItem>
               )}
-              {/* Debug role display */}
-              <DropdownMenuItem disabled>
-                <span className="text-xs text-muted-foreground">Role: {user?.role || 'undefined'}</span>
-              </DropdownMenuItem>
+
 
               <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending}>
                 <LogOut className="mr-2 h-4 w-4" />
