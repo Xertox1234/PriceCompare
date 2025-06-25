@@ -364,7 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes
-  app.get("/api/admin/categories", requireAuth, async (req, res) => {
+  app.get("/api/admin/categories", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const categories = await forumStorage.getCategories();
       res.json(Array.isArray(categories) ? categories : []);
@@ -374,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/users", requireAuth, async (req, res) => {
+  app.get("/api/admin/users", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const usersData = await db.select({
         id: schema.users.id,
@@ -393,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin analytics endpoints
-  app.get("/api/admin/analytics/overview", requireAuth, async (req, res) => {
+  app.get("/api/admin/analytics/overview", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
         db.select({ count: sql`count(*)` }).from(schema.users),

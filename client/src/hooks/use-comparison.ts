@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { ProductWithOffers } from "@shared/schema";
+import type { ProductWithOffers } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 const MAX_COMPARISON_ITEMS = 4;

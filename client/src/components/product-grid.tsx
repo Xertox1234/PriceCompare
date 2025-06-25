@@ -2,7 +2,7 @@ import { ProductCard } from "./product-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
-import { ProductWithOffers } from "@shared/schema";
+import type { ProductWithOffers } from "@shared/schema";
 
 interface ProductGridProps {
   products: ProductWithOffers[];

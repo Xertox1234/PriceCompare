@@ -1,7 +1,7 @@
 import { Star, Clock, CheckCircle, AlertTriangle, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ProductWithOffers } from "@shared/schema";
+import type { ProductWithOffers } from "@shared/schema";
 
 interface ProductCardProps {
   product: ProductWithOffers;
