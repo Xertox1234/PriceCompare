@@ -140,17 +140,17 @@ function ForumPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-4 text-sm">
-              <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">Active Discussions:</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">24</span>
+              <div className="flex justify-between items-center p-3 bg-white dark:bg-white border rounded-lg">
+                <span className="text-gray-600 dark:text-gray-600">Active Discussions:</span>
+                <span className="font-bold text-blue-600 dark:text-blue-600 text-lg">24</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">Community Members:</span>
-                <span className="font-bold text-purple-600 dark:text-purple-400 text-lg">156</span>
+              <div className="flex justify-between items-center p-3 bg-white dark:bg-white border rounded-lg">
+                <span className="text-gray-600 dark:text-gray-600">Community Members:</span>
+                <span className="font-bold text-purple-600 dark:text-purple-600 text-lg">156</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">Products Discussed:</span>
-                <span className="font-bold text-green-600 dark:text-green-400 text-lg">89</span>
+              <div className="flex justify-between items-center p-3 bg-white dark:bg-white border rounded-lg">
+                <span className="text-gray-600 dark:text-gray-600">Products Discussed:</span>
+                <span className="font-bold text-green-600 dark:text-green-600 text-lg">89</span>
               </div>
             </div>
           </CardContent>
