@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { MessageSquare, Users, Bell, BellRing } from 'lucide-react';
 import { EmbeddedForum } from './forum/embedded-forum';
 import { useState } from 'react';
-import type { ProductWithOffers } from '@/shared/schema';
+import type { ProductWithOffers } from '@shared/schema';
 
 interface EnhancedProductCardProps {
   product: ProductWithOffers;

@@ -1,4 +1,5 @@
 import { Express, Request, Response, NextFunction } from "express";
+import type { AuthenticatedRequest, ApiResponse, AuthResponse } from "@shared/types";
 import { createServer, type Server } from "http";
 import { db } from "./db";
 import { insertProductSchema, insertRetailerSchema, insertProductOfferSchema, insertUserSchema } from "@shared/schema";

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AnalyticsOverview, UserGrowthData, ForumActivityData, TopCategoryData } from '@shared/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,24 +59,24 @@ export default function AdminPage() {
   });
 
   // Analytics data
-  const { data: overviewData } = useQuery({
+  const { data: overviewData } = useQuery<AnalyticsOverview>({
     queryKey: ['/api/admin/analytics/overview'],
-    queryFn: () => apiRequest('/api/admin/analytics/overview'),
+    queryFn: () => apiRequest<AnalyticsOverview>('/api/admin/analytics/overview'),
   });
 
-  const { data: userGrowthData = [] } = useQuery({
+  const { data: userGrowthData = [] } = useQuery<UserGrowthData[]>({
     queryKey: ['/api/admin/analytics/user-growth'],
-    queryFn: () => apiRequest('/api/admin/analytics/user-growth'),
+    queryFn: () => apiRequest<UserGrowthData[]>('/api/admin/analytics/user-growth'),
   });
 
-  const { data: forumActivityData = [] } = useQuery({
+  const { data: forumActivityData = [] } = useQuery<ForumActivityData[]>({
     queryKey: ['/api/admin/analytics/forum-activity'],
-    queryFn: () => apiRequest('/api/admin/analytics/forum-activity'),
+    queryFn: () => apiRequest<ForumActivityData[]>('/api/admin/analytics/forum-activity'),
   });
 
-  const { data: topCategoriesData = [] } = useQuery({
+  const { data: topCategoriesData = [] } = useQuery<TopCategoryData[]>({
     queryKey: ['/api/admin/analytics/top-categories'],
-    queryFn: () => apiRequest('/api/admin/analytics/top-categories'),
+    queryFn: () => apiRequest<TopCategoryData[]>('/api/admin/analytics/top-categories'),
   });
 
   // Create category mutation

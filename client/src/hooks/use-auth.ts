@@ -1,14 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  role?: string;
-  reputation?: number;
-  isActive?: boolean;
-}
+import type { User } from '@shared/schema';
 
 export function useAuth() {
   return useQuery({
