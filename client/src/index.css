@@ -160,19 +160,25 @@
 
   /* Deal badges */
   .deal-badge {
-    @apply px-2 py-1 text-xs font-medium rounded-full;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
   }
 
   .deal-badge.best-price {
-    @apply bg-success bg-opacity-10 text-success-foreground;
+    background-color: hsl(var(--success) / 0.1);
+    color: hsl(var(--success-foreground));
   }
 
   .deal-badge.bundle {
-    @apply bg-accent bg-opacity-10 text-accent-foreground;
+    background-color: hsl(var(--accent) / 0.1);
+    color: hsl(var(--accent-foreground));
   }
 
   .deal-badge.limited {
-    @apply bg-destructive bg-opacity-10 text-destructive-foreground;
+    background-color: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive-foreground));
   }
 
   /* Rating stars */
