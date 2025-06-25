@@ -12,13 +12,17 @@ export function useAuth() {
     queryKey: ['auth', 'user'],
     queryFn: async (): Promise<User | null> => {
       try {
-        const response = await apiRequest('/api/auth/user');
+        const response = await apiRequest('/api/auth/user', {
+          method: 'GET',
+        });
         return response;
       } catch (error) {
+        // Return null if user is not authenticated, don't throw
         return null;
       }
     },
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

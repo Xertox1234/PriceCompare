@@ -1,4 +1,4 @@
-import { EnhancedProductCard } from "./enhanced-product-card";
+import { ProductCard } from "./product-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
@@ -73,7 +73,7 @@ export function ProductGrid({ products, isLoading, error, onAddToComparison }: P
       {/* Product Comparison Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {products.map((product) => (
-          <EnhancedProductCard
+          <ProductCard
             key={product.id}
             product={product}
             onAddToComparison={() => onAddToComparison(product)}
