@@ -67,7 +67,19 @@ export default function Home() {
                   </label>
                   <select 
                     id="sort-select" 
-                    className="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                    className="border border-gray-300 rounded-xl px-4 py-2 text-sm bg-white shadow-sm"
+                    style={{
+                      outline: 'none',
+                      transition: 'all 200ms ease',
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#3b82f6';
+                      e.target.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#d1d5db';
+                      e.target.style.boxShadow = 'none';
+                    }}
                     value={filters.sortBy || "popularity"}
                     onChange={(e) => handleFilterChange({ sortBy: e.target.value as SearchFilters["sortBy"] })}
                   >
