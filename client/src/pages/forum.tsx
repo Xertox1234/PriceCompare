@@ -121,3 +121,5 @@ export default function ForumPage() {
     </div>
   );
 }
+
+export default ForumPage;
