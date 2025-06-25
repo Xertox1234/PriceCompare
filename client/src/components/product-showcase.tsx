@@ -14,37 +14,7 @@ export function ProductShowcase() {
         }}
       >
         
-        {/* Section header */}
-        <div 
-          style={{
-            textAlign: 'center',
-            marginBottom: '48px'
-          }}
-        >
-          <h2 
-            style={{
-              fontSize: '32px',
-              fontWeight: '700',
-              color: '#000',
-              marginBottom: '16px',
-              fontFamily: 'Inter, sans-serif',
-              margin: '0 0 16px 0'
-            }}
-          >
-            Save More With Our Best Deals
-          </h2>
-          <p 
-            style={{
-              color: '#6b7280',
-              fontSize: '18px',
-              maxWidth: '640px',
-              margin: '0 auto',
-              fontFamily: 'Inter, sans-serif'
-            }}
-          >
-            Discover unbeatable prices on top technology products from leading brands.
-          </p>
-        </div>
+
 
         {/* Product grid - exact mosaic layout matching reference image with proper spacing */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
