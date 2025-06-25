@@ -101,6 +101,14 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
               <DropdownMenuItem disabled>
                 <span className="text-sm text-muted-foreground">{user.email}</span>
               </DropdownMenuItem>
+              {user?.role === 'admin' && (
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="flex items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Admin Panel</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>{logoutMutation.isPending ? 'Signing out...' : 'Sign out'}</span>
