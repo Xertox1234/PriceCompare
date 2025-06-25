@@ -6,7 +6,7 @@ export function HeroSection() {
         backgroundImage: "url('https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1920&h=700&fit=crop')"
       }}
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30 flex items-center justify-end">
+      <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/20 flex items-center justify-end">
         <div className="max-w-[1280px] w-full mx-auto px-8 flex justify-end">
           <div className="text-white max-w-[500px] text-right">
             <h1 className="text-5xl font-bold leading-tight tracking-tight mb-4 font-sans">
