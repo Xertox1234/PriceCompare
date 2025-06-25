@@ -6,9 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmbeddedForum } from '@/components/forum/embedded-forum';
 import { apiRequest } from '@/lib/queryClient';
-import type { ForumCategory } from '@/shared/schema';
+import type { ForumCategory } from '@shared/schema';
 
-export default function ForumPage() {
+function ForumPage() {
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
 
   const { data: categories, isLoading } = useQuery({
