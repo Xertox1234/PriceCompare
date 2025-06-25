@@ -10,9 +10,9 @@ This is a full-stack web application for comparing product prices across multipl
 - **Framework**: React 18 with TypeScript
 - **Routing**: Wouter for client-side routing
 - **UI Components**: shadcn/ui component library with Radix UI primitives
-- **Styling**: Tailwind CSS with custom CSS variables for theming
+- **Styling**: Tailwind CSS v4 with native Vite plugin and CSS-based theme configuration
 - **State Management**: TanStack Query (React Query) for server state management
-- **Build Tool**: Vite for development and production builds
+- **Build Tool**: Vite with @tailwindcss/vite plugin for optimized performance
 
 ### Backend Architecture
 - **Runtime**: Node.js with TypeScript
@@ -119,6 +119,7 @@ Comprehensive filtering system supporting:
 - **Database**: PostgreSQL 16 (managed by Replit)
 - **Port Configuration**: Application runs on port 5000
 - **Environment**: Replit-optimized with cartographer plugin for development
+- **Styling**: Tailwind CSS v4 with native Vite plugin for optimal build performance
 
 ### Production Build
 - **Frontend**: Vite builds optimized React bundle to `dist/public`
@@ -231,7 +232,7 @@ Comprehensive filtering system supporting:
 ## Feature Development
 
 ### Current Status
-**Phase 3 Complete**: Core platform, community features, admin analytics dashboard, type safety improvements, and performance optimizations are fully implemented and operational.
+**Phase 3 Complete**: Core platform, community features, admin analytics dashboard, type safety improvements, performance optimizations, and Tailwind CSS v4 migration are fully implemented and operational.
 
 ### Next Priority
 **Phase 4 - Enhanced Features**: Focus on product reviews & ratings, price history tracking, advanced search capabilities, and recommendation engine.
