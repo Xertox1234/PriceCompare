@@ -3,53 +3,53 @@ export function FeaturedCategories() {
     {
       id: "headphones",
       name: "Headphones",
-      image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+      description: "Best Headphones for Every Day",
+      image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop"
     },
     {
-      id: "smartwatches", 
-      name: "Smart Watch",
-      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=300&fit=crop"
-    },
-    {
-      id: "cameras",
-      name: "Cameras", 
-      image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop"
-    },
-    {
-      id: "vr",
+      id: "smartphones", 
       name: "Smartphones",
-      image: "https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=400&h=300&fit=crop"
+      description: "Newest Smartphones",
+      image: "https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=600&h=400&fit=crop"
+    },
+    {
+      id: "smartwatches",
+      name: "Smartwatches",
+      description: "The Ultimate Accessory",
+      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop"
     }
   ];
 
   return (
-    <section className="py-16 bg-white">
+    <section className="py-8 bg-gray-50">
       <div className="max-w-[1280px] mx-auto px-8">
-        
-        {/* Categories grid - exact 300x300px dimensions with 24px spacing */}
-        <div className="flex justify-between gap-6">
+        <div className="grid grid-cols-3 gap-4">
           {categories.map((category) => (
             <div 
               key={category.id}
-              className="cursor-pointer transition-transform duration-300 hover:-translate-y-1"
+              className="relative overflow-hidden rounded-lg cursor-pointer group"
+              style={{ height: '300px' }}
             >
-              <div className="w-[300px] h-[300px] rounded-lg overflow-hidden relative shadow-lg">
-                <img
-                  src={category.image}
-                  alt={category.name}
-                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/20 hover:bg-black/30 transition-colors duration-300" />
-                <div className="absolute bottom-6 left-6">
-                  <h3 className="text-white text-xl font-bold m-0 font-sans">
-                    {category.name}
-                  </h3>
-                </div>
+              <img
+                src={category.image}
+                alt={category.name}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute bottom-0 left-0 p-6 text-white">
+                <h3 className="text-2xl font-bold mb-2">
+                  {category.name}
+                </h3>
+                <p className="text-sm text-gray-200 mb-4">
+                  {category.description}
+                </p>
+                <button className="text-sm font-medium text-white border-b border-white/50 hover:border-white transition-colors">
+                  View Collection
+                </button>
               </div>
             </div>
           ))}
         </div>
-
       </div>
     </section>
   );
