@@ -3,26 +3,22 @@ export function FeaturedCategories() {
     {
       id: "headphones",
       name: "Headphones",
-      image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop",
-      bgColor: "#4A90E2"
+      image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
     },
     {
       id: "smartwatches", 
       name: "Smart Watch",
-      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=300&fit=crop",
-      bgColor: "#7ED321"
+      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=300&fit=crop"
     },
     {
       id: "cameras",
-      name: "Cameras",
-      image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop",
-      bgColor: "#BD10E0"
+      name: "Cameras", 
+      image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop"
     },
     {
       id: "vr",
-      name: "VR & AR",
-      image: "https://images.unsplash.com/photo-1592478411213-6153e4ebc696?w=400&h=300&fit=crop", 
-      bgColor: "#F5A623"
+      name: "Smartphones",
+      image: "https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=400&h=300&fit=crop"
     }
   ];
 
@@ -30,16 +26,20 @@ export function FeaturedCategories() {
     <section className="py-16 bg-white">
       <div className="max-w-[1280px] mx-auto px-8">
         
-        {/* Categories grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Categories grid - exact 400x300px dimensions with 24px spacing */}
+        <div className="flex justify-between" style={{ gap: '24px' }}>
           {categories.map((category) => (
             <div 
               key={category.id}
               className="group cursor-pointer"
             >
               <div 
-                className="h-[300px] rounded-lg overflow-hidden relative"
-                style={{ backgroundColor: category.bgColor }}
+                className="rounded overflow-hidden relative"
+                style={{ 
+                  width: '300px',
+                  height: '300px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                }}
               >
                 <img
                   src={category.image}
@@ -55,16 +55,6 @@ export function FeaturedCategories() {
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Explore section */}
-        <div className="text-center mt-16 mb-16">
-          <h2 className="text-3xl font-bold text-black mb-4">
-            Explore Our Product Range
-          </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Discover the latest technology products and compare prices across multiple retailers to find the best deals.
-          </p>
         </div>
 
       </div>
