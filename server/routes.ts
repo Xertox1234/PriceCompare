@@ -1,8 +1,26 @@
-import type { Express } from "express";
+import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { db } from "./db";
+import { insertProductSchema, insertRetailerSchema, insertProductOfferSchema, insertUserSchema } from "@shared/schema";
 import { storage } from "./storage";
+import { forumStorage } from "./forum-storage";
+import { passport, createUser, findUserByEmail } from "./auth";
+import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
-import { SearchFilters } from "@shared/schema";
+
+// Extend Express Request to include user
+declare global {
+  namespace Express {
+    interface User {
+      id: number;
+      username: string;
+      email: string;
+      passwordHash: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+  }
+}
 
 const searchFiltersSchema = z.object({
   query: z.string().optional(),
@@ -15,7 +33,208 @@ const searchFiltersSchema = z.object({
   sortBy: z.enum(["price_low", "price_high", "rating", "popularity"]).optional(),
 });
 
+// Middleware to check authentication
+const requireAuth = (req: Request, res: Response, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize forum categories
+  await forumStorage.initializeDefaultCategories();
+
+  // Authentication routes
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await findUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: 'User already exists' });
+      }
+      
+      const user = await createUser(userData);
+      
+      // Log the user in after registration
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ error: 'Registration successful but login failed' });
+        }
+        res.json({ 
+          success: true, 
+          user: { 
+            id: user.id, 
+            username: user.username, 
+            email: user.email 
+          } 
+        });
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(400).json({ error: 'Registration failed' });
+    }
+  });
+
+  app.post("/api/auth/login", passport.authenticate('local'), (req, res) => {
+    const user = req.user as User;
+    res.json({ 
+      success: true, 
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email 
+      } 
+    });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Logout failed' });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/user", (req, res) => {
+    if (req.user) {
+      const user = req.user as User;
+      res.json({ 
+        id: user.id, 
+        username: user.username, 
+        email: user.email 
+      });
+    } else {
+      res.status(401).json({ error: 'Not authenticated' });
+    }
+  });
+
+  // Forum routes
+  app.get("/api/forum/categories", async (req, res) => {
+    try {
+      const categories = await forumStorage.getCategories();
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  app.get("/api/forum/topics", async (req, res) => {
+    try {
+      const { categoryId, productId } = req.query;
+      const topics = await forumStorage.getTopics(
+        categoryId ? parseInt(categoryId as string) : undefined,
+        productId ? parseInt(productId as string) : undefined
+      );
+      res.json(topics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topics" });
+    }
+  });
+
+  app.get("/api/forum/topics/:id", async (req, res) => {
+    try {
+      const topicId = parseInt(req.params.id);
+      const topic = await forumStorage.getTopicById(topicId);
+      if (!topic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(topic);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topic" });
+    }
+  });
+
+  app.get("/api/forum/topics/:id/posts", async (req, res) => {
+    try {
+      const topicId = parseInt(req.params.id);
+      const posts = await forumStorage.getPostsByTopic(topicId);
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch posts" });
+    }
+  });
+
+  app.post("/api/forum/topics", requireAuth, async (req, res) => {
+    try {
+      const { title, content, categoryId, productId } = req.body;
+      const user = req.user as User;
+
+      // Create the topic
+      const topic = await forumStorage.createTopic({
+        title,
+        authorId: user.id,
+        categoryId: categoryId || null,
+        productId: productId || null,
+      });
+
+      // Create the first post
+      await forumStorage.createPost({
+        topicId: topic.id,
+        authorId: user.id,
+        content,
+        isFirstPost: true,
+      });
+
+      res.json({ success: true, topic });
+    } catch (error) {
+      console.error('Create topic error:', error);
+      res.status(500).json({ error: "Failed to create topic" });
+    }
+  });
+
+  app.post("/api/forum/posts", requireAuth, async (req, res) => {
+    try {
+      const { topicId, content } = req.body;
+      const user = req.user as User;
+
+      const post = await forumStorage.createPost({
+        topicId,
+        authorId: user.id,
+        content,
+        isFirstPost: false,
+      });
+
+      res.json({ success: true, post });
+    } catch (error) {
+      console.error('Create post error:', error);
+      res.status(500).json({ error: "Failed to create post" });
+    }
+  });
+
+  // Price alerts
+  app.post("/api/price-alerts", requireAuth, async (req, res) => {
+    try {
+      const { productId, targetPrice, notifyForum } = req.body;
+      const user = req.user as User;
+
+      const alert = await forumStorage.createPriceAlert({
+        userId: user.id,
+        productId,
+        targetPrice,
+        notifyForum: notifyForum || false,
+      });
+
+      res.json({ success: true, alert });
+    } catch (error) {
+      console.error('Create price alert error:', error);
+      res.status(500).json({ error: "Failed to create price alert" });
+    }
+  });
+
+  app.get("/api/price-alerts", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const alerts = await forumStorage.getUserPriceAlerts(user.id);
+      res.json(alerts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch price alerts" });
+    }
+  });
+
   // Get all retailers
   app.get("/api/retailers", async (req, res) => {
     try {

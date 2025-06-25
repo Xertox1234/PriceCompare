@@ -1,4 +1,4 @@
-import { ProductCard } from "./product-card";
+import { EnhancedProductCard } from "./enhanced-product-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";

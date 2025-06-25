@@ -61,8 +61,7 @@ export const priceAlerts = pgTable('price_alerts', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// Import products from existing schema
-import { products } from './schema';
+// This file is deprecated - forum schema is now in shared/schema.ts
 
 // Create insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({

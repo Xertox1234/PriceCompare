@@ -2,9 +2,9 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import bcrypt from 'bcrypt';
 import { db } from './db';
-import { users } from '../shared/auth-schema';
+import { users } from '../shared/schema';
 import { eq } from 'drizzle-orm';
-import type { User } from '../shared/auth-schema';
+import type { User } from '../shared/schema';
 
 // Configure Passport Local Strategy
 passport.use(new LocalStrategy(
