@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a full-stack web application for comparing product prices across multiple retailers. The application allows users to search for products, filter results by various criteria, and compare prices from different retailers in a single interface. It features a modern React frontend with shadcn/ui components and an Express.js backend with PostgreSQL database integration.
+This is a full-stack web application for comparing product prices across multiple retailers with integrated community forum functionality. The application allows users to search for products, filter results by various criteria, compare prices from different retailers, and engage in community discussions about products and deals. It features a modern React frontend with shadcn/ui components, an Express.js backend with PostgreSQL database integration, and embedded forum capabilities.
 
 ## System Architecture
 
@@ -35,9 +35,19 @@ Three main entities with relationships:
 - **Product Offers**: Price and availability data linking products to retailers
 
 ### API Structure
-RESTful API with the following endpoints:
+RESTful API with comprehensive endpoints:
 - `GET /api/retailers` - Retrieve all active retailers
 - `GET /api/products/search` - Search products with advanced filtering options
+- `POST /api/auth/register` - User registration with validation
+- `POST /api/auth/login` - User authentication
+- `GET /api/auth/user` - Current user session
+- `POST /api/auth/logout` - User logout
+- `GET /api/forum/categories` - Forum categories
+- `GET /api/forum/topics` - Forum topics with filtering
+- `POST /api/forum/topics` - Create new discussion topics
+- `GET /api/forum/topics/:id/posts` - Retrieve posts for a topic
+- `POST /api/forum/posts` - Create new forum posts
+- `POST /api/price-alerts` - Create price alerts with community notifications
 
 ### Search and Filtering
 Comprehensive filtering system supporting:
@@ -53,8 +63,12 @@ Comprehensive filtering system supporting:
 - **SearchHeader**: Main search interface with branded header
 - **FilterSidebar**: Advanced filtering controls
 - **ProductGrid**: Responsive product display with price comparison
-- **ProductCard**: Individual product display with offer details
+- **ProductCard**: Individual product display with offer details and discussion links
 - **ComparisonModal**: Side-by-side product comparison feature
+- **SharedNavigation**: Unified navigation with authentication controls
+- **AuthModal**: Login and registration modal with form validation
+- **EmbeddedForum**: Complete forum system with topics, posts, and categories
+- **PriceAlertButton**: Community price alert creation and sharing
 
 ## Data Flow
 
@@ -106,13 +120,19 @@ Comprehensive filtering system supporting:
 ## Changelog
 
 ### June 25, 2025
-- **Discourse Integration Planning**: Created comprehensive integration plan
-  - Containerization strategy with Docker Compose setup
-  - Shared authentication system using Passport.js and SSO
-  - Design system integration for consistent UI/UX
-  - Community features linking products to forum discussions
-  - Alternative embedded forum approach for Replit deployment
-  - 5-week implementation timeline with clear milestones
+- **Embedded Forum Integration Complete**: Successfully implemented Replit-optimized forum system
+  - ✅ Shared authentication system with Passport.js and Express sessions
+  - ✅ PostgreSQL database schema with users, forum categories, topics, and posts
+  - ✅ React-based embedded forum components with consistent design
+  - ✅ Product discussion linking and price alert community features
+  - ✅ User registration and login working seamlessly
+  - ✅ Forum topic creation and discussion functionality
+  - ✅ Shared navigation between Products and Forum pages
+
+- **Architecture Decisions**: Chose embedded React approach over containerization
+  - Simplified deployment within Replit constraints
+  - Maintained consistent UI/UX with shadcn/ui components
+  - Integrated authentication without external SSO complexity
 
 ### December 25, 2024
 - **Architecture Documentation**: Created comprehensive documentation suite
