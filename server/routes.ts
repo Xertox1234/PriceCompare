@@ -360,6 +360,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin routes
+  app.get("/api/admin/categories", requireAuth, async (req, res) => {
+    try {
+      const categories = await forumStorage.getCategories();
+      res.json(Array.isArray(categories) ? categories : []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/admin/users", requireAuth, async (req, res) => {
+    try {
+      const usersData = await db.select({
+        id: schema.users.id,
+        username: schema.users.username,
+        email: schema.users.email,
+        role: schema.users.role,
+        isActive: schema.users.isActive,
+        reputation: schema.users.reputation,
+        createdAt: schema.users.createdAt
+      }).from(schema.users);
+      res.json(Array.isArray(usersData) ? usersData : []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.json([]);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
