@@ -91,7 +91,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           user: { 
             id: user.id, 
             username: user.username, 
-            email: user.email 
+            email: user.email,
+            role: user.role || 'user'
           } 
         });
       });
@@ -122,8 +123,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/auth/user", (req, res) => {
+  app.get("/api/auth/user", async (req, res) => {
     if (req.user) {
+      // Refresh session with latest user data from database
+      await refreshUserSession(req);
       const user = req.user as any;
       res.json({ 
         id: user.id, 
