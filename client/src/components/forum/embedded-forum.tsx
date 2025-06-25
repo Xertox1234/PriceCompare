@@ -122,17 +122,20 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 shadow-lg">
+      <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-3 text-indigo-800 dark:text-indigo-200">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
+              <MessageSquare className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
             {title}
           </CardTitle>
           <Button
             onClick={() => setShowNewTopic(true)}
             size="sm"
             disabled={showNewTopic}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Topic
@@ -190,38 +193,60 @@ function TopicList({
   }
 
   return (
-    <div className="space-y-4">
-      {topics.map((topic) => (
+    <div className="space-y-3">
+      {topics.map((topic, index) => (
         <div
           key={topic.id}
-          className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer"
+          className="border-l-4 border-l-indigo-400 bg-gradient-to-r from-white to-indigo-50/30 dark:from-gray-900 dark:to-indigo-950/20 rounded-lg p-4 hover:shadow-md hover:border-l-indigo-500 cursor-pointer transition-all duration-200"
           onClick={() => onSelectTopic(topic.id)}
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                {topic.isPinned && <Pin className="h-4 w-4 text-yellow-500" />}
-                {topic.isLocked && <Lock className="h-4 w-4 text-red-500" />}
-                <h3 className="font-medium">{topic.title}</h3>
+              <div className="flex items-center gap-2 mb-2">
+                {topic.isPinned && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full text-xs font-medium">
+                    <Pin className="h-3 w-3" />
+                    Pinned
+                  </div>
+                )}
+                {topic.isLocked && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
+                    <Lock className="h-3 w-3" />
+                    Locked
+                  </div>
+                )}
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                  {topic.title}
+                </h3>
               </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  {topic.author.username}
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                  <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {topic.author.username.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="font-medium">{topic.author.username}</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 text-gray-500 dark:text-gray-500">
                   <Clock className="h-3 w-3" />
                   {formatDistanceToNow(new Date(topic.createdAt), { addSuffix: true })}
                 </div>
                 {topic.category && (
-                  <Badge variant="outline" style={{ color: topic.category.color }}>
+                  <Badge 
+                    className="border-0 text-white font-medium"
+                    style={{ 
+                      backgroundColor: topic.category.color,
+                      boxShadow: `0 2px 8px ${topic.category.color}30`
+                    }}
+                  >
                     {topic.category.name}
                   </Badge>
                 )}
               </div>
             </div>
             <div className="text-right">
-              <Badge variant="secondary">{topic.postCount} posts</Badge>
+              <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 font-medium">
+                {topic.postCount} replies
+              </Badge>
             </div>
           </div>
         </div>
@@ -271,42 +296,66 @@ function TopicPosts({
 
   return (
     <div className="space-y-4">
-      {posts.map((post) => (
-        <div key={post.id} className="border rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback>
+      {posts.map((post, index) => (
+        <div 
+          key={post.id} 
+          className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${
+            post.isFirstPost 
+              ? 'border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50/30 dark:from-green-950/20 dark:to-emerald-950/10' 
+              : 'border-l-blue-400 bg-gradient-to-r from-blue-50/50 to-indigo-50/20 dark:from-blue-950/10 dark:to-indigo-950/5'
+          }`}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <Avatar className="h-10 w-10 ring-2 ring-indigo-200 dark:ring-indigo-800">
+              <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-bold">
                 {post.author.username.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <div className="font-medium">{post.author.username}</div>
-              <div className="text-sm text-muted-foreground">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <div className="font-semibold text-gray-900 dark:text-gray-100">
+                  {post.author.username}
+                </div>
+                {post.isFirstPost && (
+                  <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-xs">
+                    Original Post
+                  </Badge>
+                )}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
                 {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
               </div>
             </div>
-            {post.isFirstPost && (
-              <Badge variant="outline" className="ml-auto">
-                Original Post
-              </Badge>
-            )}
           </div>
-          <div className="prose prose-sm max-w-none">
-            <p className="whitespace-pre-wrap">{post.content}</p>
+          <div className="ml-13 prose prose-sm max-w-none">
+            <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
+              {post.content}
+            </p>
           </div>
         </div>
       ))}
 
       {!isLocked && (
-        <form onSubmit={handleSubmit} className="border rounded-lg p-4 bg-muted/20">
+        <form onSubmit={handleSubmit} className="border-l-4 border-l-purple-400 rounded-lg p-4 bg-gradient-to-r from-purple-50/50 to-indigo-50/30 dark:from-purple-950/20 dark:to-indigo-950/10">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center">
+              <User className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-medium text-gray-700 dark:text-gray-300">Add your reply</span>
+          </div>
           <Textarea
             placeholder="Share your thoughts..."
             value={newPost}
             onChange={(e) => setNewPost(e.target.value)}
-            className="mb-3"
+            className="mb-3 border-purple-200 dark:border-purple-800 focus:border-purple-400 dark:focus:border-purple-600"
             rows={3}
           />
-          <Button type="submit" disabled={!newPost.trim() || isCreating}>
+          <Button 
+            type="submit" 
+            disabled={!newPost.trim() || isCreating}
+            className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0"
+          >
             {isCreating ? 'Posting...' : 'Post Reply'}
           </Button>
         </form>

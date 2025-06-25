@@ -36,11 +36,17 @@ function ForumPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Community Forum</h1>
-        <p className="text-muted-foreground mt-2">
-          Discuss products, share reviews, and connect with other shoppers
-        </p>
+      {/* Hero Header with Gradient */}
+      <div className="relative bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-8 text-white overflow-hidden">
+        <div className="absolute inset-0 bg-black/10 rounded-2xl"></div>
+        <div className="relative z-10">
+          <h1 className="text-4xl font-bold mb-2">Community Forum</h1>
+          <p className="text-blue-100 text-lg">
+            Discuss products, share reviews, and connect with other shoppers
+          </p>
+        </div>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
       </div>
 
       <Tabs defaultValue="all" className="w-full">
@@ -68,51 +74,83 @@ function ForumPage() {
       </Tabs>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Forum Guidelines</CardTitle>
+        {/* Forum Guidelines Card */}
+        <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="bg-blue-50 dark:bg-blue-950/20">
+            <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              Forum Guidelines
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              <li>• Be respectful to other community members</li>
-              <li>• Share honest product experiences</li>
-              <li>• No spam or promotional content</li>
-              <li>• Keep discussions relevant to products</li>
+          <CardContent className="pt-6">
+            <ul className="space-y-3 text-sm">
+              <li className="flex items-start gap-3">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                <span>Be respectful to other community members</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                <span>Share honest product experiences</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                <span>No spam or promotional content</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                <span>Keep discussions relevant to products</span>
+              </li>
             </ul>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Popular Topics</CardTitle>
+        {/* Popular Topics Card */}
+        <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="bg-purple-50 dark:bg-purple-950/20">
+            <CardTitle className="text-purple-700 dark:text-purple-300 flex items-center gap-2">
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              Popular Topics
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Badge variant="secondary">Electronics Reviews</Badge>
-              <Badge variant="secondary">Price Drop Alerts</Badge>
-              <Badge variant="secondary">Shopping Tips</Badge>
-              <Badge variant="secondary">Deal Discussions</Badge>
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0">
+                Electronics Reviews
+              </Badge>
+              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0">
+                Price Drop Alerts
+              </Badge>
+              <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0">
+                Shopping Tips
+              </Badge>
+              <Badge className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white border-0">
+                Deal Discussions
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Community Stats</CardTitle>
+        {/* Community Stats Card */}
+        <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="bg-green-50 dark:bg-green-950/20">
+            <CardTitle className="text-green-700 dark:text-green-300 flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              Community Stats
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Active Discussions:</span>
-                <span className="font-medium">24</span>
+          <CardContent className="pt-6">
+            <div className="space-y-4 text-sm">
+              <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                <span className="text-gray-600 dark:text-gray-300">Active Discussions:</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">24</span>
               </div>
-              <div className="flex justify-between">
-                <span>Community Members:</span>
-                <span className="font-medium">156</span>
+              <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                <span className="text-gray-600 dark:text-gray-300">Community Members:</span>
+                <span className="font-bold text-purple-600 dark:text-purple-400 text-lg">156</span>
               </div>
-              <div className="flex justify-between">
-                <span>Products Discussed:</span>
-                <span className="font-medium">89</span>
+              <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                <span className="text-gray-600 dark:text-gray-300">Products Discussed:</span>
+                <span className="font-bold text-green-600 dark:text-green-400 text-lg">89</span>
               </div>
             </div>
           </CardContent>
