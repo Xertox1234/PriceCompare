@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-import type { LoginFormData, AuthResponse } from '@shared/types';
+import type { LoginFormData, RegisterFormData, AuthResponse } from '@shared/types';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -47,10 +47,7 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
   return (
     <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Sign In</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -170,10 +167,7 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
   return (
     <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Create Account</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
