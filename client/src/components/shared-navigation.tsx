@@ -66,6 +66,19 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
           </Link>
         </Button>
         
+        {user?.role === 'admin' && (
+          <Button
+            variant={location === '/admin' ? 'default' : 'ghost'}
+            size="sm"
+            asChild
+          >
+            <Link href="/admin">
+              <Settings className="h-4 w-4 mr-2" />
+              Admin
+            </Link>
+          </Button>
+        )}
+        
         {user && (
           <Button
             variant="ghost"
