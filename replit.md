@@ -29,10 +29,13 @@ This is a full-stack web application for comparing product prices across multipl
 ## Key Components
 
 ### Database Schema
-Three main entities with relationships:
-- **Retailers**: Store information about retail partners (name, logo, website, active status)
-- **Products**: Product catalog with metadata (name, description, category, brand, model)
-- **Product Offers**: Price and availability data linking products to retailers
+Core entities with optimized relationships:
+- **Retailers**: Store information with 1-hour caching (name, logo, website, active status)
+- **Products**: Product catalog with metadata and lazy loading (name, description, category, brand, model)
+- **Product Offers**: Price data with 5-minute cache refresh (price, availability, retailer links)
+- **Users**: Authentication with session management and role-based access
+- **Forum System**: Categories, topics, posts with discussion linking to products
+- **Price Alerts**: Community-driven price tracking with notification system
 
 ### API Structure
 RESTful API with comprehensive endpoints:
@@ -66,18 +69,20 @@ Comprehensive filtering system supporting:
 - Sorting by price, rating, and popularity
 
 ### User Interface Components
-- **SearchHeader**: Main search interface with branded header
-- **FilterSidebar**: Advanced filtering controls
-- **ProductGrid**: Responsive product display with price comparison
-- **ProductCard**: Individual product display with offer details and discussion links
-- **ComparisonModal**: Side-by-side product comparison feature
-- **SharedNavigation**: Unified navigation with authentication controls and role-based admin access
-- **AuthModal**: Login and registration modal with form validation
-- **EmbeddedForum**: Complete forum system with topics, posts, and categories
+- **SearchHeader**: Main search interface with 300ms debounced queries
+- **FilterSidebar**: Advanced filtering controls with optimized state management
+- **ProductGrid**: Responsive display with memoized product cards
+- **MemoizedProductCard**: Performance-optimized product display with custom comparison
+- **LazyImage**: Intersection observer-based image loading for performance
+- **VirtualProductGrid**: Handles large datasets with virtual scrolling
+- **ComparisonModal**: Lazy-loaded side-by-side product comparison
+- **SharedNavigation**: Unified navigation with role-based admin access
+- **AuthModal**: Login and registration with optimized form validation
+- **EmbeddedForum**: Lazy-loaded forum system with topics, posts, and categories
 - **PriceAlertButton**: Community price alert creation and sharing
-- **AdminDashboard**: Interactive analytics dashboard with real-time charts
-- **AdminPanel**: Comprehensive administrative interface with tabbed organization
-- **AnalyticsCharts**: Recharts-powered data visualization components
+- **AdminDashboard**: Interactive analytics with lazy-loaded charts
+- **AdminPanel**: Comprehensive administrative interface with code splitting
+- **AnalyticsCharts**: Recharts-powered data visualization with performance monitoring
 
 ## Data Flow
 
