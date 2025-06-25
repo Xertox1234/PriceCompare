@@ -7,6 +7,7 @@ import { forumStorage } from "./forum-storage";
 import { passport, createUser, findUserByEmail, findUserById } from "./auth";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
+import * as schema from "@shared/schema";
 
 
 // Extend Express Request to include user
@@ -386,6 +387,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching users:', error);
       res.json([]);
+    }
+  });
+
+  // Admin analytics endpoints
+  app.get("/api/admin/analytics/overview", requireAuth, async (req, res) => {
+    try {
+      const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
+        db.select({ count: sql`count(*)` }).from(schema.users),
+        db.select({ count: sql`count(*)` }).from(schema.forumTopics),
+        db.select({ count: sql`count(*)` }).from(schema.forumPosts),
+        db.select({ count: sql`count(*)` }).from(schema.forumCategories)
+      ]);
+
+      res.json({
+        totalUsers: userCount[0]?.count || 0,
+        totalTopics: topicCount[0]?.count || 0,
+        totalPosts: postCount[0]?.count || 0,
+        totalCategories: categoryCount[0]?.count || 0
+      });
+    } catch (error) {
+      console.error('Error fetching overview analytics:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics' });
+    }
+  });
+
+  app.get("/api/admin/analytics/user-growth", requireAuth, async (req, res) => {
+    try {
+      const userGrowth = await db.select({
+        date: sql`DATE(${schema.users.createdAt})`,
+        count: sql`count(*)`
+      })
+      .from(schema.users)
+      .groupBy(sql`DATE(${schema.users.createdAt})`)
+      .orderBy(sql`DATE(${schema.users.createdAt})`);
+
+      res.json(userGrowth);
+    } catch (error) {
+      console.error('Error fetching user growth:', error);
+      res.status(500).json({ error: 'Failed to fetch user growth data' });
+    }
+  });
+
+  app.get("/api/admin/analytics/forum-activity", requireAuth, async (req, res) => {
+    try {
+      const postActivity = await db.select({
+        date: sql`DATE(${schema.forumPosts.createdAt})`,
+        count: sql`count(*)`
+      })
+      .from(schema.forumPosts)
+      .groupBy(sql`DATE(${schema.forumPosts.createdAt})`)
+      .orderBy(sql`DATE(${schema.forumPosts.createdAt})`);
+
+      res.json(postActivity);
+    } catch (error) {
+      console.error('Error fetching forum activity:', error);
+      res.status(500).json({ error: 'Failed to fetch forum activity data' });
+    }
+  });
+
+  app.get("/api/admin/analytics/top-categories", requireAuth, async (req, res) => {
+    try {
+      const topCategories = await db.select({
+        categoryName: schema.forumCategories.name,
+        topicCount: sql`count(${schema.forumTopics.id})`
+      })
+      .from(schema.forumCategories)
+      .leftJoin(schema.forumTopics, eq(schema.forumCategories.id, schema.forumTopics.categoryId))
+      .groupBy(schema.forumCategories.id, schema.forumCategories.name)
+      .orderBy(sql`count(${schema.forumTopics.id}) DESC`)
+      .limit(10);
+
+      res.json(topCategories);
+    } catch (error) {
+      console.error('Error fetching top categories:', error);
+      res.status(500).json({ error: 'Failed to fetch top categories data' });
     }
   });
 
