@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { SharedNavigation } from '@/components/shared-navigation';
-import { Settings, Users, MessageSquare, Tags, Shield, Plus, Edit, Trash2, BarChart3, Package, Store, TrendingUp, Activity, PieChart } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell } from 'recharts';
+import { Settings, Users, MessageSquare, Tags, Shield, Plus, Edit, Trash2, BarChart3, Package, Store, TrendingUp, Activity, PieChart as PieChartIcon } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Cell } from 'recharts';
 
 interface ForumCategory {
   id: number;
@@ -190,7 +190,7 @@ export default function AdminPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Categories</CardTitle>
-                  <PieChart className="h-4 w-4 text-muted-foreground" />
+                  <PieChartIcon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{overviewData?.totalCategories || 0}</div>
@@ -250,7 +250,7 @@ export default function AdminPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5" />
+                  <PieChartIcon className="h-5 w-5" />
                   Most Active Categories
                 </CardTitle>
                 <CardDescription>Categories with the most topics</CardDescription>
