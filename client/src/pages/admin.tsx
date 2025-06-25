@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { SharedNavigation } from '@/components/shared-navigation';
-import { Settings, Users, MessageSquare, Tags, Shield, Plus, Edit, Trash2, BarChart3, Package, Store } from 'lucide-react';
+import { Settings, Users, MessageSquare, Tags, Shield, Plus, Edit, Trash2, BarChart3, Package, Store, TrendingUp, Activity, PieChart } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell } from 'recharts';
 
 interface ForumCategory {
   id: number;
