@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { ProductWithOffers, SearchFilters } from "@shared/schema";
+import { useDebounce } from "./use-debounce";
 
 export function useProducts(filters: SearchFilters) {
+  // Debounce search query to reduce API calls
+  const debouncedQuery = useDebounce(filters.query, 300);
   const queryParams = new URLSearchParams();
   
-  if (filters.query) queryParams.append('query', filters.query);
+  if (debouncedQuery) queryParams.append('query', debouncedQuery);
   if (filters.category) queryParams.append('category', filters.category);
   if (filters.minPrice) queryParams.append('minPrice', filters.minPrice.toString());
   if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice.toString());
