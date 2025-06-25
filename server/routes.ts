@@ -4,7 +4,7 @@ import { db } from "./db";
 import { insertProductSchema, insertRetailerSchema, insertProductOfferSchema, insertUserSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { forumStorage } from "./forum-storage";
-import { passport, createUser, findUserByEmail } from "./auth";
+import { passport, createUser, findUserByEmail, findUserById } from "./auth";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
 
@@ -126,7 +126,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/user", async (req, res) => {
     if (req.user) {
       // Refresh session with latest user data from database
-      await refreshUserSession(req);
+      const userId = (req.user as any).id;
+      const updatedUser = await findUserById(userId);
+      if (updatedUser) {
+        req.user = updatedUser;
+      }
+      
       const user = req.user as any;
       res.json({ 
         id: user.id, 
