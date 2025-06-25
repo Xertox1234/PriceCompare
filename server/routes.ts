@@ -164,8 +164,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.user as User;
 
       // Create the topic
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const topic = await forumStorage.createTopic({
         title,
+        slug,
         authorId: user.id,
         categoryId: categoryId || null,
         productId: productId || null,
@@ -266,7 +268,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const products = await storage.searchProducts(filters);
-      res.json(products);
+      
+      // Add discussion counts to products
+      const productsWithDiscussions = await Promise.all(
+        products.map(async (product) => {
+          const discussionCount = await forumStorage.getProductDiscussionCount(product.id);
+          return {
+            ...product,
+            discussionCount,
+            hasActiveDiscussion: discussionCount > 0,
+          };
+        })
+      );
+
+      res.json(productsWithDiscussions);
     } catch (error) {
       res.status(500).json({ message: "Failed to search products" });
     }
@@ -285,7 +300,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Product not found" });
       }
 
-      res.json(product);
+      const discussionCount = await forumStorage.getProductDiscussionCount(id);
+      const productWithDiscussions = {
+        ...product,
+        discussionCount,
+        hasActiveDiscussion: discussionCount > 0,
+      };
+
+      res.json(productWithDiscussions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch product" });
     }

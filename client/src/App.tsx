@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SharedNavigation } from "@/components/shared-navigation";
 import Home from "@/pages/home";
+import ForumPage from "@/pages/forum";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -14,6 +15,7 @@ function Router() {
       <main className="container mx-auto px-4 py-6">
         <Switch>
           <Route path="/" component={Home} />
+          <Route path="/forum" component={ForumPage} />
           <Route component={NotFound} />
         </Switch>
       </main>

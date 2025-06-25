@@ -1,4 +1,4 @@
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -16,6 +16,7 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
   const logoutMutation = useLogout();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [location] = useLocation();
 
   const handleLogin = () => {
     setAuthMode('login');
@@ -44,13 +45,24 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
       
       <div className="flex items-center gap-2 ml-auto">
         <Button
-          variant={currentPage === 'home' ? 'default' : 'ghost'}
+          variant={location === '/' ? 'default' : 'ghost'}
           size="sm"
           asChild
         >
           <Link href="/">
             <Home className="h-4 w-4 mr-2" />
             Products
+          </Link>
+        </Button>
+        
+        <Button
+          variant={location === '/forum' ? 'default' : 'ghost'}
+          size="sm"
+          asChild
+        >
+          <Link href="/forum">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Forum
           </Link>
         </Button>
         
