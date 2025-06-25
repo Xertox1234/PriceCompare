@@ -80,7 +80,7 @@ export default function AdminPage() {
 
   // Create category mutation
   const createCategoryMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Omit<ForumCategory, 'id' | 'isActive' | 'sortOrder'>) => {
       return apiRequest('/api/admin/categories', {
         method: 'POST',
         body: JSON.stringify(data),

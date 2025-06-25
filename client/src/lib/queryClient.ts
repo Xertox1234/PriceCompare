@@ -7,10 +7,10 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest(
+export async function apiRequest<T = any>(
   url: string,
   options: RequestInit = {}
-): Promise<any> {
+): Promise<T> {
   const defaultOptions: RequestInit = {
     method: 'GET',
     headers: {

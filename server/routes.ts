@@ -1,4 +1,4 @@
-import { Express, Request, Response } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { db } from "./db";
 import { insertProductSchema, insertRetailerSchema, insertProductOfferSchema, insertUserSchema } from "@shared/schema";
@@ -37,7 +37,7 @@ const searchFiltersSchema = z.object({
 });
 
 // Middleware to check authentication
-const requireAuth = (req: Request, res: Response, next: any) => {
+const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -73,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if this is the first user (make them admin)
-      const userCount = await db.select({ count: sql`count(*)` }).from(users);
+      const userCount = await db.select({ count: sql`count(*)` }).from(schema.users);
       const isFirstUser = parseInt(userCount[0].count as string) === 0;
       
       const user = await createUser({ 
