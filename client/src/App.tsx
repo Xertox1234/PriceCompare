@@ -7,6 +7,7 @@ import { SharedNavigation } from "@/components/shared-navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Home from "@/pages/home";
+import Products from "@/pages/products";
 import NotFound from "@/pages/not-found";
 import { LazyAdminPage, LazyForumPage } from "@/components/lazy";
 
@@ -28,6 +29,7 @@ function Router() {
       <main className="container mx-auto px-4 py-6">
         <Switch>
           <Route path="/" component={Home} />
+          <Route path="/products" component={Products} />
           <Route path="/forum">
             <Suspense fallback={<LoadingFallback />}>
               <LazyForumPage />

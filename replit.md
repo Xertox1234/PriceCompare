@@ -135,6 +135,20 @@ Comprehensive filtering system supporting:
 ## Changelog
 
 ### June 25, 2025
+- **Page Architecture Restructure Complete**: Separated home and products functionality for better user experience
+  - ✅ Created dedicated `/products` page with full search and filtering capabilities
+  - ✅ Updated navigation to include separate "Home" and "Products" links
+  - ✅ Simplified home page to pure landing page (Hero, Categories, Trending)
+  - ✅ Moved all product search, filtering, and grid functionality to Products page
+  - ✅ Removed problematic product showcase section with misaligned images
+  - ✅ Clean separation of concerns: landing vs product browsing experiences
+
+- **Login Modal Styling Fixed**: Resolved transparency and usability issues
+  - ✅ Fixed transparent modal background with proper light theme styling
+  - ✅ Removed duplicate "Sign In" titles for cleaner interface
+  - ✅ Updated all form components (Dialog, Card, Input, Label) with explicit colors
+  - ✅ Ensured proper contrast and visibility for all form elements
+
 - **Tailwind CSS v4 Migration Complete**: Successfully migrated entire application to Tailwind v4
   - ✅ Updated vite.config.ts with @tailwindcss/vite plugin for optimal performance
   - ✅ Removed PostCSS configuration (handled automatically by Vite plugin)

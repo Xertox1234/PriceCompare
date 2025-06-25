@@ -51,6 +51,17 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
         >
           <Link href="/">
             <Home className="h-4 w-4 mr-2" />
+            Home
+          </Link>
+        </Button>
+        
+        <Button
+          variant={location === '/products' ? 'default' : 'ghost'}
+          size="sm"
+          asChild
+        >
+          <Link href="/products">
+            <Search className="h-4 w-4 mr-2" />
             Products
           </Link>
         </Button>
