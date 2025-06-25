@@ -30,6 +30,10 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
       // Refresh the page to update authentication state
       window.location.reload();
     },
+    onError: (error: any) => {
+      console.error('Login error:', error);
+      setError(error.message || 'Login failed');
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -128,6 +132,7 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
   const registerMutation = useMutation({
     mutationFn: async (data: { username: string; email: string; password: string }) => {
+      console.log('Making registration API request with:', data);
       return apiRequest('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -137,6 +142,10 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       onSuccess?.();
       // Refresh the page to update authentication state
       window.location.reload();
+    },
+    onError: (error: any) => {
+      console.error('Registration error:', error);
+      setError(error.message || 'Registration failed');
     },
   });
 

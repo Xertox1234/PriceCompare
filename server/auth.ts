@@ -61,10 +61,14 @@ export async function createUser(userData: { username: string; email: string; pa
     passwordHash,
   }).returning();
   
+  const user = newUserResult[0];
   return {
-    ...newUserResult[0],
-    createdAt: newUserResult[0].createdAt || new Date(),
-    updatedAt: newUserResult[0].updatedAt || new Date(),
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    createdAt: user.createdAt || new Date(),
+    updatedAt: user.updatedAt || new Date(),
   };
 }
 
