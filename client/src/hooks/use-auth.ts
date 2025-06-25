@@ -12,9 +12,7 @@ export function useAuth() {
     queryKey: ['auth', 'user'],
     queryFn: async (): Promise<User | null> => {
       try {
-        const response = await apiRequest('/api/auth/user', {
-          method: 'GET',
-        });
+        const response = await apiRequest('/api/auth/user');
         return response;
       } catch (error) {
         // Return null if user is not authenticated, don't throw

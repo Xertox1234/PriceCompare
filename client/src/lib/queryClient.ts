@@ -8,19 +8,39 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  method: string,
   url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+  options: RequestInit = {}
+): Promise<any> {
+  const defaultOptions: RequestInit = {
+    method: 'GET',
+    headers: {
+      "Content-Type": "application/json",
+    },
     credentials: "include",
-  });
+    ...options,
+  };
 
-  await throwIfResNotOk(res);
-  return res;
+  const res = await fetch(url, defaultOptions);
+  
+  // Don't throw for 401 errors, let components handle them
+  if (res.status === 401) {
+    throw new Error('Unauthorized');
+  }
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || res.statusText);
+  }
+
+  // Handle empty responses
+  const text = await res.text();
+  if (!text) return null;
+  
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
