@@ -5,6 +5,9 @@ interface User {
   id: number;
   username: string;
   email: string;
+  role?: string;
+  reputation?: number;
+  isActive?: boolean;
 }
 
 export function useAuth() {

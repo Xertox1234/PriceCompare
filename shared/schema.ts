@@ -53,7 +53,11 @@ export const forumCategories = pgTable("forum_categories", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   description: text("description"),
   color: varchar("color", { length: 7 }).default("#3b82f6"),
+  icon: varchar("icon", { length: 50 }), // lucide icon name
   isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  parentId: integer("parent_id").references(() => forumCategories.id), // for subcategories
+  moderatorIds: integer("moderator_ids").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -62,12 +66,17 @@ export const forumTopics = pgTable("forum_topics", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull(),
+  content: text("content"), // Initial post content
   categoryId: integer("category_id").references(() => forumCategories.id),
   authorId: integer("author_id").references(() => users.id).notNull(),
   productId: integer("product_id").references(() => products.id), // Link to products
+  tags: varchar("tags", { length: 500 }).array(), // Topic tags
   isPinned: boolean("is_pinned").default(false),
   isLocked: boolean("is_locked").default(false),
+  isFeatured: boolean("is_featured").default(false),
+  viewCount: integer("view_count").default(0),
   postCount: integer("post_count").default(0),
+  likeCount: integer("like_count").default(0),
   lastPostAt: timestamp("last_post_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

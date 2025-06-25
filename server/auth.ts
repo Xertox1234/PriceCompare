@@ -52,13 +52,14 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
 }
 
-export async function createUser(userData: { username: string; email: string; password: string }): Promise<User> {
+export async function createUser(userData: { username: string; email: string; password: string; role?: string }): Promise<User> {
   const passwordHash = await hashPassword(userData.password);
   
   const newUserResult = await db.insert(users).values({
     username: userData.username,
     email: userData.email,
     passwordHash,
+    role: userData.role || 'user',
   }).returning();
   
   const user = newUserResult[0];

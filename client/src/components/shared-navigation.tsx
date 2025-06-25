@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { AuthModal } from './auth/auth-modal';
 
 interface SharedNavigationProps {
-  currentPage?: 'home' | 'forum';
+  currentPage?: 'home' | 'forum' | 'admin';
 }
 
 export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps) {
