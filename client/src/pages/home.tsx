@@ -5,7 +5,7 @@ import { ProductGrid } from "@/components/product-grid";
 import { ComparisonModal } from "@/components/comparison-modal";
 import { HeroSection } from "@/components/hero-section";
 import { FeaturedCategories } from "@/components/featured-categories";
-import { ProductShowcase } from "@/components/product-showcase";
+
 import { TrendingProducts } from "@/components/trending-products";
 import { useProducts } from "@/hooks/use-products";
 import { useComparison } from "@/hooks/use-comparison";
@@ -45,8 +45,7 @@ export default function Home() {
       {/* Featured Categories - Only show when not searching */}
       {showLandingContent && <FeaturedCategories />}
       
-      {/* Product Showcase - Only show when not searching */}
-      {showLandingContent && <ProductShowcase />}
+
       
       {/* Trending Products - Only show when not searching */}
       {showLandingContent && <TrendingProducts />}
