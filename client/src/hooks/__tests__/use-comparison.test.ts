@@ -100,13 +100,16 @@ describe('useComparison', () => {
     expect(result.current.comparisonItems).toHaveLength(0)
   })
 
-  it('persists comparison items in localStorage', () => {
+  it('persists comparison items in localStorage', async () => {
     const { result } = renderHook(() => useComparison())
     
     act(() => {
       result.current.addToComparison(mockProduct)
     })
 
+    // Wait for state update and localStorage sync
+    await new Promise(resolve => setTimeout(resolve, 0))
+    
     const stored = JSON.parse(localStorage.getItem('comparisonItems') || '[]')
     expect(stored).toHaveLength(1)
     expect(stored[0].id).toBe(mockProduct.id)

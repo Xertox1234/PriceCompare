@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../../test/test-utils'
 import { ProductGrid } from '../product-grid'
 import type { ProductWithOffers } from '@shared/schema'
@@ -11,7 +11,6 @@ const mockProducts: ProductWithOffers[] = [
     category: 'Electronics',
     brand: 'TestBrand',
     model: 'Test Model 1',
-    imageUrl: 'https://example.com/image1.jpg',
     createdAt: new Date(),
     updatedAt: new Date(),
     offers: [
@@ -20,20 +19,25 @@ const mockProducts: ProductWithOffers[] = [
         productId: 1,
         retailerId: 1,
         price: '99.99',
+        originalPrice: null,
         availability: 'in_stock',
-        productUrl: 'https://example.com/product1',
-        lastUpdated: new Date(),
+        rating: null,
+        reviewCount: null,
+        shippingInfo: null,
+        dealType: null,
+        productUrl: null,
+        lastUpdated: null,
         retailer: {
           id: 1,
           name: 'Test Retailer',
-          logo: 'https://example.com/logo.jpg',
-          website: 'https://example.com',
-          isActive: true
+          logo: null,
+          website: null,
+          isActive: null
         }
       }
     ],
     bestPrice: 99.99
-  },
+  } as ProductWithOffers,
   {
     id: 2,
     name: 'Test Product 2',
@@ -41,7 +45,6 @@ const mockProducts: ProductWithOffers[] = [
     category: 'Home',
     brand: 'TestBrand2',
     model: 'Test Model 2',
-    imageUrl: 'https://example.com/image2.jpg',
     createdAt: new Date(),
     updatedAt: new Date(),
     offers: [
@@ -50,20 +53,25 @@ const mockProducts: ProductWithOffers[] = [
         productId: 2,
         retailerId: 1,
         price: '149.99',
+        originalPrice: null,
         availability: 'in_stock',
-        productUrl: 'https://example.com/product2',
-        lastUpdated: new Date(),
+        rating: null,
+        reviewCount: null,
+        shippingInfo: null,
+        dealType: null,
+        productUrl: null,
+        lastUpdated: null,
         retailer: {
           id: 1,
           name: 'Test Retailer',
-          logo: 'https://example.com/logo.jpg',
-          website: 'https://example.com',
-          isActive: true
+          logo: null,
+          website: null,
+          isActive: null
         }
       }
     ],
     bestPrice: 149.99
-  }
+  } as ProductWithOffers
 ]
 
 describe('ProductGrid', () => {
@@ -84,7 +92,9 @@ describe('ProductGrid', () => {
     )
 
     expect(screen.getByLabelText('Loading products')).toBeInTheDocument()
-    expect(screen.getAllByTestId('skeleton')).toBeTruthy()
+    // Check for skeleton loading elements
+    const skeletons = document.querySelectorAll('.animate-pulse')
+    expect(skeletons.length).toBeGreaterThan(0)
   })
 
   it('renders error state correctly', () => {
