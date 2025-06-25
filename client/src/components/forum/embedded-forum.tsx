@@ -299,11 +299,7 @@ function TopicPosts({
       {posts.map((post, index) => (
         <div 
           key={post.id} 
-          className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${
-            post.isFirstPost 
-              ? 'border-l-green-500 bg-white dark:bg-white' 
-              : 'border-l-blue-400 bg-white dark:bg-white'
-          }`}
+          className="bg-white dark:bg-white rounded-lg p-4 transition-all duration-200 hover:shadow-md border border-gray-200"
         >
           <div className="flex items-center gap-3 mb-3">
             <Avatar className="h-10 w-10 ring-2 ring-indigo-200 dark:ring-indigo-800">
@@ -337,7 +333,7 @@ function TopicPosts({
       ))}
 
       {!isLocked && (
-        <form onSubmit={handleSubmit} className="border-l-4 border-l-purple-400 rounded-lg p-4 bg-white dark:bg-white">
+        <form onSubmit={handleSubmit} className="rounded-lg p-4 bg-white dark:bg-white border border-gray-200">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center">
               <User className="h-4 w-4 text-white" />
