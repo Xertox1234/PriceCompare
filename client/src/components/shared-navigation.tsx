@@ -110,7 +110,7 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
             <Button variant="ghost" size="sm" onClick={handleLogin}>
               Sign In
             </Button>
-            <Button variant="outline" size="sm" onClick={handleRegister}>
+            <Button size="sm" onClick={handleRegister}>
               Sign Up
             </Button>
           </div>
