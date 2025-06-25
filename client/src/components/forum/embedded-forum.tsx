@@ -125,9 +125,9 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
     <Card className="border-0 shadow-lg">
       <CardHeader className="bg-white dark:bg-white">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-3 text-indigo-800 dark:text-indigo-200">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
-              <MessageSquare className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <CardTitle className="flex items-center gap-3 text-blue-700 dark:text-blue-300">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+              <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             {title}
           </CardTitle>

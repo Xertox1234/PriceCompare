@@ -107,8 +107,8 @@ function ForumPage() {
         {/* Popular Topics Card */}
         <Card className="hover:shadow-lg transition-shadow border border-gray-200">
           <CardHeader className="bg-white dark:bg-white">
-            <CardTitle className="text-purple-700 dark:text-purple-300 flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+            <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Popular Topics
             </CardTitle>
           </CardHeader>
@@ -133,8 +133,8 @@ function ForumPage() {
         {/* Community Stats Card */}
         <Card className="hover:shadow-lg transition-shadow border border-gray-200">
           <CardHeader className="bg-white dark:bg-white">
-            <CardTitle className="text-green-700 dark:text-green-300 flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Community Stats
             </CardTitle>
           </CardHeader>
