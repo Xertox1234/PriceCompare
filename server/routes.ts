@@ -277,6 +277,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all retailers
   app.get("/api/retailers", async (req, res) => {
     try {
+      // Set longer cache for retailers as they change less frequently
+      res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
+      
       const retailers = await storage.getRetailers();
       res.json(retailers);
     } catch (error) {

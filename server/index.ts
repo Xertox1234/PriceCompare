@@ -4,6 +4,7 @@ import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
+import { apiCacheMiddleware } from "./middleware/cache";
 
 const app = express();
 
@@ -34,6 +35,9 @@ app.use(session({
 // Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Apply caching middleware
+app.use(apiCacheMiddleware);
 
 app.use((req, res, next) => {
   const start = Date.now();
