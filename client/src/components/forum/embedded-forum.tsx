@@ -215,18 +215,18 @@ function TopicList({
                     Locked
                   </div>
                 )}
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                <h3 className="font-semibold text-black dark:text-black hover:text-blue-600 dark:hover:text-blue-600 transition-colors">
                   {topic.title}
                 </h3>
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-1 text-gray-700 dark:text-gray-700">
                   <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                     {topic.author.username.charAt(0).toUpperCase()}
                   </div>
                   <span className="font-medium">{topic.author.username}</span>
                 </div>
-                <div className="flex items-center gap-1 text-gray-500 dark:text-gray-500">
+                <div className="flex items-center gap-1 text-gray-600 dark:text-gray-600">
                   <Clock className="h-3 w-3" />
                   {formatDistanceToNow(new Date(topic.createdAt), { addSuffix: true })}
                 </div>
