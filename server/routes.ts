@@ -414,7 +414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/analytics/user-growth", requireAuth, async (req, res) => {
+  app.get("/api/admin/analytics/user-growth", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userGrowth = await db.select({
         date: sql`DATE(${schema.users.createdAt})`.as('date'),
@@ -431,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/analytics/forum-activity", requireAuth, async (req, res) => {
+  app.get("/api/admin/analytics/forum-activity", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const postActivity = await db.select({
         date: sql`DATE(${schema.forumPosts.createdAt})`.as('date'),
@@ -448,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/analytics/top-categories", requireAuth, async (req, res) => {
+  app.get("/api/admin/analytics/top-categories", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const topCategories = await db.select({
         categoryName: schema.forumCategories.name,
