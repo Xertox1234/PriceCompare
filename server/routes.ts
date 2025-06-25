@@ -68,8 +68,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingUser) {
         return res.status(400).json({ error: 'User already exists' });
       }
+
+      // Check if this is the first user (make them admin)
+      const userCount = await db.select({ count: sql`count(*)` }).from(users);
+      const isFirstUser = parseInt(userCount[0].count as string) === 0;
       
-      const user = await createUser({ username, email, password });
+      const user = await createUser({ 
+        username, 
+        email, 
+        password,
+        role: isFirstUser ? 'admin' : 'user'
+      });
       
       // Log the user in after registration
       req.login(user, (err) => {
