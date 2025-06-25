@@ -7,6 +7,7 @@ import { forumStorage } from "./forum-storage";
 import { passport, createUser, findUserByEmail, findUserById } from "./auth";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
+import { forceRefreshUserRole } from './force-refresh';
 
 // Extend Express Request to include user
 declare global {
@@ -125,24 +126,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/user", async (req, res) => {
-    if (req.user) {
-      // Refresh session with latest user data from database
-      const userId = (req.user as any).id;
-      const updatedUser = await findUserById(userId);
-      if (updatedUser) {
-        req.user = updatedUser;
-      }
-      
-      const user = req.user as any;
-      res.json({ 
-        id: user.id, 
-        username: user.username, 
-        email: user.email,
-        role: user.role || 'user'
-      });
-    } else {
-      res.status(401).json({ error: 'Not authenticated' });
-    }
+    await forceRefreshUserRole(req, res);
+  });
+
+  // Debug endpoint to check raw session data
+  app.get("/api/debug/session", (req, res) => {
+    res.json({
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user,
+      session: req.session
+    });
   });
 
   // Forum routes
