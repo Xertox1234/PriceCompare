@@ -96,10 +96,10 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuItem disabled>
                 <User className="mr-2 h-4 w-4" />
-                <span>{user.username}</span>
+                <span>{user?.username || 'Unknown'}</span>
               </DropdownMenuItem>
               <DropdownMenuItem disabled>
-                <span className="text-sm text-muted-foreground">{user.email}</span>
+                <span className="text-sm text-muted-foreground">{user?.email || 'No email'}</span>
               </DropdownMenuItem>
               {user?.role === 'admin' && (
                 <DropdownMenuItem asChild>
