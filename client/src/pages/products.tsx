@@ -86,7 +86,6 @@ export default function Products() {
             {/* Filters Sidebar */}
             <aside className="lg:w-80 flex-shrink-0">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sticky top-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Filters</h2>
                 <FilterSidebar 
                   filters={filters} 
                   onFilterChange={handleFilterChange} 
