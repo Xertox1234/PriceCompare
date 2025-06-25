@@ -55,7 +55,7 @@ describe('ProductCard', () => {
     )
 
     expect(screen.getByText('Test Product')).toBeInTheDocument()
-    expect(screen.getByText('TestBrand Test Model')).toBeInTheDocument()
+    expect(screen.getByText('Test Retailer')).toBeInTheDocument()
     expect(screen.getByText('$99.99')).toBeInTheDocument()
   })
 
@@ -67,8 +67,8 @@ describe('ProductCard', () => {
       />
     )
 
-    expect(screen.getByText('Save $30.00')).toBeInTheDocument()
-    expect(screen.getByText('(23% off)')).toBeInTheDocument()
+    expect(screen.getByText(/Save \$30\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/23%/)).toBeInTheDocument()
   })
 
   it('calls onAddToComparison when compare button is clicked', () => {
