@@ -124,11 +124,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/user", (req, res) => {
     if (req.user) {
-      const user = req.user as User;
+      const user = req.user as any;
       res.json({ 
         id: user.id, 
         username: user.username, 
-        email: user.email 
+        email: user.email,
+        role: user.role || 'user'
       });
     } else {
       res.status(401).json({ error: 'Not authenticated' });

@@ -2,7 +2,7 @@ import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MessageSquare, Search, Home, User, LogOut, Bell } from 'lucide-react';
+import { MessageSquare, Search, Home, User, LogOut, Bell, Settings } from 'lucide-react';
 import { useAuth, useLogout } from '@/hooks/use-auth';
 import { useState } from 'react';
 import { AuthModal } from './auth/auth-modal';
@@ -66,18 +66,7 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
           </Link>
         </Button>
         
-        {user?.role === 'admin' && (
-          <Button
-            variant={location === '/admin' ? 'default' : 'ghost'}
-            size="sm"
-            asChild
-          >
-            <Link href="/admin">
-              <Settings className="h-4 w-4 mr-2" />
-              Admin
-            </Link>
-          </Button>
-        )}
+
         
         {user && (
           <Button

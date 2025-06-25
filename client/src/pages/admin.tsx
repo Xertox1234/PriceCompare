@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { SharedNavigation } from '@/components/shared-navigation';
-import { Settings, Users, MessageSquare, Tags, Shield, Plus, Edit, Trash2 } from 'lucide-react';
+import { Settings, Users, MessageSquare, Tags, Shield, Plus, Edit, Trash2, BarChart3, Package, Store } from 'lucide-react';
 
 interface ForumCategory {
   id: number;
@@ -112,16 +112,119 @@ export default function AdminPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-2 mb-8">
           <Settings className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Forum Administration</h1>
+          <h1 className="text-3xl font-bold">Administration Panel</h1>
         </div>
 
-        <Tabs defaultValue="categories" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="categories">Categories</TabsTrigger>
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="retailers">Retailers</TabsTrigger>
+            <TabsTrigger value="categories">Forum Categories</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="moderation">Moderation</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardContent className="flex items-center p-6">
+                  <BarChart3 className="h-8 w-8 text-blue-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-muted-foreground">Total Users</p>
+                    <p className="text-2xl font-bold">{users.length}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="flex items-center p-6">
+                  <MessageSquare className="h-8 w-8 text-green-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-muted-foreground">Forum Categories</p>
+                    <p className="text-2xl font-bold">{categories.length}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="flex items-center p-6">
+                  <Package className="h-8 w-8 text-purple-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-muted-foreground">Products</p>
+                    <p className="text-2xl font-bold">-</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="flex items-center p-6">
+                  <Store className="h-8 w-8 text-orange-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-muted-foreground">Retailers</p>
+                    <p className="text-2xl font-bold">-</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>
+                  Latest forum and platform activity
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No recent activity to display</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="products" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Product Management
+                </CardTitle>
+                <CardDescription>
+                  Manage your product catalog and pricing data
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Product management features coming soon</p>
+                  <p className="text-sm">Add, edit, and organize your product catalog</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="retailers" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Store className="h-5 w-5" />
+                  Retailer Management
+                </CardTitle>
+                <CardDescription>
+                  Manage retail partners and their integration settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Store className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Retailer management features coming soon</p>
+                  <p className="text-sm">Add, configure, and manage retail partnerships</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="categories" className="space-y-6">
             <Card>
@@ -175,7 +278,7 @@ export default function AdminPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Existing Categories</CardTitle>
+                <CardTitle>Existing Forum Categories</CardTitle>
                 <CardDescription>
                   Manage your forum categories
                 </CardDescription>
@@ -264,36 +367,47 @@ export default function AdminPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="moderation" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Moderation Tools
-                </CardTitle>
-                <CardDescription>
-                  Moderate forum content and manage reports
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No moderation reports at this time</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
 
           <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Forum Settings</CardTitle>
-                <CardDescription>
-                  Configure global forum settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Platform Settings</CardTitle>
+                  <CardDescription>
+                    Configure main platform settings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Platform Name</Label>
+                    <Input defaultValue="PriceCompare Community" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Default Currency</Label>
+                    <Select defaultValue="usd">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="usd">USD ($)</SelectItem>
+                        <SelectItem value="eur">EUR (€)</SelectItem>
+                        <SelectItem value="gbp">GBP (£)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button>Save Platform Settings</Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Forum Settings</CardTitle>
+                  <CardDescription>
+                    Configure forum-specific settings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Allow Guest Posting</Label>
                     <Select defaultValue="false">
@@ -318,10 +432,10 @@ export default function AdminPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <Button>Save Settings</Button>
-              </CardContent>
-            </Card>
+                  <Button>Save Forum Settings</Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
