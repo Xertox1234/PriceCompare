@@ -105,6 +105,15 @@ Comprehensive filtering system supporting:
 
 ## Changelog
 
+### June 25, 2025
+- **Discourse Integration Planning**: Created comprehensive integration plan
+  - Containerization strategy with Docker Compose setup
+  - Shared authentication system using Passport.js and SSO
+  - Design system integration for consistent UI/UX
+  - Community features linking products to forum discussions
+  - Alternative embedded forum approach for Replit deployment
+  - 5-week implementation timeline with clear milestones
+
 ### December 25, 2024
 - **Architecture Documentation**: Created comprehensive documentation suite
   - System architecture and design principles
@@ -123,8 +132,6 @@ Comprehensive filtering system supporting:
   - Accessibility compliance implemented
   - Responsive design with shadcn/ui components
   - Ready for production database integration
-
-- June 25, 2025. Initial setup
 
 ## User Preferences
 
