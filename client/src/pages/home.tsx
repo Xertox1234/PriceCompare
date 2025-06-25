@@ -3,6 +3,8 @@ import { SearchHeader } from "@/components/search-header";
 import { FilterSidebar } from "@/components/filter-sidebar";
 import { ProductGrid } from "@/components/product-grid";
 import { ComparisonModal } from "@/components/comparison-modal";
+import { HeroSection } from "@/components/hero-section";
+import { FeaturedCategories } from "@/components/featured-categories";
 import { useProducts } from "@/hooks/use-products";
 import { useComparison } from "@/hooks/use-comparison";
 import { SearchFilters } from "@shared/schema";
@@ -30,12 +32,21 @@ export default function Home() {
       (product.bestPrice || 0) < (best.bestPrice || Infinity) ? product : best
     ) : null;
 
+  // Show hero and categories only when no search is active
+  const showHeroSection = !searchQuery;
+
   return (
     <>
       <SearchHeader 
         onSearch={handleSearch}
         searchQuery={searchQuery}
       />
+      
+      {/* Hero Section - Only show when not searching */}
+      {showHeroSection && <HeroSection />}
+      
+      {/* Featured Categories - Only show when not searching */}
+      {showHeroSection && <FeaturedCategories />}
       
       <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" role="main">
         {/* Search Results Header */}

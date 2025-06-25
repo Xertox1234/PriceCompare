@@ -9,10 +9,12 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
-  // Get the best offer (lowest price)
-  const bestOffer = product.offers.reduce((best, current) => 
-    parseFloat(current.price) < parseFloat(best.price) ? current : best
-  );
+  // Get the best offer (lowest price) - handle empty offers array
+  const bestOffer = product.offers.length > 0 
+    ? product.offers.reduce((best, current) => 
+        parseFloat(current.price) < parseFloat(best.price) ? current : best
+      )
+    : null;
 
   const getAvailabilityIcon = (availability: string) => {
     switch (availability) {
