@@ -197,7 +197,7 @@ function TopicList({
       {topics.map((topic, index) => (
         <div
           key={topic.id}
-          className="border-l-4 border-l-indigo-400 bg-white dark:bg-white rounded-lg p-4 hover:shadow-md hover:border-l-indigo-500 cursor-pointer transition-all duration-200"
+          className="bg-white dark:bg-white rounded-lg p-4 hover:shadow-md cursor-pointer transition-all duration-200 border border-gray-200"
           onClick={() => onSelectTopic(topic.id)}
         >
           <div className="flex items-start justify-between">
