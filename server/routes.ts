@@ -48,19 +48,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const userData = insertUserSchema.parse(req.body);
+      console.log('Registration request body:', req.body);
       
+      // Validate required fields manually first
+      const { username, email, password } = req.body;
+      if (!username || !email || !password) {
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          details: {
+            username: !username ? "Username is required" : null,
+            email: !email ? "Email is required" : null,
+            password: !password ? "Password is required" : null
+          }
+        });
+      }
+
       // Check if user already exists
-      const existingUser = await findUserByEmail(userData.email);
+      const existingUser = await findUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ error: 'User already exists' });
       }
       
-      const user = await createUser(userData);
+      const user = await createUser({ username, email, password });
       
       // Log the user in after registration
       req.login(user, (err) => {
         if (err) {
+          console.error('Login after registration failed:', err);
           return res.status(500).json({ error: 'Registration successful but login failed' });
         }
         res.json({ 

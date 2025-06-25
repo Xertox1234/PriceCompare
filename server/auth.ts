@@ -67,8 +67,8 @@ export async function createUser(userData: { username: string; email: string; pa
     username: user.username,
     email: user.email,
     passwordHash: user.passwordHash,
-    createdAt: user.createdAt || new Date(),
-    updatedAt: user.updatedAt || new Date(),
+    createdAt: user.createdAt as Date,
+    updatedAt: user.updatedAt as Date,
   };
 }
 
