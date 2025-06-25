@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import type { LoginFormData, AuthResponse } from '@shared/types';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -17,10 +18,11 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string>('');
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string }) => {
-      return apiRequest('/api/auth/login', {
+  const loginMutation = useMutation<AuthResponse, Error, LoginFormData>({
+    mutationFn: async (data: LoginFormData) => {
+      return apiRequest<AuthResponse>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify(data),
       });
@@ -30,7 +32,7 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
       // Refresh the page to update authentication state
       window.location.reload();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Login error:', error);
       setError(error.message || 'Login failed');
     },
@@ -129,11 +131,12 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string>('');
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: { username: string; email: string; password: string }) => {
+  const registerMutation = useMutation<AuthResponse, Error, RegisterFormData>({
+    mutationFn: async (data: RegisterFormData) => {
       console.log('Making registration API request with:', data);
-      return apiRequest('/api/auth/register', {
+      return apiRequest<AuthResponse>('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify(data),
       });
@@ -143,7 +146,7 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       // Refresh the page to update authentication state
       window.location.reload();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Registration error:', error);
       setError(error.message || 'Registration failed');
     },

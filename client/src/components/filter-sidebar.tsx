@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { SearchFilters, Retailer } from "@shared/schema";
+import type { SearchFilters, Retailer } from "@shared/schema";
 
 interface FilterSidebarProps {
   filters: SearchFilters;
