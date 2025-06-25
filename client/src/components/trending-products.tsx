@@ -60,23 +60,102 @@ export function TrendingProducts() {
           </div>
 
           {/* Right side - Categories with exact spacing */}
-          <div className="space-y-6 pl-6">
-            <h3 className="text-2xl font-bold text-black mb-6">
+          <div 
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px',
+              paddingLeft: '24px'
+            }}
+          >
+            <h3 
+              style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#000',
+                marginBottom: '24px',
+                fontFamily: 'Inter, sans-serif',
+                margin: '0 0 24px 0'
+              }}
+            >
               Compare Categories
             </h3>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-[#F7F7F7] rounded hover:bg-gray-100 transition-colors cursor-pointer">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">
-                    <span className="text-blue-600 font-bold">📷</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px',
+                  backgroundColor: '#F7F7F7',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#F7F7F7';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div 
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      backgroundColor: '#dbeafe',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <span style={{ color: '#2563eb', fontWeight: '700' }}>📷</span>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-black">Cameras</h4>
-                    <p className="text-gray-600 text-sm">Professional & consumer cameras</p>
+                    <h4 
+                      style={{
+                        fontWeight: '600',
+                        color: '#000',
+                        margin: '0 0 4px 0',
+                        fontFamily: 'Inter, sans-serif'
+                      }}
+                    >
+                      Cameras
+                    </h4>
+                    <p 
+                      style={{
+                        color: '#6b7280',
+                        fontSize: '14px',
+                        margin: 0,
+                        fontFamily: 'Inter, sans-serif'
+                      }}
+                    >
+                      Professional & consumer cameras
+                    </p>
                   </div>
                 </div>
-                <button className="bg-white border border-[#EAEAEA] hover:bg-[#F7F7F7] transition-colors px-4 py-2 rounded text-sm font-medium">
+                <button 
+                  style={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #EAEAEA',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.3s ease',
+                    fontFamily: 'Inter, sans-serif'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#F7F7F7';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fff';
+                  }}
+                >
                   Compare
                 </button>
               </div>

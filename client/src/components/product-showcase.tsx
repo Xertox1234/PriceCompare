@@ -15,11 +15,33 @@ export function ProductShowcase() {
       >
         
         {/* Section header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-black mb-4">
+        <div 
+          style={{
+            textAlign: 'center',
+            marginBottom: '48px'
+          }}
+        >
+          <h2 
+            style={{
+              fontSize: '32px',
+              fontWeight: '700',
+              color: '#000',
+              marginBottom: '16px',
+              fontFamily: 'Inter, sans-serif',
+              margin: '0 0 16px 0'
+            }}
+          >
             Save More With Our Best Deals
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p 
+            style={{
+              color: '#6b7280',
+              fontSize: '18px',
+              maxWidth: '640px',
+              margin: '0 auto',
+              fontFamily: 'Inter, sans-serif'
+            }}
+          >
             Discover unbeatable prices on top technology products from leading brands.
           </p>
         </div>
@@ -30,16 +52,53 @@ export function ProductShowcase() {
           {/* Row 1: Two small + Large featured start */}
           <div style={{ display: 'flex', gap: '24px' }}>
             {/* Small product 1 - 290x290 */}
-            <div className="bg-white rounded overflow-hidden group cursor-pointer" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)', width: '290px' }}>
+            <div 
+              style={{
+                backgroundColor: '#fff',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                width: '290px',
+                transition: 'transform 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
               <div style={{ width: '290px', height: '290px' }}>
                 <img
                   src="https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=290&h=290&fit=crop"
                   alt="iPhone 15 Pro"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transition: 'transform 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
                 />
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-sm">iPhone 15 Pro</h3>
+              <div style={{ padding: '16px' }}>
+                <h3 
+                  style={{
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    margin: 0,
+                    fontFamily: 'Inter, sans-serif',
+                    color: '#000'
+                  }}
+                >
+                  iPhone 15 Pro
+                </h3>
               </div>
             </div>
 
