@@ -1,297 +1,204 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Modern E-commerce Color Palette - Based on design specifications */
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(0, 0%, 0%);
-  --muted: hsl(0, 0%, 97%);
-  --muted-foreground: hsl(0, 0%, 45%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(0, 0%, 0%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(0, 0%, 0%);
-  --border: hsl(0, 0%, 91%);
-  --input: hsl(0, 0%, 91%);
-  
-  /* Primary vibrant blue from design (#5A5DFF) */
-  --primary: hsl(238, 100%, 67%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --primary-hover: hsl(238, 100%, 60%);
-  
-  /* Secondary colors */
-  --secondary: hsl(0, 0%, 96%);
-  --secondary-foreground: hsl(0, 0%, 9%);
-  --accent: hsl(238, 100%, 67%);
-  --accent-foreground: hsl(0, 0%, 100%);
-  
-  /* Status colors */
-  --destructive: hsl(0, 84%, 60%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --success: hsl(142, 76%, 36%);
-  --success-foreground: hsl(0, 0%, 100%);
-  --warning: hsl(38, 92%, 50%);
-  --warning-foreground: hsl(0, 0%, 9%);
-  --error: hsl(0, 84%, 60%);
-  --error-foreground: hsl(0, 0%, 98%);
-  
-  --ring: hsl(238, 100%, 67%);
-  --radius: 0.25rem;
-  
-  /* Typography */
-  --font-display: "Inter", "Montserrat", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
-  
-  /* Spacing and layout */
-  --container-max-width: 1280px;
-  --hero-height: 60vh;
-  --section-spacing: 5rem;
-}
-
-.dark {
-  --background: hsl(0, 0%, 5%);
-  --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(0, 0%, 10%);
-  --muted-foreground: hsl(0, 0%, 64%);
-  --popover: hsl(0, 0%, 5%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(0, 0%, 8%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(0, 0%, 15%);
-  --input: hsl(0, 0%, 15%);
-  
-  /* Keep primary vibrant blue consistent */
-  --primary: hsl(238, 100%, 67%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --primary-hover: hsl(238, 100%, 60%);
-  
-  --secondary: hsl(0, 0%, 12%);
-  --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(238, 100%, 67%);
-  --accent-foreground: hsl(0, 0%, 100%);
-  
-  --destructive: hsl(0, 62%, 50%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(238, 100%, 67%);
-  --success: hsl(142, 70%, 45%);
-  --success-foreground: hsl(0, 0%, 100%);
-  --warning: hsl(38, 92%, 50%);
-  --warning-foreground: hsl(0, 0%, 9%);
-  --error: hsl(0, 62%, 50%);
-  --error-foreground: hsl(0, 0%, 98%);
-}
-
 @layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 243 75% 66%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 243 75% 66%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 243 75% 66%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.75rem;
+    --success: 120 60% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 243 75% 66%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 243 75% 66%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 243 75% 66%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --success: 120 60% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+  }
+  
+  * {
+    border-color: hsl(var(--border));
+  }
+  
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: var(--font-body);
-    font-feature-settings: "rlig" 1, "calt" 1;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
   }
-
-  /* Skip to main content link */
-  .skip-link {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-    padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
-    z-index: 50;
-    transform: translateY(-100%);
-    opacity: 0;
-    transition: all 0.2s;
-  }
-
-  .skip-link:focus {
-    transform: translateY(0);
-    opacity: 1;
-  }
-
-  /* Screen reader only content */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    white-space: nowrap;
-    border: 0;
-    clip: rect(0, 0, 0, 0);
-  }
-
-  .sr-only:focus {
-    position: static;
-    width: auto;
-    height: auto;
-    padding: 0.25rem;
-    margin: 0;
-    overflow: visible;
-    white-space: normal;
-    clip: auto;
-  }
-
-  /* Price highlighting */
-  .price-highlight {
-    font-size: 1.5rem;
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
     font-weight: 700;
-    color: hsl(var(--foreground));
-  }
-
-  .price-original {
-    font-size: 0.875rem;
-    color: hsl(var(--muted-foreground));
-    text-decoration: line-through;
-  }
-
-  .price-savings {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: hsl(var(--success-foreground));
-    background-color: hsl(var(--success) / 0.1);
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-  }
-
-  /* Deal badges */
-  .deal-badge {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 9999px;
-  }
-
-  .deal-badge.best-price {
-    background-color: hsl(var(--success) / 0.1);
-    color: hsl(var(--success-foreground));
-  }
-
-  .deal-badge.bundle {
-    background-color: hsl(var(--accent) / 0.1);
-    color: hsl(var(--accent-foreground));
-  }
-
-  .deal-badge.limited {
-    background-color: hsl(var(--destructive) / 0.1);
-    color: hsl(var(--destructive-foreground));
-  }
-
-  /* Rating stars */
-  .rating-star {
-    color: hsl(var(--accent-foreground));
-  }
-
-  /* Availability indicators */
-  .availability-indicator {
-    display: flex;
-    align-items: center;
-    font-size: 0.875rem;
-  }
-
-  .availability-indicator.in-stock {
-    color: hsl(var(--success));
-  }
-
-  .availability-indicator.limited-stock {
-    color: hsl(var(--warning));
-  }
-
-  .availability-indicator.out-of-stock {
-    color: hsl(var(--destructive));
-  }
-
-  /* Card hover effects */
-  .product-card {
-    transition: all 0.2s ease;
-  }
-
-  .product-card:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Filter section styling */
-  .filter-section h4 {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: hsl(var(--foreground));
-    margin-bottom: 0.75rem;
-  }
-
-  .filter-section .filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  /* Comparison modal */
-  .comparison-modal {
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    padding: 1rem;
-    max-width: 24rem;
-    z-index: 50;
-    transform: translateY(0);
-    transition: all 0.3s ease;
-  }
-
-  .comparison-modal.hidden {
-    transform: translateY(100%);
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  /* Responsive utilities */
-  @media (max-width: 640px) {
-    .mobile-stack {
-      flex-direction: column;
-      gap: 1rem;
-    }
-  }
-
-  /* Loading states */
-  .loading-skeleton {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    background-color: hsl(var(--muted));
-    border-radius: 0.25rem;
-  }
-
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: .5;
-    }
-  }
-
-  /* Error states */
-  .error-message {
-    color: hsl(var(--destructive));
-    background-color: hsl(var(--destructive) / 0.1);
-    border: 1px solid hsl(var(--destructive) / 0.2);
-    border-radius: 0.375rem;
-    padding: 1rem;
-  }
-
-  /* Empty states */
-  .empty-state {
-    text-align: center;
-    padding: 3rem 0;
-    color: hsl(var(--muted-foreground));
+    line-height: 1.2;
   }
 }
 
-/* Custom scrollbar for webkit browsers */
+@layer components {
+  /* Modern hero section */
+  .hero-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(243, 85%, 76%) 50%, hsl(253, 70%, 60%) 100%);
+  }
+  
+  .hero-text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Product cards with modern styling */
+  .product-card-modern {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+  }
+  
+  .product-card-modern:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: hsl(var(--primary) / 0.3);
+  }
+  
+  /* Category cards */
+  .category-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+    border: 1px solid hsl(var(--border));
+  }
+  
+  .category-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.15);
+    border-color: hsl(var(--primary));
+  }
+  
+  /* Modern glass effect */
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Animated gradients */
+  .animated-gradient {
+    background: linear-gradient(-45deg, hsl(var(--primary)), hsl(243, 85%, 76%), hsl(253, 70%, 60%), hsl(var(--accent)));
+    background-size: 400% 400%;
+    animation: gradient 8s ease infinite;
+  }
+  
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  /* Modern typography */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(253, 70%, 60%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  /* Enhanced buttons */
+  .btn-modern {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .btn-modern::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+  
+  .btn-modern:hover::before {
+    left: 100%;
+  }
+  
+  /* Grid layouts */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+  }
+  
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  /* Loading states */
+  .shimmer {
+    background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--muted) / 0.8) 50%, hsl(var(--muted)) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}
+
+/* Modern scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -301,43 +208,29 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground));
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(253, 70%, 60%));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary));
+  background: linear-gradient(135deg, hsl(253, 70%, 60%), hsl(var(--primary)));
 }
 
-/* Focus management for modal dialogs */
-[role="dialog"] {
-  outline: none;
-}
-
-/* Ensure interactive elements have sufficient size for touch */
-button, a, input, select, [role="button"] {
-  min-height: 44px;
-  min-width: 44px;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  :root {
-    --border: hsl(0, 0%, 0%);
-    --ring: hsl(0, 0%, 0%);
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
   }
   
-  .dark {
-    --border: hsl(0, 0%, 100%);
-    --ring: hsl(0, 0%, 100%);
+  .category-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
   }
 }
 
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+/* Enhanced focus states for accessibility */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
 }

@@ -65,89 +65,113 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
+    <Card className="product-card-modern rounded-2xl overflow-hidden group">
       <div className="relative">
         <img
-          src={product.image || "/api/placeholder/400/300"}
+          src={product.image || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop"}
           alt={product.description || product.name}
-          className="w-full h-48 object-cover"
+          className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
+        
+        {/* Deal badge with modern styling */}
         {bestOffer.dealType && (
-          <div className="absolute top-2 left-2">
-            <Badge variant="secondary" className="bg-red-100 text-red-800">
-              {bestOffer.dealType === "best_price" && "Best Price"}
-              {bestOffer.dealType === "bundle_deal" && "Bundle Deal"}
-              {bestOffer.dealType === "limited_time" && "Limited Time"}
+          <div className="absolute top-4 left-4">
+            <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 font-semibold shadow-lg">
+              {bestOffer.dealType === "best_price" && "🏆 Best Price"}
+              {bestOffer.dealType === "bundle_deal" && "📦 Bundle Deal"}
+              {bestOffer.dealType === "limited_time" && "⚡ Limited Time"}
             </Badge>
           </div>
         )}
+        
+        {/* Savings badge */}
+        {savings > 0 && (
+          <div className="absolute top-4 right-4">
+            <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 py-1 text-xs font-bold">
+              -{savingsPercentage}%
+            </Badge>
+          </div>
+        )}
+        
+        {/* Glass overlay on hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       </div>
       
-      <div className="p-4">
-        <div className="mb-3">
-          <h3 className="font-semibold text-lg mb-1 line-clamp-2">
+      <div className="p-6 space-y-4">
+        {/* Product info */}
+        <div className="space-y-2">
+          <h3 className="font-bold text-xl text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
             {product.name}
           </h3>
           {product.brand && (
-            <p className="text-sm text-gray-600">{product.brand}</p>
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+              {product.brand}
+            </p>
           )}
         </div>
 
+        {/* Rating */}
         {renderStars(bestOffer.rating)}
 
-        <div className="mt-3 mb-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-primary">
+        {/* Pricing */}
+        <div className="space-y-2">
+          <div className="flex items-baseline space-x-2">
+            <span className="text-3xl font-black text-gray-900">
               ${currentPrice.toFixed(2)}
             </span>
             {savings > 0 && (
-              <>
-                <span className="text-sm text-gray-500 line-through">
-                  ${originalPrice.toFixed(2)}
-                </span>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Save {savingsPercentage}%
-                </Badge>
-              </>
+              <span className="text-lg text-gray-400 line-through">
+                ${originalPrice.toFixed(2)}
+              </span>
             )}
           </div>
           
-          <div className="flex items-center mt-2">
-            <span className={`text-sm ${
+          {/* Availability */}
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              bestOffer.availability === "in_stock" ? "bg-green-500" :
+              bestOffer.availability === "limited_stock" ? "bg-yellow-500" :
+              "bg-red-500"
+            }`}></div>
+            <span className={`text-sm font-medium ${
               bestOffer.availability === "in_stock" ? "text-green-600" :
               bestOffer.availability === "limited_stock" ? "text-yellow-600" :
               "text-red-600"
             }`}>
-              {bestOffer.availability === "in_stock" && "✓ In Stock"}
-              {bestOffer.availability === "limited_stock" && "⚠ Limited Stock"}
-              {bestOffer.availability === "out_of_stock" && "✗ Out of Stock"}
+              {bestOffer.availability === "in_stock" && "In Stock"}
+              {bestOffer.availability === "limited_stock" && "Limited Stock"}
+              {bestOffer.availability === "out_of_stock" && "Out of Stock"}
             </span>
           </div>
         </div>
 
-        <div className="flex space-x-2">
+        {/* Action buttons */}
+        <div className="flex space-x-3 pt-2">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={onAddToComparison}
-            className="flex-1"
+            className="flex-1 btn-modern border-gray-200 hover:border-blue-300 hover:text-blue-600"
           >
-            <ShoppingCart className="h-4 w-4 mr-1" />
+            <ShoppingCart className="h-4 w-4 mr-2" />
             Compare
           </Button>
           <Button 
             size="sm" 
-            className="flex-1"
+            className="flex-1 btn-modern bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             onClick={() => bestOffer.productUrl && window.open(bestOffer.productUrl, '_blank')}
           >
-            <ExternalLink className="h-4 w-4 mr-1" />
+            <ExternalLink className="h-4 w-4 mr-2" />
             View Deal
           </Button>
         </div>
         
-        <div className="mt-2 text-xs text-gray-500 text-center">
-          at {bestOffer.retailer.name}
+        {/* Retailer info */}
+        <div className="pt-3 border-t border-gray-100">
+          <p className="text-xs text-gray-500 text-center font-medium">
+            Available at <span className="text-gray-700">{bestOffer.retailer.name}</span>
+          </p>
         </div>
       </div>
     </Card>
