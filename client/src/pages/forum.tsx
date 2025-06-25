@@ -76,7 +76,7 @@ function ForumPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
         {/* Forum Guidelines Card */}
         <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-blue-50 dark:bg-blue-950/20">
+          <CardHeader className="bg-white dark:bg-gray-900">
             <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Forum Guidelines
@@ -106,7 +106,7 @@ function ForumPage() {
 
         {/* Popular Topics Card */}
         <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-purple-50 dark:bg-purple-950/20">
+          <CardHeader className="bg-white dark:bg-gray-900">
             <CardTitle className="text-purple-700 dark:text-purple-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
               Popular Topics
@@ -132,7 +132,7 @@ function ForumPage() {
 
         {/* Community Stats Card */}
         <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-green-50 dark:bg-green-950/20">
+          <CardHeader className="bg-white dark:bg-gray-900">
             <CardTitle className="text-green-700 dark:text-green-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               Community Stats
@@ -140,15 +140,15 @@ function ForumPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-4 text-sm">
-              <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border rounded-lg">
                 <span className="text-gray-600 dark:text-gray-300">Active Discussions:</span>
                 <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">24</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border rounded-lg">
                 <span className="text-gray-600 dark:text-gray-300">Community Members:</span>
                 <span className="font-bold text-purple-600 dark:text-purple-400 text-lg">156</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border rounded-lg">
                 <span className="text-gray-600 dark:text-gray-300">Products Discussed:</span>
                 <span className="font-bold text-green-600 dark:text-green-400 text-lg">89</span>
               </div>

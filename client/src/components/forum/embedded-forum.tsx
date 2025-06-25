@@ -123,7 +123,7 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
 
   return (
     <Card className="border-0 shadow-lg">
-      <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30">
+      <CardHeader className="bg-white dark:bg-gray-900">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-3 text-indigo-800 dark:text-indigo-200">
             <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
@@ -197,7 +197,7 @@ function TopicList({
       {topics.map((topic, index) => (
         <div
           key={topic.id}
-          className="border-l-4 border-l-indigo-400 bg-gradient-to-r from-white to-indigo-50/30 dark:from-gray-900 dark:to-indigo-950/20 rounded-lg p-4 hover:shadow-md hover:border-l-indigo-500 cursor-pointer transition-all duration-200"
+          className="border-l-4 border-l-indigo-400 bg-white dark:bg-gray-900 rounded-lg p-4 hover:shadow-md hover:border-l-indigo-500 cursor-pointer transition-all duration-200"
           onClick={() => onSelectTopic(topic.id)}
         >
           <div className="flex items-start justify-between">
@@ -301,8 +301,8 @@ function TopicPosts({
           key={post.id} 
           className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${
             post.isFirstPost 
-              ? 'border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50/30 dark:from-green-950/20 dark:to-emerald-950/10' 
-              : 'border-l-blue-400 bg-gradient-to-r from-blue-50/50 to-indigo-50/20 dark:from-blue-950/10 dark:to-indigo-950/5'
+              ? 'border-l-green-500 bg-white dark:bg-gray-900' 
+              : 'border-l-blue-400 bg-white dark:bg-gray-900'
           }`}
         >
           <div className="flex items-center gap-3 mb-3">
@@ -337,7 +337,7 @@ function TopicPosts({
       ))}
 
       {!isLocked && (
-        <form onSubmit={handleSubmit} className="border-l-4 border-l-purple-400 rounded-lg p-4 bg-gradient-to-r from-purple-50/50 to-indigo-50/30 dark:from-purple-950/20 dark:to-indigo-950/10">
+        <form onSubmit={handleSubmit} className="border-l-4 border-l-purple-400 rounded-lg p-4 bg-white dark:bg-gray-900">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center">
               <User className="h-4 w-4 text-white" />
