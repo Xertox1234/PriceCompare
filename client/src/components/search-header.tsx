@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { Search, Bell, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface SearchHeaderProps {
   onSearch: (query: string) => void;
@@ -23,74 +21,157 @@ export function SearchHeader({ onSearch, searchQuery }: SearchHeaderProps) {
   };
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40" role="banner">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+    <header 
+      style={{
+        backgroundColor: '#fff',
+        borderBottom: '1px solid #e5e7eb',
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 40
+      }}
+      role="banner"
+    >
+      <div 
+        style={{
+          maxWidth: '1280px',
+          margin: '0 auto',
+          padding: '0 32px'
+        }}
+      >
+        <div 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: '80px'
+          }}
+        >
           {/* Logo and Brand */}
-          <div className="flex items-center space-x-4">
-            <div className="flex-shrink-0">
-              <h1 className="text-3xl font-black text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text">
-                Insightify
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div>
+              <h1 
+                style={{
+                  fontSize: '32px',
+                  fontWeight: '900',
+                  background: 'linear-gradient(135deg, #5A5DFF 0%, #8B5FF5 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  fontFamily: 'Inter, sans-serif'
+                }}
+              >
+                PriceCompare Community
               </h1>
             </div>
           </div>
 
           {/* Search Bar */}
-          <div className="flex-1 max-w-2xl mx-8" role="search">
-            <form onSubmit={handleSubmit} className="relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          <div 
+            style={{
+              flex: 1,
+              maxWidth: '600px',
+              margin: '0 32px'
+            }}
+            role="search"
+          >
+            <form onSubmit={handleSubmit} style={{ position: 'relative' }}>
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '16px',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none'
+                }}
+              >
+                <Search 
+                  size={20} 
+                  style={{ color: '#9ca3af' }}
+                  aria-hidden="true" 
+                />
               </div>
-              <Input
+              <input
                 type="search"
                 placeholder="Search for products to compare prices..."
-                className="block w-full pl-12 pr-16 py-4 text-lg border-2 border-gray-200 rounded-2xl bg-gray-50 hover:bg-white focus:bg-white transition-all duration-300"
                 style={{
+                  width: '100%',
+                  paddingLeft: '48px',
+                  paddingRight: '16px',
+                  paddingTop: '16px',
+                  paddingBottom: '16px',
+                  fontSize: '18px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '16px',
+                  backgroundColor: '#f9fafb',
                   outline: 'none',
+                  transition: 'all 0.3s ease',
+                  fontFamily: 'Inter, sans-serif'
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = '#5A5DFF';
                   e.target.style.boxShadow = '0 0 0 3px rgba(90, 93, 255, 0.1)';
+                  e.target.style.backgroundColor = '#fff';
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#e5e7eb';
                   e.target.style.boxShadow = 'none';
+                  e.target.style.backgroundColor = '#f9fafb';
                 }}
                 aria-label="Search for products"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
-              <Button
-                type="submit"
-                variant="ghost"
-                size="sm"
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-blue-600 hover:text-blue-700"
-                aria-label="Search"
-              >
-                <Search className="h-5 w-5" aria-hidden="true" />
-              </Button>
             </form>
           </div>
 
           {/* User Actions */}
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-600 hover:text-blue-600 hover:bg-blue-50 p-3 rounded-xl transition-all duration-300"
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              style={{
+                color: '#6b7280',
+                padding: '12px',
+                borderRadius: '12px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#5A5DFF';
+                e.currentTarget.style.backgroundColor = '#f0f9ff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#6b7280';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
               aria-label="Price alerts"
             >
-              <Bell className="h-5 w-5" aria-hidden="true" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-600 hover:text-blue-600 hover:bg-blue-50 p-3 rounded-xl transition-all duration-300"
+              <Bell size={20} aria-hidden="true" />
+            </button>
+            <button
+              style={{
+                color: '#6b7280',
+                padding: '12px',
+                borderRadius: '12px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#5A5DFF';
+                e.currentTarget.style.backgroundColor = '#f0f9ff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#6b7280';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
               aria-label="User menu"
             >
-              <User className="h-5 w-5" aria-hidden="true" />
-            </Button>
+              <User size={20} aria-hidden="true" />
+            </button>
           </div>
         </div>
       </div>

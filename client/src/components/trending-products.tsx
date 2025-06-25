@@ -1,14 +1,46 @@
 export function TrendingProducts() {
   return (
-    <section className="py-16 bg-white">
-      <div className="max-w-[1280px] mx-auto px-8">
+    <section 
+      style={{
+        padding: '64px 0',
+        backgroundColor: '#fff'
+      }}
+    >
+      <div 
+        style={{
+          maxWidth: '1280px',
+          margin: '0 auto',
+          padding: '0 32px'
+        }}
+      >
         
         {/* Section header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-black mb-4">
+        <div 
+          style={{
+            textAlign: 'center',
+            marginBottom: '48px'
+          }}
+        >
+          <h2 
+            style={{
+              fontSize: '32px',
+              fontWeight: '700',
+              color: '#000',
+              marginBottom: '16px',
+              fontFamily: 'Inter, sans-serif',
+              margin: '0 0 16px 0'
+            }}
+          >
             Trending Products and Bestsellers
           </h2>
-          <p className="text-gray-600 text-lg">
+          <p 
+            style={{
+              color: '#6b7280',
+              fontSize: '18px',
+              fontFamily: 'Inter, sans-serif',
+              margin: 0
+            }}
+          >
             Discover what's popular right now in the tech world
           </p>
         </div>

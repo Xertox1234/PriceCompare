@@ -23,32 +23,101 @@ export function FeaturedCategories() {
   ];
 
   return (
-    <section className="py-16 bg-white">
-      <div className="max-w-[1280px] mx-auto px-8">
+    <section 
+      style={{
+        padding: '64px 0',
+        backgroundColor: '#fff'
+      }}
+    >
+      <div 
+        style={{
+          maxWidth: '1280px',
+          margin: '0 auto',
+          padding: '0 32px'
+        }}
+      >
         
-        {/* Categories grid - exact 400x300px dimensions with 24px spacing */}
-        <div className="flex justify-between" style={{ gap: '24px' }}>
+        {/* Categories grid - exact 300x300px dimensions with 24px spacing */}
+        <div 
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '24px'
+          }}
+        >
           {categories.map((category) => (
             <div 
               key={category.id}
-              className="group cursor-pointer"
+              style={{
+                cursor: 'pointer',
+                transition: 'transform 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
               <div 
-                className="rounded overflow-hidden relative"
-                style={{ 
+                style={{
                   width: '300px',
                   height: '300px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
                 }}
               >
                 <img
                   src={category.image}
                   alt={category.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transition: 'transform 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
                 />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors duration-300"></div>
-                <div className="absolute bottom-6 left-6">
-                  <h3 className="text-white text-xl font-bold">
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    transition: 'background-color 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+                  }}
+                />
+                <div 
+                  style={{
+                    position: 'absolute',
+                    bottom: '24px',
+                    left: '24px'
+                  }}
+                >
+                  <h3 
+                    style={{
+                      color: '#fff',
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      margin: 0,
+                      fontFamily: 'Inter, sans-serif'
+                    }}
+                  >
                     {category.name}
                   </h3>
                 </div>

@@ -1,7 +1,18 @@
 export function ProductShowcase() {
   return (
-    <section className="py-16 bg-[#F7F7F7]">
-      <div className="max-w-[1280px] mx-auto px-8">
+    <section 
+      style={{
+        padding: '64px 0',
+        backgroundColor: '#F7F7F7'
+      }}
+    >
+      <div 
+        style={{
+          maxWidth: '1280px',
+          margin: '0 auto',
+          padding: '0 32px'
+        }}
+      >
         
         {/* Section header */}
         <div className="text-center mb-12">
