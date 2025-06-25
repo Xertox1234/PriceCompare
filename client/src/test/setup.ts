@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 
 // Cleanup after each test
 afterEach(() => {
@@ -8,10 +8,14 @@ afterEach(() => {
 })
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn(() => ({
+global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
+  root: null,
+  rootMargin: '',
+  thresholds: [],
+  takeRecords: vi.fn(),
 }))
 
 // Mock ResizeObserver
