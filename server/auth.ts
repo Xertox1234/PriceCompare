@@ -61,7 +61,11 @@ export async function createUser(userData: { username: string; email: string; pa
     passwordHash,
   }).returning();
   
-  return newUserResult[0];
+  return {
+    ...newUserResult[0],
+    createdAt: newUserResult[0].createdAt || new Date(),
+    updatedAt: newUserResult[0].updatedAt || new Date(),
+  };
 }
 
 export async function findUserByEmail(email: string): Promise<User | null> {

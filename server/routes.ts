@@ -164,10 +164,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.user as User;
 
       // Create the topic
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const topic = await forumStorage.createTopic({
         title,
-        slug,
         authorId: user.id,
         categoryId: categoryId || null,
         productId: productId || null,

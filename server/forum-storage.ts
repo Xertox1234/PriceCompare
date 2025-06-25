@@ -139,7 +139,7 @@ export class ForumStorage {
     };
   }
 
-  async createTopic(topic: InsertForumTopic): Promise<ForumTopic> {
+  async createTopic(topic: Omit<InsertForumTopic, 'slug'>): Promise<ForumTopic> {
     const slug = topic.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const result = await db.insert(forumTopics).values({
       ...topic,
