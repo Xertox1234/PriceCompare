@@ -1,4 +1,6 @@
 import { retailers, products, productOffers, type Retailer, type Product, type ProductOffer, type InsertRetailer, type InsertProduct, type InsertProductOffer, type ProductWithOffers, type SearchFilters } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, gte, lte, inArray, sql, desc, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Retailers
@@ -306,4 +308,222 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  async getRetailers(): Promise<Retailer[]> {
+    const result = await db.select().from(retailers).where(eq(retailers.isActive, true));
+    return result;
+  }
+
+  async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
+    const [result] = await db
+      .insert(retailers)
+      .values({
+        ...retailer,
+        logo: retailer.logo || null,
+        website: retailer.website || null,
+        isActive: retailer.isActive ?? true
+      })
+      .returning();
+    return result;
+  }
+
+  async getProducts(): Promise<Product[]> {
+    const result = await db.select().from(products);
+    return result;
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [result] = await db
+      .insert(products)
+      .values({
+        ...product,
+        image: product.image || null,
+        category: product.category || null,
+        brand: product.brand || null,
+        description: product.description || null,
+        model: product.model || null
+      })
+      .returning();
+    return result;
+  }
+
+  async searchProducts(filters: SearchFilters): Promise<ProductWithOffers[]> {
+    // Build the base query conditions
+    const conditions = [eq(retailers.isActive, true)];
+
+    if (filters.query) {
+      const searchTerm = `%${filters.query.toLowerCase()}%`;
+      conditions.push(
+        sql`(
+          LOWER(${products.name}) LIKE ${searchTerm} OR
+          LOWER(${products.description}) LIKE ${searchTerm} OR
+          LOWER(${products.brand}) LIKE ${searchTerm} OR
+          LOWER(${products.category}) LIKE ${searchTerm}
+        )`
+      );
+    }
+
+    if (filters.category) {
+      conditions.push(eq(products.category, filters.category));
+    }
+
+    if (filters.minPrice) {
+      conditions.push(gte(sql`CAST(${productOffers.price} AS DECIMAL)`, filters.minPrice));
+    }
+
+    if (filters.maxPrice) {
+      conditions.push(lte(sql`CAST(${productOffers.price} AS DECIMAL)`, filters.maxPrice));
+    }
+
+    if (filters.retailers && filters.retailers.length > 0) {
+      conditions.push(inArray(productOffers.retailerId, filters.retailers));
+    }
+
+    if (filters.minRating) {
+      conditions.push(gte(sql`CAST(${productOffers.rating} AS DECIMAL)`, filters.minRating));
+    }
+
+    if (filters.availability && filters.availability.length > 0) {
+      conditions.push(inArray(productOffers.availability, filters.availability));
+    }
+
+    // Build the complete query with conditions and sorting
+    let query = db
+      .select({
+        product: products,
+        offer: productOffers,
+        retailer: retailers
+      })
+      .from(products)
+      .innerJoin(productOffers, eq(products.id, productOffers.productId))
+      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(and(...conditions));
+
+    // Apply sorting
+    if (filters.sortBy) {
+      switch (filters.sortBy) {
+        case "price_low":
+          query = query.orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`));
+          break;
+        case "price_high":
+          query = query.orderBy(desc(sql`CAST(${productOffers.price} AS DECIMAL)`));
+          break;
+        case "rating":
+          query = query.orderBy(desc(sql`CAST(${productOffers.rating} AS DECIMAL)`));
+          break;
+        case "popularity":
+          query = query.orderBy(desc(productOffers.reviewCount));
+          break;
+      }
+    }
+
+    const results = await query;
+
+    // Group by product and calculate best prices
+    const productMap = new Map<number, ProductWithOffers>();
+
+    for (const row of results) {
+      const { product, offer, retailer } = row;
+      
+      if (!productMap.has(product.id)) {
+        productMap.set(product.id, {
+          ...product,
+          offers: []
+        });
+      }
+
+      const productWithOffers = productMap.get(product.id)!;
+      productWithOffers.offers.push({
+        ...offer,
+        retailer
+      });
+    }
+
+    // Calculate best prices and savings
+    const finalProducts = Array.from(productMap.values()).map(product => {
+      const prices = product.offers.map(offer => parseFloat(offer.price));
+      const bestPrice = Math.min(...prices);
+      
+      const originalPrices = product.offers
+        .map(offer => offer.originalPrice ? parseFloat(offer.originalPrice) : null)
+        .filter(price => price !== null) as number[];
+      
+      const avgOriginalPrice = originalPrices.length > 0 ? 
+        originalPrices.reduce((sum, price) => sum + price, 0) / originalPrices.length : null;
+      
+      const savings = avgOriginalPrice ? avgOriginalPrice - bestPrice : null;
+      const savingsPercentage = savings && avgOriginalPrice ? 
+        Math.round((savings / avgOriginalPrice) * 100) : null;
+
+      return {
+        ...product,
+        bestPrice,
+        savings: savings || undefined,
+        savingsPercentage: savingsPercentage || undefined,
+      };
+    });
+
+    return finalProducts;
+  }
+
+  async getProductById(id: number): Promise<ProductWithOffers | undefined> {
+    const productResult = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1);
+
+    if (productResult.length === 0) return undefined;
+
+    const product = productResult[0];
+    const offers = await this.getProductOffers(id);
+    
+    const prices = offers.map(offer => parseFloat(offer.price));
+    const bestPrice = prices.length > 0 ? Math.min(...prices) : undefined;
+
+    return {
+      ...product,
+      offers,
+      bestPrice,
+    };
+  }
+
+  async getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]> {
+    const result = await db
+      .select({
+        offer: productOffers,
+        retailer: retailers
+      })
+      .from(productOffers)
+      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(eq(productOffers.productId, productId));
+
+    return result.map(row => ({
+      ...row.offer,
+      retailer: row.retailer
+    }));
+  }
+
+  async createProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
+    const [result] = await db
+      .insert(productOffers)
+      .values({
+        ...offer,
+        availability: offer.availability || null,
+        rating: offer.rating || null,
+        originalPrice: offer.originalPrice || null,
+        reviewCount: offer.reviewCount || null,
+        shippingInfo: offer.shippingInfo || null,
+        dealType: offer.dealType || null,
+        productUrl: offer.productUrl || null
+      })
+      .returning();
+    return result;
+  }
+}
+
+// Initialize storage - use database when DATABASE_URL is available
+export const storage = process.env.DATABASE_URL 
+  ? new DatabaseStorage() 
+  : new MemStorage();
