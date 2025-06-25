@@ -388,8 +388,8 @@ export class DatabaseStorage implements IStorage {
       conditions.push(inArray(productOffers.availability, filters.availability));
     }
 
-    // Build the complete query with conditions and sorting
-    let query = db
+    // Build the complete query with conditions
+    let baseQuery = db
       .select({
         product: products,
         offer: productOffers,
@@ -400,25 +400,28 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
       .where(and(...conditions));
 
-    // Apply sorting
+    // Apply sorting by building a new query
+    let results;
     if (filters.sortBy) {
       switch (filters.sortBy) {
         case "price_low":
-          query = query.orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`));
+          results = await baseQuery.orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`));
           break;
         case "price_high":
-          query = query.orderBy(desc(sql`CAST(${productOffers.price} AS DECIMAL)`));
+          results = await baseQuery.orderBy(desc(sql`CAST(${productOffers.price} AS DECIMAL)`));
           break;
         case "rating":
-          query = query.orderBy(desc(sql`CAST(${productOffers.rating} AS DECIMAL)`));
+          results = await baseQuery.orderBy(desc(sql`CAST(${productOffers.rating} AS DECIMAL)`));
           break;
         case "popularity":
-          query = query.orderBy(desc(productOffers.reviewCount));
+          results = await baseQuery.orderBy(desc(productOffers.reviewCount));
           break;
+        default:
+          results = await baseQuery;
       }
+    } else {
+      results = await baseQuery;
     }
-
-    const results = await query;
 
     // Group by product and calculate best prices
     const productMap = new Map<number, ProductWithOffers>();
