@@ -127,7 +127,7 @@ export class DataExtractionAgent extends BaseAgent {
     const userAgent = this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
     
     // Add random delay to avoid detection
-    await ScraperUtils.randomDelay(1000, 3000);
+    await ScraperUtils.delay(1500, true);
     
     try {
       const response = await axios.get(url, {
@@ -310,10 +310,10 @@ export class DataExtractionAgent extends BaseAgent {
         }
       });
 
-      this.logInfo(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
+      console.log(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
       
     } catch (error) {
-      this.logError(`Failed to store product data: ${error}`);
+      console.error(`Failed to store product data:`, error);
       throw error;
     }
   }
