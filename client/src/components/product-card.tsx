@@ -56,8 +56,8 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
             />
           ))}
         </div>
-        <span className="text-sm text-gray-600">{rating}</span>
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-gray-600 dark:text-gray-400">{rating}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">
           ({bestOffer.reviewCount?.toLocaleString() || 0})
         </span>
       </div>
@@ -101,11 +101,11 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
       <div className="p-6 space-y-4">
         {/* Product info */}
         <div className="space-y-2">
-          <h3 className="font-bold text-xl text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
+          <h3 className="font-bold text-xl text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
             {product.name}
           </h3>
           {product.brand && (
-            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               {product.brand}
             </p>
           )}
@@ -117,11 +117,11 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
         {/* Pricing */}
         <div className="space-y-2">
           <div className="flex items-baseline space-x-2">
-            <span className="text-3xl font-black text-gray-900">
+            <span className="text-3xl font-black text-gray-900 dark:text-white">
               ${currentPrice.toFixed(2)}
             </span>
             {savings > 0 && (
-              <span className="text-lg text-gray-400 line-through">
+              <span className="text-lg text-gray-400 dark:text-gray-500 line-through">
                 ${originalPrice.toFixed(2)}
               </span>
             )}
@@ -168,9 +168,9 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
         </div>
         
         {/* Retailer info */}
-        <div className="pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500 text-center font-medium">
-            Available at <span className="text-gray-700">{bestOffer.retailer.name}</span>
+        <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+          <p className="text-xs text-gray-500 dark:text-gray-400 text-center font-medium">
+            Available at <span className="text-gray-700 dark:text-gray-300">{bestOffer.retailer.name}</span>
           </p>
         </div>
       </div>
