@@ -2,7 +2,7 @@ import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { MessageSquare, Search, Home, User, LogOut, Bell, Settings, Menu, X } from 'lucide-react';
 import { useAuth, useLogout } from '@/hooks/use-auth';
 import { useState } from 'react';
@@ -41,6 +41,9 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Navigation Menu</DialogTitle>
+        </DialogHeader>
         <div className="flex flex-col space-y-4 p-4">
           <Link href="/" onClick={() => setMobileMenuOpen(false)}>
             <Button
