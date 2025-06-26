@@ -171,6 +171,27 @@ export function ProductManagement() {
     createProductMutation.mutate(newProduct);
   };
 
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const updateData = {
+      name: formData.get('name') as string,
+      description: formData.get('description') as string,
+      category: formData.get('category') as string,
+      brand: formData.get('brand') as string,
+      model: formData.get('model') as string,
+      imageUrl: formData.get('imageUrl') as string,
+    };
+    
+    editProductMutation.mutate({ id: editingProduct.id, data: updateData });
+  };
+
   const handleDeleteProduct = (productId: number) => {
     if (window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
       deleteProductMutation.mutate(productId);
@@ -425,7 +446,11 @@ export function ProductManagement() {
                       <Button variant="ghost" size="sm">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditProduct(product)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button 
@@ -465,6 +490,107 @@ export function ProductManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Edit Product
+            </DialogTitle>
+            <DialogDescription>
+              Update product information and settings
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-name">Product Name</Label>
+                <Input
+                  id="edit-product-name"
+                  name="name"
+                  defaultValue={editingProduct?.name || ""}
+                  placeholder="e.g., iPhone 15 Pro"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-brand">Brand</Label>
+                <Input
+                  id="edit-product-brand"
+                  name="brand"
+                  defaultValue={editingProduct?.brand || ""}
+                  placeholder="e.g., Apple"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-category">Category</Label>
+                <Select name="category" defaultValue={editingProduct?.category || ""}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Electronics">Electronics</SelectItem>
+                    <SelectItem value="Home & Garden">Home & Garden</SelectItem>
+                    <SelectItem value="Clothing">Clothing</SelectItem>
+                    <SelectItem value="Sports">Sports</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-model">Model</Label>
+                <Input
+                  id="edit-product-model"
+                  name="model"
+                  defaultValue={editingProduct?.model || ""}
+                  placeholder="e.g., A2848"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-product-description">Description</Label>
+              <Textarea
+                id="edit-product-description"
+                name="description"
+                defaultValue={editingProduct?.description || ""}
+                placeholder="Detailed product description..."
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-product-image">Image URL</Label>
+              <Input
+                id="edit-product-image"
+                name="imageUrl"
+                type="url"
+                defaultValue={editingProduct?.imageUrl || ""}
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditingProduct(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={editProductMutation.isPending}
+              >
+                {editProductMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
