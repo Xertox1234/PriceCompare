@@ -31,7 +31,7 @@ export function ProductGrid({ products, isLoading, error, onAddToComparison }: P
       <section className="flex-1" aria-label="Loading products" role="status" aria-live="polite">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+            <div key={i} className="bg-card rounded-lg shadow-sm border overflow-hidden">
               <Skeleton className="w-full h-48" />
               <div className="p-4 space-y-3">
                 <Skeleton className="h-6 w-3/4" />

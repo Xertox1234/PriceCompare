@@ -117,11 +117,11 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
         {/* Pricing */}
         <div className="space-y-2">
           <div className="flex items-baseline space-x-2">
-            <span className="text-3xl font-black text-gray-900 dark:text-white">
+            <span className="text-3xl font-black text-foreground">
               ${currentPrice.toFixed(2)}
             </span>
             {savings > 0 && (
-              <span className="text-lg text-gray-400 dark:text-gray-500 line-through">
+              <span className="text-lg text-muted-foreground line-through">
                 ${originalPrice.toFixed(2)}
               </span>
             )}
@@ -168,9 +168,9 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
         </div>
         
         {/* Retailer info */}
-        <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center font-medium">
-            Available at <span className="text-gray-700 dark:text-gray-300">{bestOffer.retailer.name}</span>
+        <div className="pt-3 border-t border-border">
+          <p className="text-xs text-muted-foreground text-center font-medium">
+            Available at <span className="text-foreground">{bestOffer.retailer.name}</span>
           </p>
         </div>
       </div>
