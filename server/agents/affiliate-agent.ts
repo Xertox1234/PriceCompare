@@ -56,19 +56,16 @@ export class AffiliateLinkAgent extends BaseAgent {
 
     try {
       // Get offers without affiliate links
-      let query = db.select()
-        .from(productOffers)
-        .where(
-          and(
-            isNull(productOffers.affiliateUrl),
-            eq(productOffers.productUrl, productOffers.productUrl) // Ensure productUrl exists
-          )
-        )
-        .limit(limit);
-
+      const whereConditions = [isNull(productOffers.affiliateUrl)];
+      
       if (retailerId) {
-        query = query.where(eq(productOffers.retailerId, retailerId));
+        whereConditions.push(eq(productOffers.retailerId, retailerId));
       }
+
+      const query = db.select()
+        .from(productOffers)
+        .where(and(...whereConditions))
+        .limit(limit);
 
       const offers = await query;
       const results = [];

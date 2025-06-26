@@ -3,6 +3,7 @@ import compression from "compression";
 import session from "express-session";
 import { registerRoutes } from "./routes";
 import { registerScrapingRoutes } from "./scraping-routes";
+import { registerAffiliateRoutes } from "./affiliate-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
@@ -75,6 +76,9 @@ app.use((req, res, next) => {
   
   // Register AI scraping routes
   registerScrapingRoutes(app);
+  
+  // Register affiliate routes
+  registerAffiliateRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

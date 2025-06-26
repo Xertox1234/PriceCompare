@@ -357,7 +357,7 @@ export class AffiliateLinkService {
       `;
 
       const params = retailerId ? [retailerId] : [];
-      const result = await db.execute({ sql: query, args: params });
+      const result = await db.$client.query(query, params);
       
       return result.rows[0] || {
         total_offers: 0,
