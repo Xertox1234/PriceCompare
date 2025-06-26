@@ -35,7 +35,7 @@ export class DataExtractionAgent extends BaseAgent {
   private extractionStrategies: Map<string, any>;
 
   constructor() {
-    super('Data Extraction Agent', 3, 15000); // 3 concurrent, 15 second timeout
+    super('Data Extraction Agent');
     
     this.userAgents = [
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -79,22 +79,22 @@ export class DataExtractionAgent extends BaseAgent {
   }
 
   async processTask(task: ExtractionTask): Promise<any> {
-    this.logInfo(`Starting extraction for ${task.url}`);
+    console.log(`Starting extraction for ${task.url}`);
     
     try {
       const extractedData = await this.extractProductData(task.url, task.retailer);
       
       if (extractedData.price) {
         await this.storeProductData(extractedData, task.url, task.retailer, task.searchQuery);
-        this.logInfo(`Successfully extracted and stored product: ${extractedData.title}`);
+        console.log(`Successfully extracted and stored product: ${extractedData.title}`);
         return { success: true, data: extractedData };
       } else {
-        this.logWarning(`No price found for ${task.url}`);
+        console.warn(`No price found for ${task.url}`);
         return { success: false, reason: 'No price data found' };
       }
       
     } catch (error) {
-      this.logError(`Extraction failed for ${task.url}: ${error}`);
+      console.error(`Extraction failed for ${task.url}:`, error);
       throw error;
     }
   }
