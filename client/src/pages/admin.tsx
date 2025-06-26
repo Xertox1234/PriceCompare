@@ -330,45 +330,11 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="products" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Product Management
-                </CardTitle>
-                <CardDescription>
-                  Manage your product catalog and pricing data
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Product management features coming soon</p>
-                  <p className="text-sm">Add, edit, and organize your product catalog</p>
-                </div>
-              </CardContent>
-            </Card>
+            <ProductManagement />
           </TabsContent>
 
           <TabsContent value="retailers" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Store className="h-5 w-5" />
-                  Retailer Management
-                </CardTitle>
-                <CardDescription>
-                  Manage retail partners and their integration settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Store className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Retailer management features coming soon</p>
-                  <p className="text-sm">Add, configure, and manage retail partnerships</p>
-                </div>
-              </CardContent>
-            </Card>
+            <RetailerManagement />
           </TabsContent>
 
           <TabsContent value="categories" className="space-y-6">
