@@ -92,7 +92,7 @@ function ForumPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
         {/* Forum Guidelines Card */}
-        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700">
+        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <CardHeader className="bg-white dark:bg-gray-800">
             <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -122,7 +122,7 @@ function ForumPage() {
         </Card>
 
         {/* Popular Topics Card */}
-        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700">
+        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <CardHeader className="bg-white dark:bg-gray-800">
             <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -148,7 +148,7 @@ function ForumPage() {
         </Card>
 
         {/* Community Stats Card */}
-        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700">
+        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <CardHeader className="bg-white dark:bg-gray-800">
             <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
