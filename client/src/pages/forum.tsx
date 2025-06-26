@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmbeddedForum } from '@/components/forum/embedded-forum';
+import { NotificationBell } from '@/components/forum/notification-bell';
+import { ForumSearch } from '@/components/forum/forum-search';
 import { apiRequest } from '@/lib/queryClient';
+import { Search, Users, TrendingUp } from 'lucide-react';
 import type { ForumCategory } from '@shared/schema';
 
 function ForumPage() {
@@ -50,14 +53,22 @@ function ForumPage() {
       </div>
 
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All Discussions</TabsTrigger>
+          <TabsTrigger value="search" className="flex items-center space-x-2">
+            <Search className="h-4 w-4" />
+            <span>Search</span>
+          </TabsTrigger>
           {categories?.slice(0, 4).map((category) => (
             <TabsTrigger key={category.id} value={category.slug}>
               {category.name}
             </TabsTrigger>
           ))}
         </TabsList>
+        
+        <TabsContent value="search" className="mt-6">
+          <ForumSearch />
+        </TabsContent>
         
         <TabsContent value="all" className="mt-6">
           <EmbeddedForum title="All Community Discussions" />
