@@ -8,6 +8,12 @@ export const retailers = pgTable("retailers", {
   logo: text("logo"),
   website: text("website"),
   isActive: boolean("is_active").default(true),
+  affiliateId: varchar("affiliate_id", { length: 100 }),
+  affiliateProgram: varchar("affiliate_program", { length: 50 }),
+  baseAffiliateUrl: text("base_affiliate_url"),
+  commissionRate: decimal("commission_rate", { precision: 4, scale: 2 }),
+  affiliateStatus: varchar("affiliate_status", { length: 20 }).default("inactive"),
+  affiliateConfig: text("affiliate_config"), // JSON string for configuration
 });
 
 export const products = pgTable("products", {
@@ -33,6 +39,10 @@ export const productOffers = pgTable("product_offers", {
   shippingInfo: text("shipping_info"),
   dealType: text("deal_type"), // best_price, bundle_deal, limited_time, etc.
   productUrl: text("product_url"),
+  affiliateUrl: text("affiliate_url"),
+  linkHealthStatus: varchar("link_health_status", { length: 20 }).default("unknown"),
+  lastLinkCheck: timestamp("last_link_check"),
+  clickCount: integer("click_count").default(0),
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
