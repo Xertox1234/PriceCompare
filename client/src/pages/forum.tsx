@@ -92,30 +92,30 @@ function ForumPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
         {/* Forum Guidelines Card */}
-        <Card className="hover:shadow-lg transition-shadow border border-gray-200">
-          <CardHeader className="bg-white dark:bg-white">
+        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700">
+          <CardHeader className="bg-white dark:bg-gray-800">
             <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Forum Guidelines
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 bg-white dark:bg-gray-800">
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>Be respectful to other community members</span>
+                <span className="text-gray-700 dark:text-gray-300">Be respectful to other community members</span>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>Share honest product experiences</span>
+                <span className="text-gray-700 dark:text-gray-300">Share honest product experiences</span>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>No spam or promotional content</span>
+                <span className="text-gray-700 dark:text-gray-300">No spam or promotional content</span>
               </li>
-              <li className="flex items-start gap-3">
+              <li className="flex items-start gap-3">  
                 <div className="w-1.5 h-1.5 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>Keep discussions relevant to products</span>
+                <span className="text-gray-700 dark:text-gray-300">Keep discussions relevant to products</span>
               </li>
             </ul>
           </CardContent>

@@ -197,7 +197,7 @@ function TopicList({
       {topics.map((topic, index) => (
         <div
           key={topic.id}
-          className="bg-white dark:bg-white rounded-lg p-4 hover:shadow-md cursor-pointer transition-all duration-200 border border-gray-200"
+          className="bg-white dark:bg-gray-800 rounded-lg p-4 hover:shadow-md cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-700"
           onClick={() => onSelectTopic(topic.id)}
         >
           <div className="flex items-start justify-between">
@@ -215,18 +215,18 @@ function TopicList({
                     Locked
                   </div>
                 )}
-                <h3 className="font-semibold text-black dark:text-black hover:text-blue-600 dark:hover:text-blue-600 transition-colors">
+                <h3 className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   {topic.title}
                 </h3>
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1 text-gray-700 dark:text-gray-700">
+                <div className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
                   <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                     {topic.author.username.charAt(0).toUpperCase()}
                   </div>
                   <span className="font-medium">{topic.author.username}</span>
                 </div>
-                <div className="flex items-center gap-1 text-gray-600 dark:text-gray-600">
+                <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
                   <Clock className="h-3 w-3" />
                   {formatDistanceToNow(new Date(topic.createdAt), { addSuffix: true })}
                 </div>
@@ -244,7 +244,7 @@ function TopicList({
               </div>
             </div>
             <div className="text-right">
-              <Badge className="bg-gray-600 text-white border-0 font-medium">
+              <Badge className="bg-gray-600 dark:bg-gray-700 text-white border-0 font-medium">
                 {topic.postCount} replies
               </Badge>
             </div>
@@ -299,7 +299,7 @@ function TopicPosts({
       {posts.map((post, index) => (
         <div 
           key={post.id} 
-          className="bg-white dark:bg-white rounded-lg p-4 transition-all duration-200 hover:shadow-md border border-gray-200"
+          className="bg-white dark:bg-gray-800 rounded-lg p-4 transition-all duration-200 hover:shadow-md border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center gap-3 mb-3">
             <Avatar className="h-10 w-10 ring-2 ring-indigo-200 dark:ring-indigo-800">
@@ -333,7 +333,7 @@ function TopicPosts({
       ))}
 
       {!isLocked && (
-        <form onSubmit={handleSubmit} className="rounded-lg p-4 bg-white dark:bg-white border border-gray-200">
+        <form onSubmit={handleSubmit} className="rounded-lg p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center">
               <User className="h-4 w-4 text-white" />
