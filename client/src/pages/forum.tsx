@@ -114,7 +114,7 @@ function ForumPage() {
                 <span>No spam or promotional content</span>
               </li>
               <li className="flex items-start gap-3">
-                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
                 <span>Keep discussions relevant to products</span>
               </li>
             </ul>
