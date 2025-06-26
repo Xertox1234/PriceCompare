@@ -69,6 +69,7 @@ export function ProductManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [newProduct, setNewProduct] = useState<CreateProductForm>({
     name: "",
     description: "",
@@ -78,9 +79,9 @@ export function ProductManagement() {
     imageUrl: ""
   });
 
-  // Fetch products with search and filtering
+  // Fetch products from admin endpoint
   const { data: products = [], isLoading: productsLoading } = useQuery({
-    queryKey: ['/api/products/search', { query: searchQuery, category: selectedCategory !== 'all' ? selectedCategory : undefined }],
+    queryKey: ['/api/admin/products'],
     enabled: true
   });
 
@@ -93,7 +94,7 @@ export function ProductManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
       setShowCreateForm(false);
       setNewProduct({
         name: "",
@@ -117,6 +118,31 @@ export function ProductManagement() {
     }
   });
 
+  // Edit product mutation
+  const editProductMutation = useMutation({
+    mutationFn: async (productData: { id: number; data: Partial<CreateProductForm> }) => {
+      return apiRequest(`/api/admin/products/${productData.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(productData.data)
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+      setEditingProduct(null);
+      toast({
+        title: "Product Updated",
+        description: "Product has been successfully updated.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update product.",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Delete product mutation
   const deleteProductMutation = useMutation({
     mutationFn: async (productId: number) => {
@@ -125,7 +151,7 @@ export function ProductManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
       toast({
         title: "Product Deleted",
         description: "Product has been removed from catalog.",

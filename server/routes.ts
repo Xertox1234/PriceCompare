@@ -470,6 +470,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Product Management Endpoints
+  app.get("/api/admin/products", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const products = await db.select({
+        id: schema.products.id,
+        name: schema.products.name,
+        description: schema.products.description,
+        category: schema.products.category,
+        brand: schema.products.brand,
+        model: schema.products.model,
+        imageUrl: schema.products.imageUrl,
+        status: schema.products.status,
+        createdAt: schema.products.createdAt,
+        updatedAt: schema.products.updatedAt
+      })
+      .from(schema.products)
+      .orderBy(desc(schema.products.createdAt));
+
+      res.json(products);
+    } catch (error) {
+      console.error('Error fetching admin products:', error);
+      res.status(500).json({ error: 'Failed to fetch products' });
+    }
+  });
+
+  app.get("/api/admin/products/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const productId = parseInt(req.params.id);
+      
+      const [product] = await db.select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId));
+
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      // Get product offers for this product
+      const offers = await db.select({
+        id: schema.productOffers.id,
+        price: schema.productOffers.price,
+        originalPrice: schema.productOffers.originalPrice,
+        availability: schema.productOffers.availability,
+        url: schema.productOffers.url,
+        affiliateUrl: schema.productOffers.affiliateUrl,
+        retailer: {
+          id: schema.retailers.id,
+          name: schema.retailers.name,
+          logoUrl: schema.retailers.logoUrl
+        }
+      })
+      .from(schema.productOffers)
+      .leftJoin(schema.retailers, eq(schema.productOffers.retailerId, schema.retailers.id))
+      .where(eq(schema.productOffers.productId, productId));
+
+      res.json({ ...product, offers });
+    } catch (error) {
+      console.error('Error fetching product details:', error);
+      res.status(500).json({ error: 'Failed to fetch product details' });
+    }
+  });
+
+  app.post("/api/admin/products", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const productData = insertProductSchema.parse(req.body);
+      
+      const [newProduct] = await db.insert(schema.products)
+        .values(productData)
+        .returning();
+
+      res.status(201).json(newProduct);
+    } catch (error) {
+      console.error('Error creating product:', error);
+      res.status(500).json({ error: 'Failed to create product' });
+    }
+  });
+
+  app.put("/api/admin/products/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const updateData = insertProductSchema.partial().parse(req.body);
+      
+      const [updatedProduct] = await db.update(schema.products)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(eq(schema.products.id, productId))
+        .returning();
+
+      if (!updatedProduct) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error('Error updating product:', error);
+      res.status(500).json({ error: 'Failed to update product' });
+    }
+  });
+
+  app.delete("/api/admin/products/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const productId = parseInt(req.params.id);
+      
+      // First delete related offers
+      await db.delete(schema.productOffers)
+        .where(eq(schema.productOffers.productId, productId));
+      
+      // Then delete the product
+      const [deletedProduct] = await db.delete(schema.products)
+        .where(eq(schema.products.id, productId))
+        .returning();
+
+      if (!deletedProduct) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      res.json({ success: true, message: 'Product deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      res.status(500).json({ error: 'Failed to delete product' });
+    }
+  });
+
+  // Admin Retailer Management Endpoints
+  app.get("/api/admin/retailers", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const retailers = await db.select()
+        .from(schema.retailers)
+        .orderBy(asc(schema.retailers.name));
+
+      res.json(retailers);
+    } catch (error) {
+      console.error('Error fetching retailers:', error);
+      res.status(500).json({ error: 'Failed to fetch retailers' });
+    }
+  });
+
+  app.post("/api/admin/retailers", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const retailerData = insertRetailerSchema.parse(req.body);
+      
+      const [newRetailer] = await db.insert(schema.retailers)
+        .values(retailerData)
+        .returning();
+
+      res.status(201).json(newRetailer);
+    } catch (error) {
+      console.error('Error creating retailer:', error);
+      res.status(500).json({ error: 'Failed to create retailer' });
+    }
+  });
+
+  app.put("/api/admin/retailers/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const retailerId = parseInt(req.params.id);
+      const updateData = insertRetailerSchema.partial().parse(req.body);
+      
+      const [updatedRetailer] = await db.update(schema.retailers)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(eq(schema.retailers.id, retailerId))
+        .returning();
+
+      if (!updatedRetailer) {
+        return res.status(404).json({ error: 'Retailer not found' });
+      }
+
+      res.json(updatedRetailer);
+    } catch (error) {
+      console.error('Error updating retailer:', error);
+      res.status(500).json({ error: 'Failed to update retailer' });
+    }
+  });
+
+  app.delete("/api/admin/retailers/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const retailerId = parseInt(req.params.id);
+      
+      // First delete related offers
+      await db.delete(schema.productOffers)
+        .where(eq(schema.productOffers.retailerId, retailerId));
+      
+      // Then delete the retailer
+      const [deletedRetailer] = await db.delete(schema.retailers)
+        .where(eq(schema.retailers.id, retailerId))
+        .returning();
+
+      if (!deletedRetailer) {
+        return res.status(404).json({ error: 'Retailer not found' });
+      }
+
+      res.json({ success: true, message: 'Retailer deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting retailer:', error);
+      res.status(500).json({ error: 'Failed to delete retailer' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
