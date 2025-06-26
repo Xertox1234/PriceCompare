@@ -135,7 +135,7 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
             onClick={() => setShowNewTopic(true)}
             size="sm"
             disabled={showNewTopic}
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
+            className="bg-blue-600 hover:bg-blue-700 text-white border-0"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Topic
@@ -221,7 +221,7 @@ function TopicList({
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1 text-gray-700 dark:text-gray-700">
-                  <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                  <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                     {topic.author.username.charAt(0).toUpperCase()}
                   </div>
                   <span className="font-medium">{topic.author.username}</span>
@@ -244,7 +244,7 @@ function TopicList({
               </div>
             </div>
             <div className="text-right">
-              <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 font-medium">
+              <Badge className="bg-gray-600 text-white border-0 font-medium">
                 {topic.postCount} replies
               </Badge>
             </div>

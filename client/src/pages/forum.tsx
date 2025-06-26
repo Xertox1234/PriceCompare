@@ -39,28 +39,34 @@ function ForumPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Header with Gradient */}
-      <div className="relative bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-8 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-black/10 rounded-2xl"></div>
+      {/* Hero Header with Neutral Design */}
+      <div className="relative bg-gradient-to-r from-gray-700 to-gray-800 rounded-xl p-6 md:p-8 text-white overflow-hidden">
         <div className="relative z-10">
-          <h1 className="text-4xl font-bold mb-2">Community Forum</h1>
-          <p className="text-blue-100 text-lg">
+          <h1 className="text-2xl md:text-4xl font-bold mb-2">Community Forum</h1>
+          <p className="text-gray-300 text-base md:text-lg">
             Discuss products, share reviews, and connect with other shoppers
           </p>
         </div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
+        <div className="absolute top-0 right-0 w-20 h-20 md:w-32 md:h-32 bg-white/5 rounded-full -translate-y-10 translate-x-10 md:-translate-y-16 md:translate-x-16"></div>
+        <div className="absolute bottom-0 left-0 w-16 h-16 md:w-24 md:h-24 bg-white/5 rounded-full translate-y-8 -translate-x-8 md:translate-y-12 md:-translate-x-12"></div>
       </div>
 
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all">All Discussions</TabsTrigger>
-          <TabsTrigger value="search" className="flex items-center space-x-2">
-            <Search className="h-4 w-4" />
-            <span>Search</span>
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 gap-1">
+          <TabsTrigger value="all" className="text-xs md:text-sm px-2 md:px-4">
+            All Discussions
+          </TabsTrigger>
+          <TabsTrigger value="search" className="flex items-center space-x-1 text-xs md:text-sm px-2 md:px-4">
+            <Search className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Search</span>
+            <span className="sm:hidden">🔍</span>
           </TabsTrigger>
           {categories?.slice(0, 4).map((category) => (
-            <TabsTrigger key={category.id} value={category.slug}>
+            <TabsTrigger 
+              key={category.id} 
+              value={category.slug}
+              className="text-xs md:text-sm px-2 md:px-4 hidden md:flex"
+            >
               {category.name}
             </TabsTrigger>
           ))}

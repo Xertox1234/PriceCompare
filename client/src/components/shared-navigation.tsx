@@ -149,7 +149,7 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
   );
     
   return (
-    <nav className="flex items-center gap-2 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="flex items-center gap-2 px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Logo/Brand - Always visible */}
       <div className="flex items-center gap-2">
         <Search className="h-6 w-6 text-primary" />
