@@ -1,5 +1,6 @@
 import { db } from "../server/db";
-import { retailers, products, productOffers } from "../shared/schema";
+import { retailers, products, productOffers, users } from "../shared/schema";
+import { hashPassword } from "../server/auth";
 
 async function seedDatabase() {
   console.log("Starting database seeding...");
@@ -10,6 +11,7 @@ async function seedDatabase() {
     await db.delete(productOffers);
     await db.delete(products);
     await db.delete(retailers);
+    await db.delete(users);
 
     // Seed retailers
     console.log("Seeding retailers...");
@@ -24,6 +26,32 @@ async function seedDatabase() {
 
     const insertedRetailers = await db.insert(retailers).values(retailerData).returning();
     console.log(`Inserted ${insertedRetailers.length} retailers`);
+
+    // Seed users
+    console.log("Seeding users...");
+    const userData = [
+      {
+        username: "admin",
+        email: "admin@example.com",
+        passwordHash: await hashPassword("admin123"),
+        role: "admin"
+      },
+      {
+        username: "testuser",
+        email: "test@example.com", 
+        passwordHash: await hashPassword("password123"),
+        role: "user"
+      },
+      {
+        username: "moderator",
+        email: "mod@example.com",
+        passwordHash: await hashPassword("mod123"), 
+        role: "moderator"
+      }
+    ];
+
+    const insertedUsers = await db.insert(users).values(userData).returning();
+    console.log(`Inserted ${insertedUsers.length} users`);
 
     // Seed products
     console.log("Seeding products...");
@@ -121,6 +149,7 @@ async function seedDatabase() {
     
     // Display summary
     console.log("\nSeeding Summary:");
+    console.log(`- ${insertedUsers.length} users`);
     console.log(`- ${insertedRetailers.length} retailers`);
     console.log(`- ${insertedProducts.length} products`);
     console.log(`- ${insertedOffers.length} product offers`);
