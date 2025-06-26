@@ -200,7 +200,7 @@ export function RetailerManagement() {
     switchSourceMutation.mutate({ retailerId, source });
   };
 
-  const filteredRetailers = retailers.filter((retailer: Retailer) => {
+  const filteredRetailers = (retailers as Retailer[]).filter((retailer: Retailer) => {
     const matchesSearch = searchQuery === "" || 
       retailer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       retailer.website.toLowerCase().includes(searchQuery.toLowerCase());
@@ -367,7 +367,7 @@ export function RetailerManagement() {
                         <Switch
                           id="has-api"
                           checked={newRetailer.hasAPI}
-                          onCheckedChange={(checked) => setNewRetailer(prev => ({ ...prev, hasAPI: checked }))}
+                          onCheckedChange={(checked: boolean) => setNewRetailer(prev => ({ ...prev, hasAPI: checked }))}
                         />
                         <Label htmlFor="has-api" className="text-sm text-muted-foreground">
                           Enable API integration
