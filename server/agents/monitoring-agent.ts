@@ -95,7 +95,7 @@ export class PriceMonitoringAgent extends BaseAgent {
 
     for (const offer of staleOffers) {
       try {
-        await ScraperUtils.randomDelay(2000, 5000); // Rate limiting
+        await ScraperUtils.delay(3500, true); // Rate limiting
         
         const oldPrice = offer.price;
         const extractionResult = await dataExtractionAgent.processTask({
@@ -241,7 +241,7 @@ export class PriceMonitoringAgent extends BaseAgent {
 
     for (const offer of staleOffers) {
       try {
-        await ScraperUtils.randomDelay(3000, 7000); // Longer delays for full refresh
+        await ScraperUtils.delay(5000, true); // Longer delays for full refresh
         
         const result = await dataExtractionAgent.processTask({
           action: 'extract_product_data',
