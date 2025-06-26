@@ -352,16 +352,48 @@ export type ProductWithOffers = Product & {
   hasActiveDiscussion?: boolean;
 };
 
-// Extended types with relations
+// Enhanced forum types with Discourse-like features
+export type UserWithProfile = User & {
+  badges?: (UserBadge & { badge: Badge })[];
+  unreadNotifications?: number;
+  trustLevelName?: string;
+};
+
 export type ForumTopicWithDetails = ForumTopic & {
-  author: User;
+  author: UserWithProfile;
   category?: ForumCategory;
-  lastPost?: ForumPost & { author: User };
-  posts?: (ForumPost & { author: User })[];
+  tags?: TopicTag[];
+  lastPost?: ForumPost & { author: UserWithProfile };
+  posts?: ForumPostWithDetails[];
+  isBookmarked?: boolean;
+  userCanEdit?: boolean;
+  userCanDelete?: boolean;
+};
+
+export type ForumPostWithDetails = ForumPost & {
+  author: UserWithProfile;
+  likes?: (PostLike & { user: User })[];
+  replies?: ForumPost[];
+  mentions?: (PostMention & { mentionedUser: User })[];
+  revisions?: PostRevision[];
+  userHasLiked?: boolean;
+  userCanEdit?: boolean;
+  userCanDelete?: boolean;
 };
 
 export type ForumPostWithAuthor = ForumPost & {
   author: User;
+};
+
+export type NotificationWithDetails = Notification & {
+  relatedUser?: User;
+  relatedPost?: ForumPost;
+  relatedTopic?: ForumTopic;
+};
+
+export type PrivateMessageWithUsers = PrivateMessage & {
+  sender: User;
+  recipient: User;
 };
 
 export type SearchFilters = {
