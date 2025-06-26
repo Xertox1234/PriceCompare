@@ -76,7 +76,7 @@ export function FeaturedCategories() {
   );
 
   return (
-    <section className="py-8 bg-gray-50">
+    <section className="py-8 bg-muted">
       <div className="max-w-[1280px] mx-auto px-8">
         {/* Desktop: Grid Layout */}
         <div className="hidden md:grid md:grid-cols-3 gap-4">
