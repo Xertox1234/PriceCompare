@@ -86,11 +86,11 @@ export function FeaturedCategories() {
         </div>
 
         {/* Mobile: Carousel Layout */}
-        <div className="md:hidden relative">
-          <div className="overflow-hidden" ref={emblaRef}>
+        <div className="md:hidden relative -mx-8">
+          <div className="overflow-hidden px-8" ref={emblaRef}>
             <div className="flex">
               {categories.map((category) => (
-                <div key={category.id} className="flex-[0_0_85%] min-w-0 mr-4">
+                <div key={category.id} className="flex-[0_0_90%] min-w-0 mr-4 first:ml-0">
                   <CategoryCard category={category} />
                 </div>
               ))}
@@ -99,7 +99,7 @@ export function FeaturedCategories() {
 
           {/* Navigation Arrows */}
           <button
-            className={`absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-opacity ${
+            className={`absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-opacity ${
               prevBtnEnabled ? 'opacity-100' : 'opacity-50'
             }`}
             onClick={scrollPrev}
@@ -109,7 +109,7 @@ export function FeaturedCategories() {
           </button>
           
           <button
-            className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-opacity ${
+            className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-opacity ${
               nextBtnEnabled ? 'opacity-100' : 'opacity-50'
             }`}
             onClick={scrollNext}
