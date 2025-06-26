@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MessageSquare, Plus, Clock, User, Pin, Lock } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatDistanceToNow } from 'date-fns';
-import type { ForumTopicWithDetails, ForumPostWithAuthor } from '@/shared/schema';
+import type { ForumTopicWithDetails, ForumPostWithAuthor } from '@shared/schema';
 
 interface EmbeddedForumProps {
   productId?: number;
@@ -122,12 +122,12 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
   }
 
   return (
-    <Card className="border-0 shadow-lg">
-      <CardHeader className="bg-white dark:bg-white">
+    <Card className="border-0 shadow-lg bg-white dark:bg-gray-800">
+      <CardHeader className="bg-white dark:bg-gray-800">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-3 text-black dark:text-black">
-            <div className="p-2 bg-white dark:bg-white rounded-lg border border-gray-200">
-              <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-600" />
+          <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+            <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             {title}
           </CardTitle>
@@ -142,7 +142,7 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="bg-white dark:bg-gray-800">
         {showNewTopic && (
           <NewTopicForm
             onSubmit={(data) => createTopicMutation.mutate(data)}
@@ -185,7 +185,7 @@ function TopicList({
 
   if (!topics.length) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
+      <div className="text-center py-8 text-gray-600 dark:text-gray-400">
         <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
         <p>No discussions yet. Be the first to start a conversation!</p>
       </div>
