@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
 import { SharedNavigation } from "@/components/shared-navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,22 +50,24 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <div className="min-h-screen bg-background">
-          {/* Skip to main content link for accessibility */}
-          <a 
-            href="#main-content" 
-            className="skip-link focus-visible"
-            tabIndex={0}
-          >
-            Skip to main content
-          </a>
-          <Router />
-          <Toaster />
-        </div>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="light" storageKey="pricecompare-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="min-h-screen bg-background">
+            {/* Skip to main content link for accessibility */}
+            <a 
+              href="#main-content" 
+              className="skip-link focus-visible"
+              tabIndex={0}
+            >
+              Skip to main content
+            </a>
+            <Router />
+            <Toaster />
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

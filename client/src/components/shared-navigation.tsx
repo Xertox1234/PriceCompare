@@ -7,6 +7,7 @@ import { MessageSquare, Search, Home, User, LogOut, Bell, Settings, Menu, X } fr
 import { useAuth, useLogout } from '@/hooks/use-auth';
 import { useState } from 'react';
 import { AuthModal } from './auth/auth-modal';
+import { ThemeToggle } from './theme-toggle';
 
 interface SharedNavigationProps {
   currentPage?: 'home' | 'forum' | 'admin';
@@ -74,6 +75,14 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
               Forum
             </Button>
           </Link>
+          
+          {/* Theme Toggle */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between p-2">
+              <span className="text-sm font-medium">Theme</span>
+              <ThemeToggle />
+            </div>
+          </div>
           
           {user ? (
             <div className="flex flex-col space-y-2 pt-4 border-t">
@@ -186,6 +195,8 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
             Forum
           </Link>
         </Button>
+        
+        <ThemeToggle />
         
         {user && (
           <Button
