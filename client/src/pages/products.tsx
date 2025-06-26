@@ -49,41 +49,29 @@ export default function Products() {
       />
       
       {/* Products Section */}
-      <main className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <main className="bg-muted min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           
           {/* Search Results Header */}
           <div className="mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-black text-gray-900 dark:text-white">
+                <h1 className="text-3xl font-black text-foreground">
                   {searchQuery ? `Results for "${searchQuery}"` : "Featured Products"}
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg">
+                <p className="text-muted-foreground mt-2 text-lg">
                   {products ? products.length : 0} products found across multiple retailers
                 </p>
               </div>
               
               {/* Sort Options */}
               <div className="flex items-center space-x-4">
-                <label htmlFor="sort-select" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <label htmlFor="sort-select" className="text-sm font-semibold text-muted-foreground">
                   Sort by:
                 </label>
                 <select 
                   id="sort-select" 
-                  className="border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm"
-                  style={{
-                    outline: 'none',
-                    transition: 'all 200ms ease',
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3b82f6';
-                    e.target.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = '#d1d5db';
-                    e.target.style.boxShadow = 'none';
-                  }}
+                  className="border border-input rounded-xl px-4 py-2 text-sm bg-background text-foreground shadow-sm outline-none transition-all duration-200 focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   value={filters.sortBy || "popularity"}
                   onChange={(e) => handleFilterChange({ sortBy: e.target.value as SearchFilters["sortBy"] })}
                 >

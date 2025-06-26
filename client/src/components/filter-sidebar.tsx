@@ -68,7 +68,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
                 id="min-price"
                 type="number"
                 placeholder="Min"
-                className="focus:ring-2 focus:ring-primary focus:border-primary"
+                className="focus:ring-2 focus:ring-ring focus:border-ring"
                 value={filters.minPrice || ""}
                 onChange={(e) => handlePriceRangeChange("minPrice", e.target.value)}
                 aria-label="Minimum price"
@@ -81,7 +81,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
                 id="max-price"
                 type="number"
                 placeholder="Max"
-                className="focus:ring-2 focus:ring-primary focus:border-primary"
+                className="focus:ring-2 focus:ring-ring focus:border-ring"
                 value={filters.maxPrice || ""}
                 onChange={(e) => handlePriceRangeChange("maxPrice", e.target.value)}
                 aria-label="Maximum price"
