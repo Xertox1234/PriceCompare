@@ -4,7 +4,8 @@ import { searchQueries, trendingProducts } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import type { InsertSearchQuery, TrendingProduct } from '../../shared/schema.js';
 import OpenAI from 'openai';
-import axios from 'axios';
+import { googleSearchService } from '../services/google-search.js';
+import type { GoogleSearchResult } from '../services/google-search.js';
 
 interface SearchTaskData {
   productName: string;
@@ -178,36 +179,31 @@ export class SearchOrchestrationAgent extends BaseAgent {
     retailerName: string, 
     config: RetailerConfig
   ): Promise<SearchResult[]> {
-    // For now, using Google Custom Search as a proxy
-    // In production, this would use individual retailer APIs or careful scraping
-    
-    if (!process.env.GOOGLE_CUSTOM_SEARCH_API_KEY || !process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID) {
-      console.warn('Google Custom Search not configured, using simulated results');
-      return this.simulateSearchResults(query, retailerName);
-    }
-
     try {
-      const searchUrl = `https://www.googleapis.com/customsearch/v1`;
-      const params = {
-        key: process.env.GOOGLE_CUSTOM_SEARCH_API_KEY,
-        cx: process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID,
-        q: `${query} site:${this.getRetailerDomain(retailerName)}`,
-        num: 10
-      };
+      if (!googleSearchService.isConfigured()) {
+        throw new Error('Google Custom Search API not configured');
+      }
 
-      const response = await axios.get(searchUrl, { params });
-      const items = response.data.items || [];
-
-      return items.map((item: any) => ({
+      const retailerDomain = this.getRetailerDomain(retailerName);
+      const results = await googleSearchService.searchRetailer(query, retailerDomain, { num: 10 });
+      
+      // Convert Google search results to our SearchResult format
+      const searchResults = results.map((item: GoogleSearchResult) => ({
         query,
         retailer: retailerName,
         urls: [item.link],
         relevanceScore: this.calculateRelevanceScore(item.title, item.snippet, query)
       }));
 
+      // Filter to only include product URLs
+      const productUrls = googleSearchService.extractProductUrls(results);
+      return searchResults.filter(result => 
+        productUrls.some(url => result.urls.includes(url))
+      );
+
     } catch (error) {
       console.error(`Google Custom Search failed for ${retailerName}:`, error);
-      return this.simulateSearchResults(query, retailerName);
+      throw error; // Don't fall back to simulated data
     }
   }
 
