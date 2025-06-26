@@ -1,6 +1,8 @@
 import { BaseAgent, AgentConfig, TaskResult } from './base-agent.js';
 import { ProductDiscoveryAgent } from './discovery-agent.js';
 import { SearchOrchestrationAgent } from './search-agent.js';
+import { DataExtractionAgent } from './extraction-agent.js';
+import { PriceMonitoringAgent } from './monitoring-agent.js';
 import { db } from '../db.js';
 import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema.js';
 import { eq, and, lt } from 'drizzle-orm';

@@ -309,4 +309,163 @@ export function registerScrapingRoutes(app: Express): void {
       });
     }
   });
+
+  // Extract product data from specific URLs
+  app.post("/api/scraping/extract-product", async (req: Request, res: Response) => {
+    try {
+      const { url, retailer, searchQuery } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ error: "Product URL is required" });
+      }
+
+      // Import the extraction agent dynamically to avoid initialization issues
+      const { dataExtractionAgent } = await import('./agents/extraction-agent');
+      
+      const result = await dataExtractionAgent.processTask({
+        action: 'extract_product_data',
+        url,
+        retailer: retailer || 'unknown',
+        searchQuery
+      });
+
+      res.json({
+        success: result.success,
+        data: result.data,
+        message: result.success ? 'Product data extracted successfully' : 'Extraction failed'
+      });
+
+    } catch (error) {
+      console.error('Product extraction failed:', error);
+      res.status(500).json({
+        error: "Product extraction failed",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Start price monitoring for existing products
+  app.post("/api/scraping/start-monitoring", async (req: Request, res: Response) => {
+    try {
+      const { maxAge = 24 } = req.body;
+      
+      // Import the monitoring agent dynamically
+      const { priceMonitoringAgent } = await import('./agents/monitoring-agent');
+      
+      // Start monitoring tasks in background
+      priceMonitoringAgent.scheduleMonitoringTasks().catch(error => {
+        console.error('Monitoring tasks failed:', error);
+      });
+
+      res.json({
+        success: true,
+        message: "Price monitoring initiated",
+        monitoring: {
+          maxAge: maxAge + " hours",
+          status: "active"
+        }
+      });
+
+    } catch (error) {
+      console.error('Failed to start monitoring:', error);
+      res.status(500).json({
+        error: "Failed to start monitoring",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get monitoring statistics
+  app.get("/api/scraping/monitoring-stats", async (req: Request, res: Response) => {
+    try {
+      // Import the monitoring agent dynamically
+      const { priceMonitoringAgent } = await import('./agents/monitoring-agent');
+      
+      const stats = await priceMonitoringAgent.getMonitoringStats();
+      
+      res.json({
+        success: true,
+        stats
+      });
+
+    } catch (error) {
+      console.error('Failed to get monitoring stats:', error);
+      res.status(500).json({
+        error: "Failed to get monitoring statistics",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Run complete product discovery and extraction workflow
+  app.post("/api/scraping/complete-workflow", async (req: Request, res: Response) => {
+    try {
+      const { searchQuery, maxResults = 5 } = req.body;
+      
+      if (!searchQuery) {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+
+      // Step 1: Search for products using Google Custom Search
+      const searchResults = await googleSearchService.searchMultipleRetailers(
+        searchQuery, 
+        ['amazon.com', 'walmart.com', 'target.com'], 
+        { maxResultsPerRetailer: maxResults }
+      );
+
+      const productUrls = searchResults.flatMap(retailer => 
+        googleSearchService.extractProductUrls(retailer.results)
+      );
+
+      if (productUrls.length === 0) {
+        return res.json({
+          success: false,
+          message: "No product URLs found",
+          searchResults: searchResults.length
+        });
+      }
+
+      // Step 2: Extract product data from found URLs (process first few to avoid timeout)
+      const { dataExtractionAgent } = await import('./agents/extraction-agent');
+      const extractionResults = [];
+      
+      for (const url of productUrls.slice(0, 3)) { // Limit to 3 for demo
+        try {
+          const retailerDomain = new URL(url).hostname;
+          const result = await dataExtractionAgent.processTask({
+            action: 'extract_product_data',
+            url,
+            retailer: retailerDomain,
+            searchQuery
+          });
+          
+          if (result.success) {
+            extractionResults.push({
+              url,
+              retailer: retailerDomain,
+              product: result.data
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to extract from ${url}:`, error);
+        }
+      }
+
+      res.json({
+        success: true,
+        searchQuery,
+        urlsFound: productUrls.length,
+        productsExtracted: extractionResults.length,
+        products: extractionResults,
+        message: `Found ${productUrls.length} URLs, extracted ${extractionResults.length} products`
+      });
+
+    } catch (error) {
+      console.error('Complete workflow failed:', error);
+      res.status(500).json({
+        error: "Complete workflow failed",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 }
