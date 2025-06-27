@@ -122,12 +122,12 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
   }
 
   return (
-    <Card className="border-0 shadow-lg bg-white dark:bg-gray-800">
-      <CardHeader className="bg-white dark:bg-gray-800">
+    <Card className="border shadow-sm bg-background">
+      <CardHeader className="bg-background">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-            <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <CardTitle className="flex items-center gap-3 text-foreground">
+            <div className="p-2 bg-muted rounded-lg border border-border">
+              <MessageSquare className="h-5 w-5 text-primary" />
             </div>
             {title}
           </CardTitle>
@@ -135,14 +135,14 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
             onClick={() => setShowNewTopic(true)}
             size="sm"
             disabled={showNewTopic}
-            className="bg-blue-600 hover:bg-blue-700 text-white border-0"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Topic
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="bg-white dark:bg-gray-800">
+      <CardContent className="bg-background">
         {showNewTopic && (
           <NewTopicForm
             onSubmit={(data) => createTopicMutation.mutate(data)}
@@ -185,7 +185,7 @@ function TopicList({
 
   if (!topics.length) {
     return (
-      <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+      <div className="text-center py-8 text-muted-foreground">
         <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
         <p>No discussions yet. Be the first to start a conversation!</p>
       </div>
@@ -197,38 +197,38 @@ function TopicList({
       {topics.map((topic, index) => (
         <div
           key={topic.id}
-          className="bg-white dark:bg-gray-800 rounded-lg p-4 hover:shadow-md cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-700"
+          className="bg-background rounded-lg p-4 hover:shadow-md cursor-pointer transition-all duration-200 border border-border"
           onClick={() => onSelectTopic(topic.id)}
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 {topic.isPinned && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full text-xs font-medium">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
                     <Pin className="h-3 w-3" />
                     Pinned
                   </div>
                 )}
                 {topic.isLocked && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
                     <Lock className="h-3 w-3" />
                     Locked
                   </div>
                 )}
-                <h3 className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                <h3 className="font-semibold text-foreground hover:text-primary transition-colors">
                   {topic.title}
                 </h3>
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
-                  <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold">
                     {topic.author.username.charAt(0).toUpperCase()}
                   </div>
                   <span className="font-medium">{topic.author.username}</span>
                 </div>
-                <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(topic.createdAt), { addSuffix: true })}
+                  {topic.createdAt && formatDistanceToNow(new Date(topic.createdAt), { addSuffix: true })}
                 </div>
                 {topic.category && (
                   <Badge 
@@ -244,7 +244,7 @@ function TopicList({
               </div>
             </div>
             <div className="text-right">
-              <Badge className="bg-gray-600 dark:bg-gray-700 text-white border-0 font-medium">
+              <Badge className="bg-secondary text-secondary-foreground border-0 font-medium">
                 {topic.postCount} replies
               </Badge>
             </div>
@@ -299,17 +299,17 @@ function TopicPosts({
       {posts.map((post, index) => (
         <div 
           key={post.id} 
-          className="bg-white dark:bg-gray-800 rounded-lg p-4 transition-all duration-200 hover:shadow-md border border-gray-200 dark:border-gray-700"
+          className="bg-background rounded-lg p-4 transition-all duration-200 hover:shadow-md border border-border"
         >
           <div className="flex items-center gap-3 mb-3">
-            <Avatar className="h-10 w-10 ring-2 ring-indigo-200 dark:ring-indigo-800">
-              <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-bold">
+            <Avatar className="h-10 w-10 ring-2 ring-primary/20">
+              <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold">
                 {post.author.username.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <div className="font-semibold text-gray-900 dark:text-gray-100">
+                <div className="font-semibold text-foreground">
                   {post.author.username}
                 </div>
                 {post.isFirstPost && (
@@ -318,14 +318,14 @@ function TopicPosts({
                   </Badge>
                 )}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <div className="text-sm text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                {post.createdAt && formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
               </div>
             </div>
           </div>
           <div className="ml-13 prose prose-sm max-w-none">
-            <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
+            <p className="whitespace-pre-wrap text-foreground leading-relaxed">
               {post.content}
             </p>
           </div>
@@ -333,24 +333,24 @@ function TopicPosts({
       ))}
 
       {!isLocked && (
-        <form onSubmit={handleSubmit} className="rounded-lg p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <form onSubmit={handleSubmit} className="rounded-lg p-4 bg-background border border-border">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center">
-              <User className="h-4 w-4 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center">
+              <User className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-medium text-gray-700 dark:text-gray-300">Add your reply</span>
+            <span className="font-medium text-foreground">Add your reply</span>
           </div>
           <Textarea
             placeholder="Share your thoughts..."
             value={newPost}
             onChange={(e) => setNewPost(e.target.value)}
-            className="mb-3 border-purple-200 dark:border-purple-800 focus:border-purple-400 dark:focus:border-purple-600"
+            className="mb-3 border-border focus:border-primary"
             rows={3}
           />
           <Button 
             type="submit" 
             disabled={!newPost.trim() || isCreating}
-            className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {isCreating ? 'Posting...' : 'Post Reply'}
           </Button>

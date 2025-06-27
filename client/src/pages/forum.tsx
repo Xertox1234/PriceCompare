@@ -39,16 +39,16 @@ function ForumPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Header with Neutral Design */}
-      <div className="relative bg-gradient-to-r from-gray-700 to-gray-800 rounded-xl p-6 md:p-8 text-white overflow-hidden">
+      {/* Hero Header with Light Theme */}
+      <div className="relative bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 md:p-8 text-foreground border border-border overflow-hidden">
         <div className="relative z-10">
-          <h1 className="text-2xl md:text-4xl font-bold mb-2">Community Forum</h1>
-          <p className="text-gray-300 text-base md:text-lg">
+          <h1 className="text-2xl md:text-4xl font-bold mb-2 text-foreground">Community Forum</h1>
+          <p className="text-muted-foreground text-base md:text-lg">
             Discuss products, share reviews, and connect with other shoppers
           </p>
         </div>
-        <div className="absolute top-0 right-0 w-20 h-20 md:w-32 md:h-32 bg-white/5 rounded-full -translate-y-10 translate-x-10 md:-translate-y-16 md:translate-x-16"></div>
-        <div className="absolute bottom-0 left-0 w-16 h-16 md:w-24 md:h-24 bg-white/5 rounded-full translate-y-8 -translate-x-8 md:translate-y-12 md:-translate-x-12"></div>
+        <div className="absolute top-0 right-0 w-20 h-20 md:w-32 md:h-32 bg-primary/5 rounded-full -translate-y-10 translate-x-10 md:-translate-y-16 md:translate-x-16"></div>
+        <div className="absolute bottom-0 left-0 w-16 h-16 md:w-24 md:h-24 bg-primary/5 rounded-full translate-y-8 -translate-x-8 md:translate-y-12 md:-translate-x-12"></div>
       </div>
 
       <Tabs defaultValue="all" className="w-full">
