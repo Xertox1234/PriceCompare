@@ -55,20 +55,20 @@
 
 /* Dark mode color overrides */
 .dark {
-  --color-background: 222 84% 5%;
+  --color-background: 220 13% 9%;
   --color-foreground: 210 40% 98%;
-  --color-card: 222 84% 5%;
+  --color-card: 220 13% 9%;
   --color-card-foreground: 210 40% 98%;
-  --color-popover: 222 84% 5%;
+  --color-popover: 220 13% 9%;
   --color-popover-foreground: 210 40% 98%;
-  --color-secondary: 217 33% 17%;
+  --color-secondary: 215 28% 17%;
   --color-secondary-foreground: 210 40% 98%;
-  --color-muted: 217 33% 17%;
-  --color-muted-foreground: 215 21% 65%;
-  --color-accent: 217 33% 17%;
+  --color-muted: 215 28% 17%;
+  --color-muted-foreground: 215 20% 65%;
+  --color-accent: 215 28% 17%;
   --color-accent-foreground: 210 40% 98%;
-  --color-border: 217 33% 17%;
-  --color-input: 217 33% 17%;
+  --color-border: 215 28% 17%;
+  --color-input: 215 28% 17%;
 }
 
 /* Base styles for the application */
