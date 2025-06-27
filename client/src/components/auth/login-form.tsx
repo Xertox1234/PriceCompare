@@ -48,7 +48,13 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full">
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-foreground font-medium">Email</Label>
+        <Label 
+          htmlFor="email" 
+          className="font-medium"
+          style={{ color: 'black' }}
+        >
+          Email
+        </Label>
         <Input
           id="email"
           type="email"
@@ -56,13 +62,23 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={loginMutation.isPending}
-          className="bg-background text-foreground border-border"
+          style={{
+            backgroundColor: 'white',
+            color: 'black',
+            border: '1px solid #d1d5db'
+          }}
           required
         />
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-foreground font-medium">Password</Label>
+        <Label 
+          htmlFor="password" 
+          className="font-medium"
+          style={{ color: 'black' }}
+        >
+          Password
+        </Label>
         <div className="relative">
           <Input
             id="password"
@@ -71,14 +87,20 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={loginMutation.isPending}
-            className="bg-background text-foreground border-border pr-10"
+            style={{
+              backgroundColor: 'white',
+              color: 'black',
+              border: '1px solid #d1d5db',
+              paddingRight: '2.5rem'
+            }}
             required
           />
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-muted text-foreground"
+            className="absolute right-0 top-0 h-full px-3 py-2"
+            style={{ color: 'black' }}
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
@@ -91,8 +113,8 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
       </div>
 
       {loginMutation.isError && (
-        <Alert variant="destructive" className="bg-destructive/10 border-destructive/20">
-          <AlertDescription className="text-destructive">
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertDescription className="text-red-600">
             {loginMutation.error instanceof Error 
               ? loginMutation.error.message 
               : 'Login failed. Please check your credentials.'}
@@ -102,7 +124,11 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       <Button 
         type="submit" 
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90" 
+        className="w-full"
+        style={{
+          backgroundColor: '#5A5DFF',
+          color: 'white'
+        }}
         disabled={loginMutation.isPending || !email.trim() || !password.trim()}
       >
         {loginMutation.isPending ? 'Signing In...' : 'Sign In'}
@@ -110,8 +136,13 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       {onToggleMode && (
         <div className="text-center text-sm pt-2">
-          <span className="text-muted-foreground">Don't have an account? </span>
-          <Button variant="link" className="p-0 text-primary hover:underline" onClick={onToggleMode}>
+          <span style={{ color: '#6b7280' }}>Don't have an account? </span>
+          <Button 
+            variant="link" 
+            className="p-0 hover:underline" 
+            style={{ color: '#5A5DFF' }}
+            onClick={onToggleMode}
+          >
             Sign up
           </Button>
         </div>
@@ -166,7 +197,13 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full">
       <div className="space-y-2">
-        <Label htmlFor="username" className="text-foreground font-medium">Username</Label>
+        <Label 
+          htmlFor="username" 
+          className="font-medium"
+          style={{ color: 'black' }}
+        >
+          Username
+        </Label>
         <Input
           id="username"
           type="text"
@@ -174,13 +211,23 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           disabled={registerMutation.isPending}
-          className="bg-background text-foreground border-border"
+          style={{
+            backgroundColor: 'white',
+            color: 'black',
+            border: '1px solid #d1d5db'
+          }}
           required
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-foreground font-medium">Email</Label>
+        <Label 
+          htmlFor="email" 
+          className="font-medium"
+          style={{ color: 'black' }}
+        >
+          Email
+        </Label>
         <Input
           id="email"
           type="email"
@@ -188,13 +235,23 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={registerMutation.isPending}
-          className="bg-background text-foreground border-border"
+          style={{
+            backgroundColor: 'white',
+            color: 'black',
+            border: '1px solid #d1d5db'
+          }}
           required
         />
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-foreground font-medium">Password</Label>
+        <Label 
+          htmlFor="password" 
+          className="font-medium"
+          style={{ color: 'black' }}
+        >
+          Password
+        </Label>
         <div className="relative">
           <Input
             id="password"
@@ -203,14 +260,20 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={registerMutation.isPending}
-            className="bg-background text-foreground border-border pr-10"
+            style={{
+              backgroundColor: 'white',
+              color: 'black',
+              border: '1px solid #d1d5db',
+              paddingRight: '2.5rem'
+            }}
             required
           />
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-muted text-foreground"
+            className="absolute right-0 top-0 h-full px-3 py-2"
+            style={{ color: 'black' }}
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
@@ -223,7 +286,13 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword" className="text-foreground font-medium">Confirm Password</Label>
+        <Label 
+          htmlFor="confirmPassword" 
+          className="font-medium"
+          style={{ color: 'black' }}
+        >
+          Confirm Password
+        </Label>
         <Input
           id="confirmPassword"
           type="password"
@@ -231,17 +300,23 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           disabled={registerMutation.isPending}
-          className="bg-background text-foreground border-border"
+          style={{
+            backgroundColor: 'white',
+            color: 'black',
+            border: '1px solid #d1d5db'
+          }}
           required
         />
         {passwordMismatch && (
-          <p className="text-sm text-destructive font-medium">Passwords do not match</p>
+          <p className="text-sm font-medium" style={{ color: '#dc2626' }}>
+            Passwords do not match
+          </p>
         )}
       </div>
 
       {registerMutation.isError && (
-        <Alert variant="destructive" className="bg-destructive/10 border-destructive/20">
-          <AlertDescription className="text-destructive">
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertDescription className="text-red-600">
             {registerMutation.error instanceof Error 
               ? registerMutation.error.message 
               : 'Registration failed. Please try again.'}
@@ -251,7 +326,11 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       <Button 
         type="submit" 
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90" 
+        className="w-full"
+        style={{
+          backgroundColor: '#5A5DFF',
+          color: 'white'
+        }}
         disabled={
           registerMutation.isPending || 
           !username.trim() || 
@@ -265,8 +344,13 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       {onToggleMode && (
         <div className="text-center text-sm pt-2">
-          <span className="text-muted-foreground">Already have an account? </span>
-          <Button variant="link" className="p-0 text-primary hover:underline" onClick={onToggleMode}>
+          <span style={{ color: '#6b7280' }}>Already have an account? </span>
+          <Button 
+            variant="link" 
+            className="p-0 hover:underline"
+            style={{ color: '#5A5DFF' }}
+            onClick={onToggleMode}
+          >
             Sign in
           </Button>
         </div>
