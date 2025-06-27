@@ -28,17 +28,19 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'login' }: AuthModalP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="sm:max-w-md w-[95vw] max-h-[90vh] overflow-y-auto bg-background text-foreground border-border">
+        <DialogHeader className="text-center sm:text-left">
+          <DialogTitle className="text-foreground text-xl font-semibold">
             {mode === 'login' ? 'Sign In' : 'Create Account'}
           </DialogTitle>
         </DialogHeader>
-        {mode === 'login' ? (
-          <LoginForm onSuccess={handleSuccess} onToggleMode={toggleMode} />
-        ) : (
-          <RegisterForm onSuccess={handleSuccess} onToggleMode={toggleMode} />
-        )}
+        <div className="mt-4">
+          {mode === 'login' ? (
+            <LoginForm onSuccess={handleSuccess} onToggleMode={toggleMode} />
+          ) : (
+            <RegisterForm onSuccess={handleSuccess} onToggleMode={toggleMode} />
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

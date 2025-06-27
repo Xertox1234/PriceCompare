@@ -46,79 +46,77 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardContent className="pt-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loginMutation.isPending}
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loginMutation.isPending}
-                required
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {loginMutation.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {loginMutation.error instanceof Error 
-                  ? loginMutation.error.message 
-                  : 'Login failed. Please check your credentials.'}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <Button 
-            type="submit" 
-            className="w-full" 
-            disabled={loginMutation.isPending || !email.trim() || !password.trim()}
+    <form onSubmit={handleSubmit} className="space-y-4 w-full">
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-foreground font-medium">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="Enter your email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={loginMutation.isPending}
+          className="bg-background text-foreground border-border"
+          required
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-foreground font-medium">Password</Label>
+        <div className="relative">
+          <Input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loginMutation.isPending}
+            className="bg-background text-foreground border-border pr-10"
+            required
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-muted text-foreground"
+            onClick={() => setShowPassword(!showPassword)}
           >
-            {loginMutation.isPending ? 'Signing In...' : 'Sign In'}
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
           </Button>
+        </div>
+      </div>
 
-          {onToggleMode && (
-            <div className="text-center text-sm">
-              <span className="text-muted-foreground">Don't have an account? </span>
-              <Button variant="link" className="p-0" onClick={onToggleMode}>
-                Sign up
-              </Button>
-            </div>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+      {loginMutation.isError && (
+        <Alert variant="destructive" className="bg-destructive/10 border-destructive/20">
+          <AlertDescription className="text-destructive">
+            {loginMutation.error instanceof Error 
+              ? loginMutation.error.message 
+              : 'Login failed. Please check your credentials.'}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Button 
+        type="submit" 
+        className="w-full bg-primary text-primary-foreground hover:bg-primary/90" 
+        disabled={loginMutation.isPending || !email.trim() || !password.trim()}
+      >
+        {loginMutation.isPending ? 'Signing In...' : 'Sign In'}
+      </Button>
+
+      {onToggleMode && (
+        <div className="text-center text-sm pt-2">
+          <span className="text-muted-foreground">Don't have an account? </span>
+          <Button variant="link" className="p-0 text-primary hover:underline" onClick={onToggleMode}>
+            Sign up
+          </Button>
+        </div>
+      )}
+    </form>
   );
 }
 
