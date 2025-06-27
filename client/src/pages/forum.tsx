@@ -92,44 +92,44 @@ function ForumPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
         {/* Forum Guidelines Card */}
-        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <CardHeader className="bg-white dark:bg-gray-800">
-            <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+        <Card className="hover:shadow-lg transition-shadow bg-card border-border">
+          <CardHeader className="bg-card">
+            <CardTitle className="text-primary flex items-center gap-2">
+              <div className="w-2 h-2 bg-primary rounded-full"></div>
               Forum Guidelines
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 bg-white dark:bg-gray-800">
+          <CardContent className="pt-6 bg-card">
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span className="text-gray-700 dark:text-gray-300">Be respectful to other community members</span>
+                <span className="text-foreground">Be respectful to other community members</span>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span className="text-gray-700 dark:text-gray-300">Share honest product experiences</span>
+                <span className="text-foreground">Share honest product experiences</span>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span className="text-gray-700 dark:text-gray-300">No spam or promotional content</span>
+                <span className="text-foreground">No spam or promotional content</span>
               </li>
               <li className="flex items-start gap-3">  
                 <div className="w-1.5 h-1.5 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span className="text-gray-700 dark:text-gray-300">Keep discussions relevant to products</span>
+                <span className="text-foreground">Keep discussions relevant to products</span>
               </li>
             </ul>
           </CardContent>
         </Card>
 
         {/* Popular Topics Card */}
-        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <CardHeader className="bg-white dark:bg-gray-800">
-            <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+        <Card className="hover:shadow-lg transition-shadow bg-card border-border">
+          <CardHeader className="bg-card">
+            <CardTitle className="text-primary flex items-center gap-2">
+              <div className="w-2 h-2 bg-primary rounded-full"></div>
               Popular Topics
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 bg-white dark:bg-gray-800">
+          <CardContent className="pt-6 bg-card">
             <div className="space-y-3">
               <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0">
                 Electronics Reviews
@@ -148,26 +148,26 @@ function ForumPage() {
         </Card>
 
         {/* Community Stats Card */}
-        <Card className="hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <CardHeader className="bg-white dark:bg-gray-800">
-            <CardTitle className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+        <Card className="hover:shadow-lg transition-shadow bg-card border-border">
+          <CardHeader className="bg-card">
+            <CardTitle className="text-primary flex items-center gap-2">
+              <div className="w-2 h-2 bg-primary rounded-full"></div>
               Community Stats
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 bg-white dark:bg-gray-800">
+          <CardContent className="pt-6 bg-card">
             <div className="space-y-4 text-sm">
-              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">Active Discussions:</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">24</span>
+              <div className="flex justify-between items-center p-3 bg-muted border-border rounded-lg">
+                <span className="text-muted-foreground">Active Discussions:</span>
+                <span className="font-bold text-primary text-lg">24</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">Community Members:</span>
-                <span className="font-bold text-purple-600 dark:text-purple-400 text-lg">156</span>
+              <div className="flex justify-between items-center p-3 bg-muted border-border rounded-lg">
+                <span className="text-muted-foreground">Community Members:</span>
+                <span className="font-bold text-primary text-lg">156</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">Products Discussed:</span>
-                <span className="font-bold text-green-600 dark:text-green-400 text-lg">89</span>
+              <div className="flex justify-between items-center p-3 bg-muted border-border rounded-lg">
+                <span className="text-muted-foreground">Products Discussed:</span>
+                <span className="font-bold text-primary text-lg">89</span>
               </div>
             </div>
           </CardContent>
