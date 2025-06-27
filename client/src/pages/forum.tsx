@@ -39,8 +39,8 @@ function ForumPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Header with Light Theme */}
-      <div className="relative bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 md:p-8 text-foreground border border-border overflow-hidden">
+      {/* Hero Header with Light Blue Theme */}
+      <div className="relative bg-gradient-to-r from-blue-100 to-sky-100 dark:from-blue-900 dark:to-sky-900 rounded-xl p-6 md:p-8 text-foreground border border-border overflow-hidden">
         <div className="relative z-10">
           <h1 className="text-2xl md:text-4xl font-bold mb-2 text-foreground">Community Forum</h1>
           <p className="text-muted-foreground text-base md:text-lg">
