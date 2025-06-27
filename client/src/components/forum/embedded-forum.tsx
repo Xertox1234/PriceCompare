@@ -113,7 +113,7 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
             onCreatePost={(content) => 
               createPostMutation.mutate({ content, topicId: selectedTopic })
             }
-            isLocked={topic?.isLocked}
+            isLocked={!!topic?.isLocked}
             isCreating={createPostMutation.isPending}
           />
         </CardContent>
