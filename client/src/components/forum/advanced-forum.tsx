@@ -118,24 +118,24 @@ export default function AdvancedForum() {
   });
 
   const { data: topics = [], isLoading } = useQuery<Topic[]>({
-    queryKey: ['/api/forum/topics', selectedCategory, searchQuery, sortBy],
+    queryKey: ['/api/forum/topics/enhanced', selectedCategory, searchQuery, sortBy],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedCategory !== 'all') params.set('categoryId', selectedCategory);
       if (searchQuery) params.set('search', searchQuery);
       params.set('sort', sortBy);
       
-      const response = await fetch(`/api/forum/topics?${params}`);
+      const response = await fetch(`/api/forum/topics/enhanced?${params}`);
       if (!response.ok) throw new Error('Failed to fetch topics');
       return response.json();
     }
   });
 
   const { data: posts = [] } = useQuery<Post[]>({
-    queryKey: ['/api/forum/topics', selectedTopic?.id, 'posts'],
+    queryKey: ['/api/forum/topics', selectedTopic?.id, 'posts/enhanced'],
     queryFn: async () => {
       if (!selectedTopic) return [];
-      const response = await fetch(`/api/forum/topics/${selectedTopic.id}/posts`);
+      const response = await fetch(`/api/forum/topics/${selectedTopic.id}/posts/enhanced`);
       if (!response.ok) throw new Error('Failed to fetch posts');
       return response.json();
     },
@@ -144,7 +144,7 @@ export default function AdvancedForum() {
 
   const createTopicMutation = useMutation({
     mutationFn: async (data: TopicFormData) => {
-      const response = await fetch('/api/forum/topics', {
+      const response = await fetch('/api/forum/topics/enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,7 +163,7 @@ export default function AdvancedForum() {
 
   const createPostMutation = useMutation({
     mutationFn: async (data: PostFormData) => {
-      const response = await fetch('/api/forum/posts', {
+      const response = await fetch('/api/forum/posts/enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,7 +175,7 @@ export default function AdvancedForum() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/forum/topics', selectedTopic?.id, 'posts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/forum/topics', selectedTopic?.id, 'posts/enhanced'] });
     }
   });
 
