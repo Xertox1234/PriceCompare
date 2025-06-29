@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -112,6 +113,8 @@ export default function AdvancedForum() {
   const [sortBy, setSortBy] = useState('latest');
   const [showCreateTopic, setShowCreateTopic] = useState(false);
   const queryClient = useQueryClient();
+  
+  const { data: user } = useAuth();
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['/api/forum/categories'],
@@ -437,94 +440,101 @@ export default function AdvancedForum() {
             Connect with the community, share deals, and discuss products
           </p>
         </div>
-        <Dialog open={showCreateTopic} onOpenChange={setShowCreateTopic}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Topic
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Topic</DialogTitle>
-            </DialogHeader>
-            <Form {...topicForm}>
-              <form onSubmit={topicForm.handleSubmit(data => createTopicMutation.mutate(data))} className="space-y-4">
-                <FormField
-                  control={topicForm.control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+        {user ? (
+          <Dialog open={showCreateTopic} onOpenChange={setShowCreateTopic}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Topic
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Topic</DialogTitle>
+              </DialogHeader>
+              <Form {...topicForm}>
+                <form onSubmit={topicForm.handleSubmit(data => createTopicMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={topicForm.control}
+                    name="categoryId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.map(category => (
+                              <SelectItem key={category.id} value={category.id.toString()}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={topicForm.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
+                          <Input {...field} placeholder="Enter topic title..." />
                         </FormControl>
-                        <SelectContent>
-                          {categories.map(category => (
-                            <SelectItem key={category.id} value={category.id.toString()}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={topicForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Enter topic title..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={topicForm.control}
-                  name="tags"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tags (optional)</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Enter tags separated by commas..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={topicForm.control}
-                  name="content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Content</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Write your topic content..." rows={6} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={createTopicMutation.isPending}>
-                    {createTopicMutation.isPending ? 'Creating...' : 'Create Topic'}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowCreateTopic(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={topicForm.control}
+                    name="tags"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tags (optional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter tags separated by commas..." />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={topicForm.control}
+                    name="content"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Content</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Write your topic content..." rows={6} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={createTopicMutation.isPending}>
+                      {createTopicMutation.isPending ? 'Creating...' : 'Create Topic'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowCreateTopic(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Button onClick={() => window.location.href = '/api/login'}>
+            <Plus className="h-4 w-4 mr-2" />
+            Sign in to Create Topic
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
