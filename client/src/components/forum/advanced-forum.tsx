@@ -180,11 +180,11 @@ export default function AdvancedForum() {
       const payload = {
         title: data.title,
         content: data.content,
-        categoryId: parseInt(data.categoryId),
-        tags: data.tags ? data.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
+        categoryId: parseInt(data.categoryId)
+        // Note: tags not supported by basic forum route
       };
       
-      const response = await fetch('/api/forum/topics/enhanced', {
+      const response = await fetch('/api/forum/topics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
