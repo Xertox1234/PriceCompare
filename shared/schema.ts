@@ -272,7 +272,6 @@ export const insertForumTopicSchema = createInsertSchema(forumTopics).omit({
 
 export const insertForumPostSchema = createInsertSchema(forumPosts).omit({
   id: true,
-  postNumber: true,
   likeCount: true,
   replyCount: true,
   readCount: true,
