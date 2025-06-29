@@ -190,13 +190,27 @@ export default function AdvancedForum() {
         credentials: 'include',
         body: JSON.stringify(payload)
       });
-      if (!response.ok) throw new Error('Failed to create topic');
+      
+      if (response.status === 401) {
+        // User is not authenticated, redirect to login
+        window.location.href = '/api/auth/login';
+        throw new Error('Please log in to create topics');
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create topic');
+      }
+      
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/forum/topics'] });
       setShowCreateTopic(false);
       topicForm.reset(); // Clear the form after successful submission
+    },
+    onError: (error) => {
+      console.error('Topic creation error:', error);
     }
   });
 

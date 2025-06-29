@@ -6,6 +6,7 @@ import {
   insertForumTopicSchema, insertForumPostSchema, insertPrivateMessageSchema,
   insertNotificationSchema, insertTopicTagSchema, insertBadgeSchema
 } from "@shared/schema";
+import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
 
 const requireAuth = (req: any, res: any, next: any) => {
@@ -70,8 +71,14 @@ export function registerEnhancedForumRoutes(app: Express) {
 
   app.post("/api/forum/topics/enhanced", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      // Create validation schema that excludes slug (auto-generated) and authorId (set from user)
-      const enhancedTopicSchema = insertForumTopicSchema.omit({ slug: true, authorId: true });
+      // Create validation schema for topic creation (only required fields from frontend)
+      const enhancedTopicSchema = z.object({
+        title: z.string().min(1, "Title is required"),
+        content: z.string().optional(),
+        categoryId: z.number().int().positive("Category ID must be a positive integer"),
+        tags: z.array(z.string()).optional().default([])
+      });
+      
       const validation = validateRequestBody(enhancedTopicSchema, req.body);
       if (!validation.success) {
         return res.status(400).json({ error: validation.errors });
