@@ -177,9 +177,10 @@ export default function AdvancedForum() {
 
   const createTopicMutation = useMutation({
     mutationFn: async (data: TopicFormData) => {
-      const response = await fetch('/api/forum/topics', {
+      const response = await fetch('/api/forum/topics/enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data)
       });
       if (!response.ok) throw new Error('Failed to create topic');
@@ -193,9 +194,10 @@ export default function AdvancedForum() {
 
   const createPostMutation = useMutation({
     mutationFn: async (data: PostFormData) => {
-      const response = await fetch('/api/forum/posts', {
+      const response = await fetch('/api/forum/posts/enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           ...data,
           topicId: selectedTopic?.id
@@ -212,7 +214,8 @@ export default function AdvancedForum() {
   const likePostMutation = useMutation({
     mutationFn: async (postId: number) => {
       const response = await fetch(`/api/forum/posts/${postId}/like`, {
-        method: 'POST'
+        method: 'POST',
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to like post');
       return response.json();
@@ -400,30 +403,39 @@ export default function AdvancedForum() {
         {/* Reply Form */}
         <Card>
           <CardContent className="pt-4">
-            <Form {...postForm}>
-              <form onSubmit={postForm.handleSubmit(data => createPostMutation.mutate(data))} className="space-y-4">
-                <FormField
-                  control={postForm.control}
-                  name="content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Your Reply</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          {...field}
-                          placeholder="Write your reply..."
-                          rows={4}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={createPostMutation.isPending}>
-                  {createPostMutation.isPending ? 'Posting...' : 'Post Reply'}
+            {user ? (
+              <Form {...postForm}>
+                <form onSubmit={postForm.handleSubmit(data => createPostMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={postForm.control}
+                    name="content"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Your Reply</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Write your reply..."
+                            rows={4}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={createPostMutation.isPending}>
+                    {createPostMutation.isPending ? 'Posting...' : 'Post Reply'}
+                  </Button>
+                </form>
+              </Form>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">Sign in to join the conversation</p>
+                <Button onClick={() => window.location.href = '/api/login'}>
+                  Sign In to Reply
                 </Button>
-              </form>
-            </Form>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

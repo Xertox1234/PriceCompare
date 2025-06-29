@@ -211,6 +211,15 @@ Comprehensive filtering system supporting:
 ## Changelog
 
 ### June 29, 2025
+- **Forum Authentication Security Fix Complete**: Critical security vulnerability resolved preventing unauthorized topic and post creation
+  - ✅ Added proper authentication checks using useAuth hook in advanced forum component
+  - ✅ Updated forum mutations to use authenticated enhanced API endpoints (/api/forum/topics/enhanced, /api/forum/posts/enhanced)
+  - ✅ Implemented "Sign in to Create Topic" and "Sign in to Reply" prompts for non-authenticated users
+  - ✅ Added credentials: 'include' to all forum API requests for proper session management
+  - ✅ Fixed dropdown menu transparency and readability issues in light mode with proper background opacity
+  - ✅ Forum now properly redirects to login page when unauthenticated users attempt content creation
+  - ✅ Enhanced security ensures only logged-in users can create topics, posts, and interact with forum features
+
 - **Full Discourse Integration Infrastructure Complete**: Revolutionary forum platform integration preparation with Docker containerization and SSO authentication ready for deployment
   - ✅ Docker Compose containerization setup with multi-service architecture (Price App, Discourse, PostgreSQL, Redis, Nginx)
   - ✅ Shared authentication system with Single Sign-On (SSO) integration between applications
