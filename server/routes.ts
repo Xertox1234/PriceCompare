@@ -230,14 +230,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create the first post
       console.log("Creating first post for topic:", topic.id);
-      await forumStorage.createPost({
+      const postData = {
         topicId: topic.id,
         authorId: user.id,
         content: content || '',
         rawContent: content || '', // Store same content for both fields
         isFirstPost: true,
         postNumber: 1, // First post in topic
-      });
+      };
+      
+      // Also try with snake_case field names in case Drizzle mapping is the issue
+      const postDataSnakeCase = {
+        topic_id: topic.id,
+        author_id: user.id,
+        content: content || '',
+        raw_content: content || '', // Try snake_case
+        is_first_post: true,
+        post_number: 1,
+      };
+      console.log("Post data being created:", JSON.stringify(postData, null, 2));
+      console.log("Post data snake_case:", JSON.stringify(postDataSnakeCase, null, 2));
+      
+      // Try using the snake_case version to match database column names
+      await forumStorage.createPost(postDataSnakeCase as any);
 
       console.log("First post created successfully");
       res.json({ success: true, topic });

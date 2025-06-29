@@ -180,6 +180,8 @@ export class ForumStorage {
   }
 
   async createPost(post: InsertForumPost): Promise<ForumPost> {
+    console.log("ForumStorage.createPost called with:", JSON.stringify(post, null, 2));
+    console.log("Schema field names:", Object.keys(forumPosts));
     const result = await db.insert(forumPosts).values(post).returning();
     
     // Update topic post count and last post time
