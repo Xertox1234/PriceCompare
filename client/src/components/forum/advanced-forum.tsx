@@ -478,7 +478,7 @@ export default function AdvancedForum() {
                               <SelectValue placeholder="Select a category" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="bg-white/95 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg text-gray-900 dark:text-gray-100">
                             {categories.map(category => (
                               <SelectItem key={category.id} value={category.id.toString()}>
                                 {category.name}
