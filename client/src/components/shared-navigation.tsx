@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { MessageSquare, Search, Home, User, LogOut, Bell, Settings, Menu, X } from 'lucide-react';
+import { MessageSquare, Search, Home, User, LogOut, Bell, Settings, Menu, X, ExternalLink } from 'lucide-react';
 import { useAuth, useLogout } from '@/hooks/use-auth';
 import { useState } from 'react';
 import { AuthModal } from './auth/auth-modal';
@@ -66,15 +66,22 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
             </Button>
           </Link>
           
-          <Link href="/forum" onClick={() => setMobileMenuOpen(false)}>
+          <a 
+            href="http://localhost:3000" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            onClick={() => setMobileMenuOpen(false)}
+            className="w-full"
+          >
             <Button
-              variant={location === '/forum' ? 'default' : 'ghost'}
+              variant="ghost"
               className="w-full justify-start"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
-              Forum
+              Community Forum
+              <ExternalLink className="h-3 w-3 ml-auto opacity-60" />
             </Button>
-          </Link>
+          </a>
           
           {/* Theme Toggle */}
           <div className="pt-4 border-t">
@@ -186,14 +193,19 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
         </Button>
         
         <Button
-          variant={location === '/forum' ? 'default' : 'ghost'}
+          variant="ghost"
           size="sm"
           asChild
         >
-          <Link href="/forum">
+          <a 
+            href="http://localhost:3000" 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
             <MessageSquare className="h-4 w-4 mr-2" />
-            Forum
-          </Link>
+            Community Forum
+            <ExternalLink className="h-3 w-3 ml-1 opacity-60" />
+          </a>
         </Button>
         
         <ThemeToggle />
