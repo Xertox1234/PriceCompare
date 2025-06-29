@@ -71,20 +71,24 @@ export function registerEnhancedForumRoutes(app: Express) {
 
   app.post("/api/forum/topics/enhanced", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      // Create validation schema for topic creation (only required fields from frontend)
-      const enhancedTopicSchema = z.object({
-        title: z.string().min(1, "Title is required"),
-        content: z.string().optional(),
-        categoryId: z.number().int().positive("Category ID must be a positive integer"),
-        tags: z.array(z.string()).optional().default([])
-      });
+      console.log("Enhanced topic request body:", JSON.stringify(req.body, null, 2));
+      console.log("User:", req.user?.id, req.user?.username);
       
-      const validation = validateRequestBody(enhancedTopicSchema, req.body);
-      if (!validation.success) {
-        return res.status(400).json({ error: validation.errors });
+      // Basic validation - just check required fields manually
+      if (!req.body.title || req.body.title.trim() === '') {
+        return res.status(400).json({ error: ["Title is required"] });
+      }
+      
+      if (!req.body.categoryId || isNaN(parseInt(req.body.categoryId))) {
+        return res.status(400).json({ error: ["Category ID is required"] });
       }
 
-      const { tags = [], ...topicData } = req.body;
+      const { tags = [], title, content, categoryId } = req.body;
+      const topicData = {
+        title: title.trim(),
+        content: content || '',
+        categoryId: parseInt(categoryId)
+      };
       
       const topic = await enhancedForumStorage.createTopicWithTags(
         {
