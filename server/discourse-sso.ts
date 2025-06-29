@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { sharedUsers, ssoTokens, discourseUserMapping } from '../shared/auth-schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, lt, gt } from 'drizzle-orm';
 import type { SharedUser, SharedUserWithDiscourse } from '../shared/auth-schema';
 
 const DISCOURSE_SSO_SECRET = process.env.DISCOURSE_SSO_SECRET || 'default-sso-secret-change-in-production';
@@ -58,9 +58,9 @@ function parseSSO(sso: string): Record<string, string> {
   const params = new URLSearchParams(decodedPayload);
   const result: Record<string, string> = {};
   
-  for (const [key, value] of params.entries()) {
+  params.forEach((value, key) => {
     result[key] = value;
-  }
+  });
   
   return result;
 }

@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import { registerScrapingRoutes } from "./scraping-routes";
 import { registerAffiliateRoutes } from "./affiliate-routes";
 import { registerHybridDataRoutes } from "./hybrid-data-routes";
+import { registerDiscourseRoutes } from "./discourse-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
@@ -83,6 +84,9 @@ app.use((req, res, next) => {
   
   // Register hybrid data collection routes
   registerHybridDataRoutes(app);
+  
+  // Register Discourse SSO routes
+  registerDiscourseRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
