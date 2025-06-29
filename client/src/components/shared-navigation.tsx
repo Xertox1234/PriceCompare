@@ -66,22 +66,15 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
             </Button>
           </Link>
           
-          <a 
-            href="http://localhost:3000" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            onClick={() => setMobileMenuOpen(false)}
-            className="w-full"
-          >
+          <Link href="/forum" onClick={() => setMobileMenuOpen(false)}>
             <Button
               variant="ghost"
               className="w-full justify-start"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Community Forum
-              <ExternalLink className="h-3 w-3 ml-auto opacity-60" />
             </Button>
-          </a>
+          </Link>
           
           {/* Theme Toggle */}
           <div className="pt-4 border-t">
@@ -197,15 +190,10 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
           size="sm"
           asChild
         >
-          <a 
-            href="http://localhost:3000" 
-            target="_blank" 
-            rel="noopener noreferrer"
-          >
+          <Link href="/forum">
             <MessageSquare className="h-4 w-4 mr-2" />
             Community Forum
-            <ExternalLink className="h-3 w-3 ml-1 opacity-60" />
-          </a>
+          </Link>
         </Button>
         
         <ThemeToggle />

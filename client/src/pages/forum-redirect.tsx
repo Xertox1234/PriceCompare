@@ -1,52 +1,76 @@
-import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ExternalLink, ArrowRight } from 'lucide-react';
+import { MessageSquare, Server, BookOpen, Users } from 'lucide-react';
+import { Link } from 'wouter';
 
 function ForumRedirect() {
-  useEffect(() => {
-    // Auto-redirect after 5 seconds
-    const timer = setTimeout(() => {
-      window.open('http://localhost:3000', '_blank');
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleRedirect = () => {
-    window.open('http://localhost:3000', '_blank');
-  };
-
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
+      <Card className="max-w-2xl w-full">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <MessageSquare className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Forum Has Been Upgraded!</CardTitle>
+          <CardTitle className="text-2xl">Community Forum Coming Soon!</CardTitle>
         </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <p className="text-muted-foreground">
-            We've upgraded to a full-featured Discourse forum platform for better community discussions and engagement.
+        <CardContent className="space-y-6">
+          <p className="text-center text-muted-foreground">
+            We're setting up a full-featured Discourse forum platform for better community discussions and engagement.
           </p>
           
-          <div className="space-y-2">
-            <p className="text-sm font-medium">You'll be automatically redirected in 5 seconds...</p>
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <span>Or click below to visit now</span>
-              <ArrowRight className="h-4 w-4" />
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="font-medium">Community Features</h3>
+              <p className="text-sm text-muted-foreground">User profiles, badges, and reputation system</p>
+            </div>
+            
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <MessageSquare className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="font-medium">Rich Discussions</h3>
+              <p className="text-sm text-muted-foreground">Categories, tags, and advanced moderation</p>
+            </div>
+            
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Server className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="font-medium">SSO Integration</h3>
+              <p className="text-sm text-muted-foreground">Seamless login with your existing account</p>
             </div>
           </div>
 
-          <Button onClick={handleRedirect} className="w-full">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Visit New Community Forum
-            <ExternalLink className="h-4 w-4 ml-2" />
-          </Button>
+          <div className="bg-muted p-4 rounded-lg">
+            <div className="flex items-start gap-3">
+              <BookOpen className="h-5 w-5 text-muted-foreground mt-1" />
+              <div>
+                <h4 className="font-medium mb-2">For Developers:</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The Discourse forum infrastructure is ready with Docker containerization and SSO authentication. 
+                  To deploy the forum, run the setup script:
+                </p>
+                <code className="text-xs bg-background px-2 py-1 rounded border">
+                  bash scripts/discourse-setup.sh
+                </code>
+              </div>
+            </div>
+          </div>
           
-          <div className="text-xs text-muted-foreground pt-4 border-t">
-            <p>Your existing account will work seamlessly with the new forum platform.</p>
+          <div className="flex gap-2 justify-center">
+            <Button asChild variant="outline">
+              <Link href="/">
+                Return to Home
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/products">
+                Browse Products
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
