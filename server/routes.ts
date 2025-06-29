@@ -199,10 +199,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/forum/topics", requireAuth, async (req, res) => {
     try {
+      console.log("Topic creation request received:");
+      console.log("Body:", JSON.stringify(req.body, null, 2));
+      console.log("User:", req.user?.id, req.user?.username);
+      
       const { title, content, categoryId, productId } = req.body;
       const user = req.user as User;
 
+      if (!title || title.trim() === '') {
+        console.log("Validation failed: Title is missing");
+        return res.status(400).json({ error: "Title is required" });
+      }
+
       // Create the topic
+      console.log("Creating topic with data:", {
+        title,
+        authorId: user.id,
+        categoryId: categoryId || null,
+        productId: productId || null,
+      });
+      
       const topic = await forumStorage.createTopic({
         title,
         authorId: user.id,
@@ -210,7 +226,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         productId: productId || null,
       });
 
+      console.log("Topic created successfully:", topic.id);
+
       // Create the first post
+      console.log("Creating first post for topic:", topic.id);
       await forumStorage.createPost({
         topicId: topic.id,
         authorId: user.id,
@@ -218,6 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isFirstPost: true,
       });
 
+      console.log("First post created successfully");
       res.json({ success: true, topic });
     } catch (error) {
       console.error('Create topic error:', error);

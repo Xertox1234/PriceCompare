@@ -211,6 +211,8 @@ export default function AdvancedForum() {
     },
     onError: (error) => {
       console.error('Topic creation error:', error);
+      // Show error to user
+      alert(`Failed to create topic: ${error.message}`);
     }
   });
 
