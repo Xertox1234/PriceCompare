@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Home from "@/pages/home";
 import Products from "@/pages/products";
 import NotFound from "@/pages/not-found";
-import { LazyAdminPage, LazyForumPage } from "@/components/lazy";
+import { LazyAdminPage, LazyForumRedirect } from "@/components/lazy";
 
 function Router() {
   const LoadingFallback = () => (
@@ -33,7 +33,7 @@ function Router() {
           <Route path="/products" component={Products} />
           <Route path="/forum">
             <Suspense fallback={<LoadingFallback />}>
-              <LazyForumPage />
+              <LazyForumRedirect />
             </Suspense>
           </Route>
           <Route path="/admin">
