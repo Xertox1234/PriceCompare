@@ -233,8 +233,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await forumStorage.createPost({
         topicId: topic.id,
         authorId: user.id,
-        content,
+        content: content || '',
+        rawContent: content || '', // Store same content for both fields
         isFirstPost: true,
+        postNumber: 1, // First post in topic
       });
 
       console.log("First post created successfully");
