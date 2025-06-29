@@ -70,7 +70,9 @@ export function registerEnhancedForumRoutes(app: Express) {
 
   app.post("/api/forum/topics/enhanced", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const validation = validateRequestBody(insertForumTopicSchema, req.body);
+      // Create validation schema that excludes slug (auto-generated) and authorId (set from user)
+      const enhancedTopicSchema = insertForumTopicSchema.omit({ slug: true, authorId: true });
+      const validation = validateRequestBody(enhancedTopicSchema, req.body);
       if (!validation.success) {
         return res.status(400).json({ error: validation.errors });
       }

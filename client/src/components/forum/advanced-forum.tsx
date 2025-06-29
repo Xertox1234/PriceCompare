@@ -177,11 +177,18 @@ export default function AdvancedForum() {
 
   const createTopicMutation = useMutation({
     mutationFn: async (data: TopicFormData) => {
+      const payload = {
+        title: data.title,
+        content: data.content,
+        categoryId: parseInt(data.categoryId),
+        tags: data.tags ? data.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
+      };
+      
       const response = await fetch('/api/forum/topics/enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error('Failed to create topic');
       return response.json();
@@ -189,6 +196,7 @@ export default function AdvancedForum() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/forum/topics'] });
       setShowCreateTopic(false);
+      topicForm.reset(); // Clear the form after successful submission
     }
   });
 
