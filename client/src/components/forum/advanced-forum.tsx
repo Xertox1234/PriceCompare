@@ -594,7 +594,7 @@ export default function AdvancedForum() {
               <SelectTrigger className="w-full md:w-[200px]">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
-              <SelectContent className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg">
+              <SelectContent className="bg-white/95 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg text-gray-900 dark:text-gray-100">
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map(category => (
                   <SelectItem key={category.id} value={category.id.toString()}>
@@ -607,7 +607,7 @@ export default function AdvancedForum() {
               <SelectTrigger className="w-full md:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg">
+              <SelectContent className="bg-white/95 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg text-gray-900 dark:text-gray-100">
                 <SelectItem value="latest">Latest</SelectItem>
                 <SelectItem value="popular">Popular</SelectItem>
                 <SelectItem value="views">Most Viewed</SelectItem>
