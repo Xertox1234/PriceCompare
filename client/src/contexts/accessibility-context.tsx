@@ -164,47 +164,72 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
   }, [synthesis]);
 
   // Voice navigation functions
-  const startVoiceNavigation = useCallback(async () => {
+  const startVoiceNavigation = useCallback(() => {
     if (!recognition || !settings.voiceNavigation) return;
 
-    // Request microphone permission first
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop the stream immediately as we just needed permission
-      stream.getTracks().forEach(track => track.stop());
-      
-      setIsListening(true);
-      
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const command = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-        handleVoiceCommand(command);
-      };
+    setIsListening(true);
+    
+    // Configure recognition for reliability
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
+    
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const command = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+      handleVoiceCommand(command);
+    };
 
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('Speech recognition error:', event.error);
+      
+      switch(event.error) {
+        case 'not-allowed':
           announce('Microphone access was denied. Please allow microphone access in your browser settings.', 'assertive');
-        }
-        setIsListening(false);
-      };
+          break;
+        case 'network':
+          announce('Network error. Please check your internet connection.', 'assertive');
+          break;
+        case 'service-not-allowed':
+          announce('Speech service not available. Please make sure you are using HTTPS.', 'assertive');
+          break;
+        case 'audio-capture':
+          announce('Audio capture failed. Please check your microphone.', 'assertive');
+          break;
+        default:
+          console.log('Speech recognition error handled silently:', event.error);
+      }
+      
+      setIsListening(false);
+    };
 
-      recognition.onend = () => {
-        if (settings.voiceNavigation && isListening) {
-          // Restart recognition if voice navigation is still enabled
-          setTimeout(() => {
+    recognition.onend = () => {
+      if (settings.voiceNavigation && isListening) {
+        // Restart recognition if voice navigation is still enabled
+        setTimeout(() => {
+          try {
             recognition.start();
-          }, 100);
-        } else {
-          setIsListening(false);
-        }
-      };
+          } catch (error) {
+            console.error('Failed to restart recognition:', error);
+            setIsListening(false);
+          }
+        }, 100);
+      } else {
+        setIsListening(false);
+      }
+    };
 
+    recognition.onstart = () => {
+      console.log('Continuous voice recognition started');
+    };
+
+    try {
       recognition.start();
       announce('Voice navigation started. Say "help" for commands.', 'assertive');
     } catch (error) {
-      console.error('Microphone permission error:', error);
-      announce('Microphone access is required for voice navigation. Please allow microphone access.', 'assertive');
+      console.error('Failed to start voice recognition:', error);
       setIsListening(false);
+      announce('Failed to start voice navigation. Please try again.', 'assertive');
     }
   }, [recognition, settings.voiceNavigation, announce, isListening]);
 

@@ -46,23 +46,28 @@ export function AccessibilityPanel() {
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleVoiceToggle = async (enabled: boolean) => {
+  const handleVoiceToggle = (enabled: boolean) => {
     if (enabled) {
-      // Request microphone permission before enabling voice navigation
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Stop the stream immediately as we just needed permission
-        stream.getTracks().forEach(track => track.stop());
-        
-        updateSettings({ voiceNavigation: enabled });
-        startVoiceNavigation();
-        announce('Voice navigation enabled', 'assertive');
-        speakText('Voice navigation enabled. You can now use voice commands.');
-      } catch (error) {
-        console.error('Microphone permission error:', error);
-        announce('Microphone access is required for voice navigation. Please allow microphone access.', 'assertive');
-        speakText('Microphone access is required for voice navigation. Please allow microphone access when prompted by your browser.');
+      // Check for speech recognition support first
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        announce('Speech recognition is not supported in this browser. Please use Chrome or Safari.', 'assertive');
+        speakText('Speech recognition is not supported in this browser. Please use Chrome or Safari.');
+        return;
       }
+      
+      // Check if we're on HTTPS (required for microphone access)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        announce('Voice commands require HTTPS. Please use a secure connection.', 'assertive');
+        speakText('Voice commands require HTTPS. Please use a secure connection.');
+        return;
+      }
+      
+      updateSettings({ voiceNavigation: enabled });
+      startVoiceNavigation();
+      announce('Voice navigation enabled', 'assertive');
+      speakText('Voice navigation enabled. You can now use voice commands or test individual commands.');
     } else {
       updateSettings({ voiceNavigation: enabled });
       stopVoiceNavigation();
@@ -80,58 +85,91 @@ export function AccessibilityPanel() {
     announce(`${setting.replace(/([A-Z])/g, ' $1').toLowerCase()} ${value ? 'enabled' : 'disabled'}`, 'polite');
   };
 
-  const testVoiceCommand = async () => {
+  const testVoiceCommand = () => {
     if (!settings.voiceNavigation) {
       announce('Please enable voice navigation first', 'assertive');
       speakText('Please enable voice navigation first');
       return;
     }
     
-    // Request microphone permission first
+    // Check for speech recognition support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      speakText('Speech recognition is not supported in this browser. Please use Chrome or Safari.');
+      announce('Speech recognition not supported in this browser', 'assertive');
+      return;
+    }
+    
+    // Check if we're on HTTPS (required for microphone access)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      speakText('Voice commands require HTTPS. Please use a secure connection.');
+      announce('HTTPS required for voice commands', 'assertive');
+      return;
+    }
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop the stream immediately as we just needed permission
-      stream.getTracks().forEach(track => track.stop());
+      const testRecognition = new SpeechRecognition();
       
-      speakText('Microphone access granted. Voice test ready. I am now listening for your command. Please speak now.');
+      // Configuration for reliability
+      testRecognition.continuous = false;
+      testRecognition.interimResults = false;
+      testRecognition.lang = 'en-US';
+      testRecognition.maxAlternatives = 1;
       
-      // Start a temporary listening session for testing
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const testRecognition = new SpeechRecognition();
+      // Set up event handlers before starting
+      testRecognition.onstart = () => {
+        console.log('Speech recognition started');
+        speakText('I am now listening for your command. Please speak clearly.');
+      };
+      
+      testRecognition.onresult = (event) => {
+        const command = event.results[0][0].transcript.toLowerCase().trim();
+        const confidence = event.results[0][0].confidence;
         
-        testRecognition.continuous = false;
-        testRecognition.interimResults = false;
-        testRecognition.lang = 'en-US';
+        console.log(`Command: ${command}, Confidence: ${confidence}`);
+        announce(`I heard: ${command}`, 'assertive');
+        speakText(`I heard you say: ${command}. Processing command now.`);
         
-        testRecognition.onresult = (event) => {
-          const command = event.results[0][0].transcript.toLowerCase().trim();
-          announce(`I heard: ${command}`, 'assertive');
-          speakText(`I heard you say: ${command}. Processing command now.`);
-          
-          // Process the command
-          handleTestCommand(command);
-        };
+        // Process the command
+        handleTestCommand(command);
+      };
+      
+      testRecognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
         
-        testRecognition.onerror = (event) => {
-          console.error('Test recognition error:', event.error);
-          if (event.error === 'no-speech') {
+        switch(event.error) {
+          case 'no-speech':
             speakText('I did not hear any speech. Please try again and speak clearly.');
-          } else if (event.error === 'not-allowed') {
+            break;
+          case 'not-allowed':
             speakText('Microphone access was denied. Please allow microphone access in your browser settings.');
-          } else {
-            speakText('Sorry, I could not understand your command. Please try again.');
-          }
-        };
-        
-        testRecognition.start();
-      } else {
-        speakText('Speech recognition is not supported in this browser.');
-      }
+            break;
+          case 'network':
+            speakText('Network error. Please check your internet connection and try again.');
+            break;
+          case 'service-not-allowed':
+            speakText('Speech service not available. Please make sure you are using HTTPS.');
+            break;
+          case 'audio-capture':
+            speakText('Audio capture failed. Please check your microphone and try again.');
+            break;
+          default:
+            speakText('Speech recognition error. Please try again.');
+        }
+      };
+      
+      testRecognition.onend = () => {
+        console.log('Speech recognition ended');
+      };
+      
+      // Start recognition
+      testRecognition.start();
+      
     } catch (error) {
-      console.error('Microphone permission error:', error);
-      speakText('Microphone access is required for voice commands. Please allow microphone access when prompted by your browser.');
-      announce('Microphone access denied. Please allow microphone access in browser settings.', 'assertive');
+      console.error('Speech recognition initialization error:', error);
+      speakText('Voice command system initialization failed. Please try again.');
+      announce('Voice command system error', 'assertive');
     }
   };
 
@@ -279,6 +317,9 @@ export function AccessibilityPanel() {
                           ? 'Continuous listening active. Say "stop listening" to pause.'
                           : 'Use "Start Voice Commands" for continuous listening or "Test Voice Command" for single commands.'
                         }
+                      </p>
+                      <p className="text-xs text-blue-500 mt-1">
+                        Note: Voice recognition requires Chrome/Safari browser and microphone permission.
                       </p>
                     </div>
                   )}
