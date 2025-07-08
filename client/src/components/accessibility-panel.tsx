@@ -23,7 +23,6 @@ import {
   HelpCircle,
   Settings
 } from 'lucide-react';
-import { TestSwitch } from './test-switch';
 
 export function AccessibilityPanel() {
   const { 
@@ -100,9 +99,7 @@ export function AccessibilityPanel() {
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Test Switch for debugging */}
-          <TestSwitch />
-          
+
           {/* Voice Navigation Section */}
           <Card>
             <CardHeader>
@@ -147,6 +144,15 @@ export function AccessibilityPanel() {
                   
                   <div className="flex gap-2">
                     <Button
+                      variant={isListening ? "destructive" : "default"}
+                      size="sm"
+                      onClick={isListening ? stopVoiceNavigation : startVoiceNavigation}
+                      className="flex items-center gap-2"
+                    >
+                      {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                      {isListening ? 'Stop Listening' : 'Start Voice Commands'}
+                    </Button>
+                    <Button
                       variant="outline"
                       size="sm"
                       onClick={testVoiceCommand}
@@ -164,16 +170,19 @@ export function AccessibilityPanel() {
                       <HelpCircle className="h-4 w-4" />
                       Voice Commands
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={stopSpeaking}
-                      className="flex items-center gap-2"
-                    >
-                      <VolumeX className="h-4 w-4" />
-                      Stop Speaking
-                    </Button>
                   </div>
+                  
+                  {isListening && (
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm font-medium text-green-800 mb-2">🎤 Listening for Voice Commands:</p>
+                      <ul className="text-sm text-green-700 space-y-1">
+                        <li>• Say "Go to products" to navigate to products page</li>
+                        <li>• Say "Search for [item]" to search for products</li>
+                        <li>• Say "Help" to get voice command help</li>
+                        <li>• Say "Home" to go to home page</li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
