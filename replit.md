@@ -95,18 +95,30 @@ RESTful API with comprehensive endpoints:
 - `GET /api/scraping/monitoring-stats` - Price monitoring statistics
 - `POST /api/scraping/complete-workflow` - End-to-end automated pipeline
 
-### Search and Filtering
-Comprehensive filtering system supporting:
-- Text-based product search
-- Category filtering
-- Price range filtering
-- Retailer-specific filtering
-- Rating-based filtering
-- Availability status filtering
-- Sorting by price, rating, and popularity
+**Enhanced Search APIs:**
+- `GET /api/search/advanced` - Advanced product search with AI-powered features
+- `GET /api/search/suggestions` - Real-time search suggestions and autocomplete
+- `POST /api/search/analyze` - AI-powered search query intent analysis
+- `GET /api/search/intent/:intent` - Search optimized for specific detected intent
+- `GET /api/search/smart` - Smart search with automatic strategy selection
+- `GET /api/search/facets` - Dynamic search facets for filter UI generation
+- `GET /api/search/stats` - Search performance metrics and analytics
+- `POST /api/search/clear-cache` - Clear search result caches
+
+### Enhanced Search and Filtering
+Advanced AI-powered search system with comprehensive filtering capabilities:
+- **Smart Search Mode**: AI-powered semantic search with fuzzy matching and intent detection
+- **Real-time Suggestions**: Autocomplete with search history and trending products
+- **Query Analysis**: OpenAI-powered search intent analysis and optimization
+- **Quick Filters**: Accessible filter shortcuts directly from search bar
+- **Multiple Search Modes**: Basic keyword matching, smart AI search, and intent-based optimization
+- **Search History**: Persistent search tracking with quick access to recent queries
+- **Comprehensive Filtering**: Category, price range, retailer, rating, and availability filters
+- **Advanced Sorting**: Price, rating, popularity, and relevance-based sorting
 
 ### User Interface Components
-- **SearchHeader**: Main search interface with 300ms debounced queries
+- **EnhancedSearchHeader**: AI-powered search interface with smart suggestions, quick filters, and mode switching
+- **AdvancedSearch**: Dedicated advanced search page with comprehensive filtering and search optimization
 - **FilterSidebar**: Advanced filtering controls with optimized state management
 - **ProductGrid**: Responsive display with memoized product cards
 - **MemoizedProductCard**: Performance-optimized product display with custom comparison
@@ -209,6 +221,20 @@ Comprehensive filtering system supporting:
 - **Performance Monitoring**: Agent metrics, session tracking, and system status reporting
 
 ## Changelog
+
+### July 8, 2025
+- **Enhanced Regular Search Bar Complete**: Successfully integrated all advanced search features into the main search interface
+  - ✅ Created EnhancedSearchHeader component with AI-powered smart search capabilities
+  - ✅ Implemented real-time search suggestions with autocomplete and search history
+  - ✅ Added quick filters accessible directly from search bar with visual indicators
+  - ✅ Integrated multiple search modes: Basic keyword matching, Smart AI search, and Intent-based optimization
+  - ✅ Added search query analysis with OpenAI-powered intent detection and confidence scoring
+  - ✅ Implemented useEnhancedProductsSearch hook for unified search state management
+  - ✅ Added search mode toggle (Smart/Basic) with visual indicators (Sparkles/Search icons)
+  - ✅ Enhanced search results with metadata including search time, mode, and suggestions
+  - ✅ Fixed critical searchQuery reference error in products page
+  - ✅ Updated products page to use enhanced search with seamless integration
+  - ✅ Maintained backward compatibility with existing search functionality
 
 ### June 29, 2025
 - **Forum Authentication Security Fix Complete**: Critical security vulnerability resolved preventing unauthorized topic and post creation

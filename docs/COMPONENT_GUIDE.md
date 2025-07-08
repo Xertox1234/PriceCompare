@@ -43,28 +43,41 @@ Main application page containing the product search and comparison interface.
 
 ## Layout Components
 
-### SearchHeader (`/client/src/components/search-header.tsx`)
-Application header with search functionality and navigation.
+### EnhancedSearchHeader (`/client/src/components/enhanced-search-header.tsx`)
+AI-powered application header with advanced search functionality and navigation.
 
 **Props:**
 ```typescript
-interface SearchHeaderProps {
-  onSearch: (query: string) => void;
+interface EnhancedSearchHeaderProps {
+  onSearch: (query: string, filters?: SearchFilters) => void;
   searchQuery: string;
+  filters?: SearchFilters;
+  onFilterChange?: (filters: Partial<SearchFilters>) => void;
 }
 ```
 
 **Features:**
 - Brand logo and navigation
-- Search input with autocomplete
+- AI-powered smart search with semantic matching
+- Real-time search suggestions with autocomplete
+- Search mode toggle (Smart/Basic)
+- Quick filters accessible from search bar
+- Search history tracking
+- Query analysis with intent detection
 - User action buttons (alerts, profile)
-- Responsive design
+- Responsive design with dark mode support
 - Keyboard navigation support
+
+**Search Modes:**
+- **Smart Mode**: AI-powered semantic search with fuzzy matching
+- **Basic Mode**: Traditional keyword-based search
+- **Intent Mode**: Optimized search based on detected user intent
 
 **Accessibility:**
 - Search landmark with `role="search"`
-- Proper form labeling
+- Proper form labeling with dynamic placeholders
 - Keyboard shortcuts for search
+- ARIA labels for all interactive elements
 
 ### FilterSidebar (`/client/src/components/filter-sidebar.tsx`)
 Advanced filtering interface for product search.
@@ -196,8 +209,84 @@ interface ComparisonModalProps {
 
 ## Custom Hooks
 
+### useEnhancedProductsSearch (`/client/src/hooks/use-enhanced-products-search.ts`)
+Advanced hook for AI-powered product search with enhanced features.
+
+**Parameters:**
+```typescript
+interface UseEnhancedProductsSearchProps {
+  initialFilters?: SearchFilters;
+  autoSearch?: boolean;
+  debounceMs?: number;
+}
+```
+
+**Returns:**
+```typescript
+{
+  query: string;
+  setQuery: (query: string) => void;
+  filters: SearchFilters;
+  setFilters: (filters: Partial<SearchFilters>) => void;
+  searchMode: 'basic' | 'smart' | 'intent';
+  setSearchMode: (mode: 'basic' | 'smart' | 'intent') => void;
+  searchHistory: string[];
+  search: (query?: string, filters?: SearchFilters, mode?: string) => void;
+  clearSearch: () => void;
+  products: Product[];
+  metadata: SearchMetadata;
+  isLoading: boolean;
+  error: Error | null;
+  isSearching: boolean;
+}
+```
+
+**Features:**
+- AI-powered semantic search with multiple modes
+- Real-time search suggestions and autocomplete
+- Search history tracking and management
+- Intent-based search optimization
+- Automatic caching with React Query
+- Debounced search queries with customizable delay
+- Error handling and retry logic
+
+### useAdvancedSearch (`/client/src/hooks/use-advanced-search.ts`)
+Hook for advanced search functionality with AI-powered features.
+
+**Parameters:**
+```typescript
+useAdvancedSearch(
+  query: string,
+  filters: SearchFilters,
+  mode: 'basic' | 'smart' | 'intent',
+  autoSearch?: boolean
+)
+```
+
+**Returns:**
+```typescript
+{
+  suggestions: SearchSuggestion[];
+  analysis: QueryAnalysis;
+  facets: SearchFacets;
+  results: Product[];
+  metadata: SearchMetadata;
+  isSearching: boolean;
+  suggestionsLoading: boolean;
+  analysisLoading: boolean;
+  searchError: Error | null;
+}
+```
+
+**Features:**
+- Real-time search suggestions with type detection
+- AI-powered query analysis and intent detection
+- Search facets for dynamic filter generation
+- Multiple search strategies (basic, smart, intent)
+- Performance metrics and search analytics
+
 ### useProducts (`/client/src/hooks/use-products.ts`)
-Manages product search and filtering with caching.
+Legacy hook for basic product search and filtering with caching.
 
 **Parameters:**
 ```typescript
