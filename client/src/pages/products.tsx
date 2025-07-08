@@ -122,7 +122,7 @@ export default function Products() {
             
             {/* Desktop Filters Sidebar */}
             <aside className="hidden lg:block lg:w-80 flex-shrink-0">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
+              <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 sticky top-6">
                 <FilterSidebar 
                   filters={filters} 
                   onFilterChange={handleFilterChange} 
