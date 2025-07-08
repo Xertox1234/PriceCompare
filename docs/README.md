@@ -29,7 +29,7 @@ Current status and performance metrics of the AI scraping infrastructure with re
 Technical specifications for affiliate link generation, URL transformation logic, and revenue optimization features.
 
 🛠️ **[Component Guide](./COMPONENT_GUIDE.md)**  
-Frontend component documentation with props, usage patterns, and accessibility implementation details.
+Frontend component documentation with props, usage patterns, and implementation details.
 
 ### Architecture Documentation
 📐 **[System Architecture](./ARCHITECTURE.md)**  

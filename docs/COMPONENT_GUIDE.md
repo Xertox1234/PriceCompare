@@ -7,10 +7,10 @@ This document outlines all major components in the Insightify application, their
 
 ### Design Principles
 - **Single Responsibility**: Each component has a clear, focused purpose
-- **Accessibility First**: All components include proper ARIA labels and keyboard support
 - **Type Safety**: Full TypeScript coverage with proper prop interfaces
 - **Reusability**: Components are designed for reuse across different contexts
 - **Performance**: Optimized rendering with proper memoization where needed
+- **Modern Standards**: Built with React 18 and contemporary best practices
 
 ## Page Components
 
@@ -44,7 +44,7 @@ Main application page containing the product search and comparison interface.
 ## Layout Components
 
 ### EnhancedSearchHeader (`/client/src/components/enhanced-search-header.tsx`)
-AI-powered application header with advanced search functionality and navigation.
+AI-powered search interface with advanced functionality and intelligent suggestions.
 
 **Props:**
 ```typescript
@@ -77,7 +77,7 @@ interface EnhancedSearchHeaderProps {
 - Search landmark with `role="search"`
 - Proper form labeling with dynamic placeholders
 - Keyboard shortcuts for search
-- ARIA labels for all interactive elements
+- Semantic HTML for all interactive elements
 
 ### FilterSidebar (`/client/src/components/filter-sidebar.tsx`)
 Advanced filtering interface for product search.
@@ -385,7 +385,7 @@ describe('ProductCard', () => {
     // Test implementation
   });
   
-  it('meets accessibility standards', () => {
+  it('meets component standards', () => {
     // Accessibility tests
   });
 });

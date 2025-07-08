@@ -53,7 +53,7 @@ This document provides a comprehensive overview of the price comparison platform
 - Real-time product search with 300ms debounced queries
 - Lazy loading for performance optimization
 - Dark mode support with CSS variables
-- Accessibility compliance (WCAG 2.1 AA)
+- Modern web standards compliance
 
 ### 2. Backend Architecture
 

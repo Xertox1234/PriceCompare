@@ -250,7 +250,7 @@
   - Screen reader optimization
   - Keyboard navigation
   - Color contrast improvements
-  - ARIA labels
+  - Semantic HTML labels
 
 ### Content & Marketing
 - 🔄 **Content Strategy**

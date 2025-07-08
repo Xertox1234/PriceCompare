@@ -9,7 +9,6 @@
 - **Search Functionality**: Real-time product search with filters
 - **Product Display**: Responsive grid with price comparison
 - **Comparison Tool**: Side-by-side product comparison modal
-- **Accessibility**: WCAG 2.1 AA compliance implementation
 - **Responsive Design**: Mobile-first approach with Tailwind CSS
 - **State Management**: TanStack Query for server state
 - **Development Environment**: Full development stack with hot reload
@@ -96,7 +95,7 @@
 4. **Testing Coverage**
    - No unit tests implemented
    - Missing integration tests
-   - Accessibility testing automation needed
+   - Component testing automation needed
 
 ### Refactoring Priorities
 1. **Component Organization**
@@ -282,7 +281,7 @@ How to revert if issues arise
 ### Technical Metrics
 - **Performance**: Page load time < 3 seconds
 - **Availability**: 99.9% uptime
-- **Accessibility**: WCAG 2.1 AA compliance
+- **Web Standards**: Modern HTML and CSS compliance
 - **Code Quality**: >80% test coverage
 
 ### Business Metrics
@@ -304,7 +303,7 @@ How to revert if issues arise
 - **Scalability**: Database performance with increased load
 
 ### Low Risk
-- **UI/UX**: Minor design improvements and accessibility enhancements
+- **UI/UX**: Minor design improvements and responsive enhancements
 - **Feature Expansion**: Additional search filters and sorting options
 
 ## Resource Requirements

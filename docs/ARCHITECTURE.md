@@ -1,12 +1,12 @@
 # Insightify - System Architecture Documentation
 
 ## Overview
-Insightify is a comprehensive price comparison platform that enables users to search, filter, and compare product prices across multiple retailers. The system is built with accessibility-first principles and follows modern web development practices.
+Insightify is a comprehensive price comparison platform that enables users to search, filter, and compare product prices across multiple retailers. The system is built with modern web development practices and focuses on performance and user experience.
 
 ## Architecture Principles
 
 ### Core Design Philosophy
-- **Accessibility First**: WCAG 2.1 AA compliance with semantic HTML, ARIA labels, and keyboard navigation
+- **Semantic HTML**: Modern web standards with proper semantic elements and keyboard navigation
 - **Performance Optimized**: Client-side caching, optimized queries, and responsive design
 - **Scalable Backend**: Modular storage interface supporting both in-memory and database persistence
 - **Type Safety**: End-to-end TypeScript implementation with shared schemas
@@ -87,14 +87,12 @@ Insightify is a comprehensive price comparison platform that enables users to se
 - **Local State**: React hooks for UI state
 - **Comparison**: Custom hook managing product comparison list
 
-### Accessibility Features
-- Skip navigation links
+### Web Standards
 - Semantic HTML structure
-- ARIA labels and roles
-- Keyboard navigation support
-- Screen reader compatibility
-- High contrast mode support
-- Reduced motion preferences
+- Proper semantic elements and roles
+- Standard keyboard navigation support
+- Modern CSS and responsive design
+- Progressive enhancement principles
 
 ## Security Considerations
 
