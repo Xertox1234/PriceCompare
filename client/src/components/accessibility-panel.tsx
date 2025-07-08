@@ -46,12 +46,25 @@ export function AccessibilityPanel() {
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleVoiceToggle = (enabled: boolean) => {
-    updateSettings({ voiceNavigation: enabled });
+  const handleVoiceToggle = async (enabled: boolean) => {
     if (enabled) {
-      startVoiceNavigation();
-      announce('Voice navigation enabled', 'assertive');
+      // Request microphone permission before enabling voice navigation
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately as we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+        
+        updateSettings({ voiceNavigation: enabled });
+        startVoiceNavigation();
+        announce('Voice navigation enabled', 'assertive');
+        speakText('Voice navigation enabled. You can now use voice commands.');
+      } catch (error) {
+        console.error('Microphone permission error:', error);
+        announce('Microphone access is required for voice navigation. Please allow microphone access.', 'assertive');
+        speakText('Microphone access is required for voice navigation. Please allow microphone access when prompted by your browser.');
+      }
     } else {
+      updateSettings({ voiceNavigation: enabled });
       stopVoiceNavigation();
       announce('Voice navigation disabled', 'polite');
     }
@@ -67,41 +80,58 @@ export function AccessibilityPanel() {
     announce(`${setting.replace(/([A-Z])/g, ' $1').toLowerCase()} ${value ? 'enabled' : 'disabled'}`, 'polite');
   };
 
-  const testVoiceCommand = () => {
+  const testVoiceCommand = async () => {
     if (!settings.voiceNavigation) {
       announce('Please enable voice navigation first', 'assertive');
       speakText('Please enable voice navigation first');
       return;
     }
     
-    speakText('Voice test ready. I am now listening for your command. Please speak now.');
-    
-    // Start a temporary listening session for testing
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const testRecognition = new SpeechRecognition();
+    // Request microphone permission first
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stop the stream immediately as we just needed permission
+      stream.getTracks().forEach(track => track.stop());
       
-      testRecognition.continuous = false;
-      testRecognition.interimResults = false;
-      testRecognition.lang = 'en-US';
+      speakText('Microphone access granted. Voice test ready. I am now listening for your command. Please speak now.');
       
-      testRecognition.onresult = (event) => {
-        const command = event.results[0][0].transcript.toLowerCase().trim();
-        announce(`I heard: ${command}`, 'assertive');
-        speakText(`I heard you say: ${command}. Processing command now.`);
+      // Start a temporary listening session for testing
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const testRecognition = new SpeechRecognition();
         
-        // Process the command
-        handleTestCommand(command);
-      };
-      
-      testRecognition.onerror = (event) => {
-        console.error('Test recognition error:', event.error);
-        speakText('Sorry, I could not understand your command. Please try again.');
-      };
-      
-      testRecognition.start();
-    } else {
-      speakText('Speech recognition is not supported in this browser.');
+        testRecognition.continuous = false;
+        testRecognition.interimResults = false;
+        testRecognition.lang = 'en-US';
+        
+        testRecognition.onresult = (event) => {
+          const command = event.results[0][0].transcript.toLowerCase().trim();
+          announce(`I heard: ${command}`, 'assertive');
+          speakText(`I heard you say: ${command}. Processing command now.`);
+          
+          // Process the command
+          handleTestCommand(command);
+        };
+        
+        testRecognition.onerror = (event) => {
+          console.error('Test recognition error:', event.error);
+          if (event.error === 'no-speech') {
+            speakText('I did not hear any speech. Please try again and speak clearly.');
+          } else if (event.error === 'not-allowed') {
+            speakText('Microphone access was denied. Please allow microphone access in your browser settings.');
+          } else {
+            speakText('Sorry, I could not understand your command. Please try again.');
+          }
+        };
+        
+        testRecognition.start();
+      } else {
+        speakText('Speech recognition is not supported in this browser.');
+      }
+    } catch (error) {
+      console.error('Microphone permission error:', error);
+      speakText('Microphone access is required for voice commands. Please allow microphone access when prompted by your browser.');
+      announce('Microphone access denied. Please allow microphone access in browser settings.', 'assertive');
     }
   };
 
@@ -233,16 +263,23 @@ export function AccessibilityPanel() {
                     </Button>
                   </div>
                   
-                  {isListening && (
-                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm font-medium text-green-800 mb-2">🎤 Listening for Voice Commands:</p>
-                      <ul className="text-sm text-green-700 space-y-1">
+                  {settings.voiceNavigation && (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm font-medium text-blue-800 mb-2">
+                        {isListening ? '🎤 Listening for Voice Commands:' : '🎤 Voice Commands Available:'}
+                      </p>
+                      <ul className="text-sm text-blue-700 space-y-1">
                         <li>• Say "Go to products" to navigate to products page</li>
                         <li>• Say "Search for [item]" to search for products</li>
                         <li>• Say "Help" to get voice command help</li>
                         <li>• Say "Home" to go to home page</li>
                       </ul>
-                      <p className="text-xs text-green-600 mt-2">Or use "Test Voice Command" button to try a single command</p>
+                      <p className="text-xs text-blue-600 mt-2">
+                        {isListening 
+                          ? 'Continuous listening active. Say "stop listening" to pause.'
+                          : 'Use "Start Voice Commands" for continuous listening or "Test Voice Command" for single commands.'
+                        }
+                      </p>
                     </div>
                   )}
                 </div>

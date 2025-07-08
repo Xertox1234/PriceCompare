@@ -164,35 +164,49 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
   }, [synthesis]);
 
   // Voice navigation functions
-  const startVoiceNavigation = useCallback(() => {
+  const startVoiceNavigation = useCallback(async () => {
     if (!recognition || !settings.voiceNavigation) return;
 
-    setIsListening(true);
-    
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const command = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-      handleVoiceCommand(command);
-    };
+    // Request microphone permission first
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stop the stream immediately as we just needed permission
+      stream.getTracks().forEach(track => track.stop());
+      
+      setIsListening(true);
+      
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const command = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+        handleVoiceCommand(command);
+      };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Speech recognition error:', event.error);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      if (settings.voiceNavigation) {
-        // Restart recognition if voice navigation is still enabled
-        setTimeout(() => {
-          recognition.start();
-        }, 100);
-      } else {
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          announce('Microphone access was denied. Please allow microphone access in your browser settings.', 'assertive');
+        }
         setIsListening(false);
-      }
-    };
+      };
 
-    recognition.start();
-    announce('Voice navigation started. Say "help" for commands.', 'assertive');
-  }, [recognition, settings.voiceNavigation, announce]);
+      recognition.onend = () => {
+        if (settings.voiceNavigation && isListening) {
+          // Restart recognition if voice navigation is still enabled
+          setTimeout(() => {
+            recognition.start();
+          }, 100);
+        } else {
+          setIsListening(false);
+        }
+      };
+
+      recognition.start();
+      announce('Voice navigation started. Say "help" for commands.', 'assertive');
+    } catch (error) {
+      console.error('Microphone permission error:', error);
+      announce('Microphone access is required for voice navigation. Please allow microphone access.', 'assertive');
+      setIsListening(false);
+    }
+  }, [recognition, settings.voiceNavigation, announce, isListening]);
 
   const stopVoiceNavigation = useCallback(() => {
     if (recognition) {
