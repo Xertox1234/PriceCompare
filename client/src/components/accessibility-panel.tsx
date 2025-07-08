@@ -1,4 +1,12 @@
 import React, { useState } from 'react';
+
+// Add TypeScript declarations for speech recognition
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 import { useAccessibility } from '@/contexts/accessibility-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +68,59 @@ export function AccessibilityPanel() {
   };
 
   const testVoiceCommand = () => {
-    speakText('This is a test of the text-to-speech functionality. Voice navigation is working correctly.');
+    if (!settings.voiceNavigation) {
+      announce('Please enable voice navigation first', 'assertive');
+      speakText('Please enable voice navigation first');
+      return;
+    }
+    
+    speakText('Voice test ready. I am now listening for your command. Please speak now.');
+    
+    // Start a temporary listening session for testing
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const testRecognition = new SpeechRecognition();
+      
+      testRecognition.continuous = false;
+      testRecognition.interimResults = false;
+      testRecognition.lang = 'en-US';
+      
+      testRecognition.onresult = (event) => {
+        const command = event.results[0][0].transcript.toLowerCase().trim();
+        announce(`I heard: ${command}`, 'assertive');
+        speakText(`I heard you say: ${command}. Processing command now.`);
+        
+        // Process the command
+        handleTestCommand(command);
+      };
+      
+      testRecognition.onerror = (event) => {
+        console.error('Test recognition error:', event.error);
+        speakText('Sorry, I could not understand your command. Please try again.');
+      };
+      
+      testRecognition.start();
+    } else {
+      speakText('Speech recognition is not supported in this browser.');
+    }
+  };
+
+  const handleTestCommand = (command: string) => {
+    if (command.includes('go to products') || command.includes('products')) {
+      speakText('Navigating to products page');
+      window.location.href = '/products';
+    } else if (command.includes('go to home') || command.includes('home')) {
+      speakText('Navigating to home page');
+      window.location.href = '/';
+    } else if (command.includes('help')) {
+      speakText('Available commands: go to products, go to home, search for items, or help');
+    } else if (command.includes('search for')) {
+      const searchTerm = command.replace('search for', '').trim();
+      speakText(`Searching for ${searchTerm}`);
+      window.location.href = `/products?search=${encodeURIComponent(searchTerm)}`;
+    } else {
+      speakText('Command not recognized. Available commands are: go to products, go to home, search for items, or help');
+    }
   };
 
   const showVoiceCommands = () => {
@@ -157,9 +217,10 @@ export function AccessibilityPanel() {
                       size="sm"
                       onClick={testVoiceCommand}
                       className="flex items-center gap-2"
+                      disabled={!settings.voiceNavigation}
                     >
-                      <Volume2 className="h-4 w-4" />
-                      Test Voice
+                      <Mic className="h-4 w-4" />
+                      Test Voice Command
                     </Button>
                     <Button
                       variant="outline"
@@ -181,6 +242,7 @@ export function AccessibilityPanel() {
                         <li>• Say "Help" to get voice command help</li>
                         <li>• Say "Home" to go to home page</li>
                       </ul>
+                      <p className="text-xs text-green-600 mt-2">Or use "Test Voice Command" button to try a single command</p>
                     </div>
                   )}
                 </div>
