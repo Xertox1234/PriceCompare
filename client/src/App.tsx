@@ -5,6 +5,9 @@ import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AccessibilityProvider } from "@/contexts/accessibility-context";
+import { AccessibilityPanel } from "@/components/accessibility-panel";
+import { VoiceNavigationIndicator } from "@/components/voice-navigation-indicator";
 import { NewHeader } from "@/components/new-header";
 import { NewFooter } from "@/components/new-footer";
 import { Suspense } from "react";
@@ -29,7 +32,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-background">
       <NewHeader />
-      <main className="container mx-auto px-6 py-12">
+      <main id="main-content" className="container mx-auto px-6 py-12">
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/products" component={Products} />
@@ -57,6 +60,7 @@ function Router() {
         </Switch>
       </main>
       <NewFooter />
+      <VoiceNavigationIndicator />
     </div>
   );
 }
@@ -66,23 +70,26 @@ function App() {
     <HelmetProvider>
       <ThemeProvider defaultTheme="light" storageKey="pricecompare-theme">
         <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-          <div className="min-h-screen bg-background">
-            {/* Skip to main content link for accessibility */}
-            <a 
-              href="#main-content" 
-              className="skip-link focus-visible"
-              tabIndex={0}
-            >
-              Skip to main content
-            </a>
-            <Router />
-            <Toaster />
-          </div>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
-  </HelmetProvider>
+          <AccessibilityProvider>
+            <TooltipProvider>
+              <div className="min-h-screen bg-background">
+                {/* Skip to main content link for accessibility */}
+                <a 
+                  href="#main-content" 
+                  className="skip-link focus-visible"
+                  tabIndex={0}
+                >
+                  Skip to main content
+                </a>
+                <Router />
+                <Toaster />
+                <AccessibilityPanel />
+              </div>
+            </TooltipProvider>
+          </AccessibilityProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 

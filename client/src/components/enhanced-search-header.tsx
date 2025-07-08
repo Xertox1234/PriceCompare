@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAdvancedSearch } from "@/hooks/use-advanced-search";
+import { useAccessibility } from "@/contexts/accessibility-context";
+import { useKeyboardNavigation } from "@/hooks/use-keyboard-navigation";
 import { SearchFilters, SearchSuggestion } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +29,7 @@ export function EnhancedSearchHeader({
   const [showQuickFilters, setShowQuickFilters] = useState(false);
   const [searchMode, setSearchMode] = useState<'basic' | 'smart' | 'intent'>('smart');
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   // Use advanced search hook for suggestions and intelligent features
   const {
@@ -39,10 +42,38 @@ export function EnhancedSearchHeader({
     quickSearch
   } = useAdvancedSearch(query, filters, searchMode, false); // autoSearch = false
 
+  // Accessibility hooks
+  const { announce, speakText, settings } = useAccessibility();
+  
+  // Keyboard navigation
+  useKeyboardNavigation({
+    onFocusSearch: () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  });
+
   // Update query when prop changes
   useEffect(() => {
     setQuery(searchQuery);
   }, [searchQuery]);
+
+  // Announce search mode changes
+  useEffect(() => {
+    if (searchMode === 'smart') {
+      announce('AI-powered search mode enabled', 'polite');
+    } else {
+      announce('Basic search mode enabled', 'polite');
+    }
+  }, [searchMode, announce]);
+
+  // Announce search results
+  useEffect(() => {
+    if (suggestions.length > 0) {
+      announce(`${suggestions.length} search suggestions available`, 'polite');
+    }
+  }, [suggestions.length, announce]);
 
   // Handle search submission
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -65,7 +96,15 @@ export function EnhancedSearchHeader({
     } : filters;
     
     onSearch(suggestion.query, optimizedFilters);
-  }, [filters, onSearch]);
+    
+    // Announce the selection
+    announce(`Selected suggestion: ${suggestion.query}`, 'polite');
+    
+    // Speak the suggestion if voice navigation is enabled
+    if (settings.voiceNavigation) {
+      speakText(`Searching for ${suggestion.query}`);
+    }
+  }, [filters, onSearch, announce, speakText, settings.voiceNavigation]);
 
   // Handle input focus/blur
   const handleInputFocus = () => {
@@ -81,6 +120,15 @@ export function EnhancedSearchHeader({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSubmit(e);
+    } else if (e.key === 'ArrowDown' && showSuggestions && suggestions.length > 0) {
+      e.preventDefault();
+      const firstSuggestion = suggestionsRef.current?.querySelector('button') as HTMLButtonElement;
+      if (firstSuggestion) {
+        firstSuggestion.focus();
+      }
+    } else if (e.key === 'Escape' && showSuggestions) {
+      setShowSuggestions(false);
+      announce('Suggestions closed', 'polite');
     }
   };
 
@@ -162,8 +210,21 @@ export function EnhancedSearchHeader({
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
                   onKeyDown={handleKeyDown}
-                  aria-label="Search for products"
+                  aria-label={searchMode === 'smart' 
+                    ? "AI-powered search input. Press Ctrl+K to focus, use arrow keys to navigate suggestions" 
+                    : "Search for products input. Press Ctrl+K to focus, use arrow keys to navigate suggestions"
+                  }
+                  aria-describedby="search-help"
+                  aria-expanded={showSuggestions}
+                  aria-haspopup="listbox"
+                  aria-autocomplete="list"
+                  role="combobox"
                 />
+                
+                {/* Hidden help text for screen readers */}
+                <div id="search-help" className="sr-only">
+                  Search help: Use Ctrl+K to focus search, arrow keys to navigate suggestions, Enter to search, Escape to close suggestions.
+                </div>
                 
                 {/* Search Mode Toggle */}
                 <div className="absolute right-16 top-1/2 -translate-y-1/2">
@@ -173,6 +234,8 @@ export function EnhancedSearchHeader({
                     size="sm"
                     onClick={() => setSearchMode(prev => prev === 'smart' ? 'basic' : 'smart')}
                     className="text-xs px-2 h-6"
+                    aria-label={searchMode === 'smart' ? 'Switch to basic search mode' : 'Switch to smart AI search mode'}
+                    title={searchMode === 'smart' ? 'Switch to basic search' : 'Switch to smart AI search'}
                   >
                     {searchMode === 'smart' ? (
                       <>
@@ -210,7 +273,12 @@ export function EnhancedSearchHeader({
 
             {/* Search Suggestions Dropdown */}
             {showSuggestions && query.length > 1 && (
-              <Card className="absolute top-full left-0 right-0 mt-2 z-50 max-h-96 overflow-y-auto">
+              <Card 
+                ref={suggestionsRef}
+                className="absolute top-full left-0 right-0 mt-2 z-50 max-h-96 overflow-y-auto"
+                role="listbox"
+                aria-label="Search suggestions"
+              >
                 <CardContent className="p-0">
                   {/* Loading state */}
                   {suggestionsLoading && (
@@ -247,7 +315,31 @@ export function EnhancedSearchHeader({
                         <button
                           key={index}
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 group"
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              const nextButton = e.currentTarget.nextElementSibling as HTMLButtonElement;
+                              if (nextButton) {
+                                nextButton.focus();
+                              }
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              const prevButton = e.currentTarget.previousElementSibling as HTMLButtonElement;
+                              if (prevButton) {
+                                prevButton.focus();
+                              } else {
+                                // Focus back to search input
+                                inputRef.current?.focus();
+                              }
+                            } else if (e.key === 'Escape') {
+                              setShowSuggestions(false);
+                              inputRef.current?.focus();
+                            }
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 group focus:bg-gray-50 dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
+                          role="option"
+                          aria-selected={false}
+                          aria-label={`Search suggestion: ${suggestion.query}`}
                         >
                           <div className="flex items-center gap-2 text-primary">
                             {suggestion.type === 'trending' && <TrendingUp className="h-4 w-4" />}
