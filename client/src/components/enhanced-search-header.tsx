@@ -6,8 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAdvancedSearch } from "@/hooks/use-advanced-search";
-import { useAccessibility } from "@/contexts/accessibility-context";
-import { useKeyboardNavigation } from "@/hooks/use-keyboard-navigation";
 import { SearchFilters, SearchSuggestion } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -42,38 +40,38 @@ export function EnhancedSearchHeader({
     quickSearch
   } = useAdvancedSearch(query, filters, searchMode, false); // autoSearch = false
 
-  // Accessibility hooks
-  const { announce, speakText, settings } = useAccessibility();
-  
   // Keyboard navigation
-  useKeyboardNavigation({
-    onFocusSearch: () => {
-      if (inputRef.current) {
-        inputRef.current.focus();
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
       }
-    }
-  });
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Update query when prop changes
   useEffect(() => {
     setQuery(searchQuery);
   }, [searchQuery]);
 
-  // Announce search mode changes
+  // Search mode and suggestions handling
   useEffect(() => {
-    if (searchMode === 'smart') {
-      announce('AI-powered search mode enabled', 'polite');
-    } else {
-      announce('Basic search mode enabled', 'polite');
-    }
-  }, [searchMode, announce]);
+    // Handle search mode changes silently
+    console.log(`Search mode changed to: ${searchMode}`);
+  }, [searchMode]);
 
-  // Announce search results
   useEffect(() => {
+    // Handle suggestions changes
     if (suggestions.length > 0) {
-      announce(`${suggestions.length} search suggestions available`, 'polite');
+      console.log(`${suggestions.length} search suggestions available`);
     }
-  }, [suggestions.length, announce]);
+  }, [suggestions.length]);
 
   // Handle search submission
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -97,14 +95,8 @@ export function EnhancedSearchHeader({
     
     onSearch(suggestion.query, optimizedFilters);
     
-    // Announce the selection
-    announce(`Selected suggestion: ${suggestion.query}`, 'polite');
-    
-    // Speak the suggestion if voice navigation is enabled
-    if (settings.voiceNavigation) {
-      speakText(`Searching for ${suggestion.query}`);
-    }
-  }, [filters, onSearch, announce, speakText, settings.voiceNavigation]);
+    console.log(`Selected suggestion: ${suggestion.query}`);
+  }, [filters, onSearch]);
 
   // Handle input focus/blur
   const handleInputFocus = () => {
