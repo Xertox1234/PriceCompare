@@ -1,0 +1,113 @@
+import { Button } from '@/components/ui/button';
+import { Link } from 'wouter';
+import { useState } from 'react';
+
+export function NewFooter() {
+  const [footerEmail, setFooterEmail] = useState('');
+
+  const handleFooterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Footer email signup:', footerEmail);
+    setFooterEmail('');
+  };
+
+  return (
+    <footer className="bg-gray-800 text-white mt-12">
+      <div className="container mx-auto px-6 py-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div>
+            <h4 className="font-bold text-lg mb-4">Be in touch</h4>
+            <form className="flex" onSubmit={handleFooterSubmit}>
+              <input
+                type="email"
+                placeholder="Your Email"
+                value={footerEmail}
+                onChange={(e) => setFooterEmail(e.target.value)}
+                className="bg-gray-700 text-white rounded-l-md py-2 px-3 w-full focus:outline-none"
+                required
+              />
+              <Button 
+                type="submit"
+                className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-r-md"
+              >
+                Sign Up
+              </Button>
+            </form>
+          </div>
+          
+          <div>
+            <h4 className="font-bold text-lg mb-4">PriceGrabber</h4>
+            <ul>
+              <li className="mb-2">
+                <Link href="/about">
+                  <span className="hover:text-indigo-400 cursor-pointer">About</span>
+                </Link>
+              </li>
+              <li className="mb-2">
+                <Link href="/forum">
+                  <span className="hover:text-indigo-400 cursor-pointer">Community</span>
+                </Link>
+              </li>
+              <li className="mb-2">
+                <Link href="/press">
+                  <span className="hover:text-indigo-400 cursor-pointer">Press</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/sitemap">
+                  <span className="hover:text-indigo-400 cursor-pointer">Sitemap</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-bold text-lg mb-4">Support</h4>
+            <ul>
+              <li className="mb-2">
+                <Link href="/merchant-login">
+                  <span className="hover:text-indigo-400 cursor-pointer">Merchant Login</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/help">
+                  <span className="hover:text-indigo-400 cursor-pointer">Help</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-bold text-lg mb-4">Legal</h4>
+            <ul>
+              <li className="mb-2">
+                <Link href="/ad-choices">
+                  <span className="hover:text-indigo-400 cursor-pointer">Ad Choices</span>
+                </Link>
+              </li>
+              <li className="mb-2">
+                <Link href="/user-agreement">
+                  <span className="hover:text-indigo-400 cursor-pointer">User Agreement</span>
+                </Link>
+              </li>
+              <li className="mb-2">
+                <Link href="/privacy">
+                  <span className="hover:text-indigo-400 cursor-pointer">Privacy Statement</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/california-privacy">
+                  <span className="hover:text-indigo-400 cursor-pointer">California Privacy Notice</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className="text-center text-gray-400 mt-10 border-t border-gray-700 pt-6">
+          <p>&copy; 2023 PriceGrabber. All Rights Reserved.</p>
+        </div>
+      </div>
+    </footer>
+  );
+}

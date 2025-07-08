@@ -4,7 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { SharedNavigation } from "@/components/shared-navigation";
+import { NewHeader } from "@/components/new-header";
+import { NewFooter } from "@/components/new-footer";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Home from "@/pages/home";
@@ -26,8 +27,8 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SharedNavigation />
-      <main className="container mx-auto px-4 py-6">
+      <NewHeader />
+      <main className="container mx-auto px-6 py-12">
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/products" component={Products} />
@@ -44,6 +45,7 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </main>
+      <NewFooter />
     </div>
   );
 }

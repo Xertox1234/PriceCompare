@@ -1,18 +1,22 @@
-import { HeroSection } from "@/components/hero-section";
-import { FeaturedCategories } from "@/components/featured-categories";
-import { TrendingProducts } from "@/components/trending-products";
+import { NewHeroSection } from "@/components/new-hero-section";
+import { NewPromoBanner } from "@/components/new-promo-banner";
+import { NewCategories } from "@/components/new-categories";
+import { NewNewsletter } from "@/components/new-newsletter";
 
 export default function Home() {
   return (
     <>
       {/* Hero Section */}
-      <HeroSection />
+      <NewHeroSection />
       
-      {/* Featured Categories */}
-      <FeaturedCategories />
+      {/* Promotional Banner */}
+      <NewPromoBanner />
       
-      {/* Trending Products */}
-      <TrendingProducts />
+      {/* Popular Categories */}
+      <NewCategories />
+      
+      {/* Newsletter Section */}
+      <NewNewsletter />
     </>
   );
 }

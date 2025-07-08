@@ -1,14 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
 @theme {
-  /* Tech Space Brand Colors - Fixed HSL values */
-  --color-primary: 243 75% 66%; /* #5A5DFF */
+  /* PriceGrabber Brand Colors */
+  --color-primary: 243 75% 66%; /* #5A5DFF - Indigo */
   --color-primary-foreground: 0 0% 100%;
-  --color-secondary: 0 0% 97%; /* #F7F7F7 */
-  --color-secondary-foreground: 0 0% 0%;
-  --color-muted: 0 0% 96%;
+  --color-secondary: 330 81% 60%; /* #E91E63 - Pink */
+  --color-secondary-foreground: 0 0% 100%;
+  --color-muted: 0 0% 97%; /* #F7F7F7 - Light gray */
   --color-muted-foreground: 215 16% 47%;
   --color-accent: 243 75% 66%;
   --color-accent-foreground: 0 0% 100%;
@@ -19,12 +19,12 @@
   --color-ring: 243 75% 66%;
   
   /* Light theme defaults */
-  --color-background: 0 0% 100%;
-  --color-foreground: 0 0% 0%;
+  --color-background: 220 13% 97%; /* #F6F7F9 - Light gray background */
+  --color-foreground: 215 25% 27%; /* #374151 - Dark gray */
   --color-card: 0 0% 100%;
-  --color-card-foreground: 0 0% 0%;
+  --color-card-foreground: 215 25% 27%;
   --color-popover: 0 0% 100%;
-  --color-popover-foreground: 0 0% 0%;
+  --color-popover-foreground: 215 25% 27%;
   
   /* Chart colors */
   --color-chart-1: 12 76% 61%;
@@ -42,15 +42,15 @@
   --color-error-foreground: 210 40% 98%;
   
   /* Border radius system */
-  --radius: 0.75rem;
-  --radius-lg: 0.75rem;
+  --radius: 1rem; /* Increased for more rounded corners */
+  --radius-lg: 1.5rem;
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-xs: calc(var(--radius) - 6px);
   
   /* Typography system */
-  --font-family-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-family-heading: 'Montserrat', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-sans: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-heading: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Dark mode color overrides */
