@@ -33,7 +33,12 @@ export function NewHeader() {
           <nav className="hidden md:flex items-center space-x-8">
             <Link href="/products">
               <span className="text-gray-600 hover:text-indigo-600 transition duration-300 cursor-pointer">
-                Weekly Specials
+                Products
+              </span>
+            </Link>
+            <Link href="/search">
+              <span className="text-gray-600 hover:text-indigo-600 transition duration-300 cursor-pointer">
+                Advanced Search
               </span>
             </Link>
             <div className="relative group">

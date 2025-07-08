@@ -7,6 +7,7 @@ import { registerAffiliateRoutes } from "./affiliate-routes";
 import { registerHybridDataRoutes } from "./hybrid-data-routes";
 import { registerDiscourseRoutes } from "./discourse-routes";
 import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
+import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
@@ -91,6 +92,9 @@ app.use((req, res, next) => {
   
   // Register enhanced forum routes
   registerEnhancedForumRoutes(app);
+  
+  // Register advanced search routes
+  registerAdvancedSearchRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
