@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAccessibility } from '@/contexts/accessibility-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import {
   HelpCircle,
   Settings
 } from 'lucide-react';
+import { TestSwitch } from './test-switch';
 
 export function AccessibilityPanel() {
   const { 
@@ -93,9 +94,15 @@ export function AccessibilityPanel() {
             <Accessibility className="h-5 w-5" />
             Accessibility Settings
           </DialogTitle>
+          <DialogDescription>
+            Configure accessibility features including voice navigation, screen reader optimization, and visual enhancements to improve your experience.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">
+          {/* Test Switch for debugging */}
+          <TestSwitch />
+          
           {/* Voice Navigation Section */}
           <Card>
             <CardHeader>
@@ -110,17 +117,19 @@ export function AccessibilityPanel() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="voice-navigation">Enable Voice Navigation</Label>
                   <p className="text-sm text-muted-foreground">
                     Navigate and interact using voice commands
                   </p>
                 </div>
-                <Switch
-                  id="voice-navigation"
-                  checked={settings.voiceNavigation}
-                  onCheckedChange={handleVoiceToggle}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="voice-navigation"
+                    checked={settings.voiceNavigation}
+                    onCheckedChange={handleVoiceToggle}
+                  />
+                </div>
               </div>
               
               {settings.voiceNavigation && (
@@ -183,31 +192,35 @@ export function AccessibilityPanel() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="screen-reader">Screen Reader Mode</Label>
                   <p className="text-sm text-muted-foreground">
                     Optimize interface for screen reader users
                   </p>
                 </div>
-                <Switch
-                  id="screen-reader"
-                  checked={settings.screenReaderMode}
-                  onCheckedChange={handleScreenReaderToggle}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="screen-reader"
+                    checked={settings.screenReaderMode}
+                    onCheckedChange={handleScreenReaderToggle}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="announcements">Live Announcements</Label>
                   <p className="text-sm text-muted-foreground">
                     Announce page changes and status updates
                   </p>
                 </div>
-                <Switch
-                  id="announcements"
-                  checked={settings.announcements}
-                  onCheckedChange={(checked) => handleSettingChange('announcements', checked)}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="announcements"
+                    checked={settings.announcements}
+                    onCheckedChange={(checked) => handleSettingChange('announcements', checked)}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -225,45 +238,51 @@ export function AccessibilityPanel() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="high-contrast">High Contrast Mode</Label>
                   <p className="text-sm text-muted-foreground">
                     Increase contrast for better visibility
                   </p>
                 </div>
-                <Switch
-                  id="high-contrast"
-                  checked={settings.highContrast}
-                  onCheckedChange={(checked) => handleSettingChange('highContrast', checked)}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="high-contrast"
+                    checked={settings.highContrast}
+                    onCheckedChange={(checked) => handleSettingChange('highContrast', checked)}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="large-text">Large Text</Label>
                   <p className="text-sm text-muted-foreground">
                     Increase text size for better readability
                   </p>
                 </div>
-                <Switch
-                  id="large-text"
-                  checked={settings.largeText}
-                  onCheckedChange={(checked) => handleSettingChange('largeText', checked)}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="large-text"
+                    checked={settings.largeText}
+                    onCheckedChange={(checked) => handleSettingChange('largeText', checked)}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="focus-indicators">Enhanced Focus Indicators</Label>
                   <p className="text-sm text-muted-foreground">
                     Show clear focus outlines for keyboard navigation
                   </p>
                 </div>
-                <Switch
-                  id="focus-indicators"
-                  checked={settings.focusIndicators}
-                  onCheckedChange={(checked) => handleSettingChange('focusIndicators', checked)}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="focus-indicators"
+                    checked={settings.focusIndicators}
+                    onCheckedChange={(checked) => handleSettingChange('focusIndicators', checked)}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -281,31 +300,35 @@ export function AccessibilityPanel() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="reduced-motion">Reduced Motion</Label>
                   <p className="text-sm text-muted-foreground">
                     Minimize animations and transitions
                   </p>
                 </div>
-                <Switch
-                  id="reduced-motion"
-                  checked={settings.reducedMotion}
-                  onCheckedChange={(checked) => handleSettingChange('reducedMotion', checked)}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="reduced-motion"
+                    checked={settings.reducedMotion}
+                    onCheckedChange={(checked) => handleSettingChange('reducedMotion', checked)}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <Label htmlFor="keyboard-navigation">Keyboard Navigation</Label>
                   <p className="text-sm text-muted-foreground">
                     Enable enhanced keyboard navigation support
                   </p>
                 </div>
-                <Switch
-                  id="keyboard-navigation"
-                  checked={settings.keyboardNavigation}
-                  onCheckedChange={(checked) => handleSettingChange('keyboardNavigation', checked)}
-                />
+                <div className="ml-4">
+                  <Switch
+                    id="keyboard-navigation"
+                    checked={settings.keyboardNavigation}
+                    onCheckedChange={(checked) => handleSettingChange('keyboardNavigation', checked)}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
