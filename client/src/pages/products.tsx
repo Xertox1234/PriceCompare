@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { SearchHeader } from "@/components/search-header";
+import { EnhancedSearchHeader } from "@/components/enhanced-search-header";
 import { FilterSidebar } from "@/components/filter-sidebar";
 import { ProductGrid } from "@/components/product-grid";
 import { ComparisonModal } from "@/components/comparison-modal";
-import { useProducts } from "@/hooks/use-products";
+import { useEnhancedProductsSearch } from "@/hooks/use-enhanced-products-search";
 import { useComparison } from "@/hooks/use-comparison";
 import { SearchFilters } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -11,22 +11,36 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Filter, X } from "lucide-react";
 
 export default function Products() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<SearchFilters>({
-    sortBy: "popularity"
-  });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   
-  const { data: products, isLoading, error } = useProducts(filters);
+  const {
+    query,
+    setQuery,
+    filters,
+    setFilters,
+    search,
+    products,
+    metadata,
+    isLoading,
+    error,
+    isSearching
+  } = useEnhancedProductsSearch({
+    initialFilters: { sortBy: "popularity" },
+    autoSearch: true
+  });
+  
   const { comparisonItems, addToComparison, removeFromComparison, clearComparison } = useComparison();
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setFilters(prev => ({ ...prev, query }));
+  const handleSearch = (query: string, searchFilters?: SearchFilters) => {
+    setQuery(query);
+    if (searchFilters) {
+      setFilters(searchFilters);
+    }
+    search(query, searchFilters);
   };
 
   const handleFilterChange = (newFilters: Partial<SearchFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+    setFilters(newFilters);
   };
 
   // Count active filters for mobile indicator
@@ -43,9 +57,11 @@ export default function Products() {
 
   return (
     <>
-      <SearchHeader 
+      <EnhancedSearchHeader 
         onSearch={handleSearch}
-        searchQuery={searchQuery}
+        searchQuery={query}
+        filters={filters}
+        onFilterChange={handleFilterChange}
       />
       
       {/* Products Section */}
@@ -57,7 +73,7 @@ export default function Products() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-black text-foreground">
-                  {searchQuery ? `Results for "${searchQuery}"` : "Featured Products"}
+                  {query ? `Results for "${query}"` : "Featured Products"}
                 </h1>
                 <p className="text-muted-foreground mt-2 text-lg">
                   {products ? products.length : 0} products found across multiple retailers
