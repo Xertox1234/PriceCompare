@@ -1,0 +1,94 @@
+You are a backend and search engineer. Design and implement a scalable, intelligent search system for a price comparison web application. The system must support full-text search, structured filtering, fuzzy matching, synonyms, ranking, and relevance scoring across products aggregated from multiple retailers. The stack must support real-time indexing and retrieval for millions of products with affiliate metadata.
+
+💡 What to Include in the Prompt
+Here’s how you’d break it down for Claude:
+
+🔍 1. Search Features
+Ask Claude to implement the following:
+
+Full-text product name and description search
+
+Synonym support (e.g. "TV" → "television")
+
+Fuzzy matching and spelling correction (e.g. "iphon" → "iPhone")
+
+Auto-suggestions and query completion
+
+Faceted filters: brand, price, category, rating, seller, shipping, etc.
+
+Advanced operators (e.g. "4K TV" AND (Samsung OR LG) NOT refurbished)
+
+Multi-lingual search support (optional)
+
+Sort by: price, popularity, review count, rating
+
+Search relevance boosted by:
+
+Affiliate revenue potential
+
+Recent pricing data freshness
+
+Product popularity (clicks, conversions)
+
+⚙️ 2. Tech Stack Suggestions
+Let Claude choose between:
+
+Elasticsearch (recommended for most needs)
+
+Typesense (great for speed, simpler use case)
+
+Meilisearch (for blazing fast frontend search)
+
+PostgreSQL + pg_trgm if using Postgres as the main DB and want simple fuzzy search
+
+Ask Claude to justify its selection based on your scale.
+
+🧠 3. AI-Powered Enhancements
+Claude should implement:
+
+Semantic search embeddings (using OpenAI or Claude embeddings)
+
+Query rewriting and intent recognition
+
+Search feedback loop: users click on results → adjust ranking over time
+
+Optional: Claude can use a vector database (e.g. Weaviate, Qdrant, or Pinecone) for semantic retrieval
+
+🗃️ 4. Data Pipeline Needs
+You should ask for:
+
+Scalable indexing pipeline
+
+Deduplication of similar products across retailers
+
+Normalization of units (e.g., kg vs lbs, oz vs ml)
+
+Price history tracking for relevance boosting
+
+🧪 5. Testing and Evaluation
+Ask Claude to include:
+
+Unit tests for search logic
+
+Load testing scenarios (e.g. 10,000 QPS)
+
+A/B testing search result ranking strategies
+
+📦 Example Starting Prompt
+Here’s a compact version you could literally paste to Claude:
+
+You are a full-stack AI engineer. Design a highly advanced product search engine for a price comparison web app that aggregates affiliate-linked products from Amazon, Walmart, and others. Implement:
+
+Full-text & fuzzy search
+
+Query intent recognition and semantic understanding
+
+Structured filters (brand, price, rating, shipping, etc.)
+
+Real-time indexing and updates from feeds
+
+Synonym and spelling correction
+
+Relevance scoring (based on CTR, freshness, price drops, affiliate priority)
+
+Recommend the best search engine (Elasticsearch, Typesense, etc.) and integrate semantic vector search for meaning-based results. Create the backend schema, indexing pipeline, and frontend API.
