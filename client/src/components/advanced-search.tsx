@@ -318,7 +318,7 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
                     <SelectValue placeholder="All categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All categories</SelectItem>
+                    <SelectItem value="all">All categories</SelectItem>
                     <SelectItem value="Smartphones">Smartphones</SelectItem>
                     <SelectItem value="Laptops">Laptops</SelectItem>
                     <SelectItem value="Audio">Audio</SelectItem>
@@ -364,7 +364,7 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
                     <SelectValue placeholder="Relevance" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Relevance</SelectItem>
+                    <SelectItem value="relevance">Relevance</SelectItem>
                     <SelectItem value="price_low">Price: Low to High</SelectItem>
                     <SelectItem value="price_high">Price: High to Low</SelectItem>
                     <SelectItem value="rating">Best Rating</SelectItem>

@@ -38,6 +38,11 @@ function Router() {
               <LazyAdvancedSearchPage />
             </Suspense>
           </Route>
+          <Route path="/search/advanced">
+            <Suspense fallback={<LoadingFallback />}>
+              <LazyAdvancedSearchPage />
+            </Suspense>
+          </Route>
           <Route path="/forum">
             <Suspense fallback={<LoadingFallback />}>
               <LazyForumPage />

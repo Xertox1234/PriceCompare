@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { LazyImage } from './lazy-image';
+import { LazyImage } from './optimized/lazy-image';
 import type { ProductWithOffers } from '@shared/schema';
 
 interface AdvancedSearchResult {
