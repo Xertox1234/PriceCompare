@@ -1,0 +1,319 @@
+import { BaseAgent, AgentConfig, TaskResult } from './base-agent.js';
+import { db } from '../db.js';
+import { searchQueries, trendingProducts } from '../../shared/schema.js';
+import { eq } from 'drizzle-orm';
+import type { InsertSearchQuery, TrendingProduct } from '../../shared/schema.js';
+import OpenAI from 'openai';
+import { googleSearchService } from '../services/google-search.js';
+import type { GoogleSearchResult } from '../services/google-search.js';
+
+interface SearchTaskData {
+  productName: string;
+  category?: string;
+  retailers: string[];
+  trendingProductId?: number;
+}
+
+interface SearchResult {
+  query: string;
+  retailer: string;
+  urls: string[];
+  relevanceScore: number;
+}
+
+export class SearchOrchestrationAgent extends BaseAgent {
+  private openai: OpenAI;
+  private retailers: Map<string, RetailerConfig>;
+
+  constructor() {
+    const config: AgentConfig = {
+      name: 'Search Orchestration Agent',
+      type: 'search',
+      maxConcurrentTasks: 5,
+      retryAttempts: 2,
+      retryDelay: 1500
+    };
+
+    super(config);
+    
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
+    this.retailers = new Map([
+      ['amazon', {
+        name: 'Amazon',
+        searchUrl: 'https://www.amazon.com/s?k=',
+        selectors: {
+          productLinks: '[data-component-type="s-search-result"] h2 a',
+          prices: '.a-price-whole',
+          titles: '[data-component-type="s-search-result"] h2 span'
+        }
+      }],
+      ['walmart', {
+        name: 'Walmart',
+        searchUrl: 'https://www.walmart.com/search?q=',
+        selectors: {
+          productLinks: '[data-testid="product-title"] a',
+          prices: '[data-automation-id="product-price"]',
+          titles: '[data-testid="product-title"]'
+        }
+      }],
+      ['target', {
+        name: 'Target',
+        searchUrl: 'https://www.target.com/s?searchTerm=',
+        selectors: {
+          productLinks: '[data-test="product-title"] a',
+          prices: '[data-test="product-price"]',
+          titles: '[data-test="product-title"]'
+        }
+      }]
+    ]);
+  }
+
+  async processTask(taskData: SearchTaskData): Promise<SearchResult[]> {
+    const taskId = `search_${Date.now()}`;
+    
+    const result = await this.executeTask(
+      taskId,
+      () => this.orchestrateSearch(taskData),
+      {
+        jobType: 'search',
+        targetData: JSON.stringify(taskData)
+      }
+    );
+
+    if (result.success) {
+      return result.data as SearchResult[];
+    } else {
+      throw new Error(result.error || 'Search orchestration failed');
+    }
+  }
+
+  private async orchestrateSearch(taskData: SearchTaskData): Promise<SearchResult[]> {
+    // Generate optimized search queries using AI
+    const searchQueries = await this.generateSearchQueries(taskData.productName, taskData.category);
+    
+    // Execute searches across all specified retailers
+    const searchResults: SearchResult[] = [];
+    
+    for (const retailer of taskData.retailers) {
+      const retailerConfig = this.retailers.get(retailer);
+      if (!retailerConfig) {
+        console.warn(`Unknown retailer: ${retailer}`);
+        continue;
+      }
+
+      for (const query of searchQueries) {
+        try {
+          const results = await this.searchRetailer(query, retailer, retailerConfig);
+          searchResults.push(...results);
+          
+          // Store successful query for future optimization
+          await this.storeSearchQuery({
+            trendingProductId: taskData.trendingProductId,
+            queryText: query,
+            retailer,
+            queryType: 'product_search',
+            avgResults: results.length
+          });
+
+        } catch (error) {
+          console.error(`Search failed for ${retailer} with query "${query}":`, error);
+        }
+      }
+    }
+
+    // Rank and deduplicate results
+    return this.rankSearchResults(searchResults);
+  }
+
+  private async generateSearchQueries(productName: string, category?: string): Promise<string[]> {
+    try {
+      const prompt = `
+        Generate 3-5 optimized search queries for finding "${productName}" on e-commerce websites.
+        ${category ? `Category: ${category}` : ''}
+        
+        Consider:
+        - Brand variations and synonyms
+        - Model numbers and specifications
+        - Common abbreviations
+        - Alternative product names
+        - Category-specific terms
+        
+        Return only the search queries, one per line, without numbering or bullet points.
+        Focus on queries that would work well on Amazon, Walmart, and Target.
+      `;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert in e-commerce search optimization and product discovery.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 200
+      });
+
+      const queries = response.choices[0].message.content
+        ?.split('\n')
+        .map(q => q.trim())
+        .filter(q => q.length > 0) || [];
+
+      return queries.length > 0 ? queries : [productName];
+
+    } catch (error) {
+      console.error('AI query generation failed:', error);
+      return [productName];
+    }
+  }
+
+  private async searchRetailer(
+    query: string, 
+    retailerName: string, 
+    config: RetailerConfig
+  ): Promise<SearchResult[]> {
+    try {
+      if (!googleSearchService.isConfigured()) {
+        throw new Error('Google Custom Search API not configured');
+      }
+
+      const retailerDomain = this.getRetailerDomain(retailerName);
+      const results = await googleSearchService.searchRetailer(query, retailerDomain, { num: 10 });
+      
+      // Convert Google search results to our SearchResult format
+      const searchResults = results.map((item: GoogleSearchResult) => ({
+        query,
+        retailer: retailerName,
+        urls: [item.link],
+        relevanceScore: this.calculateRelevanceScore(item.title, item.snippet, query)
+      }));
+
+      // Filter to only include product URLs
+      const productUrls = googleSearchService.extractProductUrls(results);
+      return searchResults.filter(result => 
+        productUrls.some(url => result.urls.includes(url))
+      );
+
+    } catch (error) {
+      console.error(`Google Custom Search failed for ${retailerName}:`, error);
+      throw error; // Don't fall back to simulated data
+    }
+  }
+
+  private simulateSearchResults(query: string, retailerName: string): SearchResult[] {
+    // Simulated results for development/testing
+    const baseUrls = {
+      amazon: 'https://www.amazon.com/dp/',
+      walmart: 'https://www.walmart.com/ip/',
+      target: 'https://www.target.com/p/'
+    };
+
+    const baseUrl = baseUrls[retailerName as keyof typeof baseUrls] || 'https://example.com/';
+    
+    return [
+      {
+        query,
+        retailer: retailerName,
+        urls: [
+          `${baseUrl}${Math.random().toString(36).substr(2, 9)}`,
+          `${baseUrl}${Math.random().toString(36).substr(2, 9)}`
+        ],
+        relevanceScore: 0.8 + Math.random() * 0.2
+      }
+    ];
+  }
+
+  private getRetailerDomain(retailerName: string): string {
+    const domains = {
+      amazon: 'amazon.com',
+      walmart: 'walmart.com',
+      target: 'target.com'
+    };
+    
+    return domains[retailerName as keyof typeof domains] || 'example.com';
+  }
+
+  private calculateRelevanceScore(title: string, snippet: string, query: string): number {
+    const text = `${title} ${snippet}`.toLowerCase();
+    const queryWords = query.toLowerCase().split(' ');
+    
+    let score = 0;
+    let totalWords = queryWords.length;
+    
+    for (const word of queryWords) {
+      if (text.includes(word)) {
+        score += 1;
+      }
+    }
+    
+    return totalWords > 0 ? score / totalWords : 0;
+  }
+
+  private rankSearchResults(results: SearchResult[]): SearchResult[] {
+    // Remove duplicates and rank by relevance
+    const uniqueResults = new Map<string, SearchResult>();
+    
+    for (const result of results) {
+      for (const url of result.urls) {
+        const key = `${result.retailer}_${url}`;
+        if (!uniqueResults.has(key) || uniqueResults.get(key)!.relevanceScore < result.relevanceScore) {
+          uniqueResults.set(key, { ...result, urls: [url] });
+        }
+      }
+    }
+    
+    return Array.from(uniqueResults.values())
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, 20); // Limit to top 20 results
+  }
+
+  private async storeSearchQuery(queryData: Partial<InsertSearchQuery>): Promise<void> {
+    try {
+      await db.insert(searchQueries).values({
+        queryText: queryData.queryText || '',
+        retailer: queryData.retailer,
+        queryType: queryData.queryType || 'product_search',
+        avgResults: queryData.avgResults || 0,
+        trendingProductId: queryData.trendingProductId,
+        lastUsed: new Date()
+      });
+    } catch (error) {
+      console.error('Failed to store search query:', error);
+    }
+  }
+
+  async optimizeQueriesForProduct(productName: string): Promise<string[]> {
+    // Analyze historical performance and suggest optimized queries
+    try {
+      const historicalQueries = await db.select()
+        .from(searchQueries)
+        .where(eq(searchQueries.queryText, productName))
+        .orderBy(searchQueries.avgResults);
+
+      if (historicalQueries.length > 0) {
+        return historicalQueries.slice(0, 3).map(q => q.queryText);
+      }
+    } catch (error) {
+      console.error('Failed to get historical queries:', error);
+    }
+
+    return this.generateSearchQueries(productName);
+  }
+}
+
+interface RetailerConfig {
+  name: string;
+  searchUrl: string;
+  selectors: {
+    productLinks: string;
+    prices: string;
+    titles: string;
+  };
+}
