@@ -5,7 +5,6 @@
  * and handle edge cases correctly.
  */
 
-import { describe, it, expect } from '@jest/globals';
 import { validateOutput, parseAndValidateJSON, sanitizeOutput } from '../output-validation';
 
 describe('AI Prompt Output Validation', () => {
