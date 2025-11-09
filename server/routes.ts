@@ -12,17 +12,13 @@ import * as schema from "@shared/schema";
 import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 
 
+// Use the actual User type from schema
+import type { User as SchemaUser } from "@shared/schema";
+
 // Extend Express Request to include user
 declare global {
   namespace Express {
-    interface User {
-      id: number;
-      username: string;
-      email: string;
-      passwordHash: string;
-      createdAt: Date;
-      updatedAt: Date;
-    }
+    interface User extends SchemaUser {}
   }
 }
 
@@ -37,13 +33,22 @@ const searchFiltersSchema = z.object({
   sortBy: z.enum(["price_low", "price_high", "rating", "popularity"]).optional(),
 });
 
-// Middleware to check authentication
-const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  next();
-};
+// Type predicate to check if request is authenticated
+function isAuthenticated(req: Request): req is AuthenticatedRequest {
+  return !!req.user;
+}
+
+// Wrapper to enforce authentication with proper typing
+function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
+  return async (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    // req is now typed as AuthenticatedRequest
+    await handler(req, res);
+  };
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize forum categories
@@ -107,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/login", passport.authenticate('local'), (req, res) => {
-    const user = req.user as User;
+    const user = req.user;
     res.json({ 
       success: true, 
       user: { 
@@ -197,14 +202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/forum/topics", requireAuth, async (req, res) => {
+  app.post("/api/forum/topics", withAuth(async (req, res) => {
     try {
       console.log("Topic creation request received:");
       console.log("Body:", JSON.stringify(req.body, null, 2));
       console.log("User:", req.user?.id, req.user?.username);
       
       const { title, content, categoryId, productId } = req.body;
-      const user = req.user as User;
+      const user = req.user;
 
       if (!title || title.trim() === '') {
         console.log("Validation failed: Title is missing");
@@ -250,17 +255,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Create topic error:', error);
       res.status(500).json({ error: "Failed to create topic" });
     }
-  });
+  }));
 
-  app.post("/api/forum/posts", requireAuth, async (req, res) => {
+  app.post("/api/forum/posts", withAuth(async (req, res) => {
     try {
       const { topicId, content } = req.body;
-      const user = req.user as User;
+      const user = req.user;
+
+      // Get the next post number for this topic
+      const existingPosts = await forumStorage.getPostsByTopic(topicId);
+      const postNumber = existingPosts.length + 1;
 
       const post = await forumStorage.createPost({
         topicId,
         authorId: user.id,
         content,
+        rawContent: content, // Store original content
+        postNumber,
         isFirstPost: false,
       });
 
@@ -269,13 +280,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Create post error:', error);
       res.status(500).json({ error: "Failed to create post" });
     }
-  });
+  }));
 
   // Price alerts
-  app.post("/api/price-alerts", requireAuth, async (req, res) => {
+  app.post("/api/price-alerts", withAuth(async (req, res) => {
     try {
       const { productId, targetPrice, notifyForum } = req.body;
-      const user = req.user as User;
+      const user = req.user;
 
       const alert = await forumStorage.createPriceAlert({
         userId: user.id,
@@ -289,17 +300,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Create price alert error:', error);
       res.status(500).json({ error: "Failed to create price alert" });
     }
-  });
+  }));
 
-  app.get("/api/price-alerts", requireAuth, async (req, res) => {
+  app.get("/api/price-alerts", withAuth(async (req, res) => {
     try {
-      const user = req.user as User;
+      const user = req.user;
       const alerts = await forumStorage.getUserPriceAlerts(user.id);
       res.json(alerts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch price alerts" });
     }
-  });
+  }));
 
   // Get all retailers
   app.get("/api/retailers", async (req, res) => {
@@ -348,7 +359,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
-      res.json(productsWithDiscussions);
+      // Return response in the format expected by the frontend
+      res.json({
+        results: productsWithDiscussions,
+        metadata: {
+          total: productsWithDiscussions.length,
+          page: 1,
+          limit: productsWithDiscussions.length,
+          totalPages: 1,
+        }
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to search products" });
     }
@@ -394,7 +414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes
-  app.get("/api/admin/categories", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/categories", withAuth(async (req, res) => {
     try {
       const categories = await forumStorage.getCategories();
       res.json(Array.isArray(categories) ? categories : []);
@@ -402,9 +422,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching categories:', error);
       res.json([]);
     }
-  });
+  }));
 
-  app.get("/api/admin/users", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/users", withAuth(async (req, res) => {
     try {
       const usersData = await db.select({
         id: schema.users.id,
@@ -420,10 +440,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching users:', error);
       res.json([]);
     }
-  });
+  }));
 
   // Admin analytics endpoints
-  app.get("/api/admin/analytics/overview", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/analytics/overview", withAuth(async (req, res) => {
     try {
       const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
         db.select({ count: sql`count(*)` }).from(schema.users),
@@ -442,9 +462,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching overview analytics:', error);
       res.status(500).json({ error: 'Failed to fetch analytics' });
     }
-  });
+  }));
 
-  app.get("/api/admin/analytics/user-growth", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/analytics/user-growth", withAuth(async (req, res) => {
     try {
       const userGrowth = await db.select({
         date: sql`DATE(${schema.users.createdAt})`.as('date'),
@@ -459,9 +479,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching user growth:', error);
       res.status(500).json({ error: 'Failed to fetch user growth data' });
     }
-  });
+  }));
 
-  app.get("/api/admin/analytics/forum-activity", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/analytics/forum-activity", withAuth(async (req, res) => {
     try {
       const postActivity = await db.select({
         date: sql`DATE(${schema.forumPosts.createdAt})`.as('date'),
@@ -476,9 +496,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching forum activity:', error);
       res.status(500).json({ error: 'Failed to fetch forum activity data' });
     }
-  });
+  }));
 
-  app.get("/api/admin/analytics/top-categories", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/analytics/top-categories", withAuth(async (req, res) => {
     try {
       const topCategories = await db.select({
         categoryName: schema.forumCategories.name,
@@ -495,10 +515,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching top categories:', error);
       res.status(500).json({ error: 'Failed to fetch top categories data' });
     }
-  });
+  }));
 
   // Admin Product Management Endpoints
-  app.get("/api/admin/products", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/products", withAuth(async (req, res) => {
     try {
       const products = await db.select({
         id: schema.products.id,
@@ -507,10 +527,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: schema.products.category,
         brand: schema.products.brand,
         model: schema.products.model,
-        imageUrl: schema.products.imageUrl,
-        status: schema.products.status,
-        createdAt: schema.products.createdAt,
-        updatedAt: schema.products.updatedAt
+        image: schema.products.image,
+        createdAt: schema.products.createdAt
       })
       .from(schema.products)
       .orderBy(desc(schema.products.createdAt));
@@ -520,9 +538,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching admin products:', error);
       res.status(500).json({ error: 'Failed to fetch products' });
     }
-  });
+  }));
 
-  app.get("/api/admin/products/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/products/:id", withAuth(async (req, res) => {
     try {
       const productId = parseInt(req.params.id);
       
@@ -540,12 +558,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         price: schema.productOffers.price,
         originalPrice: schema.productOffers.originalPrice,
         availability: schema.productOffers.availability,
-        url: schema.productOffers.url,
+        productUrl: schema.productOffers.productUrl,
         affiliateUrl: schema.productOffers.affiliateUrl,
         retailer: {
           id: schema.retailers.id,
           name: schema.retailers.name,
-          logoUrl: schema.retailers.logoUrl
+          logo: schema.retailers.logo
         }
       })
       .from(schema.productOffers)
@@ -557,9 +575,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching product details:', error);
       res.status(500).json({ error: 'Failed to fetch product details' });
     }
-  });
+  }));
 
-  app.post("/api/admin/products", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/admin/products", withAuth(async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
       
@@ -572,15 +590,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error creating product:', error);
       res.status(500).json({ error: 'Failed to create product' });
     }
-  });
+  }));
 
-  app.put("/api/admin/products/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.put("/api/admin/products/:id", withAuth(async (req, res) => {
     try {
       const productId = parseInt(req.params.id);
       const updateData = insertProductSchema.partial().parse(req.body);
       
       const [updatedProduct] = await db.update(schema.products)
-        .set({ ...updateData, updatedAt: new Date() })
+        .set(updateData)
         .where(eq(schema.products.id, productId))
         .returning();
 
@@ -593,9 +611,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error updating product:', error);
       res.status(500).json({ error: 'Failed to update product' });
     }
-  });
+  }));
 
-  app.delete("/api/admin/products/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/admin/products/:id", withAuth(async (req, res) => {
     try {
       const productId = parseInt(req.params.id);
       
@@ -617,10 +635,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error deleting product:', error);
       res.status(500).json({ error: 'Failed to delete product' });
     }
-  });
+  }));
 
   // Admin Retailer Management Endpoints
-  app.get("/api/admin/retailers", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/retailers", withAuth(async (req, res) => {
     try {
       const retailers = await db.select()
         .from(schema.retailers)
@@ -631,9 +649,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error fetching retailers:', error);
       res.status(500).json({ error: 'Failed to fetch retailers' });
     }
-  });
+  }));
 
-  app.post("/api/admin/retailers", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/admin/retailers", withAuth(async (req, res) => {
     try {
       const retailerData = insertRetailerSchema.parse(req.body);
       
@@ -646,9 +664,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error creating retailer:', error);
       res.status(500).json({ error: 'Failed to create retailer' });
     }
-  });
+  }));
 
-  app.put("/api/admin/retailers/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.put("/api/admin/retailers/:id", withAuth(async (req, res) => {
     try {
       const retailerId = parseInt(req.params.id);
       const updateData = insertRetailerSchema.partial().parse(req.body);
@@ -667,9 +685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error updating retailer:', error);
       res.status(500).json({ error: 'Failed to update retailer' });
     }
-  });
+  }));
 
-  app.delete("/api/admin/retailers/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/admin/retailers/:id", withAuth(async (req, res) => {
     try {
       const retailerId = parseInt(req.params.id);
       
@@ -691,7 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error deleting retailer:', error);
       res.status(500).json({ error: 'Failed to delete retailer' });
     }
-  });
+  }));
 
   const httpServer = createServer(app);
   return httpServer;

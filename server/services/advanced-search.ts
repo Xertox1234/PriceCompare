@@ -171,7 +171,7 @@ export class AdvancedSearchService {
     return results.map(result => ({
       product: {
         ...result.product,
-        offers: result.offers || []
+        offers: (result.offers as any) || []
       },
       relevanceScore: this.calculateExactMatchScore(query, result.product),
       matchType: 'exact' as const
@@ -221,7 +221,7 @@ export class AdvancedSearchService {
     return results.map(result => ({
       product: {
         ...result.product,
-        offers: result.offers || []
+        offers: (result.offers as any) || []
       },
       relevanceScore: this.calculateFuzzyScore(query, result.product),
       matchType: 'fuzzy' as const
@@ -283,14 +283,14 @@ export class AdvancedSearchService {
     for (const word of queryWords) {
       if (this.synonyms.has(word)) {
         const synonyms = this.synonyms.get(word)!;
-        synonyms.forEach(synonym => expandedQueries.add(synonym));
+        synonyms.forEach((synonym: string) => expandedQueries.add(synonym));
       }
       
       // Also check if the word is a synonym of something else
-      for (const [key, synonyms] of this.synonyms.entries()) {
+      for (const [key, synonyms] of Array.from(this.synonyms.entries())) {
         if (synonyms.includes(word)) {
           expandedQueries.add(key);
-          synonyms.forEach(synonym => expandedQueries.add(synonym));
+          synonyms.forEach((synonym: string) => expandedQueries.add(synonym));
         }
       }
     }
@@ -336,7 +336,7 @@ export class AdvancedSearchService {
     return results.map(result => ({
       product: {
         ...result.product,
-        offers: result.offers || []
+        offers: (result.offers as any) || []
       },
       relevanceScore: 0.6, // Lower score for synonym matches
       matchType: 'synonym' as const
@@ -400,7 +400,7 @@ export class AdvancedSearchService {
           semanticResults.push({
             product: {
               ...result.product,
-              offers: result.offers || []
+              offers: (result.offers as any) || []
             },
             relevanceScore: similarity * 0.7, // Semantic matches get moderate score
             matchType: 'semantic' as const
@@ -448,7 +448,7 @@ export class AdvancedSearchService {
     return results.map(result => ({
       product: {
         ...result.product,
-        offers: result.offers || []
+        offers: (result.offers as any) || []
       },
       relevanceScore: 0.5, // Default relevance for non-searched items
       matchType: 'exact' as const
@@ -643,8 +643,8 @@ export class AdvancedSearchService {
     }
     
     // 2. Synonym suggestions
-    for (const [key, synonyms] of this.synonyms.entries()) {
-      if (key.includes(queryLower) || synonyms.some(s => s.includes(queryLower))) {
+    for (const [key, synonyms] of Array.from(this.synonyms.entries())) {
+      if (key.includes(queryLower) || synonyms.some((s: string) => s.includes(queryLower))) {
         suggestions.push({
           query: key,
           type: 'synonym',

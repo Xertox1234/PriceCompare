@@ -64,15 +64,7 @@ export async function createUser(userData: { username: string; email: string; pa
     role: userData.role || 'user',
   }).returning();
   
-  const user = newUserResult[0];
-  return {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    passwordHash: user.passwordHash,
-    createdAt: user.createdAt as Date,
-    updatedAt: user.updatedAt as Date,
-  };
+  return newUserResult[0];
 }
 
 export async function findUserByEmail(email: string): Promise<User | null> {

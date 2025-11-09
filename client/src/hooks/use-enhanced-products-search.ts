@@ -55,14 +55,18 @@ export function useEnhancedProductsSearch({
           break;
         case 'intent':
           // First analyze intent, then search with optimized filters
-          const analysisResponse = await apiRequest('/api/search/analyze', {
-            method: 'POST',
-            body: JSON.stringify({ query: searchQuery })
-          });
-          
-          if (analysisResponse.ok) {
-            const analysis = await analysisResponse.json();
-            endpoint = `/api/search/intent/${analysis.intent}`;
+          try {
+            const analysis = await apiRequest('/api/search/analyze', {
+              method: 'POST',
+              body: JSON.stringify({ query: searchQuery })
+            });
+            
+            if (analysis && analysis.intent) {
+              endpoint = `/api/search/intent/${analysis.intent}`;
+            }
+          } catch (error) {
+            // Fall back to advanced search if intent analysis fails
+            console.warn('Intent analysis failed, using advanced search', error);
           }
           break;
         case 'basic':
@@ -86,13 +90,8 @@ export function useEnhancedProductsSearch({
         }
       });
       
-      const response = await apiRequest(`${endpoint}?${searchParams.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
-      
-      return await response.json();
+      // apiRequest already returns parsed JSON
+      return await apiRequest(`${endpoint}?${searchParams.toString()}`);
     },
     onSuccess: (data, variables) => {
       // Update search history
@@ -118,8 +117,8 @@ export function useEnhancedProductsSearch({
     queryFn: async () => {
       if (!debouncedQuery.trim()) {
         // Return default products when no query
-        const response = await apiRequest('/api/products/search');
-        return await response.json();
+        // apiRequest already returns parsed JSON
+        return await apiRequest('/api/products/search');
       }
       
       // Use the search mutation's function for consistency
@@ -149,8 +148,8 @@ export function useEnhancedProductsSearch({
         }
       });
       
-      const response = await apiRequest(`/api/products/search?${searchParams.toString()}`);
-      return await response.json();
+      // apiRequest already returns parsed JSON
+      return await apiRequest(`/api/products/search?${searchParams.toString()}`);
     },
     enabled: !autoSearch || !debouncedQuery.trim(),
     staleTime: 5 * 60 * 1000, // 5 minutes

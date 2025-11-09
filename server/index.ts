@@ -11,6 +11,30 @@ import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
+import crypto from "crypto";
+
+// Validate and get session secret
+function getSessionSecret(): string {
+  if (process.env.SESSION_SECRET) {
+    return process.env.SESSION_SECRET;
+  }
+  
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'SESSION_SECRET environment variable must be set in production. ' +
+      'Generate a secure secret with: openssl rand -base64 32'
+    );
+  }
+  
+  // In development, generate a random secret and warn
+  const generatedSecret = crypto.randomBytes(32).toString('base64');
+  console.warn(
+    '⚠️  WARNING: SESSION_SECRET not set. Using randomly generated secret.\n' +
+    '   This is OK for development, but sessions will reset on server restart.\n' +
+    '   For production, set SESSION_SECRET environment variable.'
+  );
+  return generatedSecret;
+}
 
 const app = express();
 
@@ -29,11 +53,13 @@ app.use((req, res, next) => {
 
 // Session configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
+  secret: getSessionSecret(),
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
   },
 }));

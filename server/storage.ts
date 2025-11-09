@@ -51,7 +51,16 @@ export class MemStorage implements IStorage {
 
     sampleRetailers.forEach(retailer => {
       const id = this.currentRetailerId++;
-      this.retailers.set(id, { ...retailer, id });
+      this.retailers.set(id, { 
+        ...retailer, 
+        id,
+        affiliateId: null,
+        affiliateProgram: null,
+        baseAffiliateUrl: null,
+        commissionRate: null,
+        affiliateStatus: 'inactive',
+        affiliateConfig: null
+      });
     });
 
     // Sample products
@@ -117,7 +126,15 @@ export class MemStorage implements IStorage {
 
     sampleOffers.forEach(offer => {
       const id = this.currentOfferId++;
-      this.productOffers.set(id, { ...offer, id, lastUpdated: new Date() });
+      this.productOffers.set(id, { 
+        ...offer, 
+        id, 
+        lastUpdated: new Date(),
+        affiliateUrl: null,
+        linkHealthStatus: 'unknown',
+        lastLinkCheck: null,
+        clickCount: 0
+      });
     });
   }
 
@@ -130,9 +147,15 @@ export class MemStorage implements IStorage {
     const newRetailer: Retailer = { 
       ...retailer, 
       id,
-      logo: retailer.logo || null,
-      website: retailer.website || null,
-      isActive: retailer.isActive ?? true
+      logo: retailer.logo ?? null,
+      website: retailer.website ?? null,
+      isActive: retailer.isActive ?? true,
+      affiliateId: retailer.affiliateId ?? null,
+      affiliateProgram: retailer.affiliateProgram ?? null,
+      baseAffiliateUrl: retailer.baseAffiliateUrl ?? null,
+      commissionRate: retailer.commissionRate ?? null,
+      affiliateStatus: retailer.affiliateStatus ?? 'inactive',
+      affiliateConfig: retailer.affiliateConfig ?? null
     };
     this.retailers.set(id, newRetailer);
     return newRetailer;
@@ -295,13 +318,17 @@ export class MemStorage implements IStorage {
       ...offer, 
       id, 
       lastUpdated: new Date(),
-      availability: offer.availability || null,
-      rating: offer.rating || null,
-      originalPrice: offer.originalPrice || null,
-      reviewCount: offer.reviewCount || null,
-      shippingInfo: offer.shippingInfo || null,
-      dealType: offer.dealType || null,
-      productUrl: offer.productUrl || null
+      availability: offer.availability ?? null,
+      rating: offer.rating ?? null,
+      originalPrice: offer.originalPrice ?? null,
+      reviewCount: offer.reviewCount ?? null,
+      shippingInfo: offer.shippingInfo ?? null,
+      dealType: offer.dealType ?? null,
+      productUrl: offer.productUrl ?? null,
+      affiliateUrl: offer.affiliateUrl ?? null,
+      linkHealthStatus: offer.linkHealthStatus ?? 'unknown',
+      lastLinkCheck: offer.lastLinkCheck ?? null,
+      clickCount: offer.clickCount ?? 0
     };
     this.productOffers.set(id, newOffer);
     return newOffer;

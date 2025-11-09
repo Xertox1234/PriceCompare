@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -82,7 +82,7 @@ export const forumCategories = pgTable("forum_categories", {
   icon: varchar("icon", { length: 50 }), // lucide icon name
   isActive: boolean("is_active").default(true),
   sortOrder: integer("sort_order").default(0),
-  parentId: integer("parent_id").references(() => forumCategories.id), // for subcategories
+  parentId: integer("parent_id").references((): AnyPgColumn => forumCategories.id), // for subcategories
   moderatorIds: integer("moderator_ids").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -117,7 +117,7 @@ export const forumPosts = pgTable("forum_posts", {
   rawContent: text("raw_content").notNull(), // Original markdown/text content
   isFirstPost: boolean("is_first_post").default(false),
   postNumber: integer("post_number").notNull(), // Sequential number within topic
-  replyToPostId: integer("reply_to_post_id").references(() => forumPosts.id),
+  replyToPostId: integer("reply_to_post_id").references((): AnyPgColumn => forumPosts.id),
   likeCount: integer("like_count").default(0),
   replyCount: integer("reply_count").default(0),
   readCount: integer("read_count").default(0),
