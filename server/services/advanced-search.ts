@@ -30,6 +30,12 @@ export class AdvancedSearchService {
   private synonyms: Map<string, string[]>;
   private queryCache: Map<string, SearchResult[]>;
   private embeddingCache: Map<string, number[]>;
+  private suggestionCache: Map<string, { suggestions: SearchSuggestion[]; timestamp: number }>;
+
+  // Cache size limits to prevent memory leaks
+  private readonly MAX_QUERY_CACHE_SIZE = 1000;
+  private readonly MAX_EMBEDDING_CACHE_SIZE = 5000;
+  private readonly MAX_SUGGESTION_CACHE_SIZE = 500;
 
   constructor() {
     // Only initialize OpenAI if API key is available
@@ -57,6 +63,31 @@ export class AdvancedSearchService {
     this.synonyms = this.initializeSynonyms();
     this.queryCache = new Map();
     this.embeddingCache = new Map();
+    this.suggestionCache = new Map();
+  }
+
+  /**
+   * Enforce cache size limits by removing oldest entries
+   */
+  private enforceQueryCacheLimit(): void {
+    if (this.queryCache.size > this.MAX_QUERY_CACHE_SIZE) {
+      const keysToDelete = Array.from(this.queryCache.keys()).slice(0, this.queryCache.size - this.MAX_QUERY_CACHE_SIZE);
+      keysToDelete.forEach(key => this.queryCache.delete(key));
+    }
+  }
+
+  private enforceEmbeddingCacheLimit(): void {
+    if (this.embeddingCache.size > this.MAX_EMBEDDING_CACHE_SIZE) {
+      const keysToDelete = Array.from(this.embeddingCache.keys()).slice(0, this.embeddingCache.size - this.MAX_EMBEDDING_CACHE_SIZE);
+      keysToDelete.forEach(key => this.embeddingCache.delete(key));
+    }
+  }
+
+  private enforceSuggestionCacheLimit(): void {
+    if (this.suggestionCache.size > this.MAX_SUGGESTION_CACHE_SIZE) {
+      const keysToDelete = Array.from(this.suggestionCache.keys()).slice(0, this.suggestionCache.size - this.MAX_SUGGESTION_CACHE_SIZE);
+      keysToDelete.forEach(key => this.suggestionCache.delete(key));
+    }
   }
 
   /**
@@ -127,7 +158,8 @@ export class AdvancedSearchService {
 
     // Cache results
     this.queryCache.set(cacheKey, finalResults);
-    
+    this.enforceQueryCacheLimit();
+
     return finalResults.slice(0, this.config.maxResults);
   }
 
@@ -362,6 +394,7 @@ export class AdvancedSearchService {
         });
         queryEmbedding = response.data[0].embedding;
         this.embeddingCache.set(query, queryEmbedding);
+        this.enforceEmbeddingCacheLimit();
       }
 
       // Note: This is a simplified implementation
@@ -511,6 +544,7 @@ export class AdvancedSearchService {
         });
         textEmbedding = response.data[0].embedding;
         this.embeddingCache.set(text, textEmbedding);
+        this.enforceEmbeddingCacheLimit();
       }
 
       const queryEmbedding = this.embeddingCache.get(query);
@@ -681,10 +715,16 @@ export class AdvancedSearchService {
     if (!this.openai) {
       return [];
     }
-    
+
+    // Check cache first (1 hour TTL)
+    const cached = this.suggestionCache.get(query.toLowerCase());
+    if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour = 3600000ms
+      return cached.suggestions;
+    }
+
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -707,6 +747,13 @@ export class AdvancedSearchService {
           type: 'completion' as const,
           confidence: 0.6
         })) || [];
+
+      // Cache the result
+      this.suggestionCache.set(query.toLowerCase(), {
+        suggestions,
+        timestamp: Date.now()
+      });
+      this.enforceSuggestionCacheLimit();
 
       return suggestions;
     } catch (error) {
