@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Star, ShoppingCart, ExternalLink } from "lucide-react";
 import { ProductWithOffers } from "@shared/schema";
+import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
   product: ProductWithOffers;
@@ -34,30 +35,31 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
 
   const renderStars = (rating: string | null) => {
     if (!rating) return null;
-    
+
     const numRating = parseFloat(rating);
     const fullStars = Math.floor(numRating);
     const hasHalfStar = numRating % 1 >= 0.5;
-    
+
     return (
       <div className="flex items-center space-x-1">
         <div className="flex" aria-label={`${rating} out of 5 stars`}>
           {Array.from({ length: 5 }, (_, i) => (
             <Star
               key={i}
-              className={`h-4 w-4 ${
-                i < fullStars 
-                  ? "fill-yellow-400 text-yellow-400" 
-                  : i === fullStars && hasHalfStar 
-                    ? "fill-yellow-400/50 text-yellow-400" 
-                    : "text-gray-300"
-              }`}
+              className={cn(
+                "h-4 w-4",
+                i < fullStars
+                  ? "star-filled"
+                  : i === fullStars && hasHalfStar
+                    ? "star-filled opacity-50"
+                    : "star-empty"
+              )}
               aria-hidden="true"
             />
           ))}
         </div>
-        <span className="text-sm text-gray-600 dark:text-gray-400">{rating}</span>
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-muted-foreground">{rating}</span>
+        <span className="text-sm text-muted-foreground">
           ({bestOffer.reviewCount?.toLocaleString() || 0})
         </span>
       </div>
@@ -65,7 +67,7 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
   };
 
   return (
-    <Card className="product-card-modern rounded-2xl overflow-hidden group">
+    <Card className="rounded-2xl overflow-hidden group">
       <div className="relative">
         <img
           src={product.image || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop"}
@@ -73,27 +75,27 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
           className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
-        
+
         {/* Deal badge with modern styling */}
         {bestOffer.dealType && (
           <div className="absolute top-4 left-4">
-            <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 font-semibold shadow-lg">
+            <Badge className="gradient-deal text-white px-3 py-1 font-semibold shadow-lg">
               {bestOffer.dealType === "best_price" && "🏆 Best Price"}
               {bestOffer.dealType === "bundle_deal" && "📦 Bundle Deal"}
               {bestOffer.dealType === "limited_time" && "⚡ Limited Time"}
             </Badge>
           </div>
         )}
-        
+
         {/* Savings badge */}
         {savings > 0 && (
           <div className="absolute top-4 right-4">
-            <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 py-1 text-xs font-bold">
+            <Badge className="gradient-success text-white px-2 py-1 text-xs font-bold">
               -{savingsPercentage}%
             </Badge>
           </div>
         )}
-        
+
         {/* Glass overlay on hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       </div>
@@ -101,11 +103,11 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
       <div className="p-6 space-y-4">
         {/* Product info */}
         <div className="space-y-2">
-          <h3 className="font-bold text-xl text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          <h3 className="font-bold text-xl text-foreground line-clamp-2 group-hover:text-primary transition-colors">
             {product.name}
           </h3>
           {product.brand && (
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               {product.brand}
             </p>
           )}
@@ -126,19 +128,21 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
               </span>
             )}
           </div>
-          
+
           {/* Availability */}
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
-              bestOffer.availability === "in_stock" ? "bg-green-500" :
-              bestOffer.availability === "limited_stock" ? "bg-yellow-500" :
-              "bg-red-500"
-            }`}></div>
-            <span className={`text-sm font-medium ${
-              bestOffer.availability === "in_stock" ? "text-green-600" :
-              bestOffer.availability === "limited_stock" ? "text-yellow-600" :
-              "text-red-600"
-            }`}>
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              bestOffer.availability === "in_stock" && "bg-success",
+              bestOffer.availability === "limited_stock" && "bg-warning",
+              bestOffer.availability === "out_of_stock" && "bg-destructive"
+            )}></div>
+            <span className={cn(
+              "text-sm font-medium",
+              bestOffer.availability === "in_stock" && "text-success",
+              bestOffer.availability === "limited_stock" && "text-warning",
+              bestOffer.availability === "out_of_stock" && "text-destructive"
+            )}>
               {bestOffer.availability === "in_stock" && "In Stock"}
               {bestOffer.availability === "limited_stock" && "Limited Stock"}
               {bestOffer.availability === "out_of_stock" && "Out of Stock"}
@@ -148,18 +152,18 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
 
         {/* Action buttons */}
         <div className="flex space-x-3 pt-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onAddToComparison}
-            className="flex-1 btn-modern border-gray-200 hover:border-blue-300 hover:text-blue-600"
+            className="flex-1 hover:border-primary hover:text-primary"
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
             Compare
           </Button>
-          <Button 
-            size="sm" 
-            className="flex-1 btn-modern bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          <Button
+            size="sm"
+            className="flex-1 gradient-brand text-white hover:opacity-90"
             onClick={() => bestOffer.productUrl && window.open(bestOffer.productUrl, '_blank')}
           >
             <ExternalLink className="h-4 w-4 mr-2" />
