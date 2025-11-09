@@ -145,17 +145,39 @@ export class SearchOrchestrationAgent extends BaseAgent {
     try {
       const prompt = `
         Generate 3-5 optimized search queries for finding "${productName}" on e-commerce websites.
-        ${category ? `Category: ${category}` : ''}
-        
-        Consider:
-        - Brand variations and synonyms
-        - Model numbers and specifications
-        - Common abbreviations
-        - Alternative product names
-        - Category-specific terms
-        
-        Return only the search queries, one per line, without numbering or bullet points.
-        Focus on queries that would work well on Amazon, Walmart, and Target.
+        ${category ? `Product Category: ${category}` : ''}
+
+        TARGET RETAILERS: Amazon, Walmart, Target
+
+        OBJECTIVE: Create search queries that maximize product discovery while maintaining high precision.
+
+        QUERY VARIATIONS TO INCLUDE:
+        1. Exact brand + model (if applicable): "Apple iPhone 15 Pro"
+        2. Generic category search: "smartphone flagship unlocked"
+        3. Feature-based search: "phone 5G camera 256GB"
+        4. Price-conscious search: "best value [product] 2024"
+
+        OPTIMIZATION RULES:
+        - Include brand name variations (e.g., "Instant Pot" vs "instant pressure cooker")
+        - Add common specifications (size, capacity, model numbers)
+        - Use terms that appear in product titles (not marketing speak)
+        - Include both formal and colloquial terms
+        - Consider seasonal variants if relevant
+        - Avoid overly specific queries that yield zero results
+        - Prioritize queries that return 10-100 results (not too broad, not too narrow)
+
+        OUTPUT FORMAT:
+        Return ONLY the search queries, one per line.
+        No numbering, no bullet points, no explanations.
+        Each query should be 2-8 words.
+
+        EXAMPLE INPUT: "Sony WH-1000XM5 Headphones"
+        EXAMPLE OUTPUT:
+        Sony WH-1000XM5
+        Sony wireless noise cancelling headphones
+        WH1000XM5 bluetooth headphones
+        Sony premium over ear headphones
+        noise cancelling headphones wireless
       `;
 
       const response = await this.openai.chat.completions.create({
@@ -163,7 +185,33 @@ export class SearchOrchestrationAgent extends BaseAgent {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert in e-commerce search optimization and product discovery.'
+            content: `You are an expert e-commerce search optimization specialist with deep knowledge of product discovery patterns across major retailers (Amazon, Walmart, Target).
+
+EXPERTISE:
+- Understanding of retailer-specific search algorithms and ranking factors
+- Knowledge of how customers search for products (both expert and novice behaviors)
+- Expertise in query expansion, semantic matching, and search intent analysis
+- Understanding of product taxonomy and category-specific terminology
+
+METHODOLOGY:
+1. Analyze the product name for brand, model, category, and features
+2. Generate queries that balance specificity (precision) with discoverability (recall)
+3. Consider multiple search intents: brand-focused, feature-focused, price-focused
+4. Use terminology that matches actual product listings (scrape-friendly terms)
+5. Avoid ambiguous terms that could match unrelated products
+
+QUALITY CRITERIA:
+- Each query should be actionable and likely to return relevant results
+- Queries should be diverse (don't repeat the same pattern 5 times)
+- Prioritize queries that work across multiple retailers
+- Use common misspellings only if they're widespread
+
+OUTPUT CONSTRAINTS:
+- Return EXACTLY 3-5 queries (prefer 5 when possible)
+- One query per line, no formatting
+- Each query: 2-8 words
+- Use natural search syntax (how humans actually search)
+- No quotes, no special operators, no Boolean logic`
           },
           {
             role: 'user',

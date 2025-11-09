@@ -99,7 +99,7 @@ async function generateEmbeddings() {
           const embedding = response.data[0].embedding;
 
           // Convert embedding array to pgvector format
-          const vectorString = `[${embedding.join(',)}]`;
+          const vectorString = `[${embedding.join(',')}]`;
 
           // Update product with embedding
           await pool.query(

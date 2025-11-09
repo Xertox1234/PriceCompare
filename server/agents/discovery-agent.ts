@@ -99,23 +99,100 @@ export class ProductDiscoveryAgent extends BaseAgent {
 
     try {
       const prompt = `
-        Analyze these trending search queries and product mentions for an e-commerce price comparison platform.
-        For each item, determine:
-        1. If it's a real product suitable for price comparison
-        2. The most appropriate product category
-        3. A normalized product name
-        4. A confidence score (0-100) for commercial viability
+        TASK: Analyze trending search queries and identify commercially viable products for a price comparison platform.
 
-        Trending items:
-        ${trends.map(t => `- ${t.query} (source: ${t.source}, score: ${t.score})`).join('\n')}
+        CONTEXT:
+        - Platform: Multi-retailer price comparison (Amazon, Walmart, Target, etc.)
+        - Goal: Identify real, purchasable products suitable for price tracking
+        - Users: Price-conscious shoppers comparing prices across retailers
 
-        Return a JSON array with objects containing:
-        - originalQuery: string
-        - normalizedName: string
-        - category: string (Electronics, Home & Garden, Fashion, Sports, etc.)
-        - confidence: number (0-100)
-        - isProduct: boolean
-        - reason: string (brief explanation)
+        TRENDING ITEMS TO ANALYZE:
+        ${trends.map(t => `- "${t.query}" (source: ${t.source}, trending score: ${t.score})`).join('\n')}
+
+        ANALYSIS CRITERIA:
+
+        1. PRODUCT SUITABILITY (isProduct: true/false)
+           ✓ YES if: Physical product, sold by multiple retailers, has standardized pricing
+           ✗ NO if: Service, subscription, location-specific, one-time event, vague concept, person/brand name only
+
+           Examples:
+           - "iPhone 15 Pro" → YES (product)
+           - "Black Friday deals" → NO (event)
+           - "iPhone" → NO (too vague, need specific model)
+           - "Apple" → NO (brand only, not a product)
+           - "Netflix subscription" → NO (service)
+
+        2. CATEGORY ASSIGNMENT (must use EXACT categories below)
+           - Electronics (phones, laptops, TVs, audio, cameras, gaming)
+           - Home & Kitchen (appliances, cookware, furniture, decor)
+           - Fashion & Apparel (clothing, shoes, accessories, jewelry)
+           - Sports & Outdoors (fitness, camping, sports equipment)
+           - Health & Beauty (skincare, cosmetics, supplements, grooming)
+           - Toys & Games (kids toys, board games, collectibles)
+           - Books & Media (books, movies, music)
+           - Automotive (car accessories, tools, parts)
+           - Office & School (supplies, desk items, organization)
+           - Pet Supplies (pet food, toys, accessories)
+           - Other (if truly doesn't fit above)
+
+        3. NORMALIZED NAME (product name standardization)
+           - Remove brand if too generic: "Apple Watch" → "Apple Watch Series 9"
+           - Add specificity: "AirPods" → "Apple AirPods Pro 2nd Generation"
+           - Remove marketing fluff: "Amazing Gaming Headset RGB" → "Gaming Headset"
+           - Use standard format: "[Brand] [Product Line] [Model] [Key Feature]"
+           - Keep it searchable (2-6 words)
+
+        4. CONFIDENCE SCORE (0-100)
+           90-100: Specific product model, multiple retailers confirmed sell it
+           70-89: Clear product but model/variant unclear
+           50-69: Product category clear but specific item needs research
+           30-49: Ambiguous - could be product or something else
+           0-29: Likely not a product or unsuitable for price comparison
+
+        5. REASON (concise explanation)
+           - State why it is/isn't a product
+           - Note any ambiguity or concerns
+           - Max 15 words
+
+        OUTPUT FORMAT:
+        Return a valid JSON array (no markdown, no code blocks, just raw JSON).
+
+        [
+          {
+            "originalQuery": "exact query from input",
+            "normalizedName": "standardized product name",
+            "category": "exact category from list above",
+            "confidence": 85,
+            "isProduct": true,
+            "reason": "brief explanation"
+          }
+        ]
+
+        EXAMPLE ANALYSIS:
+
+        Input: "iPhone 15 Pro trending now"
+        Output:
+        {
+          "originalQuery": "iPhone 15 Pro trending now",
+          "normalizedName": "Apple iPhone 15 Pro",
+          "category": "Electronics",
+          "confidence": 95,
+          "isProduct": true,
+          "reason": "Specific smartphone model sold by all major retailers"
+        }
+
+        Input: "Apple"
+        Output:
+        {
+          "originalQuery": "Apple",
+          "normalizedName": "",
+          "category": "Electronics",
+          "confidence": 20,
+          "isProduct": false,
+          "reason": "Brand name only, no specific product identified"
+        }
+
+        Now analyze the trending items listed above and return ONLY the JSON array.
       `;
 
       const response = await this.openai.chat.completions.create({
@@ -123,7 +200,39 @@ export class ProductDiscoveryAgent extends BaseAgent {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert e-commerce analyst specializing in product trend analysis and categorization.'
+            content: `You are a senior e-commerce product analyst with 10+ years of experience in trend analysis, product categorization, and market research for price comparison platforms.
+
+CORE COMPETENCIES:
+- Product taxonomy and classification across retail categories
+- Market trend analysis and commercial viability assessment
+- Understanding of retail inventory systems and product standardization
+- Knowledge of what products are sold across multiple major retailers
+- Expertise in distinguishing products from services, events, and concepts
+
+ANALYTICAL FRAMEWORK:
+1. Evaluate commercial viability (Can this be price compared?)
+2. Assess specificity (Is this a specific product or vague concept?)
+3. Verify multi-retailer availability (Sold by 2+ major retailers?)
+4. Normalize naming conventions (Standardize for searchability)
+5. Categorize using established retail taxonomy
+6. Score confidence based on clarity and market presence
+
+DECISION-MAKING PRINCIPLES:
+- Be conservative: When in doubt, mark isProduct=false
+- Prioritize precision over recall (better to miss trends than add noise)
+- Consider the end user (price-conscious shoppers need specific products)
+- Reject trending topics, events, services, and vague searches
+- Only accept trends that map to clear, purchasable products
+
+OUTPUT QUALITY STANDARDS:
+- JSON must be valid and parseable (no syntax errors)
+- All required fields must be present
+- Categories must exactly match the provided list
+- Normalized names must be searchable on e-commerce sites
+- Confidence scores must reflect true commercial viability
+- Reasons must be concise, factual, and actionable
+
+CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code blocks. Just the JSON array.`
           },
           {
             role: 'user',
