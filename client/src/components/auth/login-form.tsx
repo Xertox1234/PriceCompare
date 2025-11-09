@@ -113,8 +113,8 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
       </div>
 
       {loginMutation.isError && (
-        <Alert variant="destructive" className="bg-red-50 border-red-200">
-          <AlertDescription className="text-red-600">
+        <Alert variant="destructive" className="bg-destructive border-red-200">
+          <AlertDescription className="text-destructive">
             {loginMutation.error instanceof Error 
               ? loginMutation.error.message 
               : 'Login failed. Please check your credentials.'}
@@ -315,8 +315,8 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       </div>
 
       {registerMutation.isError && (
-        <Alert variant="destructive" className="bg-red-50 border-red-200">
-          <AlertDescription className="text-red-600">
+        <Alert variant="destructive" className="bg-destructive border-red-200">
+          <AlertDescription className="text-destructive">
             {registerMutation.error instanceof Error 
               ? registerMutation.error.message 
               : 'Registration failed. Please try again.'}

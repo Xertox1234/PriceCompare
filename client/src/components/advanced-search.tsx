@@ -201,11 +201,11 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
 
         {/* Intent Analysis */}
         {analysis && analysis.confidence > 0.7 && (
-          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
+          <Card className="border-blue-200 bg-primary dark:bg-primary/30 dark:border-blue-800">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary dark:text-primary">
                   Detected Intent: {analysis.intent.replace(/_/g, ' ')}
                 </span>
                 <Badge variant="secondary" className="text-xs">

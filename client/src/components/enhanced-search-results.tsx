@@ -36,10 +36,10 @@ const matchTypeIcons = {
 };
 
 const matchTypeColors = {
-  exact: 'bg-green-100 text-green-800 border-green-200',
-  fuzzy: 'bg-blue-100 text-blue-800 border-blue-200',
-  semantic: 'bg-purple-100 text-purple-800 border-purple-200',
-  synonym: 'bg-orange-100 text-orange-800 border-orange-200',
+  exact: 'bg-success text-success border-green-200',
+  fuzzy: 'bg-primary text-primary border-blue-200',
+  semantic: 'bg-secondary text-secondary border-purple-200',
+  synonym: 'bg-warning text-warning border-orange-200',
 };
 
 const matchTypeLabels = {
@@ -114,20 +114,20 @@ export function EnhancedSearchResults({
     <div className="space-y-6">
       {/* Search Metadata */}
       {metadata && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
+        <Card className="border-blue-200 bg-primary dark:bg-primary/30 dark:border-blue-800">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium text-blue-900 dark:text-blue-100">
+                  <Target className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-primary dark:text-primary">
                     {metadata.totalResults} results found
                   </span>
                 </div>
                 
                 {metadata.detectedIntent && (
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    <Badge variant="secondary" className="bg-primary text-primary">
                       Intent: {metadata.detectedIntent.replace(/_/g, ' ')}
                     </Badge>
                     {metadata.confidence && (
@@ -265,7 +265,7 @@ export function EnhancedSearchResults({
 
                         {averageRating > 0 && (
                           <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            <Star className="h-4 w-4 fill-yellow-400 text-warning" />
                             <span className="text-sm font-medium">
                               {averageRating.toFixed(1)}
                             </span>

@@ -15,7 +15,7 @@ export function NewPromoBanner() {
               Whether it's for a documentary or a birthday party, we've got the right camera at the right price.
             </p>
             <Link href="/products">
-              <Button className="bg-white text-indigo-600 font-semibold py-2 px-6 rounded-full hover:bg-gray-100 transition duration-300">
+              <Button className="bg-card text-primary font-semibold py-2 px-6 rounded-full hover:bg-muted transition duration-300">
                 Shop Cameras
               </Button>
             </Link>
@@ -39,7 +39,7 @@ export function NewPromoBanner() {
               Whether it's for a documentary or a birthday party, we've got the right camera at the right price.
             </p>
             <Link href="/products">
-              <Button className="bg-white text-indigo-600 font-semibold py-3 px-8 rounded-full hover:bg-gray-100 transition duration-300">
+              <Button className="bg-card text-primary font-semibold py-3 px-8 rounded-full hover:bg-muted transition duration-300">
                 Shop Cameras
               </Button>
             </Link>
