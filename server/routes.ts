@@ -39,7 +39,7 @@ function isAuthenticated(req: Request): req is AuthenticatedRequest {
 }
 
 // Wrapper to enforce authentication with proper typing
-function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
+function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<any> | any) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
       res.status(401).json({ error: 'Authentication required' });
@@ -51,7 +51,7 @@ function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise
 }
 
 // Wrapper to enforce admin role with proper typing
-function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
+function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<any> | any) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
       res.status(401).json({ error: 'Authentication required' });
@@ -128,15 +128,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/login", passport.authenticate('local'), (req, res) => {
-    const user = req.user;
-    res.json({ 
-      success: true, 
-      user: { 
-        id: user.id, 
-        username: user.username, 
+    const user = req.user as any;
+    if (!user) {
+      return res.status(401).json({ error: 'Authentication failed' });
+    }
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
         email: user.email,
         role: user.role || 'user'
-      } 
+      }
     });
   });
 
