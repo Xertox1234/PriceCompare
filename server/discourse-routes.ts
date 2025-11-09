@@ -167,13 +167,11 @@ export function registerDiscourseRoutes(app: Express): void {
     try {
       res.json({
         status: 'healthy',
-        sso_enabled: !!process.env.DISCOURSE_SSO_SECRET,
-        discourse_url: process.env.DISCOURSE_URL || 'not_configured',
         timestamp: new Date().toISOString()
       });
     } catch (error) {
       console.error('Discourse health check error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         status: 'unhealthy',
         error: 'Health check failed'
       });

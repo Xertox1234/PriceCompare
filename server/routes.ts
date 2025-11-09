@@ -70,6 +70,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize forum categories
   await forumStorage.initializeDefaultCategories();
 
+  // Health check endpoints
+  app.get("/health", async (req, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Check database connection
+      await db.execute(sql`SELECT 1`);
+
+      res.status(200).json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        checks: {
+          database: "ok"
+        }
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: "error",
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: "error"
+        }
+      });
+    }
+  });
+
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     try {
@@ -78,13 +111,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate required fields manually first
       const { username, email, password } = req.body;
       if (!username || !email || !password) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Missing required fields",
           details: {
             username: !username ? "Username is required" : null,
             email: !email ? "Email is required" : null,
             password: !password ? "Password is required" : null
           }
+        });
+      }
+
+      // Validate password strength
+      if (password.length < 8) {
+        return res.status(400).json({
+          error: "Password must be at least 8 characters long"
+        });
+      }
+
+      if (!/[a-z]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one lowercase letter"
+        });
+      }
+
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one uppercase letter"
+        });
+      }
+
+      if (!/[0-9]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one number"
         });
       }
 

@@ -7,6 +7,21 @@ import { db } from './db.js';
 import { scrapingJobs, trendingProducts, agentSessions } from '../shared/schema.js';
 import { eq, desc, and, gte } from 'drizzle-orm';
 
+// Authentication middleware
+const requireAuth = (req: Request, res: Response, next: Function) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  next();
+};
+
+const requireAdmin = (req: any, res: Response, next: Function) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
 // Global agent instances
 let coordinationAgent: CoordinationAgent | null = null;
 let discoveryAgent: ProductDiscoveryAgent | null = null;
@@ -32,7 +47,7 @@ async function initializeAgents() {
 
 export function registerScrapingRoutes(app: Express): void {
   // Initialize AI scraping system
-  app.post("/api/scraping/initialize", async (req: Request, res: Response) => {
+  app.post("/api/scraping/initialize", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       await initializeAgents();
       res.json({ 
@@ -49,7 +64,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Start AI agent coordination
-  app.post("/api/scraping/start-agents", async (req: Request, res: Response) => {
+  app.post("/api/scraping/start-agents", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       await initializeAgents();
       
@@ -72,7 +87,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Trigger trend discovery
-  app.post("/api/scraping/discover-trends", async (req: Request, res: Response) => {
+  app.post("/api/scraping/discover-trends", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       await initializeAgents();
       
@@ -104,7 +119,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Get trending products
-  app.get("/api/scraping/trending-products", async (req: Request, res: Response) => {
+  app.get("/api/scraping/trending-products", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const { limit = 50, status = 'discovered' } = req.query;
       
@@ -129,7 +144,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Get system status and metrics
-  app.get("/api/scraping/status", async (req: Request, res: Response) => {
+  app.get("/api/scraping/status", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       await initializeAgents();
       
@@ -154,7 +169,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Manual product search
-  app.post("/api/scraping/search-product", async (req: Request, res: Response) => {
+  app.post("/api/scraping/search-product", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       await initializeAgents();
       
@@ -189,7 +204,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Run full scraping cycle
-  app.post("/api/scraping/full-cycle", async (req: Request, res: Response) => {
+  app.post("/api/scraping/full-cycle", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       await initializeAgents();
       
@@ -219,7 +234,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Test Google Custom Search API connection
-  app.get("/api/scraping/google-search/test", async (req: Request, res: Response) => {
+  app.get("/api/scraping/google-search/test", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const testResult = await googleSearchService.testConnection();
       res.json({
@@ -237,7 +252,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Search products using Google Custom Search
-  app.post("/api/scraping/google-search", async (req: Request, res: Response) => {
+  app.post("/api/scraping/google-search", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const { query, retailers = ['amazon.com', 'walmart.com', 'target.com'], maxResults = 5 } = req.body;
       
@@ -288,7 +303,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Get Google Custom Search API usage statistics
-  app.get("/api/scraping/google-search/status", async (req: Request, res: Response) => {
+  app.get("/api/scraping/google-search/status", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const usage = googleSearchService.getUsageStats();
       res.json({
@@ -311,7 +326,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Extract product data from specific URLs
-  app.post("/api/scraping/extract-product", async (req: Request, res: Response) => {
+  app.post("/api/scraping/extract-product", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const { url, retailer, searchQuery } = req.body;
       
@@ -345,7 +360,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Start price monitoring for existing products
-  app.post("/api/scraping/start-monitoring", async (req: Request, res: Response) => {
+  app.post("/api/scraping/start-monitoring", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const { maxAge = 24 } = req.body;
       
@@ -376,7 +391,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Get monitoring statistics
-  app.get("/api/scraping/monitoring-stats", async (req: Request, res: Response) => {
+  app.get("/api/scraping/monitoring-stats", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       // Import the monitoring agent dynamically
       const { priceMonitoringAgent } = await import('./agents/monitoring-agent');
@@ -398,7 +413,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Run complete product discovery and extraction workflow
-  app.post("/api/scraping/complete-workflow", async (req: Request, res: Response) => {
+  app.post("/api/scraping/complete-workflow", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const { searchQuery, maxResults = 5 } = req.body;
       
