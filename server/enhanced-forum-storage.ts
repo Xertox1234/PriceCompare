@@ -45,8 +45,8 @@ export class EnhancedForumStorage {
     return {
       ...userResult,
       badges: userBadgesResult.map(r => ({ ...r.userBadge, badge: r.badge })),
-      unreadNotifications: unreadCount?.count || 0,
-      trustLevelName: this.getTrustLevelName(userResult.trustLevel)
+      unreadNotifications: Number(unreadCount?.count) || 0,
+      trustLevelName: this.getTrustLevelName(userResult.trustLevel ?? 0)
     };
   }
 
@@ -79,51 +79,43 @@ export class EnhancedForumStorage {
     await db
       .update(users)
       .set({
-        postCount: postCount?.count || 0,
-        topicCount: topicCount?.count || 0,
-        likesReceived: likesReceived?.count || 0,
-        likesGiven: likesGiven?.count || 0,
+        postCount: Number(postCount?.count) || 0,
+        topicCount: Number(topicCount?.count) || 0,
+        likesReceived: Number(likesReceived?.count) || 0,
+        likesGiven: Number(likesGiven?.count) || 0,
         lastSeenAt: new Date(),
         updatedAt: new Date()
       })
       .where(eq(users.id, userId));
   }
 
-  private getTrustLevelName(level: number): string {
+  private getTrustLevelName(level: number | null): string {
     const levels = ['New User', 'Basic User', 'Member', 'Regular', 'Leader'];
-    return levels[level] || 'New User';
+    return levels[level ?? 0] || 'New User';
   }
 
   // Enhanced topic management with tags and permissions
   async getTopicsWithDetails(categoryId?: number, productId?: number, userId?: number): Promise<ForumTopicWithDetails[]> {
-    let query = db
+    // Build where conditions
+    const conditions = [];
+    if (categoryId) {
+      conditions.push(eq(forumTopics.categoryId, categoryId));
+    }
+    if (productId) {
+      conditions.push(eq(forumTopics.productId, productId));
+    }
+
+    const results = await db
       .select({
         topic: forumTopics,
         author: users,
-        category: forumCategories,
-        lastPost: forumPosts,
-        lastPostAuthor: {
-          id: users.id,
-          username: users.username,
-          avatarUrl: users.avatarUrl,
-          trustLevel: users.trustLevel
-        }
+        category: forumCategories
       })
       .from(forumTopics)
       .innerJoin(users, eq(forumTopics.authorId, users.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
-      .leftJoin(forumPosts, eq(forumTopics.lastPostId, forumPosts.id))
-      .leftJoin(users, eq(forumPosts.authorId, users.id))
-      .orderBy(desc(forumTopics.lastPostAt));
-
-    if (categoryId) {
-      query = query.where(eq(forumTopics.categoryId, categoryId));
-    }
-    if (productId) {
-      query = query.where(eq(forumTopics.productId, productId));
-    }
-
-    const results = await query;
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(forumTopics.lastPostAt)) as any[];
 
     // Get tags for each topic
     const topicIds = results.map(r => r.topic.id);
@@ -146,16 +138,12 @@ export class EnhancedForumStorage {
       ...result.topic,
       author: {
         ...result.author,
-        trustLevelName: this.getTrustLevelName(result.author.trustLevel)
+        trustLevelName: this.getTrustLevelName(result.author?.trustLevel ?? null)
       } as UserWithProfile,
       category: result.category || undefined,
-      tags: tagsByTopic[result.topic.id] || [],
-      lastPost: result.lastPost ? {
-        ...result.lastPost,
-        author: result.lastPostAuthor
-      } : undefined,
-      userCanEdit: userId ? result.topic.authorId === userId || result.author.role === 'admin' : false,
-      userCanDelete: userId ? result.author.role === 'admin' || result.author.role === 'moderator' : false
+      tags: tagsByTopic[result.topic?.id] || [],
+      userCanEdit: userId ? result.topic?.authorId === userId || result.author?.role === 'admin' : false,
+      userCanDelete: userId ? result.author?.role === 'admin' || result.author?.role === 'moderator' : false
     }));
   }
 
@@ -278,7 +266,7 @@ export class EnhancedForumStorage {
         .from(forumPosts)
         .where(eq(forumPosts.topicId, postData.topicId));
 
-      const postNumber = (result?.maxNumber || 0) + 1;
+      const postNumber = Number(result?.maxNumber ?? 0) + 1;
 
       // Create post
       const [post] = await tx
@@ -327,7 +315,6 @@ export class EnhancedForumStorage {
         .set({
           postCount: sql`${forumTopics.postCount} + 1`,
           lastPostAt: new Date(),
-          lastPostId: post.id,
           updatedAt: new Date()
         })
         .where(eq(forumTopics.id, postData.topicId));
@@ -402,7 +389,13 @@ export class EnhancedForumStorage {
 
   // Notification system
   async getUserNotifications(userId: number, unreadOnly = false): Promise<NotificationWithDetails[]> {
-    let query = db
+    const conditions = [eq(notifications.userId, userId)];
+
+    if (unreadOnly) {
+      conditions.push(eq(notifications.isRead, false));
+    }
+
+    const results = await db
       .select({
         notification: notifications,
         relatedUser: users,
@@ -413,14 +406,8 @@ export class EnhancedForumStorage {
       .leftJoin(users, eq(notifications.relatedUserId, users.id))
       .leftJoin(forumPosts, eq(notifications.relatedPostId, forumPosts.id))
       .leftJoin(forumTopics, eq(notifications.relatedTopicId, forumTopics.id))
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt));
-
-    if (unreadOnly) {
-      query = query.where(eq(notifications.isRead, false));
-    }
-
-    const results = await query;
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt)) as any[];
 
     return results.map(result => ({
       ...result.notification,
@@ -431,16 +418,16 @@ export class EnhancedForumStorage {
   }
 
   async markNotificationsAsRead(userId: number, notificationIds?: number[]): Promise<void> {
-    let query = db
-      .update(notifications)
-      .set({ isRead: true })
-      .where(eq(notifications.userId, userId));
+    const conditions = [eq(notifications.userId, userId)];
 
     if (notificationIds?.length) {
-      query = query.where(sql`${notifications.id} IN (${notificationIds.join(',')})`);
+      conditions.push(sql`${notifications.id} IN (${notificationIds.join(',')})`);
     }
 
-    await query;
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(and(...conditions));
   }
 
   // Private messaging
@@ -543,7 +530,13 @@ export class EnhancedForumStorage {
 
   // Search functionality
   async searchPosts(query: string, categoryId?: number): Promise<ForumPostWithDetails[]> {
-    let searchQuery = db
+    const conditions = [sql`${forumPosts.content} ILIKE ${'%' + query + '%'}`];
+
+    if (categoryId) {
+      conditions.push(eq(forumTopics.categoryId, categoryId));
+    }
+
+    const results = await db
       .select({
         post: forumPosts,
         author: users,
@@ -554,20 +547,14 @@ export class EnhancedForumStorage {
       .innerJoin(users, eq(forumPosts.authorId, users.id))
       .innerJoin(forumTopics, eq(forumPosts.topicId, forumTopics.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
-      .where(sql`${forumPosts.content} ILIKE ${'%' + query + '%'}`)
-      .orderBy(desc(forumPosts.createdAt));
+      .where(and(...conditions))
+      .orderBy(desc(forumPosts.createdAt)) as any[];
 
-    if (categoryId) {
-      searchQuery = searchQuery.where(eq(forumTopics.categoryId, categoryId));
-    }
-
-    const results = await searchQuery;
-
-    return results.map(result => ({
+    return results.map((result: any) => ({
       ...result.post,
       author: {
         ...result.author,
-        trustLevelName: this.getTrustLevelName(result.author.trustLevel)
+        trustLevelName: this.getTrustLevelName(result.author?.trustLevel ?? null)
       } as UserWithProfile,
       likes: [],
       userCanEdit: false,
