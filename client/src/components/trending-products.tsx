@@ -36,8 +36,8 @@ export function TrendingProducts() {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg cursor-pointer transition-colors hover:bg-muted/80">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <span className="text-blue-600 font-bold">📷</span>
+                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                    <span className="text-primary font-bold">📷</span>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">
@@ -55,8 +55,8 @@ export function TrendingProducts() {
 
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg cursor-pointer transition-colors hover:bg-muted/80">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <span className="text-green-600 font-bold">📱</span>
+                  <div className="w-12 h-12 bg-success/10 rounded-lg flex items-center justify-center">
+                    <span className="text-success font-bold">📱</span>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">Tablets</h4>
@@ -70,8 +70,8 @@ export function TrendingProducts() {
 
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg cursor-pointer transition-colors hover:bg-muted/80">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <span className="text-orange-600 font-bold">🎵</span>
+                  <div className="w-12 h-12 bg-warning/10 rounded-lg flex items-center justify-center">
+                    <span className="text-warning font-bold">🎵</span>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">Audio</h4>
@@ -87,12 +87,12 @@ export function TrendingProducts() {
         </div>
 
         {/* Bottom promotional section */}
-        <div className="mt-16 bg-gradient-to-r from-gray-900 to-gray-800 rounded-lg p-8 text-center text-white">
+        <div className="mt-16 gradient-dark rounded-lg p-8 text-center text-primary-foreground">
           <h3 className="text-2xl font-bold mb-4">
-            When it's cost-sensitive, go grey mobile, 
+            When it's cost-sensitive, go grey mobile,
             find your game controllers and it's delivered.
           </h3>
-          <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
+          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
             Get the best deals on gaming accessories and mobile devices with fast, reliable delivery.
           </p>
           <button className="bg-primary hover:bg-primary/90 transition-colors duration-300 text-primary-foreground px-8 py-3 rounded-lg font-medium shadow-lg">

@@ -210,7 +210,7 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
         
         {isLoading ? (
           <div className="animate-pulse">
-            <div className="h-8 w-20 bg-gray-200 rounded"></div>
+            <div className="h-8 w-20 bg-muted rounded"></div>
           </div>
         ) : user ? (
           <DropdownMenu>
@@ -271,17 +271,17 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-48 bg-white border border-gray-200 shadow-lg" align="end">
-              <DropdownMenuItem disabled className="text-gray-900">
-                <span className="text-sm font-medium text-gray-900">{user.username}</span>
+            <DropdownMenuContent className="w-48 bg-card border-border shadow-lg" align="end">
+              <DropdownMenuItem disabled className="text-foreground">
+                <span className="text-sm font-medium text-foreground">{user.username}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={handleLogout} 
+              <DropdownMenuItem
+                onClick={handleLogout}
                 disabled={logoutMutation.isPending}
-                className="text-gray-900 hover:bg-gray-100"
+                className="text-foreground hover:bg-muted"
               >
-                <LogOut className="mr-2 h-4 w-4 text-gray-600" />
-                <span className="text-gray-900">{logoutMutation.isPending ? 'Signing out...' : 'Sign out'}</span>
+                <LogOut className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span className="text-foreground">{logoutMutation.isPending ? 'Signing out...' : 'Sign out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
