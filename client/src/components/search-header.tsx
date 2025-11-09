@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo, useCallback, useEffect } from "react";
 import { Search, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,19 +14,26 @@ const searchInputClasses = cn(
   "focus:border-primary focus:shadow-lg focus:bg-background"
 );
 
-export function SearchHeader({ onSearch, searchQuery }: SearchHeaderProps) {
+export const SearchHeader = memo(({ onSearch, searchQuery }: SearchHeaderProps) => {
   const [query, setQuery] = useState(searchQuery);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Sync local state with prop changes
+  useEffect(() => {
+    setQuery(searchQuery);
+  }, [searchQuery]);
+
+  // Memoize form submit handler
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     onSearch(query);
-  };
+  }, [onSearch, query]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  // Memoize keydown handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       onSearch(query);
     }
-  };
+  }, [onSearch, query]);
 
   return (
     <header className="bg-card border-b border-border shadow-sm sticky top-0 z-40" role="banner">
@@ -80,4 +87,6 @@ export function SearchHeader({ onSearch, searchQuery }: SearchHeaderProps) {
       </div>
     </header>
   );
-}
+});
+
+SearchHeader.displayName = 'SearchHeader';

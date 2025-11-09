@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { EnhancedSearchHeader } from "@/components/enhanced-search-header";
 import { FilterSidebar } from "@/components/filter-sidebar";
 import { ProductGrid } from "@/components/product-grid";
@@ -31,20 +31,22 @@ export default function Products() {
   
   const { comparisonItems, addToComparison, removeFromComparison, clearComparison } = useComparison();
 
-  const handleSearch = (query: string, searchFilters?: SearchFilters) => {
+  // Memoize search handler to prevent unnecessary re-renders of child components
+  const handleSearch = useCallback((query: string, searchFilters?: SearchFilters) => {
     setQuery(query);
     if (searchFilters) {
       setFilters(searchFilters);
     }
     search(query, searchFilters);
-  };
+  }, [setQuery, setFilters, search]);
 
-  const handleFilterChange = (newFilters: Partial<SearchFilters>) => {
+  // Memoize filter change handler
+  const handleFilterChange = useCallback((newFilters: Partial<SearchFilters>) => {
     setFilters(newFilters);
-  };
+  }, [setFilters]);
 
-  // Count active filters for mobile indicator
-  const getActiveFilterCount = () => {
+  // Memoize active filter count calculation
+  const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.minPrice !== undefined) count++;
     if (filters.maxPrice !== undefined) count++;
@@ -53,7 +55,7 @@ export default function Products() {
     if (filters.availability?.length) count++;
     if (filters.category) count++;
     return count;
-  };
+  }, [filters]);
 
   return (
     <>
@@ -107,9 +109,9 @@ export default function Products() {
                 <Button variant="outline" className="w-full relative">
                   <Filter className="h-4 w-4 mr-2" />
                   Filters & Sort
-                  {getActiveFilterCount() > 0 && (
+                  {activeFilterCount > 0 && (
                     <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {getActiveFilterCount()}
+                      {activeFilterCount}
                     </span>
                   )}
                 </Button>
