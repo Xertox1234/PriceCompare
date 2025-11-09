@@ -111,13 +111,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate required fields manually first
       const { username, email, password } = req.body;
       if (!username || !email || !password) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Missing required fields",
           details: {
             username: !username ? "Username is required" : null,
             email: !email ? "Email is required" : null,
             password: !password ? "Password is required" : null
           }
+        });
+      }
+
+      // Validate password strength
+      if (password.length < 8) {
+        return res.status(400).json({
+          error: "Password must be at least 8 characters long"
+        });
+      }
+
+      if (!/[a-z]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one lowercase letter"
+        });
+      }
+
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one uppercase letter"
+        });
+      }
+
+      if (!/[0-9]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one number"
         });
       }
 

@@ -52,7 +52,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Search products using hybrid approach
-  app.post("/api/hybrid/search", async (req: Request, res: Response) => {
+  app.post("/api/hybrid/search", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const { query, retailers } = req.body;
       
