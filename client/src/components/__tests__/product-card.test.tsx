@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '../../test/test-utils'
 import { ProductCard } from '../product-card'
 import type { ProductWithOffers } from '@shared/schema'
@@ -10,9 +10,8 @@ const mockProduct: ProductWithOffers = {
   category: 'Electronics',
   brand: 'TestBrand',
   model: 'Test Model',
-  imageUrl: 'https://example.com/image.jpg',
+  image: 'https://example.com/image.jpg',
   createdAt: new Date(),
-  updatedAt: new Date(),
   offers: [
     {
       id: 1,
@@ -21,16 +20,28 @@ const mockProduct: ProductWithOffers = {
       price: '99.99',
       originalPrice: '129.99',
       availability: 'in_stock',
+      rating: null,
+      reviewCount: null,
+      shippingInfo: null,
+      dealType: null,
       productUrl: 'https://example.com/product',
-      lastUpdated: new Date(),
+      affiliateUrl: null,
+      linkHealthStatus: null,
+      lastLinkCheck: null,
+      clickCount: null,
+      lastUpdated: null,
       retailer: {
         id: 1,
         name: 'Test Retailer',
         logo: 'https://example.com/logo.jpg',
         website: 'https://example.com',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        affiliateId: null,
+        affiliateProgram: null,
+        baseAffiliateUrl: null,
+        commissionRate: null,
+        affiliateStatus: null,
+        affiliateConfig: null
       }
     }
   ],

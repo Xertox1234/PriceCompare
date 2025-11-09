@@ -53,13 +53,14 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
   });
 
   // Analyze query intent
-  const { data: analysis } = useQuery<QueryAnalysis>({
+  const { data: analysis } = useQuery<QueryAnalysis | null>({
     queryKey: ['/api/search/analyze', debouncedQuery],
-    queryFn: async () => {
+    queryFn: async (): Promise<QueryAnalysis | null> => {
       if (debouncedQuery.length < 3) return null;
       return apiRequest('/api/search/analyze', {
         method: 'POST',
-        body: { query: debouncedQuery }
+        body: JSON.stringify({ query: debouncedQuery }),
+        headers: { 'Content-Type': 'application/json' }
       });
     },
     enabled: debouncedQuery.length > 2,
