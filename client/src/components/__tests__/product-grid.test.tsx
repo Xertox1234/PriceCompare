@@ -11,8 +11,8 @@ const mockProducts: ProductWithOffers[] = [
     category: 'Electronics',
     brand: 'TestBrand',
     model: 'Test Model 1',
+    image: null,
     createdAt: new Date(),
-    updatedAt: new Date(),
     offers: [
       {
         id: 1,
@@ -45,8 +45,8 @@ const mockProducts: ProductWithOffers[] = [
     category: 'Home',
     brand: 'TestBrand2',
     model: 'Test Model 2',
+    image: null,
     createdAt: new Date(),
-    updatedAt: new Date(),
     offers: [
       {
         id: 2,

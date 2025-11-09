@@ -80,7 +80,7 @@ export class PriceMonitoringAgent extends BaseAgent {
     
     // Get offers that need checking
     const staleOffers = await db.query.productOffers.findMany({
-      where: lt(productOffers.lastChecked, cutoffTime),
+      where: lt(productOffers.lastLinkCheck, cutoffTime),
       with: {
         product: true,
         retailer: true
@@ -113,7 +113,7 @@ export class PriceMonitoringAgent extends BaseAgent {
             .set({
               price: newPrice,
               availability: extractionResult.data.availability,
-              lastChecked: new Date()
+              lastLinkCheck: new Date()
             })
             .where(eq(productOffers.id, offer.id));
 
@@ -147,7 +147,7 @@ export class PriceMonitoringAgent extends BaseAgent {
         
         // Update last checked even if failed to avoid repeated failures
         await db.update(productOffers)
-          .set({ lastChecked: new Date() })
+          .set({ lastLinkCheck: new Date() })
           .where(eq(productOffers.id, offer.id));
       }
     }
@@ -173,7 +173,7 @@ export class PriceMonitoringAgent extends BaseAgent {
               with: {
                 retailer: true
               },
-              orderBy: [desc(productOffers.lastChecked)]
+              orderBy: [desc(productOffers.lastLinkCheck)]
             }
           }
         }
@@ -228,7 +228,7 @@ export class PriceMonitoringAgent extends BaseAgent {
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
     
     const staleOffers = await db.query.productOffers.findMany({
-      where: lt(productOffers.lastChecked, cutoffTime),
+      where: lt(productOffers.lastLinkCheck, cutoffTime),
       with: {
         retailer: true,
         product: true
@@ -263,7 +263,7 @@ export class PriceMonitoringAgent extends BaseAgent {
         
         // Mark as checked to avoid infinite retries
         await db.update(productOffers)
-          .set({ lastChecked: new Date() })
+          .set({ lastLinkCheck: new Date() })
           .where(eq(productOffers.id, offer.id));
       }
     }
@@ -284,7 +284,7 @@ export class PriceMonitoringAgent extends BaseAgent {
     // Count recent price checks
     const recentChecks = await db.query.productOffers.findMany({
       where: and(
-        productOffers.lastChecked.gte(last24h)
+        productOffers.lastLinkCheck.gte(last24h)
       ),
       columns: { id: true }
     });
@@ -311,7 +311,7 @@ export class PriceMonitoringAgent extends BaseAgent {
 
     // Get stale offers (>24h old)
     const staleOffers = await db.query.productOffers.findMany({
-      where: lt(productOffers.lastChecked, last24h),
+      where: lt(productOffers.lastLinkCheck, last24h),
       columns: { id: true }
     });
 

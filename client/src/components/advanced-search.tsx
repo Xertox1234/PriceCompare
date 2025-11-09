@@ -10,24 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
 import { useDebounce } from '@/hooks/use-debounce';
-import type { ProductWithOffers, SearchFilters } from '@shared/schema';
+import type { ProductWithOffers, SearchFilters, SearchSuggestion, QueryAnalysis } from '@shared/schema';
 
 interface AdvancedSearchResult {
   product: ProductWithOffers;
   relevanceScore: number;
   matchType: 'exact' | 'fuzzy' | 'semantic' | 'synonym';
-}
-
-interface SearchSuggestion {
-  query: string;
-  type: 'completion' | 'correction' | 'synonym';
-  confidence: number;
-}
-
-interface QueryAnalysis {
-  intent: 'product_search' | 'price_comparison' | 'brand_search' | 'category_browse';
-  confidence: number;
-  suggestions: string[];
 }
 
 interface AdvancedSearchProps {
@@ -53,13 +41,14 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
   });
 
   // Analyze query intent
-  const { data: analysis } = useQuery<QueryAnalysis>({
+  const { data: analysis } = useQuery<QueryAnalysis | null>({
     queryKey: ['/api/search/analyze', debouncedQuery],
-    queryFn: async () => {
+    queryFn: async (): Promise<QueryAnalysis | null> => {
       if (debouncedQuery.length < 3) return null;
       return apiRequest('/api/search/analyze', {
         method: 'POST',
-        body: { query: debouncedQuery }
+        body: JSON.stringify({ query: debouncedQuery }),
+        headers: { 'Content-Type': 'application/json' }
       });
     },
     enabled: debouncedQuery.length > 2,

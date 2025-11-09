@@ -688,7 +688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = insertRetailerSchema.partial().parse(req.body);
       
       const [updatedRetailer] = await db.update(schema.retailers)
-        .set({ ...updateData, updatedAt: new Date() })
+        .set(updateData)
         .where(eq(schema.retailers.id, retailerId))
         .returning();
 

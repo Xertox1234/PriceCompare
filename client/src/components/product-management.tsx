@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Package, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Package,
+  Plus,
+  Edit,
+  Trash2,
   Search,
   DollarSign,
   Star,
@@ -31,7 +32,7 @@ interface Product {
   category: string;
   brand: string;
   model: string;
-  imageUrl: string;
+  image: string;
   isActive: boolean;
   createdAt: string;
   offers?: ProductOffer[];
@@ -59,7 +60,7 @@ interface CreateProductForm {
   category: string;
   brand: string;
   model: string;
-  imageUrl: string;
+  image: string;
 }
 
 export function ProductManagement() {
@@ -76,7 +77,7 @@ export function ProductManagement() {
     category: "",
     brand: "",
     model: "",
-    imageUrl: ""
+    image: ""
   });
 
   // Fetch products from admin endpoint
@@ -102,7 +103,7 @@ export function ProductManagement() {
         category: "",
         brand: "",
         model: "",
-        imageUrl: ""
+        image: ""
       });
       toast({
         title: "Product Created",
@@ -186,7 +187,7 @@ export function ProductManagement() {
       category: formData.get('category') as string,
       brand: formData.get('brand') as string,
       model: formData.get('model') as string,
-      imageUrl: formData.get('imageUrl') as string,
+      image: formData.get('image') as string,
     };
     
     editProductMutation.mutate({ id: editingProduct.id, data: updateData });
@@ -346,8 +347,8 @@ export function ProductManagement() {
                 <Input
                   id="product-image"
                   type="url"
-                  value={newProduct.imageUrl}
-                  onChange={(e) => setNewProduct(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  value={newProduct.image}
+                  onChange={(e) => setNewProduct(prev => ({ ...prev, image: e.target.value }))}
                   placeholder="https://example.com/product-image.jpg"
                 />
               </div>
@@ -386,9 +387,9 @@ export function ProductManagement() {
                   <div className="flex items-start justify-between">
                     <div className="flex gap-4 flex-1">
                       <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                        {product.imageUrl ? (
+                        {product.image ? (
                           <img 
-                            src={product.imageUrl} 
+                            src={product.image} 
                             alt={product.name}
                             className="w-full h-full object-cover rounded-lg"
                           />
@@ -566,9 +567,9 @@ export function ProductManagement() {
               <Label htmlFor="edit-product-image">Image URL</Label>
               <Input
                 id="edit-product-image"
-                name="imageUrl"
+                name="image"
                 type="url"
-                defaultValue={editingProduct?.imageUrl || ""}
+                defaultValue={editingProduct?.image || ""}
                 placeholder="https://example.com/image.jpg"
               />
             </div>
