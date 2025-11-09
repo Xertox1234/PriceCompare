@@ -376,7 +376,12 @@ export class AdvancedSearchService {
   }
 
   /**
-   * Semantic search using OpenAI embeddings
+   * Semantic search using OpenAI embeddings and pgvector
+   *
+   * OPTIMIZED: Uses vector database for 99% cost reduction
+   * - Before: N+1 API calls (1 for query + 1 per product)
+   * - After: 1 API call (only for query embedding)
+   * - Uses pgvector's HNSW index for fast similarity search
    */
   private async performSemanticSearch(filters: SearchFilters): Promise<SearchResult[]> {
     if (!this.config.enableSemanticSearch || !this.openai) {
@@ -387,6 +392,7 @@ export class AdvancedSearchService {
       const query = filters.query!;
       let queryEmbedding = this.embeddingCache.get(query);
 
+      // Generate query embedding (only 1 API call per unique query)
       if (!queryEmbedding) {
         const response = await this.openai.embeddings.create({
           model: 'text-embedding-3-small',
@@ -397,11 +403,15 @@ export class AdvancedSearchService {
         this.enforceEmbeddingCacheLimit();
       }
 
-      // Note: This is a simplified implementation
-      // In production, you'd store embeddings in a vector database
-      const allProducts = await db
+      // Convert embedding array to pgvector format
+      const vectorString = `[${queryEmbedding.join(',')}]`;
+
+      // Use pgvector's cosine similarity operator (<=>) for efficient search
+      // HNSW index makes this extremely fast even with millions of products
+      const semanticMatches = await db
         .select({
           product: products,
+          similarity: sql<number>`1 - (${products.embedding} <=> ${vectorString}::vector)`.as('similarity'),
           offers: sql`json_agg(
             json_build_object(
               'id', ${productOffers.id},
@@ -421,29 +431,30 @@ export class AdvancedSearchService {
         .from(products)
         .leftJoin(productOffers, eq(products.id, productOffers.productId))
         .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
-        .groupBy(products.id);
+        .where(sql`${products.embedding} IS NOT NULL`) // Only search products with embeddings
+        .groupBy(products.id, products.embedding)
+        .orderBy(sql`${products.embedding} <=> ${vectorString}::vector`) // Sort by similarity
+        .limit(50); // Get top 50 most similar products
 
-      const semanticResults: SearchResult[] = [];
-
-      for (const result of allProducts) {
-        const productText = `${result.product.name} ${result.product.description} ${result.product.brand}`;
-        const similarity = await this.calculateSemanticSimilarity(query, productText);
-        
-        if (similarity > this.config.semanticThreshold) {
-          semanticResults.push({
-            product: {
-              ...result.product,
-              offers: (result.offers as any) || []
-            },
-            relevanceScore: similarity * 0.7, // Semantic matches get moderate score
-            matchType: 'semantic' as const
-          });
-        }
-      }
+      // Filter by similarity threshold and map to SearchResult format
+      const semanticResults: SearchResult[] = semanticMatches
+        .filter(result => result.similarity >= this.config.semanticThreshold)
+        .map(result => ({
+          product: {
+            ...result.product,
+            offers: (result.offers as any) || []
+          },
+          relevanceScore: result.similarity * 0.7, // Semantic matches get moderate score
+          matchType: 'semantic' as const
+        }));
 
       return semanticResults;
     } catch (error) {
       console.error('Semantic search error:', error);
+
+      // Fallback: If vector search fails (e.g., pgvector not installed),
+      // return empty array rather than falling back to N+1 pattern
+      console.error('Vector search failed. Please run: npm run migrate');
       return [];
     }
   }
@@ -759,6 +770,72 @@ export class AdvancedSearchService {
     } catch (error) {
       console.error('AI suggestions error:', error);
       return [];
+    }
+  }
+
+  /**
+   * Generate and store embedding for a product
+   * Call this when creating/updating products to keep embeddings fresh
+   */
+  async generateProductEmbedding(productId: number): Promise<void> {
+    if (!this.openai) {
+      console.warn('OpenAI not configured, skipping embedding generation');
+      return;
+    }
+
+    try {
+      // Fetch product details
+      const product = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
+
+      if (product.length === 0) {
+        throw new Error(`Product ${productId} not found`);
+      }
+
+      const prod = product[0];
+
+      // Create searchable text from product fields
+      const searchableText = [
+        prod.name,
+        prod.description,
+        prod.brand,
+        prod.model
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+      if (!searchableText) {
+        console.warn(`Product ${productId} has no searchable text, skipping embedding`);
+        return;
+      }
+
+      // Generate embedding
+      const response = await this.openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: searchableText
+      });
+
+      const embedding = response.data[0].embedding;
+      const vectorString = `[${embedding.join(',')}]`;
+
+      // Update product with embedding
+      await db
+        .update(products)
+        .set({
+          embedding: sql`${vectorString}::vector`,
+          embeddingUpdatedAt: sql`NOW()`
+        })
+        .where(eq(products.id, productId));
+
+      console.log(`✅ Generated embedding for product ${productId}`);
+
+    } catch (error) {
+      console.error(`Failed to generate embedding for product ${productId}:`, error);
+      throw error;
     }
   }
 
