@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { products, productOffers, retailers } from '@shared/schema';
-import { eq, like, or, and, desc } from 'drizzle-orm';
+import { eq, like, or, and, desc, isNotNull, sql, count } from 'drizzle-orm';
 
 /**
  * Fallback product discovery service for when external APIs are unavailable
@@ -14,14 +14,14 @@ export class ProductDiscoveryFallback {
   async searchExistingProducts(query: string, maxResults = 10) {
     const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
     
-    const products = await db.query.products.findMany({
+    const searchResults = await db.query.products.findMany({
       where: or(
-        ...searchTerms.map(term => 
+        ...searchTerms.map(term =>
           or(
-            like(db.query.products.name, `%${term}%`),
-            like(db.query.products.description, `%${term}%`),
-            like(db.query.products.category, `%${term}%`),
-            like(db.query.products.brand, `%${term}%`)
+            like(products.name, `%${term}%`),
+            like(products.description, `%${term}%`),
+            like(products.category, `%${term}%`),
+            like(products.brand, `%${term}%`)
           )
         )
       ),
@@ -33,22 +33,20 @@ export class ProductDiscoveryFallback {
         }
       },
       limit: maxResults
-    });
+    }) as any;
 
-    return products.map(product => ({
+    return searchResults.map((product: any) => ({
       id: product.id,
       name: product.name,
       description: product.description,
       category: product.category,
       brand: product.brand,
-      imageUrl: product.imageUrl,
-      averageRating: product.averageRating,
-      offers: product.offers.map(offer => ({
+      image: product.image,
+      offers: (product.offers || []).map((offer: any) => ({
         id: offer.id,
         price: offer.price,
-        currency: offer.currency,
         availability: offer.availability,
-        retailer: offer.retailer.name,
+        retailer: offer.retailer?.name || 'Unknown',
         productUrl: offer.productUrl
       }))
     }));
@@ -75,18 +73,18 @@ export class ProductDiscoveryFallback {
     const categories = await db
       .select({
         category: products.category,
-        count: db.count()
+        count: count()
       })
       .from(products)
-      .where(products.category.isNotNull())
+      .where(isNotNull(products.category))
       .groupBy(products.category)
-      .orderBy(desc(db.count()))
+      .orderBy(desc(count()))
       .limit(limit);
 
     return categories.map(cat => ({
-      name: cat.category,
-      productCount: cat.count,
-      searchUrl: `/products?category=${encodeURIComponent(cat.category)}`
+      name: cat.category as string,
+      productCount: Number(cat.count),
+      searchUrl: `/products?category=${encodeURIComponent(cat.category as string)}`
     }));
   }
 
