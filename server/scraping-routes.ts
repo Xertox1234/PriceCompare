@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { sendErrorResponse, ErrorMessages } from './utils/error-handler';
 import { CoordinationAgent } from './agents/coordinator-agent.js';
 import { ProductDiscoveryAgent } from './agents/discovery-agent.js';
 import { SearchOrchestrationAgent } from './agents/search-agent.js';
@@ -55,11 +56,7 @@ export function registerScrapingRoutes(app: Express): void {
         message: "AI scraping system initialized successfully" 
       });
     } catch (error) {
-      console.error('Failed to initialize scraping system:', error);
-      res.status(500).json({ 
-        error: "Failed to initialize scraping system",
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      sendErrorResponse(res, 500, error, 'Scraping Initialization');
     }
   });
 
@@ -78,11 +75,7 @@ export function registerScrapingRoutes(app: Express): void {
         status: coordinationAgent?.getStatus()
       });
     } catch (error) {
-      console.error('Failed to start agents:', error);
-      res.status(500).json({ 
-        error: "Failed to start AI agents",
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      sendErrorResponse(res, 500, error, 'Start AI Agents');
     }
   });
 

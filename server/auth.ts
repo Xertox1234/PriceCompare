@@ -7,28 +7,49 @@ import { sharedUsers } from '../shared/auth-schema';
 import { eq } from 'drizzle-orm';
 import type { User } from '../shared/schema';
 import type { SharedUser } from '../shared/auth-schema';
+import { recordFailedLogin, clearFailedLogins, isAccountLocked } from './middleware/account-lockout';
 
 // Configure Passport Local Strategy
 passport.use(new LocalStrategy(
-  { 
+  {
     usernameField: 'email',
     passwordField: 'password'
   },
   async (email, password, done) => {
     try {
-      const userResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      
-      if (!userResult.length) {
-        return done(null, false, { message: 'User not found' });
+      // Check if account is locked before attempting authentication
+      const lockStatus = isAccountLocked(email);
+      if (lockStatus.locked) {
+        return done(null, false, {
+          message: 'Account temporarily locked',
+          locked: true,
+          remainingTime: lockStatus.remainingTime
+        });
       }
-      
+
+      const userResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+      if (!userResult.length) {
+        // Record failed attempt (user not found)
+        recordFailedLogin(email);
+        return done(null, false, { message: 'Invalid email or password' });
+      }
+
       const user = userResult[0];
       const isValid = await bcrypt.compare(password, user.passwordHash);
-      
+
       if (!isValid) {
-        return done(null, false, { message: 'Invalid password' });
+        // Record failed attempt (wrong password)
+        const lockoutResult = recordFailedLogin(email);
+        return done(null, false, {
+          message: 'Invalid email or password',
+          remainingAttempts: lockoutResult.remainingAttempts,
+          locked: lockoutResult.locked
+        });
       }
-      
+
+      // Successful login - clear any failed attempts
+      clearFailedLogins(email);
       return done(null, user);
     } catch (error) {
       return done(error);

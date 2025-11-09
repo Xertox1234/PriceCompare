@@ -107,8 +107,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     try {
-      console.log('Registration request body:', req.body);
-      
+      // SECURITY: Do not log request bodies in production (may contain sensitive data)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Registration request for user:', req.body.email ? '[email provided]' : '[no email]');
+      }
+
       // Validate required fields manually first
       const { username, email, password } = req.body;
       if (!username || !email || !password) {
@@ -282,25 +285,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/forum/topics", withAuth(async (req, res) => {
     try {
-      console.log("Topic creation request received:");
-      console.log("Body:", JSON.stringify(req.body, null, 2));
-      console.log("User:", req.user?.id, req.user?.username);
-      
+      // SECURITY: Removed request body logging (may contain user content)
+
       const { title, content, categoryId, productId } = req.body;
       const user = req.user;
 
       if (!title || title.trim() === '') {
-        console.log("Validation failed: Title is missing");
         return res.status(400).json({ error: "Title is required" });
       }
 
       // Create the topic
-      console.log("Creating topic with data:", {
-        title,
-        authorId: user.id,
-        categoryId: categoryId || null,
-        productId: productId || null,
-      });
       
       const topic = await forumStorage.createTopic({
         title,
