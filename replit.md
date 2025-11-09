@@ -24,7 +24,7 @@ This is a full-stack web application for comparing product prices across multipl
 **AI-Powered Scraping System:**
 - **Multi-Agent Architecture**: Coordination, Discovery, Search Orchestration, Data Extraction, and Price Monitoring agents
 - **Google Custom Search Integration**: Live API for retailer product discovery with rate limiting
-- **OpenAI GPT-4 Integration**: Intelligent trend analysis, product categorization, and search optimization
+- **OpenAI GPT-4o-mini Integration**: Intelligent trend analysis, product categorization, and search optimization
 - **Job Queue System**: Priority-based task management with automatic retry logic and failure recovery
 - **Anti-Detection Measures**: Rotating user agents, random delays, and rate limiting for sustainable scraping
 - **Real-Time Monitoring**: Price change detection with configurable thresholds and automated alerts
@@ -107,9 +107,9 @@ RESTful API with comprehensive endpoints:
 
 ### Enhanced Search and Filtering
 Advanced AI-powered search system with comprehensive filtering capabilities:
-- **Smart Search Mode**: AI-powered semantic search with fuzzy matching and intent detection
+- **Smart Search Mode**: AI-powered semantic search with fuzzy matching and intent detection using text-embedding-3-small
 - **Real-time Suggestions**: Autocomplete with search history and trending products
-- **Query Analysis**: OpenAI-powered search intent analysis and optimization
+- **Query Analysis**: GPT-4o-mini-powered search intent analysis and optimization
 - **Quick Filters**: Filter shortcuts directly from search bar
 - **Multiple Search Modes**: Basic keyword matching, smart AI search, and intent-based optimization
 - **Search History**: Persistent search tracking with quick access to recent queries
@@ -202,14 +202,15 @@ Advanced AI-powered search system with comprehensive filtering capabilities:
 
 ### Multi-Agent Architecture
 - **Coordination Agent**: Orchestrates all scraping operations with session management and task distribution
-- **Product Discovery Agent**: AI-powered trend analysis using OpenAI GPT-4 for product categorization
-- **Search Orchestration Agent**: Generates optimized search queries and manages Google Custom Search API
+- **Product Discovery Agent**: AI-powered trend analysis using OpenAI GPT-4o-mini for product categorization
+- **Search Orchestration Agent**: Generates optimized search queries using GPT-4o-mini and manages Google Custom Search API
 - **Data Extraction Agent**: Retailer-specific scraping with anti-detection measures and rate limiting
 - **Price Monitoring Agent**: Automated price change detection with configurable thresholds and alerts
 
 ### External Integrations
 - **Google Custom Search API**: Live product discovery with API key `GOOGLE_CUSTOM_SEARCH_API_KEY`
-- **OpenAI GPT-4**: Intelligent trend analysis with API key `OPENAI_API_KEY`
+- **OpenAI GPT-4o-mini**: Intelligent trend analysis and search optimization with API key `OPENAI_API_KEY`
+- **OpenAI Embeddings**: Semantic search using text-embedding-3-small model
 - **Major Retailers**: Amazon, Walmart, and Target product data extraction
 - **PostgreSQL Database**: Complete schema with 7 new tables for AI scraping operations
 
@@ -221,6 +222,15 @@ Advanced AI-powered search system with comprehensive filtering capabilities:
 - **Performance Monitoring**: Agent metrics, session tracking, and system status reporting
 
 ## Changelog
+
+### November 9, 2025
+- **OpenAI Implementation Modernization Complete**: Updated AI integration to use latest cost-effective models
+  - ✅ Migrated Product Discovery Agent from GPT-4 to GPT-4o-mini for trend analysis and categorization
+  - ✅ Updated Search Orchestration Agent from GPT-4 to GPT-4o-mini for search query generation
+  - ✅ Verified embeddings model using text-embedding-3-small (already optimal)
+  - ✅ Significantly reduced API costs while maintaining high-quality AI performance
+  - ✅ Updated all documentation to reflect GPT-4o-mini usage across the platform
+  - ✅ Maintained backward compatibility with existing OpenAI API integration
 
 ### July 8, 2025
 - **Documentation Cleanup Complete**: Aligned all documentation with current codebase after accessibility removal
@@ -359,7 +369,7 @@ Advanced AI-powered search system with comprehensive filtering capabilities:
   - ✅ Price comparison data across major retailers (Amazon, Best Buy, Apple Store, Walmart, B&H)
   - ✅ Complete system documentation created with performance metrics and recommendations
   - ✅ API endpoints tested and verified functional for all scraping operations
-  - ✅ External API integrations confirmed: Google Custom Search and OpenAI GPT-4 operational
+  - ✅ External API integrations confirmed: Google Custom Search and OpenAI GPT-4o-mini operational
 
 - **Affiliate Link Generation System Implementation Complete**: Revolutionary revenue generation infrastructure
   - ✅ Database schema extended with affiliate configuration fields for retailers and product offers
@@ -375,7 +385,7 @@ Advanced AI-powered search system with comprehensive filtering capabilities:
 
 - **AI-Powered Multi-Agent Scraping System Complete**: Revolutionary automated product discovery and price comparison infrastructure
   - ✅ Implemented multi-agent architecture with Product Discovery, Search Orchestration, and Coordination agents
-  - ✅ OpenAI GPT-4 integration for intelligent trend analysis and product categorization
+  - ✅ OpenAI GPT-4o-mini integration for intelligent trend analysis and product categorization
   - ✅ Database schema extended with 7 new tables supporting AI scraping operations
   - ✅ Real-time trending product discovery from multiple sources (Google Trends, seasonal patterns, social media)
   - ✅ Automated search query generation and optimization for major retailers (Amazon, Walmart, Target)
