@@ -497,20 +497,85 @@ Use proper secrets management:
 
 ### 5. CORS Configuration
 **Priority:** MEDIUM
+**Status:** ✅ FIXED
 
-Add explicit CORS policy:
+Added explicit CORS policy middleware:
 ```typescript
-import cors from 'cors';
+// server/middleware/security.ts
+export function corsMiddleware(req, res, next) {
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ||
+    ['http://localhost:5173', 'http://localhost:5000'];
 
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:5173',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send();
+    return;
+  }
+
+  next();
+}
 ```
 
-### 6. Automated Security Scanning
+Integrated in server/index.ts before other middleware.
+
+### 6. Health Check Endpoints
+**Priority:** MEDIUM
+**Status:** ✅ FIXED
+
+Added health check endpoints for monitoring:
+
+```typescript
+// server/routes.ts
+
+// Basic health check
+app.get("/health", async (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Detailed health check with database verification
+app.get("/api/health", async (req, res) => {
+  try {
+    await db.execute(sql`SELECT 1`);
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      checks: {
+        database: "ok"
+      }
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: "error"
+      }
+    });
+  }
+});
+```
+
+**Benefits:**
+- Enables monitoring systems to track application health
+- Database connectivity verification
+- Ready for integration with monitoring tools (Datadog, New Relic, etc.)
+- Returns 503 status on service degradation
+
+### 7. Automated Security Scanning
 **Priority:** HIGH
 
 Implement in CI/CD pipeline:
@@ -532,9 +597,9 @@ Implement in CI/CD pipeline:
 ### Security Fixes Applied:
 1. ✅ `.gitignore` - Added .env and comprehensive ignore patterns
 2. ✅ `init-db.sql` - Removed hardcoded admin credentials
-3. ✅ `server/routes.ts` - Added withAdmin middleware, fixed 13 admin routes
-4. ✅ `server/index.ts` - Integrated security middleware
-5. ✅ `server/middleware/security.ts` - NEW: Comprehensive security middleware
+3. ✅ `server/routes.ts` - Added withAdmin middleware, fixed 13 admin routes, added health check endpoints
+4. ✅ `server/index.ts` - Integrated security middleware including CORS
+5. ✅ `server/middleware/security.ts` - NEW: Comprehensive security middleware (rate limiting, CSRF, headers, sanitization, CORS)
 
 ### Files Requiring Attention:
 1. ⚠️ `package.json` - Update vulnerable dependencies when network available
@@ -562,7 +627,7 @@ Implement in CI/CD pipeline:
 - [ ] Configure database connection pooling
 - [ ] Set up automated security scanning
 - [ ] Implement API versioning
-- [ ] Add explicit CORS configuration
+- [x] Add explicit CORS configuration
 - [ ] Document admin user setup process
 
 ### Medium Priority (Recommended)
@@ -570,7 +635,7 @@ Implement in CI/CD pipeline:
 - [ ] Add E2E tests for critical flows
 - [ ] Set up CI/CD pipeline
 - [ ] Implement feature flags
-- [ ] Add health check endpoints
+- [x] Add health check endpoints
 - [ ] Document security procedures
 
 ### Low Priority (Nice to Have)
@@ -628,6 +693,8 @@ git status
 6. ✅ Enhanced security headers (CSP, Referrer-Policy, Permissions-Policy)
 7. ✅ Added input sanitization
 8. ✅ Created security middleware framework
+9. ✅ Implemented explicit CORS configuration
+10. ✅ Added health check endpoints for monitoring
 
 ### Production Readiness
 **Status:** ✅ PRODUCTION READY with minor recommendations

@@ -189,3 +189,45 @@ function sanitizeObject(obj: any): any {
 
   return obj;
 }
+
+/**
+ * CORS Configuration Middleware
+ * Handles Cross-Origin Resource Sharing with explicit security policies
+ */
+export function corsMiddleware(req: Request, res: Response, next: NextFunction) {
+  // Parse allowed origins from environment variable
+  const allowedOriginsEnv = process.env.ALLOWED_ORIGINS;
+  const allowedOrigins = allowedOriginsEnv
+    ? allowedOriginsEnv.split(',').map(origin => origin.trim())
+    : ['http://localhost:5173', 'http://localhost:5000'];
+
+  const origin = req.headers.origin;
+
+  // Check if origin is allowed
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    // Same-origin requests (no Origin header)
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+  }
+
+  // Allow credentials (cookies, authorization headers)
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // Allowed HTTP methods
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+
+  // Allowed headers
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
+
+  // Preflight request cache duration (24 hours)
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    res.status(204).send();
+    return;
+  }
+
+  next();
+}

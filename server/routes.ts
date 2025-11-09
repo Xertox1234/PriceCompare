@@ -70,6 +70,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize forum categories
   await forumStorage.initializeDefaultCategories();
 
+  // Health check endpoints
+  app.get("/health", async (req, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Check database connection
+      await db.execute(sql`SELECT 1`);
+
+      res.status(200).json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        checks: {
+          database: "ok"
+        }
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: "error",
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: "error"
+        }
+      });
+    }
+  });
+
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     try {

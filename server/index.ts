@@ -11,7 +11,7 @@ import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
-import { securityHeaders, rateLimiter, sanitizeInput } from "./middleware/security";
+import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware } from "./middleware/security";
 import crypto from "crypto";
 
 // Validate and get session secret
@@ -43,6 +43,9 @@ const app = express();
 app.use(compression()); // Enable gzip compression
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// CORS configuration
+app.use(corsMiddleware); // Handle cross-origin requests
 
 // Security middleware
 app.use(securityHeaders); // Comprehensive security headers
