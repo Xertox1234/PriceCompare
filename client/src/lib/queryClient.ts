@@ -67,18 +67,30 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes instead of Infinity
-      gcTime: 10 * 60 * 1000, // 10 minutes
+      // Performance optimization: Longer cache times for product data
+      staleTime: 10 * 60 * 1000, // 10 minutes (increased from 5)
+      gcTime: 30 * 60 * 1000, // 30 minutes (increased from 10)
+      // Improved retry logic with exponential backoff
       retry: (failureCount, error) => {
+        // Don't retry unauthorized errors
         if (error && error.message === 'Unauthorized') {
           return false;
         }
-        return failureCount < 2;
+        // Retry up to 3 times (increased from 2)
+        return failureCount < 3;
       },
+      // Exponential backoff for retries: 1s, 2s, 4s
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+      // Enable network mode for better offline handling
+      networkMode: 'online',
     },
     mutations: {
-      retry: 1,
-      retryDelay: 1000,
+      // Increased retry attempts for mutations
+      retry: 2, // Increased from 1
+      // Exponential backoff for mutations
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+      // Network mode for mutations
+      networkMode: 'online',
     },
   },
 });

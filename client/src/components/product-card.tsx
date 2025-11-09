@@ -1,3 +1,4 @@
+import { memo, useMemo, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,32 +11,32 @@ interface ProductCardProps {
   onAddToComparison: () => void;
 }
 
-export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
-  const bestOffer = product.offers && product.offers.length > 0 
-    ? product.offers.reduce((best, offer) => 
-        offer.price < best.price ? offer : best
-      ) 
-    : null;
-
-  if (!bestOffer) {
-    return (
-      <Card className="p-4">
-        <div className="text-center text-muted-foreground">
-          <p className="font-medium">{product.name}</p>
-          <p className="text-sm">No offers available</p>
-        </div>
-      </Card>
+export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProps) => {
+  // Memoize bestOffer calculation to avoid expensive reduce on every render
+  const bestOffer = useMemo(() => {
+    if (!product.offers || product.offers.length === 0) return null;
+    return product.offers.reduce((best, offer) =>
+      offer.price < best.price ? offer : best
     );
-  }
+  }, [product.offers]);
 
-  const originalPrice = bestOffer.originalPrice ? Number(bestOffer.originalPrice) : Number(bestOffer.price);
-  const currentPrice = Number(bestOffer.price);
-  const savings = originalPrice > currentPrice ? originalPrice - currentPrice : 0;
-  const savingsPercentage = savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+  // Memoize price calculations to avoid recalculation on every render
+  const priceInfo = useMemo(() => {
+    if (!bestOffer) return null;
 
-  const renderStars = (rating: string | null) => {
-    if (!rating) return null;
+    const originalPrice = bestOffer.originalPrice ? Number(bestOffer.originalPrice) : Number(bestOffer.price);
+    const currentPrice = Number(bestOffer.price);
+    const savings = originalPrice > currentPrice ? originalPrice - currentPrice : 0;
+    const savingsPercentage = savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
 
+    return { originalPrice, currentPrice, savings, savingsPercentage };
+  }, [bestOffer]);
+
+  // Memoize stars rendering to avoid creating new arrays on every render
+  const starsElement = useMemo(() => {
+    if (!bestOffer?.rating) return null;
+
+    const rating = bestOffer.rating;
     const numRating = parseFloat(rating);
     const fullStars = Math.floor(numRating);
     const hasHalfStar = numRating % 1 >= 0.5;
@@ -64,7 +65,27 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
         </span>
       </div>
     );
-  };
+  }, [bestOffer?.rating, bestOffer?.reviewCount]);
+
+  // Memoize click handler for View Deal button
+  const handleViewDeal = useCallback(() => {
+    if (bestOffer?.productUrl) {
+      window.open(bestOffer.productUrl, '_blank');
+    }
+  }, [bestOffer?.productUrl]);
+
+  if (!bestOffer || !priceInfo) {
+    return (
+      <Card className="p-4">
+        <div className="text-center text-muted-foreground">
+          <p className="font-medium">{product.name}</p>
+          <p className="text-sm">No offers available</p>
+        </div>
+      </Card>
+    );
+  }
+
+  const { originalPrice, currentPrice, savings, savingsPercentage } = priceInfo;
 
   return (
     <Card className="rounded-2xl overflow-hidden group">
@@ -114,7 +135,7 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
         </div>
 
         {/* Rating */}
-        {renderStars(bestOffer.rating)}
+        {starsElement}
 
         {/* Pricing */}
         <div className="space-y-2">
@@ -164,7 +185,7 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
           <Button
             size="sm"
             className="flex-1 gradient-brand text-white hover:opacity-90"
-            onClick={() => bestOffer.productUrl && window.open(bestOffer.productUrl, '_blank')}
+            onClick={handleViewDeal}
           >
             <ExternalLink className="h-4 w-4 mr-2" />
             View Deal
@@ -180,4 +201,14 @@ export function ProductCard({ product, onAddToComparison }: ProductCardProps) {
       </div>
     </Card>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison function for optimal memoization
+  // Only re-render if product ID changes, offers change, or callback changes
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.offers === nextProps.product.offers &&
+    prevProps.onAddToComparison === nextProps.onAddToComparison
+  );
+});
+
+ProductCard.displayName = 'ProductCard';

@@ -12,6 +12,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
 import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware } from "./middleware/security";
+import { performanceMonitoring, getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import crypto from "crypto";
 
 // Validate and get session secret
@@ -86,6 +87,9 @@ app.use(passport.session());
 
 // Apply caching middleware
 app.use(apiCacheMiddleware);
+
+// Apply performance monitoring middleware
+app.use(performanceMonitoring);
 
 app.use((req, res, next) => {
   const start = Date.now();

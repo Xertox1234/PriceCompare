@@ -10,6 +10,7 @@ import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
 import * as schema from "@shared/schema";
 import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
+import { getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 
 
 // Use the actual User type from schema
@@ -785,6 +786,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting retailer:', error);
       res.status(500).json({ error: 'Failed to delete retailer' });
+    }
+  }));
+
+  // Performance monitoring endpoints (admin only)
+  app.get("/api/admin/performance/stats", withAdmin(async (req, res) => {
+    try {
+      const stats = getPerformanceStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error getting performance stats:', error);
+      res.status(500).json({ error: 'Failed to get performance stats' });
+    }
+  }));
+
+  app.get("/api/admin/performance/slowest", withAdmin(async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const slowest = getSlowestEndpoints(limit);
+      res.json(slowest);
+    } catch (error) {
+      console.error('Error getting slowest endpoints:', error);
+      res.status(500).json({ error: 'Failed to get slowest endpoints' });
     }
   }));
 
