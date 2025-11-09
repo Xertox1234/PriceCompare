@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useMemo, useCallback } from 'react';
 import { Star, TrendingUp, Zap, Search, Target, Hash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,31 +49,59 @@ const matchTypeLabels = {
   synonym: 'Synonym Match',
 };
 
-export function EnhancedSearchResults({ 
-  results, 
-  metadata, 
+// Helper function to calculate product metrics (cached per product)
+const getProductMetrics = (product: ProductWithOffers) => {
+  const offers = product.offers || [];
+  const prices = offers.map(o => Number(o.price));
+  const ratings = offers.map(o => Number(o.rating) || 0);
+
+  return {
+    minPrice: prices.length ? Math.min(...prices) : Infinity,
+    maxRating: ratings.length ? Math.max(...ratings) : 0,
+    bestOffer: offers.length ? offers.reduce((best, current) =>
+      Number(current.price) < Number(best.price) ? current : best
+    ) : null,
+    averageRating: ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0,
+    totalReviews: offers.reduce((sum, offer) => sum + (offer.reviewCount || 0), 0),
+  };
+};
+
+export const EnhancedSearchResults = memo(({
+  results,
+  metadata,
   isLoading = false,
-  onProductClick 
-}: EnhancedSearchResultsProps) {
+  onProductClick
+}: EnhancedSearchResultsProps) => {
   const [sortBy, setSortBy] = useState<'relevance' | 'price' | 'rating'>('relevance');
 
-  // Sort results based on selected criteria
-  const sortedResults = [...results].sort((a, b) => {
-    switch (sortBy) {
-      case 'relevance':
-        return b.relevanceScore - a.relevanceScore;
-      case 'price':
-        const priceA = Math.min(...(a.product.offers?.map(o => Number(o.price)) || [Infinity]));
-        const priceB = Math.min(...(b.product.offers?.map(o => Number(o.price)) || [Infinity]));
-        return priceA - priceB;
-      case 'rating':
-        const ratingA = Math.max(...(a.product.offers?.map(o => Number(o.rating) || 0) || [0]));
-        const ratingB = Math.max(...(b.product.offers?.map(o => Number(o.rating) || 0) || [0]));
-        return ratingB - ratingA;
-      default:
-        return 0;
-    }
-  });
+  // Memoize product metrics to avoid recalculation
+  const resultsWithMetrics = useMemo(() => {
+    return results.map(result => ({
+      ...result,
+      metrics: getProductMetrics(result.product),
+    }));
+  }, [results]);
+
+  // Memoize sorted results to avoid re-sorting on every render
+  const sortedResults = useMemo(() => {
+    return [...resultsWithMetrics].sort((a, b) => {
+      switch (sortBy) {
+        case 'relevance':
+          return b.relevanceScore - a.relevanceScore;
+        case 'price':
+          return a.metrics.minPrice - b.metrics.minPrice;
+        case 'rating':
+          return b.metrics.maxRating - a.metrics.maxRating;
+        default:
+          return 0;
+      }
+    });
+  }, [resultsWithMetrics, sortBy]);
+
+  // Memoize sort handlers
+  const handleSortChange = useCallback((newSortBy: 'relevance' | 'price' | 'rating') => {
+    setSortBy(newSortBy);
+  }, []);
 
   if (isLoading) {
     return (
@@ -156,15 +184,15 @@ export function EnhancedSearchResults({
           <span className="text-sm text-muted-foreground">Sort by:</span>
           <div className="flex gap-1">
             {[
-              { key: 'relevance', label: 'Relevance' },
-              { key: 'price', label: 'Price' },
-              { key: 'rating', label: 'Rating' },
+              { key: 'relevance' as const, label: 'Relevance' },
+              { key: 'price' as const, label: 'Price' },
+              { key: 'rating' as const, label: 'Rating' },
             ].map(({ key, label }) => (
               <Button
                 key={key}
                 variant={sortBy === key ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setSortBy(key as any)}
+                onClick={() => handleSortChange(key)}
               >
                 {label}
               </Button>
@@ -176,14 +204,9 @@ export function EnhancedSearchResults({
       {/* Results */}
       <div className="space-y-4">
         {sortedResults.map((result, index) => {
-          const { product, relevanceScore, matchType } = result;
+          const { product, relevanceScore, matchType, metrics } = result;
           const MatchIcon = matchTypeIcons[matchType];
-          const bestOffer = product.offers?.reduce((best, current) => 
-            Number(current.price) < Number(best.price) ? current : best
-          );
-          const averageRating = product.offers?.length 
-            ? product.offers.reduce((sum, offer) => sum + (Number(offer.rating) || 0), 0) / product.offers.length
-            : 0;
+          const { bestOffer, averageRating, totalReviews } = metrics;
 
           return (
             <Card 
@@ -270,7 +293,7 @@ export function EnhancedSearchResults({
                               {averageRating.toFixed(1)}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              ({product.offers?.reduce((sum, offer) => sum + (offer.reviewCount || 0), 0)} reviews)
+                              ({totalReviews} reviews)
                             </span>
                           </div>
                         )}
@@ -321,4 +344,6 @@ export function EnhancedSearchResults({
       )}
     </div>
   );
-}
+});
+
+EnhancedSearchResults.displayName = 'EnhancedSearchResults';

@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -11,39 +12,44 @@ interface FilterSidebarProps {
   onFilterChange: (filters: Partial<SearchFilters>) => void;
 }
 
-export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
+export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarProps) => {
   const { data: retailers } = useQuery<Retailer[]>({
     queryKey: ["/api/retailers"],
   });
 
-  const handlePriceRangeChange = (field: "minPrice" | "maxPrice", value: string) => {
+  // Memoize price range handler
+  const handlePriceRangeChange = useCallback((field: "minPrice" | "maxPrice", value: string) => {
     const numValue = value === "" ? undefined : parseFloat(value);
     onFilterChange({ [field]: numValue });
-  };
+  }, [onFilterChange]);
 
-  const handleRetailerChange = (retailerId: number, checked: boolean) => {
+  // Memoize retailer change handler
+  const handleRetailerChange = useCallback((retailerId: number, checked: boolean) => {
     const currentRetailers = filters.retailers || [];
     const newRetailers = checked
       ? [...currentRetailers, retailerId]
       : currentRetailers.filter(id => id !== retailerId);
-    
+
     onFilterChange({ retailers: newRetailers.length > 0 ? newRetailers : undefined });
-  };
+  }, [filters.retailers, onFilterChange]);
 
-  const handleRatingChange = (rating: number, checked: boolean) => {
+  // Memoize rating change handler
+  const handleRatingChange = useCallback((rating: number, checked: boolean) => {
     onFilterChange({ minRating: checked ? rating : undefined });
-  };
+  }, [onFilterChange]);
 
-  const handleAvailabilityChange = (availability: string, checked: boolean) => {
+  // Memoize availability change handler
+  const handleAvailabilityChange = useCallback((availability: string, checked: boolean) => {
     const currentAvailability = filters.availability || [];
     const newAvailability = checked
       ? [...currentAvailability, availability]
       : currentAvailability.filter(a => a !== availability);
-    
-    onFilterChange({ availability: newAvailability.length > 0 ? newAvailability : undefined });
-  };
 
-  const clearFilters = () => {
+    onFilterChange({ availability: newAvailability.length > 0 ? newAvailability : undefined });
+  }, [filters.availability, onFilterChange]);
+
+  // Memoize clear filters handler
+  const clearFilters = useCallback(() => {
     onFilterChange({
       minPrice: undefined,
       maxPrice: undefined,
@@ -51,7 +57,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
       minRating: undefined,
       availability: undefined,
     });
-  };
+  }, [onFilterChange]);
 
   return (
     <div role="complementary" aria-label="Product filters">
@@ -193,4 +199,6 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
       </Button>
     </div>
   );
-}
+});
+
+FilterSidebar.displayName = 'FilterSidebar';
