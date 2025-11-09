@@ -231,11 +231,11 @@ function TopicList({
                   {topic.createdAt && formatDistanceToNow(new Date(topic.createdAt), { addSuffix: true })}
                 </div>
                 {topic.category && (
-                  <Badge 
+                  <Badge
                     className="border-0 text-white font-medium"
-                    style={{ 
-                      backgroundColor: topic.category.color,
-                      boxShadow: `0 2px 8px ${topic.category.color}30`
+                    style={{
+                      backgroundColor: topic.category.color || undefined,
+                      boxShadow: topic.category.color ? `0 2px 8px ${topic.category.color}30` : undefined
                     }}
                   >
                     {topic.category.name}

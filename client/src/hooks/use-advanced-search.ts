@@ -63,7 +63,7 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
       if (debouncedQuery.length < 3) return null;
       return apiRequest('/api/search/analyze', {
         method: 'POST',
-        body: { query: debouncedQuery }
+        body: JSON.stringify({ query: debouncedQuery })
       });
     },
     enabled: debouncedQuery.length > 2,
@@ -246,14 +246,14 @@ export function useSearchSuggestions(query: string, enabled = true) {
 // Helper hook for query analysis
 export function useQueryAnalysis(query: string, enabled = true) {
   const debouncedQuery = useDebounce(query, 300);
-  
-  return useQuery<QueryAnalysis>({
+
+  return useQuery<QueryAnalysis | null>({
     queryKey: ['/api/search/analyze', debouncedQuery],
-    queryFn: async () => {
+    queryFn: async (): Promise<QueryAnalysis | null> => {
       if (debouncedQuery.length < 3) return null;
       return apiRequest('/api/search/analyze', {
         method: 'POST',
-        body: { query: debouncedQuery }
+        body: JSON.stringify({ query: debouncedQuery })
       });
     },
     enabled: enabled && debouncedQuery.length > 2,

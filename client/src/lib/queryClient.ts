@@ -34,12 +34,12 @@ export async function apiRequest<T = any>(
 
   // Handle empty responses
   const text = await res.text();
-  if (!text) return null;
-  
+  if (!text) return null as T;
+
   try {
     return JSON.parse(text);
   } catch {
-    return text;
+    return text as T;
   }
 }
 

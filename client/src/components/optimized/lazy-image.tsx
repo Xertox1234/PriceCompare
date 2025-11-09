@@ -37,7 +37,7 @@ export function LazyImage({
   const imageSrc = imageError ? fallback : src;
 
   return (
-    <div ref={ref} className={`relative overflow-hidden ${className}`}>
+    <div ref={ref as any} className={`relative overflow-hidden ${className}`}>
       {shouldLoad ? (
         <>
           <img
