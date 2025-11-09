@@ -22,7 +22,7 @@
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
+    "@hookform/resolvers": "^5.2.2",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -79,7 +79,7 @@
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.0",
     "drizzle-orm": "^0.39.1",
-    "drizzle-zod": "^0.7.0",
+    "drizzle-zod": "^0.8.3",
     "embla-carousel-react": "^8.6.0",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
@@ -115,8 +115,8 @@
     "vitest": "^3.2.4",
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
-    "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod": "^4.1.12",
+    "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.2.7",
