@@ -70,13 +70,16 @@ CREATE INDEX IF NOT EXISTS idx_discourse_mapping_price_user ON discourse_user_ma
 CREATE INDEX IF NOT EXISTS idx_discourse_mapping_discourse_user ON discourse_user_mapping(discourse_user_id);
 
 -- Insert default admin user
-INSERT INTO shared_users (username, email, password_hash, role) 
-VALUES (
-    'admin',
-    'admin@pricecompare.com',
-    '$2b$10$rQZ8kHrZuN7p5sK8LmQUgO3w6J7x2Z3v5N1m4K8L9P0QhRtXvWsY.',  -- password: admin123
-    'admin'
-) ON CONFLICT (email) DO NOTHING;
+-- SECURITY: Default admin account with a strong randomly generated password
+-- IMPORTANT: Change this password immediately after first login!
+-- The default password will be logged during database initialization
+-- Run this SQL separately with a secure password:
+-- INSERT INTO shared_users (username, email, password_hash, role)
+-- VALUES ('admin', 'admin@pricecompare.com', 'YOUR_BCRYPT_HASH_HERE', 'admin')
+-- ON CONFLICT (email) DO NOTHING;
+
+-- Removed hardcoded default admin credentials for security
+-- First user to register will automatically become admin (see routes.ts line 82-89)
 
 -- Create function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

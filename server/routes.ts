@@ -50,6 +50,22 @@ function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise
   };
 }
 
+// Wrapper to enforce admin role with proper typing
+function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
+  return async (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    if (req.user.role !== 'admin') {
+      res.status(403).json({ error: 'Admin access required' });
+      return;
+    }
+    // req is now typed as AuthenticatedRequest with admin role
+    await handler(req, res);
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize forum categories
   await forumStorage.initializeDefaultCategories();
@@ -413,8 +429,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin routes
-  app.get("/api/admin/categories", withAuth(async (req, res) => {
+  // Admin routes - require admin role
+  app.get("/api/admin/categories", withAdmin(async (req, res) => {
     try {
       const categories = await forumStorage.getCategories();
       res.json(Array.isArray(categories) ? categories : []);
@@ -424,7 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.get("/api/admin/users", withAuth(async (req, res) => {
+  app.get("/api/admin/users", withAdmin(async (req, res) => {
     try {
       const usersData = await db.select({
         id: schema.users.id,
@@ -443,7 +459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Admin analytics endpoints
-  app.get("/api/admin/analytics/overview", withAuth(async (req, res) => {
+  app.get("/api/admin/analytics/overview", withAdmin(async (req, res) => {
     try {
       const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
         db.select({ count: sql`count(*)` }).from(schema.users),
@@ -464,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.get("/api/admin/analytics/user-growth", withAuth(async (req, res) => {
+  app.get("/api/admin/analytics/user-growth", withAdmin(async (req, res) => {
     try {
       const userGrowth = await db.select({
         date: sql`DATE(${schema.users.createdAt})`.as('date'),
@@ -481,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.get("/api/admin/analytics/forum-activity", withAuth(async (req, res) => {
+  app.get("/api/admin/analytics/forum-activity", withAdmin(async (req, res) => {
     try {
       const postActivity = await db.select({
         date: sql`DATE(${schema.forumPosts.createdAt})`.as('date'),
@@ -498,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.get("/api/admin/analytics/top-categories", withAuth(async (req, res) => {
+  app.get("/api/admin/analytics/top-categories", withAdmin(async (req, res) => {
     try {
       const topCategories = await db.select({
         categoryName: schema.forumCategories.name,
@@ -518,7 +534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Admin Product Management Endpoints
-  app.get("/api/admin/products", withAuth(async (req, res) => {
+  app.get("/api/admin/products", withAdmin(async (req, res) => {
     try {
       const products = await db.select({
         id: schema.products.id,
@@ -540,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.get("/api/admin/products/:id", withAuth(async (req, res) => {
+  app.get("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
       const productId = parseInt(req.params.id);
       
@@ -577,7 +593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.post("/api/admin/products", withAuth(async (req, res) => {
+  app.post("/api/admin/products", withAdmin(async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
       
@@ -592,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.put("/api/admin/products/:id", withAuth(async (req, res) => {
+  app.put("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
       const productId = parseInt(req.params.id);
       const updateData = insertProductSchema.partial().parse(req.body);
@@ -613,7 +629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.delete("/api/admin/products/:id", withAuth(async (req, res) => {
+  app.delete("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
       const productId = parseInt(req.params.id);
       
@@ -638,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Admin Retailer Management Endpoints
-  app.get("/api/admin/retailers", withAuth(async (req, res) => {
+  app.get("/api/admin/retailers", withAdmin(async (req, res) => {
     try {
       const retailers = await db.select()
         .from(schema.retailers)
@@ -651,7 +667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.post("/api/admin/retailers", withAuth(async (req, res) => {
+  app.post("/api/admin/retailers", withAdmin(async (req, res) => {
     try {
       const retailerData = insertRetailerSchema.parse(req.body);
       
@@ -666,7 +682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.put("/api/admin/retailers/:id", withAuth(async (req, res) => {
+  app.put("/api/admin/retailers/:id", withAdmin(async (req, res) => {
     try {
       const retailerId = parseInt(req.params.id);
       const updateData = insertRetailerSchema.partial().parse(req.body);
@@ -687,7 +703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  app.delete("/api/admin/retailers/:id", withAuth(async (req, res) => {
+  app.delete("/api/admin/retailers/:id", withAdmin(async (req, res) => {
     try {
       const retailerId = parseInt(req.params.id);
       

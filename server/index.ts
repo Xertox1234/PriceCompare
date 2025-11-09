@@ -11,6 +11,7 @@ import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
+import { securityHeaders, rateLimiter, sanitizeInput } from "./middleware/security";
 import crypto from "crypto";
 
 // Validate and get session secret
@@ -43,13 +44,25 @@ app.use(compression()); // Enable gzip compression
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
-// Security headers for performance
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  next();
-});
+// Security middleware
+app.use(securityHeaders); // Comprehensive security headers
+
+// Global rate limiting - 100 requests per 15 minutes per IP
+app.use('/api', rateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxRequests: 100,
+  message: 'Too many requests from this IP, please try again later'
+}));
+
+// Stricter rate limiting for authentication endpoints
+app.use('/api/auth', rateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxRequests: 10, // Only 10 login attempts per 15 minutes
+  message: 'Too many authentication attempts, please try again later'
+}));
+
+// Input sanitization
+app.use(sanitizeInput);
 
 // Session configuration
 app.use(session({
