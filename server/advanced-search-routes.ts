@@ -2,18 +2,9 @@ import { Express, Request, Response } from 'express';
 import { advancedSearchService } from './services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    username: string;
-    email: string;
-    role: string;
-  };
-}
-
 const requireAuth = (req: Request, res: Response, next: Function) => {
   if (req.session && (req.session as any).userId) {
-    (req as AuthenticatedRequest).user = (req.session as any).user;
+    (req as any).user = (req.session as any).user;
     next();
   } else {
     res.status(401).json({ message: "Authentication required" });
@@ -94,8 +85,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       
     } catch (error) {
       console.error('Search suggestions error:', error);
-      console.error('Error stack:', error.stack);
-      res.status(500).json({ message: "Failed to get search suggestions", error: error.message });
+      console.error('Error stack:', (error as Error).stack);
+      res.status(500).json({ message: "Failed to get search suggestions", error: (error as Error).message });
     }
   });
 
@@ -304,7 +295,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
   /**
    * Search statistics and performance metrics (admin only)
    */
-  app.get("/api/search/stats", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/search/stats", requireAuth, async (req: any, res: Response) => {
     try {
       if (req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
@@ -326,7 +317,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
   /**
    * Clear search caches (admin only)
    */
-  app.post("/api/search/clear-cache", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/search/clear-cache", requireAuth, async (req: any, res: Response) => {
     try {
       if (req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
