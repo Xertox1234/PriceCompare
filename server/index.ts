@@ -13,30 +13,10 @@ import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
 import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware } from "./middleware/security";
 import { performanceMonitoring, getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
-import crypto from "crypto";
+import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
 
-// Validate and get session secret
-function getSessionSecret(): string {
-  if (process.env.SESSION_SECRET) {
-    return process.env.SESSION_SECRET;
-  }
-  
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'SESSION_SECRET environment variable must be set in production. ' +
-      'Generate a secure secret with: openssl rand -base64 32'
-    );
-  }
-  
-  // In development, generate a random secret and warn
-  const generatedSecret = crypto.randomBytes(32).toString('base64');
-  console.warn(
-    '⚠️  WARNING: SESSION_SECRET not set. Using randomly generated secret.\n' +
-    '   This is OK for development, but sessions will reset on server restart.\n' +
-    '   For production, set SESSION_SECRET environment variable.'
-  );
-  return generatedSecret;
-}
+// Validate environment variables on startup
+validateEnvironment();
 
 const app = express();
 
@@ -70,7 +50,7 @@ app.use(sanitizeInput);
 
 // Session configuration
 app.use(session({
-  secret: getSessionSecret(),
+  secret: getRequiredEnv('SESSION_SECRET'),
   resave: false,
   saveUninitialized: false,
   cookie: {

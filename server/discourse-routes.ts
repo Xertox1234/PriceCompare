@@ -4,12 +4,14 @@ import { db } from './db';
 import { users } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import type { User } from '../shared/schema';
+import { getRequiredEnv } from './config/env-validation';
 
 interface AuthenticatedRequest extends Request {
   user?: User;
 }
 
-const DISCOURSE_SSO_SECRET = process.env.DISCOURSE_SSO_SECRET || 'default-sso-secret-change-in-production';
+// SECURITY: Required for secure SSO HMAC signing - never use default values
+const DISCOURSE_SSO_SECRET = getRequiredEnv('DISCOURSE_SSO_SECRET');
 
 /**
  * Generate Discourse SSO payload and signature
