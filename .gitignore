@@ -26,4 +26,5 @@ yarn-error.log*
 
 # OS
 .DS_Store
-Thumbs.db
+Thumbs.db# GitHub Actions workflow - must be added manually via GitHub UI due to permissions
+.github/workflows/
