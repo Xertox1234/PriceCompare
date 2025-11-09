@@ -607,3 +607,19 @@ export type AgentSessionWithJobs = AgentSession & {
   successfulJobs?: number;
   failedJobs?: number;
 };
+
+// Search-related types
+export interface SearchSuggestion {
+  query: string;
+  type: 'completion' | 'correction' | 'synonym' | 'trending' | 'history' | 'suggestion';
+  confidence?: number;
+  description?: string;
+  intent?: string;
+}
+
+export interface QueryAnalysis {
+  intent: 'product_search' | 'price_comparison' | 'brand_search' | 'category_browse' | string;
+  confidence: number;
+  suggestions?: string[];
+  category?: string;
+}

@@ -270,7 +270,7 @@ export class DataExtractionAgent extends BaseAgent {
         const [newRetailer] = await db.insert(retailers).values({
           name: this.capitalizeRetailerName(retailerDomain),
           website: retailerDomain,
-          logoUrl: `https://logo.clearbit.com/${retailerDomain}`,
+          logo: `https://logo.clearbit.com/${retailerDomain}`,
           isActive: true
         }).returning();
         retailer = newRetailer;
@@ -297,16 +297,15 @@ export class DataExtractionAgent extends BaseAgent {
         productId: product.id,
         retailerId: retailer.id,
         price: data.price!,
-        currency: data.currency,
         availability: data.availability,
         productUrl: url,
-        lastChecked: new Date()
+        lastLinkCheck: new Date()
       }).onConflictDoUpdate({
         target: [productOffers.productId, productOffers.retailerId],
         set: {
           price: data.price!,
           availability: data.availability,
-          lastChecked: new Date()
+          lastLinkCheck: new Date()
         }
       });
 

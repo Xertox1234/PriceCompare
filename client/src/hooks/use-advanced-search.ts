@@ -2,24 +2,12 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useDebounce } from './use-debounce';
-import type { SearchFilters, ProductWithOffers } from '@shared/schema';
+import type { SearchFilters, ProductWithOffers, SearchSuggestion, QueryAnalysis } from '@shared/schema';
 
 interface AdvancedSearchResult {
   product: ProductWithOffers;
   relevanceScore: number;
   matchType: 'exact' | 'fuzzy' | 'semantic' | 'synonym';
-}
-
-interface SearchSuggestion {
-  query: string;
-  type: 'completion' | 'correction' | 'synonym';
-  confidence: number;
-}
-
-interface QueryAnalysis {
-  intent: 'product_search' | 'price_comparison' | 'brand_search' | 'category_browse';
-  confidence: number;
-  suggestions: string[];
 }
 
 interface SearchResponse {
@@ -69,9 +57,9 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   const {
     data: analysis,
     isLoading: analysisLoading
-  } = useQuery<QueryAnalysis>({
+  } = useQuery<QueryAnalysis | null>({
     queryKey: ['/api/search/analyze', debouncedQuery],
-    queryFn: async () => {
+    queryFn: async (): Promise<QueryAnalysis | null> => {
       if (debouncedQuery.length < 3) return null;
       return apiRequest('/api/search/analyze', {
         method: 'POST',
