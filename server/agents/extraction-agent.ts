@@ -32,10 +32,16 @@ interface ExtractionTask {
  */
 export class DataExtractionAgent extends BaseAgent {
   private userAgents: string[];
-  private extractionStrategies: Map<string, any>;
+  private extractionStrategies: Map<string, any> = new Map();
 
   constructor() {
-    super('Data Extraction Agent');
+    super({
+      name: 'Data Extraction Agent',
+      type: 'extraction',
+      maxConcurrentTasks: 3,
+      retryAttempts: 3,
+      retryDelay: 2000
+    });
     
     this.userAgents = [
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -106,18 +112,18 @@ export class DataExtractionAgent extends BaseAgent {
     const strategy = this.extractionStrategies.get(retailerDomain) || this.getGenericStrategy();
     
     const extractedData: ExtractedProductData = {
-      title: this.extractText($, strategy.titleSelectors),
+      title: this.extractText($, strategy.titleSelectors) || '',
       price: this.extractPrice($, strategy.priceSelectors),
       currency: 'USD', // Default to USD, could be enhanced to detect currency
       availability: this.extractAvailability($, strategy.availabilitySelectors),
       description: this.extractText($, strategy.descriptionSelectors),
-      imageUrl: this.extractImageUrl($, strategy.imageSelectors),
+      imageUrl: this.extractImageUrl($, strategy.imageSelectors) || undefined,
       rating: this.extractRating($, strategy.ratingSelectors),
       brand: this.extractText($, strategy.brandSelectors)
     };
 
     // Clean and validate data
-    extractedData.title = this.cleanText(extractedData.title);
+    extractedData.title = this.cleanText(extractedData.title) || '';
     extractedData.description = this.cleanText(extractedData.description);
     
     return extractedData;
@@ -172,7 +178,7 @@ export class DataExtractionAgent extends BaseAgent {
       if (element.length > 0) {
         const priceText = element.text().trim();
         const price = this.parsePrice(priceText);
-        if (price > 0) {
+        if (price !== null && price > 0) {
           return price;
         }
       }
@@ -287,7 +293,7 @@ export class DataExtractionAgent extends BaseAgent {
           description: data.description,
           brand: data.brand,
           image: data.imageUrl,
-          category: this.inferCategory(data.title, searchQuery)
+          category: this.inferCategory(data.title, searchQuery || '')
         }).returning();
         product = newProduct;
       }
@@ -296,14 +302,14 @@ export class DataExtractionAgent extends BaseAgent {
       await db.insert(productOffers).values({
         productId: product.id,
         retailerId: retailer.id,
-        price: data.price!,
+        price: data.price ? data.price.toString() : '0',
         availability: data.availability,
         productUrl: url,
         lastLinkCheck: new Date()
       }).onConflictDoUpdate({
         target: [productOffers.productId, productOffers.retailerId],
         set: {
-          price: data.price!,
+          price: data.price ? data.price.toString() : '0',
           availability: data.availability,
           lastLinkCheck: new Date()
         }

@@ -89,7 +89,7 @@ export abstract class BaseAgent extends EventEmitter {
         sessionEnd: new Date(),
         status: 'completed',
         tasksCompleted: this.taskCount,
-        successRate: this.taskCount > 0 ? this.successCount / this.taskCount : 0,
+        successRate: (this.taskCount > 0 ? this.successCount / this.taskCount : 0).toString(),
         errorsEncountered: this.errorCount,
         performanceMetrics: JSON.stringify(this.getPerformanceMetrics())
       });

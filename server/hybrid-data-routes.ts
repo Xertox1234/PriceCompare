@@ -1,15 +1,6 @@
 import { Express, Request, Response } from "express";
 import { hybridDataCollector } from "./services/hybrid-data-collector";
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    username: string;
-    email: string;
-    role: string;
-  };
-}
-
 const requireAuth = (req: Request, res: Response, next: Function) => {
   if (req.isAuthenticated && req.isAuthenticated() && req.user) {
     return next();
@@ -17,7 +8,7 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
   return res.status(401).json({ error: "Not authenticated" });
 };
 
-const requireAdmin = (req: AuthenticatedRequest, res: Response, next: Function) => {
+const requireAdmin = (req: any, res: Response, next: Function) => {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ error: "Admin access required" });
   }
@@ -27,7 +18,7 @@ const requireAdmin = (req: AuthenticatedRequest, res: Response, next: Function) 
 export function registerHybridDataRoutes(app: Express): void {
   
   // Get system status and data source capabilities
-  app.get("/api/hybrid/status", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/hybrid/status", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       res.json({
@@ -44,7 +35,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Get retailer capabilities (API vs scraping)
-  app.get("/api/hybrid/retailers/capabilities", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/hybrid/retailers/capabilities", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const capabilities = await hybridDataCollector.getRetailerCapabilities();
       res.json({
@@ -124,7 +115,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Test specific retailer data source
-  app.post("/api/hybrid/test/:retailer", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/hybrid/test/:retailer", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const retailer = req.params.retailer;
       const { query = 'test product' } = req.body;
@@ -152,7 +143,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Get data source performance metrics
-  app.get("/api/hybrid/metrics", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/hybrid/metrics", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       
@@ -205,7 +196,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Force refresh API health status
-  app.post("/api/hybrid/health/refresh", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/hybrid/health/refresh", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const capabilities = await hybridDataCollector.getRetailerCapabilities();
       
@@ -238,7 +229,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Switch retailer data source (API to scraping or vice versa)
-  app.post("/api/hybrid/retailer/:retailer/switch-source", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/hybrid/retailer/:retailer/switch-source", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const retailer = req.params.retailer;
       const { source } = req.body; // 'api' or 'scraping'
@@ -275,7 +266,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Get cost analysis for API usage
-  app.get("/api/hybrid/costs", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/hybrid/costs", requireAuth, requireAdmin, async (req: any, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       

@@ -4,10 +4,13 @@ import { storage } from "./storage";
 import { validateRequestBody } from "./validation";
 import {
   insertForumTopicSchema, insertForumPostSchema, insertPrivateMessageSchema,
-  insertNotificationSchema, insertTopicTagSchema, insertBadgeSchema
+  insertNotificationSchema, insertTopicTagSchema, insertBadgeSchema,
+  users, notifications
 } from "@shared/schema";
 import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 const requireAuth = (req: any, res: any, next: any) => {
   if (!req.user) {
@@ -34,17 +37,20 @@ export function registerEnhancedForumRoutes(app: Express) {
     }
   });
 
-  app.put("/api/users/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.put("/api/users/profile", requireAuth, async (req: any, res: any) => {
     try {
       const { bio, location, website, avatarUrl } = req.body;
-      
+
       // Update user profile
-      await storage.updateUser(req.user.id, {
-        bio,
-        location,
-        website,
-        avatarUrl
-      });
+      await db.update(users)
+        .set({
+          bio,
+          location,
+          website,
+          avatarUrl,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, req.user.id));
 
       const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user.id);
       res.json(updatedProfile);
@@ -69,7 +75,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     }
   });
 
-  app.post("/api/forum/topics/enhanced", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forum/topics/enhanced", requireAuth, async (req: any, res: any) => {
     try {
       console.log("Enhanced topic request body:", JSON.stringify(req.body, null, 2));
       console.log("User:", req.user?.id, req.user?.username);
@@ -119,7 +125,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     }
   });
 
-  app.post("/api/forum/posts/enhanced", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forum/posts/enhanced", requireAuth, async (req: any, res: any) => {
     try {
       const validation = validateRequestBody(insertForumPostSchema, req.body);
       if (!validation.success) {
@@ -144,7 +150,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   });
 
   // Post like system
-  app.post("/api/forum/posts/:id/like", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forum/posts/:id/like", requireAuth, async (req: any, res: any) => {
     try {
       const postId = parseInt(req.params.id);
       const result = await enhancedForumStorage.togglePostLike(postId, req.user.id);
@@ -156,7 +162,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   });
 
   // Notification system
-  app.get("/api/notifications", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/notifications", requireAuth, async (req: any, res: any) => {
     try {
       const unreadOnly = req.query.unreadOnly === 'true';
       const notifications = await enhancedForumStorage.getUserNotifications(req.user.id, unreadOnly);
@@ -167,7 +173,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     }
   });
 
-  app.put("/api/notifications/mark-read", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.put("/api/notifications/mark-read", requireAuth, async (req: any, res: any) => {
     try {
       const { notificationIds } = req.body;
       await enhancedForumStorage.markNotificationsAsRead(req.user.id, notificationIds);
@@ -179,7 +185,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   });
 
   // Private messaging
-  app.get("/api/messages", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/messages", requireAuth, async (req: any, res: any) => {
     try {
       const messages = await enhancedForumStorage.getUserPrivateMessages(req.user.id);
       res.json(messages);
@@ -189,7 +195,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     }
   });
 
-  app.post("/api/messages", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/messages", requireAuth, async (req: any, res: any) => {
     try {
       const validation = validateRequestBody(insertPrivateMessageSchema, req.body);
       if (!validation.success) {
@@ -236,7 +242,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   });
 
   // Badge system
-  app.post("/api/users/:id/badges", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/users/:id/badges", requireAuth, async (req: any, res: any) => {
     try {
       // Only admins can award badges
       if (req.user.role !== 'admin') {
@@ -288,7 +294,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   });
 
   // Trust level management (admin only)
-  app.put("/api/users/:id/trust-level", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.put("/api/users/:id/trust-level", requireAuth, async (req: any, res: any) => {
     try {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Admin access required" });
@@ -301,7 +307,9 @@ export function registerEnhancedForumRoutes(app: Express) {
         return res.status(400).json({ error: "Trust level must be between 0 and 4" });
       }
 
-      await storage.updateUser(userId, { trustLevel });
+      await db.update(users)
+        .set({ trustLevel, updatedAt: new Date() })
+        .where(eq(users.id, userId));
       const updatedUser = await enhancedForumStorage.getUserWithProfile(userId);
       
       res.json(updatedUser);
@@ -312,7 +320,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   });
 
   // User moderation (admin/moderator only)
-  app.put("/api/users/:id/suspend", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.put("/api/users/:id/suspend", requireAuth, async (req: any, res: any) => {
     try {
       if (!['admin', 'moderator'].includes(req.user.role)) {
         return res.status(403).json({ error: "Moderator access required" });
@@ -321,10 +329,12 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userId = parseInt(req.params.id);
       const { reason } = req.body;
 
-      await storage.updateUser(userId, { isSuspended: true });
-      
+      await db.update(users)
+        .set({ isSuspended: true, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
       // Create notification
-      await storage.createNotification({
+      await db.insert(notifications).values({
         userId,
         type: 'moderation',
         title: 'Account suspended',
@@ -340,7 +350,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   });
 
   // Initialize default badges on startup
-  app.post("/api/admin/initialize-badges", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/admin/initialize-badges", requireAuth, async (req: any, res: any) => {
     try {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Admin access required" });

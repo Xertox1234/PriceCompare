@@ -8,10 +8,6 @@ import type { SharedUser, SharedUserWithDiscourse } from '../shared/auth-schema'
 const DISCOURSE_SSO_SECRET = process.env.DISCOURSE_SSO_SECRET || 'default-sso-secret-change-in-production';
 const DISCOURSE_URL = process.env.DISCOURSE_URL || 'http://localhost:3000';
 
-interface AuthenticatedRequest extends Request {
-  user?: SharedUser;
-}
-
 /**
  * Generate Discourse SSO payload and signature
  */
@@ -68,7 +64,7 @@ function parseSSO(sso: string): Record<string, string> {
 /**
  * Handle Discourse SSO login request
  */
-export async function handleDiscourseSSO(req: AuthenticatedRequest, res: Response) {
+export async function handleDiscourseSSO(req: any, res: Response) {
   try {
     const { sso, sig } = req.query;
     
@@ -126,7 +122,7 @@ export async function handleDiscourseSSO(req: AuthenticatedRequest, res: Respons
 /**
  * Complete SSO process after user login
  */
-export async function completeSSOAfterLogin(req: AuthenticatedRequest, res: Response) {
+export async function completeSSOAfterLogin(req: any, res: Response) {
   try {
     const { sso_token } = req.query;
     
@@ -158,7 +154,11 @@ export async function completeSSOAfterLogin(req: AuthenticatedRequest, res: Resp
     await syncUserWithDiscourse(req.user);
     
     // Generate SSO response
-    const { payload, signature } = generateDiscourseSSO(req.user, tokenRecord.nonce, tokenRecord.returnUrl);
+    const { payload, signature } = generateDiscourseSSO(
+      req.user,
+      tokenRecord.nonce || '',
+      tokenRecord.returnUrl || ''
+    );
     
     // Clean up the token
     await db.delete(ssoTokens).where(eq(ssoTokens.id, tokenRecord.id));
@@ -278,7 +278,7 @@ export async function getUserWithDiscourse(userId: number): Promise<SharedUserWi
  */
 export async function cleanupExpiredTokens(): Promise<void> {
   try {
-    await db.delete(ssoTokens).where(gt(new Date(), ssoTokens.expiresAt));
+    await db.delete(ssoTokens).where(lt(ssoTokens.expiresAt, new Date()));
   } catch (error) {
     console.error('Error cleaning up expired SSO tokens:', error);
   }
@@ -287,7 +287,7 @@ export async function cleanupExpiredTokens(): Promise<void> {
 /**
  * Middleware to handle SSO token completion
  */
-export function handleSSOCompletion(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function handleSSOCompletion(req: any, res: Response, next: NextFunction) {
   if (req.query.sso_token && req.user) {
     // Complete SSO process
     return completeSSOAfterLogin(req, res);

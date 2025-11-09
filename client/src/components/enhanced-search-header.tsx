@@ -38,7 +38,7 @@ export function EnhancedSearchHeader({
     analysisLoading,
     searchHistory,
     quickSearch
-  } = useAdvancedSearch(query, filters, searchMode, false); // autoSearch = false
+  } = useAdvancedSearch({ mode: searchMode, autoSearch: false });
 
   // Keyboard navigation
   useEffect(() => {
@@ -120,7 +120,6 @@ export function EnhancedSearchHeader({
       }
     } else if (e.key === 'Escape' && showSuggestions) {
       setShowSuggestions(false);
-      announce('Suggestions closed', 'polite');
     }
   };
 

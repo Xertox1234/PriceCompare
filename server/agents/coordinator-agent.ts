@@ -147,12 +147,12 @@ export class CoordinationAgent extends BaseAgent {
 
   private async processTrendingProducts(): Promise<void> {
     // Get unprocessed trending products
-    const trendingProducts = await db.select()
+    const trendingProductsList = await db.select()
       .from(trendingProducts)
       .where(eq(trendingProducts.status, 'discovered'))
       .limit(5);
 
-    for (const product of trendingProducts) {
+    for (const product of trendingProductsList) {
       await this.processIndividualProduct(product);
     }
   }
@@ -312,7 +312,6 @@ export class CoordinationAgent extends BaseAgent {
             lt(scrapingJobs.scheduledAt, new Date())
           )
         )
-        .orderBy(scrapingJobs.priority)
         .limit(this.coordinatorConfig.maxConcurrentJobs);
 
       for (const job of pendingJobs) {

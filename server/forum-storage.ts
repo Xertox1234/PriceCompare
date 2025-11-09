@@ -35,7 +35,15 @@ export class ForumStorage {
 
   // Topics
   async getTopics(categoryId?: number, productId?: number): Promise<ForumTopicWithDetails[]> {
-    let query = db
+    const conditions = [];
+    if (categoryId) {
+      conditions.push(eq(forumTopics.categoryId, categoryId));
+    }
+    if (productId) {
+      conditions.push(eq(forumTopics.productId, productId));
+    }
+
+    const results = await db
       .select({
         id: forumTopics.id,
         title: forumTopics.title,
@@ -69,21 +77,12 @@ export class ForumStorage {
       })
       .from(forumTopics)
       .leftJoin(users, eq(forumTopics.authorId, users.id))
-      .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id));
-
-    if (categoryId) {
-      query = query.where(eq(forumTopics.categoryId, categoryId));
-    }
-
-    if (productId) {
-      query = query.where(eq(forumTopics.productId, productId));
-    }
-
-    const results = await query
+      .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(forumTopics.isPinned), desc(forumTopics.lastPostAt))
-      .execute();
+      .execute() as any[];
 
-    return results.map(result => ({
+    return results.map((result: any) => ({
       ...result,
       author: result.author!,
       category: result.category || undefined,
@@ -127,7 +126,7 @@ export class ForumStorage {
       .leftJoin(users, eq(forumTopics.authorId, users.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
       .where(eq(forumTopics.id, id))
-      .limit(1);
+      .limit(1) as any[];
 
     if (!result.length) return null;
 
@@ -136,7 +135,7 @@ export class ForumStorage {
       ...topic,
       author: topic.author!,
       category: topic.category || undefined,
-    };
+    } as any;
   }
 
   async createTopic(topic: Omit<InsertForumTopic, 'slug'>): Promise<ForumTopic> {
@@ -171,9 +170,9 @@ export class ForumStorage {
       .from(forumPosts)
       .leftJoin(users, eq(forumPosts.authorId, users.id))
       .where(eq(forumPosts.topicId, topicId))
-      .orderBy(asc(forumPosts.createdAt));
+      .orderBy(asc(forumPosts.createdAt)) as any[];
 
-    return results.map(result => ({
+    return results.map((result: any) => ({
       ...result,
       author: result.author!,
     }));

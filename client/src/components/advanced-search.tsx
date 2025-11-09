@@ -212,7 +212,7 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
                   {(analysis.confidence * 100).toFixed(0)}% confident
                 </Badge>
               </div>
-              {analysis.suggestions.length > 0 && (
+              {analysis.suggestions && analysis.suggestions.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {analysis.suggestions.map((suggestion, index) => (
                     <Badge key={index} variant="outline" className="text-xs">
