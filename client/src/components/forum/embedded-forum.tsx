@@ -96,8 +96,8 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
                 ← Back to topics
               </Button>
               <CardTitle className="flex items-center gap-2">
-                {topic?.isPinned && <Pin className="h-4 w-4 text-yellow-500" />}
-                {topic?.isLocked && <Lock className="h-4 w-4 text-red-500" />}
+                {topic?.isPinned && <Pin className="h-4 w-4 text-warning" />}
+                {topic?.isLocked && <Lock className="h-4 w-4 text-destructive" />}
                 {topic?.title}
               </CardTitle>
             </div>
@@ -175,8 +175,8 @@ function TopicList({
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-muted rounded w-1/2"></div>
           </div>
         ))}
       </div>
@@ -204,13 +204,13 @@ function TopicList({
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 {topic.isPinned && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-warning text-warning rounded-full text-xs font-medium">
                     <Pin className="h-3 w-3" />
                     Pinned
                   </div>
                 )}
                 {topic.isLocked && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-destructive text-destructive rounded-full text-xs font-medium">
                     <Lock className="h-3 w-3" />
                     Locked
                   </div>
@@ -284,10 +284,10 @@ function TopicPosts({
         {[...Array(3)].map((_, i) => (
           <div key={i} className="animate-pulse border rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
-              <div className="h-4 bg-gray-200 rounded w-24"></div>
+              <div className="h-8 w-8 bg-muted rounded-full"></div>
+              <div className="h-4 bg-muted rounded w-24"></div>
             </div>
-            <div className="h-16 bg-gray-200 rounded"></div>
+            <div className="h-16 bg-muted rounded"></div>
           </div>
         ))}
       </div>

@@ -220,7 +220,7 @@ export default function AdminPage() {
                       <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip />
-                      <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} />
+                      <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -242,7 +242,7 @@ export default function AdminPage() {
                       <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip />
-                      <Bar dataKey="count" fill="#10b981" />
+                      <Bar dataKey="count" fill="hsl(var(--success))" />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -265,7 +265,7 @@ export default function AdminPage() {
                     <XAxis type="number" />
                     <YAxis type="category" dataKey="categoryName" width={120} />
                     <Tooltip />
-                    <Bar dataKey="topicCount" fill="#f59e0b" />
+                    <Bar dataKey="topicCount" fill="hsl(var(--warning))" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -276,7 +276,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <BarChart3 className="h-8 w-8 text-blue-600" />
+                  <BarChart3 className="h-8 w-8 text-primary" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-muted-foreground">Total Users</p>
                     <p className="text-2xl font-bold">{users.length}</p>
@@ -286,7 +286,7 @@ export default function AdminPage() {
               
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <MessageSquare className="h-8 w-8 text-green-600" />
+                  <MessageSquare className="h-8 w-8 text-success" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-muted-foreground">Forum Categories</p>
                     <p className="text-2xl font-bold">{categories.length}</p>
@@ -296,7 +296,7 @@ export default function AdminPage() {
               
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <Package className="h-8 w-8 text-purple-600" />
+                  <Package className="h-8 w-8 text-secondary" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-muted-foreground">Products</p>
                     <p className="text-2xl font-bold">-</p>
@@ -306,7 +306,7 @@ export default function AdminPage() {
               
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <Store className="h-8 w-8 text-orange-600" />
+                  <Store className="h-8 w-8 text-warning" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-muted-foreground">Retailers</p>
                     <p className="text-2xl font-bold">-</p>

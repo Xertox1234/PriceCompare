@@ -114,7 +114,7 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
     return content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/@(\w+)/g, '<span class="text-blue-600 font-medium">@$1</span>')
+      .replace(/@(\w+)/g, '<span class="text-primary font-medium">@$1</span>')
       .replace(/\n/g, '<br>');
   };
 
@@ -137,7 +137,7 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
-                  <h4 className="font-semibold text-gray-900">{post.author.username}</h4>
+                  <h4 className="font-semibold text-muted-foreground">{post.author.username}</h4>
                   <Badge 
                     variant="outline" 
                     className={`text-xs bg-${getTrustLevelColor(post.author.trustLevel)}-100 text-${getTrustLevelColor(post.author.trustLevel)}-800 border-${getTrustLevelColor(post.author.trustLevel)}-200`}
@@ -156,7 +156,7 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
                     </Badge>
                   ))}
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                   <span>#{post.postNumber}</span>
                   <span>•</span>
                   <Clock className="h-3 w-3" />
@@ -164,7 +164,7 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
                   {post.editedAt && (
                     <>
                       <span>•</span>
-                      <span className="text-orange-600">edited</span>
+                      <span className="text-warning">edited</span>
                     </>
                   )}
                 </div>
@@ -182,7 +182,7 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
                   </Button>
                 )}
                 {post.userCanDelete && (
-                  <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
@@ -223,18 +223,18 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
               </div>
             ) : (
               <div 
-                className="prose prose-sm max-w-none text-gray-700 mb-4"
+                className="prose prose-sm max-w-none text-muted-foreground mb-4"
                 dangerouslySetInnerHTML={{ __html: renderContent(post.content) }}
               />
             )}
 
             {/* Mentions */}
             {post.mentions && post.mentions.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800 font-medium">Mentions:</p>
+              <div className="mb-4 p-3 bg-primary rounded-lg border border-blue-200">
+                <p className="text-sm text-primary font-medium">Mentions:</p>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {post.mentions.map((mention, index) => (
-                    <Badge key={index} variant="outline" className="text-blue-600">
+                    <Badge key={index} variant="outline" className="text-primary">
                       @{mention.mentionedUser.username}
                     </Badge>
                   ))}
@@ -251,7 +251,7 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
                   size="sm"
                   onClick={handleLike}
                   disabled={!currentUserId || likeMutation.isPending}
-                  className={`${post.userHasLiked ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'hover:text-red-600 hover:bg-red-50'} transition-colors`}
+                  className={`${post.userHasLiked ? 'text-destructive bg-destructive hover:bg-destructive' : 'hover:text-destructive hover:bg-destructive'} transition-colors`}
                 >
                   <Heart className={`h-4 w-4 mr-1 ${post.userHasLiked ? 'fill-current' : ''}`} />
                   {post.likeCount}
@@ -262,14 +262,14 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
                   variant="ghost"
                   size="sm"
                   onClick={onReply}
-                  className="hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  className="hover:text-primary hover:bg-primary transition-colors"
                 >
                   <MessageSquare className="h-4 w-4 mr-1" />
                   Reply
                 </Button>
 
                 {/* Share Button */}
-                <Button variant="ghost" size="sm" className="hover:text-green-600 hover:bg-green-50 transition-colors">
+                <Button variant="ghost" size="sm" className="hover:text-success hover:bg-success transition-colors">
                   <Share2 className="h-4 w-4 mr-1" />
                   Share
                 </Button>
@@ -282,7 +282,7 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowLikes(!showLikes)}
-                    className="text-sm text-gray-500 hover:text-gray-700"
+                    className="text-sm text-muted-foreground hover:text-muted-foreground"
                   >
                     {showLikes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     View likes
@@ -293,11 +293,11 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
 
             {/* Expanded Likes */}
             {showLikes && post.likes && post.likes.length > 0 && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 mb-2">Liked by:</p>
+              <div className="mt-3 p-3 bg-muted rounded-lg">
+                <p className="text-sm font-medium text-muted-foreground mb-2">Liked by:</p>
                 <div className="flex flex-wrap gap-2">
                   {post.likes.map((like) => (
-                    <div key={like.id} className="flex items-center space-x-1 bg-white px-2 py-1 rounded-full border">
+                    <div key={like.id} className="flex items-center space-x-1 bg-card px-2 py-1 rounded-full border">
                       <Avatar className="h-5 w-5">
                         <AvatarImage src={like.user.avatarUrl} alt={like.user.username} />
                         <AvatarFallback className="text-xs">

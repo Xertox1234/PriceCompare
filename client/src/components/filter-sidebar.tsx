@@ -58,7 +58,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
       <h2 className="text-lg font-semibold text-foreground mb-4">Filters</h2>
       
       {/* Price Range Filter */}
-      <div className="filter-section mb-6">
+      <div className="mb-6">
         <h3 className="text-sm font-medium text-foreground mb-3">Price Range</h3>
         <div className="space-y-3">
           <div className="flex items-center space-x-3">
@@ -94,9 +94,9 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
       <Separator className="my-6" />
 
       {/* Retailers Filter */}
-      <div className="filter-section mb-6">
+      <div className="mb-6">
         <h3 className="text-sm font-medium text-foreground mb-3">Retailers</h3>
-        <div className="filter-group">
+        <div className="space-y-2">
           {retailers?.map((retailer) => (
             <div key={retailer.id} className="flex items-center space-x-2">
               <Checkbox
@@ -119,9 +119,9 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
       <Separator className="my-6" />
 
       {/* Rating Filter */}
-      <div className="filter-section mb-6">
+      <div className="mb-6">
         <h3 className="text-sm font-medium text-foreground mb-3">Minimum Rating</h3>
-        <div className="filter-group">
+        <div className="space-y-2">
           {[5, 4, 3, 2, 1].map((rating) => (
             <div key={rating} className="flex items-center space-x-2">
               <Checkbox
@@ -155,9 +155,9 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
       <Separator className="my-6" />
 
       {/* Availability Filter */}
-      <div className="filter-section mb-6">
+      <div className="mb-6">
         <h3 className="text-sm font-medium text-foreground mb-3">Availability</h3>
-        <div className="filter-group">
+        <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <Checkbox
               id="in-stock"

@@ -47,7 +47,7 @@ const categories = [
 export function NewCategories() {
   return (
     <section className="mb-12">
-      <h3 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+      <h3 className="text-3xl font-bold text-muted-foreground mb-8 text-center">
         Popular Categories
       </h3>
       
@@ -55,14 +55,14 @@ export function NewCategories() {
         {categories.map((category, index) => (
           <div
             key={index}
-            className="bg-white rounded-2xl shadow-md p-6 text-center hover:shadow-xl transition duration-300 transform hover:-translate-y-1 cursor-pointer"
+            className="bg-card rounded-2xl shadow-md p-6 text-center hover:shadow-xl transition duration-300 transform hover:-translate-y-1 cursor-pointer"
           >
             <img
               src={category.image}
               alt={category.name}
               className="w-full h-32 object-contain mb-4"
             />
-            <h4 className="font-semibold text-gray-700">{category.name}</h4>
+            <h4 className="font-semibold text-muted-foreground">{category.name}</h4>
           </div>
         ))}
         

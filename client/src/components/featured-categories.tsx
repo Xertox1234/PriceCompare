@@ -65,7 +65,7 @@ export function FeaturedCategories() {
         <h3 className="text-2xl font-bold mb-2">
           {category.name}
         </h3>
-        <p className="text-sm text-gray-200 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           {category.description}
         </p>
         <button className="text-sm font-medium text-white border-b border-white/50 hover:border-white transition-colors">
@@ -99,23 +99,23 @@ export function FeaturedCategories() {
 
           {/* Navigation Arrows */}
           <button
-            className={`absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-opacity ${
+            className={`absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-card/90 shadow-lg flex items-center justify-center transition-opacity ${
               prevBtnEnabled ? 'opacity-100' : 'opacity-50'
             }`}
             onClick={scrollPrev}
             disabled={!prevBtnEnabled}
           >
-            <ChevronLeft className="w-5 h-5 text-gray-800" />
+            <ChevronLeft className="w-5 h-5 text-muted-foreground" />
           </button>
           
           <button
-            className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-opacity ${
+            className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-card/90 shadow-lg flex items-center justify-center transition-opacity ${
               nextBtnEnabled ? 'opacity-100' : 'opacity-50'
             }`}
             onClick={scrollNext}
             disabled={!nextBtnEnabled}
           >
-            <ChevronRight className="w-5 h-5 text-gray-800" />
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </button>
 
           {/* Dot Indicators */}
@@ -124,7 +124,7 @@ export function FeaturedCategories() {
               <button
                 key={index}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  index === selectedIndex ? 'bg-blue-600' : 'bg-gray-300'
+                  index === selectedIndex ? 'bg-primary' : 'bg-muted'
                 }`}
                 onClick={() => emblaApi && emblaApi.scrollTo(index)}
               />

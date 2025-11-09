@@ -120,9 +120,9 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
-          <div className="h-32 bg-gray-200 rounded-lg mb-4"></div>
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          <div className="h-32 bg-muted rounded-lg mb-4"></div>
+          <div className="h-8 bg-muted rounded w-1/3 mb-2"></div>
+          <div className="h-4 bg-muted rounded w-2/3"></div>
         </div>
       </div>
     );
@@ -132,7 +132,7 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-center text-gray-500">User not found</p>
+          <p className="text-center text-muted-foreground">User not found</p>
         </CardContent>
       </Card>
     );
@@ -172,10 +172,10 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
                 </div>
                 
                 {profile.bio && (
-                  <p className="text-gray-600 max-w-md">{profile.bio}</p>
+                  <p className="text-muted-foreground max-w-md">{profile.bio}</p>
                 )}
                 
-                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   {profile.location && (
                     <div className="flex items-center space-x-1">
                       <MapPin className="h-4 w-4" />
@@ -186,7 +186,7 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
                     <div className="flex items-center space-x-1">
                       <Globe className="h-4 w-4" />
                       <a href={profile.website} target="_blank" rel="noopener noreferrer" 
-                         className="text-blue-600 hover:underline">
+                         className="text-primary hover:underline">
                         Website
                       </a>
                     </div>
@@ -268,34 +268,34 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="text-center p-4">
           <div className="flex items-center justify-center space-x-2 mb-2">
-            <MessageSquare className="h-5 w-5 text-blue-600" />
-            <span className="text-2xl font-bold text-blue-600">{profile.postCount}</span>
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <span className="text-2xl font-bold text-primary">{profile.postCount}</span>
           </div>
-          <p className="text-sm text-gray-600">Posts</p>
+          <p className="text-sm text-muted-foreground">Posts</p>
         </Card>
         
         <Card className="text-center p-4">
           <div className="flex items-center justify-center space-x-2 mb-2">
-            <Heart className="h-5 w-5 text-red-500" />
-            <span className="text-2xl font-bold text-red-500">{profile.likesReceived}</span>
+            <Heart className="h-5 w-5 text-destructive" />
+            <span className="text-2xl font-bold text-destructive">{profile.likesReceived}</span>
           </div>
-          <p className="text-sm text-gray-600">Likes Received</p>
+          <p className="text-sm text-muted-foreground">Likes Received</p>
         </Card>
         
         <Card className="text-center p-4">
           <div className="flex items-center justify-center space-x-2 mb-2">
-            <Award className="h-5 w-5 text-yellow-600" />
-            <span className="text-2xl font-bold text-yellow-600">{profile.reputation}</span>
+            <Award className="h-5 w-5 text-warning" />
+            <span className="text-2xl font-bold text-warning">{profile.reputation}</span>
           </div>
-          <p className="text-sm text-gray-600">Reputation</p>
+          <p className="text-sm text-muted-foreground">Reputation</p>
         </Card>
         
         <Card className="text-center p-4">
           <div className="flex items-center justify-center space-x-2 mb-2">
-            <Calendar className="h-5 w-5 text-green-600" />
-            <span className="text-2xl font-bold text-green-600">{profile.daysVisited}</span>
+            <Calendar className="h-5 w-5 text-success" />
+            <span className="text-2xl font-bold text-success">{profile.daysVisited}</span>
           </div>
-          <p className="text-sm text-gray-600">Days Visited</p>
+          <p className="text-sm text-muted-foreground">Days Visited</p>
         </Card>
       </div>
 
@@ -311,7 +311,7 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {profile.badges.map((badge) => (
-                <div key={badge.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div key={badge.id} className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
                   <div 
                     className="p-2 rounded-full"
                     style={{ backgroundColor: badge.color + '20', color: badge.color }}
@@ -320,8 +320,8 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
                   </div>
                   <div>
                     <p className="font-medium">{badge.name}</p>
-                    <p className="text-sm text-gray-600">{badge.description}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm text-muted-foreground">{badge.description}</p>
+                    <p className="text-xs text-muted-foreground">
                       Earned {formatDistanceToNow(new Date(badge.grantedAt))} ago
                     </p>
                   </div>
@@ -345,20 +345,20 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
               <Card key={post.id}>
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-blue-600 hover:underline cursor-pointer">
+                    <h4 className="font-medium text-primary hover:underline cursor-pointer">
                       {post.topicTitle}
                     </h4>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-muted-foreground">
                       {formatDistanceToNow(new Date(post.createdAt))} ago
                     </span>
                   </div>
-                  <p className="text-gray-700 text-sm line-clamp-2">{post.content}</p>
+                  <p className="text-muted-foreground text-sm line-clamp-2">{post.content}</p>
                 </CardContent>
               </Card>
             ))
           ) : (
             <Card>
-              <CardContent className="p-6 text-center text-gray-500">
+              <CardContent className="p-6 text-center text-muted-foreground">
                 No recent posts
               </CardContent>
             </Card>
@@ -371,20 +371,20 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
               <Card key={topic.id}>
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-blue-600 hover:underline cursor-pointer">
+                    <h4 className="font-medium text-primary hover:underline cursor-pointer">
                       {topic.title}
                     </h4>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-muted-foreground">
                       {formatDistanceToNow(new Date(topic.createdAt))} ago
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600">{topic.postCount} replies</p>
+                  <p className="text-sm text-muted-foreground">{topic.postCount} replies</p>
                 </CardContent>
               </Card>
             ))
           ) : (
             <Card>
-              <CardContent className="p-6 text-center text-gray-500">
+              <CardContent className="p-6 text-center text-muted-foreground">
                 No recent topics
               </CardContent>
             </Card>

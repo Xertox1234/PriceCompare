@@ -73,42 +73,42 @@ export function NotificationBell() {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'like':
-        return <Heart className="h-4 w-4 text-red-500" />;
+        return <Heart className="h-4 w-4 text-destructive" />;
       case 'mention':
-        return <MessageSquare className="h-4 w-4 text-blue-500" />;
+        return <MessageSquare className="h-4 w-4 text-primary" />;
       case 'reply':
-        return <MessageSquare className="h-4 w-4 text-green-500" />;
+        return <MessageSquare className="h-4 w-4 text-success" />;
       case 'badge':
-        return <Trophy className="h-4 w-4 text-yellow-500" />;
+        return <Trophy className="h-4 w-4 text-warning" />;
       case 'follow':
-        return <UserPlus className="h-4 w-4 text-purple-500" />;
+        return <UserPlus className="h-4 w-4 text-secondary" />;
       case 'private_message':
-        return <Mail className="h-4 w-4 text-indigo-500" />;
+        return <Mail className="h-4 w-4 text-primary" />;
       case 'moderation':
-        return <Flag className="h-4 w-4 text-orange-500" />;
+        return <Flag className="h-4 w-4 text-warning" />;
       default:
-        return <Bell className="h-4 w-4 text-gray-500" />;
+        return <Bell className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   const getNotificationColor = (type: string) => {
     switch (type) {
       case 'like':
-        return 'bg-red-50 border-red-200';
+        return 'bg-destructive border-red-200';
       case 'mention':
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-primary border-blue-200';
       case 'reply':
-        return 'bg-green-50 border-green-200';
+        return 'bg-success border-green-200';
       case 'badge':
-        return 'bg-yellow-50 border-yellow-200';
+        return 'bg-warning border-yellow-200';
       case 'follow':
-        return 'bg-purple-50 border-purple-200';
+        return 'bg-secondary border-purple-200';
       case 'private_message':
-        return 'bg-indigo-50 border-indigo-200';
+        return 'bg-primary border-indigo-200';
       case 'moderation':
-        return 'bg-orange-50 border-orange-200';
+        return 'bg-warning border-orange-200';
       default:
-        return 'bg-gray-50 border-gray-200';
+        return 'bg-muted border-border';
     }
   };
 
@@ -146,7 +146,7 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="sm"
-          className="relative p-2 hover:bg-gray-100 transition-colors"
+          className="relative p-2 hover:bg-muted transition-colors"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
@@ -171,7 +171,7 @@ export function NotificationBell() {
                     size="sm"
                     onClick={handleMarkAllAsRead}
                     disabled={markAsReadMutation.isPending}
-                    className="text-xs text-blue-600 hover:text-blue-700"
+                    className="text-xs text-primary hover:text-primary"
                   >
                     <CheckCheck className="h-3 w-3 mr-1" />
                     Mark all read
@@ -194,18 +194,18 @@ export function NotificationBell() {
                   {[...Array(3)].map((_, i) => (
                     <div key={i} className="animate-pulse">
                       <div className="flex space-x-3">
-                        <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+                        <div className="h-8 w-8 bg-muted rounded-full"></div>
                         <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                          <div className="h-4 bg-muted rounded w-3/4"></div>
+                          <div className="h-3 bg-muted rounded w-1/2"></div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="p-6 text-center text-gray-500">
-                  <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <div className="p-6 text-center text-muted-foreground">
+                  <Bell className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                   <p className="text-sm">No notifications yet</p>
                 </div>
               ) : (
@@ -215,8 +215,8 @@ export function NotificationBell() {
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
                       className={`
-                        p-4 cursor-pointer transition-colors hover:bg-gray-50
-                        ${!notification.isRead ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}
+                        p-4 cursor-pointer transition-colors hover:bg-muted
+                        ${!notification.isRead ? 'bg-primary border-l-4 border-l-blue-500' : ''}
                         ${getNotificationColor(notification.type)}
                       `}
                     >
@@ -233,7 +233,7 @@ export function NotificationBell() {
                               </AvatarFallback>
                             </Avatar>
                           ) : (
-                            <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
+                            <div className="h-8 w-8 bg-muted rounded-full flex items-center justify-center">
                               {getNotificationIcon(notification.type)}
                             </div>
                           )}
@@ -245,11 +245,11 @@ export function NotificationBell() {
                               <p className={`text-sm ${!notification.isRead ? 'font-semibold' : 'font-medium'}`}>
                                 {notification.title}
                               </p>
-                              <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                                 {notification.content}
                               </p>
                               {notification.relatedTopic && (
-                                <p className="text-xs text-blue-600 mt-1 truncate">
+                                <p className="text-xs text-primary mt-1 truncate">
                                   in "{notification.relatedTopic.title}"
                                 </p>
                               )}
@@ -258,12 +258,12 @@ export function NotificationBell() {
                             <div className="flex items-center space-x-2 ml-2">
                               {getNotificationIcon(notification.type)}
                               {!notification.isRead && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <div className="w-2 h-2 bg-primary rounded-full"></div>
                               )}
                             </div>
                           </div>
                           
-                          <p className="text-xs text-gray-500 mt-2">
+                          <p className="text-xs text-muted-foreground mt-2">
                             {formatDistanceToNow(new Date(notification.createdAt))} ago
                           </p>
                         </div>
@@ -275,11 +275,11 @@ export function NotificationBell() {
             </ScrollArea>
             
             {notifications.length > 0 && (
-              <div className="p-3 border-t bg-gray-50">
+              <div className="p-3 border-t bg-muted">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-full text-center text-blue-600 hover:text-blue-700"
+                  className="w-full text-center text-primary hover:text-primary"
                 >
                   View all notifications
                 </Button>

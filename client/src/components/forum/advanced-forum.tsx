@@ -268,12 +268,12 @@ export default function AdvancedForum() {
 
   const getTrustLevelColor = (level: number) => {
     switch (level) {
-      case 0: return 'bg-gray-500';
-      case 1: return 'bg-blue-500';
-      case 2: return 'bg-green-500';
-      case 3: return 'bg-purple-500';
-      case 4: return 'bg-yellow-500';
-      default: return 'bg-gray-500';
+      case 0: return 'bg-muted';
+      case 1: return 'bg-primary';
+      case 2: return 'bg-success';
+      case 3: return 'bg-secondary';
+      case 4: return 'bg-warning';
+      default: return 'bg-muted';
     }
   };
 
@@ -308,7 +308,7 @@ export default function AdvancedForum() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   {selectedTopic.isPinned && (
-                    <Pin className="h-4 w-4 text-blue-500" />
+                    <Pin className="h-4 w-4 text-primary" />
                   )}
                   <Badge 
                     variant="secondary"
@@ -385,7 +385,7 @@ export default function AdvancedForum() {
                     {post.author.badges.length > 0 && (
                       <div className="flex flex-wrap gap-1 justify-center">
                         {post.author.badges.map(badge => (
-                          <Award key={badge} className="h-3 w-3 text-yellow-500" />
+                          <Award key={badge} className="h-3 w-3 text-warning" />
                         ))}
                       </div>
                     )}
@@ -407,7 +407,7 @@ export default function AdvancedForum() {
                         variant="ghost"
                         size="sm"
                         onClick={() => likePostMutation.mutate(post.id)}
-                        className={post.isLiked ? 'text-red-500' : ''}
+                        className={post.isLiked ? 'text-destructive' : ''}
                       >
                         <Heart className={`h-4 w-4 mr-1 ${post.isLiked ? 'fill-current' : ''}`} />
                         {post.likes}
@@ -502,7 +502,7 @@ export default function AdvancedForum() {
                               <SelectValue placeholder="Select a category" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="bg-white/95 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg text-gray-900 dark:text-gray-100">
+                          <SelectContent className="bg-card/95 dark:bg-muted/90 backdrop-blur-sm border shadow-lg text-muted-foreground dark:text-muted-foreground">
                             {categories.map(category => (
                               <SelectItem key={category.id} value={category.id.toString()}>
                                 {category.name}
@@ -582,7 +582,7 @@ export default function AdvancedForum() {
                 <p className="text-sm text-muted-foreground">Topics</p>
                 <p className="text-2xl font-semibold">{topics.length}</p>
               </div>
-              <MessageSquare className="h-8 w-8 text-blue-500" />
+              <MessageSquare className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -593,7 +593,7 @@ export default function AdvancedForum() {
                 <p className="text-sm text-muted-foreground">Categories</p>
                 <p className="text-2xl font-semibold">{categories.length}</p>
               </div>
-              <BookOpen className="h-8 w-8 text-green-500" />
+              <BookOpen className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -604,7 +604,7 @@ export default function AdvancedForum() {
                 <p className="text-sm text-muted-foreground">Active Users</p>
                 <p className="text-2xl font-semibold">24</p>
               </div>
-              <Users className="h-8 w-8 text-purple-500" />
+              <Users className="h-8 w-8 text-secondary" />
             </div>
           </CardContent>
         </Card>
@@ -615,7 +615,7 @@ export default function AdvancedForum() {
                 <p className="text-sm text-muted-foreground">Hot Topics</p>
                 <p className="text-2xl font-semibold">12</p>
               </div>
-              <Flame className="h-8 w-8 text-red-500" />
+              <Flame className="h-8 w-8 text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -640,7 +640,7 @@ export default function AdvancedForum() {
               <SelectTrigger className="w-full md:w-[200px]">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
-              <SelectContent className="bg-white/95 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg text-gray-900 dark:text-gray-100">
+              <SelectContent className="bg-card/95 dark:bg-muted/90 backdrop-blur-sm border shadow-lg text-muted-foreground dark:text-muted-foreground">
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map(category => (
                   <SelectItem key={category.id} value={category.id.toString()}>
@@ -653,7 +653,7 @@ export default function AdvancedForum() {
               <SelectTrigger className="w-full md:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-white/95 dark:bg-gray-800/90 backdrop-blur-sm border shadow-lg text-gray-900 dark:text-gray-100">
+              <SelectContent className="bg-card/95 dark:bg-muted/90 backdrop-blur-sm border shadow-lg text-muted-foreground dark:text-muted-foreground">
                 <SelectItem value="latest">Latest</SelectItem>
                 <SelectItem value="popular">Popular</SelectItem>
                 <SelectItem value="views">Most Viewed</SelectItem>
@@ -731,7 +731,7 @@ export default function AdvancedForum() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          {topic.isPinned && <Pin className="h-4 w-4 text-blue-500" />}
+                          {topic.isPinned && <Pin className="h-4 w-4 text-primary" />}
                           <Badge 
                             variant="secondary"
                             style={{ backgroundColor: topic.category.color + '20', color: topic.category.color }}

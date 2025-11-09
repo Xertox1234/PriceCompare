@@ -108,7 +108,7 @@ export default function Products() {
                   <Filter className="h-4 w-4 mr-2" />
                   Filters & Sort
                   {getActiveFilterCount() > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
                       {getActiveFilterCount()}
                     </span>
                   )}
@@ -138,7 +138,7 @@ export default function Products() {
             
             {/* Desktop Filters Sidebar */}
             <aside className="hidden lg:block lg:w-80 flex-shrink-0">
-              <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 sticky top-6">
+              <div className="bg-card rounded-2xl shadow-md border border-border p-6 sticky top-6">
                 <FilterSidebar 
                   filters={filters} 
                   onFilterChange={handleFilterChange} 

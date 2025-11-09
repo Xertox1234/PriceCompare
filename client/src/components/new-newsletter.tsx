@@ -12,7 +12,7 @@ export function NewNewsletter() {
   };
 
   return (
-    <section className="bg-white rounded-2xl shadow-lg p-10 flex items-center justify-between">
+    <section className="bg-card rounded-2xl shadow-lg p-10 flex items-center justify-between">
       <div className="w-1/3">
         <img
           src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNy9T1FiVA3gmb7KR1D0eJ7Kqx2m5da7q40f4swY3FZejQNeuR--_gec0DVY_VI7blHcQOC8fEkSazQiPOB4IjpJoNkWuqhK2_0kAMipdnDNzX8z6vmyLty93jP9bFP2rbMQE59B_DB8Udh6ht0Umc6jAWHJa6LFyhpM5pnpJmgoBvnFOlKwiWjd440lcabBFiqpCQt_HIMgc-N90QOQphQvbdhwZefIJX7CygbznizhaG5GIMAiXKGOewcbZaJcvawErIJaeB23c"
@@ -22,10 +22,10 @@ export function NewNewsletter() {
       </div>
       
       <div className="w-2/3 ml-10">
-        <h3 className="text-3xl font-bold text-gray-800 mb-2">
+        <h3 className="text-3xl font-bold text-muted-foreground mb-2">
           Weekly Newsletter - Great Deals Delivered!
         </h3>
-        <p className="text-gray-600 mb-6">
+        <p className="text-muted-foreground mb-6">
           See HUGE discounts and GREAT deals on the HOTTEST new items of the season! 
           Become a PriceGrabber Insider and get deals delivered right to your inbox.
         </p>
@@ -36,12 +36,12 @@ export function NewNewsletter() {
             placeholder="Enter your email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full py-3 px-5 rounded-l-full border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition duration-300"
+            className="w-full py-3 px-5 rounded-l-full border-2 border-border focus:outline-none focus:ring-2 focus:ring-indigo-400 transition duration-300"
             required
           />
           <Button 
             type="submit"
-            className="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-r-full hover:bg-indigo-700 transition duration-300"
+            className="bg-primary text-white font-semibold py-3 px-8 rounded-r-full hover:bg-primary transition duration-300"
           >
             Sign Up
           </Button>

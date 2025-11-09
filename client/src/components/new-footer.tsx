@@ -12,7 +12,7 @@ export function NewFooter() {
   };
 
   return (
-    <footer className="bg-gray-800 text-white mt-12">
+    <footer className="bg-card text-card-foreground border-t border-border mt-12">
       <div className="container mx-auto px-6 py-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div>
@@ -23,12 +23,12 @@ export function NewFooter() {
                 placeholder="Your Email"
                 value={footerEmail}
                 onChange={(e) => setFooterEmail(e.target.value)}
-                className="bg-gray-700 text-white rounded-l-md py-2 px-3 w-full focus:outline-none"
+                className="bg-muted text-foreground rounded-l-md py-2 px-3 w-full focus:outline-none"
                 required
               />
               <Button 
                 type="submit"
-                className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-r-md"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-r-md"
               >
                 Sign Up
               </Button>
@@ -40,22 +40,22 @@ export function NewFooter() {
             <ul>
               <li className="mb-2">
                 <Link href="/about">
-                  <span className="hover:text-indigo-400 cursor-pointer">About</span>
+                  <span className="hover:text-primary cursor-pointer">About</span>
                 </Link>
               </li>
               <li className="mb-2">
                 <Link href="/forum">
-                  <span className="hover:text-indigo-400 cursor-pointer">Community</span>
+                  <span className="hover:text-primary cursor-pointer">Community</span>
                 </Link>
               </li>
               <li className="mb-2">
                 <Link href="/press">
-                  <span className="hover:text-indigo-400 cursor-pointer">Press</span>
+                  <span className="hover:text-primary cursor-pointer">Press</span>
                 </Link>
               </li>
               <li>
                 <Link href="/sitemap">
-                  <span className="hover:text-indigo-400 cursor-pointer">Sitemap</span>
+                  <span className="hover:text-primary cursor-pointer">Sitemap</span>
                 </Link>
               </li>
             </ul>
@@ -66,12 +66,12 @@ export function NewFooter() {
             <ul>
               <li className="mb-2">
                 <Link href="/merchant-login">
-                  <span className="hover:text-indigo-400 cursor-pointer">Merchant Login</span>
+                  <span className="hover:text-primary cursor-pointer">Merchant Login</span>
                 </Link>
               </li>
               <li>
                 <Link href="/help">
-                  <span className="hover:text-indigo-400 cursor-pointer">Help</span>
+                  <span className="hover:text-primary cursor-pointer">Help</span>
                 </Link>
               </li>
             </ul>
@@ -82,29 +82,29 @@ export function NewFooter() {
             <ul>
               <li className="mb-2">
                 <Link href="/ad-choices">
-                  <span className="hover:text-indigo-400 cursor-pointer">Ad Choices</span>
+                  <span className="hover:text-primary cursor-pointer">Ad Choices</span>
                 </Link>
               </li>
               <li className="mb-2">
                 <Link href="/user-agreement">
-                  <span className="hover:text-indigo-400 cursor-pointer">User Agreement</span>
+                  <span className="hover:text-primary cursor-pointer">User Agreement</span>
                 </Link>
               </li>
               <li className="mb-2">
                 <Link href="/privacy">
-                  <span className="hover:text-indigo-400 cursor-pointer">Privacy Statement</span>
+                  <span className="hover:text-primary cursor-pointer">Privacy Statement</span>
                 </Link>
               </li>
               <li>
                 <Link href="/california-privacy">
-                  <span className="hover:text-indigo-400 cursor-pointer">California Privacy Notice</span>
+                  <span className="hover:text-primary cursor-pointer">California Privacy Notice</span>
                 </Link>
               </li>
             </ul>
           </div>
         </div>
         
-        <div className="text-center text-gray-400 mt-10 border-t border-gray-700 pt-6">
+        <div className="text-center text-muted-foreground mt-10 border-t border-border pt-6">
           <p>&copy; 2023 PriceGrabber. All Rights Reserved.</p>
         </div>
       </div>

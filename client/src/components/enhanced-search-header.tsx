@@ -162,13 +162,13 @@ export function EnhancedSearchHeader({
   };
 
   return (
-    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm sticky top-0 z-40" role="banner">
+    <header className="bg-background border-b border-border shadow-sm sticky top-0 z-40" role="banner">
       <div className="max-w-[1280px] mx-auto px-8">
         <div className="flex items-center justify-between h-20">
           {/* Logo and Brand */}
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-3xl font-black bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent font-sans">
+              <h1 className="text-3xl font-black gradient-text-brand font-sans">
                 PriceCompare Community
               </h1>
             </div>
@@ -184,7 +184,7 @@ export function EnhancedSearchHeader({
                   ) : searchMode === 'smart' ? (
                     <Sparkles size={20} className="text-primary" />
                   ) : (
-                    <Search size={20} className="text-gray-400" />
+                    <Search size={20} className="text-muted-foreground" />
                   )}
                 </div>
                 
@@ -195,7 +195,7 @@ export function EnhancedSearchHeader({
                     ? "AI-powered search: describe what you're looking for..." 
                     : "Search for products to compare prices..."
                   }
-                  className="w-full pl-12 pr-32 py-4 text-lg border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50 dark:bg-gray-800 outline-none transition-all duration-300 font-sans focus:border-primary focus:shadow-primary/10 focus:shadow-lg focus:bg-white dark:focus:bg-gray-700"
+                  className="w-full pl-12 pr-32 py-4 text-lg border-2 border-border rounded-2xl bg-muted outline-none transition-all duration-300 font-sans focus:border-primary focus:shadow-primary/10 focus:shadow-lg focus:bg-card"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={handleInputFocus}
@@ -281,9 +281,9 @@ export function EnhancedSearchHeader({
 
                   {/* Query Analysis */}
                   {analysis && !analysisLoading && (
-                    <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20">
+                    <div className="p-4 border-b bg-muted/50">
                       <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="h-4 w-4 text-blue-600" />
+                        <Sparkles className="h-4 w-4 text-primary" />
                         <span className="text-sm font-medium">AI Analysis</span>
                       </div>
                       <div className="text-sm text-muted-foreground">
@@ -327,7 +327,7 @@ export function EnhancedSearchHeader({
                               inputRef.current?.focus();
                             }
                           }}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 group focus:bg-gray-50 dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
+                          className="w-full px-4 py-2 text-left hover:bg-muted flex items-center gap-3 group focus:bg-muted focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
                           role="option"
                           aria-selected={false}
                           aria-label={`Search suggestion: ${suggestion.query}`}
@@ -366,7 +366,7 @@ export function EnhancedSearchHeader({
                           <button
                             key={index}
                             onClick={() => handleSuggestionClick({ query: historyItem, type: 'history' })}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
+                            className="w-full px-4 py-2 text-left hover:bg-muted flex items-center gap-3"
                           >
                             <Clock className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm">{historyItem}</span>
@@ -462,10 +462,10 @@ export function EnhancedSearchHeader({
           {/* Right side buttons */}
           <div className="flex items-center gap-4">
             <button
-              className="p-3 bg-gray-100 dark:bg-gray-800 border-0 rounded-xl cursor-pointer transition-all duration-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:scale-105"
+              className="p-3 bg-muted border-0 rounded-xl cursor-pointer transition-all duration-300 hover:bg-muted/80 hover:scale-105"
               aria-label="Notifications"
             >
-              <Bell size={20} className="text-gray-700 dark:text-gray-300" />
+              <Bell size={20} className="text-foreground" />
             </button>
             
             <button

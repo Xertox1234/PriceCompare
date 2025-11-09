@@ -131,7 +131,7 @@ export function ForumSearch() {
     if (!searchQuery.trim()) return text;
     
     const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return text.replace(regex, '<mark class="bg-yellow-200 px-1 rounded">$1</mark>');
+    return text.replace(regex, '<mark class="bg-warning px-1 rounded">$1</mark>');
   };
 
   const renderPostResult = (post: any) => (
@@ -147,10 +147,10 @@ export function ForumSearch() {
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium text-blue-600 hover:underline">
+              <h4 className="font-medium text-primary hover:underline">
                 {post.topicTitle}
               </h4>
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <Heart className="h-3 w-3" />
                 <span>{post.likeCount}</span>
                 <Clock className="h-3 w-3" />
@@ -158,12 +158,12 @@ export function ForumSearch() {
               </div>
             </div>
             
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-muted-foreground mb-2">
               by <span className="font-medium">{post.author.username}</span>
             </p>
             
             <div 
-              className="text-sm text-gray-700 line-clamp-2"
+              className="text-sm text-muted-foreground line-clamp-2"
               dangerouslySetInnerHTML={{ 
                 __html: highlightText(post.content.substring(0, 200), debouncedQuery) 
               }}
@@ -179,7 +179,7 @@ export function ForumSearch() {
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-3">
           <h4 
-            className="font-semibold text-lg text-blue-600 hover:underline"
+            className="font-semibold text-lg text-primary hover:underline"
             dangerouslySetInnerHTML={{ 
               __html: highlightText(topic.title, debouncedQuery) 
             }}
@@ -197,7 +197,7 @@ export function ForumSearch() {
                 {topic.author.username.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm text-gray-600">{topic.author.username}</span>
+            <span className="text-sm text-muted-foreground">{topic.author.username}</span>
           </div>
           
           {topic.category && (
@@ -206,14 +206,14 @@ export function ForumSearch() {
             </Badge>
           )}
           
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {formatDistanceToNow(new Date(topic.createdAt))} ago
           </span>
         </div>
         
         {topic.content && (
           <div 
-            className="text-sm text-gray-700 line-clamp-2 mb-3"
+            className="text-sm text-muted-foreground line-clamp-2 mb-3"
             dangerouslySetInnerHTML={{ 
               __html: highlightText(topic.content.substring(0, 150), debouncedQuery) 
             }}
@@ -252,7 +252,7 @@ export function ForumSearch() {
           
           <div className="flex-1">
             <h4 
-              className="font-semibold text-gray-900"
+              className="font-semibold text-muted-foreground"
               dangerouslySetInnerHTML={{ 
                 __html: highlightText(user.username, debouncedQuery) 
               }}
@@ -260,14 +260,14 @@ export function ForumSearch() {
             
             {user.bio && (
               <p 
-                className="text-sm text-gray-600 line-clamp-1 mt-1"
+                className="text-sm text-muted-foreground line-clamp-1 mt-1"
                 dangerouslySetInnerHTML={{ 
                   __html: highlightText(user.bio, debouncedQuery) 
                 }}
               />
             )}
             
-            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+            <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">
               <span>{user.reputation} reputation</span>
               <span>{user.postCount} posts</span>
               <Badge 
@@ -296,7 +296,7 @@ export function ForumSearch() {
         <CardContent className="space-y-4">
           {/* Main Search Input */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search posts, topics, and users..."
               value={query}
@@ -328,7 +328,7 @@ export function ForumSearch() {
             </Button>
 
             <div className="flex items-center space-x-2">
-              <SortAsc className="h-4 w-4 text-gray-500" />
+              <SortAsc className="h-4 w-4 text-muted-foreground" />
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
@@ -345,7 +345,7 @@ export function ForumSearch() {
 
           {/* Advanced Filters */}
           {showFilters && (
-            <div className="p-4 bg-gray-50 rounded-lg space-y-4">
+            <div className="p-4 bg-muted rounded-lg space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">Category</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -377,7 +377,7 @@ export function ForumSearch() {
                       <Badge
                         key={tag.name}
                         variant="outline"
-                        className="cursor-pointer hover:bg-gray-100"
+                        className="cursor-pointer hover:bg-muted"
                         style={{ borderColor: tag.color, color: tag.color }}
                         onClick={() => setQuery(prev => prev + ` #${tag.name}`)}
                       >
@@ -400,7 +400,7 @@ export function ForumSearch() {
           <CardHeader>
             <CardTitle>
               Search Results for "{debouncedQuery}"
-              {isLoading && <span className="ml-2 text-sm font-normal text-gray-500">Searching...</span>}
+              {isLoading && <span className="ml-2 text-sm font-normal text-muted-foreground">Searching...</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -425,15 +425,15 @@ export function ForumSearch() {
                   <div className="space-y-3">
                     {[...Array(3)].map((_, i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="h-24 bg-gray-200 rounded-lg"></div>
+                        <div className="h-24 bg-muted rounded-lg"></div>
                       </div>
                     ))}
                   </div>
                 ) : searchResults?.posts?.length ? (
                   searchResults.posts.map(renderPostResult)
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                     <p>No posts found matching your search</p>
                   </div>
                 )}
@@ -444,15 +444,15 @@ export function ForumSearch() {
                   <div className="space-y-3">
                     {[...Array(3)].map((_, i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="h-32 bg-gray-200 rounded-lg"></div>
+                        <div className="h-32 bg-muted rounded-lg"></div>
                       </div>
                     ))}
                   </div>
                 ) : searchResults?.topics?.length ? (
                   searchResults.topics.map(renderTopicResult)
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Hash className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Hash className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                     <p>No topics found matching your search</p>
                   </div>
                 )}
@@ -463,15 +463,15 @@ export function ForumSearch() {
                   <div className="space-y-3">
                     {[...Array(3)].map((_, i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="h-20 bg-gray-200 rounded-lg"></div>
+                        <div className="h-20 bg-muted rounded-lg"></div>
                       </div>
                     ))}
                   </div>
                 ) : searchResults?.users?.length ? (
                   searchResults.users.map(renderUserResult)
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <User className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <div className="text-center py-8 text-muted-foreground">
+                    <User className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                     <p>No users found matching your search</p>
                   </div>
                 )}
@@ -491,7 +491,7 @@ export function ForumSearch() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <h4 className="font-medium mb-2">Basic Search</h4>
-                <ul className="space-y-1 text-gray-600">
+                <ul className="space-y-1 text-muted-foreground">
                   <li>• Use keywords to find relevant content</li>
                   <li>• Search across posts, topics, and users</li>
                   <li>• Results are ranked by relevance</li>
@@ -499,9 +499,9 @@ export function ForumSearch() {
               </div>
               <div>
                 <h4 className="font-medium mb-2">Advanced Search</h4>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• Use <code className="bg-gray-100 px-1 rounded">#tag</code> to find tagged content</li>
-                  <li>• Use <code className="bg-gray-100 px-1 rounded">@username</code> to find user mentions</li>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Use <code className="bg-muted px-1 rounded">#tag</code> to find tagged content</li>
+                  <li>• Use <code className="bg-muted px-1 rounded">@username</code> to find user mentions</li>
                   <li>• Filter by category for specific topics</li>
                 </ul>
               </div>

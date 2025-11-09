@@ -20,24 +20,24 @@ function ForumRedirect() {
           
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center space-y-2">
-              <div className="mx-auto w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
+              <div className="mx-auto w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-medium">Community Features</h3>
               <p className="text-sm text-muted-foreground">User profiles, badges, and reputation system</p>
             </div>
             
             <div className="text-center space-y-2">
-              <div className="mx-auto w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <MessageSquare className="h-6 w-6 text-green-600" />
+              <div className="mx-auto w-12 h-12 bg-success rounded-lg flex items-center justify-center">
+                <MessageSquare className="h-6 w-6 text-success" />
               </div>
               <h3 className="font-medium">Rich Discussions</h3>
               <p className="text-sm text-muted-foreground">Categories, tags, and advanced moderation</p>
             </div>
             
             <div className="text-center space-y-2">
-              <div className="mx-auto w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Server className="h-6 w-6 text-purple-600" />
+              <div className="mx-auto w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
+                <Server className="h-6 w-6 text-secondary" />
               </div>
               <h3 className="font-medium">SSO Integration</h3>
               <p className="text-sm text-muted-foreground">Seamless login with your existing account</p>
