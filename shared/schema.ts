@@ -1,6 +1,19 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Custom vector type for pgvector extension
+const vector = customType<{ data: number[]; driverData: string }>({
+  dataType() {
+    return "vector(1536)"; // OpenAI text-embedding-3-small produces 1536-dimensional vectors
+  },
+  toDriver(value: number[]): string {
+    return JSON.stringify(value);
+  },
+  fromDriver(value: string): number[] {
+    return JSON.parse(value);
+  },
+});
 
 export const retailers = pgTable("retailers", {
   id: serial("id").primaryKey(),
@@ -24,6 +37,8 @@ export const products = pgTable("products", {
   image: text("image"),
   brand: text("brand"),
   model: text("model"),
+  embedding: vector("embedding"), // Vector embedding for semantic search
+  embeddingUpdatedAt: timestamp("embedding_updated_at"), // Track when embedding was last calculated
   createdAt: timestamp("created_at").defaultNow(),
 });
 

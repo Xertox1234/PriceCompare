@@ -24,6 +24,10 @@ interface SearchResult {
 export class SearchOrchestrationAgent extends BaseAgent {
   private openai: OpenAI;
   private retailers: Map<string, RetailerConfig>;
+  private queryGenerationCache: Map<string, { queries: string[]; timestamp: number }>;
+
+  // Cache size limit to prevent memory leaks
+  private readonly MAX_QUERY_GENERATION_CACHE_SIZE = 1000;
 
   constructor() {
     const config: AgentConfig = {
@@ -35,10 +39,12 @@ export class SearchOrchestrationAgent extends BaseAgent {
     };
 
     super(config);
-    
+
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     });
+
+    this.queryGenerationCache = new Map();
 
     this.retailers = new Map([
       ['amazon', {
@@ -129,6 +135,13 @@ export class SearchOrchestrationAgent extends BaseAgent {
   }
 
   private async generateSearchQueries(productName: string, category?: string): Promise<string[]> {
+    // Check cache first (7 day TTL)
+    const cacheKey = `${productName}:${category || 'none'}`;
+    const cached = this.queryGenerationCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 604800000) { // 7 days = 604800000ms
+      return cached.queries;
+    }
+
     try {
       const prompt = `
         Generate 3-5 optimized search queries for finding "${productName}" on e-commerce websites.
@@ -166,7 +179,21 @@ export class SearchOrchestrationAgent extends BaseAgent {
         .map(q => q.trim())
         .filter(q => q.length > 0) || [];
 
-      return queries.length > 0 ? queries : [productName];
+      const result = queries.length > 0 ? queries : [productName];
+
+      // Cache the result
+      this.queryGenerationCache.set(cacheKey, {
+        queries: result,
+        timestamp: Date.now()
+      });
+
+      // Enforce cache size limit
+      if (this.queryGenerationCache.size > this.MAX_QUERY_GENERATION_CACHE_SIZE) {
+        const keysToDelete = Array.from(this.queryGenerationCache.keys()).slice(0, this.queryGenerationCache.size - this.MAX_QUERY_GENERATION_CACHE_SIZE);
+        keysToDelete.forEach(key => this.queryGenerationCache.delete(key));
+      }
+
+      return result;
 
     } catch (error) {
       console.error('AI query generation failed:', error);
