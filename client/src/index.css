@@ -77,18 +77,55 @@
   * {
     border-color: hsl(var(--color-border));
   }
-  
+
   body {
     background-color: hsl(var(--color-background));
     color: hsl(var(--color-foreground));
     font-family: var(--font-family-sans);
     line-height: 1.6;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-family-heading);
     font-weight: 700;
     line-height: 1.2;
+  }
+}
+
+/* Reusable component utilities */
+@layer components {
+  /* Gradient utilities - replacing inline gradients throughout the app */
+  .gradient-brand {
+    background: linear-gradient(to right, hsl(var(--color-primary)), hsl(var(--color-secondary)));
+  }
+
+  .gradient-deal {
+    background: linear-gradient(to right, hsl(var(--color-destructive)), hsl(var(--color-secondary)));
+  }
+
+  .gradient-success {
+    background: linear-gradient(to right, hsl(var(--color-success)), hsl(120 50% 40%));
+  }
+
+  .gradient-dark {
+    background: linear-gradient(to right, hsl(220 13% 15%), hsl(220 13% 10%));
+  }
+
+  .gradient-text-brand {
+    background: linear-gradient(to right, hsl(var(--color-primary)), hsl(var(--color-secondary)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Rating star colors */
+  .star-filled {
+    fill: hsl(var(--color-warning));
+    color: hsl(var(--color-warning));
+  }
+
+  .star-empty {
+    color: hsl(var(--color-muted-foreground) / 0.3);
   }
 }
 
