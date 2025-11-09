@@ -14,7 +14,12 @@
     "test:ai": "vitest run server/ai/__tests__",
     "db:push": "drizzle-kit push",
     "migrate": "tsx scripts/run-migrations.ts",
-    "generate-embeddings": "tsx scripts/generate-embeddings.ts"
+    "generate-embeddings": "tsx scripts/generate-embeddings.ts",
+    "security:scan": "bash scripts/security-scan.sh",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:fix": "npm audit fix",
+    "security:check": "npm run security:scan && npm run security:audit",
+    "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

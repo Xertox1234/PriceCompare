@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { getRequiredEnv } from '../config/env-validation';
 
 /**
  * Rate Limiting Middleware
@@ -76,7 +77,8 @@ declare global {
 }
 
 const CSRF_TOKEN_LENGTH = 32;
-const CSRF_SECRET = process.env.CSRF_SECRET || crypto.randomBytes(32).toString('hex');
+// SECURITY: Required for secure CSRF token generation - never use fallback values
+const CSRF_SECRET = getRequiredEnv('CSRF_SECRET');
 
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
   // Skip CSRF for GET, HEAD, OPTIONS requests

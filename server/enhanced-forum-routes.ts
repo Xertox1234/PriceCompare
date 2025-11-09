@@ -77,9 +77,8 @@ export function registerEnhancedForumRoutes(app: Express) {
 
   app.post("/api/forum/topics/enhanced", requireAuth, async (req: any, res: any) => {
     try {
-      console.log("Enhanced topic request body:", JSON.stringify(req.body, null, 2));
-      console.log("User:", req.user?.id, req.user?.username);
-      
+      // SECURITY: Removed request body logging (may contain user content)
+
       // Basic validation - just check required fields manually
       if (!req.body.title || req.body.title.trim() === '') {
         return res.status(400).json({ error: ["Title is required"] });
