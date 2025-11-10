@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import type { ProductWithOffers } from "@shared/schema";
+import { PRODUCT_SKELETON_COUNT, LOAD_MORE_THRESHOLD } from "@/lib/constants";
 
 interface ProductGridProps {
   products: ProductWithOffers[];
@@ -33,7 +34,7 @@ export function ProductGrid({ products, isLoading, error, onAddToComparison }: P
     return (
       <section className="flex-1" aria-label="Loading products" role="status" aria-live="polite">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }, (_, i) => (
+          {Array.from({ length: PRODUCT_SKELETON_COUNT }, (_, i) => (
             <div key={i} className="bg-card rounded-lg shadow-sm border overflow-hidden">
               <Skeleton className="w-full h-48" />
               <div className="p-4 space-y-3">
@@ -85,7 +86,7 @@ export function ProductGrid({ products, isLoading, error, onAddToComparison }: P
       </div>
 
       {/* Load More Section - Placeholder for future pagination */}
-      {products.length >= 6 && (
+      {products.length >= LOAD_MORE_THRESHOLD && (
         <div className="mt-8 text-center">
           <Button variant="outline" className="px-6 py-3">
             Load More Results

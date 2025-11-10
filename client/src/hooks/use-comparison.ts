@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react";
 import type { ProductWithOffers } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-
-const MAX_COMPARISON_ITEMS = 4;
+import { MAX_COMPARISON_ITEMS } from "@/lib/constants";
 
 export function useComparison() {
   const [comparisonItems, setComparisonItems] = useState<ProductWithOffers[]>([]);

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Star, ShoppingCart, ExternalLink } from "lucide-react";
 import { ProductWithOffers } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { DEFAULT_PRODUCT_IMAGE } from "@/lib/constants";
 
 interface ProductCardProps {
   product: ProductWithOffers;
@@ -96,7 +97,7 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
     <Card className="rounded-2xl overflow-hidden group">
       <div className="relative">
         <img
-          src={product.image || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop"}
+          src={product.image || DEFAULT_PRODUCT_IMAGE}
           alt={product.description || product.name}
           className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
