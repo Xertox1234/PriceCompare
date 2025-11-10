@@ -1,4 +1,4 @@
-import { render, RenderOptions } from '@testing-library/react'
+import { render, RenderOptions, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactElement, ReactNode } from 'react'
 
@@ -34,4 +34,4 @@ const customRender = (
 ) => render(ui, { wrapper: AllTheProviders, ...options })
 
 export * from '@testing-library/react'
-export { customRender as render }
+export { customRender as render, screen, fireEvent, waitFor }
