@@ -210,7 +210,6 @@ export default function AdvancedForum() {
       topicForm.reset(); // Clear the form after successful submission
     },
     onError: (error) => {
-      console.error('Topic creation error:', error);
       // Show error to user
       alert(`Failed to create topic: ${error.message}`);
     }

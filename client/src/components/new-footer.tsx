@@ -7,7 +7,7 @@ export function NewFooter() {
 
   const handleFooterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Footer email signup:', footerEmail);
+    // TODO: Implement footer email signup API call
     setFooterEmail('');
   };
 

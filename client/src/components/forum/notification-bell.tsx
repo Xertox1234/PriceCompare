@@ -129,13 +129,12 @@ export function NotificationBell() {
     }
 
     // Navigate to related content
-    if (notification.relatedPost && notification.relatedTopic) {
-      // Navigate to post
-      console.log(`Navigate to topic ${notification.relatedTopic.id}, post ${notification.relatedPost.id}`);
-    } else if (notification.relatedTopic) {
-      // Navigate to topic
-      console.log(`Navigate to topic ${notification.relatedTopic.id}`);
-    }
+    // TODO: Implement navigation to topic/post when routing is set up
+    // if (notification.relatedPost && notification.relatedTopic) {
+    //   navigate to topic/post
+    // } else if (notification.relatedTopic) {
+    //   navigate to topic
+    // }
 
     setIsOpen(false);
   };

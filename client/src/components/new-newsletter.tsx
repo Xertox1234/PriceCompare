@@ -6,8 +6,8 @@ export function NewNewsletter() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle newsletter signup
-    console.log('Newsletter signup for:', email);
+    // TODO: Implement newsletter signup API call
+    // For now, just clear the input
     setEmail('');
   };
 

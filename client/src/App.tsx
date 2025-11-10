@@ -13,6 +13,7 @@ import Home from "@/pages/home";
 import Products from "@/pages/products";
 import NotFound from "@/pages/not-found";
 import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage } from "@/components/lazy";
+import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
 
 function Router() {
   const LoadingFallback = () => (
@@ -34,24 +35,32 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/products" component={Products} />
           <Route path="/search">
-            <Suspense fallback={<LoadingFallback />}>
-              <LazyAdvancedSearchPage />
-            </Suspense>
+            <RouteErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <LazyAdvancedSearchPage />
+              </Suspense>
+            </RouteErrorBoundary>
           </Route>
           <Route path="/search/advanced">
-            <Suspense fallback={<LoadingFallback />}>
-              <LazyAdvancedSearchPage />
-            </Suspense>
+            <RouteErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <LazyAdvancedSearchPage />
+              </Suspense>
+            </RouteErrorBoundary>
           </Route>
           <Route path="/forum">
-            <Suspense fallback={<LoadingFallback />}>
-              <LazyForumPage />
-            </Suspense>
+            <RouteErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <LazyForumPage />
+              </Suspense>
+            </RouteErrorBoundary>
           </Route>
           <Route path="/admin">
-            <Suspense fallback={<LoadingFallback />}>
-              <LazyAdminPage />
-            </Suspense>
+            <RouteErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <LazyAdminPage />
+              </Suspense>
+            </RouteErrorBoundary>
           </Route>
           <Route component={NotFound} />
         </Switch>
@@ -63,18 +72,20 @@ function Router() {
 
 function App() {
   return (
-    <HelmetProvider>
-      <ThemeProvider defaultTheme="light" storageKey="pricecompare-theme">
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <div className="min-h-screen bg-background">
-              <Router />
-              <Toaster />
-            </div>
-          </TooltipProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
-    </HelmetProvider>
+    <ErrorBoundary>
+      <HelmetProvider>
+        <ThemeProvider defaultTheme="light" storageKey="pricecompare-theme">
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <div className="min-h-screen bg-background">
+                <Router />
+                <Toaster />
+              </div>
+            </TooltipProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </HelmetProvider>
+    </ErrorBoundary>
   );
 }
 

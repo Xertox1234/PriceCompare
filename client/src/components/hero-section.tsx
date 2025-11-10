@@ -1,10 +1,11 @@
+const HERO_BACKGROUND_URL = 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1920&h=700&fit=crop';
+const HERO_BACKGROUND_STYLE = { backgroundImage: `url('${HERO_BACKGROUND_URL}')` };
+
 export function HeroSection() {
   return (
-    <section 
+    <section
       className="relative w-full h-[700px] bg-cover bg-center bg-no-repeat"
-      style={{
-        backgroundImage: "url('https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1920&h=700&fit=crop')"
-      }}
+      style={HERO_BACKGROUND_STYLE}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/20 flex items-center justify-end">
         <div className="max-w-[1280px] w-full mx-auto px-8 flex justify-end">

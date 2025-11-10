@@ -60,18 +60,8 @@ export function EnhancedSearchHeader({
     setQuery(searchQuery);
   }, [searchQuery]);
 
-  // Search mode and suggestions handling
-  useEffect(() => {
-    // Handle search mode changes silently
-    console.log(`Search mode changed to: ${searchMode}`);
-  }, [searchMode]);
-
-  useEffect(() => {
-    // Handle suggestions changes
-    if (suggestions.length > 0) {
-      console.log(`${suggestions.length} search suggestions available`);
-    }
-  }, [suggestions.length]);
+  // Search mode and suggestions are handled reactively by the component
+  // No additional side effects needed
 
   // Handle search submission
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -94,8 +84,6 @@ export function EnhancedSearchHeader({
     } : filters;
     
     onSearch(suggestion.query, optimizedFilters);
-    
-    console.log(`Selected suggestion: ${suggestion.query}`);
   }, [filters, onSearch]);
 
   // Handle input focus/blur
