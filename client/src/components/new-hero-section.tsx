@@ -6,8 +6,8 @@ export function NewHeroSection() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = () => {
-    // Handle search logic here
-    console.log('Searching for:', searchQuery);
+    // TODO: Implement search navigation
+    // For now, this is a placeholder
   };
 
   return (

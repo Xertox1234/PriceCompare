@@ -66,7 +66,7 @@ export function useEnhancedProductsSearch({
             }
           } catch (error) {
             // Fall back to advanced search if intent analysis fails
-            console.warn('Intent analysis failed, using advanced search', error);
+            // Silently fall through to use default endpoint
           }
           break;
         case 'basic':
@@ -107,7 +107,8 @@ export function useEnhancedProductsSearch({
       );
     },
     onError: (error) => {
-      console.error('Enhanced search failed:', error);
+      // Error is handled by React Query and displayed via UI
+      // Additional error reporting could be added here if needed
     }
   });
 
