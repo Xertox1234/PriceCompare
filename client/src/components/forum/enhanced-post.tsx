@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  Heart, MessageSquare, Share2, Flag, Edit3, Trash2, 
+import {
+  Heart, MessageSquare, Share2, Flag, Edit3, Trash2,
   Clock, User, Award, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatDistanceToNow } from 'date-fns';
+import { sanitizeMarkdown } from '@/lib/sanitize';
 
 interface EnhancedPostProps {
   post: {
@@ -110,12 +111,16 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
   };
 
   const renderContent = (content: string) => {
-    // Basic markdown-like rendering
-    return content
+    // Basic markdown-like rendering with XSS protection
+    // First, do the replacements on the raw content
+    const formatted = content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/@(\w+)/g, '<span class="text-primary font-medium">@$1</span>')
       .replace(/\n/g, '<br>');
+
+    // Then sanitize to remove any malicious content
+    return sanitizeMarkdown(formatted);
   };
 
   return (

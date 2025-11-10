@@ -7,12 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Search, MessageSquare, Hash, User, Clock, Heart, 
+import {
+  Search, MessageSquare, Hash, User, Clock, Heart,
   Filter, SortAsc, X
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatDistanceToNow } from 'date-fns';
+import { sanitizeHighlight } from '@/lib/sanitize';
 
 interface SearchResult {
   posts: Array<{
@@ -129,9 +130,12 @@ export function ForumSearch() {
 
   const highlightText = (text: string, searchQuery: string) => {
     if (!searchQuery.trim()) return text;
-    
+
     const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return text.replace(regex, '<mark class="bg-warning px-1 rounded">$1</mark>');
+    const highlighted = text.replace(regex, '<mark class="bg-warning px-1 rounded">$1</mark>');
+
+    // Sanitize to prevent XSS attacks via search query or text content
+    return sanitizeHighlight(highlighted);
   };
 
   const renderPostResult = (post: any) => (
