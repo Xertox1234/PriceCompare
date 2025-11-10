@@ -70,7 +70,12 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
   // Memoize click handler for View Deal button
   const handleViewDeal = useCallback(() => {
     if (bestOffer?.productUrl) {
-      window.open(bestOffer.productUrl, '_blank');
+      // Security: Use noopener and noreferrer to prevent tabnabbing
+      const link = document.createElement('a');
+      link.href = bestOffer.productUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.click();
     }
   }, [bestOffer?.productUrl]);
 

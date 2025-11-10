@@ -55,15 +55,17 @@ export function useComparison() {
   }, [toast]);
 
   const clearComparison = useCallback(() => {
-    if (comparisonItems.length > 0) {
-      toast({
-        title: "Comparison cleared",
-        description: "All products have been removed from your comparison list.",
-        variant: "default",
-      });
-    }
-    setComparisonItems([]);
-  }, [comparisonItems.length, toast]);
+    setComparisonItems((current) => {
+      if (current.length > 0) {
+        toast({
+          title: "Comparison cleared",
+          description: "All products have been removed from your comparison list.",
+          variant: "default",
+        });
+      }
+      return [];
+    });
+  }, [toast]);
 
   return {
     comparisonItems,

@@ -2,6 +2,7 @@ import { ProductCard } from "./product-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
+import { useLocation } from "wouter";
 import type { ProductWithOffers } from "@shared/schema";
 
 interface ProductGridProps {
@@ -12,6 +13,8 @@ interface ProductGridProps {
 }
 
 export function ProductGrid({ products, isLoading, error, onAddToComparison }: ProductGridProps) {
+  const [, setLocation] = useLocation();
+
   if (error) {
     return (
       <section className="flex-1" aria-label="Product comparison results">
@@ -59,7 +62,7 @@ export function ProductGrid({ products, isLoading, error, onAddToComparison }: P
             <p className="text-muted-foreground mb-4">
               Try adjusting your search query or filters to find what you're looking for.
             </p>
-            <Button variant="outline" onClick={() => window.location.reload()}>
+            <Button variant="outline" onClick={() => setLocation('/products')}>
               Clear Search
             </Button>
           </div>
