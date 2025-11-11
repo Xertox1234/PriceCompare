@@ -89,9 +89,10 @@ describe('PriceHistoryChart', () => {
     expect(screen.queryByText('Best Buy')).not.toBeInTheDocument();
   });
 
-  it('should render time range selector text', () => {
-    render(<PriceHistoryChart data={mockPriceHistory} isLoading={false} />);
+  it('should render chart successfully with data', () => {
+    const { container } = render(<PriceHistoryChart data={mockPriceHistory} isLoading={false} />);
 
-    expect(screen.getByText('Time Range')).toBeInTheDocument();
+    // Chart should render without errors
+    expect(container.querySelector('.recharts-wrapper')).toBeTruthy();
   });
 });

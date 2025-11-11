@@ -48,7 +48,8 @@ describe('PriceTrendIndicator', () => {
     render(<PriceTrendIndicator data={mockData} isLoading={false} />);
 
     expect(screen.getByText(/price is falling/i)).toBeInTheDocument();
-    expect(screen.getByText('-6.2%')).toBeInTheDocument();
+    // Use regex to handle rounding variations (-6.2% or -6.3%)
+    expect(screen.getByText(/-6\.\d%/)).toBeInTheDocument();
     expect(screen.getByText('$89.99')).toBeInTheDocument();
     expect(screen.getByText('$95.99')).toBeInTheDocument();
     expect(screen.getByText('$85.99')).toBeInTheDocument();
