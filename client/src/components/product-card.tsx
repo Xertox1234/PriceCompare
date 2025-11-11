@@ -1,11 +1,12 @@
-import { memo, useMemo, useCallback } from "react";
+import { memo, useMemo, useCallback, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Star, ShoppingCart, ExternalLink } from "lucide-react";
+import { Star, ShoppingCart, ExternalLink, TrendingUp } from "lucide-react";
 import { ProductWithOffers } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { DEFAULT_PRODUCT_IMAGE } from "@/lib/constants";
+import { ProductDetailDialog } from "./product-detail-dialog";
 
 interface ProductCardProps {
   product: ProductWithOffers;
@@ -13,6 +14,8 @@ interface ProductCardProps {
 }
 
 export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProps) => {
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+
   // Memoize bestOffer calculation to avoid expensive reduce on every render
   const bestOffer = useMemo(() => {
     if (!product.offers || product.offers.length === 0) return null;
@@ -178,23 +181,34 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
         </div>
 
         {/* Action buttons */}
-        <div className="flex space-x-3 pt-2">
+        <div className="space-y-2 pt-2">
+          <div className="flex space-x-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddToComparison}
+              className="flex-1 hover:border-primary hover:text-primary"
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Compare
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1 gradient-brand text-white hover:opacity-90"
+              onClick={handleViewDeal}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              View Deal
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={onAddToComparison}
-            className="flex-1 hover:border-primary hover:text-primary"
+            className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300"
+            onClick={() => setDetailDialogOpen(true)}
           >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Compare
-          </Button>
-          <Button
-            size="sm"
-            className="flex-1 gradient-brand text-white hover:opacity-90"
-            onClick={handleViewDeal}
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            View Deal
+            <TrendingUp className="h-4 w-4 mr-2" />
+            View Price History
           </Button>
         </div>
         
@@ -205,6 +219,13 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
           </p>
         </div>
       </div>
+
+      {/* Product Detail Dialog with Price History */}
+      <ProductDetailDialog
+        product={product}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+      />
     </Card>
   );
 }, (prevProps, nextProps) => {

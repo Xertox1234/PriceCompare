@@ -61,6 +61,21 @@ export const productOffers = pgTable("product_offers", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+// Price history tracking for historical price trends and analysis
+export const priceHistory = pgTable("price_history", {
+  id: serial("id").primaryKey(),
+  productOfferId: integer("product_offer_id").references(() => productOffers.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(), // Denormalized for fast queries
+  retailerId: integer("retailer_id").references(() => retailers.id).notNull(), // Denormalized for fast queries
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  availability: text("availability"),
+  rating: decimal("rating", { precision: 2, scale: 1 }),
+  reviewCount: integer("review_count"),
+  recordedAt: timestamp("recorded_at").notNull(), // When this price snapshot was recorded
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Users table for authentication with Discourse-like features
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -276,6 +291,11 @@ export const insertProductOfferSchema = createInsertSchema(productOffers).omit({
   lastUpdated: true,
 });
 
+export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   passwordHash: true,
@@ -354,6 +374,7 @@ export const insertPostRevisionSchema = createInsertSchema(postRevisions).omit({
 export type Retailer = typeof retailers.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type ProductOffer = typeof productOffers.$inferSelect;
+export type PriceHistory = typeof priceHistory.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type ForumCategory = typeof forumCategories.$inferSelect;
@@ -373,6 +394,7 @@ export type PostRevision = typeof postRevisions.$inferSelect;
 export type InsertRetailer = z.infer<typeof insertRetailerSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertProductOffer = z.infer<typeof insertProductOfferSchema>;
+export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
 export type InsertForumCategory = z.infer<typeof insertForumCategorySchema>;
