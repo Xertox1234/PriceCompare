@@ -5,9 +5,17 @@ import { db } from "./db";
 import { insertProductSchema, insertRetailerSchema, insertProductOfferSchema, insertUserSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { forumStorage } from "./forum-storage";
-import { passport, createUser, findUserByEmail, findUserById } from "./auth";
+import { passport, createUser, findUserByEmail, findUserById, hashPassword } from "./auth";
 import { generateCsrfToken } from "./middleware/security";
 import { logSecurityEvent, SecurityEventType } from "./utils/security-logger";
+import {
+  createPasswordResetToken,
+  validatePasswordResetToken,
+  markTokenAsUsed,
+  getUserByResetToken,
+  isRateLimitExceeded
+} from "./services/password-reset-service";
+import { emailService } from "./services/email-service";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
 import * as schema from "@shared/schema";
@@ -282,6 +290,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ success: true });
     });
+  });
+
+  // Password reset - Request token
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // SECURITY: Always return success to prevent email enumeration
+      // Even if the user doesn't exist, we return a success message
+      const user = await findUserByEmail(email);
+
+      if (user) {
+        // Check rate limiting to prevent abuse
+        const rateLimitExceeded = await isRateLimitExceeded(user.id);
+        if (rateLimitExceeded) {
+          // Log the rate limit event
+          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
+            email,
+            success: false,
+            message: "Rate limit exceeded",
+            metadata: {
+              rateLimitExceeded: true,
+            },
+          });
+
+          // SECURITY: Still return success to prevent email enumeration
+          return res.json({
+            success: true,
+            message: "If an account exists with this email, a password reset link has been sent.",
+          });
+        }
+
+        // Check if email service is configured
+        if (!emailService.isReady()) {
+          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
+            email,
+            success: false,
+            message: "Email service not configured",
+          });
+
+          return res.status(503).json({
+            error: "Password reset is temporarily unavailable. Please contact support.",
+          });
+        }
+
+        // Create a password reset token
+        const token = await createPasswordResetToken(
+          user.id,
+          req.ip,
+          req.get("user-agent")
+        );
+
+        // Send the password reset email
+        const emailSent = await emailService.sendPasswordResetEmail(
+          user.email,
+          token,
+          user.username
+        );
+
+        if (emailSent) {
+          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
+            userId: user.id,
+            email: user.email,
+            username: user.username,
+            success: true,
+          });
+        } else {
+          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
+            userId: user.id,
+            email: user.email,
+            username: user.username,
+            success: false,
+            message: "Failed to send email",
+          });
+        }
+      } else {
+        // User doesn't exist, but log this attempt
+        logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
+          email,
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // SECURITY: Always return the same response regardless of whether user exists
+      res.json({
+        success: true,
+        message: "If an account exists with this email, a password reset link has been sent.",
+      });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      // SECURITY: Don't reveal internal errors
+      res.json({
+        success: true,
+        message: "If an account exists with this email, a password reset link has been sent.",
+      });
+    }
+  });
+
+  // Password reset - Validate token
+  app.get("/api/auth/reset-password/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+
+      const tokenRecord = await validatePasswordResetToken(token);
+
+      if (!tokenRecord) {
+        return res.status(400).json({
+          error: "Invalid or expired password reset token",
+          expired: true,
+        });
+      }
+
+      // Get user info (without sensitive data)
+      const user = await getUserByResetToken(token);
+
+      if (!user) {
+        return res.status(400).json({
+          error: "Invalid password reset token",
+        });
+      }
+
+      res.json({
+        success: true,
+        email: user.email,
+        username: user.username,
+      });
+    } catch (error) {
+      console.error("Validate reset token error:", error);
+      res.status(500).json({ error: "An error occurred" });
+    }
+  });
+
+  // Password reset - Complete reset
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({
+          error: "Token and password are required",
+        });
+      }
+
+      // Validate password strength
+      if (password.length < 8) {
+        return res.status(400).json({
+          error: "Password must be at least 8 characters long",
+        });
+      }
+
+      if (!/[a-z]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one lowercase letter",
+        });
+      }
+
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one uppercase letter",
+        });
+      }
+
+      if (!/[0-9]/.test(password)) {
+        return res.status(400).json({
+          error: "Password must contain at least one number",
+        });
+      }
+
+      // Validate the token
+      const user = await getUserByResetToken(token);
+
+      if (!user) {
+        logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
+          success: false,
+          message: "Invalid or expired token",
+        });
+
+        return res.status(400).json({
+          error: "Invalid or expired password reset token",
+        });
+      }
+
+      // Hash the new password
+      const newPasswordHash = await hashPassword(password);
+
+      // Update the user's password
+      await db
+        .update(schema.users)
+        .set({
+          passwordHash: newPasswordHash,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, user.id));
+
+      // Mark the token as used
+      await markTokenAsUsed(token);
+
+      // Log the successful password reset
+      logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
+        userId: user.id,
+        email: user.email,
+        username: user.username,
+        success: true,
+      });
+
+      // Send confirmation email
+      if (emailService.isReady()) {
+        await emailService.sendPasswordResetConfirmationEmail(
+          user.email,
+          user.username
+        );
+      }
+
+      res.json({
+        success: true,
+        message: "Password has been reset successfully. You can now log in with your new password.",
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "An error occurred while resetting password" });
+    }
   });
 
   app.get("/api/auth/user", async (req, res) => {

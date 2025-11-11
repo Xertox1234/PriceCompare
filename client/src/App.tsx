@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Home from "@/pages/home";
 import Products from "@/pages/products";
 import NotFound from "@/pages/not-found";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage } from "@/components/lazy";
 import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
 
@@ -34,6 +36,8 @@ function Router() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/products" component={Products} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route path="/search">
             <RouteErrorBoundary>
               <Suspense fallback={<LoadingFallback />}>

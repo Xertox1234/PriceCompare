@@ -87,6 +87,19 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Password reset tokens for secure password recovery
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isUsed: boolean("is_used").default(false),
+  usedAt: timestamp("used_at"),
+  ipAddress: varchar("ip_address", { length: 45 }), // IPv6 max length
+  userAgent: varchar("user_agent", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Forum categories
 export const forumCategories = pgTable("forum_categories", {
   id: serial("id").primaryKey(),
@@ -272,6 +285,11 @@ export const insertUserSchema = createInsertSchema(users).omit({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertForumCategorySchema = createInsertSchema(forumCategories).omit({
   id: true,
   createdAt: true,
@@ -337,6 +355,7 @@ export type Retailer = typeof retailers.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type ProductOffer = typeof productOffers.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type ForumCategory = typeof forumCategories.$inferSelect;
 export type ForumTopic = typeof forumTopics.$inferSelect;
 export type ForumPost = typeof forumPosts.$inferSelect;
@@ -355,6 +374,7 @@ export type InsertRetailer = z.infer<typeof insertRetailerSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertProductOffer = z.infer<typeof insertProductOfferSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
 export type InsertForumCategory = z.infer<typeof insertForumCategorySchema>;
 export type InsertForumTopic = z.infer<typeof insertForumTopicSchema>;
 export type InsertForumPost = z.infer<typeof insertForumPostSchema>;
