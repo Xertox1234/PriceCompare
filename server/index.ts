@@ -8,6 +8,7 @@ import { registerHybridDataRoutes } from "./hybrid-data-routes";
 import { registerDiscourseRoutes } from "./discourse-routes";
 import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
 import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
+import { registerPriceHistoryRoutes } from "./price-history-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
@@ -18,6 +19,7 @@ import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-li
 import { initializeRedis } from "./config/redis";
 import { createSessionStore } from "./config/session-store";
 import { cleanupExpiredTokens } from "./services/password-reset-service";
+import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
 
 // Validate environment variables on startup
 validateEnvironment();
@@ -146,6 +148,9 @@ app.use(sanitizeInput);
   // Register advanced search routes
   registerAdvancedSearchRoutes(app);
 
+  // Register price history routes
+  registerPriceHistoryRoutes(app);
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -174,6 +179,9 @@ app.use(sanitizeInput);
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Start price history scheduled jobs
+  startPriceHistoryJobs();
 
   // Password reset token cleanup - run every hour
   const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
