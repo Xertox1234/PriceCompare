@@ -1,8 +1,17 @@
 import { Express, Request, Response } from "express";
 import { requireAuth, requireAdmin } from './auth';
+import { validateRequest } from './validation';
+import { hybridDataCollectSchema } from './validation/admin-schemas';
+import { z } from 'zod';
 import { hybridDataCollector } from "./services/hybrid-data-collector";
 
-export function registerHybridDataRoutes(app: Express): void {
+// Validation schema for hybrid search
+const hybridSearchSchema = z.object({
+  query: z.string().min(1, 'Search query is required').max(200),
+  retailers: z.array(z.string()).min(1).max(10).optional(),
+});
+
+export function registerHybridDataRoutes(app: Express): void{
   
   // Get system status and data source capabilities
   app.get("/api/hybrid/status", requireAuth, requireAdmin, async (req: any, res: Response) => {
@@ -39,25 +48,26 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Search products using hybrid approach
-  app.post("/api/hybrid/search", requireAuth, requireAdmin, async (req: any, res: Response) => {
-    try {
-      const { query, retailers } = req.body;
-      
-      if (!query) {
-        return res.status(400).json({ error: "Search query is required" });
-      }
+  app.post(
+    "/api/hybrid/search",
+    requireAuth,
+    requireAdmin,
+    validateRequest(hybridSearchSchema, 'body'),
+    async (req: Request, res: Response) => {
+      try {
+        const { query, retailers } = req.body as { query: string; retailers?: string[] };
 
-      const targetRetailers = retailers || ['amazon', 'walmart', 'target', 'bestbuy'];
-      const results = [];
+        const targetRetailers = retailers || ['amazon', 'walmart', 'target', 'bestbuy'];
+        const results = [];
 
-      // Collect data from multiple retailers in parallel
-      const searchPromises = targetRetailers.map(async (retailer: string) => {
-        try {
-          const products = await hybridDataCollector.collectProductData(retailer, query);
-          return { retailer, products, success: true };
-        } catch (error) {
-          console.error(`Search failed for ${retailer}:`, error);
-          return { 
+        // Collect data from multiple retailers in parallel
+        const searchPromises = targetRetailers.map(async (retailer: string) => {
+          try {
+            const products = await hybridDataCollector.collectProductData(retailer, query);
+            return { retailer, products, success: true };
+          } catch (error) {
+            console.error(`Search failed for ${retailer}:`, error);
+            return { 
             retailer, 
             products: [], 
             success: false, 

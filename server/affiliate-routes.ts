@@ -3,10 +3,21 @@ import { db } from './db.js';
 import { retailers, productOffers } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import { requireAuth, requireAdmin } from './auth';
+import { validateRequest } from './validation';
+import {
+  affiliateConfigUpdateSchema,
+  idParamSchema,
+} from './validation/admin-schemas';
+import { z } from 'zod';
 import { affiliateLinkService } from './services/affiliate-link-service.js';
 import { AffiliateLinkAgent } from './agents/affiliate-agent.js';
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
+
+// Validation schema for testing affiliate links
+const testAffiliateLinkSchema = z.object({
+  testUrl: z.string().url('Test URL must be a valid URL'),
+});
 
 export function registerAffiliateRoutes(app: Express): void {
   // Initialize affiliate agent
@@ -83,25 +94,27 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Test affiliate link generation for retailer
-  app.post("/api/admin/retailers/:id/test-affiliate-link", requireAuth, requireAdmin, async (req: any, res: Response) => {
-    try {
-      const retailerId = parseInt(req.params.id);
-      const { testUrl } = req.body;
+  app.post(
+    "/api/admin/retailers/:id/test-affiliate-link",
+    requireAuth,
+    requireAdmin,
+    validateRequest(idParamSchema, 'params'),
+    validateRequest(testAffiliateLinkSchema, 'body'),
+    async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params as { id: number };
+        const { testUrl } = req.body as { testUrl: string };
 
-      if (!testUrl) {
-        return res.status(400).json({ error: 'Test URL is required' });
-      }
+        const result = await affiliateLinkService.generateAffiliateLink(id, testUrl);
 
-      const result = await affiliateLinkService.generateAffiliateLink(retailerId, testUrl);
-      
-      if (result.success && result.affiliateUrl) {
-        const isHealthy = await affiliateLinkService.validateAffiliateLink(result.affiliateUrl);
-        
-        res.json({
-          success: true,
-          originalUrl: testUrl,
-          affiliateUrl: result.affiliateUrl,
-          isHealthy,
+        if (result.success && result.affiliateUrl) {
+          const isHealthy = await affiliateLinkService.validateAffiliateLink(result.affiliateUrl);
+
+          res.json({
+            success: true,
+            originalUrl: testUrl,
+            affiliateUrl: result.affiliateUrl,
+            isHealthy,
           generationTime: new Date().toISOString()
         });
       } else {

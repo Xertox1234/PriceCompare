@@ -1,6 +1,12 @@
 import type { Express, Request, Response } from "express";
 import { sendErrorResponse, ErrorMessages } from './utils/error-handler';
 import { requireAuth, requireAdmin } from './auth';
+import { validateRequest } from './validation';
+import {
+  scrapingInitializeSchema,
+  scrapingSearchSchema,
+  paginationSchema,
+} from './validation/admin-schemas';
 import { CoordinationAgent } from './agents/coordinator-agent.js';
 import { ProductDiscoveryAgent } from './agents/discovery-agent.js';
 import { SearchOrchestrationAgent } from './agents/search-agent.js';
@@ -66,47 +72,59 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Trigger trend discovery
-  app.post("/api/scraping/discover-trends", requireAuth, requireAdmin, async (req: any, res: Response) => {
-    try {
-      await initializeAgents();
-      
-      const { sources = ['google_trends', 'seasonal'], categories, limit = 20 } = req.body;
-      
-      if (!coordinationAgent) {
-        return res.status(500).json({ error: "Coordination agent not initialized" });
+  app.post(
+    "/api/scraping/discover-trends",
+    requireAuth,
+    requireAdmin,
+    validateRequest(scrapingInitializeSchema, 'body'),
+    async (req: Request, res: Response) => {
+      try {
+        await initializeAgents();
+
+        const { sources, categories, limit } = req.body;
+
+        if (!coordinationAgent) {
+          return res.status(500).json({ error: "Coordination agent not initialized" });
+        }
+
+        const result = await coordinationAgent.processTask({
+          action: 'discover_trends',
+          sources,
+          categories,
+          limit
+        });
+
+        res.json({
+          success: true,
+          message: "Trend discovery completed",
+          result
+        });
+      } catch (error) {
+        console.error('Trend discovery failed:', error);
+        res.status(500).json({
+          error: "Trend discovery failed",
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
       }
-
-      const result = await coordinationAgent.processTask({
-        action: 'discover_trends',
-        sources,
-        categories,
-        limit
-      });
-
-      res.json({ 
-        success: true, 
-        message: "Trend discovery completed",
-        result
-      });
-    } catch (error) {
-      console.error('Trend discovery failed:', error);
-      res.status(500).json({ 
-        error: "Trend discovery failed",
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
     }
-  });
+  );
 
   // Get trending products
-  app.get("/api/scraping/trending-products", requireAuth, requireAdmin, async (req: any, res: Response) => {
-    try {
-      const { limit = 50, status = 'discovered' } = req.query;
-      
-      const products = await db.select()
-        .from(trendingProducts)
-        .where(eq(trendingProducts.status, status as string))
-        .orderBy(desc(trendingProducts.trendScore))
-        .limit(parseInt(limit as string));
+  app.get(
+    "/api/scraping/trending-products",
+    requireAuth,
+    requireAdmin,
+    validateRequest(paginationSchema, 'query'),
+    async (req: Request, res: Response) => {
+      try {
+        const { limit } = req.query as { limit: number };
+        const status = (req.query.status as string) || 'discovered';
+
+        const products = await db.select()
+          .from(trendingProducts)
+          .where(eq(trendingProducts.status, status))
+          .orderBy(desc(trendingProducts.trendScore))
+          .limit(limit);
 
       res.json({ 
         success: true, 
