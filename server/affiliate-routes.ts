@@ -31,7 +31,7 @@ export function registerAffiliateRoutes(app: Express): void {
   };
 
   // Get all retailers with affiliate status
-  app.get("/api/admin/retailers/affiliate", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/admin/retailers/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const allRetailers = await db.select().from(retailers);
       
@@ -55,7 +55,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Update retailer affiliate configuration
-  app.put("/api/admin/retailers/:id/affiliate", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.put("/api/admin/retailers/:id/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailerId = parseInt(req.params.id);
       const {
@@ -131,7 +131,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Generate affiliate links for retailer
-  app.post("/api/admin/retailers/:id/generate-affiliate-links", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/admin/retailers/:id/generate-affiliate-links", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailerId = parseInt(req.params.id);
       const { limit = 50 } = req.body;
@@ -152,7 +152,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Get affiliate link statistics
-  app.get("/api/admin/affiliate-stats", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/admin/affiliate-stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { retailerId } = req.query;
       
@@ -182,7 +182,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Start affiliate agent
-  app.post("/api/admin/affiliate-agent/start", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/admin/affiliate-agent/start", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const agent = await initializeAffiliateAgent();
       const stats = await agent.getStats();

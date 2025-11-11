@@ -9,7 +9,7 @@ export interface GoogleSearchResult {
   formattedUrl: string;
   htmlTitle?: string;
   htmlSnippet?: string;
-  pagemap?: any;
+  pagemap?: Record<string, unknown>; // Google's pagemap structure varies by result
 }
 
 export interface GoogleSearchResponse {
@@ -60,7 +60,7 @@ export class GoogleCustomSearchService {
   /**
    * Generate cache key from search parameters
    */
-  private getCacheKey(query: string, retailerDomain: string = '', options: any = {}): string {
+  private getCacheKey(query: string, retailerDomain: string = '', options: Record<string, unknown> = {}): string {
     return JSON.stringify({ query, retailerDomain, ...options });
   }
 

@@ -14,7 +14,7 @@ const hybridSearchSchema = z.object({
 export function registerHybridDataRoutes(app: Express): void{
   
   // Get system status and data source capabilities
-  app.get("/api/hybrid/status", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       res.json({
@@ -31,7 +31,7 @@ export function registerHybridDataRoutes(app: Express): void{
   });
 
   // Get retailer capabilities (API vs scraping)
-  app.get("/api/hybrid/retailers/capabilities", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/retailers/capabilities", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const capabilities = await hybridDataCollector.getRetailerCapabilities();
       res.json({
@@ -112,7 +112,7 @@ export function registerHybridDataRoutes(app: Express): void{
   });
 
   // Test specific retailer data source
-  app.post("/api/hybrid/test/:retailer", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/hybrid/test/:retailer", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailer = req.params.retailer;
       const { query = 'test product' } = req.body;
@@ -140,7 +140,7 @@ export function registerHybridDataRoutes(app: Express): void{
   });
 
   // Get data source performance metrics
-  app.get("/api/hybrid/metrics", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/metrics", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       
@@ -193,7 +193,7 @@ export function registerHybridDataRoutes(app: Express): void{
   });
 
   // Force refresh API health status
-  app.post("/api/hybrid/health/refresh", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/hybrid/health/refresh", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const capabilities = await hybridDataCollector.getRetailerCapabilities();
       
@@ -226,7 +226,7 @@ export function registerHybridDataRoutes(app: Express): void{
   });
 
   // Switch retailer data source (API to scraping or vice versa)
-  app.post("/api/hybrid/retailer/:retailer/switch-source", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/hybrid/retailer/:retailer/switch-source", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailer = req.params.retailer;
       const { source } = req.body; // 'api' or 'scraping'
@@ -263,7 +263,7 @@ export function registerHybridDataRoutes(app: Express): void{
   });
 
   // Get cost analysis for API usage
-  app.get("/api/hybrid/costs", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/costs", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       
