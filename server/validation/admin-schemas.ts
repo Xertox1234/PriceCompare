@@ -133,6 +133,24 @@ export const paginationSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
+// SECURITY: Validation schemas for query parameters to prevent injection attacks
+export const trendingProductsQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  status: z.enum(['discovered', 'approved', 'rejected', 'archived']).optional().default('discovered'),
+});
+
+export const productSearchQuerySchema = z.object({
+  productName: z.string().min(1).max(200),
+  category: z.string().max(100).optional(),
+  retailers: z.array(z.enum(['amazon', 'walmart', 'target', 'bestbuy', 'ebay'])).optional(),
+});
+
+export const googleSearchQuerySchema = z.object({
+  query: z.string().min(1).max(200),
+  retailers: z.array(z.string().max(50)).max(10).optional(),
+  maxResults: z.coerce.number().int().positive().max(50).optional().default(5),
+});
+
 export const idParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 });

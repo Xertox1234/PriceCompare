@@ -6,6 +6,9 @@ import {
   scrapingInitializeSchema,
   scrapingSearchSchema,
   paginationSchema,
+  trendingProductsQuerySchema,
+  productSearchQuerySchema,
+  googleSearchQuerySchema,
 } from './validation/admin-schemas';
 import { CoordinationAgent } from './agents/coordinator-agent.js';
 import { ProductDiscoveryAgent } from './agents/discovery-agent.js';
@@ -114,11 +117,11 @@ export function registerScrapingRoutes(app: Express): void {
     "/api/scraping/trending-products",
     requireAuth,
     requireAdmin,
-    validateRequest(paginationSchema, 'query'),
+    validateRequest(trendingProductsQuerySchema, 'query'),
     async (req: Request, res: Response) => {
       try {
-        const { limit } = req.query as { limit: number };
-        const status = (req.query.status as string) || 'discovered';
+        // SECURITY: Using validated query parameters
+        const { limit, status } = req.query as { limit: number; status: string };
 
         const products = await db.select()
           .from(trendingProducts)
@@ -166,15 +169,16 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Manual product search
-  app.post("/api/scraping/search-product", requireAuth, requireAdmin, async (req: Request, res: Response) => {
-    try {
-      await initializeAgents();
-      
-      const { productName, category, retailers = ['amazon', 'walmart', 'target'] } = req.body;
-      
-      if (!productName) {
-        return res.status(400).json({ error: "Product name is required" });
-      }
+  app.post("/api/scraping/search-product",
+    requireAuth,
+    requireAdmin,
+    validateRequest(productSearchQuerySchema, 'body'),
+    async (req: Request, res: Response) => {
+      try {
+        await initializeAgents();
+
+        // SECURITY: Using validated request body
+        const { productName, category, retailers = ['amazon', 'walmart', 'target'] } = req.body;
 
       if (!searchAgent) {
         return res.status(500).json({ error: "Search agent not initialized" });
@@ -249,13 +253,14 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Search products using Google Custom Search
-  app.post("/api/scraping/google-search", requireAuth, requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const { query, retailers = ['amazon.com', 'walmart.com', 'target.com'], maxResults = 5 } = req.body;
-      
-      if (!query) {
-        return res.status(400).json({ error: "Search query is required" });
-      }
+  app.post("/api/scraping/google-search",
+    requireAuth,
+    requireAdmin,
+    validateRequest(googleSearchQuerySchema, 'body'),
+    async (req: Request, res: Response) => {
+      try {
+        // SECURITY: Using validated request body
+        const { query, retailers = ['amazon.com', 'walmart.com', 'target.com'], maxResults = 5 } = req.body;
 
       if (!googleSearchService.isConfigured()) {
         return res.status(500).json({ 

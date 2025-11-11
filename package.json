@@ -12,13 +12,16 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ai": "vitest run server/ai/__tests__",
+    "test:security": "vitest run server/__tests__/security",
     "db:push": "drizzle-kit push",
     "migrate": "tsx scripts/run-migrations.ts",
     "generate-embeddings": "tsx scripts/generate-embeddings.ts",
     "security:scan": "bash scripts/security-scan.sh",
     "security:audit": "npm audit --audit-level=moderate",
     "security:fix": "npm audit fix",
-    "security:check": "npm run security:scan && npm run security:audit",
+    "security:check": "bash scripts/security-checks.sh",
+    "security:full": "npm run security:check && npm run test:security",
+    "lint:security": "eslint --config .eslintrc.security.json server/**/*.ts",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
   },
   "dependencies": {

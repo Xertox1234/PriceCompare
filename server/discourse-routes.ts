@@ -41,8 +41,34 @@ function verifySSO(sso: string, sig: string): boolean {
     .createHmac('sha256', DISCOURSE_SSO_SECRET)
     .update(sso)
     .digest('hex');
-    
+
   return computedSig === sig;
+}
+
+/**
+ * Verify webhook signature from Discourse
+ * SECURITY: Critical for preventing unauthorized webhook submissions
+ */
+function verifyWebhookSignature(payload: any, signature: string | undefined): boolean {
+  if (!signature) {
+    return false;
+  }
+
+  const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  const computedSig = crypto
+    .createHmac('sha256', DISCOURSE_SSO_SECRET)
+    .update(payloadString)
+    .digest('hex');
+
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'hex'),
+      Buffer.from(computedSig, 'hex')
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -108,16 +134,24 @@ export function registerDiscourseRoutes(app: Express): void {
 
   /**
    * Discourse webhook endpoint for user synchronization
+   * SECURITY: Requires signature verification to prevent unauthorized webhook submissions
    */
   app.post("/discourse/webhook", async (req: Request, res: Response) => {
     try {
+      // SECURITY: Verify webhook signature before processing
+      const signature = req.headers['x-discourse-event-signature'] as string;
+      if (!verifyWebhookSignature(req.body, signature)) {
+        console.warn('Discourse webhook signature verification failed');
+        return res.status(403).json({ error: 'Invalid webhook signature' });
+      }
+
       const { event_type, user } = req.body;
-      
+
       if (event_type === 'user_created' && user) {
         // Sync Discourse user creation back to main app if needed
         console.log('Discourse user created:', user);
       }
-      
+
       res.json({ success: true });
     } catch (error) {
       console.error('Discourse webhook error:', error);

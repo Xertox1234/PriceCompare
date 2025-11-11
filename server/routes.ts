@@ -11,6 +11,7 @@ import { z } from "zod";
 import * as schema from "@shared/schema";
 import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 import { getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
+import { parseIntSafe, parseIntOptional } from "./utils/validation-helpers";
 
 
 // Use the actual User type from schema
@@ -250,36 +251,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/forum/topics", async (req, res) => {
     try {
       const { categoryId, productId } = req.query;
+      // SECURITY: Safe integer parsing with validation
       const topics = await forumStorage.getTopics(
-        categoryId ? parseInt(categoryId as string) : undefined,
-        productId ? parseInt(productId as string) : undefined
+        parseIntOptional(categoryId as string, 'categoryId', { min: 1 }),
+        parseIntOptional(productId as string, 'productId', { min: 1 })
       );
       res.json(topics);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch topics" });
+      const message = error instanceof Error ? error.message : "Failed to fetch topics";
+      res.status(400).json({ error: message });
     }
   });
 
   app.get("/api/forum/topics/:id", async (req, res) => {
     try {
-      const topicId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const topic = await forumStorage.getTopicById(topicId);
       if (!topic) {
         return res.status(404).json({ error: "Topic not found" });
       }
       res.json(topic);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch topic" });
+      const message = error instanceof Error ? error.message : "Failed to fetch topic";
+      const status = message.includes('must be') ? 400 : 500;
+      res.status(status).json({ error: message });
     }
   });
 
   app.get("/api/forum/topics/:id/posts", async (req, res) => {
     try {
-      const topicId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const posts = await forumStorage.getPostsByTopic(topicId);
       res.json(posts);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch posts" });
+      const message = error instanceof Error ? error.message : "Failed to fetch posts";
+      const status = message.includes('must be') ? 400 : 500;
+      res.status(status).json({ error: message });
     }
   });
 
@@ -449,10 +458,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get product by ID
   app.get("/api/products/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid product ID" });
-      }
+      // SECURITY: Safe integer parsing with validation
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
       const product = await storage.getProductById(id);
       if (!product) {

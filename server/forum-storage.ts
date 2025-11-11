@@ -61,7 +61,7 @@ export class ForumStorage {
           id: users.id,
           username: users.username,
           email: users.email,
-          passwordHash: users.passwordHash,
+          // SECURITY: Never expose password hashes in API responses
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
         },
@@ -108,7 +108,7 @@ export class ForumStorage {
           id: users.id,
           username: users.username,
           email: users.email,
-          passwordHash: users.passwordHash,
+          // SECURITY: Never expose password hashes in API responses
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
         },
@@ -139,7 +139,17 @@ export class ForumStorage {
   }
 
   async createTopic(topic: Omit<InsertForumTopic, 'slug'>): Promise<ForumTopic> {
-    const slug = topic.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    // Generate base slug from title
+    let slug = topic.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+    // SECURITY: Check for existing slug and append random suffix if needed to prevent collisions
+    const existing = await db.select().from(forumTopics).where(eq(forumTopics.slug, slug)).limit(1);
+    if (existing.length > 0) {
+      // Generate a unique suffix using crypto for collision-resistant slugs
+      const crypto = await import('crypto');
+      slug = `${slug}-${crypto.randomBytes(4).toString('hex')}`;
+    }
+
     const result = await db.insert(forumTopics).values({
       ...topic,
       slug,
