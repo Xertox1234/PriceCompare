@@ -6,6 +6,7 @@ import { insertProductSchema, insertRetailerSchema, insertProductOfferSchema, in
 import { storage } from "./storage";
 import { forumStorage } from "./forum-storage";
 import { passport, createUser, findUserByEmail, findUserById } from "./auth";
+import { generateCsrfToken } from "./middleware/security";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
 import * as schema from "@shared/schema";
@@ -223,15 +224,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updatedUser) {
         req.user = updatedUser;
       }
-      
+
       const user = req.user as any;
-      res.json({ 
-        id: user.id, 
-        username: user.username, 
+      // SECURITY: Include CSRF token in response for client convenience
+      const csrfToken = generateCsrfToken(req);
+
+      res.json({
+        id: user.id,
+        username: user.username,
         email: user.email,
         role: user.role || 'user',
         reputation: user.reputation || 0,
-        isActive: user.isActive !== false
+        isActive: user.isActive !== false,
+        csrfToken, // Provide token for use in subsequent requests
       });
     } else {
       res.status(401).json({ error: 'Not authenticated' });

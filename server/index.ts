@@ -11,7 +11,7 @@ import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
-import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware } from "./middleware/security";
+import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrfToken, csrfProtection } from "./middleware/security";
 import { performanceMonitoring, getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
 import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-limits";
@@ -71,11 +71,19 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// SECURITY: Attach CSRF token to all responses
+// This middleware adds X-CSRF-Token header for clients to use
+app.use(attachCsrfToken);
+
 // Apply caching middleware
 app.use(apiCacheMiddleware);
 
 // Apply performance monitoring middleware
 app.use(performanceMonitoring);
+
+// SECURITY: CSRF protection for state-changing operations
+// Must be after session initialization
+app.use(csrfProtection);
 
 app.use((req, res, next) => {
   const start = Date.now();

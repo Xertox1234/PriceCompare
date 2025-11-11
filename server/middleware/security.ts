@@ -128,24 +128,55 @@ const CSRF_TOKEN_LENGTH = 32;
 // SECURITY: Required for secure CSRF token generation - never use fallback values
 const CSRF_SECRET = getRequiredEnv('CSRF_SECRET');
 
+/**
+ * List of public endpoints that don't require CSRF protection
+ * These should be carefully considered and well-documented
+ */
+const CSRF_EXEMPT_PATHS = [
+  '/api/affiliate/track-click', // Public click tracking
+  '/api/health',
+  '/health',
+  '/discourse/sso', // External SSO callback
+];
+
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
-  // Skip CSRF for GET, HEAD, OPTIONS requests
+  // Skip CSRF for GET, HEAD, OPTIONS requests (safe methods)
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return next();
   }
 
-  // Skip CSRF for non-browser clients (API endpoints with proper authentication)
-  const contentType = req.headers['content-type'];
-  if (contentType?.includes('application/json')) {
-    // For JSON APIs, we rely on Same-Origin Policy and authentication
+  // Check if path is exempt from CSRF protection
+  const isExempt = CSRF_EXEMPT_PATHS.some(path => req.path.startsWith(path));
+  if (isExempt) {
     return next();
   }
 
-  // For form submissions, check CSRF token
+  // Get CSRF token from request
   const token = req.body._csrf || req.headers['x-csrf-token'];
   const sessionToken = req.session?.csrfToken;
 
-  if (!token || !sessionToken || token !== sessionToken) {
+  // Validate CSRF token
+  if (!token || !sessionToken) {
+    res.status(403).json({
+      error: 'CSRF token missing',
+      message: 'CSRF token is required for this request'
+    });
+    return;
+  }
+
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(token),
+      Buffer.from(sessionToken)
+    );
+
+    if (!isValid) {
+      res.status(403).json({ error: 'Invalid CSRF token' });
+      return;
+    }
+  } catch (error) {
+    // timingSafeEqual throws if buffers are different lengths
     res.status(403).json({ error: 'Invalid CSRF token' });
     return;
   }
@@ -165,6 +196,18 @@ export function generateCsrfToken(req: Request): string {
     req.session.csrfToken = crypto.randomBytes(CSRF_TOKEN_LENGTH).toString('hex');
   }
   return req.session.csrfToken;
+}
+
+/**
+ * Middleware to attach CSRF token to response headers
+ * This makes it easy for clients to retrieve the token
+ */
+export function attachCsrfToken(req: Request, res: Response, next: NextFunction) {
+  if (req.session) {
+    const token = generateCsrfToken(req);
+    res.setHeader('X-CSRF-Token', token);
+  }
+  next();
 }
 
 /**
