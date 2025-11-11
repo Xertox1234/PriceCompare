@@ -9,6 +9,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { SharedNavigation } from '@/components/shared-navigation';
@@ -57,6 +75,19 @@ export default function AdminPage() {
     color: '#3b82f6',
     icon: 'MessageSquare'
   });
+
+  // Category editing state
+  const [editingCategory, setEditingCategory] = useState<ForumCategory | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    color: '#3b82f6',
+  });
+
+  // Category deletion state
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Settings state management
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>({
@@ -124,6 +155,43 @@ export default function AdminPage() {
     },
     onError: () => {
       toast({ title: 'Failed to create category', variant: 'destructive' });
+    },
+  });
+
+  // Update category mutation
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<ForumCategory> }) => {
+      return apiRequest(`/api/admin/categories/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
+      setShowEditDialog(false);
+      setEditingCategory(null);
+      toast({ title: 'Category updated successfully!' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to update category', variant: 'destructive' });
+    },
+  });
+
+  // Delete category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/admin/categories/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
+      setShowDeleteDialog(false);
+      setDeletingCategoryId(null);
+      toast({ title: 'Category deleted successfully!' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to delete category', variant: 'destructive' });
     },
   });
 
@@ -208,6 +276,41 @@ export default function AdminPage() {
   const handleResetForumSettings = () => {
     setForumSettings(originalForumSettings);
     toast({ title: 'Forum settings reset', description: 'Changes have been discarded' });
+  };
+
+  const handleEditCategory = (category: ForumCategory) => {
+    setEditingCategory(category);
+    setEditForm({
+      name: category.name,
+      description: category.description || '',
+      color: category.color,
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateCategory = () => {
+    if (!editingCategory || !editForm.name.trim()) return;
+
+    updateCategoryMutation.mutate({
+      id: editingCategory.id,
+      data: {
+        name: editForm.name,
+        description: editForm.description,
+        color: editForm.color,
+        slug: editForm.name.toLowerCase().replace(/\s+/g, '-'),
+      },
+    });
+  };
+
+  const handleDeleteCategory = (categoryId: number) => {
+    setDeletingCategoryId(categoryId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteCategory = () => {
+    if (deletingCategoryId !== null) {
+      deleteCategoryMutation.mutate(deletingCategoryId);
+    }
   };
 
   return (
@@ -497,10 +600,21 @@ export default function AdminPage() {
                         <Badge variant={category.isActive ? "default" : "secondary"}>
                           {category.isActive ? "Active" : "Inactive"}
                         </Badge>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCategory(category)}
+                          aria-label={`Edit ${category.name}`}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCategory(category.id)}
+                          aria-label={`Delete ${category.name}`}
+                          className="text-destructive hover:text-destructive/90"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -700,6 +814,96 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+            <DialogDescription>
+              Update the category details below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-category-name">Name</Label>
+              <Input
+                id="edit-category-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Product Reviews"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category-color">Color</Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                  id="edit-category-color"
+                  type="color"
+                  value={editForm.color}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-20 h-10"
+                />
+                <Input
+                  value={editForm.color}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, color: e.target.value }))}
+                  placeholder="#3b82f6"
+                  className="flex-1"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category-description">Description</Label>
+              <Textarea
+                id="edit-category-description"
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe what this category is for..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              disabled={updateCategoryMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateCategory}
+              disabled={!editForm.name.trim() || updateCategoryMutation.isPending}
+            >
+              {updateCategoryMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Category Confirmation */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this category. All topics and posts in this category will need to be reassigned. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteCategoryMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteCategory}
+              disabled={deleteCategoryMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete Category'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
