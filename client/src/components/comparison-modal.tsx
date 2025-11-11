@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +12,65 @@ interface ComparisonModalProps {
 }
 
 export function ComparisonModal({ items, onRemoveItem, onClear }: ComparisonModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedElement = useRef<HTMLElement | null>(null);
+
+  // Focus management: Auto-focus modal when it opens
+  useEffect(() => {
+    if (items.length > 0 && dialogRef.current) {
+      // Store the previously focused element
+      previouslyFocusedElement.current = document.activeElement as HTMLElement;
+
+      // Focus the first focusable element in the modal
+      const firstFocusable = dialogRef.current.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
+  }, [items.length]);
+
+  // Focus trap: Keep focus within the modal
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+
+      const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement?.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [items.length]);
+
+  // Restore focus when modal closes
+  useEffect(() => {
+    return () => {
+      if (items.length === 0 && previouslyFocusedElement.current) {
+        previouslyFocusedElement.current.focus();
+      }
+    };
+  }, [items.length]);
+
   if (items.length === 0) return null;
 
   return (
-    <div 
-      className="comparison-modal" 
-      role="dialog" 
+    <div
+      ref={dialogRef}
+      className="comparison-modal"
+      role="dialog"
       aria-label="Product comparison"
       aria-modal="true"
     >
