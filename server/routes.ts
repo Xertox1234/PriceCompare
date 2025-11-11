@@ -6,12 +6,14 @@ import { insertProductSchema, insertRetailerSchema, insertProductOfferSchema, in
 import { storage } from "./storage";
 import { forumStorage } from "./forum-storage";
 import { passport, createUser, findUserByEmail, findUserById } from "./auth";
+import { generateCsrfToken } from "./middleware/security";
+import { logSecurityEvent, SecurityEventType } from "./utils/security-logger";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
 import * as schema from "@shared/schema";
 import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 import { getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
-import { parseIntSafe, parseIntOptional } from "./utils/validation-helpers";
+import { parseIntSafe, parseIntOptional, parseFloatSafe } from "./utils/validation-helpers";
 
 
 // Use the actual User type from schema
@@ -161,27 +163,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userCount = await db.select({ count: sql`count(*)` }).from(schema.users);
       const isFirstUser = parseInt(userCount[0].count as string) === 0;
       
-      const user = await createUser({ 
-        username, 
-        email, 
+      const user = await createUser({
+        username,
+        email,
         password,
         role: isFirstUser ? 'admin' : 'user'
       });
-      
+
+      // SECURITY: Log successful registration
+      logSecurityEvent(SecurityEventType.REGISTRATION_SUCCESS, req, {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        success: true,
+        metadata: {
+          role: user.role,
+          isFirstUser,
+        }
+      });
+
       // Log the user in after registration
       req.login(user, (err) => {
         if (err) {
           console.error('Login after registration failed:', err);
           return res.status(500).json({ error: 'Registration successful but login failed' });
         }
-        res.json({ 
-          success: true, 
-          user: { 
-            id: user.id, 
-            username: user.username, 
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
             email: user.email,
             role: user.role || 'user'
-          } 
+          }
         });
       });
     } catch (error) {
@@ -190,27 +204,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", passport.authenticate('local'), (req, res) => {
-    const user = req.user as any;
-    if (!user) {
-      return res.status(401).json({ error: 'Authentication failed' });
-    }
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role || 'user'
+  app.post("/api/auth/login", (req, res, next) => {
+    // Use custom callback to capture authentication result for logging
+    passport.authenticate('local', (err: any, user: any, info: any) => {
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
       }
-    });
+
+      if (!user) {
+        // SECURITY: Log failed login attempt
+        logSecurityEvent(SecurityEventType.LOGIN_FAILED, req, {
+          email: req.body.email,
+          success: false,
+          message: info?.message || 'Authentication failed',
+          metadata: {
+            reason: info?.message,
+            locked: info?.locked,
+            remainingAttempts: info?.remainingAttempts,
+          }
+        });
+
+        return res.status(401).json({
+          error: info?.message || 'Authentication failed',
+          locked: info?.locked,
+          remainingTime: info?.remainingTime,
+          remainingAttempts: info?.remainingAttempts,
+        });
+      }
+
+      // Log in the user
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Session creation error:', err);
+          return next(err);
+        }
+
+        // SECURITY: Log successful login
+        logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, req, {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          success: true,
+        });
+
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role || 'user'
+          }
+        });
+      });
+    })(req, res, next);
   });
 
   app.post("/api/auth/logout", (req, res) => {
+    const user = req.user as any;
+
     req.logout((err) => {
       if (err) {
+        console.error('Logout error:', err);
         return res.status(500).json({ error: 'Logout failed' });
       }
+
+      // SECURITY: Log successful logout
+      if (user) {
+        logSecurityEvent(SecurityEventType.LOGOUT, req, {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          success: true,
+        });
+      }
+
       res.json({ success: true });
     });
   });
@@ -223,15 +292,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updatedUser) {
         req.user = updatedUser;
       }
-      
+
       const user = req.user as any;
-      res.json({ 
-        id: user.id, 
-        username: user.username, 
+      // SECURITY: Include CSRF token in response for client convenience
+      const csrfToken = generateCsrfToken(req);
+
+      res.json({
+        id: user.id,
+        username: user.username,
         email: user.email,
         role: user.role || 'user',
         reputation: user.reputation || 0,
-        isActive: user.isActive !== false
+        isActive: user.isActive !== false,
+        csrfToken, // Provide token for use in subsequent requests
       });
     } else {
       res.status(401).json({ error: 'Not authenticated' });
@@ -409,19 +482,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Search products with filters
   app.get("/api/products/search", async (req, res) => {
     try {
+      // SECURITY: Safe number parsing with validation and constraints
       const filters: SearchFilters = {
         query: req.query.query as string,
         category: req.query.category as string,
-        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
-        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
-        retailers: req.query.retailers ? 
-          (Array.isArray(req.query.retailers) ? 
-            req.query.retailers.map(id => parseInt(id as string)) : 
-            [parseInt(req.query.retailers as string)]) : undefined,
-        minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
-        availability: req.query.availability ? 
-          (Array.isArray(req.query.availability) ? 
-            req.query.availability as string[] : 
+        minPrice: req.query.minPrice ? parseFloatSafe(req.query.minPrice as string, 'minPrice', { min: 0 }) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloatSafe(req.query.maxPrice as string, 'maxPrice', { min: 0 }) : undefined,
+        retailers: req.query.retailers ?
+          (Array.isArray(req.query.retailers) ?
+            req.query.retailers.map(id => parseIntSafe(id as string, 'retailerId', { min: 1 })) :
+            [parseIntSafe(req.query.retailers as string, 'retailerId', { min: 1 })]) : undefined,
+        minRating: req.query.minRating ? parseFloatSafe(req.query.minRating as string, 'minRating', { min: 0, max: 5 }) : undefined,
+        availability: req.query.availability ?
+          (Array.isArray(req.query.availability) ?
+            req.query.availability as string[] :
             [req.query.availability as string]) : undefined,
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity",
       };
@@ -621,8 +695,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
-      const productId = parseInt(req.params.id);
-      
+      // SECURITY: Safe integer parsing with validation
+      const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
+
       const [product] = await db.select()
         .from(schema.products)
         .where(eq(schema.products.id, productId));
@@ -673,7 +748,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
-      const productId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
       const updateData = insertProductSchema.partial().parse(req.body);
       
       const [updatedProduct] = await db.update(schema.products)
@@ -694,8 +770,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
-      const productId = parseInt(req.params.id);
-      
+      // SECURITY: Safe integer parsing with validation
+      const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
+
       // First delete related offers
       await db.delete(schema.productOffers)
         .where(eq(schema.productOffers.productId, productId));
@@ -747,7 +824,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/retailers/:id", withAdmin(async (req, res) => {
     try {
-      const retailerId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
       const updateData = insertRetailerSchema.partial().parse(req.body);
       
       const [updatedRetailer] = await db.update(schema.retailers)
@@ -768,7 +846,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/retailers/:id", withAdmin(async (req, res) => {
     try {
-      const retailerId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
       
       // First delete related offers
       await db.delete(schema.productOffers)
@@ -803,7 +882,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/performance/slowest", withAdmin(async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 10;
+      // SECURITY: Safe integer parsing with validation and cap
+      const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 10;
       const slowest = getSlowestEndpoints(limit);
       res.json(slowest);
     } catch (error) {

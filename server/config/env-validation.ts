@@ -110,11 +110,17 @@ export function validateEnvironment(): void {
     if (envVar.critical && envVar.name.includes('SECRET')) {
       const secretErrors = validateSecretStrength(envVar.name, value);
       if (secretErrors.length > 0) {
+        // SECURITY: Enforce strong secrets in all environments (including dev)
+        // This prevents weak secrets from accidentally making it to production
+        console.error(`\n❌ SECURITY: Weak secret detected for ${envVar.name}:`);
+        secretErrors.forEach(e => console.error(`  ${e}`));
+
         if (isDevelopment || isTest) {
-          warnings.push(...secretErrors.map(e => `⚠️  WARNING: ${e}`));
-        } else {
-          errors.push(...secretErrors);
+          console.error('\n💡 TIP: Even in development, use strong secrets.');
+          console.error('   Generate a secure secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
         }
+
+        errors.push(...secretErrors);
       }
     }
 
@@ -144,14 +150,18 @@ export function validateEnvironment(): void {
     errors.forEach(e => console.error(`  ${e}`));
     console.error('\n');
 
-    if (!isDevelopment && !isTest) {
-      console.error('💥 CRITICAL: Cannot start application with invalid environment configuration.');
-      console.error('   Please set all required environment variables before starting the server.');
-      console.error('   See .env.example for reference.\n');
-      process.exit(1);
-    } else {
-      console.warn('\n⚠️  Development mode: Continuing despite errors (fix before production!)');
+    // SECURITY: Fail fast in all environments (including dev)
+    // This enforces proper configuration and prevents weak secrets
+    console.error('💥 CRITICAL: Cannot start application with invalid environment configuration.');
+    console.error('   Please set all required environment variables with proper values.');
+    console.error('   See .env.example for reference.\n');
+
+    if (isDevelopment || isTest) {
+      console.error('📝 NOTE: Strong secrets are now required even in development.');
+      console.error('   This prevents accidentally deploying weak secrets to production.\n');
     }
+
+    process.exit(1);
   } else {
     console.log('✅ Environment validation passed\n');
   }

@@ -11,6 +11,7 @@ import {
 import { z } from 'zod';
 import { affiliateLinkService } from './services/affiliate-link-service.js';
 import { AffiliateLinkAgent } from './agents/affiliate-agent.js';
+import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
 
@@ -57,7 +58,8 @@ export function registerAffiliateRoutes(app: Express): void {
   // Update retailer affiliate configuration
   app.put("/api/admin/retailers/:id/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const retailerId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
       const {
         affiliateId,
         affiliateProgram,
@@ -133,8 +135,10 @@ export function registerAffiliateRoutes(app: Express): void {
   // Generate affiliate links for retailer
   app.post("/api/admin/retailers/:id/generate-affiliate-links", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const retailerId = parseInt(req.params.id);
-      const { limit = 50 } = req.body;
+      // SECURITY: Safe integer parsing with validation
+      const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
+      // SECURITY: Validate and cap limit to prevent excessive database queries
+      const limit = req.body.limit ? parseIntSafe(req.body.limit, 'limit', { min: 1, max: 1000 }) : 50;
 
       const agent = await initializeAffiliateAgent();
       
@@ -155,9 +159,10 @@ export function registerAffiliateRoutes(app: Express): void {
   app.get("/api/admin/affiliate-stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { retailerId } = req.query;
-      
+
+      // SECURITY: Safe optional integer parsing
       const stats = await affiliateLinkService.getAffiliateLinkStats(
-        retailerId ? parseInt(retailerId as string) : undefined
+        parseIntOptional(retailerId as string, 'retailerId', { min: 1 })
       );
 
       res.json(stats);
@@ -170,10 +175,11 @@ export function registerAffiliateRoutes(app: Express): void {
   // Track affiliate link click (public endpoint)
   app.post("/api/affiliate/track-click/:offerId", async (req: Request, res: Response) => {
     try {
-      const offerId = parseInt(req.params.offerId);
-      
+      // SECURITY: Safe integer parsing with validation
+      const offerId = parseIntSafe(req.params.offerId, 'offerId', { min: 1 });
+
       await affiliateLinkService.trackLinkClick(offerId);
-      
+
       res.json({ success: true });
     } catch (error) {
       console.error('Failed to track click:', error);

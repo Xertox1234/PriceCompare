@@ -12,12 +12,14 @@ import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
 
 export function registerEnhancedForumRoutes(app: Express) {
   // Enhanced user profile routes
   app.get("/api/users/:id/profile", async (req, res) => {
     try {
-      const userId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
       const userProfile = await enhancedForumStorage.getUserWithProfile(userId);
       
       if (!userProfile) {
@@ -57,8 +59,9 @@ export function registerEnhancedForumRoutes(app: Express) {
   // Enhanced topic routes with tags
   app.get("/api/forum/topics/enhanced", async (req, res) => {
     try {
-      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
-      const productId = req.query.productId ? parseInt(req.query.productId as string) : undefined;
+      // SECURITY: Safe optional integer parsing with validation
+      const categoryId = parseIntOptional(req.query.categoryId as string, 'categoryId', { min: 1 });
+      const productId = parseIntOptional(req.query.productId as string, 'productId', { min: 1 });
       const userId = req.user?.id;
 
       const topics = await enhancedForumStorage.getTopicsWithDetails(categoryId, productId, userId);
@@ -77,16 +80,20 @@ export function registerEnhancedForumRoutes(app: Express) {
       if (!req.body.title || req.body.title.trim() === '') {
         return res.status(400).json({ error: ["Title is required"] });
       }
-      
-      if (!req.body.categoryId || isNaN(parseInt(req.body.categoryId))) {
+
+      if (!req.body.categoryId) {
         return res.status(400).json({ error: ["Category ID is required"] });
       }
 
-      const { tags = [], title, content, categoryId } = req.body;
+      const { tags = [], title, content, categoryId: categoryIdRaw } = req.body;
+
+      // SECURITY: Safe integer parsing with validation
+      const categoryId = parseIntSafe(categoryIdRaw, 'categoryId', { min: 1 });
+
       const topicData = {
         title: title.trim(),
         content: content || '',
-        categoryId: parseInt(categoryId)
+        categoryId
       };
       
       const topic = await enhancedForumStorage.createTopicWithTags(
@@ -107,7 +114,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   // Enhanced post routes with mentions and likes
   app.get("/api/forum/topics/:id/posts/enhanced", async (req, res) => {
     try {
-      const topicId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const userId = req.user?.id;
 
       const posts = await enhancedForumStorage.getPostsWithDetails(topicId, userId);
@@ -145,7 +153,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   // Post like system
   app.post("/api/forum/posts/:id/like", requireAuth, async (req: Request, res: Response) => {
     try {
-      const postId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const postId = parseIntSafe(req.params.id, 'postId', { min: 1 });
       const result = await enhancedForumStorage.togglePostLike(postId, req.user.id);
       res.json(result);
     } catch (error) {
@@ -210,7 +219,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   // Tag system
   app.get("/api/forum/tags", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      // SECURITY: Safe integer parsing with validation and cap
+      const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 20;
       const tags = await enhancedForumStorage.getPopularTags(limit);
       res.json(tags);
     } catch (error) {
@@ -242,7 +252,8 @@ export function registerEnhancedForumRoutes(app: Express) {
         return res.status(403).json({ error: "Admin access required" });
       }
 
-      const userId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
       const { badgeId } = req.body;
 
       const userBadge = await enhancedForumStorage.awardBadge(userId, badgeId);
@@ -257,7 +268,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.get("/api/forum/search", async (req, res) => {
     try {
       const query = req.query.q as string;
-      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+      // SECURITY: Safe optional integer parsing with validation
+      const categoryId = parseIntOptional(req.query.categoryId as string, 'categoryId', { min: 1 });
 
       if (!query) {
         return res.status(400).json({ error: "Search query required" });
@@ -275,7 +287,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.get("/api/forum/leaderboard", async (req, res) => {
     try {
       const type = req.query.type as string || 'reputation';
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      // SECURITY: Safe integer parsing with validation and cap
+      const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 10;
 
       // This would require additional storage methods for leaderboard queries
       // For now, return a simple response
@@ -293,7 +306,8 @@ export function registerEnhancedForumRoutes(app: Express) {
         return res.status(403).json({ error: "Admin access required" });
       }
 
-      const userId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
       const { trustLevel } = req.body;
 
       if (trustLevel < 0 || trustLevel > 4) {
@@ -319,7 +333,8 @@ export function registerEnhancedForumRoutes(app: Express) {
         return res.status(403).json({ error: "Moderator access required" });
       }
 
-      const userId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
       const { reason } = req.body;
 
       await db.update(users)

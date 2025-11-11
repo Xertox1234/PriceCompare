@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import type { User as DatabaseUser } from '../shared/schema';
 import type { SharedUser } from '../shared/auth-schema';
 import { recordFailedLogin, clearFailedLogins, isAccountLocked } from './middleware/account-lockout';
+import { logSecurityEvent, SecurityEventType } from './utils/security-logger';
 
 // Export the User type for use elsewhere
 export type User = DatabaseUser;
@@ -31,6 +32,7 @@ passport.use(new LocalStrategy(
       // Check if account is locked before attempting authentication
       const lockStatus = isAccountLocked(email);
       if (lockStatus.locked) {
+        // Note: Logging will happen in route handler where we have access to req
         return done(null, false, {
           message: 'Account temporarily locked',
           locked: true,
@@ -43,6 +45,7 @@ passport.use(new LocalStrategy(
       if (!userResult.length) {
         // Record failed attempt (user not found)
         recordFailedLogin(email);
+        // Note: Logging will happen in route handler where we have access to req
         return done(null, false, { message: 'Invalid email or password' });
       }
 
@@ -52,6 +55,7 @@ passport.use(new LocalStrategy(
       if (!isValid) {
         // Record failed attempt (wrong password)
         const lockoutResult = recordFailedLogin(email);
+        // Note: Logging will happen in route handler where we have access to req
         return done(null, false, {
           message: 'Invalid email or password',
           remainingAttempts: lockoutResult.remainingAttempts,
@@ -61,6 +65,7 @@ passport.use(new LocalStrategy(
 
       // Successful login - clear any failed attempts
       clearFailedLogins(email);
+      // Note: Success logging will happen in route handler where we have access to req
       return done(null, user);
     } catch (error) {
       return done(error);
