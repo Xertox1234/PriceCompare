@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { getRequiredEnv } from '../config/env-validation';
+import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 
 /**
  * Rate Limiting Middleware
@@ -157,6 +158,18 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
 
   // Validate CSRF token
   if (!token || !sessionToken) {
+    // SECURITY: Log CSRF token missing violation
+    logSecurityEvent(SecurityEventType.CSRF_VIOLATION, req, {
+      success: false,
+      message: 'CSRF token missing',
+      metadata: {
+        method: req.method,
+        path: req.path,
+        hasToken: !!token,
+        hasSessionToken: !!sessionToken,
+      }
+    });
+
     res.status(403).json({
       error: 'CSRF token missing',
       message: 'CSRF token is required for this request'
@@ -172,11 +185,33 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     );
 
     if (!isValid) {
+      // SECURITY: Log CSRF token mismatch violation
+      logSecurityEvent(SecurityEventType.CSRF_VIOLATION, req, {
+        success: false,
+        message: 'Invalid CSRF token',
+        metadata: {
+          method: req.method,
+          path: req.path,
+          reason: 'Token mismatch',
+        }
+      });
+
       res.status(403).json({ error: 'Invalid CSRF token' });
       return;
     }
   } catch (error) {
     // timingSafeEqual throws if buffers are different lengths
+    // SECURITY: Log CSRF token format violation
+    logSecurityEvent(SecurityEventType.CSRF_VIOLATION, req, {
+      success: false,
+      message: 'Invalid CSRF token format',
+      metadata: {
+        method: req.method,
+        path: req.path,
+        reason: 'Token length mismatch',
+      }
+    });
+
     res.status(403).json({ error: 'Invalid CSRF token' });
     return;
   }

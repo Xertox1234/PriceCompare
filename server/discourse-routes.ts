@@ -10,6 +10,10 @@ import { getRequiredEnv } from './config/env-validation';
 // SECURITY: Required for secure SSO HMAC signing - never use default values
 const DISCOURSE_SSO_SECRET = getRequiredEnv('DISCOURSE_SSO_SECRET');
 
+// SECURITY: Separate secret for webhook verification (best practice)
+// Falls back to SSO secret for backward compatibility
+const DISCOURSE_WEBHOOK_SECRET = process.env.DISCOURSE_WEBHOOK_SECRET || DISCOURSE_SSO_SECRET;
+
 /**
  * Generate Discourse SSO payload and signature
  */
@@ -51,22 +55,29 @@ function verifySSO(sso: string, sig: string): boolean {
  */
 function verifyWebhookSignature(payload: any, signature: string | undefined): boolean {
   if (!signature) {
+    console.warn('Webhook verification failed: No signature provided');
     return false;
   }
 
+  // Support both sha256= prefix and raw hex
+  const signatureValue = signature.startsWith('sha256=')
+    ? signature.substring(7)
+    : signature;
+
   const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
   const computedSig = crypto
-    .createHmac('sha256', DISCOURSE_SSO_SECRET)
+    .createHmac('sha256', DISCOURSE_WEBHOOK_SECRET)
     .update(payloadString)
     .digest('hex');
 
   // Use timing-safe comparison to prevent timing attacks
   try {
     return crypto.timingSafeEqual(
-      Buffer.from(signature, 'hex'),
-      Buffer.from(computedSig, 'hex')
+      Buffer.from(signatureValue),
+      Buffer.from(computedSig)
     );
-  } catch {
+  } catch (error) {
+    console.warn('Webhook verification failed: Invalid signature format');
     return false;
   }
 }
@@ -140,19 +151,37 @@ export function registerDiscourseRoutes(app: Express): void {
     try {
       // SECURITY: Verify webhook signature before processing
       const signature = req.headers['x-discourse-event-signature'] as string;
+
+      if (!signature) {
+        console.warn('Discourse webhook rejected: Missing signature header');
+        return res.status(401).json({
+          error: 'Missing webhook signature',
+          message: 'X-Discourse-Event-Signature header is required'
+        });
+      }
+
       if (!verifyWebhookSignature(req.body, signature)) {
-        console.warn('Discourse webhook signature verification failed');
-        return res.status(403).json({ error: 'Invalid webhook signature' });
+        console.warn('Discourse webhook rejected: Invalid signature', {
+          receivedSignature: signature.substring(0, 10) + '...',
+          eventType: req.body.event_type,
+        });
+        return res.status(403).json({
+          error: 'Invalid webhook signature',
+          message: 'Webhook signature verification failed'
+        });
       }
 
       const { event_type, user } = req.body;
 
+      // Log successful webhook receipt
+      console.log('Discourse webhook received:', { event_type, userId: user?.id });
+
       if (event_type === 'user_created' && user) {
         // Sync Discourse user creation back to main app if needed
-        console.log('Discourse user created:', user);
+        console.log('Discourse user created:', { username: user.username, email: user.email });
       }
 
-      res.json({ success: true });
+      res.json({ success: true, event_type });
     } catch (error) {
       console.error('Discourse webhook error:', error);
       res.status(500).json({ error: 'Webhook processing failed' });

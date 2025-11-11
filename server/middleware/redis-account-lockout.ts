@@ -7,6 +7,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
+import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -294,6 +295,19 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
     .then(lockStatus => {
       if (lockStatus.locked) {
         const minutes = Math.ceil((lockStatus.remainingTime || 0) / 60);
+
+        // SECURITY: Log account lockout event
+        logSecurityEvent(SecurityEventType.ACCOUNT_LOCKED, req, {
+          email,
+          success: false,
+          message: 'Account locked due to too many failed attempts',
+          metadata: {
+            attempts: lockStatus.attempts,
+            remainingTime: lockStatus.remainingTime,
+            lockedMinutes: minutes,
+          }
+        });
+
         return res.status(429).json({
           error: 'Account temporarily locked due to too many failed login attempts',
           locked: true,

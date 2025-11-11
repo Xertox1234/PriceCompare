@@ -15,6 +15,8 @@ import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrf
 import { performanceMonitoring, getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
 import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-limits";
+import { initializeRedis } from "./config/redis";
+import { createSessionStore } from "./config/session-store";
 
 // Validate environment variables on startup
 validateEnvironment();
@@ -54,68 +56,75 @@ app.use('/api/auth', rateLimiter({
 // Input sanitization
 app.use(sanitizeInput);
 
-// Session configuration
-app.use(session({
-  secret: getRequiredEnv('SESSION_SECRET'),
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  },
-}));
-
-// Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
-
-// SECURITY: Attach CSRF token to all responses
-// This middleware adds X-CSRF-Token header for clients to use
-app.use(attachCsrfToken);
-
-// Apply caching middleware
-app.use(apiCacheMiddleware);
-
-// Apply performance monitoring middleware
-app.use(performanceMonitoring);
-
-// SECURITY: CSRF protection for state-changing operations
-// Must be after session initialization
-app.use(csrfProtection);
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
 (async () => {
+  // Initialize Redis for distributed features (sessions, rate limiting, lockouts)
+  log('Initializing Redis connection...');
+  const redisClient = await initializeRedis();
+
+  // Create session store (Redis or in-memory fallback)
+  const sessionStore = await createSessionStore(redisClient);
+
+  // Session configuration
+  app.use(session({
+    store: sessionStore,
+    secret: getRequiredEnv('SESSION_SECRET'),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }));
+
+  // Initialize Passport
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // SECURITY: Attach CSRF token to all responses
+  // This middleware adds X-CSRF-Token header for clients to use
+  app.use(attachCsrfToken);
+
+  // Apply caching middleware
+  app.use(apiCacheMiddleware);
+
+  // Apply performance monitoring middleware
+  app.use(performanceMonitoring);
+
+  // SECURITY: CSRF protection for state-changing operations
+  // Must be after session initialization
+  app.use(csrfProtection);
+
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
+
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
+
+        if (logLine.length > 80) {
+          logLine = logLine.slice(0, 79) + "…";
+        }
+
+        log(logLine);
+      }
+    });
+
+    next();
+  });
   const server = await registerRoutes(app);
   
   // Register AI scraping routes

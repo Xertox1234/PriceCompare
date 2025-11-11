@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { forumStorage } from "./forum-storage";
 import { passport, createUser, findUserByEmail, findUserById } from "./auth";
 import { generateCsrfToken } from "./middleware/security";
+import { logSecurityEvent, SecurityEventType } from "./utils/security-logger";
 import type { SearchFilters, User } from "@shared/schema";
 import { z } from "zod";
 import * as schema from "@shared/schema";
@@ -162,27 +163,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userCount = await db.select({ count: sql`count(*)` }).from(schema.users);
       const isFirstUser = parseInt(userCount[0].count as string) === 0;
       
-      const user = await createUser({ 
-        username, 
-        email, 
+      const user = await createUser({
+        username,
+        email,
         password,
         role: isFirstUser ? 'admin' : 'user'
       });
-      
+
+      // SECURITY: Log successful registration
+      logSecurityEvent(SecurityEventType.REGISTRATION_SUCCESS, req, {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        success: true,
+        metadata: {
+          role: user.role,
+          isFirstUser,
+        }
+      });
+
       // Log the user in after registration
       req.login(user, (err) => {
         if (err) {
           console.error('Login after registration failed:', err);
           return res.status(500).json({ error: 'Registration successful but login failed' });
         }
-        res.json({ 
-          success: true, 
-          user: { 
-            id: user.id, 
-            username: user.username, 
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
             email: user.email,
             role: user.role || 'user'
-          } 
+          }
         });
       });
     } catch (error) {
@@ -191,27 +204,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", passport.authenticate('local'), (req, res) => {
-    const user = req.user as any;
-    if (!user) {
-      return res.status(401).json({ error: 'Authentication failed' });
-    }
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role || 'user'
+  app.post("/api/auth/login", (req, res, next) => {
+    // Use custom callback to capture authentication result for logging
+    passport.authenticate('local', (err: any, user: any, info: any) => {
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
       }
-    });
+
+      if (!user) {
+        // SECURITY: Log failed login attempt
+        logSecurityEvent(SecurityEventType.LOGIN_FAILED, req, {
+          email: req.body.email,
+          success: false,
+          message: info?.message || 'Authentication failed',
+          metadata: {
+            reason: info?.message,
+            locked: info?.locked,
+            remainingAttempts: info?.remainingAttempts,
+          }
+        });
+
+        return res.status(401).json({
+          error: info?.message || 'Authentication failed',
+          locked: info?.locked,
+          remainingTime: info?.remainingTime,
+          remainingAttempts: info?.remainingAttempts,
+        });
+      }
+
+      // Log in the user
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Session creation error:', err);
+          return next(err);
+        }
+
+        // SECURITY: Log successful login
+        logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, req, {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          success: true,
+        });
+
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role || 'user'
+          }
+        });
+      });
+    })(req, res, next);
   });
 
   app.post("/api/auth/logout", (req, res) => {
+    const user = req.user as any;
+
     req.logout((err) => {
       if (err) {
+        console.error('Logout error:', err);
         return res.status(500).json({ error: 'Logout failed' });
       }
+
+      // SECURITY: Log successful logout
+      if (user) {
+        logSecurityEvent(SecurityEventType.LOGOUT, req, {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          success: true,
+        });
+      }
+
       res.json({ success: true });
     });
   });

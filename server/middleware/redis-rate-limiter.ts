@@ -7,6 +7,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
+import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 
 interface RateLimitOptions {
   windowMs: number;     // Time window in milliseconds
@@ -179,6 +180,19 @@ export function createRateLimiter(options: RateLimitOptions) {
       res.setHeader('X-RateLimit-Reset', Math.ceil(info.reset / 1000));
 
       if (!allowed) {
+        // SECURITY: Log rate limit exceeded
+        logSecurityEvent(SecurityEventType.RATE_LIMIT_EXCEEDED, req, {
+          success: false,
+          message: 'Rate limit exceeded',
+          metadata: {
+            method: req.method,
+            path: req.path,
+            limit: info.total,
+            remaining: info.remaining,
+            resetTime: new Date(info.reset).toISOString(),
+          }
+        });
+
         res.status(429).json({
           error: message,
           retryAfter: Math.ceil((info.reset - Date.now()) / 1000),
