@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,13 +112,25 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
             )}
           </Button>
         </div>
+        <div className="flex justify-end">
+          <Link href="/forgot-password">
+            <Button
+              type="button"
+              variant="link"
+              className="p-0 h-auto text-sm hover:underline"
+              style={{ color: '#5A5DFF' }}
+            >
+              Forgot password?
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {loginMutation.isError && (
         <Alert variant="destructive" className="bg-destructive border-red-200">
           <AlertDescription className="text-destructive">
-            {loginMutation.error instanceof Error 
-              ? loginMutation.error.message 
+            {loginMutation.error instanceof Error
+              ? loginMutation.error.message
               : 'Login failed. Please check your credentials.'}
           </AlertDescription>
         </Alert>

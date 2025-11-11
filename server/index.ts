@@ -17,6 +17,7 @@ import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
 import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-limits";
 import { initializeRedis } from "./config/redis";
 import { createSessionStore } from "./config/session-store";
+import { cleanupExpiredTokens } from "./services/password-reset-service";
 
 // Validate environment variables on startup
 validateEnvironment();
@@ -173,4 +174,27 @@ app.use(sanitizeInput);
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Password reset token cleanup - run every hour
+  const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
+  setInterval(async () => {
+    try {
+      const deletedCount = await cleanupExpiredTokens();
+      if (deletedCount > 0) {
+        log(`Cleaned up ${deletedCount} expired password reset token(s)`);
+      }
+    } catch (error) {
+      log(`Error cleaning up expired tokens: ${error}`, 'error');
+    }
+  }, CLEANUP_INTERVAL);
+
+  // Run cleanup immediately on startup
+  try {
+    const deletedCount = await cleanupExpiredTokens();
+    if (deletedCount > 0) {
+      log(`Initial cleanup: removed ${deletedCount} expired password reset token(s)`);
+    }
+  } catch (error) {
+    log(`Error during initial token cleanup: ${error}`, 'error');
+  }
 })();
