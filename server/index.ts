@@ -18,6 +18,7 @@ import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-li
 import { initializeRedis } from "./config/redis";
 import { createSessionStore } from "./config/session-store";
 import { cleanupExpiredTokens } from "./services/password-reset-service";
+import { initializePriceSnapshotScheduler, triggerManualSnapshot } from "./jobs/price-snapshot-queue";
 
 // Validate environment variables on startup
 validateEnvironment();
@@ -196,5 +197,19 @@ app.use(sanitizeInput);
     }
   } catch (error) {
     log(`Error during initial token cleanup: ${error}`, 'error');
+  }
+
+  // Initialize price snapshot scheduler
+  try {
+    log('Initializing price snapshot scheduler...');
+    initializePriceSnapshotScheduler();
+    log('Price snapshot scheduler initialized successfully');
+
+    // Optionally trigger an initial snapshot on startup (only if database has data)
+    // Uncomment the following lines to enable initial snapshot:
+    // log('Triggering initial price snapshot...');
+    // await triggerManualSnapshot();
+  } catch (error) {
+    log(`Error initializing price snapshot scheduler: ${error}`, 'error');
   }
 })();
