@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, type Retailer, type Product, type ProductOffer, type InsertRetailer, type InsertProduct, type InsertProductOffer, type ProductWithOffers, type SearchFilters } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, type Retailer, type Product, type ProductOffer, type PriceHistory, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, sql, desc, asc } from "drizzle-orm";
 
@@ -6,16 +6,22 @@ export interface IStorage {
   // Retailers
   getRetailers(): Promise<Retailer[]>;
   createRetailer(retailer: InsertRetailer): Promise<Retailer>;
-  
+
   // Products
   getProducts(): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   searchProducts(filters: SearchFilters): Promise<ProductWithOffers[]>;
   getProductById(id: number): Promise<ProductWithOffers | undefined>;
-  
+
   // Product Offers
   getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]>;
   createProductOffer(offer: InsertProductOffer): Promise<ProductOffer>;
+
+  // Price History
+  getPriceHistory(productId: number, days?: number): Promise<PriceHistoryWithDetails[]>;
+  getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]>;
+  getPriceTrend(productId: number): Promise<PriceTrendAnalysis>;
+  getBestTimeToBuy(productId: number): Promise<BestTimeAnalysis>;
 }
 
 export class MemStorage implements IStorage {
@@ -329,9 +335,9 @@ export class MemStorage implements IStorage {
 
   async createProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
     const id = this.currentOfferId++;
-    const newOffer: ProductOffer = { 
-      ...offer, 
-      id, 
+    const newOffer: ProductOffer = {
+      ...offer,
+      id,
       lastUpdated: new Date(),
       availability: offer.availability ?? null,
       rating: offer.rating ?? null,
@@ -347,6 +353,47 @@ export class MemStorage implements IStorage {
     };
     this.productOffers.set(id, newOffer);
     return newOffer;
+  }
+
+  // Price History Methods (stub implementations for in-memory storage)
+  async getPriceHistory(_productId: number, _days?: number): Promise<PriceHistoryWithDetails[]> {
+    return [];
+  }
+
+  async getRetailerPriceHistory(_productId: number, _retailerId: number, _days?: number): Promise<PriceHistory[]> {
+    return [];
+  }
+
+  async getPriceTrend(productId: number): Promise<PriceTrendAnalysis> {
+    const product = await this.getProductById(productId);
+    const currentPrice = product?.bestPrice || 0;
+
+    return {
+      productId,
+      currentPrice,
+      averagePrice: currentPrice,
+      lowestPrice: currentPrice,
+      highestPrice: currentPrice,
+      trend: 'stable',
+      changePercentage: 0,
+      daysAnalyzed: 0,
+    };
+  }
+
+  async getBestTimeToBuy(productId: number): Promise<BestTimeAnalysis> {
+    const product = await this.getProductById(productId);
+    const currentPrice = product?.bestPrice || 0;
+
+    return {
+      productId,
+      currentPrice,
+      historicalAverage: currentPrice,
+      lowestPriceLast90Days: currentPrice,
+      daysSinceLowest: 0,
+      recommendation: 'buy_now',
+      confidenceScore: 0.5,
+      priceChangeVelocity: 0,
+    };
   }
 }
 
@@ -564,9 +611,237 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return result;
   }
+
+  // Price History Methods
+  async getPriceHistory(productId: number, days?: number): Promise<PriceHistoryWithDetails[]> {
+    const conditions = [eq(priceHistory.productId, productId)];
+
+    if (days) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      conditions.push(gte(priceHistory.recordedAt, cutoffDate));
+    }
+
+    const result = await db
+      .select({
+        history: priceHistory,
+        retailer: retailers
+      })
+      .from(priceHistory)
+      .innerJoin(retailers, eq(priceHistory.retailerId, retailers.id))
+      .where(and(...conditions))
+      .orderBy(asc(priceHistory.recordedAt));
+
+    return result.map(row => ({
+      ...row.history,
+      retailerName: row.retailer.name,
+      retailerLogo: row.retailer.logo,
+    }));
+  }
+
+  async getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]> {
+    const conditions = [
+      eq(priceHistory.productId, productId),
+      eq(priceHistory.retailerId, retailerId)
+    ];
+
+    if (days) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      conditions.push(gte(priceHistory.recordedAt, cutoffDate));
+    }
+
+    const result = await db
+      .select()
+      .from(priceHistory)
+      .where(and(...conditions))
+      .orderBy(asc(priceHistory.recordedAt));
+
+    return result;
+  }
+
+  async getPriceTrend(productId: number): Promise<PriceTrendAnalysis> {
+    // Get price history for the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const history = await db
+      .select()
+      .from(priceHistory)
+      .where(and(
+        eq(priceHistory.productId, productId),
+        gte(priceHistory.recordedAt, thirtyDaysAgo)
+      ))
+      .orderBy(asc(priceHistory.recordedAt));
+
+    if (history.length === 0) {
+      // No history, use current price from offers
+      const offers = await this.getProductOffers(productId);
+      const currentPrice = offers.length > 0
+        ? Math.min(...offers.map(o => parseFloat(o.price)))
+        : 0;
+
+      return {
+        productId,
+        currentPrice,
+        averagePrice: currentPrice,
+        lowestPrice: currentPrice,
+        highestPrice: currentPrice,
+        trend: 'stable',
+        changePercentage: 0,
+        daysAnalyzed: 0,
+      };
+    }
+
+    const prices = history.map(h => parseFloat(h.price));
+    const currentPrice = prices[prices.length - 1];
+    const oldestPrice = prices[0];
+    const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+    const lowestPrice = Math.min(...prices);
+    const highestPrice = Math.max(...prices);
+
+    // Calculate trend
+    const priceChange = currentPrice - oldestPrice;
+    const changePercentage = oldestPrice > 0
+      ? ((priceChange / oldestPrice) * 100)
+      : 0;
+
+    let trend: 'rising' | 'falling' | 'stable' = 'stable';
+    if (Math.abs(changePercentage) > 5) {
+      trend = changePercentage > 0 ? 'rising' : 'falling';
+    }
+
+    return {
+      productId,
+      currentPrice,
+      averagePrice,
+      lowestPrice,
+      highestPrice,
+      trend,
+      changePercentage,
+      daysAnalyzed: history.length,
+    };
+  }
+
+  async getBestTimeToBuy(productId: number): Promise<BestTimeAnalysis> {
+    // Get price history for the last 90 days
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const history = await db
+      .select()
+      .from(priceHistory)
+      .where(and(
+        eq(priceHistory.productId, productId),
+        gte(priceHistory.recordedAt, ninetyDaysAgo)
+      ))
+      .orderBy(asc(priceHistory.recordedAt));
+
+    // Get current price
+    const offers = await this.getProductOffers(productId);
+    const currentPrice = offers.length > 0
+      ? Math.min(...offers.map(o => parseFloat(o.price)))
+      : 0;
+
+    if (history.length === 0) {
+      return {
+        productId,
+        currentPrice,
+        historicalAverage: currentPrice,
+        lowestPriceLast90Days: currentPrice,
+        daysSinceLowest: 0,
+        recommendation: 'buy_now',
+        confidenceScore: 0.5,
+        priceChangeVelocity: 0,
+      };
+    }
+
+    const prices = history.map(h => parseFloat(h.price));
+    const historicalAverage = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+    const lowestPriceLast90Days = Math.min(...prices);
+
+    // Find days since lowest price
+    const lowestPriceIndex = prices.lastIndexOf(lowestPriceLast90Days);
+    const lowestPriceDate = history[lowestPriceIndex].recordedAt;
+    const daysSinceLowest = Math.floor(
+      (Date.now() - new Date(lowestPriceDate).getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Calculate price change velocity (change per day over last 7 days)
+    const sevenDaysOfPrices = prices.slice(-7);
+    const priceChangeVelocity = sevenDaysOfPrices.length >= 2
+      ? (sevenDaysOfPrices[sevenDaysOfPrices.length - 1] - sevenDaysOfPrices[0]) / sevenDaysOfPrices.length
+      : 0;
+
+    // Determine recommendation
+    let recommendation: 'buy_now' | 'wait' | 'good_deal' = 'buy_now';
+    let confidenceScore = 0.5;
+
+    const percentageBelowAverage = ((historicalAverage - currentPrice) / historicalAverage) * 100;
+
+    if (currentPrice <= lowestPriceLast90Days * 1.05) {
+      // Within 5% of historical low
+      recommendation = 'good_deal';
+      confidenceScore = 0.9;
+    } else if (percentageBelowAverage > 10) {
+      // More than 10% below average
+      recommendation = 'good_deal';
+      confidenceScore = 0.8;
+    } else if (priceChangeVelocity < 0 && percentageBelowAverage > 0) {
+      // Price is falling and below average
+      recommendation = 'wait';
+      confidenceScore = 0.7;
+    } else if (priceChangeVelocity > 0 && percentageBelowAverage < -5) {
+      // Price is rising and above average
+      recommendation = 'wait';
+      confidenceScore = 0.8;
+    } else {
+      recommendation = 'buy_now';
+      confidenceScore = 0.6;
+    }
+
+    return {
+      productId,
+      currentPrice,
+      historicalAverage,
+      lowestPriceLast90Days,
+      daysSinceLowest,
+      recommendation,
+      confidenceScore,
+      priceChangeVelocity,
+    };
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
-export const storage = process.env.DATABASE_URL 
-  ? new DatabaseStorage() 
+export const storage = process.env.DATABASE_URL
+  ? new DatabaseStorage()
   : new MemStorage();
+
+// Price History Types
+export interface PriceHistoryWithDetails extends PriceHistory {
+  retailerName: string;
+  retailerLogo: string | null;
+}
+
+export interface PriceTrendAnalysis {
+  productId: number;
+  currentPrice: number;
+  averagePrice: number;
+  lowestPrice: number;
+  highestPrice: number;
+  trend: 'rising' | 'falling' | 'stable';
+  changePercentage: number;
+  daysAnalyzed: number;
+}
+
+export interface BestTimeAnalysis {
+  productId: number;
+  currentPrice: number;
+  historicalAverage: number;
+  lowestPriceLast90Days: number;
+  daysSinceLowest: number;
+  recommendation: 'buy_now' | 'wait' | 'good_deal';
+  confidenceScore: number;
+  priceChangeVelocity: number; // Price change rate ($/day)
+}

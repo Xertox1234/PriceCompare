@@ -837,6 +837,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Price History Endpoints
+  // Get price history for a product
+  app.get("/api/products/:id/price-history", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string);
+      const retailerId = parseIntOptional(req.query.retailerId as string);
+
+      let history;
+      if (retailerId) {
+        // Get history for specific retailer
+        history = await storage.getRetailerPriceHistory(id, retailerId, days);
+      } else {
+        // Get history for all retailers
+        history = await storage.getPriceHistory(id, days);
+      }
+
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching price history:', error);
+      res.status(500).json({ message: "Failed to fetch price history" });
+    }
+  });
+
+  // Get price trend analysis for a product
+  app.get("/api/products/:id/price-trend", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const trend = await storage.getPriceTrend(id);
+      res.json(trend);
+    } catch (error) {
+      console.error('Error fetching price trend:', error);
+      res.status(500).json({ message: "Failed to fetch price trend" });
+    }
+  });
+
+  // Get best time to buy analysis for a product
+  app.get("/api/products/:id/best-time-to-buy", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const analysis = await storage.getBestTimeToBuy(id);
+      res.json(analysis);
+    } catch (error) {
+      console.error('Error fetching best time to buy:', error);
+      res.status(500).json({ message: "Failed to fetch best time to buy analysis" });
+    }
+  });
+
   // Admin routes - require admin role
   app.get("/api/admin/categories", withAdmin(async (req, res) => {
     try {
