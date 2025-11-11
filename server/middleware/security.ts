@@ -6,25 +6,49 @@ import { getRequiredEnv } from '../config/env-validation';
  * Rate Limiting Middleware
  * Prevents API abuse by limiting requests per IP
  */
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+  lastAccess: number;  // SECURITY: Track last access for LRU eviction
+}
+
 interface RateLimitStore {
-  [key: string]: {
-    count: number;
-    resetTime: number;
-  };
+  [key: string]: RateLimitEntry;
 }
 
 const rateLimitStore: RateLimitStore = {};
+
+// SECURITY: Maximum entries to prevent unbounded memory growth
+const MAX_RATE_LIMIT_ENTRIES = 10000;
 
 // Deterministic cleanup timer for rate limit store
 // Runs every 60 seconds to remove expired entries
 const CLEANUP_INTERVAL_MS = 60 * 1000;
 setInterval(() => {
   const now = Date.now();
-  Object.keys(rateLimitStore).forEach(key => {
-    if (rateLimitStore[key].resetTime < now) {
+  const entries = Object.entries(rateLimitStore);
+
+  // Remove expired entries
+  entries.forEach(([key, value]) => {
+    if (value.resetTime < now) {
       delete rateLimitStore[key];
     }
   });
+
+  // SECURITY: If still too many entries, perform LRU eviction
+  const remainingEntries = Object.keys(rateLimitStore).length;
+  if (remainingEntries > MAX_RATE_LIMIT_ENTRIES) {
+    const sortedByAccess = Object.entries(rateLimitStore)
+      .sort((a, b) => a[1].lastAccess - b[1].lastAccess);
+
+    // Remove oldest 20% of entries
+    const toRemove = Math.floor(remainingEntries * 0.2);
+    sortedByAccess.slice(0, toRemove).forEach(([key]) => {
+      delete rateLimitStore[key];
+    });
+
+    console.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
+  }
 }, CLEANUP_INTERVAL_MS);
 
 export function rateLimiter(options: {
@@ -38,15 +62,28 @@ export function rateLimiter(options: {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
 
+    // SECURITY: Check if we're approaching max entries and skip tracking for new IPs
+    const currentSize = Object.keys(rateLimitStore).length;
+    if (currentSize >= MAX_RATE_LIMIT_ENTRIES && !rateLimitStore[ip]) {
+      // When at capacity, reject new IPs with rate limit error
+      res.status(429).json({
+        error: 'Service temporarily unavailable due to high load',
+        retryAfter: 60
+      });
+      return;
+    }
+
     if (!rateLimitStore[ip]) {
       rateLimitStore[ip] = {
         count: 1,
-        resetTime: now + windowMs
+        resetTime: now + windowMs,
+        lastAccess: now
       };
       return next();
     }
 
     const record = rateLimitStore[ip];
+    record.lastAccess = now;  // Update last access time
 
     if (now > record.resetTime) {
       record.count = 1;

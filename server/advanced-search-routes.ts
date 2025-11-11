@@ -27,7 +27,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity",
       };
 
-      const userId = (req.session as any)?.userId;
+      // SECURITY: Use properly typed session data instead of 'as any'
+      const userId = req.session.userId;
       const results = await advancedSearchService.searchProducts(filters, userId);
       
       // Transform results for API response
@@ -143,7 +144,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
       });
 
-      const userId = (req.session as any)?.userId;
+      // SECURITY: Use properly typed session data instead of 'as any'
+      const userId = req.session.userId;
       const results = await advancedSearchService.searchProducts(optimizedFilters, userId);
       
       res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
@@ -209,7 +211,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity" || filters.sortBy,
       });
 
-      const userId = (req.session as any)?.userId;
+      // SECURITY: Use properly typed session data instead of 'as any'
+      const userId = req.session.userId;
       const results = await advancedSearchService.searchProducts(filters, userId);
       
       res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
