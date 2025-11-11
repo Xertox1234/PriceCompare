@@ -14,7 +14,7 @@ import Products from "@/pages/products";
 import NotFound from "@/pages/not-found";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
-import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage } from "@/components/lazy";
+import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage, LazyPriceHistoryPage } from "@/components/lazy";
 import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
 
 function Router() {
@@ -63,6 +63,13 @@ function Router() {
             <RouteErrorBoundary>
               <Suspense fallback={<LoadingFallback />}>
                 <LazyAdminPage />
+              </Suspense>
+            </RouteErrorBoundary>
+          </Route>
+          <Route path="/products/:id/price-history">
+            <RouteErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <LazyPriceHistoryPage />
               </Suspense>
             </RouteErrorBoundary>
           </Route>

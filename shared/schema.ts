@@ -181,7 +181,17 @@ export const priceAlerts = pgTable("price_alerts", {
   targetPrice: decimal("target_price", { precision: 10, scale: 2 }).notNull(),
   isActive: boolean("is_active").default(true),
   notifyForum: boolean("notify_forum").default(false), // Whether to post to forum when triggered
+  // Historical context
+  priceWhenCreated: decimal("price_when_created", { precision: 10, scale: 2 }), // Price at creation time
+  // Effectiveness tracking
+  timesTriggered: integer("times_triggered").default(0), // How many times this alert has been triggered
+  lastTriggeredAt: timestamp("last_triggered_at"), // When it was last triggered
+  // Smart suggestions
+  suggestedBySystem: boolean("suggested_by_system").default(false), // Was this suggested by the system?
+  suggestionReason: text("suggestion_reason"), // Why was this suggested?
+  // Metadata
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Post likes/reactions
@@ -197,14 +207,37 @@ export const postLikes = pgTable("post_likes", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  type: varchar("type", { length: 50 }).notNull(), // mention, reply, like, etc.
+  type: varchar("type", { length: 50 }).notNull(), // mention, reply, like, price_drop, price_alert, etc.
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content"),
   relatedPostId: integer("related_post_id").references(() => forumPosts.id),
   relatedTopicId: integer("related_topic_id").references(() => forumTopics.id),
   relatedUserId: integer("related_user_id").references(() => users.id),
+  relatedProductId: integer("related_product_id").references(() => products.id),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Notification preferences for users
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  // Price drop settings
+  priceDropEnabled: boolean("price_drop_enabled").default(true),
+  priceDropThresholdPercent: integer("price_drop_threshold_percent").default(10), // 10% default
+  priceDropThresholdAmount: decimal("price_drop_threshold_amount", { precision: 10, scale: 2 }).default("5.00"), // $5 default
+  // Alert settings
+  priceAlertEnabled: boolean("price_alert_enabled").default(true),
+  // Notification channels
+  emailEnabled: boolean("email_enabled").default(true),
+  inAppEnabled: boolean("in_app_enabled").default(true),
+  // Frequency settings
+  maxDailyNotifications: integer("max_daily_notifications").default(10),
+  quietHoursStart: integer("quiet_hours_start"), // Hour 0-23, null = disabled
+  quietHoursEnd: integer("quiet_hours_end"), // Hour 0-23, null = disabled
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Topic tags
@@ -263,6 +296,39 @@ export const userBadges = pgTable("user_badges", {
   userId: integer("user_id").references(() => users.id).notNull(),
   badgeId: integer("badge_id").references(() => badges.id).notNull(),
   grantedAt: timestamp("granted_at").defaultNow(),
+});
+
+// Product watches - users watching products for price changes
+export const productWatches = pgTable("product_watches", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User reputation for gamification
+export const userReputation = pgTable("user_reputation", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  reputationPoints: integer("reputation_points").default(0),
+  dealsSpotted: integer("deals_spotted").default(0),
+  accuratePredictions: integer("accurate_predictions").default(0),
+  communityContributions: integer("community_contributions").default(0),
+  level: integer("level").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Deal spotting events for tracking who found deals
+export const dealSpottings = pgTable("deal_spottings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  priceDropPercent: decimal("price_drop_percent", { precision: 5, scale: 2 }).notNull(),
+  priceDropAmount: decimal("price_drop_amount", { precision: 10, scale: 2 }).notNull(),
+  forumPostId: integer("forum_post_id").references(() => forumPosts.id),
+  reputationAwarded: integer("reputation_awarded").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Post revision history
@@ -349,6 +415,12 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertTopicTagSchema = createInsertSchema(topicTags).omit({
   id: true,
   usageCount: true,
@@ -361,6 +433,22 @@ export const insertPrivateMessageSchema = createInsertSchema(privateMessages).om
 });
 
 export const insertBadgeSchema = createInsertSchema(badges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProductWatchSchema = createInsertSchema(productWatches).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserReputationSchema = createInsertSchema(userReputation).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDealSpottingSchema = createInsertSchema(dealSpottings).omit({
   id: true,
   createdAt: true,
 });
@@ -383,12 +471,16 @@ export type ForumPost = typeof forumPosts.$inferSelect;
 export type PriceAlert = typeof priceAlerts.$inferSelect;
 export type PostLike = typeof postLikes.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 export type TopicTag = typeof topicTags.$inferSelect;
 export type TopicTagRelation = typeof topicTagRelations.$inferSelect;
 export type PostMention = typeof postMentions.$inferSelect;
 export type PrivateMessage = typeof privateMessages.$inferSelect;
 export type Badge = typeof badges.$inferSelect;
 export type UserBadge = typeof userBadges.$inferSelect;
+export type ProductWatch = typeof productWatches.$inferSelect;
+export type UserReputation = typeof userReputation.$inferSelect;
+export type DealSpotting = typeof dealSpottings.$inferSelect;
 export type PostRevision = typeof postRevisions.$inferSelect;
 
 export type InsertRetailer = z.infer<typeof insertRetailerSchema>;
@@ -403,9 +495,13 @@ export type InsertForumPost = z.infer<typeof insertForumPostSchema>;
 export type InsertPriceAlert = z.infer<typeof insertPriceAlertSchema>;
 export type InsertPostLike = z.infer<typeof insertPostLikeSchema>;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
 export type InsertTopicTag = z.infer<typeof insertTopicTagSchema>;
 export type InsertPrivateMessage = z.infer<typeof insertPrivateMessageSchema>;
 export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type InsertProductWatch = z.infer<typeof insertProductWatchSchema>;
+export type InsertUserReputation = z.infer<typeof insertUserReputationSchema>;
+export type InsertDealSpotting = z.infer<typeof insertDealSpottingSchema>;
 export type InsertPostRevision = z.infer<typeof insertPostRevisionSchema>;
 
 // Combined types for API responses
@@ -555,6 +651,32 @@ export const pricePredictions = pgTable("price_predictions", {
   validatedAt: timestamp("validated_at"),
 });
 
+// Price history tracking - Granular price change records
+export const priceHistory = pgTable("price_history", {
+  id: serial("id").primaryKey(),
+  productOfferId: integer("product_offer_id").references(() => productOffers.id).notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  source: varchar("source", { length: 50 }).default("scraper"), // manual, scraper, api, admin
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).default("1.00"), // 0.00 to 1.00
+  metadata: text("metadata"), // JSON - Additional context about price change
+  recordedAt: timestamp("recorded_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Price snapshots - Daily aggregated price data
+export const priceSnapshots = pgTable("price_snapshots", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id).notNull(),
+  lowestPrice: decimal("lowest_price", { precision: 10, scale: 2 }).notNull(),
+  highestPrice: decimal("highest_price", { precision: 10, scale: 2 }).notNull(),
+  averagePrice: decimal("average_price", { precision: 10, scale: 2 }).notNull(),
+  offerCount: integer("offer_count").default(1),
+  snapshotDate: timestamp("snapshot_date").notNull(), // Date of the snapshot
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Scraping source configuration
 export const scrapingSources = pgTable("scraping_sources", {
   id: serial("id").primaryKey(),
@@ -618,6 +740,17 @@ export const insertPricePredictionSchema = createInsertSchema(pricePredictions).
   validatedAt: true,
 });
 
+export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
+  id: true,
+  recordedAt: true,
+  createdAt: true,
+});
+
+export const insertPriceSnapshotSchema = createInsertSchema(priceSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertScrapingSourceSchema = createInsertSchema(scrapingSources).omit({
   id: true,
   createdAt: true,
@@ -636,6 +769,8 @@ export type SearchQuery = typeof searchQueries.$inferSelect;
 export type AgentSession = typeof agentSessions.$inferSelect;
 export type ScrapingJob = typeof scrapingJobs.$inferSelect;
 export type PricePrediction = typeof pricePredictions.$inferSelect;
+export type PriceHistory = typeof priceHistory.$inferSelect;
+export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
 export type ScrapingSource = typeof scrapingSources.$inferSelect;
 export type ProductUrl = typeof productUrls.$inferSelect;
 
@@ -644,6 +779,8 @@ export type InsertSearchQuery = z.infer<typeof insertSearchQuerySchema>;
 export type InsertAgentSession = z.infer<typeof insertAgentSessionSchema>;
 export type InsertScrapingJob = z.infer<typeof insertScrapingJobSchema>;
 export type InsertPricePrediction = z.infer<typeof insertPricePredictionSchema>;
+export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
+export type InsertPriceSnapshot = z.infer<typeof insertPriceSnapshotSchema>;
 export type InsertScrapingSource = z.infer<typeof insertScrapingSourceSchema>;
 export type InsertProductUrl = z.infer<typeof insertProductUrlSchema>;
 
@@ -663,6 +800,30 @@ export type AgentSessionWithJobs = AgentSession & {
   jobs?: ScrapingJob[];
   successfulJobs?: number;
   failedJobs?: number;
+};
+
+// Price history related types
+export type PriceHistoryWithOffer = PriceHistory & {
+  offer?: ProductOffer & {
+    product?: Product;
+    retailer?: Retailer;
+  };
+};
+
+export type PriceSnapshotWithDetails = PriceSnapshot & {
+  product?: Product;
+  retailer?: Retailer;
+};
+
+export type ProductWithPriceHistory = Product & {
+  priceHistory?: PriceHistory[];
+  priceSnapshots?: PriceSnapshot[];
+  currentLowestPrice?: number;
+  priceChange24h?: number;
+  priceChange7d?: number;
+  priceChange30d?: number;
+  allTimeLowest?: number;
+  allTimeHighest?: number;
 };
 
 // Search-related types
