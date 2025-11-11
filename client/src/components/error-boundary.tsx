@@ -1,6 +1,6 @@
 import { Component, ReactNode, ErrorInfo } from 'react';
 import { Button } from './ui/button';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -73,10 +73,12 @@ export class ErrorBoundary extends Component<Props, State> {
             )}
 
             <div className="flex gap-3 justify-center">
-              <Button onClick={this.handleReset} variant="outline">
+              <Button onClick={this.handleReset} variant="default">
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Try Again
               </Button>
-              <Button onClick={() => window.location.href = '/'}>
+              <Button onClick={() => window.location.href = '/'} variant="outline">
+                <Home className="h-4 w-4 mr-2" />
                 Go Home
               </Button>
             </div>

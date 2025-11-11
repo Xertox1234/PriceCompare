@@ -1,7 +1,7 @@
 import { ProductCard } from "./product-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { useLocation } from "wouter";
 import type { ProductWithOffers } from "@shared/schema";
 import { PRODUCT_SKELETON_COUNT, LOAD_MORE_THRESHOLD } from "@/lib/constants";
@@ -11,19 +11,37 @@ interface ProductGridProps {
   isLoading: boolean;
   error: Error | null;
   onAddToComparison: (product: ProductWithOffers) => void;
+  onRetry?: () => void;
 }
 
-export function ProductGrid({ products, isLoading, error, onAddToComparison }: ProductGridProps) {
+export function ProductGrid({ products, isLoading, error, onAddToComparison, onRetry }: ProductGridProps) {
   const [, setLocation] = useLocation();
 
   if (error) {
     return (
       <section className="flex-1" aria-label="Product comparison results">
-        <div className="error-message flex items-center gap-2">
-          <AlertCircle className="h-5 w-5" aria-hidden="true" />
-          <div>
-            <h3 className="font-semibold">Error loading products</h3>
-            <p className="text-sm">{error.message}</p>
+        <div className="flex items-center justify-center min-h-[400px] p-8">
+          <div className="max-w-md text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="rounded-full bg-destructive/10 p-4">
+                <AlertCircle className="h-12 w-12 text-destructive" aria-hidden="true" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Error loading products</h3>
+              <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+            </div>
+            <div className="flex gap-3 justify-center">
+              {onRetry && (
+                <Button onClick={onRetry} variant="default">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+              )}
+              <Button onClick={() => setLocation('/products')} variant="outline">
+                Go to Products
+              </Button>
+            </div>
           </div>
         </div>
       </section>
