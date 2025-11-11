@@ -533,6 +533,32 @@ export const pricePredictions = pgTable("price_predictions", {
   validatedAt: timestamp("validated_at"),
 });
 
+// Price history tracking - Granular price change records
+export const priceHistory = pgTable("price_history", {
+  id: serial("id").primaryKey(),
+  productOfferId: integer("product_offer_id").references(() => productOffers.id).notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  source: varchar("source", { length: 50 }).default("scraper"), // manual, scraper, api, admin
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).default("1.00"), // 0.00 to 1.00
+  metadata: text("metadata"), // JSON - Additional context about price change
+  recordedAt: timestamp("recorded_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Price snapshots - Daily aggregated price data
+export const priceSnapshots = pgTable("price_snapshots", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id).notNull(),
+  lowestPrice: decimal("lowest_price", { precision: 10, scale: 2 }).notNull(),
+  highestPrice: decimal("highest_price", { precision: 10, scale: 2 }).notNull(),
+  averagePrice: decimal("average_price", { precision: 10, scale: 2 }).notNull(),
+  offerCount: integer("offer_count").default(1),
+  snapshotDate: timestamp("snapshot_date").notNull(), // Date of the snapshot
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Scraping source configuration
 export const scrapingSources = pgTable("scraping_sources", {
   id: serial("id").primaryKey(),
@@ -596,6 +622,17 @@ export const insertPricePredictionSchema = createInsertSchema(pricePredictions).
   validatedAt: true,
 });
 
+export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
+  id: true,
+  recordedAt: true,
+  createdAt: true,
+});
+
+export const insertPriceSnapshotSchema = createInsertSchema(priceSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertScrapingSourceSchema = createInsertSchema(scrapingSources).omit({
   id: true,
   createdAt: true,
@@ -614,6 +651,8 @@ export type SearchQuery = typeof searchQueries.$inferSelect;
 export type AgentSession = typeof agentSessions.$inferSelect;
 export type ScrapingJob = typeof scrapingJobs.$inferSelect;
 export type PricePrediction = typeof pricePredictions.$inferSelect;
+export type PriceHistory = typeof priceHistory.$inferSelect;
+export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
 export type ScrapingSource = typeof scrapingSources.$inferSelect;
 export type ProductUrl = typeof productUrls.$inferSelect;
 
@@ -622,6 +661,8 @@ export type InsertSearchQuery = z.infer<typeof insertSearchQuerySchema>;
 export type InsertAgentSession = z.infer<typeof insertAgentSessionSchema>;
 export type InsertScrapingJob = z.infer<typeof insertScrapingJobSchema>;
 export type InsertPricePrediction = z.infer<typeof insertPricePredictionSchema>;
+export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
+export type InsertPriceSnapshot = z.infer<typeof insertPriceSnapshotSchema>;
 export type InsertScrapingSource = z.infer<typeof insertScrapingSourceSchema>;
 export type InsertProductUrl = z.infer<typeof insertProductUrlSchema>;
 
@@ -641,6 +682,30 @@ export type AgentSessionWithJobs = AgentSession & {
   jobs?: ScrapingJob[];
   successfulJobs?: number;
   failedJobs?: number;
+};
+
+// Price history related types
+export type PriceHistoryWithOffer = PriceHistory & {
+  offer?: ProductOffer & {
+    product?: Product;
+    retailer?: Retailer;
+  };
+};
+
+export type PriceSnapshotWithDetails = PriceSnapshot & {
+  product?: Product;
+  retailer?: Retailer;
+};
+
+export type ProductWithPriceHistory = Product & {
+  priceHistory?: PriceHistory[];
+  priceSnapshots?: PriceSnapshot[];
+  currentLowestPrice?: number;
+  priceChange24h?: number;
+  priceChange7d?: number;
+  priceChange30d?: number;
+  allTimeLowest?: number;
+  allTimeHighest?: number;
 };
 
 // Search-related types
