@@ -77,9 +77,11 @@ export class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Try Again
               </Button>
-              <Button onClick={() => window.location.href = '/'} variant="outline">
-                <Home className="h-4 w-4 mr-2" />
-                Go Home
+              <Button asChild variant="outline">
+                <a href="/">
+                  <Home className="h-4 w-4 mr-2" />
+                  Go Home
+                </a>
               </Button>
             </div>
           </div>
@@ -105,7 +107,15 @@ export function RouteErrorBoundary({ children }: { children: ReactNode }) {
                 Please try refreshing the page
               </p>
             </div>
-            <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+            <Button
+              onClick={() => {
+                // Note: Using window.location.reload() here is appropriate for error recovery
+                // as we need to fully reset the application state after an error
+                window.location.reload();
+              }}
+              variant="outline"
+              size="sm"
+            >
               Refresh Page
             </Button>
           </div>

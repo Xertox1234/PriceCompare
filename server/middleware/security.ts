@@ -15,6 +15,18 @@ interface RateLimitStore {
 
 const rateLimitStore: RateLimitStore = {};
 
+// Deterministic cleanup timer for rate limit store
+// Runs every 60 seconds to remove expired entries
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(rateLimitStore).forEach(key => {
+    if (rateLimitStore[key].resetTime < now) {
+      delete rateLimitStore[key];
+    }
+  });
+}, CLEANUP_INTERVAL_MS);
+
 export function rateLimiter(options: {
   windowMs: number;
   maxRequests: number;
@@ -25,15 +37,6 @@ export function rateLimiter(options: {
   return (req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
-
-    // Clean up expired entries
-    if (Math.random() < 0.01) { // 1% chance to cleanup
-      Object.keys(rateLimitStore).forEach(key => {
-        if (rateLimitStore[key].resetTime < now) {
-          delete rateLimitStore[key];
-        }
-      });
-    }
 
     if (!rateLimitStore[ip]) {
       rateLimitStore[ip] = {
@@ -130,22 +133,37 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   res.setHeader('X-XSS-Protection', '1; mode=block');
 
   // Content Security Policy
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-    "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https:; " +
-    "font-src 'self' data:; " +
-    "connect-src 'self'; " +
-    "frame-ancestors 'none';"
-  );
+  // Note: 'unsafe-inline' for styles is kept for compatibility with inline styles
+  // TODO: Replace with nonce-based or hash-based CSP for maximum security
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  const cspDirectives = [
+    "default-src 'self'",
+    // Removed 'unsafe-eval' entirely - not needed and dangerous
+    // In development, we allow 'unsafe-inline' for scripts due to HMR
+    isDevelopment
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'"
+  ].join('; ') + ';';
+
+  res.setHeader('Content-Security-Policy', cspDirectives);
 
   // Referrer Policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   // Permissions Policy
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+
+  // Strict-Transport-Security (HSTS) - enforce HTTPS
+  // Only set in production and if using HTTPS
+  if (!isDevelopment && req.secure) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
 
   next();
 }
