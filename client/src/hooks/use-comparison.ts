@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react";
 import type { ProductWithOffers } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-
-const MAX_COMPARISON_ITEMS = 4;
+import { MAX_COMPARISON_ITEMS } from "@/lib/constants";
 
 export function useComparison() {
   const [comparisonItems, setComparisonItems] = useState<ProductWithOffers[]>([]);
@@ -55,15 +54,17 @@ export function useComparison() {
   }, [toast]);
 
   const clearComparison = useCallback(() => {
-    if (comparisonItems.length > 0) {
-      toast({
-        title: "Comparison cleared",
-        description: "All products have been removed from your comparison list.",
-        variant: "default",
-      });
-    }
-    setComparisonItems([]);
-  }, [comparisonItems.length, toast]);
+    setComparisonItems((current) => {
+      if (current.length > 0) {
+        toast({
+          title: "Comparison cleared",
+          description: "All products have been removed from your comparison list.",
+          variant: "default",
+        });
+      }
+      return [];
+    });
+  }, [toast]);
 
   return {
     comparisonItems,

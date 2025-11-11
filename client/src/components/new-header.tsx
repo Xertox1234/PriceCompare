@@ -9,6 +9,7 @@ export function NewHeader() {
   const { data: user } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogin = () => {
     setAuthMode('login');
@@ -68,7 +69,14 @@ export function NewHeader() {
             )}
           </nav>
           
-          <button className="md:hidden text-gray-600">
+          <button
+            type="button"
+            className="md:hidden text-gray-600"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle mobile menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu"
+          >
             <Menu className="h-6 w-6" />
           </button>
         </div>

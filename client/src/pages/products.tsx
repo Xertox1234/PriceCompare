@@ -23,7 +23,9 @@ export default function Products() {
     metadata,
     isLoading,
     error,
-    isSearching
+    isSearching,
+    autoSearchResults,
+    defaultProductsQuery,
   } = useEnhancedProductsSearch({
     initialFilters: { sortBy: "popularity" },
     autoSearch: true
@@ -44,6 +46,15 @@ export default function Products() {
   const handleFilterChange = useCallback((newFilters: Partial<SearchFilters>) => {
     setFilters(newFilters);
   }, [setFilters]);
+
+  // Retry handler for error states
+  const handleRetry = useCallback(() => {
+    if (query.trim()) {
+      autoSearchResults.refetch();
+    } else {
+      defaultProductsQuery.refetch();
+    }
+  }, [query, autoSearchResults, defaultProductsQuery]);
 
   // Memoize active filter count calculation
   const activeFilterCount = useMemo(() => {
@@ -150,11 +161,12 @@ export default function Products() {
 
             {/* Products Grid */}
             <div className="flex-1">
-              <ProductGrid 
+              <ProductGrid
                 products={products || []}
                 isLoading={isLoading}
                 error={error}
                 onAddToComparison={addToComparison}
+                onRetry={handleRetry}
               />
             </div>
           </div>

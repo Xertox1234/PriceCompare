@@ -2,6 +2,7 @@ import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ProductWithOffers } from "@shared/schema";
+import { MAX_COMPARISON_ITEMS } from "@/lib/constants";
 
 interface ComparisonModalProps {
   items: ProductWithOffers[];
@@ -74,7 +75,7 @@ export function ComparisonModal({ items, onRemoveItem, onClear }: ComparisonModa
       </div>
       
       <div className="text-xs text-muted-foreground mt-2 text-center">
-        Add up to 4 products to compare
+        Add up to {MAX_COMPARISON_ITEMS} products to compare
       </div>
     </div>
   );
