@@ -704,6 +704,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  app.patch("/api/price-alerts/:id", withAuth(async (req, res) => {
+    try {
+      const user = req.user;
+      const alertId = parseInt(req.params.id);
+      const updates = req.body;
+
+      const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
+      if (!updatedAlert) {
+        return res.status(404).json({ error: "Alert not found or unauthorized" });
+      }
+
+      res.json(updatedAlert);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update price alert" });
+    }
+  }));
+
+  app.delete("/api/price-alerts/:id", withAuth(async (req, res) => {
+    try {
+      const user = req.user;
+      const alertId = parseInt(req.params.id);
+
+      const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Alert not found or unauthorized" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete price alert" });
+    }
+  }));
+
   // Get all retailers
   app.get("/api/retailers", async (req, res) => {
     try {

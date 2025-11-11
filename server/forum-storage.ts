@@ -215,6 +215,21 @@ export class ForumStorage {
       .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.isActive, true)));
   }
 
+  async updatePriceAlert(alertId: number, userId: number, updates: Partial<InsertPriceAlert>): Promise<PriceAlert | null> {
+    const result = await db.update(priceAlerts)
+      .set(updates)
+      .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
+      .returning();
+    return result[0] || null;
+  }
+
+  async deletePriceAlert(alertId: number, userId: number): Promise<boolean> {
+    const result = await db.delete(priceAlerts)
+      .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
+      .returning();
+    return result.length > 0;
+  }
+
   async getProductDiscussionCount(productId: number): Promise<number> {
     const result = await db
       .select({ count: sql<number>`count(*)` })

@@ -7,7 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { PriceHistoryChart, type PriceHistoryData } from "@/components/price-history";
+import {
+  PriceHistoryChart,
+  type PriceHistoryData,
+  PriceInsightsWidget,
+  PriceAlertsManager,
+  DealTracker
+} from "@/components/price-history";
 import { usePriceHistory, usePriceStats, usePriceSnapshots } from "@/hooks/use-price-history";
 import {
   ArrowLeft,
@@ -391,6 +397,31 @@ export default function PriceHistoryPage() {
                   </Button>
                 </CardContent>
               </Card>
+            </div>
+
+            <Separator className="my-8" />
+
+            {/* Phase 2.3: Advanced Insights Dashboard */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Price Insights Widget */}
+              <PriceInsightsWidget
+                productId={productId!}
+                offerId={selectedOfferId}
+              />
+
+              {/* Price Alerts Manager */}
+              <PriceAlertsManager
+                productId={productId!}
+                currentPrice={chartData.currentPrice}
+              />
+
+              {/* Deal Tracker (full width) */}
+              <div className="lg:col-span-2">
+                <DealTracker
+                  productId={productId!}
+                  offerId={selectedOfferId}
+                />
+              </div>
             </div>
           </div>
         )}
