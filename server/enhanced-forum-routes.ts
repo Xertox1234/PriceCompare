@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { requireAuth } from './auth';
 import { enhancedForumStorage } from "./enhanced-forum-storage";
 import { storage } from "./storage";
 import { validateRequestBody } from "./validation";
@@ -11,13 +12,6 @@ import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
-
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  next();
-};
 
 export function registerEnhancedForumRoutes(app: Express) {
   // Enhanced user profile routes

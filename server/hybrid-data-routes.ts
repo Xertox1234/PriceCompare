@@ -1,19 +1,6 @@
 import { Express, Request, Response } from "express";
+import { requireAuth, requireAdmin } from './auth';
 import { hybridDataCollector } from "./services/hybrid-data-collector";
-
-const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated && req.isAuthenticated() && req.user) {
-    return next();
-  }
-  return res.status(401).json({ error: "Not authenticated" });
-};
-
-const requireAdmin = (req: any, res: Response, next: Function) => {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-};
 
 export function registerHybridDataRoutes(app: Express): void {
   

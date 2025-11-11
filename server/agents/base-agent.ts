@@ -1,12 +1,13 @@
 import { EventEmitter } from 'events';
+import crypto from 'crypto';
 import { db } from '../db.js';
 import { agentSessions, scrapingJobs } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
-import type { 
-  AgentSession, 
-  InsertAgentSession, 
-  ScrapingJob, 
-  InsertScrapingJob 
+import type {
+  AgentSession,
+  InsertAgentSession,
+  ScrapingJob,
+  InsertScrapingJob
 } from '../../shared/schema.js';
 
 export interface AgentConfig {
@@ -38,7 +39,9 @@ export abstract class BaseAgent extends EventEmitter {
   constructor(config: AgentConfig) {
     super();
     this.config = config;
-    this.sessionId = `${config.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Use cryptographically secure random ID generation instead of Math.random()
+    const randomId = crypto.randomBytes(6).toString('hex');
+    this.sessionId = `${config.type}_${Date.now()}_${randomId}`;
     this.startTime = new Date();
   }
 

@@ -71,6 +71,14 @@ export function rateLimiter(options: {
  * CSRF Protection Middleware
  * Protects against Cross-Site Request Forgery attacks
  */
+
+// Extend Express Session type to include our custom fields
+declare module 'express-session' {
+  interface SessionData {
+    csrfToken?: string;
+  }
+}
+
 declare global {
   namespace Express {
     interface Request {
@@ -98,7 +106,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
 
   // For form submissions, check CSRF token
   const token = req.body._csrf || req.headers['x-csrf-token'];
-  const sessionToken = (req.session as any)?.csrfToken;
+  const sessionToken = req.session?.csrfToken;
 
   if (!token || !sessionToken || token !== sessionToken) {
     res.status(403).json({ error: 'Invalid CSRF token' });
@@ -112,10 +120,14 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
  * Generate CSRF token for the session
  */
 export function generateCsrfToken(req: Request): string {
-  if (!(req.session as any).csrfToken) {
-    (req.session as any).csrfToken = crypto.randomBytes(CSRF_TOKEN_LENGTH).toString('hex');
+  if (!req.session) {
+    throw new Error('Session not initialized');
   }
-  return (req.session as any).csrfToken;
+
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = crypto.randomBytes(CSRF_TOKEN_LENGTH).toString('hex');
+  }
+  return req.session.csrfToken;
 }
 
 /**
@@ -175,18 +187,24 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   // Sanitize body
   if (req.body) {
-    req.body = sanitizeObject(req.body);
+    req.body = sanitizeObject(req.body) as typeof req.body;
   }
 
   // Sanitize query params
   if (req.query) {
-    req.query = sanitizeObject(req.query);
+    req.query = sanitizeObject(req.query) as typeof req.query;
   }
 
   next();
 }
 
-function sanitizeObject(obj: any): any {
+type SanitizableValue = string | number | boolean | null | undefined | SanitizableObject | SanitizableArray;
+interface SanitizableObject {
+  [key: string]: SanitizableValue;
+}
+interface SanitizableArray extends Array<SanitizableValue> {}
+
+function sanitizeObject(obj: unknown): unknown {
   if (typeof obj === 'string') {
     // Remove potential XSS patterns
     return obj
@@ -200,9 +218,11 @@ function sanitizeObject(obj: any): any {
   }
 
   if (typeof obj === 'object' && obj !== null) {
-    const sanitized: any = {};
+    const sanitized: Record<string, unknown> = {};
     for (const key in obj) {
-      sanitized[key] = sanitizeObject(obj[key]);
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key]);
+      }
     }
     return sanitized;
   }

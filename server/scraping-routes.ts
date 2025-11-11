@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { sendErrorResponse, ErrorMessages } from './utils/error-handler';
+import { requireAuth, requireAdmin } from './auth';
 import { CoordinationAgent } from './agents/coordinator-agent.js';
 import { ProductDiscoveryAgent } from './agents/discovery-agent.js';
 import { SearchOrchestrationAgent } from './agents/search-agent.js';
@@ -7,21 +8,6 @@ import { googleSearchService } from './services/google-search.js';
 import { db } from './db.js';
 import { scrapingJobs, trendingProducts, agentSessions } from '../shared/schema.js';
 import { eq, desc, and, gte } from 'drizzle-orm';
-
-// Authentication middleware
-const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  next();
-};
-
-const requireAdmin = (req: any, res: Response, next: Function) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
 
 // Global agent instances
 let coordinationAgent: CoordinationAgent | null = null;

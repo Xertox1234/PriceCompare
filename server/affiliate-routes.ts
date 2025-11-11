@@ -2,22 +2,9 @@ import { Express, Request, Response } from 'express';
 import { db } from './db.js';
 import { retailers, productOffers } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
+import { requireAuth, requireAdmin } from './auth';
 import { affiliateLinkService } from './services/affiliate-link-service.js';
 import { AffiliateLinkAgent } from './agents/affiliate-agent.js';
-
-const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  next();
-};
-
-const requireAdmin = (req: any, res: Response, next: Function) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
 

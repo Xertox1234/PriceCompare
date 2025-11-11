@@ -4,11 +4,8 @@ import { db } from './db';
 import { users } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import type { User } from '../shared/schema';
+import { requireAuth } from './auth';
 import { getRequiredEnv } from './config/env-validation';
-
-interface AuthenticatedRequest extends Request {
-  user?: User;
-}
 
 // SECURITY: Required for secure SSO HMAC signing - never use default values
 const DISCOURSE_SSO_SECRET = getRequiredEnv('DISCOURSE_SSO_SECRET');
@@ -63,18 +60,11 @@ function parseSSO(sso: string): Record<string, string> {
   return result;
 }
 
-const requireAuth = (req: AuthenticatedRequest, res: Response, next: Function) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  next();
-};
-
 export function registerDiscourseRoutes(app: Express): void {
   /**
    * Discourse SSO login endpoint
    */
-  app.get("/discourse/sso", async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/discourse/sso", async (req: Request, res: Response) => {
     try {
       const { sso, sig } = req.query;
       
@@ -138,7 +128,7 @@ export function registerDiscourseRoutes(app: Express): void {
   /**
    * Test Discourse SSO configuration
    */
-  app.get("/api/admin/discourse/test-sso", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/discourse/test-sso", requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user?.role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required' });
