@@ -9,6 +9,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { SharedNavigation } from '@/components/shared-navigation';
@@ -38,6 +56,16 @@ interface User {
   createdAt: string;
 }
 
+interface PlatformSettings {
+  platformName: string;
+  defaultCurrency: string;
+}
+
+interface ForumSettings {
+  allowGuestPosting: boolean;
+  autoModerateNewPosts: boolean;
+}
+
 export default function AdminPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -47,6 +75,37 @@ export default function AdminPage() {
     color: '#3b82f6',
     icon: 'MessageSquare'
   });
+
+  // Category editing state
+  const [editingCategory, setEditingCategory] = useState<ForumCategory | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    color: '#3b82f6',
+  });
+
+  // Category deletion state
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Settings state management
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>({
+    platformName: 'PriceCompare Community',
+    defaultCurrency: 'usd',
+  });
+
+  const [forumSettings, setForumSettings] = useState<ForumSettings>({
+    allowGuestPosting: false,
+    autoModerateNewPosts: false,
+  });
+
+  const [originalPlatformSettings, setOriginalPlatformSettings] = useState<PlatformSettings>(platformSettings);
+  const [originalForumSettings, setOriginalForumSettings] = useState<ForumSettings>(forumSettings);
+
+  // Track unsaved changes
+  const hasPlatformChanges = JSON.stringify(platformSettings) !== JSON.stringify(originalPlatformSettings);
+  const hasForumChanges = JSON.stringify(forumSettings) !== JSON.stringify(originalForumSettings);
 
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
@@ -99,6 +158,43 @@ export default function AdminPage() {
     },
   });
 
+  // Update category mutation
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<ForumCategory> }) => {
+      return apiRequest(`/api/admin/categories/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
+      setShowEditDialog(false);
+      setEditingCategory(null);
+      toast({ title: 'Category updated successfully!' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to update category', variant: 'destructive' });
+    },
+  });
+
+  // Delete category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/admin/categories/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
+      setShowDeleteDialog(false);
+      setDeletingCategoryId(null);
+      toast({ title: 'Category deleted successfully!' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to delete category', variant: 'destructive' });
+    },
+  });
+
   // Update user role mutation
   const updateUserRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
@@ -116,6 +212,40 @@ export default function AdminPage() {
     },
   });
 
+  // Save platform settings mutation
+  const savePlatformSettingsMutation = useMutation({
+    mutationFn: async (settings: PlatformSettings) => {
+      return apiRequest('/api/admin/settings/platform', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+    },
+    onSuccess: () => {
+      setOriginalPlatformSettings(platformSettings);
+      toast({ title: 'Platform settings saved successfully!' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to save platform settings', variant: 'destructive' });
+    },
+  });
+
+  // Save forum settings mutation
+  const saveForumSettingsMutation = useMutation({
+    mutationFn: async (settings: ForumSettings) => {
+      return apiRequest('/api/admin/settings/forum', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+    },
+    onSuccess: () => {
+      setOriginalForumSettings(forumSettings);
+      toast({ title: 'Forum settings saved successfully!' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to save forum settings', variant: 'destructive' });
+    },
+  });
+
   const handleCreateCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategory.name.trim()) return;
@@ -128,6 +258,59 @@ export default function AdminPage() {
 
   const handleUpdateUserRole = (userId: number, role: string) => {
     updateUserRoleMutation.mutate({ userId, role });
+  };
+
+  const handleSavePlatformSettings = () => {
+    savePlatformSettingsMutation.mutate(platformSettings);
+  };
+
+  const handleResetPlatformSettings = () => {
+    setPlatformSettings(originalPlatformSettings);
+    toast({ title: 'Platform settings reset', description: 'Changes have been discarded' });
+  };
+
+  const handleSaveForumSettings = () => {
+    saveForumSettingsMutation.mutate(forumSettings);
+  };
+
+  const handleResetForumSettings = () => {
+    setForumSettings(originalForumSettings);
+    toast({ title: 'Forum settings reset', description: 'Changes have been discarded' });
+  };
+
+  const handleEditCategory = (category: ForumCategory) => {
+    setEditingCategory(category);
+    setEditForm({
+      name: category.name,
+      description: category.description || '',
+      color: category.color,
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateCategory = () => {
+    if (!editingCategory || !editForm.name.trim()) return;
+
+    updateCategoryMutation.mutate({
+      id: editingCategory.id,
+      data: {
+        name: editForm.name,
+        description: editForm.description,
+        color: editForm.color,
+        slug: editForm.name.toLowerCase().replace(/\s+/g, '-'),
+      },
+    });
+  };
+
+  const handleDeleteCategory = (categoryId: number) => {
+    setDeletingCategoryId(categoryId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteCategory = () => {
+    if (deletingCategoryId !== null) {
+      deleteCategoryMutation.mutate(deletingCategoryId);
+    }
   };
 
   return (
@@ -417,10 +600,21 @@ export default function AdminPage() {
                         <Badge variant={category.isActive ? "default" : "secondary"}>
                           {category.isActive ? "Active" : "Inactive"}
                         </Badge>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCategory(category)}
+                          aria-label={`Edit ${category.name}`}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCategory(category.id)}
+                          aria-label={`Delete ${category.name}`}
+                          className="text-destructive hover:text-destructive/90"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -498,20 +692,35 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Platform Settings</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Platform Settings</span>
+                    {hasPlatformChanges && (
+                      <Badge variant="secondary" className="text-xs">
+                        Unsaved changes
+                      </Badge>
+                    )}
+                  </CardTitle>
                   <CardDescription>
                     Configure main platform settings
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Platform Name</Label>
-                    <Input defaultValue="PriceCompare Community" />
+                    <Label htmlFor="platform-name">Platform Name</Label>
+                    <Input
+                      id="platform-name"
+                      value={platformSettings.platformName}
+                      onChange={(e) => setPlatformSettings(prev => ({ ...prev, platformName: e.target.value }))}
+                      placeholder="Enter platform name"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>Default Currency</Label>
-                    <Select defaultValue="usd">
-                      <SelectTrigger>
+                    <Label htmlFor="default-currency">Default Currency</Label>
+                    <Select
+                      value={platformSettings.defaultCurrency}
+                      onValueChange={(value) => setPlatformSettings(prev => ({ ...prev, defaultCurrency: value }))}
+                    >
+                      <SelectTrigger id="default-currency">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -521,22 +730,46 @@ export default function AdminPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button>Save Platform Settings</Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSavePlatformSettings}
+                      disabled={!hasPlatformChanges || savePlatformSettingsMutation.isPending}
+                    >
+                      {savePlatformSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleResetPlatformSettings}
+                      disabled={!hasPlatformChanges}
+                    >
+                      Reset
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Forum Settings</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Forum Settings</span>
+                    {hasForumChanges && (
+                      <Badge variant="secondary" className="text-xs">
+                        Unsaved changes
+                      </Badge>
+                    )}
+                  </CardTitle>
                   <CardDescription>
                     Configure forum-specific settings
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Allow Guest Posting</Label>
-                    <Select defaultValue="false">
-                      <SelectTrigger>
+                    <Label htmlFor="allow-guest-posting">Allow Guest Posting</Label>
+                    <Select
+                      value={forumSettings.allowGuestPosting.toString()}
+                      onValueChange={(value) => setForumSettings(prev => ({ ...prev, allowGuestPosting: value === 'true' }))}
+                    >
+                      <SelectTrigger id="allow-guest-posting">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -546,9 +779,12 @@ export default function AdminPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Auto-moderate New Posts</Label>
-                    <Select defaultValue="false">
-                      <SelectTrigger>
+                    <Label htmlFor="auto-moderate-posts">Auto-moderate New Posts</Label>
+                    <Select
+                      value={forumSettings.autoModerateNewPosts.toString()}
+                      onValueChange={(value) => setForumSettings(prev => ({ ...prev, autoModerateNewPosts: value === 'true' }))}
+                    >
+                      <SelectTrigger id="auto-moderate-posts">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -557,13 +793,117 @@ export default function AdminPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button>Save Forum Settings</Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSaveForumSettings}
+                      disabled={!hasForumChanges || saveForumSettingsMutation.isPending}
+                    >
+                      {saveForumSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleResetForumSettings}
+                      disabled={!hasForumChanges}
+                    >
+                      Reset
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+            <DialogDescription>
+              Update the category details below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-category-name">Name</Label>
+              <Input
+                id="edit-category-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Product Reviews"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category-color">Color</Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                  id="edit-category-color"
+                  type="color"
+                  value={editForm.color}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-20 h-10"
+                />
+                <Input
+                  value={editForm.color}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, color: e.target.value }))}
+                  placeholder="#3b82f6"
+                  className="flex-1"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category-description">Description</Label>
+              <Textarea
+                id="edit-category-description"
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe what this category is for..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              disabled={updateCategoryMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateCategory}
+              disabled={!editForm.name.trim() || updateCategoryMutation.isPending}
+            >
+              {updateCategoryMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Category Confirmation */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this category. All topics and posts in this category will need to be reassigned. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteCategoryMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteCategory}
+              disabled={deleteCategoryMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete Category'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
