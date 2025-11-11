@@ -11,6 +11,7 @@ import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { registerPriceHistoryRoutes } from "./price-history-routes";
 import { registerNotificationRoutes } from "./notification-routes";
 import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
+import { registerCommunityRoutes } from "./community-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
@@ -158,6 +159,9 @@ app.use(sanitizeInput);
 
   // Register smart alerts routes
   registerSmartAlertsRoutes(app);
+
+  // Register community routes
+  registerCommunityRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -283,6 +283,39 @@ export const userBadges = pgTable("user_badges", {
   grantedAt: timestamp("granted_at").defaultNow(),
 });
 
+// Product watches - users watching products for price changes
+export const productWatches = pgTable("product_watches", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User reputation for gamification
+export const userReputation = pgTable("user_reputation", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  reputationPoints: integer("reputation_points").default(0),
+  dealsSpotted: integer("deals_spotted").default(0),
+  accuratePredictions: integer("accurate_predictions").default(0),
+  communityContributions: integer("community_contributions").default(0),
+  level: integer("level").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Deal spotting events for tracking who found deals
+export const dealSpottings = pgTable("deal_spottings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  priceDropPercent: decimal("price_drop_percent", { precision: 5, scale: 2 }).notNull(),
+  priceDropAmount: decimal("price_drop_amount", { precision: 10, scale: 2 }).notNull(),
+  forumPostId: integer("forum_post_id").references(() => forumPosts.id),
+  reputationAwarded: integer("reputation_awarded").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Post revision history
 export const postRevisions = pgTable("post_revisions", {
   id: serial("id").primaryKey(),
@@ -384,6 +417,22 @@ export const insertBadgeSchema = createInsertSchema(badges).omit({
   createdAt: true,
 });
 
+export const insertProductWatchSchema = createInsertSchema(productWatches).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserReputationSchema = createInsertSchema(userReputation).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDealSpottingSchema = createInsertSchema(dealSpottings).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertPostRevisionSchema = createInsertSchema(postRevisions).omit({
   id: true,
   createdAt: true,
@@ -408,6 +457,9 @@ export type PostMention = typeof postMentions.$inferSelect;
 export type PrivateMessage = typeof privateMessages.$inferSelect;
 export type Badge = typeof badges.$inferSelect;
 export type UserBadge = typeof userBadges.$inferSelect;
+export type ProductWatch = typeof productWatches.$inferSelect;
+export type UserReputation = typeof userReputation.$inferSelect;
+export type DealSpotting = typeof dealSpottings.$inferSelect;
 export type PostRevision = typeof postRevisions.$inferSelect;
 
 export type InsertRetailer = z.infer<typeof insertRetailerSchema>;
@@ -425,6 +477,9 @@ export type InsertNotificationPreferences = z.infer<typeof insertNotificationPre
 export type InsertTopicTag = z.infer<typeof insertTopicTagSchema>;
 export type InsertPrivateMessage = z.infer<typeof insertPrivateMessageSchema>;
 export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type InsertProductWatch = z.infer<typeof insertProductWatchSchema>;
+export type InsertUserReputation = z.infer<typeof insertUserReputationSchema>;
+export type InsertDealSpotting = z.infer<typeof insertDealSpottingSchema>;
 export type InsertPostRevision = z.infer<typeof insertPostRevisionSchema>;
 
 // Combined types for API responses
