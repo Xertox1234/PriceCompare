@@ -33,16 +33,16 @@ export class ProductDiscoveryFallback {
         }
       },
       limit: maxResults
-    }) as any;
+    });
 
-    return searchResults.map((product: any) => ({
+    return searchResults.map((product) => ({
       id: product.id,
       name: product.name,
       description: product.description,
       category: product.category,
       brand: product.brand,
       image: product.image,
-      offers: (product.offers || []).map((offer: any) => ({
+      offers: (product.offers || []).map((offer) => ({
         id: offer.id,
         price: offer.price,
         availability: offer.availability,

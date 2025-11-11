@@ -113,8 +113,15 @@ export default function AdvancedForum() {
   const [sortBy, setSortBy] = useState('latest');
   const [showCreateTopic, setShowCreateTopic] = useState(false);
   const queryClient = useQueryClient();
-  
+
   const { data: user } = useAuth();
+
+  // Helper function for authentication redirects
+  // Note: These redirect to backend auth endpoints, not React routes
+  const redirectToLogin = () => {
+    // Using window.location.assign() for backend auth redirects
+    window.location.assign('/api/auth/login');
+  };
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['/api/forum/categories'],
@@ -193,7 +200,7 @@ export default function AdvancedForum() {
       
       if (response.status === 401) {
         // User is not authenticated, redirect to login
-        window.location.href = '/api/auth/login';
+        redirectToLogin();
         throw new Error('Please log in to create topics');
       }
       
@@ -454,7 +461,7 @@ export default function AdvancedForum() {
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">Sign in to join the conversation</p>
-                <Button onClick={() => window.location.href = '/api/login'}>
+                <Button onClick={redirectToLogin}>
                   Sign In to Reply
                 </Button>
               </div>
@@ -565,7 +572,7 @@ export default function AdvancedForum() {
             </DialogContent>
           </Dialog>
         ) : (
-          <Button onClick={() => window.location.href = '/api/login'}>
+          <Button onClick={redirectToLogin}>
             <Plus className="h-4 w-4 mr-2" />
             Sign in to Create Topic
           </Button>

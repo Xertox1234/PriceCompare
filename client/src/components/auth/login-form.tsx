@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>('');
+  const queryClient = useQueryClient();
 
   const loginMutation = useMutation<AuthResponse, Error, LoginFormData>({
     mutationFn: async (data: LoginFormData) => {
@@ -28,9 +29,10 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
       });
     },
     onSuccess: () => {
+      // Invalidate auth queries to update authentication state without page reload
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
       onSuccess?.();
-      // Refresh the page to update authentication state
-      window.location.reload();
     },
     onError: (error: Error) => {
       setError(error.message || 'Login failed');
@@ -157,6 +159,7 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>('');
+  const queryClient = useQueryClient();
 
   const registerMutation = useMutation<AuthResponse, Error, RegisterFormData>({
     mutationFn: async (data: RegisterFormData) => {
@@ -166,9 +169,10 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       });
     },
     onSuccess: () => {
+      // Invalidate auth queries to update authentication state without page reload
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
       onSuccess?.();
-      // Refresh the page to update authentication state
-      window.location.reload();
     },
     onError: (error: Error) => {
       setError(error.message || 'Registration failed');

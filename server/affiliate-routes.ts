@@ -2,24 +2,22 @@ import { Express, Request, Response } from 'express';
 import { db } from './db.js';
 import { retailers, productOffers } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
+import { requireAuth, requireAdmin } from './auth';
+import { validateRequest } from './validation';
+import {
+  affiliateConfigUpdateSchema,
+  idParamSchema,
+} from './validation/admin-schemas';
+import { z } from 'zod';
 import { affiliateLinkService } from './services/affiliate-link-service.js';
 import { AffiliateLinkAgent } from './agents/affiliate-agent.js';
 
-const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  next();
-};
-
-const requireAdmin = (req: any, res: Response, next: Function) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
-
 let affiliateAgent: AffiliateLinkAgent | null = null;
+
+// Validation schema for testing affiliate links
+const testAffiliateLinkSchema = z.object({
+  testUrl: z.string().url('Test URL must be a valid URL'),
+});
 
 export function registerAffiliateRoutes(app: Express): void {
   // Initialize affiliate agent
@@ -33,7 +31,7 @@ export function registerAffiliateRoutes(app: Express): void {
   };
 
   // Get all retailers with affiliate status
-  app.get("/api/admin/retailers/affiliate", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/admin/retailers/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const allRetailers = await db.select().from(retailers);
       
@@ -57,7 +55,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Update retailer affiliate configuration
-  app.put("/api/admin/retailers/:id/affiliate", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.put("/api/admin/retailers/:id/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailerId = parseInt(req.params.id);
       const {
@@ -96,25 +94,27 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Test affiliate link generation for retailer
-  app.post("/api/admin/retailers/:id/test-affiliate-link", requireAuth, requireAdmin, async (req: any, res: Response) => {
-    try {
-      const retailerId = parseInt(req.params.id);
-      const { testUrl } = req.body;
+  app.post(
+    "/api/admin/retailers/:id/test-affiliate-link",
+    requireAuth,
+    requireAdmin,
+    validateRequest(idParamSchema, 'params'),
+    validateRequest(testAffiliateLinkSchema, 'body'),
+    async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params as { id: number };
+        const { testUrl } = req.body as { testUrl: string };
 
-      if (!testUrl) {
-        return res.status(400).json({ error: 'Test URL is required' });
-      }
+        const result = await affiliateLinkService.generateAffiliateLink(id, testUrl);
 
-      const result = await affiliateLinkService.generateAffiliateLink(retailerId, testUrl);
-      
-      if (result.success && result.affiliateUrl) {
-        const isHealthy = await affiliateLinkService.validateAffiliateLink(result.affiliateUrl);
-        
-        res.json({
-          success: true,
-          originalUrl: testUrl,
-          affiliateUrl: result.affiliateUrl,
-          isHealthy,
+        if (result.success && result.affiliateUrl) {
+          const isHealthy = await affiliateLinkService.validateAffiliateLink(result.affiliateUrl);
+
+          res.json({
+            success: true,
+            originalUrl: testUrl,
+            affiliateUrl: result.affiliateUrl,
+            isHealthy,
           generationTime: new Date().toISOString()
         });
       } else {
@@ -131,7 +131,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Generate affiliate links for retailer
-  app.post("/api/admin/retailers/:id/generate-affiliate-links", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/admin/retailers/:id/generate-affiliate-links", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailerId = parseInt(req.params.id);
       const { limit = 50 } = req.body;
@@ -152,7 +152,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Get affiliate link statistics
-  app.get("/api/admin/affiliate-stats", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/admin/affiliate-stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { retailerId } = req.query;
       
@@ -182,7 +182,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Start affiliate agent
-  app.post("/api/admin/affiliate-agent/start", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/admin/affiliate-agent/start", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const agent = await initializeAffiliateAgent();
       const stats = await agent.getStats();

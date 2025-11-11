@@ -15,6 +15,18 @@ interface RateLimitStore {
 
 const rateLimitStore: RateLimitStore = {};
 
+// Deterministic cleanup timer for rate limit store
+// Runs every 60 seconds to remove expired entries
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(rateLimitStore).forEach(key => {
+    if (rateLimitStore[key].resetTime < now) {
+      delete rateLimitStore[key];
+    }
+  });
+}, CLEANUP_INTERVAL_MS);
+
 export function rateLimiter(options: {
   windowMs: number;
   maxRequests: number;
@@ -25,15 +37,6 @@ export function rateLimiter(options: {
   return (req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
-
-    // Clean up expired entries
-    if (Math.random() < 0.01) { // 1% chance to cleanup
-      Object.keys(rateLimitStore).forEach(key => {
-        if (rateLimitStore[key].resetTime < now) {
-          delete rateLimitStore[key];
-        }
-      });
-    }
 
     if (!rateLimitStore[ip]) {
       rateLimitStore[ip] = {
@@ -68,6 +71,14 @@ export function rateLimiter(options: {
  * CSRF Protection Middleware
  * Protects against Cross-Site Request Forgery attacks
  */
+
+// Extend Express Session type to include our custom fields
+declare module 'express-session' {
+  interface SessionData {
+    csrfToken?: string;
+  }
+}
+
 declare global {
   namespace Express {
     interface Request {
@@ -95,7 +106,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
 
   // For form submissions, check CSRF token
   const token = req.body._csrf || req.headers['x-csrf-token'];
-  const sessionToken = (req.session as any)?.csrfToken;
+  const sessionToken = req.session?.csrfToken;
 
   if (!token || !sessionToken || token !== sessionToken) {
     res.status(403).json({ error: 'Invalid CSRF token' });
@@ -109,10 +120,14 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
  * Generate CSRF token for the session
  */
 export function generateCsrfToken(req: Request): string {
-  if (!(req.session as any).csrfToken) {
-    (req.session as any).csrfToken = crypto.randomBytes(CSRF_TOKEN_LENGTH).toString('hex');
+  if (!req.session) {
+    throw new Error('Session not initialized');
   }
-  return (req.session as any).csrfToken;
+
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = crypto.randomBytes(CSRF_TOKEN_LENGTH).toString('hex');
+  }
+  return req.session.csrfToken;
 }
 
 /**
@@ -130,22 +145,37 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   res.setHeader('X-XSS-Protection', '1; mode=block');
 
   // Content Security Policy
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-    "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https:; " +
-    "font-src 'self' data:; " +
-    "connect-src 'self'; " +
-    "frame-ancestors 'none';"
-  );
+  // Note: 'unsafe-inline' for styles is kept for compatibility with inline styles
+  // TODO: Replace with nonce-based or hash-based CSP for maximum security
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  const cspDirectives = [
+    "default-src 'self'",
+    // Removed 'unsafe-eval' entirely - not needed and dangerous
+    // In development, we allow 'unsafe-inline' for scripts due to HMR
+    isDevelopment
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'"
+  ].join('; ') + ';';
+
+  res.setHeader('Content-Security-Policy', cspDirectives);
 
   // Referrer Policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   // Permissions Policy
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+
+  // Strict-Transport-Security (HSTS) - enforce HTTPS
+  // Only set in production and if using HTTPS
+  if (!isDevelopment && req.secure) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
 
   next();
 }
@@ -157,18 +187,24 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   // Sanitize body
   if (req.body) {
-    req.body = sanitizeObject(req.body);
+    req.body = sanitizeObject(req.body) as typeof req.body;
   }
 
   // Sanitize query params
   if (req.query) {
-    req.query = sanitizeObject(req.query);
+    req.query = sanitizeObject(req.query) as typeof req.query;
   }
 
   next();
 }
 
-function sanitizeObject(obj: any): any {
+type SanitizableValue = string | number | boolean | null | undefined | SanitizableObject | SanitizableArray;
+interface SanitizableObject {
+  [key: string]: SanitizableValue;
+}
+interface SanitizableArray extends Array<SanitizableValue> {}
+
+function sanitizeObject(obj: unknown): unknown {
   if (typeof obj === 'string') {
     // Remove potential XSS patterns
     return obj
@@ -182,9 +218,11 @@ function sanitizeObject(obj: any): any {
   }
 
   if (typeof obj === 'object' && obj !== null) {
-    const sanitized: any = {};
+    const sanitized: Record<string, unknown> = {};
     for (const key in obj) {
-      sanitized[key] = sanitizeObject(obj[key]);
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key]);
+      }
     }
     return sanitized;
   }

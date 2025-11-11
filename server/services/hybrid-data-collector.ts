@@ -59,7 +59,7 @@ export interface UnifiedProduct {
   availability: 'in_stock' | 'out_of_stock' | 'limited';
   images: string[];
   description: string;
-  specifications: Record<string, any>;
+  specifications: Record<string, unknown>;
   retailer: {
     name: string;
     productUrl: string;
@@ -74,7 +74,7 @@ export interface UnifiedProduct {
 }
 
 export abstract class RetailerAPIService {
-  abstract searchProducts(query: string, options?: any): Promise<UnifiedProduct[]>;
+  abstract searchProducts(query: string, options?: Record<string, unknown>): Promise<UnifiedProduct[]>;
   abstract getProductDetails(productId: string): Promise<UnifiedProduct>;
   abstract checkHealth(): Promise<boolean>;
   abstract getRateLimit(): RateLimit;
@@ -90,12 +90,18 @@ export class AmazonAPIService extends RetailerAPIService {
     marketplace: string;
   };
 
-  constructor(config: any) {
+  constructor(config: {
+    accessKey: string;
+    secretKey: string;
+    partnerTag: string;
+    region: string;
+    marketplace: string;
+  }) {
     super();
     this.config = config;
   }
 
-  async searchProducts(query: string, options?: any): Promise<UnifiedProduct[]> {
+  async searchProducts(query: string, options?: Record<string, unknown>): Promise<UnifiedProduct[]> {
     try {
       // Amazon PA-API 5.0 implementation
       const searchRequest = {
@@ -114,31 +120,34 @@ export class AmazonAPIService extends RetailerAPIService {
       // Make API call (implementation depends on AWS SDK)
       const response = await this.makeAPICall('SearchItems', searchRequest);
       
-      return response.SearchResult?.Items?.map((item: any) => ({
-        id: item.ASIN,
-        name: item.ItemInfo?.Title?.DisplayValue || '',
-        brand: item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue || '',
-        category: item.BrowseNodeInfo?.BrowseNodes?.[0]?.DisplayName || '',
-        price: {
-          current: parseFloat(item.Offers?.Listings?.[0]?.Price?.Amount || '0'),
-          currency: item.Offers?.Listings?.[0]?.Price?.Currency || 'USD'
-        },
-        availability: item.Offers?.Listings?.[0]?.Availability?.Type === 'Now' ? 'in_stock' : 'out_of_stock',
-        images: [item.Images?.Primary?.Large?.URL].filter(Boolean),
-        description: item.ItemInfo?.Features?.DisplayValues?.join('. ') || '',
-        specifications: {},
-        retailer: {
-          name: 'Amazon',
-          productUrl: item.DetailPageURL,
-          affiliateUrl: item.DetailPageURL // Already includes affiliate tag
-        },
-        metadata: {
-          source: 'api' as const,
-          lastUpdated: new Date(),
-          confidence: 0.95,
-          apiCost: this.getCostPerRequest()
-        }
-      })) || [];
+      return response.SearchResult?.Items?.map((item: unknown) => {
+        const amazonItem = item as Record<string, any>;
+        return {
+          id: amazonItem.ASIN,
+          name: amazonItem.ItemInfo?.Title?.DisplayValue || '',
+          brand: amazonItem.ItemInfo?.ByLineInfo?.Brand?.DisplayValue || '',
+          category: amazonItem.BrowseNodeInfo?.BrowseNodes?.[0]?.DisplayName || '',
+          price: {
+            current: parseFloat(amazonItem.Offers?.Listings?.[0]?.Price?.Amount || '0'),
+            currency: amazonItem.Offers?.Listings?.[0]?.Price?.Currency || 'USD'
+          },
+          availability: amazonItem.Offers?.Listings?.[0]?.Availability?.Type === 'Now' ? 'in_stock' : 'out_of_stock',
+          images: [amazonItem.Images?.Primary?.Large?.URL].filter(Boolean),
+          description: amazonItem.ItemInfo?.Features?.DisplayValues?.join('. ') || '',
+          specifications: {},
+          retailer: {
+            name: 'Amazon',
+            productUrl: amazonItem.DetailPageURL,
+            affiliateUrl: amazonItem.DetailPageURL // Already includes affiliate tag
+          },
+          metadata: {
+            source: 'api' as const,
+            lastUpdated: new Date(),
+            confidence: 0.95,
+            apiCost: this.getCostPerRequest()
+          }
+        };
+      }) || [];
     } catch (error) {
       console.error('Amazon API error:', error);
       throw error;
@@ -199,7 +208,7 @@ export class AmazonAPIService extends RetailerAPIService {
     return 0.0; // Free tier, but requires sales to maintain access
   }
 
-  private async makeAPICall(operation: string, payload: any): Promise<any> {
+  private async makeAPICall(operation: string, payload: Record<string, unknown>): Promise<Record<string, any>> {
     // AWS signature v4 implementation for PA-API calls
     // This would use the actual AWS SDK or manual signing
     throw new Error('AWS PA-API implementation required');
@@ -222,32 +231,35 @@ export class WalmartAPIService extends RetailerAPIService {
       const response = await fetch(url);
       const data = await response.json();
 
-      return data.items?.map((item: any) => ({
-        id: item.itemId.toString(),
-        name: item.name,
-        brand: item.brand || '',
-        category: item.categoryPath || '',
-        price: {
-          current: item.salePrice || item.msrp,
-          original: item.msrp,
-          currency: 'USD'
-        },
-        availability: item.availableOnline ? 'in_stock' : 'out_of_stock',
-        images: [item.largeImage].filter(Boolean),
-        description: item.shortDescription || '',
-        specifications: {},
-        retailer: {
-          name: 'Walmart',
-          productUrl: item.productUrl,
-          affiliateUrl: this.affiliateId ? `${item.productUrl}?affp1=${this.affiliateId}` : item.productUrl
-        },
-        metadata: {
-          source: 'api' as const,
-          lastUpdated: new Date(),
-          confidence: 0.92,
-          apiCost: this.getCostPerRequest()
-        }
-      })) || [];
+      return data.items?.map((item: unknown) => {
+        const walmartItem = item as Record<string, any>;
+        return {
+          id: walmartItem.itemId.toString(),
+          name: walmartItem.name,
+          brand: walmartItem.brand || '',
+          category: walmartItem.categoryPath || '',
+          price: {
+            current: walmartItem.salePrice || walmartItem.msrp,
+            original: walmartItem.msrp,
+            currency: 'USD'
+          },
+          availability: walmartItem.availableOnline ? 'in_stock' : 'out_of_stock',
+          images: [walmartItem.largeImage].filter(Boolean),
+          description: walmartItem.shortDescription || '',
+          specifications: {},
+          retailer: {
+            name: 'Walmart',
+            productUrl: walmartItem.productUrl,
+            affiliateUrl: this.affiliateId ? `${walmartItem.productUrl}?affp1=${this.affiliateId}` : walmartItem.productUrl
+          },
+          metadata: {
+            source: 'api' as const,
+            lastUpdated: new Date(),
+            confidence: 0.92,
+            apiCost: this.getCostPerRequest()
+          }
+        };
+      }) || [];
     } catch (error) {
       console.error('Walmart API error:', error);
       throw error;

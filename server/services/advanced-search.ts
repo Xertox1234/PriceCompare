@@ -263,7 +263,7 @@ export class AdvancedSearchService {
   /**
    * Calculate fuzzy match score
    */
-  private calculateFuzzyScore(query: string, product: any): number {
+  private calculateFuzzyScore(query: string, product: ProductWithOffers): number {
     const queryLower = query.toLowerCase();
     const name = product.name?.toLowerCase() || '';
     const brand = product.brand?.toLowerCase() || '';
@@ -502,10 +502,10 @@ export class AdvancedSearchService {
   /**
    * Calculate exact match relevance score
    */
-  private calculateExactMatchScore(query: string, product: any): number {
+  private calculateExactMatchScore(query: string, product: ProductWithOffers): number {
     let score = 0;
     const queryLower = query.toLowerCase();
-    
+
     const name = product.name?.toLowerCase() || '';
     const brand = product.brand?.toLowerCase() || '';
     const description = product.description?.toLowerCase() || '';

@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import type { Retailer } from '../../shared/schema.js';
 
 interface AffiliateConfig {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 interface LinkGenerationResult {
@@ -34,9 +34,9 @@ export class AffiliateLinkService {
    * Generate affiliate link from product URL
    */
   async generateAffiliateLink(
-    retailerId: number, 
-    productUrl: string, 
-    metadata?: any
+    retailerId: number,
+    productUrl: string,
+    metadata?: Record<string, unknown>
   ): Promise<LinkGenerationResult> {
     try {
       const retailer = await this.getRetailerConfig(retailerId);
@@ -81,9 +81,9 @@ export class AffiliateLinkService {
    * Transform URL based on retailer's affiliate program
    */
   private async transformUrl(
-    retailer: Retailer, 
-    productUrl: string, 
-    metadata?: any
+    retailer: Retailer,
+    productUrl: string,
+    metadata?: Record<string, unknown>
   ): Promise<string | null> {
     const config = this.parseAffiliateConfig(retailer.affiliateConfig);
     const productId = this.extractProductId(retailer.name.toLowerCase(), productUrl);
@@ -342,11 +342,17 @@ export class AffiliateLinkService {
   /**
    * Get affiliate link statistics
    */
-  async getAffiliateLinkStats(retailerId?: number): Promise<any> {
+  async getAffiliateLinkStats(retailerId?: number): Promise<{
+    total_offers: number;
+    affiliate_offers: number;
+    total_clicks: number;
+    healthy_links: number;
+    broken_links: number;
+  } | null> {
     try {
       // Use raw SQL for aggregate functions
       const query = `
-        SELECT 
+        SELECT
           COUNT(*) as total_offers,
           COUNT(affiliate_url) as affiliate_offers,
           COALESCE(SUM(click_count), 0) as total_clicks,
@@ -358,7 +364,7 @@ export class AffiliateLinkService {
 
       const params = retailerId ? [retailerId] : [];
       const result = await db.$client.query(query, params);
-      
+
       return result.rows[0] || {
         total_offers: 0,
         affiliate_offers: 0,

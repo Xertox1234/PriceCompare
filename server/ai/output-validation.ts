@@ -8,17 +8,23 @@
  * - Value constraints and ranges
  */
 
-export interface ValidationResult {
+type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
+interface JsonObject {
+  [key: string]: JsonValue;
+}
+interface JsonArray extends Array<JsonValue> {}
+
+export interface ValidationResult<T = JsonValue> {
   valid: boolean;
   errors: ValidationError[];
-  data?: any;
+  data?: T;
 }
 
 export interface ValidationError {
   field: string;
   message: string;
-  expected?: any;
-  received?: any;
+  expected?: string | number | string[];
+  received?: string | number;
 }
 
 /**
@@ -85,7 +91,7 @@ export const outputSchemas = {
  */
 export function validateOutput(
   schemaName: keyof typeof outputSchemas,
-  data: any
+  data: unknown
 ): ValidationResult {
   const schema = outputSchemas[schemaName];
   if (!schema) {
@@ -187,8 +193,8 @@ export function validateOutput(
  * Validate an object against a schema
  */
 function validateObject(
-  obj: any,
-  schema: any,
+  obj: unknown,
+  schema: Record<string, unknown>,
   path: string = 'root'
 ): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -292,7 +298,7 @@ function validateObject(
 /**
  * Sanitize AI output to remove potentially harmful content
  */
-export function sanitizeOutput(data: any): any {
+export function sanitizeOutput(data: unknown): JsonValue {
   if (typeof data === 'string') {
     // Remove markdown code blocks
     data = data.replace(/```[\s\S]*?```/g, '');
@@ -309,14 +315,15 @@ export function sanitizeOutput(data: any): any {
   }
 
   if (typeof data === 'object' && data !== null) {
-    const sanitized: any = {};
+    const sanitized: JsonObject = {};
     for (const [key, value] of Object.entries(data)) {
       sanitized[key] = sanitizeOutput(value);
     }
     return sanitized;
   }
 
-  return data;
+  // For primitives (number, boolean, null)
+  return data as JsonValue;
 }
 
 /**

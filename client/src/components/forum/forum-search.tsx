@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatDistanceToNow } from 'date-fns';
-import { sanitizeHighlight } from '@/lib/sanitize';
 
 interface SearchResult {
   posts: Array<{
@@ -128,14 +127,32 @@ export function ForumSearch() {
     return colors[level] || 'gray';
   };
 
-  const highlightText = (text: string, searchQuery: string) => {
-    if (!searchQuery.trim()) return text;
+  // Safe text highlighting component without using dangerouslySetInnerHTML
+  const HighlightText = ({ text, highlight }: { text: string; highlight: string }) => {
+    if (!highlight.trim()) {
+      return <>{text}</>;
+    }
 
-    const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const highlighted = text.replace(regex, '<mark class="bg-warning px-1 rounded">$1</mark>');
+    // Escape special regex characters in the search query
+    const escapedHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedHighlight})`, 'gi');
+    const parts = text.split(regex);
 
-    // Sanitize to prevent XSS attacks via search query or text content
-    return sanitizeHighlight(highlighted);
+    return (
+      <>
+        {parts.map((part, index) => {
+          // Check if this part matches the highlight query (case-insensitive)
+          if (part.toLowerCase() === highlight.toLowerCase()) {
+            return (
+              <mark key={index} className="bg-warning px-1 rounded">
+                {part}
+              </mark>
+            );
+          }
+          return <span key={index}>{part}</span>;
+        })}
+      </>
+    );
   };
 
   const renderPostResult = (post: any) => (
@@ -166,12 +183,12 @@ export function ForumSearch() {
               by <span className="font-medium">{post.author.username}</span>
             </p>
             
-            <div 
-              className="text-sm text-muted-foreground line-clamp-2"
-              dangerouslySetInnerHTML={{ 
-                __html: highlightText(post.content.substring(0, 200), debouncedQuery) 
-              }}
-            />
+            <div className="text-sm text-muted-foreground line-clamp-2">
+              <HighlightText
+                text={post.content.substring(0, 200)}
+                highlight={debouncedQuery}
+              />
+            </div>
           </div>
         </div>
       </CardContent>
@@ -182,12 +199,9 @@ export function ForumSearch() {
     <Card key={topic.id} className="hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-3">
-          <h4 
-            className="font-semibold text-lg text-primary hover:underline"
-            dangerouslySetInnerHTML={{ 
-              __html: highlightText(topic.title, debouncedQuery) 
-            }}
-          />
+          <h4 className="font-semibold text-lg text-primary hover:underline">
+            <HighlightText text={topic.title} highlight={debouncedQuery} />
+          </h4>
           <Badge variant="outline" className="ml-2">
             {topic.postCount} posts
           </Badge>
@@ -216,12 +230,12 @@ export function ForumSearch() {
         </div>
         
         {topic.content && (
-          <div 
-            className="text-sm text-muted-foreground line-clamp-2 mb-3"
-            dangerouslySetInnerHTML={{ 
-              __html: highlightText(topic.content.substring(0, 150), debouncedQuery) 
-            }}
-          />
+          <div className="text-sm text-muted-foreground line-clamp-2 mb-3">
+            <HighlightText
+              text={topic.content.substring(0, 150)}
+              highlight={debouncedQuery}
+            />
+          </div>
         )}
         
         {topic.tags && topic.tags.length > 0 && (
@@ -255,20 +269,14 @@ export function ForumSearch() {
           </Avatar>
           
           <div className="flex-1">
-            <h4 
-              className="font-semibold text-muted-foreground"
-              dangerouslySetInnerHTML={{ 
-                __html: highlightText(user.username, debouncedQuery) 
-              }}
-            />
+            <h4 className="font-semibold text-muted-foreground">
+              <HighlightText text={user.username} highlight={debouncedQuery} />
+            </h4>
             
             {user.bio && (
-              <p 
-                className="text-sm text-muted-foreground line-clamp-1 mt-1"
-                dangerouslySetInnerHTML={{ 
-                  __html: highlightText(user.bio, debouncedQuery) 
-                }}
-              />
+              <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
+                <HighlightText text={user.bio} highlight={debouncedQuery} />
+              </p>
             )}
             
             <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">

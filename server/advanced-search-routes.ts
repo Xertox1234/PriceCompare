@@ -1,15 +1,7 @@
 import { Express, Request, Response } from 'express';
+import { requireAuth } from './auth';
 import { advancedSearchService } from './services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
-
-const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (req.session && (req.session as any).userId) {
-    (req as any).user = (req.session as any).user;
-    next();
-  } else {
-    res.status(401).json({ message: "Authentication required" });
-  }
-};
 
 export function registerAdvancedSearchRoutes(app: Express): void {
   

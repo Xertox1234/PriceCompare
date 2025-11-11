@@ -1,13 +1,24 @@
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import bcrypt from 'bcrypt';
+import type { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { users } from '../shared/schema';
 import { sharedUsers } from '../shared/auth-schema';
 import { eq } from 'drizzle-orm';
-import type { User } from '../shared/schema';
+import type { User as DatabaseUser } from '../shared/schema';
 import type { SharedUser } from '../shared/auth-schema';
 import { recordFailedLogin, clearFailedLogins, isAccountLocked } from './middleware/account-lockout';
+
+// Export the User type for use elsewhere
+export type User = DatabaseUser;
+
+// Extend Express types to include our User type
+declare global {
+  namespace Express {
+    interface User extends DatabaseUser {}
+  }
+}
 
 // Configure Passport Local Strategy
 passport.use(new LocalStrategy(
@@ -96,6 +107,34 @@ export async function findUserByEmail(email: string): Promise<User | null> {
 export async function findUserById(id: number): Promise<User | null> {
   const userResult = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return userResult[0] || null;
+}
+
+/**
+ * Authentication middleware - requires user to be logged in
+ */
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  next();
+}
+
+/**
+ * Authorization middleware - requires user to be logged in and have admin role
+ */
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  if (req.user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin access required' });
+    return;
+  }
+
+  next();
 }
 
 export { passport };

@@ -1,24 +1,20 @@
 import { Express, Request, Response } from "express";
+import { requireAuth, requireAdmin } from './auth';
+import { validateRequest } from './validation';
+import { hybridDataCollectSchema } from './validation/admin-schemas';
+import { z } from 'zod';
 import { hybridDataCollector } from "./services/hybrid-data-collector";
 
-const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (req.isAuthenticated && req.isAuthenticated() && req.user) {
-    return next();
-  }
-  return res.status(401).json({ error: "Not authenticated" });
-};
+// Validation schema for hybrid search
+const hybridSearchSchema = z.object({
+  query: z.string().min(1, 'Search query is required').max(200),
+  retailers: z.array(z.string()).min(1).max(10).optional(),
+});
 
-const requireAdmin = (req: any, res: Response, next: Function) => {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-};
-
-export function registerHybridDataRoutes(app: Express): void {
+export function registerHybridDataRoutes(app: Express): void{
   
   // Get system status and data source capabilities
-  app.get("/api/hybrid/status", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       res.json({
@@ -35,7 +31,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Get retailer capabilities (API vs scraping)
-  app.get("/api/hybrid/retailers/capabilities", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/retailers/capabilities", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const capabilities = await hybridDataCollector.getRetailerCapabilities();
       res.json({
@@ -52,25 +48,26 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Search products using hybrid approach
-  app.post("/api/hybrid/search", requireAuth, requireAdmin, async (req: any, res: Response) => {
-    try {
-      const { query, retailers } = req.body;
-      
-      if (!query) {
-        return res.status(400).json({ error: "Search query is required" });
-      }
+  app.post(
+    "/api/hybrid/search",
+    requireAuth,
+    requireAdmin,
+    validateRequest(hybridSearchSchema, 'body'),
+    async (req: Request, res: Response) => {
+      try {
+        const { query, retailers } = req.body as { query: string; retailers?: string[] };
 
-      const targetRetailers = retailers || ['amazon', 'walmart', 'target', 'bestbuy'];
-      const results = [];
+        const targetRetailers = retailers || ['amazon', 'walmart', 'target', 'bestbuy'];
+        const results = [];
 
-      // Collect data from multiple retailers in parallel
-      const searchPromises = targetRetailers.map(async (retailer: string) => {
-        try {
-          const products = await hybridDataCollector.collectProductData(retailer, query);
-          return { retailer, products, success: true };
-        } catch (error) {
-          console.error(`Search failed for ${retailer}:`, error);
-          return { 
+        // Collect data from multiple retailers in parallel
+        const searchPromises = targetRetailers.map(async (retailer: string) => {
+          try {
+            const products = await hybridDataCollector.collectProductData(retailer, query);
+            return { retailer, products, success: true };
+          } catch (error) {
+            console.error(`Search failed for ${retailer}:`, error);
+            return { 
             retailer, 
             products: [], 
             success: false, 
@@ -115,7 +112,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Test specific retailer data source
-  app.post("/api/hybrid/test/:retailer", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/hybrid/test/:retailer", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailer = req.params.retailer;
       const { query = 'test product' } = req.body;
@@ -143,7 +140,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Get data source performance metrics
-  app.get("/api/hybrid/metrics", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/metrics", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       
@@ -196,7 +193,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Force refresh API health status
-  app.post("/api/hybrid/health/refresh", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/hybrid/health/refresh", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const capabilities = await hybridDataCollector.getRetailerCapabilities();
       
@@ -229,7 +226,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Switch retailer data source (API to scraping or vice versa)
-  app.post("/api/hybrid/retailer/:retailer/switch-source", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.post("/api/hybrid/retailer/:retailer/switch-source", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailer = req.params.retailer;
       const { source } = req.body; // 'api' or 'scraping'
@@ -266,7 +263,7 @@ export function registerHybridDataRoutes(app: Express): void {
   });
 
   // Get cost analysis for API usage
-  app.get("/api/hybrid/costs", requireAuth, requireAdmin, async (req: any, res: Response) => {
+  app.get("/api/hybrid/costs", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const status = await hybridDataCollector.getSystemStatus();
       
