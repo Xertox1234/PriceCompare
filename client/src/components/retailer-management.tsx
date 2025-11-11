@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Store, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  Store,
+  Plus,
+  Edit,
+  Trash2,
   Search,
   Globe,
   Key,
@@ -27,7 +27,9 @@ import {
   Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDebounce } from "@/hooks/use-debounce";
 import { apiRequest } from "@/lib/queryClient";
+import { DEBOUNCE_DELAY } from "@/lib/constants";
 
 interface Retailer {
   id: number;
@@ -77,6 +79,9 @@ export function RetailerManagement() {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
+
+  // Debounce search query for better performance
+  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.STANDARD);
   const [newRetailer, setNewRetailer] = useState<CreateRetailerForm>({
     name: "",
     website: "",
@@ -201,9 +206,9 @@ export function RetailerManagement() {
   };
 
   const filteredRetailers = (retailers as Retailer[]).filter((retailer: Retailer) => {
-    const matchesSearch = searchQuery === "" || 
-      retailer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      retailer.website.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = debouncedSearchQuery === "" ||
+      retailer.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      retailer.website.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
     
     let matchesFilter = true;
     switch (selectedFilter) {

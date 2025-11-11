@@ -23,7 +23,9 @@ import {
   Upload
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDebounce } from "@/hooks/use-debounce";
 import { apiRequest } from "@/lib/queryClient";
+import { DEBOUNCE_DELAY } from "@/lib/constants";
 
 interface Product {
   id: number;
@@ -79,6 +81,9 @@ export function ProductManagement() {
     model: "",
     image: ""
   });
+
+  // Debounce search query for better performance
+  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.STANDARD);
 
   // Fetch products from admin endpoint
   const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -200,9 +205,9 @@ export function ProductManagement() {
   };
 
   const filteredProducts = (products as Product[]).filter((product: Product) => {
-    const matchesSearch = searchQuery === "" || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.brand.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = debouncedSearchQuery === "" ||
+      product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      product.brand.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
     
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
     
