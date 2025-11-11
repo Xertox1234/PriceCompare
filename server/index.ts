@@ -9,6 +9,7 @@ import { registerDiscourseRoutes } from "./discourse-routes";
 import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
 import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { registerPriceHistoryRoutes } from "./price-history-routes";
+import { registerNotificationRoutes } from "./notification-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
@@ -150,6 +151,9 @@ app.use(sanitizeInput);
 
   // Register price history routes
   registerPriceHistoryRoutes(app);
+
+  // Register notification routes
+  registerNotificationRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

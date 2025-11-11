@@ -182,14 +182,37 @@ export const postLikes = pgTable("post_likes", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  type: varchar("type", { length: 50 }).notNull(), // mention, reply, like, etc.
+  type: varchar("type", { length: 50 }).notNull(), // mention, reply, like, price_drop, price_alert, etc.
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content"),
   relatedPostId: integer("related_post_id").references(() => forumPosts.id),
   relatedTopicId: integer("related_topic_id").references(() => forumTopics.id),
   relatedUserId: integer("related_user_id").references(() => users.id),
+  relatedProductId: integer("related_product_id").references(() => products.id),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Notification preferences for users
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  // Price drop settings
+  priceDropEnabled: boolean("price_drop_enabled").default(true),
+  priceDropThresholdPercent: integer("price_drop_threshold_percent").default(10), // 10% default
+  priceDropThresholdAmount: decimal("price_drop_threshold_amount", { precision: 10, scale: 2 }).default("5.00"), // $5 default
+  // Alert settings
+  priceAlertEnabled: boolean("price_alert_enabled").default(true),
+  // Notification channels
+  emailEnabled: boolean("email_enabled").default(true),
+  inAppEnabled: boolean("in_app_enabled").default(true),
+  // Frequency settings
+  maxDailyNotifications: integer("max_daily_notifications").default(10),
+  quietHoursStart: integer("quiet_hours_start"), // Hour 0-23, null = disabled
+  quietHoursEnd: integer("quiet_hours_end"), // Hour 0-23, null = disabled
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Topic tags
@@ -329,6 +352,12 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertTopicTagSchema = createInsertSchema(topicTags).omit({
   id: true,
   usageCount: true,
@@ -362,6 +391,7 @@ export type ForumPost = typeof forumPosts.$inferSelect;
 export type PriceAlert = typeof priceAlerts.$inferSelect;
 export type PostLike = typeof postLikes.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 export type TopicTag = typeof topicTags.$inferSelect;
 export type TopicTagRelation = typeof topicTagRelations.$inferSelect;
 export type PostMention = typeof postMentions.$inferSelect;
@@ -381,6 +411,7 @@ export type InsertForumPost = z.infer<typeof insertForumPostSchema>;
 export type InsertPriceAlert = z.infer<typeof insertPriceAlertSchema>;
 export type InsertPostLike = z.infer<typeof insertPostLikeSchema>;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
 export type InsertTopicTag = z.infer<typeof insertTopicTagSchema>;
 export type InsertPrivateMessage = z.infer<typeof insertPrivateMessageSchema>;
 export type InsertBadge = z.infer<typeof insertBadgeSchema>;

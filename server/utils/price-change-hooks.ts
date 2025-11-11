@@ -1,4 +1,5 @@
 import { recordPriceChange } from '../services/price-history-service';
+import { processPriceChange } from '../services/price-drop-detection';
 import { db } from '../db';
 import { productOffers, priceAlerts, users, notifications } from '@shared/schema';
 import { eq, and, lte } from 'drizzle-orm';
@@ -51,8 +52,14 @@ export async function onProductOfferPriceChange(
 
     // If price was recorded and notifications are enabled
     if (result.recorded && notifyUsers) {
-      // Check for price alerts and notify users
-      await checkAndNotifyPriceAlerts(productOfferId, newPrice);
+      // Process price drop detection and notifications
+      // This handles both price alerts and general price drop notifications
+      await processPriceChange(productOfferId, newPrice, {
+        percentageThreshold: 10,
+        absoluteThreshold: 5.00,
+        recentPeakDays: 30,
+        cooldownHours: 24,
+      });
     }
 
     return result;
