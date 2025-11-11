@@ -11,7 +11,7 @@ import { z } from "zod";
 import * as schema from "@shared/schema";
 import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 import { getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
-import { parseIntSafe, parseIntOptional } from "./utils/validation-helpers";
+import { parseIntSafe, parseIntOptional, parseFloatSafe } from "./utils/validation-helpers";
 
 
 // Use the actual User type from schema
@@ -409,19 +409,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Search products with filters
   app.get("/api/products/search", async (req, res) => {
     try {
+      // SECURITY: Safe number parsing with validation and constraints
       const filters: SearchFilters = {
         query: req.query.query as string,
         category: req.query.category as string,
-        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
-        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
-        retailers: req.query.retailers ? 
-          (Array.isArray(req.query.retailers) ? 
-            req.query.retailers.map(id => parseInt(id as string)) : 
-            [parseInt(req.query.retailers as string)]) : undefined,
-        minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
-        availability: req.query.availability ? 
-          (Array.isArray(req.query.availability) ? 
-            req.query.availability as string[] : 
+        minPrice: req.query.minPrice ? parseFloatSafe(req.query.minPrice as string, 'minPrice', { min: 0 }) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloatSafe(req.query.maxPrice as string, 'maxPrice', { min: 0 }) : undefined,
+        retailers: req.query.retailers ?
+          (Array.isArray(req.query.retailers) ?
+            req.query.retailers.map(id => parseIntSafe(id as string, 'retailerId', { min: 1 })) :
+            [parseIntSafe(req.query.retailers as string, 'retailerId', { min: 1 })]) : undefined,
+        minRating: req.query.minRating ? parseFloatSafe(req.query.minRating as string, 'minRating', { min: 0, max: 5 }) : undefined,
+        availability: req.query.availability ?
+          (Array.isArray(req.query.availability) ?
+            req.query.availability as string[] :
             [req.query.availability as string]) : undefined,
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity",
       };
@@ -621,8 +622,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
-      const productId = parseInt(req.params.id);
-      
+      // SECURITY: Safe integer parsing with validation
+      const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
+
       const [product] = await db.select()
         .from(schema.products)
         .where(eq(schema.products.id, productId));
@@ -673,7 +675,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
-      const productId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
       const updateData = insertProductSchema.partial().parse(req.body);
       
       const [updatedProduct] = await db.update(schema.products)
@@ -694,8 +697,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/products/:id", withAdmin(async (req, res) => {
     try {
-      const productId = parseInt(req.params.id);
-      
+      // SECURITY: Safe integer parsing with validation
+      const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
+
       // First delete related offers
       await db.delete(schema.productOffers)
         .where(eq(schema.productOffers.productId, productId));
@@ -747,7 +751,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/retailers/:id", withAdmin(async (req, res) => {
     try {
-      const retailerId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
       const updateData = insertRetailerSchema.partial().parse(req.body);
       
       const [updatedRetailer] = await db.update(schema.retailers)
@@ -768,7 +773,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/retailers/:id", withAdmin(async (req, res) => {
     try {
-      const retailerId = parseInt(req.params.id);
+      // SECURITY: Safe integer parsing with validation
+      const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
       
       // First delete related offers
       await db.delete(schema.productOffers)
@@ -803,7 +809,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/performance/slowest", withAdmin(async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 10;
+      // SECURITY: Safe integer parsing with validation and cap
+      const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 10;
       const slowest = getSlowestEndpoints(limit);
       res.json(slowest);
     } catch (error) {

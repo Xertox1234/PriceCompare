@@ -2,6 +2,7 @@ import { Express, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from './auth';
 import { advancedSearchService } from './services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
+import { parseIntSafe, parseFloatSafe } from './utils/validation-helpers';
 
 export function registerAdvancedSearchRoutes(app: Express): void {
   
@@ -10,19 +11,20 @@ export function registerAdvancedSearchRoutes(app: Express): void {
    */
   app.get("/api/search/advanced", async (req: Request, res: Response) => {
     try {
+      // SECURITY: Safe number parsing with validation and constraints
       const filters: SearchFilters = {
         query: req.query.query as string,
         category: req.query.category as string,
-        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
-        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
-        retailers: req.query.retailers ? 
-          (Array.isArray(req.query.retailers) ? 
-            req.query.retailers.map(id => parseInt(id as string)) : 
-            [parseInt(req.query.retailers as string)]) : undefined,
-        minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
-        availability: req.query.availability ? 
-          (Array.isArray(req.query.availability) ? 
-            req.query.availability as string[] : 
+        minPrice: req.query.minPrice ? parseFloatSafe(req.query.minPrice as string, 'minPrice', { min: 0 }) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloatSafe(req.query.maxPrice as string, 'maxPrice', { min: 0 }) : undefined,
+        retailers: req.query.retailers ?
+          (Array.isArray(req.query.retailers) ?
+            req.query.retailers.map(id => parseIntSafe(id as string, 'retailerId', { min: 1 })) :
+            [parseIntSafe(req.query.retailers as string, 'retailerId', { min: 1 })]) : undefined,
+        minRating: req.query.minRating ? parseFloatSafe(req.query.minRating as string, 'minRating', { min: 0, max: 5 }) : undefined,
+        availability: req.query.availability ?
+          (Array.isArray(req.query.availability) ?
+            req.query.availability as string[] :
             [req.query.availability as string]) : undefined,
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity",
       };
@@ -61,7 +63,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
   app.get("/api/search/suggestions", async (req: Request, res: Response) => {
     try {
       const query = req.query.q as string;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+      // SECURITY: Safe integer parsing with validation and cap
+      const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 50 }) : 5;
       
       console.log('Search suggestions request - Query:', query, 'Limit:', limit);
       
@@ -133,15 +136,16 @@ export function registerAdvancedSearchRoutes(app: Express): void {
           break;
       }
 
-      // Apply additional filters from query params
+      // Apply additional filters from query params with safe parsing
+      // SECURITY: Safe number parsing with validation and constraints
       Object.assign(optimizedFilters, {
-        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
-        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
-        retailers: req.query.retailers ? 
-          (Array.isArray(req.query.retailers) ? 
-            req.query.retailers.map(id => parseInt(id as string)) : 
-            [parseInt(req.query.retailers as string)]) : undefined,
-        minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
+        minPrice: req.query.minPrice ? parseFloatSafe(req.query.minPrice as string, 'minPrice', { min: 0 }) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloatSafe(req.query.maxPrice as string, 'maxPrice', { min: 0 }) : undefined,
+        retailers: req.query.retailers ?
+          (Array.isArray(req.query.retailers) ?
+            req.query.retailers.map(id => parseIntSafe(id as string, 'retailerId', { min: 1 })) :
+            [parseIntSafe(req.query.retailers as string, 'retailerId', { min: 1 })]) : undefined,
+        minRating: req.query.minRating ? parseFloatSafe(req.query.minRating as string, 'minRating', { min: 0, max: 5 }) : undefined,
       });
 
       // SECURITY: Use properly typed session data instead of 'as any'
@@ -194,19 +198,20 @@ export function registerAdvancedSearchRoutes(app: Express): void {
           break;
       }
 
-      // Apply manual filters
+      // Apply manual filters with safe parsing
+      // SECURITY: Safe number parsing with validation and constraints
       Object.assign(filters, {
         category: req.query.category as string,
-        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
-        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
-        retailers: req.query.retailers ? 
-          (Array.isArray(req.query.retailers) ? 
-            req.query.retailers.map(id => parseInt(id as string)) : 
-            [parseInt(req.query.retailers as string)]) : undefined,
-        minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
-        availability: req.query.availability ? 
-          (Array.isArray(req.query.availability) ? 
-            req.query.availability as string[] : 
+        minPrice: req.query.minPrice ? parseFloatSafe(req.query.minPrice as string, 'minPrice', { min: 0 }) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloatSafe(req.query.maxPrice as string, 'maxPrice', { min: 0 }) : undefined,
+        retailers: req.query.retailers ?
+          (Array.isArray(req.query.retailers) ?
+            req.query.retailers.map(id => parseIntSafe(id as string, 'retailerId', { min: 1 })) :
+            [parseIntSafe(req.query.retailers as string, 'retailerId', { min: 1 })]) : undefined,
+        minRating: req.query.minRating ? parseFloatSafe(req.query.minRating as string, 'minRating', { min: 0, max: 5 }) : undefined,
+        availability: req.query.availability ?
+          (Array.isArray(req.query.availability) ?
+            req.query.availability as string[] :
             [req.query.availability as string]) : undefined,
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity" || filters.sortBy,
       });
