@@ -166,7 +166,17 @@ export const priceAlerts = pgTable("price_alerts", {
   targetPrice: decimal("target_price", { precision: 10, scale: 2 }).notNull(),
   isActive: boolean("is_active").default(true),
   notifyForum: boolean("notify_forum").default(false), // Whether to post to forum when triggered
+  // Historical context
+  priceWhenCreated: decimal("price_when_created", { precision: 10, scale: 2 }), // Price at creation time
+  // Effectiveness tracking
+  timesTriggered: integer("times_triggered").default(0), // How many times this alert has been triggered
+  lastTriggeredAt: timestamp("last_triggered_at"), // When it was last triggered
+  // Smart suggestions
+  suggestedBySystem: boolean("suggested_by_system").default(false), // Was this suggested by the system?
+  suggestionReason: text("suggestion_reason"), // Why was this suggested?
+  // Metadata
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Post likes/reactions

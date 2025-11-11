@@ -1,0 +1,164 @@
+import type { Express } from "express";
+import { z } from "zod";
+import * as smartAlertsService from "./services/smart-alerts-service";
+
+/**
+ * Smart Alerts Routes
+ *
+ * API endpoints for smart threshold suggestions, predictive alerts,
+ * and alert analytics.
+ */
+
+export function registerSmartAlertsRoutes(app: Express) {
+  // Middleware to ensure user is authenticated
+  const withAuth = (handler: any) => {
+    return async (req: any, res: any) => {
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      return handler(req, res);
+    };
+  };
+
+  /**
+   * GET /api/smart-alerts/suggestions/:productId
+   * Get smart threshold suggestions for a product
+   */
+  app.get("/api/smart-alerts/suggestions/:productId", async (req, res) => {
+    try {
+      const productId = parseInt(req.params.productId);
+      const currentPrice = req.query.currentPrice
+        ? parseFloat(req.query.currentPrice as string)
+        : undefined;
+
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: "Invalid product ID" });
+      }
+
+      if (!currentPrice) {
+        return res.status(400).json({ error: "Current price is required" });
+      }
+
+      const suggestions = await smartAlertsService.generateSmartThresholdSuggestions(
+        productId,
+        currentPrice
+      );
+
+      res.json({
+        success: true,
+        data: suggestions,
+        count: suggestions.length,
+      });
+    } catch (error: any) {
+      console.error('Error generating smart suggestions:', error);
+      res.status(500).json({ error: error.message || "Failed to generate suggestions" });
+    }
+  });
+
+  /**
+   * GET /api/smart-alerts/predictive
+   * Get predictive alerts for the authenticated user
+   */
+  app.get("/api/smart-alerts/predictive", withAuth(async (req, res) => {
+    try {
+      const user = req.user;
+      const alerts = await smartAlertsService.generatePredictiveAlerts(user.id);
+
+      res.json({
+        success: true,
+        data: alerts,
+        count: alerts.length,
+      });
+    } catch (error: any) {
+      console.error('Error generating predictive alerts:', error);
+      res.status(500).json({ error: error.message || "Failed to generate predictive alerts" });
+    }
+  }));
+
+  /**
+   * GET /api/smart-alerts/effectiveness
+   * Get alert effectiveness metrics for the authenticated user
+   */
+  app.get("/api/smart-alerts/effectiveness", withAuth(async (req, res) => {
+    try {
+      const user = req.user;
+      const effectiveness = await smartAlertsService.getAlertEffectiveness(user.id);
+
+      res.json({
+        success: true,
+        data: effectiveness,
+        count: effectiveness.length,
+      });
+    } catch (error: any) {
+      console.error('Error getting alert effectiveness:', error);
+      res.status(500).json({ error: error.message || "Failed to get effectiveness metrics" });
+    }
+  }));
+
+  /**
+   * GET /api/smart-alerts/analytics
+   * Get comprehensive alert analytics for the authenticated user
+   */
+  app.get("/api/smart-alerts/analytics", withAuth(async (req, res) => {
+    try {
+      const user = req.user;
+      const analytics = await smartAlertsService.getAlertAnalytics(user.id);
+
+      res.json({
+        success: true,
+        data: analytics,
+      });
+    } catch (error: any) {
+      console.error('Error getting alert analytics:', error);
+      res.status(500).json({ error: error.message || "Failed to get analytics" });
+    }
+  }));
+
+  /**
+   * POST /api/smart-alerts/create-suggested
+   * Create a suggested alert based on smart recommendations
+   */
+  app.post("/api/smart-alerts/create-suggested", withAuth(async (req, res) => {
+    try {
+      const user = req.user;
+
+      const schema = z.object({
+        productId: z.number(),
+        targetPrice: z.number(),
+        reason: z.string(),
+        confidence: z.number(),
+        savingsPercent: z.number(),
+        savingsAmount: z.number(),
+        basedOn: z.enum(['historical_low', 'seasonal_pattern', 'trending_down', 'below_average']),
+      });
+
+      const data = schema.parse(req.body);
+
+      const suggestion = {
+        targetPrice: data.targetPrice,
+        reason: data.reason,
+        confidence: data.confidence,
+        savingsPercent: data.savingsPercent,
+        savingsAmount: data.savingsAmount,
+        basedOn: data.basedOn,
+      };
+
+      const alert = await smartAlertsService.createSuggestedAlert(
+        user.id,
+        data.productId,
+        suggestion
+      );
+
+      res.json({
+        success: true,
+        data: alert,
+      });
+    } catch (error: any) {
+      console.error('Error creating suggested alert:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to create suggested alert" });
+    }
+  }));
+}
