@@ -971,6 +971,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get seasonal patterns for a product
+  app.get("/api/products/:id/seasonal-patterns", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string);
+
+      // Get price history (need at least several months for seasonal analysis)
+      const history = await storage.getPriceHistory(id, days || 365); // Default to 1 year
+
+      if (!history || history.length < 10) {
+        return res.json(null);
+      }
+
+      // Detect seasonal patterns
+      const { detectSeasonalPatterns } = await import('./utils/seasonal-pattern-detector');
+      const patterns = detectSeasonalPatterns(history);
+
+      res.json(patterns);
+    } catch (error) {
+      console.error('Error detecting seasonal patterns:', error);
+      res.status(500).json({ message: "Failed to detect seasonal patterns" });
+    }
+  });
+
   // Get product offers (for browser extension)
   app.get("/api/products/:id/offers", async (req, res) => {
     try {

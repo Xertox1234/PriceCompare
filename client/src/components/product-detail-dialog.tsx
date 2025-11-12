@@ -13,6 +13,7 @@ import { TimeRangeSelector, type TimeRange } from "./price-history/TimeRangeSele
 import { PriceTrendIndicator } from "./price-history/PriceTrendIndicator";
 import { BestTimeToBuy } from "./price-history/BestTimeToBuy";
 import { PriceVolatilityScore } from "./price-history/PriceVolatilityScore";
+import { SeasonalPatterns } from "./price-history/SeasonalPatterns";
 import { TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -102,6 +103,18 @@ export function ProductDetailDialog({
     enabled: !!product?.id && open,
   });
 
+  // Fetch seasonal patterns
+  const { data: seasonalPatterns, isLoading: seasonalLoading } = useQuery({
+    queryKey: ["seasonalPatterns", product?.id],
+    queryFn: async () => {
+      if (!product?.id) return null;
+      const response = await fetch(`/api/products/${product.id}/seasonal-patterns`);
+      if (!response.ok) throw new Error("Failed to fetch seasonal patterns");
+      return response.json();
+    },
+    enabled: !!product?.id && open,
+  });
+
   if (!product) return null;
 
   return (
@@ -146,6 +159,9 @@ export function ProductDetailDialog({
             <div className="space-y-6">
               {/* Price Volatility Score */}
               <PriceVolatilityScore data={volatility} isLoading={volatilityLoading} />
+
+              {/* Seasonal Patterns */}
+              <SeasonalPatterns data={seasonalPatterns} isLoading={seasonalLoading} />
 
               {/* Best Time to Buy Analysis */}
               <BestTimeToBuy data={bestTimeToBuy} isLoading={bestTimeLoading} />
