@@ -120,6 +120,9 @@ export function ProductDetailDialog({
               isLoading={historyLoading}
               onSetAlert={handleSetAlert}
               onViewRetailer={handleViewRetailer}
+              productName={product.name}
+              productId={product.id}
+              timeRange={timeRange}
             />
           </TabsContent>
 
