@@ -131,17 +131,25 @@ describe('chart-data-transformer', () => {
 
     it('should aggregate automatically when enabled', () => {
       // Create large dataset that should trigger aggregation
-      const largeData = Array.from({ length: 600 }, (_, i) => ({
-        ...mockPriceData[0],
-        id: i,
-        recordedAt: `2024-01-${(i % 30) + 1}`,
-        price: (100 + Math.random() * 10).toFixed(2),
-      }));
+      // Use valid dates across the year
+      const largeData = Array.from({ length: 600 }, (_, i) => {
+        // Create dates spread across the year (cycle through 365 days)
+        const date = new Date(2024, 0, 1); // Start: Jan 1, 2024
+        date.setDate(date.getDate() + (i % 365));
+
+        return {
+          ...mockPriceData[0],
+          id: i,
+          recordedAt: date.toISOString().split('T')[0], // YYYY-MM-DD format
+          price: (100 + Math.random() * 10).toFixed(2),
+        };
+      });
 
       const result = transformForChart(largeData, true);
 
       // Should be aggregated (fewer data points than input)
       expect(result.length).toBeLessThan(largeData.length);
+      expect(result.length).toBeGreaterThan(0);
     });
   });
 
