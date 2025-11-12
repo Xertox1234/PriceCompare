@@ -1,4 +1,4 @@
-import { db } from "@db";
+import { db } from "../db";
 import {
   productWatches,
   userReputation,
@@ -19,7 +19,7 @@ import {
   type InsertForumTopic,
   type InsertForumPost,
   type InsertNotification,
-} from "@db/schema";
+} from "@shared/schema";
 import { eq, and, desc, count, sql, gte } from "drizzle-orm";
 
 /**

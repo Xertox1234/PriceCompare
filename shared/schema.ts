@@ -72,6 +72,9 @@ export const priceHistory = pgTable("price_history", {
   availability: text("availability"),
   rating: decimal("rating", { precision: 2, scale: 1 }),
   reviewCount: integer("review_count"),
+  source: varchar("source", { length: 50 }).default("scraper"), // manual, scraper, api, admin
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).default("1.00"), // 0.00 to 1.00
+  metadata: text("metadata"), // JSON - Additional context about price change
   recordedAt: timestamp("recorded_at").notNull(), // When this price snapshot was recorded
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -359,6 +362,7 @@ export const insertProductOfferSchema = createInsertSchema(productOffers).omit({
 
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
   id: true,
+  recordedAt: true,
   createdAt: true,
 });
 
@@ -651,19 +655,6 @@ export const pricePredictions = pgTable("price_predictions", {
   validatedAt: timestamp("validated_at"),
 });
 
-// Price history tracking - Granular price change records
-export const priceHistory = pgTable("price_history", {
-  id: serial("id").primaryKey(),
-  productOfferId: integer("product_offer_id").references(() => productOffers.id).notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
-  source: varchar("source", { length: 50 }).default("scraper"), // manual, scraper, api, admin
-  confidence: decimal("confidence", { precision: 3, scale: 2 }).default("1.00"), // 0.00 to 1.00
-  metadata: text("metadata"), // JSON - Additional context about price change
-  recordedAt: timestamp("recorded_at").defaultNow(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 // Price snapshots - Daily aggregated price data
 export const priceSnapshots = pgTable("price_snapshots", {
   id: serial("id").primaryKey(),
@@ -738,12 +729,6 @@ export const insertPricePredictionSchema = createInsertSchema(pricePredictions).
   id: true,
   createdAt: true,
   validatedAt: true,
-});
-
-export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
-  id: true,
-  recordedAt: true,
-  createdAt: true,
 });
 
 export const insertPriceSnapshotSchema = createInsertSchema(priceSnapshots).omit({

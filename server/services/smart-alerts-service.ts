@@ -1,4 +1,4 @@
-import { db } from "@db";
+import { db } from "../db";
 import {
   priceHistory,
   priceAlerts,
@@ -9,7 +9,7 @@ import {
   type PriceAlert,
   type InsertPriceAlert,
   type InsertNotification,
-} from "@db/schema";
+} from "@shared/schema";
 import { eq, and, desc, gte, sql, count } from "drizzle-orm";
 
 /**
