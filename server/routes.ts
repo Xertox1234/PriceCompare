@@ -947,6 +947,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get price volatility score for a product
+  app.get("/api/products/:id/volatility", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string);
+
+      // Get price history
+      const history = await storage.getPriceHistory(id, days);
+
+      if (!history || history.length < 2) {
+        return res.json(null);
+      }
+
+      // Calculate volatility using the calculator
+      const { calculateVolatility } = await import('./utils/volatility-calculator');
+      const volatility = calculateVolatility(history);
+
+      res.json(volatility);
+    } catch (error) {
+      console.error('Error calculating volatility:', error);
+      res.status(500).json({ message: "Failed to calculate price volatility" });
+    }
+  });
+
+  // Get seasonal patterns for a product
+  app.get("/api/products/:id/seasonal-patterns", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string);
+
+      // Get price history (need at least several months for seasonal analysis)
+      const history = await storage.getPriceHistory(id, days || 365); // Default to 1 year
+
+      if (!history || history.length < 10) {
+        return res.json(null);
+      }
+
+      // Detect seasonal patterns
+      const { detectSeasonalPatterns } = await import('./utils/seasonal-pattern-detector');
+      const patterns = detectSeasonalPatterns(history);
+
+      res.json(patterns);
+    } catch (error) {
+      console.error('Error detecting seasonal patterns:', error);
+      res.status(500).json({ message: "Failed to detect seasonal patterns" });
+    }
+  });
+
+  // Get retailer reliability scores for a product
+  app.get("/api/products/:id/retailer-reliability", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string);
+
+      // Get price history for all retailers
+      const history = await storage.getPriceHistory(id, days);
+
+      if (!history || history.length < 5) {
+        return res.json(null);
+      }
+
+      // Group data by retailer
+      const retailerDataMap = new Map<number, any>();
+      history.forEach(entry => {
+        if (!retailerDataMap.has(entry.retailerId)) {
+          retailerDataMap.set(entry.retailerId, {
+            retailerId: entry.retailerId,
+            retailerName: entry.retailerName,
+            priceHistory: [],
+          });
+        }
+        retailerDataMap.get(entry.retailerId)!.priceHistory.push({
+          price: entry.price,
+          recordedAt: entry.recordedAt,
+          availability: entry.availability,
+        });
+      });
+
+      const allRetailersData = Array.from(retailerDataMap.values());
+
+      // Calculate reliability scores
+      const { calculateAllRetailerReliability } = await import('./utils/retailer-reliability-calculator');
+      const scores = calculateAllRetailerReliability(allRetailersData);
+
+      res.json(scores);
+    } catch (error) {
+      console.error('Error calculating retailer reliability:', error);
+      res.status(500).json({ message: "Failed to calculate retailer reliability" });
+    }
+  });
+
   // Get product offers (for browser extension)
   app.get("/api/products/:id/offers", async (req, res) => {
     try {
