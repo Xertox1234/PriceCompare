@@ -12,6 +12,7 @@ import { PriceHistoryChart } from "./price-history/PriceHistoryChart";
 import { TimeRangeSelector, type TimeRange } from "./price-history/TimeRangeSelector";
 import { PriceTrendIndicator } from "./price-history/PriceTrendIndicator";
 import { BestTimeToBuy } from "./price-history/BestTimeToBuy";
+import { PriceVolatilityScore } from "./price-history/PriceVolatilityScore";
 import { TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -86,6 +87,21 @@ export function ProductDetailDialog({
     enabled: !!product?.id && open,
   });
 
+  // Fetch price volatility
+  const { data: volatility, isLoading: volatilityLoading } = useQuery({
+    queryKey: ["volatility", product?.id, timeRange],
+    queryFn: async () => {
+      if (!product?.id) return null;
+      const url = timeRange
+        ? `/api/products/${product.id}/volatility?days=${timeRange}`
+        : `/api/products/${product.id}/volatility`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch volatility");
+      return response.json();
+    },
+    enabled: !!product?.id && open,
+  });
+
   if (!product) return null;
 
   return (
@@ -128,6 +144,9 @@ export function ProductDetailDialog({
 
           <TabsContent value="analysis" className="space-y-4 mt-4">
             <div className="space-y-6">
+              {/* Price Volatility Score */}
+              <PriceVolatilityScore data={volatility} isLoading={volatilityLoading} />
+
               {/* Best Time to Buy Analysis */}
               <BestTimeToBuy data={bestTimeToBuy} isLoading={bestTimeLoading} />
 
