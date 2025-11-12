@@ -17,6 +17,7 @@ import { SeasonalPatterns } from "./price-history/SeasonalPatterns";
 import { RetailerReliability } from "./price-history/RetailerReliability";
 import { TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 interface ProductDetailDialogProps {
   product: ProductWithOffers | null;
@@ -31,6 +32,7 @@ export function ProductDetailDialog({
 }: ProductDetailDialogProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Handler for setting price alert from interactive tooltip
   const handleSetAlert = useCallback((retailerId: number, price: number) => {
@@ -135,24 +137,38 @@ export function ProductDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`max-h-[90vh] overflow-y-auto ${
+        isMobile ? 'max-w-[95vw] p-4' : 'max-w-5xl'
+      }`}>
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-            {product.name}
-            <TrendingUp className="w-5 h-5 text-primary" />
+          <DialogTitle className={`font-bold flex items-center gap-2 ${
+            isMobile ? 'text-lg' : 'text-2xl'
+          }`}>
+            <span className="line-clamp-2">{product.name}</span>
+            <TrendingUp className={`text-primary flex-shrink-0 ${
+              isMobile ? 'w-4 h-4' : 'w-5 h-5'
+            }`} />
           </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="history" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="history">Price History</TabsTrigger>
-            <TabsTrigger value="analysis">Buy Analysis</TabsTrigger>
+            <TabsTrigger value="history" className={isMobile ? 'text-sm' : ''}>
+              {isMobile ? 'History' : 'Price History'}
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className={isMobile ? 'text-sm' : ''}>
+              {isMobile ? 'Analysis' : 'Buy Analysis'}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="history" className="space-y-4 mt-4">
             {/* Time Range Selector */}
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Time Range</h3>
+            <div className={`flex justify-between items-center ${
+              isMobile ? 'flex-col gap-2' : ''
+            }`}>
+              <h3 className={`font-semibold ${isMobile ? 'text-base w-full' : 'text-lg'}`}>
+                Time Range
+              </h3>
               <TimeRangeSelector selected={timeRange} onChange={setTimeRange} />
             </div>
 

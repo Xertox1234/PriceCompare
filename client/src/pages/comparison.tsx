@@ -4,10 +4,12 @@ import { ProductComparison } from "@/components/price-history/ProductComparison"
 import { ArrowLeft } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import { useMemo } from "react";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 export default function ComparisonPage() {
   const [, setLocation] = useLocation();
   const searchParams = useSearch();
+  const isMobile = useIsMobile();
 
   // Parse product IDs from URL query params
   const productIds = useMemo(() => {
@@ -56,22 +58,25 @@ export default function ComparisonPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className={`container mx-auto max-w-7xl ${isMobile ? 'px-2 py-4' : 'px-4 py-8'}`}>
       {/* Header */}
       <div className="mb-6">
         <Button
           variant="ghost"
           onClick={() => setLocation("/products")}
           className="mb-4"
+          size={isMobile ? "sm" : "default"}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Products
+          {isMobile ? 'Back' : 'Back to Products'}
         </Button>
 
         <div>
-          <h1 className="text-3xl font-bold mb-2">Product Price Comparison</h1>
-          <p className="text-muted-foreground">
-            Compare price histories and find the best deals across retailers
+          <h1 className={`font-bold mb-2 ${isMobile ? 'text-xl' : 'text-3xl'}`}>
+            {isMobile ? 'Price Comparison' : 'Product Price Comparison'}
+          </h1>
+          <p className={`text-muted-foreground ${isMobile ? 'text-sm' : ''}`}>
+            Compare price histories and find the best deals{!isMobile && ' across retailers'}
           </p>
         </div>
       </div>
