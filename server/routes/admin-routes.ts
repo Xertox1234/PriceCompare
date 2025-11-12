@@ -7,6 +7,7 @@ import * as schema from "@shared/schema";
 import { eq, sql, desc, asc } from 'drizzle-orm';
 import { parseIntSafe } from "../utils/validation-helpers";
 import { getPerformanceStats, getSlowestEndpoints } from "../middleware/performance";
+import { logger } from "../utils/logger";
 
 /**
  * Admin Routes
@@ -21,7 +22,7 @@ export function registerAdminRoutes(app: Express): void {
       const categories = await forumStorage.getCategories();
       res.json(Array.isArray(categories) ? categories : []);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories', { error: error instanceof Error ? error.message : String(error) });
       res.json([]);
     }
   }));
@@ -40,7 +41,7 @@ export function registerAdminRoutes(app: Express): void {
       }).from(schema.users);
       res.json(Array.isArray(usersData) ? usersData : []);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      logger.error('Error fetching users', { error: error instanceof Error ? error.message : String(error) });
       res.json([]);
     }
   }));
@@ -62,7 +63,7 @@ export function registerAdminRoutes(app: Express): void {
         totalCategories: categoryCount[0]?.count || 0
       });
     } catch (error) {
-      console.error('Error fetching overview analytics:', error);
+      logger.error('Error fetching overview analytics', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch analytics' });
     }
   }));
@@ -79,7 +80,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(userGrowth);
     } catch (error) {
-      console.error('Error fetching user growth:', error);
+      logger.error('Error fetching user growth', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch user growth data' });
     }
   }));
@@ -96,7 +97,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(postActivity);
     } catch (error) {
-      console.error('Error fetching forum activity:', error);
+      logger.error('Error fetching forum activity', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch forum activity data' });
     }
   }));
@@ -115,7 +116,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(topCategories);
     } catch (error) {
-      console.error('Error fetching top categories:', error);
+      logger.error('Error fetching top categories', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch top categories data' });
     }
   }));
@@ -138,7 +139,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(products);
     } catch (error) {
-      console.error('Error fetching admin products:', error);
+      logger.error('Error fetching admin products', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch products' });
     }
   }));
@@ -176,7 +177,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json({ ...product, offers });
     } catch (error) {
-      console.error('Error fetching product details:', error);
+      logger.error('Error fetching product details', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ error: 'Failed to fetch product details' });
     }
   }));
@@ -191,7 +192,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.status(201).json(newProduct);
     } catch (error) {
-      console.error('Error creating product:', error);
+      logger.error('Error creating product', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to create product' });
     }
   }));
@@ -213,7 +214,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(updatedProduct);
     } catch (error) {
-      console.error('Error updating product:', error);
+      logger.error('Error updating product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ error: 'Failed to update product' });
     }
   }));
@@ -238,7 +239,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json({ success: true, message: 'Product deleted successfully' });
     } catch (error) {
-      console.error('Error deleting product:', error);
+      logger.error('Error deleting product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ error: 'Failed to delete product' });
     }
   }));
@@ -252,7 +253,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(retailers);
     } catch (error) {
-      console.error('Error fetching retailers:', error);
+      logger.error('Error fetching retailers', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch retailers' });
     }
   }));
@@ -267,7 +268,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.status(201).json(newRetailer);
     } catch (error) {
-      console.error('Error creating retailer:', error);
+      logger.error('Error creating retailer', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to create retailer' });
     }
   }));
@@ -289,7 +290,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(updatedRetailer);
     } catch (error) {
-      console.error('Error updating retailer:', error);
+      logger.error('Error updating retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
       res.status(500).json({ error: 'Failed to update retailer' });
     }
   }));
@@ -314,7 +315,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json({ success: true, message: 'Retailer deleted successfully' });
     } catch (error) {
-      console.error('Error deleting retailer:', error);
+      logger.error('Error deleting retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
       res.status(500).json({ error: 'Failed to delete retailer' });
     }
   }));
@@ -325,7 +326,7 @@ export function registerAdminRoutes(app: Express): void {
       const stats = getPerformanceStats();
       res.json(stats);
     } catch (error) {
-      console.error('Error getting performance stats:', error);
+      logger.error('Error getting performance stats', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to get performance stats' });
     }
   }));
@@ -337,7 +338,7 @@ export function registerAdminRoutes(app: Express): void {
       const slowest = getSlowestEndpoints(limit);
       res.json(slowest);
     } catch (error) {
-      console.error('Error getting slowest endpoints:', error);
+      logger.error('Error getting slowest endpoints', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to get slowest endpoints' });
     }
   }));

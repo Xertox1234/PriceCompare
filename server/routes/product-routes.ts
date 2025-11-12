@@ -11,6 +11,7 @@ import {
   productCacheMiddleware,
   searchCacheMiddleware,
 } from "../middleware/redis-cache";
+import { logger } from "../utils/logger";
 
 /**
  * Product Routes
@@ -167,7 +168,7 @@ export function registerProductRoutes(app: Express): void {
 
       res.json({ history: formattedHistory });
     } catch (error) {
-      console.error('Error fetching price history:', error);
+      logger.error('Error fetching price history', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to fetch price history" });
     }
   });
@@ -193,7 +194,7 @@ export function registerProductRoutes(app: Express): void {
                    trendData.trend === 'rising' ? 'wait' : 'good_time'
       });
     } catch (error) {
-      console.error('Error fetching price trend:', error);
+      logger.error('Error fetching price trend', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to fetch price trend" });
     }
   });
@@ -205,7 +206,7 @@ export function registerProductRoutes(app: Express): void {
       const analysis = await storage.getBestTimeToBuy(id);
       res.json(analysis);
     } catch (error) {
-      console.error('Error fetching best time to buy:', error);
+      logger.error('Error fetching best time to buy', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to fetch best time to buy analysis" });
     }
   });
@@ -229,7 +230,7 @@ export function registerProductRoutes(app: Express): void {
 
       res.json(volatility);
     } catch (error) {
-      console.error('Error calculating volatility:', error);
+      logger.error('Error calculating volatility', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to calculate price volatility" });
     }
   });
@@ -253,7 +254,7 @@ export function registerProductRoutes(app: Express): void {
 
       res.json(patterns);
     } catch (error) {
-      console.error('Error detecting seasonal patterns:', error);
+      logger.error('Error detecting seasonal patterns', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to detect seasonal patterns" });
     }
   });
@@ -296,7 +297,7 @@ export function registerProductRoutes(app: Express): void {
 
       res.json(scores);
     } catch (error) {
-      console.error('Error calculating retailer reliability:', error);
+      logger.error('Error calculating retailer reliability', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to calculate retailer reliability" });
     }
   });
@@ -326,7 +327,7 @@ export function registerProductRoutes(app: Express): void {
 
       res.json({ offers: formattedOffers });
     } catch (error) {
-      console.error('Error fetching product offers:', error);
+      logger.error('Error fetching product offers', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to fetch product offers" });
     }
   });
@@ -383,7 +384,7 @@ export function registerProductRoutes(app: Express): void {
         averageDailyChange: avgChange
       });
     } catch (error) {
-      console.error('Error fetching price predictions:', error);
+      logger.error('Error fetching price predictions', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
       res.status(500).json({ message: "Failed to fetch price predictions" });
     }
   });
@@ -398,11 +399,10 @@ export function registerProductRoutes(app: Express): void {
       }
 
       // Log the view (in a production app, this would go to an analytics service)
-      console.log('Product view tracked:', {
+      logger.info('Product view tracked', {
         productId,
         source: source || 'unknown',
         retailer: retailer || 'unknown',
-        timestamp: new Date().toISOString(),
         ip: req.ip,
         userAgent: req.get('user-agent')
       });
@@ -411,7 +411,7 @@ export function registerProductRoutes(app: Express): void {
       // For now, just acknowledge receipt
       res.json({ success: true });
     } catch (error) {
-      console.error('Error tracking product view:', error);
+      logger.error('Error tracking product view', { error: error instanceof Error ? error.message : String(error), productId: req.body.productId });
       res.status(500).json({ error: "Failed to track product view" });
     }
   });

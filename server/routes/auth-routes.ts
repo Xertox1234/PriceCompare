@@ -3,6 +3,7 @@ import { db } from "../db";
 import { passport, createUser, findUserByEmail, findUserById, hashPassword } from "../auth";
 import { generateCsrfToken } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
+import { logger } from "../utils/logger";
 import {
   createPasswordResetToken,
   validatePasswordResetToken,
@@ -25,7 +26,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       // SECURITY: Do not log request bodies in production (may contain sensitive data)
       if (process.env.NODE_ENV === 'development') {
-        console.log('Registration request for user:', req.body.email ? '[email provided]' : '[no email]');
+        logger.debug('Registration request', { hasEmail: !!req.body.email });
       }
 
       // Validate required fields manually first
@@ -98,7 +99,7 @@ export function registerAuthRoutes(app: Express): void {
       // Log the user in after registration
       req.login(user, (err) => {
         if (err) {
-          console.error('Login after registration failed:', err);
+          logger.error('Login after registration failed', { error: err.message, userId: user.id });
           return res.status(500).json({ error: 'Registration successful but login failed' });
         }
         res.json({
@@ -112,7 +113,7 @@ export function registerAuthRoutes(app: Express): void {
         });
       });
     } catch (error) {
-      console.error('Registration error:', error);
+      logger.error('Registration error', { error: error instanceof Error ? error.message : String(error) });
       res.status(400).json({ error: 'Registration failed' });
     }
   });
@@ -122,7 +123,7 @@ export function registerAuthRoutes(app: Express): void {
     // Use custom callback to capture authentication result for logging
     passport.authenticate('local', (err: any, user: any, info: any) => {
       if (err) {
-        console.error('Login error:', err);
+        logger.error('Login error', { error: err.message || String(err) });
         return next(err);
       }
 
@@ -150,7 +151,7 @@ export function registerAuthRoutes(app: Express): void {
       // Log in the user
       req.login(user, (err) => {
         if (err) {
-          console.error('Session creation error:', err);
+          logger.error('Session creation error', { error: err.message, userId: user.id });
           return next(err);
         }
 
@@ -181,7 +182,7 @@ export function registerAuthRoutes(app: Express): void {
 
     req.logout((err) => {
       if (err) {
-        console.error('Logout error:', err);
+        logger.error('Logout error', { error: err.message, userId: user?.id });
         return res.status(500).json({ error: 'Logout failed' });
       }
 
@@ -291,7 +292,7 @@ export function registerAuthRoutes(app: Express): void {
         message: "If an account exists with this email, a password reset link has been sent.",
       });
     } catch (error) {
-      console.error("Forgot password error:", error);
+      logger.error("Forgot password error", { error: error instanceof Error ? error.message : String(error) });
       // SECURITY: Don't reveal internal errors
       res.json({
         success: true,
@@ -333,7 +334,7 @@ export function registerAuthRoutes(app: Express): void {
         username: user.username,
       });
     } catch (error) {
-      console.error("Validate reset token error:", error);
+      logger.error("Validate reset token error", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "An error occurred" });
     }
   });
@@ -424,7 +425,7 @@ export function registerAuthRoutes(app: Express): void {
         message: "Password has been reset successfully. You can now log in with your new password.",
       });
     } catch (error) {
-      console.error("Reset password error:", error);
+      logger.error("Reset password error", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "An error occurred while resetting password" });
     }
   });

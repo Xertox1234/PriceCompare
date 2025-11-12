@@ -1,6 +1,7 @@
 import { Express } from "express";
 import { forumStorage } from "../forum-storage";
 import { withAuth } from "./helpers";
+import { logger } from "../utils/logger";
 import { parseIntSafe } from "../utils/validation-helpers";
 
 /**
@@ -24,7 +25,7 @@ export function registerAlertRoutes(app: Express): void {
 
       res.json({ success: true, alert });
     } catch (error) {
-      console.error('Create price alert error:', error);
+      logger.error('Create price alert error', { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to create price alert" });
     }
   }));
@@ -36,7 +37,7 @@ export function registerAlertRoutes(app: Express): void {
       const alerts = await forumStorage.getUserPriceAlerts(user.id);
       res.json(alerts);
     } catch (error) {
-      console.error('Get price alerts error:', error);
+      logger.error('Get price alerts error', { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to fetch price alerts" });
     }
   }));

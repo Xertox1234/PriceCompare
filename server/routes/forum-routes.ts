@@ -2,6 +2,7 @@ import { Express } from "express";
 import { forumStorage } from "../forum-storage";
 import { withAuth } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
+import { logger } from "../utils/logger";
 
 /**
  * Forum Routes
@@ -86,10 +87,10 @@ export function registerForumRoutes(app: Express): void {
         productId: productId || null,
       });
 
-      console.log("Topic created successfully:", topic.id);
+      logger.info("Topic created", { topicId: topic.id, title: topic.title });
 
       // Create the first post
-      console.log("Creating first post for topic:", topic.id);
+      logger.debug("Creating first post for topic", { topicId: topic.id });
       const postData = {
         topicId: topic.id,
         authorId: user.id,
@@ -99,15 +100,13 @@ export function registerForumRoutes(app: Express): void {
         postNumber: 1, // First post in topic
       };
 
-      console.log("Post data being created:", JSON.stringify(postData, null, 2));
-
       // Use the correct camelCase field names that match the Drizzle schema
       await forumStorage.createPost(postData);
 
-      console.log("First post created successfully");
+      logger.info("First post created", { topicId: topic.id });
       res.json({ success: true, topic });
     } catch (error) {
-      console.error('Create topic error:', error);
+      logger.error('Create topic error', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to create topic" });
     }
   }));
@@ -133,7 +132,7 @@ export function registerForumRoutes(app: Express): void {
 
       res.json({ success: true, post });
     } catch (error) {
-      console.error('Create post error:', error);
+      logger.error('Create post error', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to create post" });
     }
   }));
