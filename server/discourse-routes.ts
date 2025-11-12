@@ -1,5 +1,7 @@
 import type { Express, Request, Response } from "express";
+import { logger } from "./utils/logger";
 import crypto from 'crypto';
+import { logger } from "./utils/logger";
 import { db } from './db';
 import { users } from '../shared/schema';
 import { eq } from 'drizzle-orm';
@@ -55,7 +57,7 @@ function verifySSO(sso: string, sig: string): boolean {
  */
 function verifyWebhookSignature(payload: any, signature: string | undefined): boolean {
   if (!signature) {
-    console.warn('Webhook verification failed: No signature provided');
+    logger.warn('Webhook verification failed: No signature provided');
     return false;
   }
 
@@ -77,7 +79,7 @@ function verifyWebhookSignature(payload: any, signature: string | undefined): bo
       Buffer.from(computedSig)
     );
   } catch (error) {
-    console.warn('Webhook verification failed: Invalid signature format');
+    logger.warn('Webhook verification failed: Invalid signature format');
     return false;
   }
 }
@@ -138,7 +140,7 @@ export function registerDiscourseRoutes(app: Express): void {
       res.redirect(redirectUrl);
       
     } catch (error) {
-      console.error('Discourse SSO error:', error);
+      logger.error('Discourse SSO error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'SSO authentication failed' });
     }
   });
@@ -153,7 +155,7 @@ export function registerDiscourseRoutes(app: Express): void {
       const signature = req.headers['x-discourse-event-signature'] as string;
 
       if (!signature) {
-        console.warn('Discourse webhook rejected: Missing signature header');
+        logger.warn('Discourse webhook rejected: Missing signature header');
         return res.status(401).json({
           error: 'Missing webhook signature',
           message: 'X-Discourse-Event-Signature header is required'
@@ -161,7 +163,7 @@ export function registerDiscourseRoutes(app: Express): void {
       }
 
       if (!verifyWebhookSignature(req.body, signature)) {
-        console.warn('Discourse webhook rejected: Invalid signature', {
+        logger.warn('Discourse webhook rejected: Invalid signature', {
           receivedSignature: signature.substring(0, 10) + '...',
           eventType: req.body.event_type,
         });
@@ -174,16 +176,16 @@ export function registerDiscourseRoutes(app: Express): void {
       const { event_type, user } = req.body;
 
       // Log successful webhook receipt
-      console.log('Discourse webhook received:', { event_type, userId: user?.id });
+      logger.info('Discourse webhook received:', { event_type, userId: user?.id });
 
       if (event_type === 'user_created' && user) {
         // Sync Discourse user creation back to main app if needed
-        console.log('Discourse user created:', { username: user.username, email: user.email });
+        logger.info('Discourse user created:', { username: user.username, email: user.email });
       }
 
       res.json({ success: true, event_type });
     } catch (error) {
-      console.error('Discourse webhook error:', error);
+      logger.error('Discourse webhook error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   });
@@ -210,7 +212,7 @@ export function registerDiscourseRoutes(app: Express): void {
         discourse_url_configured: !!process.env.DISCOURSE_URL
       });
     } catch (error) {
-      console.error('Discourse SSO test error:', error);
+      logger.error('Discourse SSO test error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'SSO test failed' });
     }
   });
@@ -225,7 +227,7 @@ export function registerDiscourseRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Discourse health check error:', error);
+      logger.error('Discourse health check error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         status: 'unhealthy',
         error: 'Health check failed'

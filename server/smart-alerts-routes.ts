@@ -1,5 +1,7 @@
 import type { Express } from "express";
+import { logger } from "./utils/logger";
 import { z } from "zod";
+import { logger } from "./utils/logger";
 import * as smartAlertsService from "./services/smart-alerts-service";
 
 /**
@@ -50,7 +52,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: suggestions.length,
       });
     } catch (error: any) {
-      console.error('Error generating smart suggestions:', error);
+      logger.error('Error generating smart suggestions:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to generate suggestions" });
     }
   });
@@ -70,7 +72,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: alerts.length,
       });
     } catch (error: any) {
-      console.error('Error generating predictive alerts:', error);
+      logger.error('Error generating predictive alerts:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to generate predictive alerts" });
     }
   }));
@@ -90,7 +92,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: effectiveness.length,
       });
     } catch (error: any) {
-      console.error('Error getting alert effectiveness:', error);
+      logger.error('Error getting alert effectiveness:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to get effectiveness metrics" });
     }
   }));
@@ -109,7 +111,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         data: analytics,
       });
     } catch (error: any) {
-      console.error('Error getting alert analytics:', error);
+      logger.error('Error getting alert analytics:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to get analytics" });
     }
   }));
@@ -154,7 +156,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         data: alert,
       });
     } catch (error: any) {
-      console.error('Error creating suggested alert:', error);
+      logger.error('Error creating suggested alert:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid data", details: error.errors });
       }

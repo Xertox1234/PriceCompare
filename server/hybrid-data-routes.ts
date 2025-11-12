@@ -1,5 +1,7 @@
 import { Express, Request, Response } from "express";
+import { logger } from "./utils/logger";
 import { requireAuth, requireAdmin } from './auth';
+import { logger } from "./utils/logger";
 import { validateRequest } from './validation';
 import { hybridDataCollectSchema } from './validation/admin-schemas';
 import { z } from 'zod';
@@ -22,7 +24,7 @@ export function registerHybridDataRoutes(app: Express): void{
         status
       });
     } catch (error) {
-      console.error('Error getting hybrid system status:', error);
+      logger.error('Error getting hybrid system status:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Failed to get system status",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -39,7 +41,7 @@ export function registerHybridDataRoutes(app: Express): void{
         retailers: capabilities
       });
     } catch (error) {
-      console.error('Error getting retailer capabilities:', error);
+      logger.error('Error getting retailer capabilities:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Failed to get retailer capabilities",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -66,7 +68,7 @@ export function registerHybridDataRoutes(app: Express): void{
             const products = await hybridDataCollector.collectProductData(retailer, query);
             return { retailer, products, success: true };
           } catch (error) {
-            console.error(`Search failed for ${retailer}:`, error);
+            logger.error(`Search failed for ${retailer}:`, { error: error instanceof Error ? error.message : String(error) });
             return { 
             retailer, 
             products: [], 
@@ -103,7 +105,7 @@ export function registerHybridDataRoutes(app: Express): void{
         metadata
       });
     } catch (error) {
-      console.error('Hybrid search error:', error);
+      logger.error('Hybrid search error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Search failed",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -131,7 +133,7 @@ export function registerHybridDataRoutes(app: Express): void{
         dataSource: products[0]?.metadata?.source || 'unknown'
       });
     } catch (error) {
-      console.error(`Test failed for ${req.params.retailer}:`, error);
+      logger.error(`Test failed for ${req.params.retailer}:`, { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: `Test failed for ${req.params.retailer}`,
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -184,7 +186,7 @@ export function registerHybridDataRoutes(app: Express): void{
         }
       });
     } catch (error) {
-      console.error('Error getting hybrid metrics:', error);
+      logger.error('Error getting hybrid metrics:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Failed to get metrics",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -217,7 +219,7 @@ export function registerHybridDataRoutes(app: Express): void{
         results
       });
     } catch (error) {
-      console.error('Health refresh error:', error);
+      logger.error('Health refresh error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Health refresh failed",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -254,7 +256,7 @@ export function registerHybridDataRoutes(app: Express): void{
         note: "Dynamic source switching will be implemented in future update"
       });
     } catch (error) {
-      console.error('Source switch error:', error);
+      logger.error('Source switch error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Source switch failed",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -300,7 +302,7 @@ export function registerHybridDataRoutes(app: Express): void{
         ].filter(Boolean)
       });
     } catch (error) {
-      console.error('Cost analysis error:', error);
+      logger.error('Cost analysis error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Cost analysis failed",
         details: error instanceof Error ? error.message : 'Unknown error'

@@ -1,5 +1,7 @@
 import type { Express, Request, Response } from "express";
+import { logger } from "./utils/logger";
 import { sendErrorResponse, ErrorMessages } from './utils/error-handler';
+import { logger } from "./utils/logger";
 import { requireAuth, requireAdmin } from './auth';
 import { validateRequest } from './validation';
 import {
@@ -179,7 +181,7 @@ export function registerScrapingRoutes(app: Express): void {
           result
         });
       } catch (error) {
-        console.error('Trend discovery failed:', error);
+        logger.error('Trend discovery failed:', { error: error instanceof Error ? error.message : String(error) });
         res.status(500).json({
           error: "Trend discovery failed",
           details: error instanceof Error ? error.message : 'Unknown error'
@@ -211,7 +213,7 @@ export function registerScrapingRoutes(app: Express): void {
         count: products.length
       });
     } catch (error) {
-      console.error('Failed to get trending products:', error);
+      logger.error('Failed to get trending products:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Failed to retrieve trending products",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -236,7 +238,7 @@ export function registerScrapingRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Failed to get system status:', error);
+      logger.error('Failed to get system status:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Failed to retrieve system status",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -272,7 +274,7 @@ export function registerScrapingRoutes(app: Express): void {
         count: searchResults.length
       });
     } catch (error) {
-      console.error('Product search failed:', error);
+      logger.error('Product search failed:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Product search failed",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -294,7 +296,7 @@ export function registerScrapingRoutes(app: Express): void {
         action: 'full_cycle',
         ...req.body
       }).catch(error => {
-        console.error('Full cycle failed:', error);
+        logger.error('Full cycle failed:', { error: error instanceof Error ? error.message : String(error) });
       });
 
       res.json({ 
@@ -302,7 +304,7 @@ export function registerScrapingRoutes(app: Express): void {
         message: "Full scraping cycle initiated in background"
       });
     } catch (error) {
-      console.error('Failed to start full cycle:', error);
+      logger.error('Failed to start full cycle:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ 
         error: "Failed to start full cycle",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -372,7 +374,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error('Google Custom Search failed:', error);
+      logger.error('Google Custom Search failed:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         error: "Google Custom Search failed",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -435,7 +437,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error('Product extraction failed:', error);
+      logger.error('Product extraction failed:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         error: "Product extraction failed",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -453,7 +455,7 @@ export function registerScrapingRoutes(app: Express): void {
       
       // Start monitoring tasks in background
       priceMonitoringAgent.scheduleMonitoringTasks().catch(error => {
-        console.error('Monitoring tasks failed:', error);
+        logger.error('Monitoring tasks failed:', { error: error instanceof Error ? error.message : String(error) });
       });
 
       res.json({
@@ -466,7 +468,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error('Failed to start monitoring:', error);
+      logger.error('Failed to start monitoring:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         error: "Failed to start monitoring",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -488,7 +490,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error('Failed to get monitoring stats:', error);
+      logger.error('Failed to get monitoring stats:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         error: "Failed to get monitoring statistics",
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -546,7 +548,7 @@ export function registerScrapingRoutes(app: Express): void {
             });
           }
         } catch (error) {
-          console.error(`Failed to extract from ${url}:`, error);
+          logger.error(`Failed to extract from ${url}:`, { error: error instanceof Error ? error.message : String(error) });
         }
       }
 
@@ -560,7 +562,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error('Complete workflow failed:', error);
+      logger.error('Complete workflow failed:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         error: "Complete workflow failed",
         details: error instanceof Error ? error.message : 'Unknown error'

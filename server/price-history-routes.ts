@@ -1,5 +1,7 @@
 import { Express, Request, Response } from 'express';
+import { logger } from "./utils/logger";
 import { z } from 'zod';
+import { logger } from "./utils/logger";
 import {
   recordPriceChange,
   getPriceHistory,
@@ -110,7 +112,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: history.length
       });
     } catch (error) {
-      console.error('Error fetching price history:', error);
+      logger.error('Error fetching price history:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch price history' });
     }
   });
@@ -147,7 +149,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         data: stats
       });
     } catch (error) {
-      console.error('Error fetching price stats:', error);
+      logger.error('Error fetching price stats:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch price statistics' });
     }
   });
@@ -185,7 +187,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: snapshots.length
       });
     } catch (error) {
-      console.error('Error fetching price snapshots:', error);
+      logger.error('Error fetching price snapshots:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch price snapshots' });
     }
   });
@@ -219,7 +221,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         data: result
       });
     } catch (error) {
-      console.error('Error recording price change:', error);
+      logger.error('Error recording price change:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to record price change' });
     }
   }));
@@ -246,7 +248,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count
       });
     } catch (error) {
-      console.error('Error generating snapshots:', error);
+      logger.error('Error generating snapshots:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to generate snapshots' });
     }
   }));
@@ -275,7 +277,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: drops.length
       });
     } catch (error) {
-      console.error('Error detecting price drops:', error);
+      logger.error('Error detecting price drops:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to detect price drops' });
     }
   }));
@@ -301,7 +303,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         deletedCount
       });
     } catch (error) {
-      console.error('Error cleaning up price history:', error);
+      logger.error('Error cleaning up price history:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to clean up price history' });
     }
   }));
@@ -333,7 +335,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: limitedDrops.length
       });
     } catch (error) {
-      console.error('Error fetching recent price drops:', error);
+      logger.error('Error fetching recent price drops:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch recent price drops' });
     }
   });

@@ -3,6 +3,7 @@ import { requireAuth } from './auth';
 import { enhancedForumStorage } from "./enhanced-forum-storage";
 import { storage } from "./storage";
 import { validateRequestBody } from "./validation";
+import { logger } from "./utils/logger";
 import {
   insertForumTopicSchema, insertForumPostSchema, insertPrivateMessageSchema,
   insertNotificationSchema, insertTopicTagSchema, insertBadgeSchema,
@@ -28,7 +29,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.json(userProfile);
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      logger.error("Error fetching user profile", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
       res.status(500).json({ error: "Failed to fetch user profile" });
     }
   });
@@ -51,7 +52,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user.id);
       res.json(updatedProfile);
     } catch (error) {
-      console.error("Error updating user profile:", error);
+      logger.error("Error updating user profile", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
@@ -67,7 +68,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const topics = await enhancedForumStorage.getTopicsWithDetails(categoryId, productId, userId);
       res.json(topics);
     } catch (error) {
-      console.error("Error fetching enhanced topics:", error);
+      logger.error("Error fetching enhanced topics", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to fetch topics" });
     }
   });
@@ -106,7 +107,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(topic);
     } catch (error) {
-      console.error("Error creating enhanced topic:", error);
+      logger.error("Error creating enhanced topic", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to create topic" });
     }
   });
@@ -121,7 +122,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const posts = await enhancedForumStorage.getPostsWithDetails(topicId, userId);
       res.json(posts);
     } catch (error) {
-      console.error("Error fetching enhanced posts:", error);
+      logger.error("Error fetching enhanced posts", { error: error instanceof Error ? error.message : String(error), topicId: req.params.id });
       res.status(500).json({ error: "Failed to fetch posts" });
     }
   });
@@ -145,7 +146,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(post);
     } catch (error) {
-      console.error("Error creating enhanced post:", error);
+      logger.error("Error creating enhanced post", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to create post" });
     }
   });
@@ -158,7 +159,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const result = await enhancedForumStorage.togglePostLike(postId, req.user.id);
       res.json(result);
     } catch (error) {
-      console.error("Error toggling post like:", error);
+      logger.error("Error toggling post like", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to toggle like" });
     }
   });
@@ -170,7 +171,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const notifications = await enhancedForumStorage.getUserNotifications(req.user.id, unreadOnly);
       res.json(notifications);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      logger.error("Error fetching notifications", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
@@ -181,7 +182,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       await enhancedForumStorage.markNotificationsAsRead(req.user.id, notificationIds);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error marking notifications as read:", error);
+      logger.error("Error marking notifications as read", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to mark notifications as read" });
     }
   });
@@ -192,7 +193,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const messages = await enhancedForumStorage.getUserPrivateMessages(req.user.id);
       res.json(messages);
     } catch (error) {
-      console.error("Error fetching private messages:", error);
+      logger.error("Error fetching private messages", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
@@ -211,7 +212,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(message);
     } catch (error) {
-      console.error("Error creating private message:", error);
+      logger.error("Error creating private message", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
       res.status(500).json({ error: "Failed to create message" });
     }
   });
@@ -224,7 +225,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const tags = await enhancedForumStorage.getPopularTags(limit);
       res.json(tags);
     } catch (error) {
-      console.error("Error fetching tags:", error);
+      logger.error("Error fetching tags", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to fetch tags" });
     }
   });
@@ -239,7 +240,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const tags = await enhancedForumStorage.searchTags(query);
       res.json(tags);
     } catch (error) {
-      console.error("Error searching tags:", error);
+      logger.error("Error searching tags", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to search tags" });
     }
   });
@@ -259,7 +260,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userBadge = await enhancedForumStorage.awardBadge(userId, badgeId);
       res.status(201).json(userBadge);
     } catch (error) {
-      console.error("Error awarding badge:", error);
+      logger.error("Error awarding badge", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to award badge" });
     }
   });
@@ -278,7 +279,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const posts = await enhancedForumStorage.searchPosts(query, categoryId);
       res.json(posts);
     } catch (error) {
-      console.error("Error searching posts:", error);
+      logger.error("Error searching posts", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to search posts" });
     }
   });
@@ -294,7 +295,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       // For now, return a simple response
       res.json({ message: "Leaderboard functionality coming soon" });
     } catch (error) {
-      console.error("Error fetching leaderboard:", error);
+      logger.error("Error fetching leaderboard", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to fetch leaderboard" });
     }
   });
@@ -321,7 +322,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       
       res.json(updatedUser);
     } catch (error) {
-      console.error("Error updating trust level:", error);
+      logger.error("Error updating trust level", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
       res.status(500).json({ error: "Failed to update trust level" });
     }
   });
@@ -352,7 +353,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Error suspending user:", error);
+      logger.error("Error suspending user", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
       res.status(500).json({ error: "Failed to suspend user" });
     }
   });
@@ -367,7 +368,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       await enhancedForumStorage.initializeDefaultBadges();
       res.json({ success: true, message: "Default badges initialized" });
     } catch (error) {
-      console.error("Error initializing badges:", error);
+      logger.error("Error initializing badges", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to initialize badges" });
     }
   });
