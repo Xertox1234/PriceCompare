@@ -808,31 +808,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             req.query.availability as string[] :
             [req.query.availability as string]) : undefined,
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity",
+        page: req.query.page ? parseIntSafe(req.query.page as string, 'page', { min: 1 }) : 1,
+        limit: req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 20,
       };
 
-      const products = await storage.searchProducts(filters);
+      const { products, pagination } = await storage.searchProducts(filters);
 
-      // Add discussion counts to products
-      const productsWithDiscussions = await Promise.all(
-        products.map(async (product) => {
-          const discussionCount = await forumStorage.getProductDiscussionCount(product.id);
-          return {
-            ...product,
-            discussionCount,
-            hasActiveDiscussion: discussionCount > 0,
-          };
-        })
-      );
+      // Add discussion counts to products (batch query to avoid N+1 problem)
+      const productIds = products.map(p => p.id);
+      const discussionCounts = await forumStorage.getProductDiscussionCounts(productIds);
+
+      const productsWithDiscussions = products.map(product => ({
+        ...product,
+        discussionCount: discussionCounts.get(product.id) || 0,
+        hasActiveDiscussion: (discussionCounts.get(product.id) || 0) > 0,
+      }));
 
       // Return response in the format expected by the frontend
       res.json({
         results: productsWithDiscussions,
-        metadata: {
-          total: productsWithDiscussions.length,
-          page: 1,
-          limit: productsWithDiscussions.length,
-          totalPages: 1,
-        }
+        metadata: pagination,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to search products" });

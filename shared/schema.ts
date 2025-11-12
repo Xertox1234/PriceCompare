@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn, customType, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -59,7 +59,12 @@ export const productOffers = pgTable("product_offers", {
   lastLinkCheck: timestamp("last_link_check"),
   clickCount: integer("click_count").default(0),
   lastUpdated: timestamp("last_updated").defaultNow(),
-});
+}, (table) => ({
+  productIdIdx: index("product_offers_product_id_idx").on(table.productId),
+  retailerIdIdx: index("product_offers_retailer_id_idx").on(table.retailerId),
+  productRetailerIdx: index("product_offers_product_retailer_idx").on(table.productId, table.retailerId),
+  availabilityIdx: index("product_offers_availability_idx").on(table.availability),
+}));
 
 // Price history tracking for historical price trends and analysis
 export const priceHistory = pgTable("price_history", {
@@ -77,7 +82,13 @@ export const priceHistory = pgTable("price_history", {
   metadata: text("metadata"), // JSON - Additional context about price change
   recordedAt: timestamp("recorded_at").notNull(), // When this price snapshot was recorded
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  offerIdIdx: index("price_history_offer_id_idx").on(table.productOfferId),
+  productIdIdx: index("price_history_product_id_idx").on(table.productId),
+  retailerIdIdx: index("price_history_retailer_id_idx").on(table.retailerId),
+  recordedAtIdx: index("price_history_recorded_at_idx").on(table.recordedAt),
+  productDateIdx: index("price_history_product_date_idx").on(table.productId, table.recordedAt),
+}));
 
 // Users table for authentication with Discourse-like features
 export const users = pgTable("users", {
@@ -152,7 +163,12 @@ export const forumTopics = pgTable("forum_topics", {
   lastPostAt: timestamp("last_post_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  categoryIdIdx: index("forum_topics_category_id_idx").on(table.categoryId),
+  authorIdIdx: index("forum_topics_author_id_idx").on(table.authorId),
+  productIdIdx: index("forum_topics_product_id_idx").on(table.productId),
+  createdAtIdx: index("forum_topics_created_at_idx").on(table.createdAt),
+}));
 
 // Forum posts with enhanced features
 export const forumPosts = pgTable("forum_posts", {
@@ -174,7 +190,11 @@ export const forumPosts = pgTable("forum_posts", {
   version: integer("version").default(1),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  topicIdIdx: index("forum_posts_topic_id_idx").on(table.topicId),
+  authorIdIdx: index("forum_posts_author_id_idx").on(table.authorId),
+  createdAtIdx: index("forum_posts_created_at_idx").on(table.createdAt),
+}));
 
 // Price alerts that can notify the community
 export const priceAlerts = pgTable("price_alerts", {
@@ -195,7 +215,11 @@ export const priceAlerts = pgTable("price_alerts", {
   // Metadata
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: index("price_alerts_user_id_idx").on(table.userId),
+  productIdIdx: index("price_alerts_product_id_idx").on(table.productId),
+  isActiveIdx: index("price_alerts_is_active_idx").on(table.isActive),
+}));
 
 // Post likes/reactions
 export const postLikes = pgTable("post_likes", {
@@ -204,7 +228,10 @@ export const postLikes = pgTable("post_likes", {
   userId: integer("user_id").references(() => users.id).notNull(),
   reactionType: varchar("reaction_type", { length: 20 }).default("like"), // like, love, laugh, etc.
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  postIdIdx: index("post_likes_post_id_idx").on(table.postId),
+  userIdIdx: index("post_likes_user_id_idx").on(table.userId),
+}));
 
 // User notifications
 export const notifications = pgTable("notifications", {
@@ -219,7 +246,11 @@ export const notifications = pgTable("notifications", {
   relatedProductId: integer("related_product_id").references(() => products.id),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: index("notifications_user_id_idx").on(table.userId),
+  userReadIdx: index("notifications_user_read_idx").on(table.userId, table.isRead),
+  createdAtIdx: index("notifications_created_at_idx").on(table.createdAt),
+}));
 
 // Notification preferences for users
 export const notificationPreferences = pgTable("notification_preferences", {
@@ -259,7 +290,10 @@ export const topicTagRelations = pgTable("topic_tag_relations", {
   topicId: integer("topic_id").references(() => forumTopics.id).notNull(),
   tagId: integer("tag_id").references(() => topicTags.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  topicIdIdx: index("topic_tag_relations_topic_id_idx").on(table.topicId),
+  tagIdIdx: index("topic_tag_relations_tag_id_idx").on(table.tagId),
+}));
 
 // User mentions in posts
 export const postMentions = pgTable("post_mentions", {
@@ -307,7 +341,10 @@ export const productWatches = pgTable("product_watches", {
   userId: integer("user_id").references(() => users.id).notNull(),
   productId: integer("product_id").references(() => products.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: index("product_watches_user_id_idx").on(table.userId),
+  productIdIdx: index("product_watches_product_id_idx").on(table.productId),
+}));
 
 // User reputation for gamification
 export const userReputation = pgTable("user_reputation", {
@@ -332,7 +369,10 @@ export const dealSpottings = pgTable("deal_spottings", {
   forumPostId: integer("forum_post_id").references(() => forumPosts.id),
   reputationAwarded: integer("reputation_awarded").default(0),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: index("deal_spottings_user_id_idx").on(table.userId),
+  productIdIdx: index("deal_spottings_product_id_idx").on(table.productId),
+}));
 
 // Post revision history
 export const postRevisions = pgTable("post_revisions", {
@@ -571,6 +611,8 @@ export type SearchFilters = {
   minRating?: number;
   availability?: string[];
   sortBy?: "price_low" | "price_high" | "rating" | "popularity";
+  page?: number;
+  limit?: number;
 };
 
 // AI Scraping System Tables
@@ -666,7 +708,12 @@ export const priceSnapshots = pgTable("price_snapshots", {
   offerCount: integer("offer_count").default(1),
   snapshotDate: timestamp("snapshot_date").notNull(), // Date of the snapshot
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  productIdIdx: index("price_snapshots_product_id_idx").on(table.productId),
+  retailerIdIdx: index("price_snapshots_retailer_id_idx").on(table.retailerId),
+  snapshotDateIdx: index("price_snapshots_snapshot_date_idx").on(table.snapshotDate),
+  productDateIdx: index("price_snapshots_product_date_idx").on(table.productId, table.snapshotDate),
+}));
 
 // Scraping source configuration
 export const scrapingSources = pgTable("scraping_sources", {
