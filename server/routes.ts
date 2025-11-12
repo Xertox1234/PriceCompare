@@ -995,6 +995,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get retailer reliability scores for a product
+  app.get("/api/products/:id/retailer-reliability", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string);
+
+      // Get price history for all retailers
+      const history = await storage.getPriceHistory(id, days);
+
+      if (!history || history.length < 5) {
+        return res.json(null);
+      }
+
+      // Group data by retailer
+      const retailerDataMap = new Map<number, any>();
+      history.forEach(entry => {
+        if (!retailerDataMap.has(entry.retailerId)) {
+          retailerDataMap.set(entry.retailerId, {
+            retailerId: entry.retailerId,
+            retailerName: entry.retailerName,
+            priceHistory: [],
+          });
+        }
+        retailerDataMap.get(entry.retailerId)!.priceHistory.push({
+          price: entry.price,
+          recordedAt: entry.recordedAt,
+          availability: entry.availability,
+        });
+      });
+
+      const allRetailersData = Array.from(retailerDataMap.values());
+
+      // Calculate reliability scores
+      const { calculateAllRetailerReliability } = await import('./utils/retailer-reliability-calculator');
+      const scores = calculateAllRetailerReliability(allRetailersData);
+
+      res.json(scores);
+    } catch (error) {
+      console.error('Error calculating retailer reliability:', error);
+      res.status(500).json({ message: "Failed to calculate retailer reliability" });
+    }
+  });
+
   // Get product offers (for browser extension)
   app.get("/api/products/:id/offers", async (req, res) => {
     try {
