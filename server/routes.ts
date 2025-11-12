@@ -22,6 +22,7 @@ import * as schema from "@shared/schema";
 import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 import { getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from "./utils/validation-helpers";
+import { cacheChartData } from "./middleware/chart-cache";
 
 
 // Use the actual User type from schema
@@ -876,8 +877,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Price History Endpoints
-  // Get price history for a product
-  app.get("/api/products/:id/price-history", async (req, res) => {
+  // Get price history for a product (with caching)
+  app.get("/api/products/:id/price-history", cacheChartData(3600), async (req, res) => {
     try {
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
       const days = parseIntOptional(req.query.days as string);

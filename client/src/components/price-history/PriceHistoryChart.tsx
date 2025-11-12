@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InteractiveTooltip } from "./InteractiveTooltip";
 
 interface PriceHistoryData {
   id: number;
@@ -18,6 +19,8 @@ interface PriceHistoryChartProps {
   data: PriceHistoryData[];
   isLoading?: boolean;
   selectedRetailerIds?: number[];
+  onSetAlert?: (retailerId: number, price: number) => void;
+  onViewRetailer?: (retailerId: number) => void;
 }
 
 // Color palette for different retailers
@@ -32,8 +35,30 @@ const RETAILER_COLORS = [
   "#f97316", // Orange
 ];
 
-export function PriceHistoryChart({ data, isLoading, selectedRetailerIds }: PriceHistoryChartProps) {
+export function PriceHistoryChart({
+  data,
+  isLoading,
+  selectedRetailerIds,
+  onSetAlert,
+  onViewRetailer
+}: PriceHistoryChartProps) {
   const [hiddenRetailers, setHiddenRetailers] = useState<Set<number>>(new Set());
+
+  // Calculate historical context for tooltips
+  const historicalContext = useMemo(() => {
+    if (!data || data.length === 0) return undefined;
+
+    const prices = data.map((item) => parseFloat(item.price));
+    const averagePrice = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+    const lowestPrice = Math.min(...prices);
+    const highestPrice = Math.max(...prices);
+
+    return {
+      averagePrice,
+      lowestPrice,
+      highestPrice,
+    };
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -159,38 +184,15 @@ export function PriceHistoryChart({ data, isLoading, selectedRetailerIds }: Pric
                 className="text-xs"
               />
               <Tooltip
-                content={({ active, payload, label }) => {
-                  if (!active || !payload || payload.length === 0) return null;
-
-                  return (
-                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-                      <p className="font-semibold text-sm mb-2">
-                        {format(new Date(label), "MMM d, yyyy")}
-                      </p>
-                      <div className="space-y-1">
-                        {payload.map((entry: any, index: number) => {
-                          const retailerId = parseInt(entry.dataKey.split("_")[1]);
-                          const retailer = retailers.find((r) => r.id === retailerId);
-
-                          return (
-                            <div key={index} className="flex items-center justify-between gap-4">
-                              <span className="text-sm flex items-center gap-2">
-                                <div
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: entry.color }}
-                                />
-                                {retailer?.name}
-                              </span>
-                              <span className="font-semibold text-sm">
-                                ${parseFloat(entry.value).toFixed(2)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                }}
+                content={(props) => (
+                  <InteractiveTooltip
+                    {...props}
+                    retailers={retailers}
+                    onSetAlert={onSetAlert}
+                    onViewRetailer={onViewRetailer}
+                    historicalContext={historicalContext}
+                  />
+                )}
               />
               <Legend content={() => null} />
               {displayRetailers.map((retailer, index) => {
