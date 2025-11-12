@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "PriceCompare History",
+  "version": "1.0.0",
+  "description": "See price history charts directly on retailer websites",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://*.amazon.com/*",
+    "*://*.bestbuy.com/*",
+    "*://*.walmart.com/*",
+    "*://*.target.com/*",
+    "*://*.ebay.com/*"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.amazon.com/*"],
+      "js": ["shared/utils.js", "shared/api-client.js", "content-scripts/amazon-overlay.js"],
+      "css": ["content-scripts/overlay-styles.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.bestbuy.com/*"],
+      "js": ["shared/utils.js", "shared/api-client.js", "content-scripts/bestbuy-overlay.js"],
+      "css": ["content-scripts/overlay-styles.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.walmart.com/*",
+        "*://*.target.com/*",
+        "*://*.ebay.com/*"
+      ],
+      "js": ["shared/utils.js", "shared/api-client.js", "content-scripts/generic-overlay.js"],
+      "css": ["content-scripts/overlay-styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "popup/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
