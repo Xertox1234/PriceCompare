@@ -947,6 +947,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get price volatility score for a product
+  app.get("/api/products/:id/volatility", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string);
+
+      // Get price history
+      const history = await storage.getPriceHistory(id, days);
+
+      if (!history || history.length < 2) {
+        return res.json(null);
+      }
+
+      // Calculate volatility using the calculator
+      const { calculateVolatility } = await import('./utils/volatility-calculator');
+      const volatility = calculateVolatility(history);
+
+      res.json(volatility);
+    } catch (error) {
+      console.error('Error calculating volatility:', error);
+      res.status(500).json({ message: "Failed to calculate price volatility" });
+    }
+  });
+
   // Get product offers (for browser extension)
   app.get("/api/products/:id/offers", async (req, res) => {
     try {
