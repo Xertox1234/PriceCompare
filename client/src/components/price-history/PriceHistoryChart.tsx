@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush, ReferenceLine, ReferenceArea } from "recharts";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { InteractiveTooltip } from "./InteractiveTooltip";
+import { ChartExport } from "./ChartExport";
+import { TrendingDown } from "lucide-react";
 
 interface PriceHistoryData {
   id: number;
@@ -21,6 +24,9 @@ interface PriceHistoryChartProps {
   selectedRetailerIds?: number[];
   onSetAlert?: (retailerId: number, price: number) => void;
   onViewRetailer?: (retailerId: number) => void;
+  productName?: string;
+  productId?: number;
+  timeRange?: number;
 }
 
 // Color palette for different retailers
@@ -40,9 +46,14 @@ export function PriceHistoryChart({
   isLoading,
   selectedRetailerIds,
   onSetAlert,
-  onViewRetailer
+  onViewRetailer,
+  productName = 'Product',
+  productId,
+  timeRange,
 }: PriceHistoryChartProps) {
   const [hiddenRetailers, setHiddenRetailers] = useState<Set<number>>(new Set());
+  const [brushStartIndex, setBrushStartIndex] = useState<number | undefined>(undefined);
+  const [brushEndIndex, setBrushEndIndex] = useState<number | undefined>(undefined);
 
   // Calculate historical context for tooltips
   const historicalContext = useMemo(() => {
@@ -58,6 +69,51 @@ export function PriceHistoryChart({
       lowestPrice,
       highestPrice,
     };
+  }, [data]);
+
+  // Detect significant price drops (>15%) for annotations
+  const priceDropAnnotations = useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    const annotations: Array<{ date: string; retailerId: number; drop: number; retailerName: string }> = [];
+
+    // Group data by retailer
+    const dataByRetailer = new Map<number, typeof data>();
+    data.forEach((item) => {
+      if (!dataByRetailer.has(item.retailerId)) {
+        dataByRetailer.set(item.retailerId, []);
+      }
+      dataByRetailer.get(item.retailerId)!.push(item);
+    });
+
+    // Check each retailer's price history for significant drops
+    dataByRetailer.forEach((retailerData, retailerId) => {
+      const sorted = [...retailerData].sort((a, b) => {
+        const dateA = typeof a.recordedAt === 'string' ? new Date(a.recordedAt) : a.recordedAt;
+        const dateB = typeof b.recordedAt === 'string' ? new Date(b.recordedAt) : b.recordedAt;
+        return dateA.getTime() - dateB.getTime();
+      });
+
+      for (let i = 1; i < sorted.length; i++) {
+        const prevPrice = parseFloat(sorted[i - 1].price);
+        const currPrice = parseFloat(sorted[i].price);
+        const drop = ((prevPrice - currPrice) / prevPrice) * 100;
+
+        if (drop > 15) {
+          const date = typeof sorted[i].recordedAt === 'string'
+            ? new Date(sorted[i].recordedAt)
+            : sorted[i].recordedAt;
+          annotations.push({
+            date: format(date, "yyyy-MM-dd"),
+            retailerId,
+            drop,
+            retailerName: sorted[i].retailerName,
+          });
+        }
+      }
+    });
+
+    return annotations;
   }, [data]);
 
   if (isLoading) {
@@ -134,13 +190,24 @@ export function PriceHistoryChart({
   };
 
   return (
-    <Card className="p-6">
+    <Card className="p-6" id="price-history-chart">
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold">Price History</h3>
-          <p className="text-sm text-muted-foreground">
-            Track price changes over time across different retailers
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-lg font-semibold">Price History</h3>
+            <p className="text-sm text-muted-foreground">
+              Track price changes over time across different retailers
+            </p>
+          </div>
+          {productId && (
+            <ChartExport
+              chartElementId="price-history-chart"
+              data={data}
+              productName={productName}
+              productId={productId}
+              timeRange={timeRange}
+            />
+          )}
         </div>
 
         {/* Retailer legend with toggle */}
@@ -169,6 +236,23 @@ export function PriceHistoryChart({
           })}
         </div>
 
+        {/* Price Drop Alerts */}
+        {priceDropAnnotations.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {priceDropAnnotations.slice(0, 3).map((annotation, index) => (
+              <Badge key={index} variant="destructive" className="text-xs">
+                <TrendingDown className="w-3 h-3 mr-1" />
+                {annotation.retailerName}: {annotation.drop.toFixed(0)}% drop on {format(new Date(annotation.date), "MMM d")}
+              </Badge>
+            ))}
+            {priceDropAnnotations.length > 3 && (
+              <Badge variant="outline" className="text-xs">
+                +{priceDropAnnotations.length - 3} more
+              </Badge>
+            )}
+          </div>
+        )}
+
         {/* Chart */}
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -195,6 +279,17 @@ export function PriceHistoryChart({
                 )}
               />
               <Legend content={() => null} />
+
+              {/* Average price reference line */}
+              {historicalContext && (
+                <ReferenceLine
+                  y={historicalContext.averagePrice}
+                  stroke="#94a3b8"
+                  strokeDasharray="3 3"
+                  label={{ value: 'Avg', position: 'right', fill: '#94a3b8', fontSize: 12 }}
+                />
+              )}
+
               {displayRetailers.map((retailer, index) => {
                 if (hiddenRetailers.has(retailer.id)) return null;
 
@@ -213,6 +308,22 @@ export function PriceHistoryChart({
                   />
                 );
               })}
+
+              {/* Brush for zoom/pan functionality */}
+              <Brush
+                dataKey="date"
+                height={30}
+                stroke="#3b82f6"
+                tickFormatter={(value) => format(new Date(value), "MMM d")}
+                startIndex={brushStartIndex}
+                endIndex={brushEndIndex}
+                onChange={(range) => {
+                  if (range && 'startIndex' in range && 'endIndex' in range) {
+                    setBrushStartIndex(range.startIndex);
+                    setBrushEndIndex(range.endIndex);
+                  }
+                }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
