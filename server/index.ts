@@ -23,9 +23,15 @@ import { initializeRedis } from "./config/redis";
 import { createSessionStore } from "./config/session-store";
 import { cleanupExpiredTokens } from "./services/password-reset-service";
 import { initializePriceSnapshotScheduler, triggerManualSnapshot } from "./jobs/price-snapshot-queue";
+import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
+import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handler";
+import { RATE_LIMIT, SESSION } from "./utils/constants";
 
 // Validate environment variables on startup
 validateEnvironment();
+
+// Setup global error handlers for uncaught exceptions and unhandled rejections
+setupGlobalErrorHandlers();
 
 const app = express();
 
@@ -47,15 +53,15 @@ app.use(securityHeaders); // Comprehensive security headers
 
 // Global rate limiting - 100 requests per 15 minutes per IP
 app.use('/api', rateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 100,
+  windowMs: RATE_LIMIT.WINDOW_MS,
+  maxRequests: RATE_LIMIT.MAX_REQUESTS,
   message: 'Too many requests from this IP, please try again later'
 }));
 
 // Stricter rate limiting for authentication endpoints
 app.use('/api/auth', rateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 10, // Only 10 login attempts per 15 minutes
+  windowMs: RATE_LIMIT.WINDOW_MS,
+  maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
   message: 'Too many authentication attempts, please try again later'
 }));
 
@@ -80,7 +86,7 @@ app.use(sanitizeInput);
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: SESSION.MAX_AGE,
     },
   }));
 
@@ -163,13 +169,8 @@ app.use(sanitizeInput);
   // Register community routes
   registerCommunityRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  // Centralized error handling (must be after all routes)
+  app.use(errorHandler);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

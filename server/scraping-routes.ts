@@ -18,6 +18,82 @@ import { db } from './db.js';
 import { scrapingJobs, trendingProducts, agentSessions } from '../shared/schema.js';
 import { eq, desc, and, gte } from 'drizzle-orm';
 
+// Allowed retailer domains for SSRF protection
+const ALLOWED_RETAILER_DOMAINS = [
+  'amazon.com',
+  'walmart.com',
+  'target.com',
+  'bestbuy.com',
+  'ebay.com',
+  'newegg.com',
+  'bhphotovideo.com',
+  'apple.com',
+  'homedepot.com',
+  'lowes.com',
+  'macys.com',
+  'nordstrom.com',
+  'costco.com',
+  'samsclub.com',
+];
+
+/**
+ * Validates URL to prevent SSRF attacks
+ * @param url - URL to validate
+ * @returns { valid: boolean, error?: string, parsedUrl?: URL }
+ */
+function validateScrapingUrl(url: string): { valid: boolean; error?: string; parsedUrl?: URL } {
+  try {
+    const parsedUrl = new URL(url);
+
+    // 1. Validate protocol - only allow http and https
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return { valid: false, error: 'Invalid URL protocol. Only HTTP and HTTPS are allowed.' };
+    }
+
+    // 2. Validate domain against whitelist
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const isAllowedDomain = ALLOWED_RETAILER_DOMAINS.some(domain =>
+      hostname === domain || hostname.endsWith('.' + domain)
+    );
+
+    if (!isAllowedDomain) {
+      return {
+        valid: false,
+        error: `Domain not allowed. Allowed domains: ${ALLOWED_RETAILER_DOMAINS.join(', ')}`
+      };
+    }
+
+    // 3. Block internal/private IP addresses
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipRegex.test(hostname)) {
+      // Check for private IP ranges
+      const parts = hostname.split('.');
+      const first = parseInt(parts[0]);
+      const second = parseInt(parts[1]);
+
+      // Block localhost, private networks, and link-local
+      if (
+        first === 127 || // 127.0.0.0/8 (localhost)
+        first === 10 ||   // 10.0.0.0/8 (private)
+        (first === 172 && second >= 16 && second <= 31) || // 172.16.0.0/12 (private)
+        (first === 192 && second === 168) || // 192.168.0.0/16 (private)
+        (first === 169 && second === 254)    // 169.254.0.0/16 (link-local)
+      ) {
+        return { valid: false, error: 'Private and internal IP addresses are not allowed.' };
+      }
+    }
+
+    // 4. Block localhost variations
+    if (['localhost', '0.0.0.0', '::1', '::'].includes(hostname)) {
+      return { valid: false, error: 'Localhost addresses are not allowed.' };
+    }
+
+    return { valid: true, parsedUrl };
+  } catch (error) {
+    return { valid: false, error: 'Invalid URL format.' };
+  }
+}
+
 // Global agent instances
 let coordinationAgent: CoordinationAgent | null = null;
 let discoveryAgent: ProductDiscoveryAgent | null = null;
@@ -331,9 +407,15 @@ export function registerScrapingRoutes(app: Express): void {
   app.post("/api/scraping/extract-product", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { url, retailer, searchQuery } = req.body;
-      
+
       if (!url) {
         return res.status(400).json({ error: "Product URL is required" });
+      }
+
+      // SECURITY: Validate URL to prevent SSRF attacks
+      const urlValidation = validateScrapingUrl(url);
+      if (!urlValidation.valid) {
+        return res.status(400).json({ error: urlValidation.error });
       }
 
       // Import the extraction agent dynamically to avoid initialization issues

@@ -1,6 +1,6 @@
 import { db } from '../db.js';
 import { retailers, productOffers } from '../../shared/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, sql, count } from 'drizzle-orm';
 import type { Retailer } from '../../shared/schema.js';
 
 interface AffiliateConfig {
@@ -350,22 +350,22 @@ export class AffiliateLinkService {
     broken_links: number;
   } | null> {
     try {
-      // Use raw SQL for aggregate functions
-      const query = `
-        SELECT
-          COUNT(*) as total_offers,
-          COUNT(affiliate_url) as affiliate_offers,
-          COALESCE(SUM(click_count), 0) as total_clicks,
-          COUNT(CASE WHEN link_health_status = 'healthy' THEN 1 END) as healthy_links,
-          COUNT(CASE WHEN link_health_status = 'broken' THEN 1 END) as broken_links
-        FROM product_offers
-        ${retailerId ? 'WHERE retailer_id = $1' : ''}
-      `;
+      // Use Drizzle ORM for safe query building
+      const baseQuery = db
+        .select({
+          total_offers: count(),
+          affiliate_offers: sql<number>`COUNT(${productOffers.affiliateUrl})`,
+          total_clicks: sql<number>`COALESCE(SUM(${productOffers.clickCount}), 0)`,
+          healthy_links: sql<number>`COUNT(CASE WHEN ${productOffers.linkHealthStatus} = 'healthy' THEN 1 END)`,
+          broken_links: sql<number>`COUNT(CASE WHEN ${productOffers.linkHealthStatus} = 'broken' THEN 1 END)`,
+        })
+        .from(productOffers);
 
-      const params = retailerId ? [retailerId] : [];
-      const result = await db.$client.query(query, params);
+      const result = retailerId
+        ? await baseQuery.where(eq(productOffers.retailerId, retailerId))
+        : await baseQuery;
 
-      return result.rows[0] || {
+      return result[0] || {
         total_offers: 0,
         affiliate_offers: 0,
         total_clicks: 0,

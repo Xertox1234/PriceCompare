@@ -8,6 +8,7 @@ import { forumStorage } from "./forum-storage";
 import { passport, createUser, findUserByEmail, findUserById, hashPassword } from "./auth";
 import { generateCsrfToken } from "./middleware/security";
 import { logSecurityEvent, SecurityEventType } from "./utils/security-logger";
+import { logger } from "./utils/logger";
 import {
   createPasswordResetToken,
   validatePasswordResetToken,
@@ -23,6 +24,12 @@ import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 import { getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from "./utils/validation-helpers";
 import { cacheChartData } from "./middleware/chart-cache";
+import {
+  productCacheMiddleware,
+  searchCacheMiddleware,
+  retailerCacheMiddleware,
+  invalidateCache,
+} from "./middleware/redis-cache";
 
 
 // Use the actual User type from schema
@@ -738,8 +745,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  // Get all retailers
-  app.get("/api/retailers", async (req, res) => {
+  // Get all retailers (with Redis caching)
+  app.get("/api/retailers", retailerCacheMiddleware, async (req, res) => {
     try {
       // Set longer cache for retailers as they change less frequently
       res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
@@ -752,7 +759,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Search products with filters (supports URL-based search for browser extension)
-  app.get("/api/products/search", async (req, res) => {
+  // Redis caching applied for better performance
+  app.get("/api/products/search", searchCacheMiddleware, async (req, res) => {
     try {
       // If URL parameter is provided, search by product URL (for browser extension)
       if (req.query.url) {
@@ -808,39 +816,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
             req.query.availability as string[] :
             [req.query.availability as string]) : undefined,
         sortBy: req.query.sortBy as "price_low" | "price_high" | "rating" | "popularity",
+        page: req.query.page ? parseIntSafe(req.query.page as string, 'page', { min: 1 }) : 1,
+        limit: req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 20,
       };
 
-      const products = await storage.searchProducts(filters);
+      const { products, pagination } = await storage.searchProducts(filters);
 
-      // Add discussion counts to products
-      const productsWithDiscussions = await Promise.all(
-        products.map(async (product) => {
-          const discussionCount = await forumStorage.getProductDiscussionCount(product.id);
-          return {
-            ...product,
-            discussionCount,
-            hasActiveDiscussion: discussionCount > 0,
-          };
-        })
-      );
+      // Add discussion counts to products (batch query to avoid N+1 problem)
+      const productIds = products.map(p => p.id);
+      const discussionCounts = await forumStorage.getProductDiscussionCounts(productIds);
+
+      const productsWithDiscussions = products.map(product => ({
+        ...product,
+        discussionCount: discussionCounts.get(product.id) || 0,
+        hasActiveDiscussion: (discussionCounts.get(product.id) || 0) > 0,
+      }));
 
       // Return response in the format expected by the frontend
       res.json({
         results: productsWithDiscussions,
-        metadata: {
-          total: productsWithDiscussions.length,
-          page: 1,
-          limit: productsWithDiscussions.length,
-          totalPages: 1,
-        }
+        metadata: pagination,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to search products" });
     }
   });
 
-  // Get product by ID
-  app.get("/api/products/:id", async (req, res) => {
+  // Get product by ID (with Redis caching)
+  app.get("/api/products/:id", productCacheMiddleware, async (req, res) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });

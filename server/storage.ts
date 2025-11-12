@@ -10,7 +10,10 @@ export interface IStorage {
   // Products
   getProducts(): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
-  searchProducts(filters: SearchFilters): Promise<ProductWithOffers[]>;
+  searchProducts(filters: SearchFilters): Promise<{
+    products: ProductWithOffers[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }>;
   getProductById(id: number): Promise<ProductWithOffers | undefined>;
 
   // Product Offers
@@ -437,7 +440,19 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async searchProducts(filters: SearchFilters): Promise<ProductWithOffers[]> {
+  async searchProducts(filters: SearchFilters): Promise<{
+    products: ProductWithOffers[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const page = filters.page || 1;
+    const limit = Math.min(filters.limit || 20, 100); // Cap at 100 items per page
+    const offset = (page - 1) * limit;
+
     // Build the base query conditions
     const conditions = [eq(retailers.isActive, true)];
 
@@ -531,19 +546,19 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Calculate best prices and savings
-    const finalProducts = Array.from(productMap.values()).map(product => {
+    const allProducts = Array.from(productMap.values()).map(product => {
       const prices = product.offers.map(offer => parseFloat(offer.price));
       const bestPrice = Math.min(...prices);
-      
+
       const originalPrices = product.offers
         .map(offer => offer.originalPrice ? parseFloat(offer.originalPrice) : null)
         .filter(price => price !== null) as number[];
-      
-      const avgOriginalPrice = originalPrices.length > 0 ? 
+
+      const avgOriginalPrice = originalPrices.length > 0 ?
         originalPrices.reduce((sum, price) => sum + price, 0) / originalPrices.length : null;
-      
+
       const savings = avgOriginalPrice ? avgOriginalPrice - bestPrice : null;
-      const savingsPercentage = savings && avgOriginalPrice ? 
+      const savingsPercentage = savings && avgOriginalPrice ?
         Math.round((savings / avgOriginalPrice) * 100) : null;
 
       return {
@@ -554,7 +569,20 @@ export class DatabaseStorage implements IStorage {
       };
     });
 
-    return finalProducts;
+    // Apply pagination
+    const total = allProducts.length;
+    const totalPages = Math.ceil(total / limit);
+    const paginatedProducts = allProducts.slice(offset, offset + limit);
+
+    return {
+      products: paginatedProducts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async getProductById(id: number): Promise<ProductWithOffers | undefined> {

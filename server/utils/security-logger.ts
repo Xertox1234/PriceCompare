@@ -40,6 +40,9 @@ export enum SecurityEventType {
   CSRF_TOKEN_MISSING = 'security.csrf_token_missing',
   CSRF_TOKEN_INVALID = 'security.csrf_token_invalid',
 
+  // CORS Events
+  CORS_VIOLATION = 'security.cors_violation',
+
   // Session Events
   SESSION_CREATED = 'session.created',
   SESSION_DESTROYED = 'session.destroyed',
@@ -100,6 +103,7 @@ function getSeverityForEventType(type: SecurityEventType): SecurityEventSeverity
     SecurityEventType.ACCESS_DENIED,
     SecurityEventType.ADMIN_ACCESS_DENIED,
     SecurityEventType.CSRF_VIOLATION,
+    SecurityEventType.CORS_VIOLATION,
     SecurityEventType.WEBHOOK_SIGNATURE_INVALID,
   ];
 

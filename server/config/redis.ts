@@ -97,3 +97,47 @@ export const REDIS_KEYS = {
   SESSION: (sessionId: string) => `session:${sessionId}`,
   CACHE: (key: string) => `cache:${key}`,
 } as const;
+
+/**
+ * Mock Redis client for when Redis is not available
+ * Provides same interface but stores in memory
+ */
+class InMemoryRedis {
+  private store = new Map<string, { value: string; expiry: number | null }>();
+
+  async get(key: string): Promise<string | null> {
+    const item = this.store.get(key);
+    if (!item) return null;
+    if (item.expiry && item.expiry < Date.now()) {
+      this.store.delete(key);
+      return null;
+    }
+    return item.value;
+  }
+
+  async setex(key: string, seconds: number, value: string): Promise<'OK'> {
+    this.store.set(key, {
+      value,
+      expiry: Date.now() + seconds * 1000,
+    });
+    return 'OK';
+  }
+
+  async del(...keys: string[]): Promise<number> {
+    let deleted = 0;
+    for (const key of keys) {
+      if (this.store.delete(key)) deleted++;
+    }
+    return deleted;
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+    return Array.from(this.store.keys()).filter(key => regex.test(key));
+  }
+}
+
+/**
+ * Export redis instance (either real Redis or in-memory fallback)
+ */
+export const redis: Redis | InMemoryRedis = redisClient || new InMemoryRedis();

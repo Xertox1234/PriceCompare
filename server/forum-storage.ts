@@ -7,7 +7,7 @@ import {
   priceAlerts,
   products
 } from '../shared/schema';
-import { eq, and, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import type { 
   User,
   ForumCategory, 
@@ -235,8 +235,30 @@ export class ForumStorage {
       .select({ count: sql<number>`count(*)` })
       .from(forumTopics)
       .where(eq(forumTopics.productId, productId));
-    
+
     return result[0]?.count || 0;
+  }
+
+  /**
+   * Get discussion counts for multiple products in a single query (avoids N+1 problem)
+   * @param productIds - Array of product IDs to get counts for
+   * @returns Map of product ID to discussion count
+   */
+  async getProductDiscussionCounts(productIds: number[]): Promise<Map<number, number>> {
+    if (productIds.length === 0) {
+      return new Map();
+    }
+
+    const results = await db
+      .select({
+        productId: forumTopics.productId,
+        count: sql<number>`count(*)`
+      })
+      .from(forumTopics)
+      .where(inArray(forumTopics.productId, productIds))
+      .groupBy(forumTopics.productId);
+
+    return new Map(results.map(r => [r.productId!, r.count]));
   }
 
   // Initialize default categories
