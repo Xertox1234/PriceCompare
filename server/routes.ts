@@ -8,6 +8,7 @@ import { forumStorage } from "./forum-storage";
 import { passport, createUser, findUserByEmail, findUserById, hashPassword } from "./auth";
 import { generateCsrfToken } from "./middleware/security";
 import { logSecurityEvent, SecurityEventType } from "./utils/security-logger";
+import { logger } from "./utils/logger";
 import {
   createPasswordResetToken,
   validatePasswordResetToken,

@@ -350,37 +350,78 @@ function sanitizeObject(obj: unknown): unknown {
  * Handles Cross-Origin Resource Sharing with explicit security policies
  */
 export function corsMiddleware(req: Request, res: Response, next: NextFunction) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
   // Parse allowed origins from environment variable
   const allowedOriginsEnv = process.env.ALLOWED_ORIGINS;
-  const allowedOrigins = allowedOriginsEnv
-    ? allowedOriginsEnv.split(',').map(origin => origin.trim())
-    : ['http://localhost:5173', 'http://localhost:5000'];
+  let allowedOrigins: string[];
+
+  if (allowedOriginsEnv) {
+    allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim());
+  } else {
+    // SECURITY: Default to localhost only in development
+    if (isDevelopment) {
+      allowedOrigins = ['http://localhost:5173', 'http://localhost:5000'];
+    } else {
+      // SECURITY: In production, ALLOWED_ORIGINS must be explicitly set
+      // Log warning if not set
+      console.warn('WARNING: ALLOWED_ORIGINS not set in production. CORS will be restrictive.');
+      allowedOrigins = [];
+    }
+  }
 
   const origin = req.headers.origin;
 
-  // Check if origin is allowed
+  // SECURITY: Only set Access-Control-Allow-Origin if origin is explicitly allowed
+  // Never reflect untrusted origins
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else if (!origin) {
-    // Same-origin requests (no Origin header)
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+    // Same-origin requests (no Origin header) - these are always allowed
+    // Don't set CORS headers for same-origin requests
+    // The browser will allow these by default
+  } else {
+    // SECURITY: Log CORS violations for monitoring
+    logSecurityEvent(SecurityEventType.CORS_VIOLATION, req, {
+      success: false,
+      message: 'Origin not allowed',
+      metadata: {
+        origin,
+        allowedOrigins,
+        method: req.method,
+        path: req.path,
+      }
+    });
+
+    // SECURITY: Don't set CORS headers for disallowed origins
+    // The browser will block the request
+    // For non-preflight requests, we let them through to the app
+    // but without CORS headers, the browser will reject the response
   }
 
-  // Allow credentials (cookies, authorization headers)
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-
+  // Common CORS headers (set regardless of origin validation)
   // Allowed HTTP methods
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
 
-  // Allowed headers
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
+  // Allowed headers - be specific about what headers are allowed
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 
-  // Preflight request cache duration (24 hours)
-  res.setHeader('Access-Control-Max-Age', '86400');
+  // Expose headers that client-side code can access
+  res.setHeader('Access-Control-Expose-Headers', 'X-CSRF-Token, X-Cache, X-Cache-Key');
+
+  // Preflight request cache duration (1 hour for better security)
+  res.setHeader('Access-Control-Max-Age', '3600');
 
   // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
-    res.status(204).send();
+    // Only send 204 if origin is allowed or no origin (same-origin)
+    if (!origin || allowedOrigins.includes(origin)) {
+      res.status(204).send();
+    } else {
+      // Reject preflight for disallowed origins
+      res.status(403).json({ error: 'Origin not allowed' });
+    }
     return;
   }
 

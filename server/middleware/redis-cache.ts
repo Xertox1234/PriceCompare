@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { redis } from '../config/redis';
+import { CACHE_DURATION } from '../utils/constants';
 
 interface CacheOptions {
   ttl?: number; // Time to live in seconds (default: 300 = 5 minutes)
@@ -13,7 +14,7 @@ interface CacheOptions {
  */
 export function redisCacheMiddleware(options: CacheOptions = {}) {
   const {
-    ttl = 300, // Default 5 minutes
+    ttl = CACHE_DURATION.LONG, // Default 5 minutes
     keyGenerator = defaultKeyGenerator,
     skipCache = defaultSkipCache,
   } = options;
@@ -120,36 +121,36 @@ export async function invalidateCacheKey(key: string): Promise<number> {
 
 /**
  * Pre-configured cache middleware for product endpoints
- * Cache for 5 minutes (300 seconds)
+ * Cache for 5 minutes
  */
 export const productCacheMiddleware = redisCacheMiddleware({
-  ttl: 300,
+  ttl: CACHE_DURATION.LONG,
   keyGenerator: (req) => `cache:products:${req.originalUrl}`,
 });
 
 /**
  * Pre-configured cache middleware for search endpoints
- * Cache for 3 minutes (180 seconds) - shorter due to frequent updates
+ * Cache for 3 minutes - shorter due to frequent updates
  */
 export const searchCacheMiddleware = redisCacheMiddleware({
-  ttl: 180,
+  ttl: CACHE_DURATION.MEDIUM,
   keyGenerator: (req) => `cache:search:${req.originalUrl}`,
 });
 
 /**
  * Pre-configured cache middleware for retailer endpoints
- * Cache for 10 minutes (600 seconds) - retailers change infrequently
+ * Cache for 10 minutes - retailers change infrequently
  */
 export const retailerCacheMiddleware = redisCacheMiddleware({
-  ttl: 600,
+  ttl: CACHE_DURATION.VERY_LONG,
   keyGenerator: (req) => `cache:retailers:${req.originalUrl}`,
 });
 
 /**
  * Pre-configured cache middleware for forum endpoints
- * Cache for 2 minutes (120 seconds) - forums are dynamic
+ * Cache for 1 minute - forums are dynamic
  */
 export const forumCacheMiddleware = redisCacheMiddleware({
-  ttl: 120,
+  ttl: CACHE_DURATION.SHORT,
   keyGenerator: (req) => `cache:forum:${req.originalUrl}`,
 });
