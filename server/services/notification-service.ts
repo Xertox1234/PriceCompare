@@ -1,4 +1,4 @@
-import { db } from "@db";
+import { db } from "../db";
 import {
   notifications,
   notificationPreferences,
@@ -6,7 +6,7 @@ import {
   type NotificationPreferences,
   type InsertNotification,
   type InsertNotificationPreferences
-} from "@db/schema";
+} from "@shared/schema";
 import { eq, and, desc, count, gte, sql } from "drizzle-orm";
 
 /**

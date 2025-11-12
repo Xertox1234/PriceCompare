@@ -750,9 +750,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Search products with filters
+  // Search products with filters (supports URL-based search for browser extension)
   app.get("/api/products/search", async (req, res) => {
     try {
+      // If URL parameter is provided, search by product URL (for browser extension)
+      if (req.query.url) {
+        const productUrl = decodeURIComponent(req.query.url as string);
+
+        // Search for product by URL in product offers
+        const allProductOffers = await db
+          .select({
+            offer: schema.productOffers,
+            product: schema.products,
+            retailer: schema.retailers
+          })
+          .from(schema.productOffers)
+          .innerJoin(schema.products, eq(schema.productOffers.productId, schema.products.id))
+          .innerJoin(schema.retailers, eq(schema.productOffers.retailerId, schema.retailers.id))
+          .where(like(schema.productOffers.productUrl, `%${productUrl}%`));
+
+        if (allProductOffers.length === 0) {
+          return res.json({ product: null });
+        }
+
+        // Get the first matching product
+        const { product, offer, retailer } = allProductOffers[0];
+
+        // Get all offers for this product
+        const offers = await storage.getProductOffers(product.id);
+        const prices = offers.map(o => parseFloat(o.price));
+        const bestPrice = Math.min(...prices);
+
+        return res.json({
+          product: {
+            ...product,
+            offers,
+            bestPrice
+          }
+        });
+      }
+
+      // Otherwise, use normal search filters
       // SECURITY: Safe number parsing with validation and constraints
       const filters: SearchFilters = {
         query: req.query.query as string,
@@ -772,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const products = await storage.searchProducts(filters);
-      
+
       // Add discussion counts to products
       const productsWithDiscussions = await Promise.all(
         products.map(async (product) => {
@@ -854,7 +892,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         history = await storage.getPriceHistory(id, days);
       }
 
-      res.json(history);
+      // Format for extension compatibility
+      const formattedHistory = history.map(h => ({
+        date: h.recordedAt instanceof Date ? h.recordedAt.toISOString() : h.recordedAt,
+        price: parseFloat(h.price),
+        retailerId: h.retailerId,
+        retailerName: 'retailerName' in h ? h.retailerName : undefined,
+        availability: h.availability
+      }));
+
+      res.json({ history: formattedHistory });
     } catch (error) {
       console.error('Error fetching price history:', error);
       res.status(500).json({ message: "Failed to fetch price history" });
@@ -865,8 +912,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/:id/price-trend", async (req, res) => {
     try {
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
-      const trend = await storage.getPriceTrend(id);
-      res.json(trend);
+      const trendData = await storage.getPriceTrend(id);
+
+      // Format for extension compatibility
+      res.json({
+        trend: {
+          direction: trendData.trend,
+          change: trendData.changePercentage,
+          changePercent: trendData.changePercentage,
+          currentPrice: trendData.currentPrice,
+          averagePrice: trendData.averagePrice,
+          lowestPrice: trendData.lowestPrice,
+          highestPrice: trendData.highestPrice
+        },
+        prediction: trendData.trend === 'falling' ? 'might_drop' :
+                   trendData.trend === 'rising' ? 'wait' : 'good_time'
+      });
     } catch (error) {
       console.error('Error fetching price trend:', error);
       res.status(500).json({ message: "Failed to fetch price trend" });
@@ -882,6 +943,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching best time to buy:', error);
       res.status(500).json({ message: "Failed to fetch best time to buy analysis" });
+    }
+  });
+
+  // Get product offers (for browser extension)
+  app.get("/api/products/:id/offers", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const offers = await storage.getProductOffers(id);
+
+      // Format for extension
+      const formattedOffers = offers.map(offer => ({
+        id: offer.id,
+        retailerId: offer.retailerId,
+        retailerName: offer.retailer.name,
+        retailerLogo: offer.retailer.logo,
+        price: parseFloat(offer.price),
+        originalPrice: offer.originalPrice ? parseFloat(offer.originalPrice) : null,
+        rating: offer.rating ? parseFloat(offer.rating) : null,
+        reviewCount: offer.reviewCount,
+        availability: offer.availability,
+        shippingInfo: offer.shippingInfo,
+        dealType: offer.dealType,
+        url: offer.productUrl,
+        affiliateUrl: offer.affiliateUrl
+      }));
+
+      res.json({ offers: formattedOffers });
+    } catch (error) {
+      console.error('Error fetching product offers:', error);
+      res.status(500).json({ message: "Failed to fetch product offers" });
+    }
+  });
+
+  // Get price predictions for a product (for browser extension)
+  app.get("/api/products/:id/price-predictions", async (req, res) => {
+    try {
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+      const days = parseIntOptional(req.query.days as string) || 7;
+
+      // Get historical price data
+      const history = await storage.getPriceHistory(id, 90); // Get 90 days of history
+
+      if (history.length < 7) {
+        // Not enough data for predictions
+        return res.json({
+          predictions: [],
+          confidence: 'low',
+          message: 'Not enough historical data for predictions'
+        });
+      }
+
+      // Simple linear regression prediction
+      const predictions = [];
+      const prices = history.map(h => parseFloat(h.price));
+      const recentPrices = prices.slice(-30); // Last 30 days
+
+      // Calculate average change per day
+      const avgChange = recentPrices.length >= 2
+        ? (recentPrices[recentPrices.length - 1] - recentPrices[0]) / recentPrices.length
+        : 0;
+
+      const lastPrice = prices[prices.length - 1];
+      const today = new Date();
+
+      for (let i = 1; i <= days; i++) {
+        const futureDate = new Date(today);
+        futureDate.setDate(futureDate.getDate() + i);
+
+        // Simple linear prediction with some randomness dampening
+        const predictedPrice = lastPrice + (avgChange * i * 0.8); // 0.8 dampening factor
+
+        predictions.push({
+          date: futureDate.toISOString().split('T')[0],
+          predictedPrice: Math.max(0, predictedPrice), // Ensure non-negative
+          confidence: Math.max(0.3, 1 - (i / days) * 0.5) // Decreasing confidence
+        });
+      }
+
+      res.json({
+        predictions,
+        confidence: recentPrices.length >= 30 ? 'medium' : 'low',
+        basePrice: lastPrice,
+        averageDailyChange: avgChange
+      });
+    } catch (error) {
+      console.error('Error fetching price predictions:', error);
+      res.status(500).json({ message: "Failed to fetch price predictions" });
+    }
+  });
+
+  // Track product view (analytics for browser extension)
+  app.post("/api/analytics/product-view", async (req, res) => {
+    try {
+      const { productId, source, retailer } = req.body;
+
+      if (!productId) {
+        return res.status(400).json({ error: "productId is required" });
+      }
+
+      // Log the view (in a production app, this would go to an analytics service)
+      console.log('Product view tracked:', {
+        productId,
+        source: source || 'unknown',
+        retailer: retailer || 'unknown',
+        timestamp: new Date().toISOString(),
+        ip: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      // In the future, you could store this in a database table for analytics
+      // For now, just acknowledge receipt
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error tracking product view:', error);
+      res.status(500).json({ error: "Failed to track product view" });
     }
   });
 
