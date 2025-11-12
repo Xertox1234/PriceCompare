@@ -12,6 +12,7 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import { formatDistanceToNow } from 'date-fns';
 import { sanitizeMarkdown } from '@/lib/sanitize';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 interface EnhancedPostProps {
   post: {
@@ -227,9 +228,11 @@ export function EnhancedPost({ post, currentUserId, onReply }: EnhancedPostProps
                 </div>
               </div>
             ) : (
-              <div 
+              <div
                 className="prose prose-sm max-w-none text-muted-foreground mb-4"
-                dangerouslySetInnerHTML={{ __html: renderContent(post.content) }}
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(renderContent(post.content))
+                }}
               />
             )}
 

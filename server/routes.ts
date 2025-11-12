@@ -23,6 +23,12 @@ import { eq, sql, like, and, desc, asc } from 'drizzle-orm';
 import { getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from "./utils/validation-helpers";
 import { cacheChartData } from "./middleware/chart-cache";
+import {
+  productCacheMiddleware,
+  searchCacheMiddleware,
+  retailerCacheMiddleware,
+  invalidateCache,
+} from "./middleware/redis-cache";
 
 
 // Use the actual User type from schema
@@ -738,8 +744,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  // Get all retailers
-  app.get("/api/retailers", async (req, res) => {
+  // Get all retailers (with Redis caching)
+  app.get("/api/retailers", retailerCacheMiddleware, async (req, res) => {
     try {
       // Set longer cache for retailers as they change less frequently
       res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
@@ -752,7 +758,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Search products with filters (supports URL-based search for browser extension)
-  app.get("/api/products/search", async (req, res) => {
+  // Redis caching applied for better performance
+  app.get("/api/products/search", searchCacheMiddleware, async (req, res) => {
     try {
       // If URL parameter is provided, search by product URL (for browser extension)
       if (req.query.url) {
@@ -834,8 +841,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get product by ID
-  app.get("/api/products/:id", async (req, res) => {
+  // Get product by ID (with Redis caching)
+  app.get("/api/products/:id", productCacheMiddleware, async (req, res) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
