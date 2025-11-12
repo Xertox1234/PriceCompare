@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import { TimeRangeSelector, type TimeRange } from "./price-history/TimeRangeSele
 import { PriceTrendIndicator } from "./price-history/PriceTrendIndicator";
 import { BestTimeToBuy } from "./price-history/BestTimeToBuy";
 import { TrendingUp } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProductDetailDialogProps {
   product: ProductWithOffers | null;
@@ -26,6 +27,25 @@ export function ProductDetailDialog({
   onOpenChange,
 }: ProductDetailDialogProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
+  const { toast } = useToast();
+
+  // Handler for setting price alert from interactive tooltip
+  const handleSetAlert = useCallback((retailerId: number, price: number) => {
+    const retailer = product?.offers?.find(o => o.retailer.id === retailerId)?.retailer;
+    toast({
+      title: "Price Alert Created",
+      description: `You'll be notified when the price at ${retailer?.name || 'this retailer'} drops below $${price.toFixed(2)}`,
+    });
+    // TODO: Implement actual alert creation API call
+  }, [product, toast]);
+
+  // Handler for viewing retailer from interactive tooltip
+  const handleViewRetailer = useCallback((retailerId: number) => {
+    const offer = product?.offers?.find(o => o.retailer.id === retailerId);
+    if (offer?.productUrl) {
+      window.open(offer.productUrl, '_blank', 'noopener,noreferrer');
+    }
+  }, [product]);
 
   // Fetch price history
   const { data: priceHistory, isLoading: historyLoading } = useQuery({
@@ -98,6 +118,8 @@ export function ProductDetailDialog({
             <PriceHistoryChart
               data={priceHistory || []}
               isLoading={historyLoading}
+              onSetAlert={handleSetAlert}
+              onViewRetailer={handleViewRetailer}
             />
           </TabsContent>
 

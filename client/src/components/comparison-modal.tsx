@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ProductWithOffers } from "@shared/schema";
 import { MAX_COMPARISON_ITEMS } from "@/lib/constants";
+import { useLocation } from "wouter";
 
 interface ComparisonModalProps {
   items: ProductWithOffers[];
@@ -12,6 +13,7 @@ interface ComparisonModalProps {
 }
 
 export function ComparisonModal({ items, onRemoveItem, onClear }: ComparisonModalProps) {
+  const [, setLocation] = useLocation();
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElement = useRef<HTMLElement | null>(null);
 
@@ -112,10 +114,15 @@ export function ComparisonModal({ items, onRemoveItem, onClear }: ComparisonModa
       </div>
       
       <div className="flex space-x-2 mt-3">
-        <Button 
+        <Button
           className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible"
           disabled={items.length < 2}
+          onClick={() => {
+            const productIds = items.map(item => item.id).join(',');
+            setLocation(`/compare?products=${productIds}`);
+          }}
         >
+          <BarChart2 className="h-4 w-4 mr-2" />
           Compare ({items.length})
         </Button>
         <Button
