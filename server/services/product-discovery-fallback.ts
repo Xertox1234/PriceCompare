@@ -42,7 +42,7 @@ export class ProductDiscoveryFallback {
       category: product.category,
       brand: product.brand,
       image: product.image,
-      offers: ((product as any).offers || []).map((offer: any) => ({
+      offers: ((product as any).offers || []).map((offer: unknown) => ({
         id: offer.id,
         price: offer.price,
         availability: offer.availability,

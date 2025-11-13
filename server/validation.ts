@@ -7,7 +7,7 @@ export interface ValidationResult<T> {
   errors?: string[];
 }
 
-export function validateRequestBody<T>(schema: z.ZodSchema<T>, body: any): ValidationResult<T> {
+export function validateRequestBody<T>(schema: z.ZodSchema<T>, body: unknown): ValidationResult<T> {
   try {
     const data = schema.parse(body);
     return { success: true, data };
@@ -50,9 +50,9 @@ export function validateRequest(schema: z.ZodSchema, source: 'body' | 'query' | 
       if (source === 'body') {
         req.body = result.data;
       } else if (source === 'query') {
-        req.query = result.data as any;
+        req.query = result.data as Record<string, string>;
       } else {
-        req.params = result.data as any;
+        req.params = result.data as Record<string, string>;
       }
 
       next();
@@ -101,7 +101,7 @@ export function validateMultiple(schemas: {
             message: err.message,
           })));
         } else {
-          req.query = result.data as any;
+          req.query = result.data as Record<string, string>;
         }
       }
 
@@ -115,7 +115,7 @@ export function validateMultiple(schemas: {
             message: err.message,
           })));
         } else {
-          req.params = result.data as any;
+          req.params = result.data as Record<string, string>;
         }
       }
 

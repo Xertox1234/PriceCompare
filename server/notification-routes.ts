@@ -11,7 +11,7 @@ import * as notificationService from "./services/notification-service";
 
 export function registerNotificationRoutes(app: Express) {
   // Middleware to ensure user is authenticated
-  const withAuth = (handler: (req: Request, res: Response) => Promise<any>) => {
+  const withAuth = (handler: (req: Request, res: Response) => Promise<void>) => {
     return async (req: Request, res: Response) => {
       if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -44,7 +44,7 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching notifications:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch notifications" });
     }
@@ -63,7 +63,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: stats
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching notification stats:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch stats" });
     }
@@ -89,7 +89,7 @@ export function registerNotificationRoutes(app: Express) {
       }
 
       res.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error marking notification as read:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to mark as read" });
     }
@@ -108,7 +108,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         count
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error marking all as read:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to mark all as read" });
     }
@@ -134,7 +134,7 @@ export function registerNotificationRoutes(app: Express) {
       }
 
       res.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error deleting notification:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to delete notification" });
     }
@@ -153,7 +153,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         count
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error deleting all notifications:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to delete notifications" });
     }
@@ -172,7 +172,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: preferences
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching preferences:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch preferences" });
     }
@@ -206,7 +206,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: preferences
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error updating preferences:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid preferences data", details: error.issues });
@@ -231,7 +231,7 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching price drops:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch price drops" });
     }
@@ -253,7 +253,7 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching price alerts:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch price alerts" });
     }

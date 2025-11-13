@@ -53,7 +53,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
       const originalJson = res.json.bind(res);
 
       // Override json method to cache the response
-      res.json = function (body: any) {
+      res.json = function (body: unknown) {
         // Cache the response asynchronously (don't block response)
         redis.setex(cacheKey, ttl, JSON.stringify(body)).catch(err => {
           console.error('Failed to cache response:', err);

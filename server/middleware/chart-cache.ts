@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 
 interface CacheEntry {
-  data: any;
+  data?: unknown;
   timestamp: number;
   etag: string;
 }
@@ -28,7 +28,7 @@ class ChartCache {
   /**
    * Generate ETag for data
    */
-  private generateETag(data: any): string {
+  private generateETag(data?: unknown): string {
     const hash = crypto.createHash('md5');
     hash.update(JSON.stringify(data));
     return hash.digest('hex');
@@ -54,7 +54,7 @@ class ChartCache {
   /**
    * Set cached data
    */
-  set(key: string, data: any, ttl?: number): void {
+  set(key: string, data?: unknown, ttl?: number): void {
     const etag = this.generateETag(data);
 
     this.cache.set(key, {
@@ -159,7 +159,7 @@ export function cacheChartData(ttl?: number) {
     // Cache miss - intercept json() to cache the response
     const originalJson = res.json.bind(res);
 
-    res.json = function (data: any) {
+    res.json = function (data?: unknown) {
       // Only cache successful responses
       if (res.statusCode === 200) {
         chartCache.set(cacheKey, data, ttl);
@@ -185,7 +185,7 @@ export function cacheChartData(ttl?: number) {
 export function invalidateCacheOnUpdate(req: Request, res: Response, next: NextFunction) {
   const originalJson = res.json.bind(res);
 
-  res.json = function (data: any) {
+  res.json = function (data?: unknown) {
     // If successful update/create, invalidate cache
     if (res.statusCode === 200 || res.statusCode === 201) {
       const { productId } = req.params;

@@ -64,10 +64,15 @@ function parseSSO(sso: string): Record<string, string> {
   return result;
 }
 
+// Extended Request type with user
+interface AuthenticatedRequest extends Request {
+  user?: SharedUser;
+}
+
 /**
  * Handle Discourse SSO login request
  */
-export async function handleDiscourseSSO(req: any, res: Response) {
+export async function handleDiscourseSSO(req: AuthenticatedRequest, res: Response) {
   try {
     const { sso, sig } = req.query;
     
@@ -125,7 +130,7 @@ export async function handleDiscourseSSO(req: any, res: Response) {
 /**
  * Complete SSO process after user login
  */
-export async function completeSSOAfterLogin(req: any, res: Response) {
+export async function completeSSOAfterLogin(req: AuthenticatedRequest, res: Response) {
   try {
     const { sso_token } = req.query;
     
@@ -290,7 +295,7 @@ export async function cleanupExpiredTokens(): Promise<void> {
 /**
  * Middleware to handle SSO token completion
  */
-export function handleSSOCompletion(req: any, res: Response, next: NextFunction) {
+export function handleSSOCompletion(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (req.query.sso_token && req.user) {
     // Complete SSO process
     return completeSSOAfterLogin(req, res);

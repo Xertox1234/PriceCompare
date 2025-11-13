@@ -80,7 +80,7 @@ passport.use(new LocalStrategy(
   }
 ));
 
-passport.serializeUser((user: any, done) => {
+passport.serializeUser((user: Express.User, done) => {
   done(null, user.id);
 });
 

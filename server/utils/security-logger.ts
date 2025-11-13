@@ -85,7 +85,7 @@ export interface SecurityEvent {
   method: string;
   success: boolean;
   message?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -124,11 +124,11 @@ function getSeverityForEventType(type: SecurityEventType): SecurityEventSeverity
 /**
  * Sanitize metadata to prevent logging sensitive information
  */
-function sanitizeMetadata(metadata?: Record<string, any>): Record<string, any> | undefined {
+function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, unknown> | undefined {
   if (!metadata) return undefined;
 
   const sensitiveKeys = ['password', 'token', 'secret', 'apiKey', 'creditCard', 'ssn'];
-  const sanitized: Record<string, any> = {};
+  const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(metadata)) {
     const keyLower = key.toLowerCase();
@@ -160,7 +160,7 @@ export function logSecurityEvent(
     email?: string;
     success: boolean;
     message?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): void {
   const event: SecurityEvent = {
@@ -203,6 +203,17 @@ export function logSecurityEvent(
 }
 
 /**
+ * Extended Request type with optional user
+ */
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    username?: string;
+    email?: string;
+  };
+}
+
+/**
  * Helper to extract user info from request
  */
 export function getUserInfo(req: Request): {
@@ -210,7 +221,8 @@ export function getUserInfo(req: Request): {
   username?: string;
   email?: string;
 } {
-  const user = (req as any).user;
+  const authenticatedReq = req as AuthenticatedRequest;
+  const user = authenticatedReq.user;
   if (!user) return {};
 
   return {
@@ -224,11 +236,11 @@ export function getUserInfo(req: Request): {
  * Create a security event logger middleware wrapper
  * This can be used to wrap route handlers and automatically log events
  */
-export function withSecurityLogging(
+export function withSecurityLogging<T extends unknown[]>(
   eventType: SecurityEventType,
-  handler: (req: Request, ...args: any[]) => Promise<any>
+  handler: (req: Request, ...args: T) => Promise<unknown>
 ) {
-  return async (req: Request, ...args: any[]) => {
+  return async (req: Request, ...args: T) => {
     try {
       const result = await handler(req, ...args);
       logSecurityEvent(eventType, req, {

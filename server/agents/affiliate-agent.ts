@@ -30,8 +30,9 @@ export class AffiliateLinkAgent extends BaseAgent {
     super(config);
   }
 
-  async processTask(taskData: any): Promise<any> {
-    const { action, ...params } = taskData;
+  async processTask(taskData: unknown): Promise<unknown> {
+    const task = taskData as { action: string; [key: string]: unknown };
+    const { action, ...params } = task;
 
     switch (action) {
       case 'generate_affiliate_links':
@@ -50,7 +51,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Generate affiliate links for offers without them
    */
-  private async generateAffiliateLinks(params: any): Promise<any> {
+  private async generateAffiliateLinks(params: Record<string, unknown>): Promise<any> {
     const limit = params.limit || 50;
     const retailerId = params.retailerId;
 

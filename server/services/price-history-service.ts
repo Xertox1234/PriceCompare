@@ -67,7 +67,7 @@ export async function recordPriceChange(
   originalPrice?: number,
   source: string = 'scraper',
   confidence: number = 1.0,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<PriceChangeResult> {
   try {
     // Get the product offer to access productId and retailerId

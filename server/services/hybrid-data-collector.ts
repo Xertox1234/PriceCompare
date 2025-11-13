@@ -121,7 +121,7 @@ export class AmazonAPIService extends RetailerAPIService {
       const response = await this.makeAPICall('SearchItems', searchRequest);
       
       return response.SearchResult?.Items?.map((item: unknown) => {
-        const amazonItem = item as Record<string, any>;
+        const amazonItem = item as Record<string, unknown>;
         return {
           id: amazonItem.ASIN,
           name: amazonItem.ItemInfo?.Title?.DisplayValue || '',
@@ -208,7 +208,7 @@ export class AmazonAPIService extends RetailerAPIService {
     return 0.0; // Free tier, but requires sales to maintain access
   }
 
-  private async makeAPICall(operation: string, payload: Record<string, unknown>): Promise<Record<string, any>> {
+  private async makeAPICall(operation: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
     // AWS signature v4 implementation for PA-API calls
     // This would use the actual AWS SDK or manual signing
     throw new Error('AWS PA-API implementation required');
@@ -232,7 +232,7 @@ export class WalmartAPIService extends RetailerAPIService {
       const data = await response.json();
 
       return data.items?.map((item: unknown) => {
-        const walmartItem = item as Record<string, any>;
+        const walmartItem = item as Record<string, unknown>;
         return {
           id: walmartItem.itemId.toString(),
           name: walmartItem.name,

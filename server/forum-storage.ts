@@ -80,9 +80,9 @@ export class ForumStorage {
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(forumTopics.isPinned), desc(forumTopics.lastPostAt))
-      .execute() as any[];
+      .execute() /* TODO: Add proper return type */;
 
-    return results.map((result: any) => ({
+    return results.map((result: unknown) => ({
       ...result,
       author: result.author!,
       category: result.category || undefined,
@@ -126,7 +126,7 @@ export class ForumStorage {
       .leftJoin(users, eq(forumTopics.authorId, users.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
       .where(eq(forumTopics.id, id))
-      .limit(1) as any[];
+      .limit(1) /* TODO: Add proper return type */;
 
     if (!result.length) return null;
 
@@ -180,9 +180,9 @@ export class ForumStorage {
       .from(forumPosts)
       .leftJoin(users, eq(forumPosts.authorId, users.id))
       .where(eq(forumPosts.topicId, topicId))
-      .orderBy(asc(forumPosts.createdAt)) as any[];
+      .orderBy(asc(forumPosts.createdAt)) /* TODO: Add proper return type */;
 
-    return results.map((result: any) => ({
+    return results.map((result: unknown) => ({
       ...result,
       author: result.author!,
     }));

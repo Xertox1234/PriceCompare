@@ -341,7 +341,7 @@ export function setActivePromptVersion(promptName: string, version: string): boo
 /**
  * Simple template renderer (supports {{variable}} and {{#if}})
  */
-export function renderTemplate(template: string, variables: Record<string, any>): string {
+export function renderTemplate(template: string, variables: Record<string, unknown>): string {
   let rendered = template;
 
   // Replace simple variables {{key}}

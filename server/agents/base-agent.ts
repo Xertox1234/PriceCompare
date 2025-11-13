@@ -234,7 +234,7 @@ export abstract class BaseAgent extends EventEmitter {
     }
   }
 
-  protected getPerformanceMetrics(): Record<string, any> {
+  protected getPerformanceMetrics(): Record<string, unknown> {
     const runtime = Date.now() - this.startTime.getTime();
     
     return {
@@ -252,7 +252,7 @@ export abstract class BaseAgent extends EventEmitter {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  abstract processTask(taskData: any): Promise<any>;
+  abstract processTask(taskData: unknown): Promise<unknown>;
 
   async healthCheck(): Promise<boolean> {
     return this.isRunning && this.activeTasks.size < this.config.maxConcurrentTasks;

@@ -1,6 +1,6 @@
-import { Express } from "express";
+import { Express, Request } from "express";
 import { db } from "../db";
-import { passport, createUser, findUserByEmail, findUserById, hashPassword } from "../auth";
+import { passport, createUser, findUserByEmail, findUserById, hashPassword, User } from "../auth";
 import { generateCsrfToken } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
 import { logger } from "../utils/logger";
@@ -14,6 +14,11 @@ import {
 import { emailService } from "../services/email-service";
 import * as schema from "@shared/schema";
 import { eq, sql } from 'drizzle-orm';
+
+// Type for authenticated request
+interface AuthenticatedRequest extends Request {
+  user?: User;
+}
 
 /**
  * Authentication Routes
@@ -121,7 +126,7 @@ export function registerAuthRoutes(app: Express): void {
   // User login
   app.post("/api/auth/login", (req, res, next) => {
     // Use custom callback to capture authentication result for logging
-    passport.authenticate('local', (err: any, user: any, info: any) => {
+    passport.authenticate('local', (err: Error | null, user: User | false, info?: { message?: string; locked?: boolean; remainingTime?: number; remainingAttempts?: number }) => {
       if (err) {
         logger.error('Login error', { error: err.message || String(err) });
         return next(err);
@@ -178,7 +183,8 @@ export function registerAuthRoutes(app: Express): void {
 
   // User logout
   app.post("/api/auth/logout", (req, res) => {
-    const user = req.user as any;
+    const authenticatedReq = req as AuthenticatedRequest;
+    const user = authenticatedReq.user;
 
     req.logout((err) => {
       if (err) {
@@ -432,15 +438,16 @@ export function registerAuthRoutes(app: Express): void {
 
   // Get current user
   app.get("/api/auth/user", async (req, res) => {
-    if (req.user) {
+    const authenticatedReq = req as AuthenticatedRequest;
+    if (authenticatedReq.user) {
       // Refresh session with latest user data from database
-      const userId = (req.user as any).id;
+      const userId = authenticatedReq.user.id;
       const updatedUser = await findUserById(userId);
       if (updatedUser) {
-        req.user = updatedUser;
+        authenticatedReq.user = updatedUser;
       }
 
-      const user = req.user as any;
+      const user = authenticatedReq.user;
       // SECURITY: Include CSRF token in response for client convenience
       const csrfToken = generateCsrfToken(req);
 

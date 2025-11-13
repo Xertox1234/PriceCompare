@@ -13,7 +13,7 @@ export class AppError extends Error {
     message: string,
     public statusCode: number = 500,
     public code?: string,
-    public metadata?: Record<string, any>,
+    public metadata?: Record<string, unknown>,
     public isOperational: boolean = true
   ) {
     super(message);
@@ -39,7 +39,7 @@ export class AppError extends Error {
  * Used when user input doesn't meet requirements
  */
 export class ValidationError extends AppError {
-  constructor(message: string, metadata?: Record<string, any>) {
+  constructor(message: string, metadata?: Record<string, unknown>) {
     super(message, 400, 'VALIDATION_ERROR', metadata);
   }
 }
@@ -49,7 +49,7 @@ export class ValidationError extends AppError {
  * Used when user is not authenticated
  */
 export class AuthenticationError extends AppError {
-  constructor(message: string = 'Authentication required', metadata?: Record<string, any>) {
+  constructor(message: string = 'Authentication required', metadata?: Record<string, unknown>) {
     super(message, 401, 'AUTHENTICATION_ERROR', metadata);
   }
 }
@@ -59,7 +59,7 @@ export class AuthenticationError extends AppError {
  * Used when user doesn't have permission
  */
 export class AuthorizationError extends AppError {
-  constructor(message: string = 'Access denied', metadata?: Record<string, any>) {
+  constructor(message: string = 'Access denied', metadata?: Record<string, unknown>) {
     super(message, 403, 'AUTHORIZATION_ERROR', metadata);
   }
 }
@@ -69,7 +69,7 @@ export class AuthorizationError extends AppError {
  * Used when a resource doesn't exist
  */
 export class NotFoundError extends AppError {
-  constructor(resource: string, metadata?: Record<string, any>) {
+  constructor(resource: string, metadata?: Record<string, unknown>) {
     super(`${resource} not found`, 404, 'NOT_FOUND', metadata);
   }
 }
@@ -79,7 +79,7 @@ export class NotFoundError extends AppError {
  * Used when there's a conflict (e.g., duplicate entry)
  */
 export class ConflictError extends AppError {
-  constructor(message: string, metadata?: Record<string, any>) {
+  constructor(message: string, metadata?: Record<string, unknown>) {
     super(message, 409, 'CONFLICT_ERROR', metadata);
   }
 }
@@ -89,7 +89,7 @@ export class ConflictError extends AppError {
  * Used when rate limit is exceeded
  */
 export class RateLimitError extends AppError {
-  constructor(message: string = 'Too many requests', metadata?: Record<string, any>) {
+  constructor(message: string = 'Too many requests', metadata?: Record<string, unknown>) {
     super(message, 429, 'RATE_LIMIT_ERROR', metadata);
   }
 }
@@ -99,7 +99,7 @@ export class RateLimitError extends AppError {
  * Used for database-related errors
  */
 export class DatabaseError extends AppError {
-  constructor(message: string, metadata?: Record<string, any>) {
+  constructor(message: string, metadata?: Record<string, unknown>) {
     super(message, 500, 'DATABASE_ERROR', metadata, false);
   }
 }
@@ -109,7 +109,7 @@ export class DatabaseError extends AppError {
  * Used when external services fail
  */
 export class ExternalServiceError extends AppError {
-  constructor(service: string, metadata?: Record<string, any>) {
+  constructor(service: string, metadata?: Record<string, unknown>) {
     super(`External service '${service}' failed`, 502, 'EXTERNAL_SERVICE_ERROR', metadata, false);
   }
 }
