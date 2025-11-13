@@ -209,7 +209,7 @@ export function registerNotificationRoutes(app: Express) {
     } catch (error: any) {
       logger.error('Error updating preferences:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid preferences data", details: error.errors });
+        return res.status(400).json({ error: "Invalid preferences data", details: error.issues });
       }
       res.status(500).json({ error: error.message || "Failed to update preferences" });
     }

@@ -157,7 +157,7 @@ export function registerSmartAlertsRoutes(app: Express) {
     } catch (error: any) {
       logger.error('Error creating suggested alert:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
+        return res.status(400).json({ error: "Invalid data", details: error.issues });
       }
       res.status(500).json({ error: error.message || "Failed to create suggested alert" });
     }
