@@ -27,6 +27,7 @@ export async function createSessionStore(
 
   try {
     // Dynamically import connect-redis to avoid errors if not installed
+    // @ts-ignore - connect-redis is optional dependency
     const RedisStoreModule = await import('connect-redis');
     const RedisStore = RedisStoreModule.default;
 

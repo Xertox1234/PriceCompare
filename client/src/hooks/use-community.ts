@@ -3,7 +3,7 @@ import type {
   ProductWatch,
   UserReputation,
   DealSpotting
-} from '@db/schema';
+} from '@shared/schema';
 
 // API response types
 interface WatchStats {

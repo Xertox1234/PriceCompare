@@ -28,7 +28,13 @@ const mockProduct: ProductWithOffers = {
         name: 'Test Retailer',
         logo: 'https://example.com/logo.jpg',
         website: 'https://example.com',
-        isActive: true
+        isActive: true,
+        affiliateId: null,
+        affiliateProgram: null,
+        baseAffiliateUrl: null,
+        commissionRate: null,
+        affiliateStatus: null,
+        affiliateConfig: null
       }
     }
   ],
