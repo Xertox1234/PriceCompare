@@ -100,7 +100,7 @@ export async function recordPriceChange(
     }
 
     // Record the new price
-    const insertData: InsertPriceHistory = {
+    const insertData = {
       productId: offer.productId,
       retailerId: offer.retailerId,
       productOfferId,

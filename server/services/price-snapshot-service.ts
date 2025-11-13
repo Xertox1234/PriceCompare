@@ -18,7 +18,7 @@ export class PriceSnapshotService {
         return 0;
       }
 
-      const snapshots: InsertPriceHistory[] = allOffers.map((offer) => ({
+      const snapshots = allOffers.map((offer) => ({
         productOfferId: offer.id,
         productId: offer.productId,
         retailerId: offer.retailerId,
@@ -27,7 +27,7 @@ export class PriceSnapshotService {
         availability: offer.availability,
         rating: offer.rating,
         reviewCount: offer.reviewCount,
-        source: 'snapshot',
+        source: 'snapshot' as const,
         confidence: '1.00',
         metadata: null
       }));
@@ -62,7 +62,7 @@ export class PriceSnapshotService {
         return 0;
       }
 
-      const snapshots: InsertPriceHistory[] = offers.map((offer) => ({
+      const snapshots = offers.map((offer) => ({
         productOfferId: offer.id,
         productId: offer.productId,
         retailerId: offer.retailerId,
@@ -71,7 +71,7 @@ export class PriceSnapshotService {
         availability: offer.availability,
         rating: offer.rating,
         reviewCount: offer.reviewCount,
-        source: 'snapshot',
+        source: 'snapshot' as const,
         confidence: '1.00',
         metadata: null
       }));
