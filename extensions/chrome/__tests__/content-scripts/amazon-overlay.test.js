@@ -1,3 +1,5 @@
+import "../../setup.js";
+
 /**
  * Integration tests for Amazon content script
  * Tests product detection and extraction logic

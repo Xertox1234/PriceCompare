@@ -1,3 +1,5 @@
+import "../../setup.js";
+
 /**
  * Unit tests for shared/utils.js
  */

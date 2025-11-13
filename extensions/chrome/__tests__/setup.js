@@ -1,25 +1,25 @@
 /**
- * Jest setup file for browser extension tests
+ * Vitest setup file for browser extension tests
  * Configures global mocks and test utilities
  */
 
-// Import Chrome API mock
-const chromeMock = require('../__mocks__/chrome');
+import { vi, beforeEach, afterEach, expect } from 'vitest';
+import chromeMock from '../__mocks__/chrome.js';
 
 // Setup global Chrome API mock
 global.chrome = chromeMock;
 
 // Setup global fetch mock
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 // Setup console mocks to reduce noise in tests
 global.console = {
   ...console,
-  log: jest.fn(),
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn()
+  log: vi.fn(),
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn()
 };
 
 // Mock window.location
@@ -33,29 +33,29 @@ window.location = {
 };
 
 // Mock document.querySelector and other DOM methods
-document.querySelector = jest.fn();
-document.querySelectorAll = jest.fn(() => []);
-document.getElementById = jest.fn();
-document.createElement = jest.fn((tag) => {
+document.querySelector = vi.fn();
+document.querySelectorAll = vi.fn(() => []);
+document.getElementById = vi.fn();
+document.createElement = vi.fn((tag) => {
   const element = {
     tagName: tag.toUpperCase(),
     children: [],
     style: {},
     classList: {
-      add: jest.fn(),
-      remove: jest.fn(),
-      contains: jest.fn()
+      add: vi.fn(),
+      remove: vi.fn(),
+      contains: vi.fn()
     },
-    setAttribute: jest.fn(),
-    getAttribute: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    appendChild: jest.fn(function(child) {
+    setAttribute: vi.fn(),
+    getAttribute: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    appendChild: vi.fn(function(child) {
       this.children.push(child);
       return child;
     }),
-    insertBefore: jest.fn(),
-    remove: jest.fn(),
+    insertBefore: vi.fn(),
+    remove: vi.fn(),
     innerHTML: '',
     textContent: '',
     parentNode: null
@@ -107,19 +107,21 @@ expect.extend({
 
 // Reset mocks before each test
 beforeEach(() => {
-  jest.clearAllMocks();
+  // Reset storage data
+  chromeMock.__resetStorage();
 
-  // Reset fetch mock
-  global.fetch.mockReset();
-
-  // Reset Chrome API mocks
-  chromeMock.storage.sync.get.mockReset();
-  chromeMock.storage.sync.set.mockReset();
-  chromeMock.storage.local.get.mockReset();
-  chromeMock.storage.local.set.mockReset();
+  // Clear call history but keep implementations
+  chromeMock.storage.sync.get.mockClear();
+  chromeMock.storage.sync.set.mockClear();
+  chromeMock.storage.sync.remove.mockClear();
+  chromeMock.storage.sync.clear.mockClear();
+  chromeMock.storage.local.get.mockClear();
+  chromeMock.storage.local.set.mockClear();
+  chromeMock.storage.local.remove.mockClear();
+  chromeMock.storage.local.clear.mockClear();
 });
 
 // Cleanup after each test
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });

@@ -21,7 +21,7 @@
     "security:fix": "npm audit fix",
     "security:check": "bash scripts/security-checks.sh",
     "security:full": "npm run security:check && npm run test:security",
-    "lint:security": "eslint --config .eslintrc.security.json server/**/*.ts",
+    "lint:security": "eslint --config eslint.security.config.mjs server/**/*.ts",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
   },
   "dependencies": {

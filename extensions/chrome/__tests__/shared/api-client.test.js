@@ -2,6 +2,8 @@
  * Unit tests for shared/api-client.js
  */
 
+import '../../__tests__/setup.js';
+
 // Mock PriceCompareAPI class
 class PriceCompareAPI {
   constructor() {

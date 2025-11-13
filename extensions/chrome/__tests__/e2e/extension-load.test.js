@@ -1,3 +1,5 @@
+import "../../setup.js";
+
 /**
  * E2E Tests for PriceCompare Extension
  * Tests extension loading and basic functionality in a real browser
