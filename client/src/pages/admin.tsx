@@ -1,39 +1,15 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { AnalyticsOverview, UserGrowthData, ForumActivityData, TopCategoryData } from '@shared/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
 import { SharedNavigation } from '@/components/shared-navigation';
 import { ProductManagement } from '@/components/product-management';
 import { RetailerManagement } from '@/components/retailer-management';
-import { Settings, Users, MessageSquare, Tags, Shield, Plus, Edit, Trash2, BarChart3, Package, Store, TrendingUp, Activity, PieChart as PieChartIcon } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Cell } from 'recharts';
+import { AdminDashboard } from '@/components/admin/admin-dashboard';
+import { AdminCategoryManagement } from '@/components/admin/admin-category-management';
+import { AdminUserManagement } from '@/components/admin/admin-user-management';
+import { AdminSettings } from '@/components/admin/admin-settings';
+import { Settings, BarChart3, Package, Store, MessageSquare } from 'lucide-react';
 
 interface ForumCategory {
   id: number;
@@ -56,262 +32,33 @@ interface User {
   createdAt: string;
 }
 
-interface PlatformSettings {
-  platformName: string;
-  defaultCurrency: string;
-}
-
-interface ForumSettings {
-  allowGuestPosting: boolean;
-  autoModerateNewPosts: boolean;
-}
-
 export default function AdminPage() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [newCategory, setNewCategory] = useState({
-    name: '',
-    description: '',
-    color: '#3b82f6',
-    icon: 'MessageSquare'
-  });
-
-  // Category editing state
-  const [editingCategory, setEditingCategory] = useState<ForumCategory | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: '',
-    description: '',
-    color: '#3b82f6',
-  });
-
-  // Category deletion state
-  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
-  // Settings state management
-  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>({
-    platformName: 'PriceCompare Community',
-    defaultCurrency: 'usd',
-  });
-
-  const [forumSettings, setForumSettings] = useState<ForumSettings>({
-    allowGuestPosting: false,
-    autoModerateNewPosts: false,
-  });
-
-  const [originalPlatformSettings, setOriginalPlatformSettings] = useState<PlatformSettings>(platformSettings);
-  const [originalForumSettings, setOriginalForumSettings] = useState<ForumSettings>(forumSettings);
-
-  // Track unsaved changes
-  const hasPlatformChanges = JSON.stringify(platformSettings) !== JSON.stringify(originalPlatformSettings);
-  const hasForumChanges = JSON.stringify(forumSettings) !== JSON.stringify(originalForumSettings);
-
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ['/api/admin/categories'],
-    queryFn: () => apiRequest('/api/admin/categories'),
   });
 
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
-    queryFn: () => apiRequest('/api/admin/users'),
   });
 
   // Analytics data
   const { data: overviewData } = useQuery<AnalyticsOverview>({
     queryKey: ['/api/admin/analytics/overview'],
-    queryFn: () => apiRequest<AnalyticsOverview>('/api/admin/analytics/overview'),
   });
 
   const { data: userGrowthData = [] } = useQuery<UserGrowthData[]>({
     queryKey: ['/api/admin/analytics/user-growth'],
-    queryFn: () => apiRequest<UserGrowthData[]>('/api/admin/analytics/user-growth'),
   });
 
   const { data: forumActivityData = [] } = useQuery<ForumActivityData[]>({
     queryKey: ['/api/admin/analytics/forum-activity'],
-    queryFn: () => apiRequest<ForumActivityData[]>('/api/admin/analytics/forum-activity'),
   });
 
   const { data: topCategoriesData = [] } = useQuery<TopCategoryData[]>({
     queryKey: ['/api/admin/analytics/top-categories'],
-    queryFn: () => apiRequest<TopCategoryData[]>('/api/admin/analytics/top-categories'),
   });
-
-  // Create category mutation
-  const createCategoryMutation = useMutation({
-    mutationFn: async (data: Omit<ForumCategory, 'id' | 'isActive' | 'sortOrder'>) => {
-      return apiRequest('/api/admin/categories', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
-      setNewCategory({ name: '', description: '', color: '#3b82f6', icon: 'MessageSquare' });
-      toast({ title: 'Category created successfully!' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to create category', variant: 'destructive' });
-    },
-  });
-
-  // Update category mutation
-  const updateCategoryMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<ForumCategory> }) => {
-      return apiRequest(`/api/admin/categories/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
-      setShowEditDialog(false);
-      setEditingCategory(null);
-      toast({ title: 'Category updated successfully!' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to update category', variant: 'destructive' });
-    },
-  });
-
-  // Delete category mutation
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest(`/api/admin/categories/${id}`, {
-        method: 'DELETE',
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
-      setShowDeleteDialog(false);
-      setDeletingCategoryId(null);
-      toast({ title: 'Category deleted successfully!' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to delete category', variant: 'destructive' });
-    },
-  });
-
-  // Update user role mutation
-  const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
-      return apiRequest(`/api/admin/users/${userId}/role`, {
-        method: 'PATCH',
-        body: JSON.stringify({ role }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      toast({ title: 'User role updated successfully!' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to update user role', variant: 'destructive' });
-    },
-  });
-
-  // Save platform settings mutation
-  const savePlatformSettingsMutation = useMutation({
-    mutationFn: async (settings: PlatformSettings) => {
-      return apiRequest('/api/admin/settings/platform', {
-        method: 'PUT',
-        body: JSON.stringify(settings),
-      });
-    },
-    onSuccess: () => {
-      setOriginalPlatformSettings(platformSettings);
-      toast({ title: 'Platform settings saved successfully!' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to save platform settings', variant: 'destructive' });
-    },
-  });
-
-  // Save forum settings mutation
-  const saveForumSettingsMutation = useMutation({
-    mutationFn: async (settings: ForumSettings) => {
-      return apiRequest('/api/admin/settings/forum', {
-        method: 'PUT',
-        body: JSON.stringify(settings),
-      });
-    },
-    onSuccess: () => {
-      setOriginalForumSettings(forumSettings);
-      toast({ title: 'Forum settings saved successfully!' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to save forum settings', variant: 'destructive' });
-    },
-  });
-
-  const handleCreateCategory = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCategory.name.trim()) return;
-    
-    createCategoryMutation.mutate({
-      ...newCategory,
-      slug: newCategory.name.toLowerCase().replace(/\s+/g, '-'),
-    });
-  };
-
-  const handleUpdateUserRole = (userId: number, role: string) => {
-    updateUserRoleMutation.mutate({ userId, role });
-  };
-
-  const handleSavePlatformSettings = () => {
-    savePlatformSettingsMutation.mutate(platformSettings);
-  };
-
-  const handleResetPlatformSettings = () => {
-    setPlatformSettings(originalPlatformSettings);
-    toast({ title: 'Platform settings reset', description: 'Changes have been discarded' });
-  };
-
-  const handleSaveForumSettings = () => {
-    saveForumSettingsMutation.mutate(forumSettings);
-  };
-
-  const handleResetForumSettings = () => {
-    setForumSettings(originalForumSettings);
-    toast({ title: 'Forum settings reset', description: 'Changes have been discarded' });
-  };
-
-  const handleEditCategory = (category: ForumCategory) => {
-    setEditingCategory(category);
-    setEditForm({
-      name: category.name,
-      description: category.description || '',
-      color: category.color,
-    });
-    setShowEditDialog(true);
-  };
-
-  const handleUpdateCategory = () => {
-    if (!editingCategory || !editForm.name.trim()) return;
-
-    updateCategoryMutation.mutate({
-      id: editingCategory.id,
-      data: {
-        name: editForm.name,
-        description: editForm.description,
-        color: editForm.color,
-        slug: editForm.name.toLowerCase().replace(/\s+/g, '-'),
-      },
-    });
-  };
-
-  const handleDeleteCategory = (categoryId: number) => {
-    setDeletingCategoryId(categoryId);
-    setShowDeleteDialog(true);
-  };
-
-  const confirmDeleteCategory = () => {
-    if (deletingCategoryId !== null) {
-      deleteCategoryMutation.mutate(deletingCategoryId);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -338,121 +85,12 @@ export default function AdminPage() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Key Metrics Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{overviewData?.totalUsers || 0}</div>
-                  <p className="text-xs text-muted-foreground">+12% from last month</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Forum Topics</CardTitle>
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{overviewData?.totalTopics || 0}</div>
-                  <p className="text-xs text-muted-foreground">+8% from last month</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Forum Posts</CardTitle>
-                  <Edit className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{overviewData?.totalPosts || 0}</div>
-                  <p className="text-xs text-muted-foreground">+23% from last month</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Categories</CardTitle>
-                  <PieChartIcon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{overviewData?.totalCategories || 0}</div>
-                  <p className="text-xs text-muted-foreground">+2 this month</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Charts Grid */}
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* User Growth Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    User Growth
-                  </CardTitle>
-                  <CardDescription>New user registrations over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={userGrowthData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Forum Activity Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
-                    Forum Activity
-                  </CardTitle>
-                  <CardDescription>Daily post creation activity</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={forumActivityData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="hsl(var(--success))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Top Categories */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChartIcon className="h-5 w-5" />
-                  Most Active Categories
-                </CardTitle>
-                <CardDescription>Categories with the most topics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={topCategoriesData} layout="horizontal">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="categoryName" width={120} />
-                    <Tooltip />
-                    <Bar dataKey="topicCount" fill="hsl(var(--warning))" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <AdminDashboard
+              overviewData={overviewData}
+              userGrowthData={userGrowthData}
+              forumActivityData={forumActivityData}
+              topCategoriesData={topCategoriesData}
+            />
           </TabsContent>
 
           <TabsContent value="overview" className="space-y-6">
@@ -523,387 +161,20 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="categories" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
-                  Create New Category
-                </CardTitle>
-                <CardDescription>
-                  Add a new forum category to organize discussions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateCategory} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="category-name">Name</Label>
-                      <Input
-                        id="category-name"
-                        value={newCategory.name}
-                        onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="e.g., Product Reviews"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="category-color">Color</Label>
-                      <Input
-                        id="category-color"
-                        type="color"
-                        value={newCategory.color}
-                        onChange={(e) => setNewCategory(prev => ({ ...prev, color: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="category-description">Description</Label>
-                    <Textarea
-                      id="category-description"
-                      value={newCategory.description}
-                      onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Describe what this category is for..."
-                    />
-                  </div>
-                  <Button type="submit" disabled={createCategoryMutation.isPending}>
-                    {createCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Existing Forum Categories</CardTitle>
-                <CardDescription>
-                  Manage your forum categories
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {categoriesLoading ? (
-                    <div>Loading categories...</div>
-                  ) : Array.isArray(categories) && categories.length > 0 ? (
-                    categories.map((category: ForumCategory) => (
-                    <div key={category.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <div>
-                          <h3 className="font-medium">{category.name}</h3>
-                          <p className="text-sm text-muted-foreground">{category.description}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={category.isActive ? "default" : "secondary"}>
-                          {category.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditCategory(category)}
-                          aria-label={`Edit ${category.name}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteCategory(category.id)}
-                          aria-label={`Delete ${category.name}`}
-                          className="text-destructive hover:text-destructive/90"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    ))
-                  ) : (
-                    <div className="text-center text-muted-foreground">No categories found</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <AdminCategoryManagement categories={categories} isLoading={categoriesLoading} />
           </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  User Management
-                </CardTitle>
-                <CardDescription>
-                  Manage user roles and permissions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {usersLoading ? (
-                    <div>Loading users...</div>
-                  ) : Array.isArray(users) && users.length > 0 ? (
-                    users.map((user: User) => (
-                      <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-medium">
-                            {user.username.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <h3 className="font-medium">{user.username}</h3>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Reputation: {user.reputation} • Joined: {new Date(user.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={user.role}
-                            onValueChange={(role) => handleUpdateUserRole(user.id, role)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="user">User</SelectItem>
-                              <SelectItem value="moderator">Moderator</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Badge variant={user.isActive ? "default" : "secondary"}>
-                            {user.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center text-muted-foreground">No users found</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <AdminUserManagement users={users} isLoading={usersLoading} />
           </TabsContent>
 
 
 
           <TabsContent value="settings" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Platform Settings</span>
-                    {hasPlatformChanges && (
-                      <Badge variant="secondary" className="text-xs">
-                        Unsaved changes
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    Configure main platform settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="platform-name">Platform Name</Label>
-                    <Input
-                      id="platform-name"
-                      value={platformSettings.platformName}
-                      onChange={(e) => setPlatformSettings(prev => ({ ...prev, platformName: e.target.value }))}
-                      placeholder="Enter platform name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="default-currency">Default Currency</Label>
-                    <Select
-                      value={platformSettings.defaultCurrency}
-                      onValueChange={(value) => setPlatformSettings(prev => ({ ...prev, defaultCurrency: value }))}
-                    >
-                      <SelectTrigger id="default-currency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="usd">USD ($)</SelectItem>
-                        <SelectItem value="eur">EUR (€)</SelectItem>
-                        <SelectItem value="gbp">GBP (£)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleSavePlatformSettings}
-                      disabled={!hasPlatformChanges || savePlatformSettingsMutation.isPending}
-                    >
-                      {savePlatformSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleResetPlatformSettings}
-                      disabled={!hasPlatformChanges}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Forum Settings</span>
-                    {hasForumChanges && (
-                      <Badge variant="secondary" className="text-xs">
-                        Unsaved changes
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    Configure forum-specific settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="allow-guest-posting">Allow Guest Posting</Label>
-                    <Select
-                      value={forumSettings.allowGuestPosting.toString()}
-                      onValueChange={(value) => setForumSettings(prev => ({ ...prev, allowGuestPosting: value === 'true' }))}
-                    >
-                      <SelectTrigger id="allow-guest-posting">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">Enabled</SelectItem>
-                        <SelectItem value="false">Disabled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="auto-moderate-posts">Auto-moderate New Posts</Label>
-                    <Select
-                      value={forumSettings.autoModerateNewPosts.toString()}
-                      onValueChange={(value) => setForumSettings(prev => ({ ...prev, autoModerateNewPosts: value === 'true' }))}
-                    >
-                      <SelectTrigger id="auto-moderate-posts">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">Enabled</SelectItem>
-                        <SelectItem value="false">Disabled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleSaveForumSettings}
-                      disabled={!hasForumChanges || saveForumSettingsMutation.isPending}
-                    >
-                      {saveForumSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleResetForumSettings}
-                      disabled={!hasForumChanges}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <AdminSettings />
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Edit Category Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Category</DialogTitle>
-            <DialogDescription>
-              Update the category details below.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-category-name">Name</Label>
-              <Input
-                id="edit-category-name"
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Product Reviews"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-category-color">Color</Label>
-              <div className="flex gap-2 items-center">
-                <Input
-                  id="edit-category-color"
-                  type="color"
-                  value={editForm.color}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, color: e.target.value }))}
-                  className="w-20 h-10"
-                />
-                <Input
-                  value={editForm.color}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, color: e.target.value }))}
-                  placeholder="#3b82f6"
-                  className="flex-1"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-category-description">Description</Label>
-              <Textarea
-                id="edit-category-description"
-                value={editForm.description}
-                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe what this category is for..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowEditDialog(false)}
-              disabled={updateCategoryMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateCategory}
-              disabled={!editForm.name.trim() || updateCategoryMutation.isPending}
-            >
-              {updateCategoryMutation.isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Category Confirmation */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this category. All topics and posts in this category will need to be reassigned. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteCategoryMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteCategory}
-              disabled={deleteCategoryMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete Category'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
