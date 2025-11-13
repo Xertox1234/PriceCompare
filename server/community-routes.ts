@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import * as communityService from "./services/community-service";
 
@@ -11,8 +11,8 @@ import * as communityService from "./services/community-service";
 
 export function registerCommunityRoutes(app: Express) {
   // Middleware to ensure user is authenticated
-  const withAuth = (handler: any) => {
-    return async (req: any, res: any) => {
+  const withAuth = (handler: (req: Request, res: Response) => Promise<any>) => {
+    return async (req: Request, res: Response) => {
       if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }

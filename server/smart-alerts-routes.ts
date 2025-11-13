@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { z } from "zod";
 import * as smartAlertsService from "./services/smart-alerts-service";
@@ -12,8 +12,8 @@ import * as smartAlertsService from "./services/smart-alerts-service";
 
 export function registerSmartAlertsRoutes(app: Express) {
   // Middleware to ensure user is authenticated
-  const withAuth = (handler: any) => {
-    return async (req: any, res: any) => {
+  const withAuth = (handler: (req: Request, res: Response) => Promise<any>) => {
+    return async (req: Request, res: Response) => {
       if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -25,7 +25,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    * GET /api/smart-alerts/suggestions/:productId
    * Get smart threshold suggestions for a product
    */
-  app.get("/api/smart-alerts/suggestions/:productId", async (req, res) => {
+  app.get("/api/smart-alerts/suggestions/:productId", async (req: Request, res: Response) => {
     try {
       const productId = parseInt(req.params.productId);
       const currentPrice = req.query.currentPrice
