@@ -64,7 +64,7 @@ export async function onProductOfferPriceChange(
 
     return result;
   } catch (error) {
-    console.error('Error in price change hook:', error);
+    logger.error('Error in price change hook:', error);
     // Don't throw error to prevent blocking the main operation
     return { recorded: false, error: (error as Error).message };
   }
@@ -130,14 +130,14 @@ async function checkAndNotifyPriceAlerts(productOfferId: number, newPrice: numbe
           .set({ isActive: false })
           .where(eq(priceAlerts.id, alert.alertId));
 
-        console.log(`Price alert notification sent to user ${alert.username} for product ${offer.productId}`);
+        logger.info(`Price alert notification sent to user ${alert.username} for product ${offer.productId}`);
       } catch (error) {
-        console.error(`Error creating notification for alert ${alert.alertId}:`, error);
+        logger.error(`Error creating notification for alert ${alert.alertId}:`, error);
         // Continue with other alerts
       }
     }
   } catch (error) {
-    console.error('Error checking price alerts:', error);
+    logger.error('Error checking price alerts:', error);
   }
 }
 
@@ -177,7 +177,7 @@ export async function onBulkProductOfferPriceChange(
   const successCount = results.filter(r => r.status === 'fulfilled').length;
   const failureCount = results.filter(r => r.status === 'rejected').length;
 
-  console.log(`Bulk price update: ${successCount} succeeded, ${failureCount} failed`);
+  logger.info(`Bulk price update: ${successCount} succeeded, ${failureCount} failed`);
 }
 
 /**

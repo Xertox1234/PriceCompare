@@ -85,22 +85,22 @@ export class DataExtractionAgent extends BaseAgent {
   }
 
   async processTask(task: ExtractionTask): Promise<any> {
-    console.log(`Starting extraction for ${task.url}`);
+    logger.info(`Starting extraction for ${task.url}`);
     
     try {
       const extractedData = await this.extractProductData(task.url, task.retailer);
       
       if (extractedData.price) {
         await this.storeProductData(extractedData, task.url, task.retailer, task.searchQuery);
-        console.log(`Successfully extracted and stored product: ${extractedData.title}`);
+        logger.info(`Successfully extracted and stored product: ${extractedData.title}`);
         return { success: true, data: extractedData };
       } else {
-        console.warn(`No price found for ${task.url}`);
+        logger.warn(`No price found for ${task.url}`);
         return { success: false, reason: 'No price data found' };
       }
       
     } catch (error) {
-      console.error(`Extraction failed for ${task.url}:`, error);
+      logger.error(`Extraction failed for ${task.url}:`, error);
       throw error;
     }
   }
@@ -315,10 +315,10 @@ export class DataExtractionAgent extends BaseAgent {
         }
       });
 
-      console.log(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
+      logger.info(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
       
     } catch (error) {
-      console.error(`Failed to store product data:`, error);
+      logger.error(`Failed to store product data:`, error);
       throw error;
     }
   }

@@ -438,7 +438,7 @@ _This deal was automatically detected by our price tracking system._
 
     return postResult[0].id;
   } catch (error) {
-    console.error('Error auto-posting price drop to forum:', error);
+    logger.error('Error auto-posting price drop to forum:', error);
     return null;
   }
 }

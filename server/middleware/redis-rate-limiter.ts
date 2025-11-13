@@ -50,7 +50,7 @@ setInterval(() => {
   }
 
   if (cleaned > 0) {
-    console.log(`Cleaned ${cleaned} expired rate limit entries from memory`);
+    logger.info(`Cleaned ${cleaned} expired rate limit entries from memory`);
   }
 }, 60000);
 
@@ -115,7 +115,7 @@ async function checkRateLimitRedis(
       },
     };
   } catch (error) {
-    console.error('Redis rate limit error:', error);
+    logger.error('Redis rate limit error:', error);
     // Fallback to in-memory
     return checkRateLimitMemory(key, options);
   }
@@ -202,7 +202,7 @@ export function createRateLimiter(options: RateLimitOptions) {
 
       next();
     } catch (error) {
-      console.error('Rate limiter error:', error);
+      logger.error('Rate limiter error:', error);
       // On error, allow request to proceed (fail open)
       next();
     }

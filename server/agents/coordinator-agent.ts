@@ -1,5 +1,7 @@
 import { BaseAgent, AgentConfig, TaskResult } from './base-agent.js';
+import { logger } from "../utils/logger";
 import { ProductDiscoveryAgent } from './discovery-agent.js';
+import { logger } from "../utils/logger";
 import { SearchOrchestrationAgent } from './search-agent.js';
 import { DataExtractionAgent } from './extraction-agent.js';
 import { PriceMonitoringAgent } from './monitoring-agent.js';
@@ -79,7 +81,7 @@ export class CoordinationAgent extends BaseAgent {
     // Start periodic job processing
     this.startJobProcessor();
     
-    console.log('Coordination Agent fully started with all sub-agents');
+    logger.info('Coordination Agent fully started with all sub-agents');
   }
 
   async stop(): Promise<void> {
@@ -134,13 +136,13 @@ export class CoordinationAgent extends BaseAgent {
         limit
       });
 
-      console.log(`Discovered ${trends.length} trending products`);
+      logger.info(`Discovered ${trends.length} trending products`);
       
       // Queue search jobs for discovered trends
       await this.queueSearchJobs(trends.slice(0, 10)); // Process top 10
       
     } catch (error) {
-      console.error('Trend discovery failed:', error);
+      logger.error('Trend discovery failed:', error);
       throw error;
     }
   }
@@ -185,7 +187,7 @@ export class CoordinationAgent extends BaseAgent {
             })
             .where(eq(trendingProducts.id, product.id));
 
-          console.log(`Successfully processed trending product: ${product.name}`);
+          logger.info(`Successfully processed trending product: ${product.name}`);
         }
       } else {
         await db.update(trendingProducts)
@@ -194,7 +196,7 @@ export class CoordinationAgent extends BaseAgent {
       }
 
     } catch (error) {
-      console.error(`Failed to process product ${product.name}:`, error);
+      logger.error(`Failed to process product ${product.name}:`, error);
       await db.update(trendingProducts)
         .set({ status: 'failed' })
         .where(eq(trendingProducts.id, product.id));
@@ -214,7 +216,7 @@ export class CoordinationAgent extends BaseAgent {
       return createdProduct;
 
     } catch (error) {
-      console.error('Failed to create product from trending:', error);
+      logger.error('Failed to create product from trending:', error);
       return null;
     }
   }
@@ -250,7 +252,7 @@ export class CoordinationAgent extends BaseAgent {
 
     if (jobsToCreate.length > 0) {
       await db.insert(scrapingJobs).values(jobsToCreate);
-      console.log(`Queued ${jobsToCreate.length} search jobs`);
+      logger.info(`Queued ${jobsToCreate.length} search jobs`);
     }
   }
 
@@ -278,7 +280,7 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async runFullCycle(params: any): Promise<void> {
-    console.log('Starting full scraping cycle...');
+    logger.info('Starting full scraping cycle...');
 
     // Step 1: Discover trends
     await this.discoverTrends({
@@ -292,7 +294,7 @@ export class CoordinationAgent extends BaseAgent {
     // Step 3: Update existing prices
     await this.updateExistingPrices();
 
-    console.log('Full scraping cycle completed');
+    logger.info('Full scraping cycle completed');
   }
 
   private startJobProcessor(): void {
@@ -319,7 +321,7 @@ export class CoordinationAgent extends BaseAgent {
       }
 
     } catch (error) {
-      console.error('Job processing failed:', error);
+      logger.error('Job processing failed:', error);
     }
   }
 
@@ -357,7 +359,7 @@ export class CoordinationAgent extends BaseAgent {
         .where(eq(scrapingJobs.id, job.id));
 
     } catch (error) {
-      console.error(`Job ${job.id} failed:`, error);
+      logger.error(`Job ${job.id} failed:`, error);
       
       // Handle job failure
       await db.update(scrapingJobs)

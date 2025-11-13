@@ -56,7 +56,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
       res.json = function (body: any) {
         // Cache the response asynchronously (don't block response)
         redis.setex(cacheKey, ttl, JSON.stringify(body)).catch(err => {
-          console.error('Failed to cache response:', err);
+          logger.error('Failed to cache response:', err);
         });
 
         // Send response
@@ -66,7 +66,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
       next();
     } catch (error) {
       // On error, skip caching and proceed
-      console.error('Cache middleware error:', error);
+      logger.error('Cache middleware error:', error);
       next();
     }
   };
@@ -101,7 +101,7 @@ export async function invalidateCache(pattern: string): Promise<number> {
     }
     return await redis.del(...keys);
   } catch (error) {
-    console.error('Failed to invalidate cache:', error);
+    logger.error('Failed to invalidate cache:', error);
     return 0;
   }
 }
@@ -114,7 +114,7 @@ export async function invalidateCacheKey(key: string): Promise<number> {
   try {
     return await redis.del(key);
   } catch (error) {
-    console.error('Failed to invalidate cache key:', error);
+    logger.error('Failed to invalidate cache key:', error);
     return 0;
   }
 }
