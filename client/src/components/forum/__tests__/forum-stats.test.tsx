@@ -33,7 +33,8 @@ describe('ForumStats', () => {
   it('should handle zero counts', () => {
     render(<ForumStats topicsCount={0} categoriesCount={0} />);
 
-    expect(screen.getByText('0')).toBeInTheDocument();
+    const zeros = screen.getAllByText('0');
+    expect(zeros.length).toBeGreaterThanOrEqual(2); // At least topicsCount and categoriesCount
   });
 
   it('should handle large numbers', () => {
@@ -46,7 +47,10 @@ describe('ForumStats', () => {
   it('should render all four stat cards', () => {
     const { container } = render(<ForumStats topicsCount={42} categoriesCount={5} />);
 
-    const cards = container.querySelectorAll('[class*="CardContent"]');
-    expect(cards.length).toBeGreaterThanOrEqual(4);
+    // Check for stat labels to verify all four cards are rendered
+    expect(screen.getByText('Topics')).toBeInTheDocument();
+    expect(screen.getByText('Categories')).toBeInTheDocument();
+    expect(screen.getByText('Active Users')).toBeInTheDocument();
+    expect(screen.getByText('Hot Topics')).toBeInTheDocument();
   });
 });

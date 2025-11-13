@@ -2,6 +2,8 @@
  * Unit tests for shared/storage.js
  */
 
+import '../../__tests__/setup.js';
+
 // Mock ExtensionStorage class
 class ExtensionStorage {
   async get(key, defaultValue = null) {

@@ -1,99 +1,61 @@
 /**
  * Mock Chrome Extension APIs for testing
- * Provides Jest-compatible mocks for all Chrome APIs used in the extension
+ * Provides Vitest-compatible mocks for all Chrome APIs used in the extension
  */
 
+import { vi } from 'vitest';
+
 const chromeMock = {
+  __storageData: { sync: {}, local: {} },
+
   // Storage API
   storage: {
     sync: {
-      get: jest.fn((keys, callback) => {
-        const result = {};
-        if (callback) {
-          callback(result);
-        }
-        return Promise.resolve(result);
-      }),
-      set: jest.fn((items, callback) => {
-        if (callback) {
-          callback();
-        }
-        return Promise.resolve();
-      }),
-      remove: jest.fn((keys, callback) => {
-        if (callback) {
-          callback();
-        }
-        return Promise.resolve();
-      }),
-      clear: jest.fn((callback) => {
-        if (callback) {
-          callback();
-        }
-        return Promise.resolve();
-      })
+      get: vi.fn(),
+      set: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn()
     },
     local: {
-      get: jest.fn((keys, callback) => {
-        const result = {};
-        if (callback) {
-          callback(result);
-        }
-        return Promise.resolve(result);
-      }),
-      set: jest.fn((items, callback) => {
-        if (callback) {
-          callback();
-        }
-        return Promise.resolve();
-      }),
-      remove: jest.fn((keys, callback) => {
-        if (callback) {
-          callback();
-        }
-        return Promise.resolve();
-      }),
-      clear: jest.fn((callback) => {
-        if (callback) {
-          callback();
-        }
-        return Promise.resolve();
-      })
+      get: vi.fn(),
+      set: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn()
     }
   },
 
   // Runtime API
   runtime: {
     onInstalled: {
-      addListener: jest.fn()
+      addListener: vi.fn()
     },
     onMessage: {
-      addListener: jest.fn()
+      addListener: vi.fn()
     },
-    sendMessage: jest.fn((message, callback) => {
+    sendMessage: vi.fn((message, callback) => {
       if (callback) {
         callback({ success: true });
       }
       return Promise.resolve({ success: true });
     }),
-    getManifest: jest.fn(() => ({
+    getManifest: vi.fn(() => ({
       version: '1.0.0',
       name: 'PriceCompare History'
     })),
-    setUninstallURL: jest.fn(),
+    setUninstallURL: vi.fn(),
     id: 'test-extension-id'
   },
 
   // Tabs API
   tabs: {
-    query: jest.fn((queryInfo, callback) => {
+    query: vi.fn((queryInfo, callback) => {
       const tabs = [];
       if (callback) {
         callback(tabs);
       }
       return Promise.resolve(tabs);
     }),
-    create: jest.fn((createProperties, callback) => {
+    create: vi.fn((createProperties, callback) => {
       const tab = { id: 1, url: createProperties.url };
       if (callback) {
         callback(tab);
@@ -101,20 +63,20 @@ const chromeMock = {
       return Promise.resolve(tab);
     }),
     onUpdated: {
-      addListener: jest.fn()
+      addListener: vi.fn()
     }
   },
 
   // Notifications API
   notifications: {
-    create: jest.fn((notificationId, options, callback) => {
+    create: vi.fn((notificationId, options, callback) => {
       const id = notificationId || 'notification-id';
       if (callback) {
         callback(id);
       }
       return Promise.resolve(id);
     }),
-    clear: jest.fn((notificationId, callback) => {
+    clear: vi.fn((notificationId, callback) => {
       if (callback) {
         callback(true);
       }
@@ -124,50 +86,50 @@ const chromeMock = {
 
   // Context Menus API
   contextMenus: {
-    create: jest.fn((createProperties, callback) => {
+    create: vi.fn((createProperties, callback) => {
       if (callback) {
         callback();
       }
     }),
-    remove: jest.fn((menuItemId, callback) => {
+    remove: vi.fn((menuItemId, callback) => {
       if (callback) {
         callback();
       }
       return Promise.resolve();
     }),
     onClicked: {
-      addListener: jest.fn()
+      addListener: vi.fn()
     }
   },
 
   // Action API (Manifest V3)
   action: {
     onClicked: {
-      addListener: jest.fn()
+      addListener: vi.fn()
     },
-    setIcon: jest.fn(),
-    setBadgeText: jest.fn(),
-    setBadgeBackgroundColor: jest.fn()
+    setIcon: vi.fn(),
+    setBadgeText: vi.fn(),
+    setBadgeBackgroundColor: vi.fn()
   },
 
   // Alarms API
   alarms: {
-    create: jest.fn((name, alarmInfo) => {}),
-    clear: jest.fn((name, callback) => {
+    create: vi.fn((name, alarmInfo) => {}),
+    clear: vi.fn((name, callback) => {
       if (callback) {
         callback(true);
       }
       return Promise.resolve(true);
     }),
     onAlarm: {
-      addListener: jest.fn()
+      addListener: vi.fn()
     }
   },
 
   // Web Request API
   webRequest: {
     onBeforeRequest: {
-      addListener: jest.fn()
+      addListener: vi.fn()
     }
   }
 };
@@ -226,18 +188,40 @@ chromeMock.storage.local.get.mockImplementation((keys) => {
 });
 
 chromeMock.storage.sync.set.mockImplementation((items) => {
-  if (!chromeMock.__storageData) {
-    chromeMock.__storageData = { sync: {}, local: {} };
-  }
   Object.assign(chromeMock.__storageData.sync, items);
   return Promise.resolve();
 });
 
 chromeMock.storage.local.set.mockImplementation((items) => {
-  if (!chromeMock.__storageData) {
-    chromeMock.__storageData = { sync: {}, local: {} };
-  }
   Object.assign(chromeMock.__storageData.local, items);
+  return Promise.resolve();
+});
+
+chromeMock.storage.sync.remove.mockImplementation((keys) => {
+  if (Array.isArray(keys)) {
+    keys.forEach(key => delete chromeMock.__storageData.sync[key]);
+  } else {
+    delete chromeMock.__storageData.sync[keys];
+  }
+  return Promise.resolve();
+});
+
+chromeMock.storage.local.remove.mockImplementation((keys) => {
+  if (Array.isArray(keys)) {
+    keys.forEach(key => delete chromeMock.__storageData.local[key]);
+  } else {
+    delete chromeMock.__storageData.local[keys];
+  }
+  return Promise.resolve();
+});
+
+chromeMock.storage.sync.clear.mockImplementation(() => {
+  chromeMock.__storageData.sync = {};
+  return Promise.resolve();
+});
+
+chromeMock.storage.local.clear.mockImplementation(() => {
+  chromeMock.__storageData.local = {};
   return Promise.resolve();
 });
 
@@ -246,4 +230,4 @@ chromeMock.__resetStorage = () => {
   chromeMock.__storageData = { sync: {}, local: {} };
 };
 
-module.exports = chromeMock;
+export default chromeMock;
