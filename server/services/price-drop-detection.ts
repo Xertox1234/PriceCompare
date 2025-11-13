@@ -288,7 +288,7 @@ export async function getUsersToNotify(
       )
     );
 
-  return [...new Set(alerts.map(a => a.userId))];
+  return Array.from(new Set(alerts.map(a => a.userId)));
 }
 
 /**

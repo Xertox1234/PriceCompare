@@ -2,6 +2,7 @@ import { db } from "../db";
 import { logger } from "../utils/logger";
 import { productOffers, priceHistory } from "../../shared/schema";
 import type { InsertPriceHistory } from "../../shared/schema";
+import { eq } from "drizzle-orm";
 
 export class PriceSnapshotService {
   /**
@@ -17,7 +18,6 @@ export class PriceSnapshotService {
         return 0;
       }
 
-      const recordedAt = new Date();
       const snapshots: InsertPriceHistory[] = allOffers.map((offer) => ({
         productOfferId: offer.id,
         productId: offer.productId,
@@ -27,14 +27,16 @@ export class PriceSnapshotService {
         availability: offer.availability,
         rating: offer.rating,
         reviewCount: offer.reviewCount,
-        recordedAt,
+        source: 'snapshot',
+        confidence: '1.00',
+        metadata: null
       }));
 
       // Batch insert all snapshots
       await db.insert(priceHistory).values(snapshots);
 
       logger.info(
-        `[PriceSnapshot] Successfully snapshotted ${snapshots.length} price records at ${recordedAt.toISOString()}`
+        `[PriceSnapshot] Successfully snapshotted ${snapshots.length} price records`
       );
 
       return snapshots.length;
@@ -53,14 +55,13 @@ export class PriceSnapshotService {
       const offers = await db
         .select()
         .from(productOffers)
-        .where((offer) => offer.productId === productId);
+        .where(eq(productOffers.productId, productId));
 
       if (offers.length === 0) {
         logger.info(`[PriceSnapshot] No offers found for product ${productId}`);
         return 0;
       }
 
-      const recordedAt = new Date();
       const snapshots: InsertPriceHistory[] = offers.map((offer) => ({
         productOfferId: offer.id,
         productId: offer.productId,
@@ -70,7 +71,9 @@ export class PriceSnapshotService {
         availability: offer.availability,
         rating: offer.rating,
         reviewCount: offer.reviewCount,
-        recordedAt,
+        source: 'snapshot',
+        confidence: '1.00',
+        metadata: null
       }));
 
       await db.insert(priceHistory).values(snapshots);

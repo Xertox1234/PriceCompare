@@ -185,7 +185,7 @@ export class MemStorage implements IStorage {
       brand: product.brand || null,
       description: product.description || null,
       model: product.model || null,
-      embedding: product.embedding || null,
+      embedding: (product.embedding as number[] | null) || null,
       embeddingUpdatedAt: product.embeddingUpdatedAt || null
     };
     this.products.set(id, newProduct);
@@ -451,13 +451,13 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .insert(products)
       .values({
-        ...product,
+        name: product.name,
         image: product.image || null,
         category: product.category || null,
         brand: product.brand || null,
         description: product.description || null,
         model: product.model || null,
-        embedding: product.embedding || null,
+        embedding: (product.embedding as number[] | null) || null,
         embeddingUpdatedAt: product.embeddingUpdatedAt || null
       })
       .returning();

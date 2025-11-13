@@ -70,6 +70,17 @@ export async function recordPriceChange(
   metadata?: Record<string, any>
 ): Promise<PriceChangeResult> {
   try {
+    // Get the product offer to access productId and retailerId
+    const [offer] = await db
+      .select()
+      .from(productOffers)
+      .where(eq(productOffers.id, productOfferId))
+      .limit(1);
+
+    if (!offer) {
+      throw new Error(`Product offer ${productOfferId} not found`);
+    }
+
     // Get the most recent price for this offer
     const latestPrice = await db
       .select()
@@ -90,6 +101,8 @@ export async function recordPriceChange(
 
     // Record the new price
     const insertData: InsertPriceHistory = {
+      productId: offer.productId,
+      retailerId: offer.retailerId,
       productOfferId,
       price: price.toString(),
       originalPrice: originalPrice?.toString(),

@@ -194,7 +194,7 @@ export async function createNotification(
       )
     );
 
-  if (todayCount[0].count >= prefs.maxDailyNotifications) {
+  if (prefs.maxDailyNotifications && todayCount[0].count >= prefs.maxDailyNotifications) {
     throw new Error('Daily notification limit reached');
   }
 
