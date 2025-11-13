@@ -1,6 +1,7 @@
 import Queue from "bull";
 import cron from "node-cron";
 import { priceSnapshotService } from "../services/price-snapshot-service";
+import { logger } from "../utils/logger";
 
 // Initialize Redis connection for Bull
 const redisConfig = process.env.REDIS_URL
@@ -16,32 +17,32 @@ export const priceSnapshotQueue = new Queue("price-snapshots", redisConfig);
 
 // Process price snapshot jobs
 priceSnapshotQueue.process(async (job) => {
-  console.log(`[PriceSnapshotQueue] Processing job ${job.id} at ${new Date().toISOString()}`);
+  logger.info(`[PriceSnapshotQueue] Processing job ${job.id} at ${new Date().toISOString()}`);
 
   try {
     const count = await priceSnapshotService.snapshotAllPrices();
-    console.log(`[PriceSnapshotQueue] Successfully snapshotted ${count} prices`);
+    logger.info(`[PriceSnapshotQueue] Successfully snapshotted ${count} prices`);
 
     return { success: true, count };
   } catch (error) {
-    console.error("[PriceSnapshotQueue] Error processing snapshot job:", error);
+    logger.error("[PriceSnapshotQueue] Error processing snapshot job:", { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 });
 
 // Handle job completion
 priceSnapshotQueue.on("completed", (job, result) => {
-  console.log(`[PriceSnapshotQueue] Job ${job.id} completed successfully:`, result);
+  logger.info(`[PriceSnapshotQueue] Job ${job.id} completed successfully:`, result);
 });
 
 // Handle job failures
 priceSnapshotQueue.on("failed", (job, err) => {
-  console.error(`[PriceSnapshotQueue] Job ${job?.id} failed:`, err.message);
+  logger.error('PriceSnapshotQueue job failed', { jobId: job?.id, error: err.message });
 });
 
 // Handle job stalling
 priceSnapshotQueue.on("stalled", (job) => {
-  console.warn(`[PriceSnapshotQueue] Job ${job.id} stalled`);
+  logger.warn(`[PriceSnapshotQueue] Job ${job.id} stalled`);
 });
 
 /**
@@ -55,10 +56,10 @@ export function initializePriceSnapshotScheduler() {
 
   const cronSchedule = process.env.PRICE_SNAPSHOT_CRON || "0 8,20 * * *";
 
-  console.log(`[PriceSnapshotScheduler] Initializing with schedule: ${cronSchedule}`);
+  logger.info(`[PriceSnapshotScheduler] Initializing with schedule: ${cronSchedule}`);
 
   cron.schedule(cronSchedule, async () => {
-    console.log(`[PriceSnapshotScheduler] Triggering scheduled price snapshot at ${new Date().toISOString()}`);
+    logger.info(`[PriceSnapshotScheduler] Triggering scheduled price snapshot at ${new Date().toISOString()}`);
 
     try {
       await priceSnapshotQueue.add(
@@ -77,11 +78,11 @@ export function initializePriceSnapshotScheduler() {
         }
       );
     } catch (error) {
-      console.error("[PriceSnapshotScheduler] Error adding snapshot job to queue:", error);
+      logger.error("[PriceSnapshotScheduler] Error adding snapshot job to queue:", { error: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  console.log("[PriceSnapshotScheduler] Scheduler initialized successfully");
+  logger.info("[PriceSnapshotScheduler] Scheduler initialized successfully");
 }
 
 /**
@@ -89,7 +90,7 @@ export function initializePriceSnapshotScheduler() {
  * Useful for testing or immediate snapshots
  */
 export async function triggerManualSnapshot(): Promise<void> {
-  console.log("[PriceSnapshotQueue] Manually triggering price snapshot");
+  logger.info("[PriceSnapshotQueue] Manually triggering price snapshot");
 
   await priceSnapshotQueue.add(
     {
@@ -132,5 +133,5 @@ export async function cleanupOldJobs() {
   // Remove failed jobs older than 7 days
   await priceSnapshotQueue.clean(7 * 24 * 60 * 60 * 1000, "failed");
 
-  console.log("[PriceSnapshotQueue] Cleaned up old jobs");
+  logger.info("[PriceSnapshotQueue] Cleaned up old jobs");
 }
