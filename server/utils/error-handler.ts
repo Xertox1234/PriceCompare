@@ -188,14 +188,16 @@ export class InternalServerError extends AppError {
   }
 }
 
+import { Request, NextFunction } from 'express';
+
 /**
  * Global error handler middleware
  */
 export function errorHandlerMiddleware(
   error: Error,
-  req: any,
+  req: Request,
   res: Response,
-  next: any
+  next: NextFunction
 ) {
   if (error instanceof AppError) {
     // Handle known application errors

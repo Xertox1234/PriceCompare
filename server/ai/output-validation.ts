@@ -149,8 +149,8 @@ export function validateOutput(
         }
 
         // Additional string constraints
-        if (schema.items === 'string' && (schema as any).itemConstraints) {
-          const constraints = (schema as any).itemConstraints;
+        if (schema.items === 'string' && (schema as Record<string, unknown>).itemConstraints) {
+          const constraints = (schema as Record<string, unknown>).itemConstraints;
           if (constraints.minLength && item.length < constraints.minLength) {
             errors.push({
               field: `[${index}]`,
@@ -227,12 +227,12 @@ function validateObject(
 
   // Validate properties
   if (schema.properties && typeof schema.properties === 'object') {
-    const properties = schema.properties as Record<string, any>;
+    const properties = schema.properties as Record<string, unknown>;
     Object.keys(properties).forEach((key) => {
       if (!(key in obj)) return; // Skip optional fields
 
       const propSchema = properties[key] as any;
-      const value = (obj as any)[key];
+      const value = (obj as Record<string, unknown>)[key];
       const fieldPath = `${path}.${key}`;
 
       // Type validation

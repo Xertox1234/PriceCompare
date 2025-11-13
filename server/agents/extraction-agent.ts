@@ -32,7 +32,7 @@ interface ExtractionTask {
  */
 export class DataExtractionAgent extends BaseAgent {
   private userAgents: string[];
-  private extractionStrategies: Map<string, any> = new Map();
+  private extractionStrategies: Map<string, unknown> = new Map();
 
   constructor() {
     super({
@@ -151,7 +151,7 @@ export class DataExtractionAgent extends BaseAgent {
       });
       
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.response?.status === 403) {
         throw new Error('Access denied - anti-bot protection detected');
       } else if (error.response?.status === 404) {

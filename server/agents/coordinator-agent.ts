@@ -88,7 +88,7 @@ export class CoordinationAgent extends BaseAgent {
     await super.stop();
   }
 
-  async processTask(taskData: any): Promise<any> {
+  async processTask(taskData: unknown): Promise<unknown> {
     const taskId = `coordinator_${Date.now()}`;
     
     return await this.executeTask(
@@ -122,7 +122,7 @@ export class CoordinationAgent extends BaseAgent {
     }
   }
 
-  private async discoverTrends(params: any): Promise<void> {
+  private async discoverTrends(params: Record<string, unknown>): Promise<void> {
     const sources = params.sources || ['google_trends', 'seasonal'];
     const categories = params.categories;
     const limit = params.limit || 20;
@@ -236,7 +236,7 @@ export class CoordinationAgent extends BaseAgent {
     return undefined;
   }
 
-  private async queueSearchJobs(trends: any[]): Promise<void> {
+  private async queueSearchJobs(trends: Array<Record<string, unknown>>): Promise<void> {
     const jobsToCreate: InsertScrapingJob[] = trends.map(trend => ({
       jobType: 'search',
       priority: this.coordinatorConfig.jobPriorities.search,
@@ -277,7 +277,7 @@ export class CoordinationAgent extends BaseAgent {
     await db.insert(scrapingJobs).values(jobData);
   }
 
-  private async runFullCycle(params: any): Promise<void> {
+  private async runFullCycle(params: Record<string, unknown>): Promise<void> {
     console.log('Starting full scraping cycle...');
 
     // Step 1: Discover trends

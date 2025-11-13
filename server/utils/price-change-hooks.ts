@@ -12,7 +12,7 @@ import { eq, and, lte } from 'drizzle-orm';
 export interface PriceChangeHookOptions {
   source?: 'manual' | 'scraper' | 'api' | 'admin';
   confidence?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   notifyUsers?: boolean;
 }
 

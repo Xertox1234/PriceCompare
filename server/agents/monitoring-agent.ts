@@ -101,7 +101,7 @@ export class PriceMonitoringAgent extends BaseAgent {
         retailer: true
       },
       limit: 50 // Process in batches
-    }) as any[];
+    }) /* TODO: Add proper return type */;
 
     this.logInfo(`Found ${staleOffers.length} offers to check`);
 
@@ -193,7 +193,7 @@ export class PriceMonitoringAgent extends BaseAgent {
           }
         }
       }
-    }) as any[];
+    }) /* TODO: Add proper return type */;
 
     const triggeredAlerts: AlertNotification[] = [];
 
@@ -201,10 +201,10 @@ export class PriceMonitoringAgent extends BaseAgent {
       const product = alert.product;
 
       // Find the best current price across all retailers
-      const offers = (product?.offers || []) as any[];
+      const offers = (product?.offers || []) /* TODO: Add proper return type */;
       const bestOffer = offers
-        .filter((offer: any) => offer.availability === 'in_stock')
-        .sort((a: any, b: any) => parseFloat(a.price) - parseFloat(b.price))[0];
+        .filter((offer: unknown) => offer.availability === 'in_stock')
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => parseFloat(a.price) - parseFloat(b.price))[0];
 
       const targetPrice = parseFloat(alert.targetPrice);
       const currentPrice = bestOffer ? parseFloat(bestOffer.price) : Infinity;
@@ -252,7 +252,7 @@ export class PriceMonitoringAgent extends BaseAgent {
         product: true
       },
       limit: 20 // Smaller batch for full refresh
-    }) as any[];
+    }) /* TODO: Add proper return type */;
 
     let refreshed = 0;
     let failed = 0;

@@ -16,7 +16,7 @@ interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -38,7 +38,7 @@ function formatLog(entry: LogEntry): string {
 /**
  * Core logging function
  */
-function log(level: LogLevel, message: string, metadata?: Record<string, any>) {
+function log(level: LogLevel, message: string, metadata?: Record<string, unknown>) {
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
@@ -75,19 +75,19 @@ function log(level: LogLevel, message: string, metadata?: Record<string, any>) {
  * Logger instance with convenience methods
  */
 export const logger = {
-  error(message: string, metadata?: Record<string, any>) {
+  error(message: string, metadata?: Record<string, unknown>) {
     log(LogLevel.ERROR, message, metadata);
   },
 
-  warn(message: string, metadata?: Record<string, any>) {
+  warn(message: string, metadata?: Record<string, unknown>) {
     log(LogLevel.WARN, message, metadata);
   },
 
-  info(message: string, metadata?: Record<string, any>) {
+  info(message: string, metadata?: Record<string, unknown>) {
     log(LogLevel.INFO, message, metadata);
   },
 
-  debug(message: string, metadata?: Record<string, any>) {
+  debug(message: string, metadata?: Record<string, unknown>) {
     log(LogLevel.DEBUG, message, metadata);
   },
 

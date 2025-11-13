@@ -54,7 +54,7 @@ function isAuthenticated(req: Request): req is AuthenticatedRequest {
 }
 
 // Wrapper to enforce authentication
-function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<any>) {
+function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
       res.status(401).json({ error: 'Authentication required' });
@@ -65,7 +65,7 @@ function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise
 }
 
 // Wrapper to enforce admin role
-function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<any>) {
+function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
       res.status(401).json({ error: 'Authentication required' });

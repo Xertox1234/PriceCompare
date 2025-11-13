@@ -165,7 +165,7 @@ export async function generateSmartThresholdSuggestions(
 /**
  * Analyze seasonal patterns from price history
  */
-function analyzeSeasonalPatterns(history: any[]): Array<{ month: string; average: number; count: number }> {
+function analyzeSeasonalPatterns(history: Array<Record<string, unknown>>): Array<{ month: string; average: number; count: number }> {
   const monthlyData: Record<string, number[]> = {};
 
   history.forEach(entry => {
@@ -248,7 +248,7 @@ export async function generatePredictiveAlerts(userId: number): Promise<Predicti
  * Analyze probability of price dropping to target
  */
 function analyzePriceDropProbability(
-  history: any[],
+  history: Array<Record<string, unknown>>,
   currentPrice: number,
   targetPrice: number
 ): Omit<PredictiveAlert, 'productId' | 'productName' | 'currentPrice'> | null {
@@ -316,7 +316,7 @@ function analyzePriceDropProbability(
 /**
  * Calculate average days between deals
  */
-function calculateAverageDaysBetweenDeals(history: any[], targetPrice: number): number {
+function calculateAverageDaysBetweenDeals(history: Array<Record<string, unknown>>, targetPrice: number): number {
   const dealDates: Date[] = [];
 
   history.forEach(entry => {
@@ -339,7 +339,7 @@ function calculateAverageDaysBetweenDeals(history: any[], targetPrice: number): 
 /**
  * Calculate days since target price was last seen
  */
-function calculateDaysSincePrice(history: any[], targetPrice: number): number {
+function calculateDaysSincePrice(history: Array<Record<string, unknown>>, targetPrice: number): number {
   for (const entry of history) {
     if (parseFloat(entry.price) <= targetPrice) {
       const date = new Date(entry.recordedAt || entry.createdAt);

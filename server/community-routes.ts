@@ -11,7 +11,7 @@ import * as communityService from "./services/community-service";
 
 export function registerCommunityRoutes(app: Express) {
   // Middleware to ensure user is authenticated
-  const withAuth = (handler: (req: Request, res: Response) => Promise<any>) => {
+  const withAuth = (handler: (req: Request, res: Response) => Promise<void>) => {
     return async (req: Request, res: Response) => {
       if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -39,7 +39,7 @@ export function registerCommunityRoutes(app: Express) {
         success: true,
         data: watch,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error adding product watch:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to add watch" });
     }
@@ -65,7 +65,7 @@ export function registerCommunityRoutes(app: Express) {
       }
 
       res.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error removing product watch:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to remove watch" });
     }
@@ -85,7 +85,7 @@ export function registerCommunityRoutes(app: Express) {
         data: productIds,
         count: productIds.length,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching watches:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch watches" });
     }
@@ -109,7 +109,7 @@ export function registerCommunityRoutes(app: Express) {
         success: true,
         count,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching watch count:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch watch count" });
     }
@@ -134,7 +134,7 @@ export function registerCommunityRoutes(app: Express) {
         success: true,
         isWatching,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error checking watch status:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to check watch status" });
     }
@@ -154,7 +154,7 @@ export function registerCommunityRoutes(app: Express) {
         data: products,
         count: products.length,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching most watched:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch most watched products" });
     }
@@ -173,7 +173,7 @@ export function registerCommunityRoutes(app: Express) {
         success: true,
         data: reputation,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching reputation:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch reputation" });
     }
@@ -193,7 +193,7 @@ export function registerCommunityRoutes(app: Express) {
         data: leaderboard,
         count: leaderboard.length,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching leaderboard:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch leaderboard" });
     }
@@ -213,7 +213,7 @@ export function registerCommunityRoutes(app: Express) {
         data: deals,
         count: deals.length,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching recent deals:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch recent deals" });
     }

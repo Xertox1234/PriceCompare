@@ -2,6 +2,34 @@ import type { Request, Response, NextFunction } from 'express';
 import { AppError, isOperationalError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
+// Type guard for Zod errors
+interface ZodError extends Error {
+  name: 'ZodError';
+  errors: Array<{
+    path: (string | number)[];
+    message: string;
+  }>;
+}
+
+// Type guard for database errors
+interface DatabaseErrorLike extends Error {
+  code?: string;
+}
+
+// Type for errors that may have a statusCode
+interface ErrorWithStatusCode extends Error {
+  statusCode?: number;
+}
+
+// Extended Request type with optional user
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+    role?: string;
+  };
+}
+
 /**
  * Centralized Error Handling Middleware
  *
@@ -29,10 +57,11 @@ export function errorHandler(
 
   // Handle validation errors from Zod or other validation libraries
   if (err.name === 'ZodError') {
+    const zodError = err as ZodError;
     return res.status(400).json({
       error: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      details: (err as any).errors,
+      details: zodError.errors,
     });
   }
 
@@ -48,7 +77,7 @@ export function errorHandler(
   }
 
   // Handle unknown errors
-  const statusCode = (err as any).statusCode || 500;
+  const statusCode = (err as ErrorWithStatusCode).statusCode || 500;
   const isDev = process.env.NODE_ENV === 'development';
 
   res.status(statusCode).json({
@@ -66,7 +95,7 @@ export function errorHandler(
  * Wraps async route handlers to catch errors automatically
  */
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -91,6 +120,8 @@ export function notFoundHandler(req: Request, res: Response, next: NextFunction)
  */
 function logError(err: Error, req: Request) {
   const isOperational = isOperationalError(err);
+  const authenticatedReq = req as AuthenticatedRequest;
+  const errorWithStatus = err as ErrorWithStatusCode;
 
   // In production, use proper logging service (e.g., Winston, Pino)
   // For now, using console with structured format
@@ -99,12 +130,12 @@ function logError(err: Error, req: Request) {
     type: isOperational ? 'OPERATIONAL' : 'PROGRAMMING',
     name: err.name,
     message: err.message,
-    statusCode: (err as any).statusCode || 500,
+    statusCode: errorWithStatus.statusCode || 500,
     method: req.method,
     path: req.originalUrl,
     ip: req.ip,
     userAgent: req.get('user-agent'),
-    userId: (req as any).user?.id,
+    userId: authenticatedReq.user?.id,
     ...(process.env.NODE_ENV === 'development' && {
       stack: err.stack,
     }),
@@ -128,12 +159,12 @@ function logError(err: Error, req: Request) {
 function isDatabaseError(err: Error): boolean {
   // PostgreSQL error codes
   const pgErrorCodes = ['ECONNREFUSED', '23505', '23503', '23502'];
-  const errorCode = (err as any).code;
+  const dbError = err as DatabaseErrorLike;
 
   return (
     err.name === 'DatabaseError' ||
     err.name === 'PostgresError' ||
-    (errorCode && pgErrorCodes.includes(errorCode))
+    (dbError.code !== undefined && pgErrorCodes.includes(dbError.code))
   );
 }
 
@@ -156,7 +187,7 @@ export function setupGlobalErrorHandlers() {
   });
 
   // Handle unhandled promise rejections
-  process.on('unhandledRejection', (reason: any) => {
+  process.on('unhandledRejection', (reason: unknown) => {
     logger.error('UNHANDLED REJECTION! Shutting down...', {
       reason: reason instanceof Error ? reason.message : String(reason),
       stack: reason instanceof Error ? reason.stack : undefined,
