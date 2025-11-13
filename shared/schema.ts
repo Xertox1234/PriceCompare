@@ -393,6 +393,8 @@ export const insertRetailerSchema = createInsertSchema(retailers).omit({
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
+}).extend({
+  embedding: z.array(z.number()).optional().nullable(),
 });
 
 export const insertProductOfferSchema = createInsertSchema(productOffers).omit({

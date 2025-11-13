@@ -13,7 +13,9 @@ const redisConfig = process.env.REDIS_URL
     };
 
 // Create Bull queue for price snapshots
-export const priceSnapshotQueue = new Queue("price-snapshots", redisConfig);
+export const priceSnapshotQueue = typeof redisConfig === 'string'
+  ? new Queue("price-snapshots", redisConfig)
+  : new Queue("price-snapshots", { redis: redisConfig });
 
 // Process price snapshot jobs
 priceSnapshotQueue.process(async (job) => {
