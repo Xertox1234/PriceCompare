@@ -62,7 +62,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/predictive", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const alerts = await smartAlertsService.generatePredictiveAlerts(user.id);
 
       res.json({
@@ -82,7 +82,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/effectiveness", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const effectiveness = await smartAlertsService.getAlertEffectiveness(user.id);
 
       res.json({
@@ -102,7 +102,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/analytics", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const analytics = await smartAlertsService.getAlertAnalytics(user.id);
 
       res.json({
@@ -121,7 +121,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.post("/api/smart-alerts/create-suggested", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
 
       const schema = z.object({
         productId: z.number(),

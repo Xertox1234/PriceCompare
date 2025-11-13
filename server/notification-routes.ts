@@ -26,7 +26,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
 
       const filterSchema = z.object({
         isRead: z.enum(['true', 'false']).optional().transform(val => val === 'true'),
@@ -56,7 +56,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/stats", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const stats = await notificationService.getNotificationStats(user.id);
 
       res.json({
@@ -75,7 +75,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.post("/api/notifications/:id/read", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const notificationId = parseInt(req.params.id);
 
       if (isNaN(notificationId)) {
@@ -101,7 +101,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.post("/api/notifications/read-all", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const count = await notificationService.markAllAsRead(user.id);
 
       res.json({
@@ -120,7 +120,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.delete("/api/notifications/:id", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const notificationId = parseInt(req.params.id);
 
       if (isNaN(notificationId)) {
@@ -146,7 +146,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.delete("/api/notifications", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const count = await notificationService.deleteAllNotifications(user.id);
 
       res.json({
@@ -165,7 +165,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/preferences", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const preferences = await notificationService.getUserPreferences(user.id);
 
       res.json({
@@ -184,7 +184,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.patch("/api/notifications/preferences", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
 
       const updateSchema = z.object({
         priceDropEnabled: z.boolean().optional(),
@@ -221,7 +221,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/price-drops", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const days = req.query.days ? parseInt(req.query.days as string) : 7;
 
       const notifications = await notificationService.getRecentPriceDrops(user.id, days);
@@ -243,7 +243,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/price-alerts", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const days = req.query.days ? parseInt(req.query.days as string) : 7;
 
       const notifications = await notificationService.getRecentPriceAlerts(user.id, days);

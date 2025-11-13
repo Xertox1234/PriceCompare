@@ -26,7 +26,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post("/api/community/watch/:productId", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productId = parseInt(req.params.productId);
 
       if (isNaN(productId)) {
@@ -51,7 +51,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.delete("/api/community/watch/:productId", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productId = parseInt(req.params.productId);
 
       if (isNaN(productId)) {
@@ -77,7 +77,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watches", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productIds = await communityService.getUserWatchedProducts(user.id);
 
       res.json({
@@ -121,7 +121,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/is-watching/:productId", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productId = parseInt(req.params.productId);
 
       if (isNaN(productId)) {
@@ -166,7 +166,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/reputation", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const reputation = await communityService.getUserReputation(user.id);
 
       res.json({
