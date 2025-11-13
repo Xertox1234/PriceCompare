@@ -168,11 +168,13 @@ export async function getPriceHistory(query: PriceHistoryQuery): Promise<PriceHi
       .orderBy(desc(priceHistory.recordedAt));
 
     if (conditions.length > 0) {
-      queryBuilder = queryBuilder.where(and(...conditions)) as any;
+      // @ts-expect-error - Drizzle query builder type narrowing limitation
+      queryBuilder = queryBuilder.where(and(...conditions));
     }
 
     if (query.limit) {
-      queryBuilder = queryBuilder.limit(query.limit) as any;
+      // @ts-expect-error - Drizzle query builder type narrowing limitation
+      queryBuilder = queryBuilder.limit(query.limit);
     }
 
     return await queryBuilder;

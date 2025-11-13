@@ -9,6 +9,7 @@ import type {
   ScrapingJob,
   InsertScrapingJob
 } from '../../shared/schema.js';
+import type { TaskResult, TaskMetrics } from './types.js';
 
 export interface AgentConfig {
   name: string;
@@ -18,12 +19,7 @@ export interface AgentConfig {
   retryDelay: number;
 }
 
-export interface TaskResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-  metrics?: Record<string, any>;
-}
+export type { TaskResult, TaskMetrics };
 
 export abstract class BaseAgent extends EventEmitter {
   protected config: AgentConfig;

@@ -3,22 +3,8 @@ import { db } from '../db.js';
 import { trendingProducts } from '../../shared/schema.js';
 import { eq, desc } from 'drizzle-orm';
 import type { InsertTrendingProduct } from '../../shared/schema.js';
+import type { TrendData, DiscoveryTaskData, TrendSource } from './types.js';
 import OpenAI from 'openai';
-
-interface TrendData {
-  query: string;
-  score: number;
-  volume: number;
-  category?: string;
-  source: string;
-  metadata?: any;
-}
-
-interface DiscoveryTaskData {
-  sources: string[];
-  categories?: string[];
-  limit?: number;
-}
 
 export class ProductDiscoveryAgent extends BaseAgent {
   private openai: OpenAI;

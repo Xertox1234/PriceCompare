@@ -202,9 +202,9 @@ export class AdvancedSearchService {
       .groupBy(products.id);
 
     return results.map(result => {
-      const productWithOffers = {
+      const productWithOffers: ProductWithOffers = {
         ...result.product,
-        offers: (result.offers as any) || []
+        offers: Array.isArray(result.offers) ? result.offers : []
       };
       return {
         product: productWithOffers,
@@ -257,7 +257,7 @@ export class AdvancedSearchService {
     return results.map(result => {
       const productWithOffers = {
         ...result.product,
-        offers: (result.offers as any) || []
+        offers: Array.isArray(result.offers) ? result.offers : []
       };
       return {
         product: productWithOffers,
@@ -375,7 +375,7 @@ export class AdvancedSearchService {
     return results.map(result => ({
       product: {
         ...result.product,
-        offers: (result.offers as any) || []
+        offers: Array.isArray(result.offers) ? result.offers : []
       },
       relevanceScore: 0.6, // Lower score for synonym matches
       matchType: 'synonym' as const
@@ -449,7 +449,7 @@ export class AdvancedSearchService {
         .map(result => ({
           product: {
             ...result.product,
-            offers: (result.offers as any) || []
+            offers: Array.isArray(result.offers) ? result.offers : []
           },
           relevanceScore: result.similarity * 0.7, // Semantic matches get moderate score
           matchType: 'semantic' as const
@@ -499,7 +499,7 @@ export class AdvancedSearchService {
     return results.map(result => ({
       product: {
         ...result.product,
-        offers: (result.offers as any) || []
+        offers: Array.isArray(result.offers) ? result.offers : []
       },
       relevanceScore: 0.5, // Default relevance for non-searched items
       matchType: 'exact' as const

@@ -3,23 +3,10 @@ import { db } from '../db.js';
 import { searchQueries, trendingProducts } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import type { InsertSearchQuery, TrendingProduct } from '../../shared/schema.js';
+import type { SearchTaskData, SearchResult, RetailerConfig } from './types.js';
 import OpenAI from 'openai';
 import { googleSearchService } from '../services/google-search.js';
 import type { GoogleSearchResult } from '../services/google-search.js';
-
-interface SearchTaskData {
-  productName: string;
-  category?: string;
-  retailers: string[];
-  trendingProductId?: number;
-}
-
-interface SearchResult {
-  query: string;
-  retailer: string;
-  urls: string[];
-  relevanceScore: number;
-}
 
 export class SearchOrchestrationAgent extends BaseAgent {
   private openai: OpenAI;

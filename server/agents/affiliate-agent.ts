@@ -4,18 +4,7 @@ import { db } from '../db.js';
 import { productOffers, retailers } from '../../shared/schema.js';
 import { eq, and, isNull, lt } from 'drizzle-orm';
 import type { ProductOffer, Retailer } from '../../shared/schema.js';
-
-interface AffiliateLinkTask {
-  offerId: number;
-  retailerId: number;
-  productUrl: string;
-  forceRegenerate?: boolean;
-}
-
-interface LinkHealthCheckTask {
-  retailerId?: number;
-  offerId?: number;
-}
+import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types.js';
 
 export class AffiliateLinkAgent extends BaseAgent {
   constructor() {
@@ -319,7 +308,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Get affiliate link agent statistics
    */
-  async getStats(): Promise<any> {
+  async getStats(): Promise<AffiliateStats | null> {
     try {
       const stats = await affiliateLinkService.getAffiliateLinkStats();
       const agentStats = this.getStatus();

@@ -1,26 +1,27 @@
 import { db } from './db';
-import { 
-  users, 
-  forumCategories, 
-  forumTopics, 
-  forumPosts, 
+import {
+  users,
+  forumCategories,
+  forumTopics,
+  forumPosts,
   priceAlerts,
   products
 } from '../shared/schema';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
-import type { 
+import type {
   User,
-  ForumCategory, 
+  ForumCategory,
   InsertForumCategory,
-  ForumTopic, 
+  ForumTopic,
   InsertForumTopic,
-  ForumPost, 
+  ForumPost,
   InsertForumPost,
   ForumTopicWithDetails,
   ForumPostWithAuthor,
   PriceAlert,
   InsertPriceAlert
 } from '../shared/schema';
+import { getFirstResult } from './utils/db-helpers.js';
 
 export class ForumStorage {
   // Categories
@@ -30,7 +31,11 @@ export class ForumStorage {
 
   async createCategory(category: InsertForumCategory): Promise<ForumCategory> {
     const result = await db.insert(forumCategories).values(category).returning();
-    return result[0];
+    const category = getFirstResult(result);
+    if (!category) {
+      throw new Error('Failed to create category');
+    }
+    return category;
   }
 
   // Topics
@@ -128,14 +133,14 @@ export class ForumStorage {
       .where(eq(forumTopics.id, id))
       .limit(1) /* TODO: Add proper return type */;
 
-    if (!result.length) return null;
+    const topic = getFirstResult(result);
+    if (!topic) return null;
 
-    const topic = result[0];
     return {
       ...topic,
       author: topic.author!,
       category: topic.category || undefined,
-    } as any;
+    } as ForumTopicWithDetails;
   }
 
   async createTopic(topic: Omit<InsertForumTopic, 'slug'>): Promise<ForumTopic> {
@@ -154,7 +159,11 @@ export class ForumStorage {
       ...topic,
       slug,
     }).returning();
-    return result[0];
+    const newTopic = getFirstResult(result);
+    if (!newTopic) {
+      throw new Error('Failed to create topic');
+    }
+    return newTopic;
   }
 
   // Posts
@@ -182,17 +191,17 @@ export class ForumStorage {
       .where(eq(forumPosts.topicId, topicId))
       .orderBy(asc(forumPosts.createdAt)) /* TODO: Add proper return type */;
 
-    return results.map((result: unknown) => ({
+    return results.map((result) => ({
       ...result,
       author: result.author!,
-    }));
+    })) as ForumPostWithAuthor[];
   }
 
   async createPost(post: InsertForumPost): Promise<ForumPost> {
     console.log("ForumStorage.createPost called with:", JSON.stringify(post, null, 2));
     console.log("Schema field names:", Object.keys(forumPosts));
     const result = await db.insert(forumPosts).values(post).returning();
-    
+
     // Update topic post count and last post time
     await db.update(forumTopics)
       .set({
@@ -201,13 +210,21 @@ export class ForumStorage {
       })
       .where(eq(forumTopics.id, post.topicId));
 
-    return result[0];
+    const newPost = getFirstResult(result);
+    if (!newPost) {
+      throw new Error('Failed to create post');
+    }
+    return newPost;
   }
 
   // Price Alerts
   async createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert> {
     const result = await db.insert(priceAlerts).values(alert).returning();
-    return result[0];
+    const newAlert = getFirstResult(result);
+    if (!newAlert) {
+      throw new Error('Failed to create price alert');
+    }
+    return newAlert;
   }
 
   async getUserPriceAlerts(userId: number): Promise<PriceAlert[]> {
@@ -220,7 +237,7 @@ export class ForumStorage {
       .set(updates)
       .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
       .returning();
-    return result[0] || null;
+    return getFirstResult(result);
   }
 
   async deletePriceAlert(alertId: number, userId: number): Promise<boolean> {
