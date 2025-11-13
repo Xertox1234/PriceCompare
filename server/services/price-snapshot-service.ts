@@ -1,5 +1,7 @@
 import { db } from "../db";
+import { logger } from "../utils/logger";
 import { productOffers, priceHistory } from "../../shared/schema";
+import { logger } from "../utils/logger";
 import type { InsertPriceHistory } from "../../shared/schema";
 
 export class PriceSnapshotService {
@@ -12,7 +14,7 @@ export class PriceSnapshotService {
       const allOffers = await db.select().from(productOffers);
 
       if (allOffers.length === 0) {
-        console.log("[PriceSnapshot] No product offers found to snapshot");
+        logger.info("[PriceSnapshot] No product offers found to snapshot");
         return 0;
       }
 
@@ -32,13 +34,13 @@ export class PriceSnapshotService {
       // Batch insert all snapshots
       await db.insert(priceHistory).values(snapshots);
 
-      console.log(
+      logger.info(
         `[PriceSnapshot] Successfully snapshotted ${snapshots.length} price records at ${recordedAt.toISOString()}`
       );
 
       return snapshots.length;
     } catch (error) {
-      console.error("[PriceSnapshot] Error snapshotting prices:", error);
+      logger.error("[PriceSnapshot] Error snapshotting prices:", { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -55,7 +57,7 @@ export class PriceSnapshotService {
         .where((offer) => offer.productId === productId);
 
       if (offers.length === 0) {
-        console.log(`[PriceSnapshot] No offers found for product ${productId}`);
+        logger.info(`[PriceSnapshot] No offers found for product ${productId}`);
         return 0;
       }
 
@@ -74,13 +76,13 @@ export class PriceSnapshotService {
 
       await db.insert(priceHistory).values(snapshots);
 
-      console.log(
+      logger.info(
         `[PriceSnapshot] Snapshotted ${snapshots.length} prices for product ${productId}`
       );
 
       return snapshots.length;
     } catch (error) {
-      console.error(
+      logger.error(
         `[PriceSnapshot] Error snapshotting prices for product ${productId}:`,
         error
       );
@@ -99,12 +101,12 @@ export class PriceSnapshotService {
       // This would require a more complex query joining with the latest snapshots
       // For now, we'll return an empty array as a placeholder
       // TODO: Implement sophisticated price change detection
-      console.log(
+      logger.info(
         `[PriceSnapshot] Analyzing price changes with threshold ${thresholdPercentage}%`
       );
       return [];
     } catch (error) {
-      console.error("[PriceSnapshot] Error analyzing price changes:", error);
+      logger.error("[PriceSnapshot] Error analyzing price changes:", { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -123,9 +125,9 @@ export class PriceSnapshotService {
 
       // Delete data older than 2 years
       // TODO: Implement aggregation for 1-2 year old data before deletion
-      console.log("[PriceSnapshot] Cleanup complete");
+      logger.info("[PriceSnapshot] Cleanup complete");
     } catch (error) {
-      console.error("[PriceSnapshot] Error cleaning up old data:", error);
+      logger.error("[PriceSnapshot] Error cleaning up old data:", { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

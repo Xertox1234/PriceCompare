@@ -1,5 +1,7 @@
 import type { Express } from "express";
+import { logger } from "./utils/logger";
 import * as communityService from "./services/community-service";
+import { logger } from "./utils/logger";
 
 /**
  * Community Routes
@@ -39,7 +41,7 @@ export function registerCommunityRoutes(app: Express) {
         data: watch,
       });
     } catch (error: any) {
-      console.error('Error adding product watch:', error);
+      logger.error('Error adding product watch:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to add watch" });
     }
   }));
@@ -65,7 +67,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error('Error removing product watch:', error);
+      logger.error('Error removing product watch:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to remove watch" });
     }
   }));
@@ -85,7 +87,7 @@ export function registerCommunityRoutes(app: Express) {
         count: productIds.length,
       });
     } catch (error: any) {
-      console.error('Error fetching watches:', error);
+      logger.error('Error fetching watches:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch watches" });
     }
   }));
@@ -109,7 +111,7 @@ export function registerCommunityRoutes(app: Express) {
         count,
       });
     } catch (error: any) {
-      console.error('Error fetching watch count:', error);
+      logger.error('Error fetching watch count:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch watch count" });
     }
   });
@@ -134,7 +136,7 @@ export function registerCommunityRoutes(app: Express) {
         isWatching,
       });
     } catch (error: any) {
-      console.error('Error checking watch status:', error);
+      logger.error('Error checking watch status:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to check watch status" });
     }
   }));
@@ -154,7 +156,7 @@ export function registerCommunityRoutes(app: Express) {
         count: products.length,
       });
     } catch (error: any) {
-      console.error('Error fetching most watched:', error);
+      logger.error('Error fetching most watched:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch most watched products" });
     }
   });
@@ -173,7 +175,7 @@ export function registerCommunityRoutes(app: Express) {
         data: reputation,
       });
     } catch (error: any) {
-      console.error('Error fetching reputation:', error);
+      logger.error('Error fetching reputation:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch reputation" });
     }
   }));
@@ -193,7 +195,7 @@ export function registerCommunityRoutes(app: Express) {
         count: leaderboard.length,
       });
     } catch (error: any) {
-      console.error('Error fetching leaderboard:', error);
+      logger.error('Error fetching leaderboard:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch leaderboard" });
     }
   });
@@ -213,7 +215,7 @@ export function registerCommunityRoutes(app: Express) {
         count: deals.length,
       });
     } catch (error: any) {
-      console.error('Error fetching recent deals:', error);
+      logger.error('Error fetching recent deals:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: error.message || "Failed to fetch recent deals" });
     }
   });

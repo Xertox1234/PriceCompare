@@ -74,13 +74,13 @@ export function sendErrorResponse(
 ): void {
   // Log full error details server-side
   if (error instanceof Error) {
-    console.error(`[${context || 'Error'}]:`, {
+    logger.error(`[${context || 'Error'}]:`, {
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : '[redacted]',
       timestamp: new Date().toISOString()
     });
   } else {
-    console.error(`[${context || 'Error'}]:`, error);
+    logger.error(`[${context || 'Error'}]:`, error);
   }
 
   // Send sanitized error to client
@@ -206,7 +206,7 @@ export function errorHandlerMiddleware(
     };
 
     // Log error server-side
-    console.error(`[AppError ${error.code}]:`, {
+    logger.error(`[AppError ${error.code}]:`, {
       message: error.message,
       statusCode: error.statusCode,
       path: req.path,
@@ -218,7 +218,7 @@ export function errorHandlerMiddleware(
   }
 
   // Handle unknown errors
-  console.error('[UnhandledError]:', {
+  logger.error('[UnhandledError]:', {
     message: error.message,
     stack: error.stack,
     path: req.path,

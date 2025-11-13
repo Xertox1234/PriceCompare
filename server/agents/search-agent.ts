@@ -106,7 +106,7 @@ export class SearchOrchestrationAgent extends BaseAgent {
     for (const retailer of taskData.retailers) {
       const retailerConfig = this.retailers.get(retailer);
       if (!retailerConfig) {
-        console.warn(`Unknown retailer: ${retailer}`);
+        logger.warn(`Unknown retailer: ${retailer}`);
         continue;
       }
 
@@ -125,7 +125,7 @@ export class SearchOrchestrationAgent extends BaseAgent {
           });
 
         } catch (error) {
-          console.error(`Search failed for ${retailer} with query "${query}":`, error);
+          logger.error(`Search failed for ${retailer} with query "${query}":`, error);
         }
       }
     }
@@ -244,7 +244,7 @@ OUTPUT CONSTRAINTS:
       return result;
 
     } catch (error) {
-      console.error('AI query generation failed:', error);
+      logger.error('AI query generation failed:', error);
       return [productName];
     }
   }
@@ -277,7 +277,7 @@ OUTPUT CONSTRAINTS:
       );
 
     } catch (error) {
-      console.error(`Google Custom Search failed for ${retailerName}:`, error);
+      logger.error(`Google Custom Search failed for ${retailerName}:`, error);
       throw error; // Don't fall back to simulated data
     }
   }
@@ -360,7 +360,7 @@ OUTPUT CONSTRAINTS:
         lastUsed: new Date()
       });
     } catch (error) {
-      console.error('Failed to store search query:', error);
+      logger.error('Failed to store search query:', error);
     }
   }
 
@@ -376,7 +376,7 @@ OUTPUT CONSTRAINTS:
         return historicalQueries.slice(0, 3).map(q => q.queryText);
       }
     } catch (error) {
-      console.error('Failed to get historical queries:', error);
+      logger.error('Failed to get historical queries:', error);
     }
 
     return this.generateSearchQueries(productName);

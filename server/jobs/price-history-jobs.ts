@@ -1,5 +1,6 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { generateDailySnapshots, cleanupOldPriceHistory } from '../services/price-history-service';
+import { logger } from '../utils/logger';
 
 /**
  * Price History Scheduled Jobs
@@ -13,16 +14,16 @@ let cleanupJob: ScheduledTask | null = null;
  * Start all price history scheduled jobs
  */
 export function startPriceHistoryJobs(): void {
-  console.log('Starting price history scheduled jobs...');
+  logger.info('Starting price history scheduled jobs...');
 
   // Daily snapshot generation - runs at 1:00 AM every day
   snapshotJob = cron.schedule('0 1 * * *', async () => {
     try {
-      console.log('Starting daily price snapshot generation...');
+      logger.info('Starting daily price snapshot generation...');
       const count = await generateDailySnapshots();
-      console.log(`Daily price snapshots completed: ${count} snapshots generated`);
+      logger.info(`Daily price snapshots completed: ${count} snapshots generated`);
     } catch (error) {
-      console.error('Error in daily snapshot generation:', error);
+      logger.error('Error in daily snapshot generation:', { error: error instanceof Error ? error.message : String(error) });
     }
   }, {
     timezone: 'America/New_York' // Adjust to your timezone
@@ -31,26 +32,26 @@ export function startPriceHistoryJobs(): void {
   // Weekly cleanup - runs every Sunday at 2:00 AM
   cleanupJob = cron.schedule('0 2 * * 0', async () => {
     try {
-      console.log('Starting price history cleanup...');
+      logger.info('Starting price history cleanup...');
       const deletedCount = await cleanupOldPriceHistory(90); // Keep 90 days
-      console.log(`Price history cleanup completed: ${deletedCount} records removed`);
+      logger.info(`Price history cleanup completed: ${deletedCount} records removed`);
     } catch (error) {
-      console.error('Error in price history cleanup:', error);
+      logger.error('Error in price history cleanup:', { error: error instanceof Error ? error.message : String(error) });
     }
   }, {
     timezone: 'America/New_York' // Adjust to your timezone
   });
 
-  console.log('Price history jobs scheduled:');
-  console.log('- Daily snapshots: 1:00 AM every day');
-  console.log('- Weekly cleanup: 2:00 AM every Sunday');
+  logger.info('Price history jobs scheduled:');
+  logger.info('- Daily snapshots: 1:00 AM every day');
+  logger.info('- Weekly cleanup: 2:00 AM every Sunday');
 }
 
 /**
  * Stop all price history scheduled jobs
  */
 export function stopPriceHistoryJobs(): void {
-  console.log('Stopping price history scheduled jobs...');
+  logger.info('Stopping price history scheduled jobs...');
 
   if (snapshotJob) {
     snapshotJob.stop();
@@ -62,7 +63,7 @@ export function stopPriceHistoryJobs(): void {
     cleanupJob = null;
   }
 
-  console.log('Price history jobs stopped');
+  logger.info('Price history jobs stopped');
 }
 
 /**
@@ -82,9 +83,9 @@ export function getPriceHistoryJobsStatus(): {
  * Manually trigger snapshot generation (for testing)
  */
 export async function triggerSnapshotGeneration(): Promise<number> {
-  console.log('Manually triggering snapshot generation...');
+  logger.info('Manually triggering snapshot generation...');
   const count = await generateDailySnapshots();
-  console.log(`Manual snapshot generation completed: ${count} snapshots`);
+  logger.info(`Manual snapshot generation completed: ${count} snapshots`);
   return count;
 }
 
@@ -92,8 +93,8 @@ export async function triggerSnapshotGeneration(): Promise<number> {
  * Manually trigger cleanup (for testing)
  */
 export async function triggerCleanup(daysToKeep: number = 90): Promise<number> {
-  console.log(`Manually triggering cleanup (keeping ${daysToKeep} days)...`);
+  logger.info(`Manually triggering cleanup (keeping ${daysToKeep} days)...`);
   const deletedCount = await cleanupOldPriceHistory(daysToKeep);
-  console.log(`Manual cleanup completed: ${deletedCount} records removed`);
+  logger.info(`Manual cleanup completed: ${deletedCount} records removed`);
   return deletedCount;
 }

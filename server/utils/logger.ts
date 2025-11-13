@@ -50,17 +50,17 @@ function log(level: LogLevel, message: string, metadata?: Record<string, any>) {
 
   switch (level) {
     case LogLevel.ERROR:
-      console.error(formatted);
+      logger.error(formatted);
       break;
     case LogLevel.WARN:
-      console.warn(formatted);
+      logger.warn(formatted);
       break;
     case LogLevel.INFO:
       console.info(formatted);
       break;
     case LogLevel.DEBUG:
       if (process.env.NODE_ENV === 'development') {
-        console.log(formatted);
+        logger.info(formatted);
       }
       break;
   }

@@ -49,7 +49,7 @@ setInterval(() => {
   }
 
   if (cleaned > 0) {
-    console.log(`Cleaned ${cleaned} expired lockout entries from memory`);
+    logger.info(`Cleaned ${cleaned} expired lockout entries from memory`);
   }
 }, 60 * 60 * 1000); // Every hour
 
@@ -97,7 +97,7 @@ async function isAccountLockedRedis(email: string): Promise<{
       attempts: record.attempts,
     };
   } catch (error) {
-    console.error('Redis lockout check error:', error);
+    logger.error('Redis lockout check error:', error);
     return isAccountLockedMemory(email);
   }
 }
@@ -192,7 +192,7 @@ async function recordFailedLoginRedis(email: string): Promise<{
       lockedUntil: record.lockedUntil ? new Date(record.lockedUntil) : undefined,
     };
   } catch (error) {
-    console.error('Redis record failed login error:', error);
+    logger.error('Redis record failed login error:', error);
     return recordFailedLoginMemory(email);
   }
 }
@@ -255,7 +255,7 @@ async function clearFailedLoginsRedis(email: string): Promise<void> {
     const key = REDIS_KEYS.ACCOUNT_LOCKOUT(email);
     await redis.del(key);
   } catch (error) {
-    console.error('Redis clear failed logins error:', error);
+    logger.error('Redis clear failed logins error:', error);
     clearFailedLoginsMemory(email);
   }
 }
@@ -320,7 +320,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
       next();
     })
     .catch(error => {
-      console.error('Lockout check error:', error);
+      logger.error('Lockout check error:', error);
       // On error, allow request (fail open)
       next();
     });

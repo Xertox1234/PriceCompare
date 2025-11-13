@@ -45,7 +45,7 @@ export class AdvancedSearchService {
           apiKey: process.env.OPENAI_API_KEY
         });
       } catch (error) {
-        console.error('OpenAI initialization error:', error);
+        logger.error('OpenAI initialization error:', { error: error instanceof Error ? error.message : String(error) });
         this.openai = null;
       }
     } else {
@@ -450,11 +450,11 @@ export class AdvancedSearchService {
 
       return semanticResults;
     } catch (error) {
-      console.error('Semantic search error:', error);
+      logger.error('Semantic search error:', { error: error instanceof Error ? error.message : String(error) });
 
       // Fallback: If vector search fails (e.g., pgvector not installed),
       // return empty array rather than falling back to N+1 pattern
-      console.error('Vector search failed. Please run: npm run migrate');
+      logger.error('Vector search failed. Please run: npm run migrate');
       return [];
     }
   }
@@ -563,7 +563,7 @@ export class AdvancedSearchService {
 
       return this.cosineSimilarity(queryEmbedding, textEmbedding);
     } catch (error) {
-      console.error('Error calculating semantic similarity:', error);
+      logger.error('Error calculating semantic similarity:', { error: error instanceof Error ? error.message : String(error) });
       return 0;
     }
   }
@@ -684,7 +684,7 @@ export class AdvancedSearchService {
         }
       });
     } catch (error) {
-      console.error('Database error in search suggestions:', error);
+      logger.error('Database error in search suggestions:', { error: error instanceof Error ? error.message : String(error) });
     }
     
     // 2. Synonym suggestions
@@ -704,7 +704,7 @@ export class AdvancedSearchService {
         const aiSuggestions = await this.getAISuggestions(query);
         suggestions.push(...aiSuggestions);
       } catch (error) {
-        console.error('AI suggestions error:', error);
+        logger.error('AI suggestions error:', { error: error instanceof Error ? error.message : String(error) });
       }
     }
     
@@ -836,7 +836,7 @@ Return only 3 product names, one per line, no formatting or explanations.`
 
       return suggestions;
     } catch (error) {
-      console.error('AI suggestions error:', error);
+      logger.error('AI suggestions error:', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -847,7 +847,7 @@ Return only 3 product names, one per line, no formatting or explanations.`
    */
   async generateProductEmbedding(productId: number): Promise<void> {
     if (!this.openai) {
-      console.warn('OpenAI not configured, skipping embedding generation');
+      logger.warn('OpenAI not configured, skipping embedding generation');
       return;
     }
 
@@ -877,7 +877,7 @@ Return only 3 product names, one per line, no formatting or explanations.`
         .trim();
 
       if (!searchableText) {
-        console.warn(`Product ${productId} has no searchable text, skipping embedding`);
+        logger.warn(`Product ${productId} has no searchable text, skipping embedding`);
         return;
       }
 
@@ -899,10 +899,10 @@ Return only 3 product names, one per line, no formatting or explanations.`
         })
         .where(eq(products.id, productId));
 
-      console.log(`✅ Generated embedding for product ${productId}`);
+      logger.info(`✅ Generated embedding for product ${productId}`);
 
     } catch (error) {
-      console.error(`Failed to generate embedding for product ${productId}:`, error);
+      logger.error(`Failed to generate embedding for product ${productId}:`, { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

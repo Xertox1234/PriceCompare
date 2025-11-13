@@ -50,11 +50,11 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
 
     // Log performance issues
     if (duration > THRESHOLDS.CRITICAL) {
-      console.error(
+      logger.error(
         `🚨 CRITICAL PERFORMANCE: ${method} ${endpoint} took ${duration}ms (${statusCode})`
       );
     } else if (duration > THRESHOLDS.WARN) {
-      console.warn(
+      logger.warn(
         `⚠️  SLOW REQUEST: ${method} ${endpoint} took ${duration}ms (${statusCode})`
       );
     }

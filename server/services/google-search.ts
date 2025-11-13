@@ -47,7 +47,7 @@ export class GoogleCustomSearchService {
     this.searchEngineId = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID || '';
 
     if (!this.apiKey || !this.searchEngineId) {
-      console.warn('Google Custom Search API credentials not configured');
+      logger.warn('Google Custom Search API credentials not configured');
     }
 
     // Google Custom Search allows 100 queries per day for free
@@ -93,7 +93,7 @@ export class GoogleCustomSearchService {
     const cached = this.searchCache.get(cacheKey);
 
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      console.log(`[CACHE_HIT] Google Search: ${query} site:${retailerDomain}`);
+      logger.info(`[CACHE_HIT] Google Search: ${query} site:${retailerDomain}`);
       return cached.results;
     }
 
@@ -110,7 +110,7 @@ export class GoogleCustomSearchService {
     };
 
     try {
-      console.log(`[API_CALL] Google Search: ${query} site:${retailerDomain}`);
+      logger.info(`[API_CALL] Google Search: ${query} site:${retailerDomain}`);
 
       const response = await axios.get<GoogleSearchResponse>(this.baseUrl, {
         params: searchParams,
@@ -140,7 +140,7 @@ export class GoogleCustomSearchService {
         }
       }
 
-      console.error('Google Custom Search error:', error);
+      logger.error('Google Custom Search error:', error);
       throw new Error(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -159,7 +159,7 @@ export class GoogleCustomSearchService {
         const results = await this.searchRetailer(query, retailer, { num: maxResults });
         return { retailer, results };
       } catch (error) {
-        console.error(`Search failed for ${retailer}:`, error);
+        logger.error(`Search failed for ${retailer}:`, error);
         return { retailer, results: [] };
       }
     });
@@ -185,7 +185,7 @@ export class GoogleCustomSearchService {
     const cached = this.searchCache.get(cacheKey);
 
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      console.log(`[CACHE_HIT] Google Search: ${query}`);
+      logger.info(`[CACHE_HIT] Google Search: ${query}`);
       return cached.results;
     }
 
@@ -201,7 +201,7 @@ export class GoogleCustomSearchService {
     };
 
     try {
-      console.log(`[API_CALL] Google Search: ${query}`);
+      logger.info(`[API_CALL] Google Search: ${query}`);
 
       const response = await axios.get<GoogleSearchResponse>(this.baseUrl, {
         params: searchParams,
@@ -221,7 +221,7 @@ export class GoogleCustomSearchService {
       return results;
 
     } catch (error) {
-      console.error('Google Custom Search error:', error);
+      logger.error('Google Custom Search error:', error);
       throw new Error(`General search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

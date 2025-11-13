@@ -1,5 +1,7 @@
 import { db } from '../db';
+import { logger } from "../utils/logger";
 import {
+import { logger } from "../utils/logger";
   priceHistory,
   priceSnapshots,
   productOffers,
@@ -116,7 +118,7 @@ export async function recordPriceChange(
       priceChangePercent: priceChangePercent !== 0 ? priceChangePercent : undefined
     };
   } catch (error) {
-    console.error('Error recording price change:', error);
+    logger.error('Error recording price change:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -162,7 +164,7 @@ export async function getPriceHistory(query: PriceHistoryQuery): Promise<PriceHi
 
     return await queryBuilder;
   } catch (error) {
-    console.error('Error getting price history:', error);
+    logger.error('Error getting price history:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -259,7 +261,7 @@ export async function getPriceStats(
 
     return stats;
   } catch (error) {
-    console.error('Error getting price stats:', error);
+    logger.error('Error getting price stats:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -351,15 +353,15 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
 
         snapshotCount++;
       } catch (error) {
-        console.error(`Error creating snapshot for product ${productId}, retailer ${retailerId}:`, error);
+        logger.error(`Error creating snapshot for product ${productId}, retailer ${retailerId}:`, { error: error instanceof Error ? error.message : String(error) });
         // Continue with other snapshots
       }
     }
 
-    console.log(`Generated ${snapshotCount} price snapshots for ${snapshotDate.toISOString()}`);
+    logger.info(`Generated ${snapshotCount} price snapshots for ${snapshotDate.toISOString()}`);
     return snapshotCount;
   } catch (error) {
-    console.error('Error generating daily snapshots:', error);
+    logger.error('Error generating daily snapshots:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -400,7 +402,7 @@ export async function getPriceSnapshots(
       .where(and(...conditions))
       .orderBy(desc(priceSnapshots.snapshotDate));
   } catch (error) {
-    console.error('Error getting price snapshots:', error);
+    logger.error('Error getting price snapshots:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -421,10 +423,10 @@ export async function cleanupOldPriceHistory(daysToKeep: number = 90): Promise<n
       .delete(priceHistory)
       .where(lte(priceHistory.recordedAt, cutoffDate));
 
-    console.log(`Cleaned up price history records older than ${cutoffDate.toISOString()}`);
+    logger.info(`Cleaned up price history records older than ${cutoffDate.toISOString()}`);
     return result.rowCount ?? 0;
   } catch (error) {
-    console.error('Error cleaning up old price history:', error);
+    logger.error('Error cleaning up old price history:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -488,7 +490,7 @@ export async function detectSignificantPriceDrops(
 
     return drops;
   } catch (error) {
-    console.error('Error detecting price drops:', error);
+    logger.error('Error detecting price drops:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
