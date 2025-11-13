@@ -174,10 +174,10 @@ export function validateOutput(
           }
         }
       });
-    } else if (typeof schema.items === 'object') {
+    } else if (typeof schema.items === 'object' && schema.items !== null && !Array.isArray(schema.items)) {
       // Object validation
       data.forEach((item, index) => {
-        const itemErrors = validateObject(item, schema.items, `[${index}]`);
+        const itemErrors = validateObject(item, schema.items as Record<string, unknown>, `[${index}]`);
         errors.push(...itemErrors);
       });
     }

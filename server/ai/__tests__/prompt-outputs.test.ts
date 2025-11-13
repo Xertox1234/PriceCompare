@@ -210,8 +210,12 @@ describe('AI Prompt Output Validation', () => {
       };
 
       const sanitized = sanitizeOutput(input);
-      expect(sanitized.field).not.toContain('`');
-      expect(sanitized.nested[0]).not.toContain('`');
+      expect(sanitized).not.toBeNull();
+      expect(typeof sanitized === 'object' && sanitized !== null && 'field' in sanitized).toBe(true);
+      if (typeof sanitized === 'object' && sanitized !== null && 'field' in sanitized && 'nested' in sanitized) {
+        expect(sanitized.field).not.toContain('`');
+        expect(Array.isArray(sanitized.nested) && typeof sanitized.nested[0] === 'string' && sanitized.nested[0]).not.toContain('`');
+      }
     });
 
     it('should handle invalid JSON gracefully', () => {
