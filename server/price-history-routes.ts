@@ -19,7 +19,7 @@ const recordPriceSchema = z.object({
   originalPrice: z.number().positive().optional(),
   source: z.enum(['manual', 'scraper', 'api', 'admin']).optional(),
   confidence: z.number().min(0).max(1).optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.string(), z.any()).optional()
 });
 
 const priceHistoryQuerySchema = z.object({

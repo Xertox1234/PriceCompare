@@ -31,7 +31,7 @@ setInterval(() => {
   const now = new Date();
   let cleaned = 0;
 
-  for (const [email, record] of inMemoryAttempts.entries()) {
+  for (const [email, record] of Array.from(inMemoryAttempts.entries())) {
     if (record.lockedUntil && record.lockedUntil < now) {
       inMemoryAttempts.delete(email);
       cleaned++;

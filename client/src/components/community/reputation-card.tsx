@@ -40,9 +40,9 @@ export function ReputationCard({ compact = false, showBadges = true }: Reputatio
   }
 
   const reputation = data.data;
-  const nextLevelPoints = reputation.level * 100;
+  const nextLevelPoints = (reputation.level ?? 0) * 100;
   const currentLevelProgress =
-    ((reputation.reputationPoints % 100) / 100) * 100;
+    (((reputation.reputationPoints ?? 0) % 100) / 100) * 100;
 
   return (
     <Card>
@@ -72,7 +72,7 @@ export function ReputationCard({ compact = false, showBadges = true }: Reputatio
         <div className="space-y-2">
           <Progress value={currentLevelProgress} className="h-2" />
           <div className="text-xs text-muted-foreground text-center">
-            {Math.round(currentLevelProgress)}% to Level {reputation.level + 1}
+            {Math.round(currentLevelProgress)}% to Level {(reputation.level ?? 0) + 1}
           </div>
         </div>
 

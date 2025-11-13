@@ -67,7 +67,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       // SECURITY: Safe integer parsing with validation and cap
       const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 50 }) : 5;
       
-      logger.info('Search suggestions request - Query:', query, 'Limit:', limit);
+      logger.info('Search suggestions request', { query, limit });
       
       if (!query || query.length < 2) {
         return res.json({ suggestions: [] });

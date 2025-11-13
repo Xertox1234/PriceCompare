@@ -26,7 +26,7 @@ interface PriceHistoryChartProps {
   onViewRetailer?: (retailerId: number) => void;
   productName?: string;
   productId?: number;
-  timeRange?: number;
+  timeRange?: number | null;
 }
 
 // Color palette for different retailers

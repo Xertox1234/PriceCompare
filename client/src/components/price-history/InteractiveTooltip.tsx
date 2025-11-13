@@ -15,7 +15,7 @@ interface TooltipDataPoint {
 
 interface InteractiveTooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: readonly any[];
   label?: string;
   retailers: Array<{ id: number; name: string; logo: string | null }>;
   onSetAlert?: (retailerId: number, price: number) => void;
