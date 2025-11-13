@@ -68,7 +68,7 @@ export class AffiliateLinkService {
       };
 
     } catch (error) {
-      logger.error('Affiliate link generation failed:', error);
+      console.error('Affiliate link generation failed:', error);
       return {
         success: false,
         originalUrl: productUrl,
@@ -207,7 +207,7 @@ export class AffiliateLinkService {
 
       return null;
     } catch (error) {
-      logger.error('Failed to get retailer config:', error);
+      console.error('Failed to get retailer config:', error);
       return null;
     }
   }
@@ -221,7 +221,7 @@ export class AffiliateLinkService {
     try {
       return JSON.parse(configString);
     } catch (error) {
-      logger.error('Failed to parse affiliate config:', error);
+      console.error('Failed to parse affiliate config:', error);
       return {};
     }
   }
@@ -243,7 +243,7 @@ export class AffiliateLinkService {
       clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
-      logger.error('Link validation failed:', error);
+      console.error('Link validation failed:', error);
       return false;
     }
   }
@@ -265,7 +265,7 @@ export class AffiliateLinkService {
         })
         .where(eq(productOffers.id, offerId));
     } catch (error) {
-      logger.error('Failed to update offer with affiliate link:', error);
+      console.error('Failed to update offer with affiliate link:', error);
     }
   }
 
@@ -287,7 +287,7 @@ export class AffiliateLinkService {
           .where(eq(productOffers.id, offerId));
       }
     } catch (error) {
-      logger.error('Failed to track link click:', error);
+      console.error('Failed to track link click:', error);
     }
   }
 
@@ -327,7 +327,7 @@ export class AffiliateLinkService {
         broken
       };
     } catch (error) {
-      logger.error('Health check failed:', error);
+      console.error('Health check failed:', error);
       return { total: 0, healthy: 0, broken: 0 };
     }
   }
@@ -373,7 +373,7 @@ export class AffiliateLinkService {
         broken_links: 0
       };
     } catch (error) {
-      logger.error('Failed to get affiliate link stats:', error);
+      console.error('Failed to get affiliate link stats:', error);
       return null;
     }
   }

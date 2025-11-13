@@ -98,7 +98,7 @@ export class AffiliateLinkAgent extends BaseAgent {
       };
 
     } catch (error) {
-      logger.error('Affiliate link generation failed:', error);
+      console.error('Affiliate link generation failed:', error);
       throw error;
     }
   }
@@ -193,7 +193,7 @@ export class AffiliateLinkAgent extends BaseAgent {
       };
 
     } catch (error) {
-      logger.error('Link health check failed:', error);
+      console.error('Link health check failed:', error);
       throw error;
     }
   }
@@ -301,7 +301,7 @@ export class AffiliateLinkAgent extends BaseAgent {
       try {
         await this.processTask({ action: 'health_check_links' });
       } catch (error) {
-        logger.error('Scheduled health check failed:', error);
+        console.error('Scheduled health check failed:', error);
       }
     }, 6 * 60 * 60 * 1000);
 
@@ -310,7 +310,7 @@ export class AffiliateLinkAgent extends BaseAgent {
       try {
         await this.processTask({ action: 'generate_affiliate_links', limit: 25 });
       } catch (error) {
-        logger.error('Scheduled affiliate generation failed:', error);
+        console.error('Scheduled affiliate generation failed:', error);
       }
     }, 60 * 60 * 1000);
   }
@@ -329,7 +329,7 @@ export class AffiliateLinkAgent extends BaseAgent {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      logger.error('Failed to get affiliate agent stats:', error);
+      console.error('Failed to get affiliate agent stats:', error);
       return null;
     }
   }

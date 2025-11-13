@@ -73,7 +73,7 @@ export class ProductDiscoveryAgent extends BaseAgent {
     for (const sourceName of taskData.sources) {
       const source = this.trendSources.get(sourceName);
       if (!source) {
-        logger.warn(`Unknown trend source: ${sourceName}`);
+        console.warn(`Unknown trend source: ${sourceName}`);
         continue;
       }
 
@@ -81,7 +81,7 @@ export class ProductDiscoveryAgent extends BaseAgent {
         const trends = await source.getTrends(taskData.categories, taskData.limit);
         allTrends.push(...trends);
       } catch (error) {
-        logger.error(`Error getting trends from ${sourceName}:`, error);
+        console.error(`Error getting trends from ${sourceName}:`, error);
       }
     }
 
@@ -264,7 +264,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
       }).filter(trend => trend.metadata?.aiAnalysis?.isProduct);
 
     } catch (error) {
-      logger.error('AI analysis failed, returning original trends:', error);
+      console.error('AI analysis failed, returning original trends:', error);
       return trends;
     }
   }
@@ -283,9 +283,9 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
     if (productsToInsert.length > 0) {
       try {
         await db.insert(trendingProducts).values(productsToInsert);
-        logger.info(`Stored ${productsToInsert.length} trending products`);
+        console.log(`Stored ${productsToInsert.length} trending products`);
       } catch (error) {
-        logger.error('Failed to store trending products:', error);
+        console.error('Failed to store trending products:', error);
       }
     }
   }
