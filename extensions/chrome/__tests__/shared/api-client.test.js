@@ -2,7 +2,8 @@
  * Unit tests for shared/api-client.js
  */
 
-import '../../__tests__/setup.js';
+import { vi } from 'vitest';
+import '../setup.js';
 
 // Mock PriceCompareAPI class
 class PriceCompareAPI {
@@ -128,7 +129,7 @@ describe('PriceCompareAPI', () => {
   beforeEach(() => {
     api = new PriceCompareAPI();
     chrome.__resetStorage();
-    global.fetch = jest.fn();
+    global.fetch = vi.fn();
   });
 
   describe('constructor', () => {
@@ -242,7 +243,7 @@ describe('PriceCompareAPI', () => {
   describe('getCached', () => {
     it('should return cached data if valid', async () => {
       const mockData = { test: 'data' };
-      const mockFetchFn = jest.fn();
+      const mockFetchFn = vi.fn();
 
       api.cache.set('test-key', {
         data: mockData,
@@ -258,7 +259,7 @@ describe('PriceCompareAPI', () => {
     it('should fetch new data if cache expired', async () => {
       const oldData = { old: 'data' };
       const newData = { new: 'data' };
-      const mockFetchFn = jest.fn().mockResolvedValue(newData);
+      const mockFetchFn = vi.fn().mockResolvedValue(newData);
 
       api.cache.set('test-key', {
         data: oldData,
@@ -273,7 +274,7 @@ describe('PriceCompareAPI', () => {
 
     it('should fetch and cache new data if not cached', async () => {
       const mockData = { fresh: 'data' };
-      const mockFetchFn = jest.fn().mockResolvedValue(mockData);
+      const mockFetchFn = vi.fn().mockResolvedValue(mockData);
 
       const result = await api.getCached('new-key', mockFetchFn);
 

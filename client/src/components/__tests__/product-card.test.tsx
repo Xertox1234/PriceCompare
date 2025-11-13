@@ -74,25 +74,26 @@ describe('ProductCard', () => {
 
   it('shows savings when available', () => {
     render(
-      <ProductCard 
-        product={mockProduct} 
-        onAddToComparison={mockOnAddToComparison} 
+      <ProductCard
+        product={mockProduct}
+        onAddToComparison={mockOnAddToComparison}
       />
     )
 
-    expect(screen.getByText(/Save \$30\.00/)).toBeInTheDocument()
-    expect(screen.getByText(/23%/)).toBeInTheDocument()
+    // Component shows percentage badge and original price with line-through
+    expect(screen.getByText(/-23%/)).toBeInTheDocument()
+    expect(screen.getByText('$129.99')).toBeInTheDocument() // original price
   })
 
   it('calls onAddToComparison when compare button is clicked', () => {
     render(
-      <ProductCard 
-        product={mockProduct} 
-        onAddToComparison={mockOnAddToComparison} 
+      <ProductCard
+        product={mockProduct}
+        onAddToComparison={mockOnAddToComparison}
       />
     )
 
-    const compareButton = screen.getByLabelText(`Add ${mockProduct.name} to comparison`)
+    const compareButton = screen.getByRole('button', { name: /compare/i })
     fireEvent.click(compareButton)
 
     expect(mockOnAddToComparison).toHaveBeenCalledTimes(1)

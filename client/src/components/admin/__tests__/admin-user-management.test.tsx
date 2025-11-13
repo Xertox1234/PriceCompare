@@ -126,8 +126,11 @@ describe('AdminUserManagement', () => {
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getByText('J')).toBeInTheDocument(); // johndoe
-    expect(screen.getByText('A')).toBeInTheDocument(); // admin
+    // Two users (johndoe and janedoe) have "J" initial
+    const jInitials = screen.getAllByText('J');
+    expect(jInitials).toHaveLength(2);
+    // One user (admin) has "A" initial
+    expect(screen.getByText('A')).toBeInTheDocument();
   });
 
   it('should display User Management title', () => {

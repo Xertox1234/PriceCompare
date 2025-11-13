@@ -1,4 +1,5 @@
-import "../../setup.js";
+import { vi } from 'vitest';
+import "../setup.js";
 
 /**
  * Unit tests for shared/utils.js
@@ -217,42 +218,42 @@ describe('Utils', () => {
   });
 
   describe('debounce', () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
 
     it('should delay function execution', () => {
-      const mockFn = jest.fn();
+      const mockFn = vi.fn();
       const debouncedFn = debounce(mockFn, 1000);
 
       debouncedFn();
       expect(mockFn).not.toHaveBeenCalled();
 
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       expect(mockFn).toHaveBeenCalledTimes(1);
     });
 
     it('should cancel previous calls', () => {
-      const mockFn = jest.fn();
+      const mockFn = vi.fn();
       const debouncedFn = debounce(mockFn, 1000);
 
       debouncedFn();
       debouncedFn();
       debouncedFn();
 
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       expect(mockFn).toHaveBeenCalledTimes(1);
     });
 
     it('should pass arguments correctly', () => {
-      const mockFn = jest.fn();
+      const mockFn = vi.fn();
       const debouncedFn = debounce(mockFn, 1000);
 
       debouncedFn('arg1', 'arg2');
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
 
       expect(mockFn).toHaveBeenCalledWith('arg1', 'arg2');
     });
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('createElement', () => {
@@ -289,26 +290,26 @@ describe('Utils', () => {
   describe('waitForElement', () => {
     it('should resolve immediately if element exists', async () => {
       const mockElement = document.createElement('div');
-      document.querySelector = jest.fn(() => mockElement);
+      document.querySelector = vi.fn(() => mockElement);
 
       const result = await waitForElement('.test-class');
       expect(result).toBe(mockElement);
     });
 
     it('should reject if element not found within timeout', async () => {
-      document.querySelector = jest.fn(() => null);
+      document.querySelector = vi.fn(() => null);
 
       await expect(waitForElement('.non-existent', 100))
         .rejects.toThrow('Element .non-existent not found within 100ms');
     });
 
     it('should wait for element to appear', async () => {
-      document.querySelector = jest.fn(() => null);
+      document.querySelector = vi.fn(() => null);
       const mockElement = document.createElement('div');
 
       // Simulate element appearing after 50ms
       setTimeout(() => {
-        document.querySelector = jest.fn(() => mockElement);
+        document.querySelector = vi.fn(() => mockElement);
       }, 50);
 
       // This will timeout in the test environment since MutationObserver is mocked
