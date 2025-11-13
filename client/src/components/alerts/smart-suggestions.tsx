@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useSmartThresholdSuggestions, useCreateSuggestedAlert } from '@/hooks/use-smart-alerts';
+import { useSmartThresholdSuggestions, useCreateSuggestedAlert, SmartThresholdSuggestion } from '@/hooks/use-smart-alerts';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, TrendingDown, Calendar, Activity, DollarSign, Info } from 'lucide-react';
 
@@ -18,7 +18,7 @@ export function SmartSuggestions({ productId, currentPrice, onSuggestionAccepted
   const createAlert = useCreateSuggestedAlert();
   const { toast } = useToast();
 
-  const handleAcceptSuggestion = (suggestion: any) => {
+  const handleAcceptSuggestion = (suggestion: SmartThresholdSuggestion) => {
     createAlert.mutate(
       {
         productId,
@@ -101,7 +101,7 @@ function SuggestionCard({
   onAccept,
   isCreating,
 }: {
-  suggestion: any;
+  suggestion: SmartThresholdSuggestion;
   onAccept: () => void;
   isCreating: boolean;
 }) {
@@ -130,7 +130,7 @@ function SuggestionCard({
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
     },
-  };
+  } as const;
 
   const config = basedOnConfig[suggestion.basedOn];
   const Icon = config.icon;

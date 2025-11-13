@@ -29,7 +29,7 @@ const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Cleanup every hour
  */
 function cleanupExpiredLockouts() {
   const now = new Date();
-  for (const [email, record] of failedAttempts.entries()) {
+  for (const [email, record] of Array.from(failedAttempts.entries())) {
     // Remove if lockout expired or attempts are too old
     if (record.lockedUntil && record.lockedUntil < now) {
       failedAttempts.delete(email);
@@ -197,7 +197,7 @@ export function getLockoutStats(): {
   let totalAttempts = 0;
   let accountsWithAttempts = 0;
 
-  for (const record of failedAttempts.values()) {
+  for (const record of Array.from(failedAttempts.values())) {
     accountsWithAttempts++;
     totalAttempts += record.attempts;
     if (record.lockedUntil && record.lockedUntil > now) {

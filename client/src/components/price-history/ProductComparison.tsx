@@ -358,7 +358,7 @@ export function ProductComparison({
                   />
                   <Tooltip
                     content={({ active, payload, label }) => {
-                      if (!active || !payload) return null;
+                      if (!active || !payload || !label) return null;
 
                       return (
                         <Card className="p-3 border-2">

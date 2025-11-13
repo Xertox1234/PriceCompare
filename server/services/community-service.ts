@@ -200,15 +200,15 @@ export async function awardReputation(
   const current = await getUserReputation(userId);
 
   const updates: Partial<InsertUserReputation> = {
-    reputationPoints: current.reputationPoints + points,
+    reputationPoints: (current.reputationPoints ?? 0) + points,
   };
 
   if (reason === 'deal_spotted') {
-    updates.dealsSpotted = current.dealsSpotted + 1;
+    updates.dealsSpotted = (current.dealsSpotted ?? 0) + 1;
   } else if (reason === 'accurate_prediction') {
-    updates.accuratePredictions = current.accuratePredictions + 1;
+    updates.accuratePredictions = (current.accuratePredictions ?? 0) + 1;
   } else if (reason === 'community_contribution') {
-    updates.communityContributions = current.communityContributions + 1;
+    updates.communityContributions = (current.communityContributions ?? 0) + 1;
   }
 
   const result = await db
@@ -233,31 +233,31 @@ async function checkAndAwardBadges(
   const badgesToCheck: Array<{ name: string; condition: boolean }> = [
     {
       name: 'Deal Spotter',
-      condition: reputation.dealsSpotted >= 1,
+      condition: (reputation.dealsSpotted ?? 0) >= 1,
     },
     {
       name: 'Deal Hunter',
-      condition: reputation.dealsSpotted >= 10,
+      condition: (reputation.dealsSpotted ?? 0) >= 10,
     },
     {
       name: 'Deal Master',
-      condition: reputation.dealsSpotted >= 50,
+      condition: (reputation.dealsSpotted ?? 0) >= 50,
     },
     {
       name: 'Community Contributor',
-      condition: reputation.communityContributions >= 10,
+      condition: (reputation.communityContributions ?? 0) >= 10,
     },
     {
       name: 'Reputation Rookie',
-      condition: reputation.reputationPoints >= 100,
+      condition: (reputation.reputationPoints ?? 0) >= 100,
     },
     {
       name: 'Reputation Expert',
-      condition: reputation.reputationPoints >= 1000,
+      condition: (reputation.reputationPoints ?? 0) >= 1000,
     },
     {
       name: 'Reputation Legend',
-      condition: reputation.reputationPoints >= 10000,
+      condition: (reputation.reputationPoints ?? 0) >= 10000,
     },
   ];
 
@@ -357,9 +357,9 @@ export async function getLeaderboard(limit: number = 10): Promise<LeaderboardEnt
   return result.map((r, index) => ({
     userId: r.userId,
     username: r.username,
-    reputationPoints: r.reputationPoints,
-    dealsSpotted: r.dealsSpotted,
-    level: r.level,
+    reputationPoints: r.reputationPoints ?? 0,
+    dealsSpotted: r.dealsSpotted ?? 0,
+    level: r.level ?? 0,
     rank: index + 1,
   }));
 }
@@ -395,10 +395,12 @@ export async function autoPostPriceDropToForum(
       topicId = recentTopic[0].id;
     } else {
       // Create new topic
+      const topicTitle = `🔥 ${dealPost.dropPercent.toFixed(0)}% Price Drop: ${dealPost.productName}`;
       const newTopic: InsertForumTopic = {
         categoryId: 1, // Deals category (assuming ID 1)
-        title: `🔥 ${dealPost.dropPercent.toFixed(0)}% Price Drop: ${dealPost.productName}`,
-        userId: userId || 1, // System user
+        title: topicTitle,
+        slug: topicTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        authorId: userId || 1, // System user
         productId: dealPost.productId,
         isPinned: dealPost.dropPercent >= 50, // Pin massive drops
       };
@@ -427,8 +429,10 @@ _This deal was automatically detected by our price tracking system._
 
     const newPost: InsertForumPost = {
       topicId,
-      userId: userId || 1, // System user
+      authorId: userId || 1, // System user
       content: postContent,
+      rawContent: postContent,
+      postNumber: 1,
     };
 
     const postResult = await db.insert(forumPosts).values(newPost).returning();
@@ -456,7 +460,7 @@ async function notifyWatchers(
     .from(productWatches)
     .where(eq(productWatches.productId, productId));
 
-  const notifications: InsertNotification[] = watchers.map(w => ({
+  const notificationList: InsertNotification[] = watchers.map(w => ({
     userId: w.userId,
     type: 'price_drop',
     title: `${dealPost.dropPercent.toFixed(0)}% Price Drop on ${dealPost.productName}!`,
@@ -465,8 +469,8 @@ async function notifyWatchers(
     relatedTopicId: topicId,
   }));
 
-  if (notifications.length > 0) {
-    await db.insert(notifications).values(notifications);
+  if (notificationList.length > 0) {
+    await db.insert(notifications).values(notificationList);
   }
 }
 

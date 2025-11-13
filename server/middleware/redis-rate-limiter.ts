@@ -34,7 +34,7 @@ setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
 
-  for (const [key, value] of inMemoryStore.entries()) {
+  for (const [key, value] of Array.from(inMemoryStore.entries())) {
     if (value.resetTime < now) {
       inMemoryStore.delete(key);
       cleaned++;

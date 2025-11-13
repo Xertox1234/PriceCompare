@@ -148,11 +148,7 @@ export function transformForChart(
 
   // Convert to array and sort by date
   return Array.from(dataByDate.values())
-    .sort((a, b) => a.timestamp - b.timestamp)
-    .map((item) => {
-      const { timestamp, ...rest } = item;
-      return rest;
-    });
+    .sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /**

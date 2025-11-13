@@ -249,7 +249,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.post("/api/users/:id/badges", requireAuth, async (req: Request, res: Response) => {
     try {
       // Only admins can award badges
-      if (req.user.role !== 'admin') {
+      if (req.user!.role !== 'admin') {
         return res.status(403).json({ error: "Admin access required" });
       }
 
@@ -303,7 +303,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   // Trust level management (admin only)
   app.put("/api/users/:id/trust-level", requireAuth, async (req: Request, res: Response) => {
     try {
-      if (req.user.role !== 'admin') {
+      if (req.user!.role !== 'admin') {
         return res.status(403).json({ error: "Admin access required" });
       }
 
@@ -330,7 +330,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   // User moderation (admin/moderator only)
   app.put("/api/users/:id/suspend", requireAuth, async (req: Request, res: Response) => {
     try {
-      if (!['admin', 'moderator'].includes(req.user.role)) {
+      if (!['admin', 'moderator'].includes(req.user!.role ?? '')) {
         return res.status(403).json({ error: "Moderator access required" });
       }
 
@@ -361,7 +361,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   // Initialize default badges on startup
   app.post("/api/admin/initialize-badges", requireAuth, async (req: Request, res: Response) => {
     try {
-      if (req.user.role !== 'admin') {
+      if (req.user!.role !== 'admin') {
         return res.status(403).json({ error: "Admin access required" });
       }
 

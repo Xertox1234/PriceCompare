@@ -105,7 +105,7 @@ export function registerAffiliateRoutes(app: Express): void {
     validateRequest(testAffiliateLinkSchema, 'body'),
     async (req: Request, res: Response) => {
       try {
-        const { id } = req.params as { id: number };
+        const id = parseInt(req.params.id);
         const { testUrl } = req.body as { testUrl: string };
 
         const result = await affiliateLinkService.generateAffiliateLink(id, testUrl);

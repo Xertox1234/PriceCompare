@@ -1,5 +1,5 @@
 import passport from 'passport';
-import { Strategy as LocalStrategy } from 'passport-local';
+import { Strategy as LocalStrategy, IVerifyOptions } from 'passport-local';
 import bcrypt from 'bcrypt';
 import type { Request, Response, NextFunction } from 'express';
 import { db } from './db';
@@ -13,6 +13,13 @@ import { logSecurityEvent, SecurityEventType } from './utils/security-logger';
 
 // Export the User type for use elsewhere
 export type User = DatabaseUser;
+
+// Extended verify options to include lockout information
+interface ExtendedVerifyOptions extends IVerifyOptions {
+  locked?: boolean;
+  remainingTime?: number;
+  remainingAttempts?: number;
+}
 
 // Extend Express types to include our User type
 declare global {
@@ -37,7 +44,7 @@ passport.use(new LocalStrategy(
           message: 'Account temporarily locked',
           locked: true,
           remainingTime: lockStatus.remainingTime
-        });
+        } as ExtendedVerifyOptions);
       }
 
       const userResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
@@ -60,7 +67,7 @@ passport.use(new LocalStrategy(
           message: 'Invalid email or password',
           remainingAttempts: lockoutResult.remainingAttempts,
           locked: lockoutResult.locked
-        });
+        } as ExtendedVerifyOptions);
       }
 
       // Successful login - clear any failed attempts

@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAlertAnalytics, useAlertEffectiveness, usePredictiveAlerts } from '@/hooks/use-smart-alerts';
+import { useAlertAnalytics, useAlertEffectiveness, usePredictiveAlerts, PredictiveAlert, AlertEffectiveness } from '@/hooks/use-smart-alerts';
 import {
   Bell,
   TrendingDown,
@@ -182,7 +182,7 @@ export function AlertManagementDashboard() {
 }
 
 // Predictive Alert Card Component
-function PredictiveAlertCard({ alert }: { alert: any }) {
+function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
   const predictionConfig = {
     price_likely_to_drop: {
       icon: TrendingDown,
@@ -202,7 +202,7 @@ function PredictiveAlertCard({ alert }: { alert: any }) {
       bgColor: 'bg-purple-50 border-purple-200',
       title: 'Seasonal Opportunity',
     },
-  };
+  } as const;
 
   const config = predictionConfig[alert.prediction];
   const Icon = config.icon;
@@ -246,12 +246,12 @@ function PredictiveAlertCard({ alert }: { alert: any }) {
 }
 
 // Effectiveness Card Component
-function EffectivenessCard({ alert }: { alert: any }) {
+function EffectivenessCard({ alert }: { alert: AlertEffectiveness }) {
   const effectivenessColor = {
     high: 'text-green-600 bg-green-50',
     medium: 'text-yellow-600 bg-yellow-50',
     low: 'text-gray-600 bg-gray-50',
-  };
+  } as const;
 
   return (
     <div className="p-3 rounded-lg border bg-card">

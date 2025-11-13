@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { vi } from 'vitest';
 import { ForumTopicDetail } from '../forum-topic-detail';
 
 const mockTopic = {
@@ -83,8 +84,8 @@ const createWrapper = () => {
 };
 
 describe('ForumTopicDetail', () => {
-  const mockOnBack = jest.fn();
-  const mockRedirectToLogin = jest.fn();
+  const mockOnBack = vi.fn();
+  const mockRedirectToLogin = vi.fn();
 
   beforeEach(() => {
     mockOnBack.mockClear();

@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { vi } from 'vitest';
 import { CreateTopicDialog } from '../create-topic-dialog';
 
 const mockCategories = [
@@ -37,7 +38,7 @@ const createWrapper = () => {
 };
 
 describe('CreateTopicDialog', () => {
-  const mockRedirectToLogin = jest.fn();
+  const mockRedirectToLogin = vi.fn();
 
   beforeEach(() => {
     mockRedirectToLogin.mockClear();
@@ -247,7 +248,7 @@ describe('CreateTopicDialog', () => {
 
   it('should handle form submission with valid data', async () => {
     // Mock fetch for this test
-    global.fetch = jest.fn(() =>
+    global.fetch = vi.fn(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ id: 1, title: 'Test Topic' }),

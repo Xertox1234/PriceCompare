@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import { ForumTopicList } from '../forum-topic-list';
 
 const mockTopics = [
@@ -67,7 +68,7 @@ const mockTopics = [
 ];
 
 describe('ForumTopicList', () => {
-  const mockOnTopicClick = jest.fn();
+  const mockOnTopicClick = vi.fn();
 
   beforeEach(() => {
     mockOnTopicClick.mockClear();

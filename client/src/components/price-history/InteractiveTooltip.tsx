@@ -15,8 +15,8 @@ interface TooltipDataPoint {
 
 interface InteractiveTooltipProps {
   active?: boolean;
-  payload?: any[];
-  label?: string;
+  payload?: readonly any[];
+  label?: string | number;
   retailers: Array<{ id: number; name: string; logo: string | null }>;
   onSetAlert?: (retailerId: number, price: number) => void;
   onViewRetailer?: (retailerId: number) => void;
@@ -25,6 +25,7 @@ interface InteractiveTooltipProps {
     lowestPrice: number;
     highestPrice: number;
   };
+  [key: string]: any; // Allow additional Recharts props
 }
 
 export function InteractiveTooltip({

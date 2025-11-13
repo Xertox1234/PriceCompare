@@ -18,6 +18,7 @@ export class PriceSnapshotService {
         return 0;
       }
 
+      const now = new Date();
       const snapshots = allOffers.map((offer) => ({
         productOfferId: offer.id,
         productId: offer.productId,
@@ -29,7 +30,8 @@ export class PriceSnapshotService {
         reviewCount: offer.reviewCount,
         source: 'snapshot' as const,
         confidence: '1.00',
-        metadata: null
+        metadata: null,
+        recordedAt: now
       }));
 
       // Batch insert all snapshots
@@ -62,6 +64,7 @@ export class PriceSnapshotService {
         return 0;
       }
 
+      const now = new Date();
       const snapshots = offers.map((offer) => ({
         productOfferId: offer.id,
         productId: offer.productId,
@@ -73,7 +76,8 @@ export class PriceSnapshotService {
         reviewCount: offer.reviewCount,
         source: 'snapshot' as const,
         confidence: '1.00',
-        metadata: null
+        metadata: null,
+        recordedAt: now
       }));
 
       await db.insert(priceHistory).values(snapshots);
@@ -86,7 +90,7 @@ export class PriceSnapshotService {
     } catch (error) {
       logger.error(
         `[PriceSnapshot] Error snapshotting prices for product ${productId}:`,
-        error
+        { error: error instanceof Error ? error.message : String(error) }
       );
       throw error;
     }

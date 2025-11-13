@@ -197,8 +197,9 @@ export function registerScrapingRoutes(app: Express): void {
     validateRequest(trendingProductsQuerySchema, 'query'),
     async (req: Request, res: Response) => {
       try {
-        // SECURITY: Using validated query parameters
-        const { limit, status } = req.query as { limit: number; status: string };
+        // SECURITY: Using validated query parameters (validated by middleware)
+        const limit = Number(req.query.limit) || 20;
+        const status = (req.query.status as string) || 'discovered';
 
         const products = await db.select()
           .from(trendingProducts)
