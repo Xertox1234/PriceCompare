@@ -1,7 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "./utils/logger";
 import { z } from 'zod';
-import { logger } from "./utils/logger";
 import {
   recordPriceChange,
   getPriceHistory,

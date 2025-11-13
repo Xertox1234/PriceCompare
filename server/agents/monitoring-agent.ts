@@ -65,11 +65,11 @@ export class PriceMonitoringAgent extends BaseAgent {
 
   // Logging helpers
   protected logInfo(message: string): void {
-    logger.info(`[${this.config.name}] ${message}`);
+    console.log(`[${this.config.name}] ${message}`);
   }
 
   protected logError(message: string): void {
-    logger.error(`[${this.config.name}] ERROR: ${message}`);
+    console.error(`[${this.config.name}] ERROR: ${message}`);
   }
 
   async processTask(task: MonitoringTask): Promise<any> {

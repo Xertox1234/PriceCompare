@@ -1,7 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import * as communityService from "./services/community-service";
-import { logger } from "./utils/logger";
 
 /**
  * Community Routes
@@ -12,8 +11,8 @@ import { logger } from "./utils/logger";
 
 export function registerCommunityRoutes(app: Express) {
   // Middleware to ensure user is authenticated
-  const withAuth = (handler: any) => {
-    return async (req: any, res: any) => {
+  const withAuth = (handler: (req: Request, res: Response) => Promise<any>) => {
+    return async (req: Request, res: Response) => {
       if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -27,7 +26,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post("/api/community/watch/:productId", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productId = parseInt(req.params.productId);
 
       if (isNaN(productId)) {
@@ -52,7 +51,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.delete("/api/community/watch/:productId", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productId = parseInt(req.params.productId);
 
       if (isNaN(productId)) {
@@ -78,7 +77,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watches", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productIds = await communityService.getUserWatchedProducts(user.id);
 
       res.json({
@@ -122,7 +121,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/is-watching/:productId", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const productId = parseInt(req.params.productId);
 
       if (isNaN(productId)) {
@@ -167,7 +166,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/reputation", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const reputation = await communityService.getUserReputation(user.id);
 
       res.json({

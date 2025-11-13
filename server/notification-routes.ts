@@ -1,7 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { z } from "zod";
-import { logger } from "./utils/logger";
 import * as notificationService from "./services/notification-service";
 
 /**
@@ -12,8 +11,8 @@ import * as notificationService from "./services/notification-service";
 
 export function registerNotificationRoutes(app: Express) {
   // Middleware to ensure user is authenticated
-  const withAuth = (handler: any) => {
-    return async (req: any, res: any) => {
+  const withAuth = (handler: (req: Request, res: Response) => Promise<any>) => {
+    return async (req: Request, res: Response) => {
       if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -27,7 +26,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
 
       const filterSchema = z.object({
         isRead: z.enum(['true', 'false']).optional().transform(val => val === 'true'),
@@ -57,7 +56,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/stats", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const stats = await notificationService.getNotificationStats(user.id);
 
       res.json({
@@ -76,7 +75,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.post("/api/notifications/:id/read", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const notificationId = parseInt(req.params.id);
 
       if (isNaN(notificationId)) {
@@ -102,7 +101,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.post("/api/notifications/read-all", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const count = await notificationService.markAllAsRead(user.id);
 
       res.json({
@@ -121,7 +120,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.delete("/api/notifications/:id", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const notificationId = parseInt(req.params.id);
 
       if (isNaN(notificationId)) {
@@ -147,7 +146,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.delete("/api/notifications", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const count = await notificationService.deleteAllNotifications(user.id);
 
       res.json({
@@ -166,7 +165,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/preferences", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const preferences = await notificationService.getUserPreferences(user.id);
 
       res.json({
@@ -185,7 +184,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.patch("/api/notifications/preferences", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
 
       const updateSchema = z.object({
         priceDropEnabled: z.boolean().optional(),
@@ -210,7 +209,7 @@ export function registerNotificationRoutes(app: Express) {
     } catch (error: any) {
       logger.error('Error updating preferences:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid preferences data", details: error.errors });
+        return res.status(400).json({ error: "Invalid preferences data", details: error.issues });
       }
       res.status(500).json({ error: error.message || "Failed to update preferences" });
     }
@@ -222,7 +221,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/price-drops", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const days = req.query.days ? parseInt(req.query.days as string) : 7;
 
       const notifications = await notificationService.getRecentPriceDrops(user.id, days);
@@ -244,7 +243,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/price-alerts", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const days = req.query.days ? parseInt(req.query.days as string) : 7;
 
       const notifications = await notificationService.getRecentPriceAlerts(user.id, days);

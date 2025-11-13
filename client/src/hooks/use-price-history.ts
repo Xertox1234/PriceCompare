@@ -19,6 +19,7 @@ export interface PriceHistoryQueryParams {
   endDate?: Date;
   source?: string;
   limit?: number;
+  days?: number;
 }
 
 /**

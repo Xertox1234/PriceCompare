@@ -48,7 +48,7 @@ setInterval(() => {
       delete rateLimitStore[key];
     });
 
-    logger.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
+    console.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
   }
 }, CLEANUP_INTERVAL_MS);
 
@@ -365,7 +365,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
     } else {
       // SECURITY: In production, ALLOWED_ORIGINS must be explicitly set
       // Log warning if not set
-      logger.warn('WARNING: ALLOWED_ORIGINS not set in production. CORS will be restrictive.');
+      console.warn('WARNING: ALLOWED_ORIGINS not set in production. CORS will be restrictive.');
       allowedOrigins = [];
     }
   }

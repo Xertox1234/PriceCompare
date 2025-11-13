@@ -47,12 +47,12 @@ export function registerEnhancedForumRoutes(app: Express) {
           avatarUrl,
           updatedAt: new Date()
         })
-        .where(eq(users.id, req.user.id));
+        .where(eq(users.id, req.user!.id)); // Auth verified by requireAuth
 
-      const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user.id);
+      const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user!.id);
       res.json(updatedProfile);
     } catch (error) {
-      logger.error("Error updating user profile", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error updating user profile", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
@@ -100,14 +100,14 @@ export function registerEnhancedForumRoutes(app: Express) {
       const topic = await enhancedForumStorage.createTopicWithTags(
         {
           ...topicData,
-          authorId: req.user.id
+          authorId: req.user!.id
         },
         tags
       );
 
       res.status(201).json(topic);
     } catch (error) {
-      logger.error("Error creating enhanced topic", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error creating enhanced topic", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to create topic" });
     }
   });
@@ -139,14 +139,14 @@ export function registerEnhancedForumRoutes(app: Express) {
       const post = await enhancedForumStorage.createPostWithMentions(
         {
           ...postData,
-          authorId: req.user.id
+          authorId: req.user!.id
         },
         mentions
       );
 
       res.status(201).json(post);
     } catch (error) {
-      logger.error("Error creating enhanced post", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error creating enhanced post", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to create post" });
     }
   });
@@ -156,10 +156,10 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       // SECURITY: Safe integer parsing with validation
       const postId = parseIntSafe(req.params.id, 'postId', { min: 1 });
-      const result = await enhancedForumStorage.togglePostLike(postId, req.user.id);
+      const result = await enhancedForumStorage.togglePostLike(postId, req.user!.id);
       res.json(result);
     } catch (error) {
-      logger.error("Error toggling post like", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error toggling post like", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to toggle like" });
     }
   });
@@ -168,10 +168,10 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.get("/api/notifications", requireAuth, async (req: Request, res: Response) => {
     try {
       const unreadOnly = req.query.unreadOnly === 'true';
-      const notifications = await enhancedForumStorage.getUserNotifications(req.user.id, unreadOnly);
+      const notifications = await enhancedForumStorage.getUserNotifications(req.user!.id, unreadOnly);
       res.json(notifications);
     } catch (error) {
-      logger.error("Error fetching notifications", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error fetching notifications", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
@@ -179,10 +179,10 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.put("/api/notifications/mark-read", requireAuth, async (req: Request, res: Response) => {
     try {
       const { notificationIds } = req.body;
-      await enhancedForumStorage.markNotificationsAsRead(req.user.id, notificationIds);
+      await enhancedForumStorage.markNotificationsAsRead(req.user!.id, notificationIds);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Error marking notifications as read", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error marking notifications as read", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to mark notifications as read" });
     }
   });
@@ -190,10 +190,10 @@ export function registerEnhancedForumRoutes(app: Express) {
   // Private messaging
   app.get("/api/messages", requireAuth, async (req: Request, res: Response) => {
     try {
-      const messages = await enhancedForumStorage.getUserPrivateMessages(req.user.id);
+      const messages = await enhancedForumStorage.getUserPrivateMessages(req.user!.id);
       res.json(messages);
     } catch (error) {
-      logger.error("Error fetching private messages", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error fetching private messages", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
@@ -207,12 +207,12 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       const message = await enhancedForumStorage.createPrivateMessage({
         ...req.body,
-        senderId: req.user.id
+        senderId: req.user!.id
       });
 
       res.status(201).json(message);
     } catch (error) {
-      logger.error("Error creating private message", { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
+      logger.error("Error creating private message", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to create message" });
     }
   });
@@ -348,7 +348,7 @@ export function registerEnhancedForumRoutes(app: Express) {
         type: 'moderation',
         title: 'Account suspended',
         content: reason || 'Your account has been suspended',
-        relatedUserId: req.user.id
+        relatedUserId: req.user!.id
       });
 
       res.json({ success: true });

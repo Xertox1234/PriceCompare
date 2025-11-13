@@ -1,7 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "./utils/logger";
 import { db } from './db.js';
-import { logger } from "./utils/logger";
 import { retailers, productOffers } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import { requireAuth, requireAdmin } from './auth';

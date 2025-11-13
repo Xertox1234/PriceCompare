@@ -1,7 +1,6 @@
 import { db } from '../db';
-import { logger } from "../utils/logger";
+import { logger } from '../utils/logger';
 import {
-import { logger } from "../utils/logger";
   priceHistory,
   priceSnapshots,
   productOffers,
@@ -71,6 +70,17 @@ export async function recordPriceChange(
   metadata?: Record<string, any>
 ): Promise<PriceChangeResult> {
   try {
+    // Get the product offer to access productId and retailerId
+    const [offer] = await db
+      .select()
+      .from(productOffers)
+      .where(eq(productOffers.id, productOfferId))
+      .limit(1);
+
+    if (!offer) {
+      throw new Error(`Product offer ${productOfferId} not found`);
+    }
+
     // Get the most recent price for this offer
     const latestPrice = await db
       .select()
@@ -90,7 +100,9 @@ export async function recordPriceChange(
     }
 
     // Record the new price
-    const insertData: InsertPriceHistory = {
+    const insertData = {
+      productId: offer.productId,
+      retailerId: offer.retailerId,
       productOfferId,
       price: price.toString(),
       originalPrice: originalPrice?.toString(),
@@ -118,7 +130,7 @@ export async function recordPriceChange(
       priceChangePercent: priceChangePercent !== 0 ? priceChangePercent : undefined
     };
   } catch (error) {
-    logger.error('Error recording price change:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error recording price change:', error);
     throw error;
   }
 }
@@ -164,7 +176,7 @@ export async function getPriceHistory(query: PriceHistoryQuery): Promise<PriceHi
 
     return await queryBuilder;
   } catch (error) {
-    logger.error('Error getting price history:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error getting price history:', error);
     throw error;
   }
 }
@@ -261,7 +273,7 @@ export async function getPriceStats(
 
     return stats;
   } catch (error) {
-    logger.error('Error getting price stats:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error getting price stats:', error);
     throw error;
   }
 }
@@ -353,7 +365,7 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
 
         snapshotCount++;
       } catch (error) {
-        logger.error(`Error creating snapshot for product ${productId}, retailer ${retailerId}:`, { error: error instanceof Error ? error.message : String(error) });
+        logger.error(`Error creating snapshot for product ${productId}, retailer ${retailerId}:`, error);
         // Continue with other snapshots
       }
     }
@@ -361,7 +373,7 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
     logger.info(`Generated ${snapshotCount} price snapshots for ${snapshotDate.toISOString()}`);
     return snapshotCount;
   } catch (error) {
-    logger.error('Error generating daily snapshots:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error generating daily snapshots:', error);
     throw error;
   }
 }
@@ -402,7 +414,7 @@ export async function getPriceSnapshots(
       .where(and(...conditions))
       .orderBy(desc(priceSnapshots.snapshotDate));
   } catch (error) {
-    logger.error('Error getting price snapshots:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error getting price snapshots:', error);
     throw error;
   }
 }
@@ -426,7 +438,7 @@ export async function cleanupOldPriceHistory(daysToKeep: number = 90): Promise<n
     logger.info(`Cleaned up price history records older than ${cutoffDate.toISOString()}`);
     return result.rowCount ?? 0;
   } catch (error) {
-    logger.error('Error cleaning up old price history:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error cleaning up old price history:', error);
     throw error;
   }
 }
@@ -490,7 +502,7 @@ export async function detectSignificantPriceDrops(
 
     return drops;
   } catch (error) {
-    logger.error('Error detecting price drops:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error detecting price drops:', error as Error);
     throw error;
   }
 }

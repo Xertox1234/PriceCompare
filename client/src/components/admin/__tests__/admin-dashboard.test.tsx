@@ -4,10 +4,10 @@ import type { AnalyticsOverview, UserGrowthData, ForumActivityData, TopCategoryD
 
 describe('AdminDashboard', () => {
   const mockOverviewData: AnalyticsOverview = {
-    totalUsers: 150,
-    totalTopics: 45,
-    totalPosts: 320,
-    totalCategories: 8,
+    totalUsers: '150',
+    totalTopics: '45',
+    totalPosts: '320',
+    totalCategories: '8',
   };
 
   const mockUserGrowthData: UserGrowthData[] = [

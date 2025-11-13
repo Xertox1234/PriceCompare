@@ -1,5 +1,6 @@
 import { OpenAI } from 'openai';
 import { db } from '../db';
+import { logger } from '../utils/logger';
 import { products, productOffers, retailers } from '@shared/schema';
 import { eq, sql, desc, asc, and, or, gte, lte, inArray, ilike } from 'drizzle-orm';
 import type { ProductWithOffers, SearchFilters } from '@shared/schema';

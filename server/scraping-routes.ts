@@ -1,7 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { sendErrorResponse, ErrorMessages } from './utils/error-handler';
-import { logger } from "./utils/logger";
 import { requireAuth, requireAdmin } from './auth';
 import { validateRequest } from './validation';
 import {

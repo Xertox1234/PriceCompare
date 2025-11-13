@@ -1,7 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { z } from "zod";
-import { logger } from "./utils/logger";
 import * as smartAlertsService from "./services/smart-alerts-service";
 
 /**
@@ -13,8 +12,8 @@ import * as smartAlertsService from "./services/smart-alerts-service";
 
 export function registerSmartAlertsRoutes(app: Express) {
   // Middleware to ensure user is authenticated
-  const withAuth = (handler: any) => {
-    return async (req: any, res: any) => {
+  const withAuth = (handler: (req: Request, res: Response) => Promise<any>) => {
+    return async (req: Request, res: Response) => {
       if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -26,7 +25,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    * GET /api/smart-alerts/suggestions/:productId
    * Get smart threshold suggestions for a product
    */
-  app.get("/api/smart-alerts/suggestions/:productId", async (req, res) => {
+  app.get("/api/smart-alerts/suggestions/:productId", async (req: Request, res: Response) => {
     try {
       const productId = parseInt(req.params.productId);
       const currentPrice = req.query.currentPrice
@@ -63,7 +62,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/predictive", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const alerts = await smartAlertsService.generatePredictiveAlerts(user.id);
 
       res.json({
@@ -83,7 +82,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/effectiveness", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const effectiveness = await smartAlertsService.getAlertEffectiveness(user.id);
 
       res.json({
@@ -103,7 +102,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/analytics", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
       const analytics = await smartAlertsService.getAlertAnalytics(user.id);
 
       res.json({
@@ -122,7 +121,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.post("/api/smart-alerts/create-suggested", withAuth(async (req, res) => {
     try {
-      const user = req.user;
+      const user = req.user!; // Auth verified by withAuth middleware
 
       const schema = z.object({
         productId: z.number(),
@@ -158,7 +157,7 @@ export function registerSmartAlertsRoutes(app: Express) {
     } catch (error: any) {
       logger.error('Error creating suggested alert:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
+        return res.status(400).json({ error: "Invalid data", details: error.issues });
       }
       res.status(500).json({ error: error.message || "Failed to create suggested alert" });
     }

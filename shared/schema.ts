@@ -801,7 +801,7 @@ export type SearchQuery = typeof searchQueries.$inferSelect;
 export type AgentSession = typeof agentSessions.$inferSelect;
 export type ScrapingJob = typeof scrapingJobs.$inferSelect;
 export type PricePrediction = typeof pricePredictions.$inferSelect;
-export type PriceHistory = typeof priceHistory.$inferSelect;
+// Note: PriceHistory and InsertPriceHistory are already defined above (lines 509, 533)
 export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
 export type ScrapingSource = typeof scrapingSources.$inferSelect;
 export type ProductUrl = typeof productUrls.$inferSelect;
@@ -811,7 +811,7 @@ export type InsertSearchQuery = z.infer<typeof insertSearchQuerySchema>;
 export type InsertAgentSession = z.infer<typeof insertAgentSessionSchema>;
 export type InsertScrapingJob = z.infer<typeof insertScrapingJobSchema>;
 export type InsertPricePrediction = z.infer<typeof insertPricePredictionSchema>;
-export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
+// Note: InsertPriceHistory is already defined above (line 533)
 export type InsertPriceSnapshot = z.infer<typeof insertPriceSnapshotSchema>;
 export type InsertScrapingSource = z.infer<typeof insertScrapingSourceSchema>;
 export type InsertProductUrl = z.infer<typeof insertProductUrlSchema>;

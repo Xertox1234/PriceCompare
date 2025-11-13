@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { AnalyticsOverview, UserGrowthData, ForumActivityData, TopCategoryData } from '@shared/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SharedNavigation } from '@/components/shared-navigation';
 import { ProductManagement } from '@/components/product-management';
@@ -34,12 +34,12 @@ interface User {
 
 export default function AdminPage() {
   // Fetch categories
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ForumCategory[]>({
     queryKey: ['/api/admin/categories'],
   });
 
   // Fetch users
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
   });
 

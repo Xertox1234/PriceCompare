@@ -12,6 +12,8 @@ const mockProduct: ProductWithOffers = {
   model: 'Test Model',
   image: 'https://example.com/image.jpg',
   createdAt: new Date(),
+  embedding: null,
+  embeddingUpdatedAt: null,
   offers: [
     {
       id: 1,
