@@ -1,7 +1,6 @@
 import { db } from "../db";
 import { logger } from "../utils/logger";
 import { productOffers, priceHistory } from "../../shared/schema";
-import { logger } from "../utils/logger";
 import type { InsertPriceHistory } from "../../shared/schema";
 
 export class PriceSnapshotService {

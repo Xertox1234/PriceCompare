@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { logger } from "./utils/logger";
 import { z } from "zod";
-import { logger } from "./utils/logger";
 import * as smartAlertsService from "./services/smart-alerts-service";
 
 /**

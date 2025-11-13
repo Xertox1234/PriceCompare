@@ -110,7 +110,7 @@ export class MemStorage implements IStorage {
 
     sampleProducts.forEach(product => {
       const id = this.currentProductId++;
-      this.products.set(id, { ...product, id, createdAt: new Date() });
+      this.products.set(id, { ...product, id, createdAt: new Date(), embedding: null, embeddingUpdatedAt: null });
     });
 
     // Sample product offers
@@ -176,27 +176,32 @@ export class MemStorage implements IStorage {
 
   async createProduct(product: InsertProduct): Promise<Product> {
     const id = this.currentProductId++;
-    const newProduct: Product = { 
-      ...product, 
-      id, 
+    const newProduct: Product = {
+      ...product,
+      id,
       createdAt: new Date(),
       image: product.image || null,
       category: product.category || null,
       brand: product.brand || null,
       description: product.description || null,
-      model: product.model || null
+      model: product.model || null,
+      embedding: product.embedding || null,
+      embeddingUpdatedAt: product.embeddingUpdatedAt || null
     };
     this.products.set(id, newProduct);
     return newProduct;
   }
 
-  async searchProducts(filters: SearchFilters): Promise<ProductWithOffers[]> {
+  async searchProducts(filters: SearchFilters): Promise<{
+    products: ProductWithOffers[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }> {
     let filteredProducts = Array.from(this.products.values());
 
     // Apply search query filter
     if (filters.query) {
       const query = filters.query.toLowerCase();
-      filteredProducts = filteredProducts.filter(product => 
+      filteredProducts = filteredProducts.filter(product =>
         product.name.toLowerCase().includes(query) ||
         product.description?.toLowerCase().includes(query) ||
         product.brand?.toLowerCase().includes(query) ||
@@ -206,7 +211,7 @@ export class MemStorage implements IStorage {
 
     // Apply category filter
     if (filters.category) {
-      filteredProducts = filteredProducts.filter(product => 
+      filteredProducts = filteredProducts.filter(product =>
         product.category?.toLowerCase() === filters.category?.toLowerCase()
       );
     }
@@ -308,7 +313,24 @@ export class MemStorage implements IStorage {
       });
     }
 
-    return validProducts;
+    // Apply pagination
+    const page = filters.page || 1;
+    const limit = filters.limit || 50;
+    const total = validProducts.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedProducts = validProducts.slice(startIndex, endIndex);
+
+    return {
+      products: paginatedProducts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async getProductById(id: number): Promise<ProductWithOffers | undefined> {
@@ -434,7 +456,9 @@ export class DatabaseStorage implements IStorage {
         category: product.category || null,
         brand: product.brand || null,
         description: product.description || null,
-        model: product.model || null
+        model: product.model || null,
+        embedding: product.embedding || null,
+        embeddingUpdatedAt: product.embeddingUpdatedAt || null
       })
       .returning();
     return result;

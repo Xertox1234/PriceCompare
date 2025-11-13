@@ -489,7 +489,7 @@ export async function detectSignificantPriceDrops(
 
     return drops;
   } catch (error) {
-    logger.error('Error detecting price drops:', error);
+    logger.error('Error detecting price drops:', error as Error);
     throw error;
   }
 }
