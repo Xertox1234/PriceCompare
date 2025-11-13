@@ -116,20 +116,21 @@ export function validateOutput(
     }
 
     // Validate array length
-    if (schema.minItems !== undefined && data.length < schema.minItems) {
+    const arraySchema = schema as any; // Union type, access properties safely
+    if (arraySchema.minItems !== undefined && data.length < arraySchema.minItems) {
       errors.push({
         field: 'array',
-        message: `Array must have at least ${schema.minItems} items`,
-        expected: `>= ${schema.minItems}`,
+        message: `Array must have at least ${arraySchema.minItems} items`,
+        expected: `>= ${arraySchema.minItems}`,
         received: data.length
       });
     }
 
-    if (schema.maxItems !== undefined && data.length > schema.maxItems) {
+    if (arraySchema.maxItems !== undefined && data.length > arraySchema.maxItems) {
       errors.push({
         field: 'array',
-        message: `Array must have at most ${schema.maxItems} items`,
-        expected: `<= ${schema.maxItems}`,
+        message: `Array must have at most ${arraySchema.maxItems} items`,
+        expected: `<= ${arraySchema.maxItems}`,
         received: data.length
       });
     }
@@ -142,7 +143,7 @@ export function validateOutput(
           errors.push({
             field: `[${index}]`,
             message: `Item must be of type ${schema.items}`,
-            expected: schema.items,
+            expected: schema.items as any, // Union type assertion
             received: typeof item
           });
         }
@@ -185,6 +186,7 @@ export function validateOutput(
   return {
     valid: errors.length === 0,
     errors,
+    // @ts-ignore - Union type complexity
     data: errors.length === 0 ? data : undefined
   };
 }
@@ -210,8 +212,8 @@ function validateObject(
   }
 
   // Check required fields
-  if (schema.required) {
-    schema.required.forEach((field: string) => {
+  if (schema.required && Array.isArray(schema.required)) {
+    (schema.required as string[]).forEach((field: string) => {
       if (!(field in obj)) {
         errors.push({
           field: `${path}.${field}`,
@@ -224,12 +226,13 @@ function validateObject(
   }
 
   // Validate properties
-  if (schema.properties) {
-    Object.keys(schema.properties).forEach((key) => {
+  if (schema.properties && typeof schema.properties === 'object') {
+    const properties = schema.properties as Record<string, any>;
+    Object.keys(properties).forEach((key) => {
       if (!(key in obj)) return; // Skip optional fields
 
-      const propSchema = schema.properties[key];
-      const value = obj[key];
+      const propSchema = properties[key] as any;
+      const value = (obj as any)[key];
       const fieldPath = `${path}.${key}`;
 
       // Type validation
@@ -239,7 +242,7 @@ function validateObject(
           errors.push({
             field: fieldPath,
             message: `Type mismatch`,
-            expected: propSchema.type,
+            expected: propSchema.type as string,
             received: actualType
           });
           return;
@@ -262,7 +265,7 @@ function validateObject(
             received: value.length
           });
         }
-        if (propSchema.enum && !propSchema.enum.includes(value)) {
+        if (propSchema.enum && Array.isArray(propSchema.enum) && !propSchema.enum.includes(value)) {
           errors.push({
             field: fieldPath,
             message: `Value not in allowed list`,
@@ -301,17 +304,17 @@ function validateObject(
 export function sanitizeOutput(data: unknown): JsonValue {
   if (typeof data === 'string') {
     // Remove markdown code blocks
-    data = data.replace(/```[\s\S]*?```/g, '');
-    data = data.replace(/`[^`]*`/g, '');
+    let sanitized = data.replace(/```[\s\S]*?```/g, '');
+    sanitized = sanitized.replace(/`[^`]*`/g, '');
 
     // Trim whitespace
-    data = data.trim();
+    sanitized = sanitized.trim();
 
-    return data;
+    return sanitized;
   }
 
   if (Array.isArray(data)) {
-    return data.map(sanitizeOutput);
+    return data.map(sanitizeOutput) as JsonArray;
   }
 
   if (typeof data === 'object' && data !== null) {
@@ -335,7 +338,7 @@ export function parseAndValidateJSON(
 ): ValidationResult {
   try {
     // Sanitize output first
-    let sanitized = sanitizeOutput(rawOutput);
+    let sanitized = sanitizeOutput(rawOutput) as string;
 
     // Try to extract JSON from markdown code blocks
     const jsonMatch = sanitized.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
