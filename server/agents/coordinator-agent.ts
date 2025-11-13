@@ -6,13 +6,14 @@ import { PriceMonitoringAgent } from './monitoring-agent.js';
 import { db } from '../db.js';
 import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema.js';
 import { eq, and, lt } from 'drizzle-orm';
-import type { 
-  ScrapingJob, 
-  InsertScrapingJob, 
+import type {
+  ScrapingJob,
+  InsertScrapingJob,
   TrendingProduct,
   InsertProduct,
-  InsertProductOffer 
+  InsertProductOffer
 } from '../../shared/schema.js';
+import type { CoordinatorTask, SystemStatus } from './types.js';
 
 interface CoordinatorConfig {
   maxConcurrentJobs: number;
@@ -371,7 +372,7 @@ export class CoordinationAgent extends BaseAgent {
     }
   }
 
-  async getSystemStatus(): Promise<any> {
+  async getSystemStatus(): Promise<SystemStatus> {
     const [
       totalJobs,
       pendingJobs,

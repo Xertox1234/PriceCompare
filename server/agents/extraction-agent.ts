@@ -5,27 +5,7 @@ import { ScraperUtils } from '../utils/scraper-utils';
 import { db } from '../db';
 import { products, productOffers, retailers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-
-interface ExtractedProductData {
-  title: string;
-  price: number | null;
-  currency: string;
-  availability: string;
-  description?: string;
-  imageUrl?: string;
-  rating?: number;
-  reviewCount?: number;
-  brand?: string;
-  model?: string;
-}
-
-interface ExtractionTask {
-  action: 'extract_product_data';
-  url: string;
-  retailer: string;
-  searchQuery?: string;
-  productId?: number;
-}
+import type { ExtractedProductData, ExtractionTask } from './types.js';
 
 /**
  * Data Extraction Agent - Extracts product information and pricing from retailer websites

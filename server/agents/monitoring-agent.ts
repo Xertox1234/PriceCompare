@@ -4,24 +4,7 @@ import { db } from '../db';
 import { productOffers, priceAlerts, products, retailers } from '@shared/schema';
 import { eq, lt, and, desc, gte, isNotNull } from 'drizzle-orm';
 import { ScraperUtils } from '../utils/scraper-utils';
-
-interface MonitoringTask {
-  action: 'monitor_price_changes' | 'check_alerts' | 'refresh_offers';
-  productOfferId?: number;
-  retailerId?: number;
-  maxAge?: number; // Hours since last check
-}
-
-interface PriceChange {
-  offerId: number;
-  productName: string;
-  retailerName: string;
-  oldPrice: number;
-  newPrice: number;
-  priceChange: number;
-  percentChange: number;
-  url: string;
-}
+import type { MonitoringTask, PriceChange, MonitoringStats } from './types.js';
 
 interface AlertNotification {
   alertId: number;
@@ -294,7 +277,7 @@ export class PriceMonitoringAgent extends BaseAgent {
   /**
    * Get monitoring statistics
    */
-  async getMonitoringStats(): Promise<any> {
+  async getMonitoringStats(): Promise<MonitoringStats> {
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
