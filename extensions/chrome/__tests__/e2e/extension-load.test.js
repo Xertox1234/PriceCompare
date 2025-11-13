@@ -1,4 +1,4 @@
-import "../../setup.js";
+import "../setup.js";
 
 /**
  * E2E Tests for PriceCompare Extension

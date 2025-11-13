@@ -120,8 +120,3 @@ beforeEach(() => {
   chromeMock.storage.local.remove.mockClear();
   chromeMock.storage.local.clear.mockClear();
 });
-
-// Cleanup after each test
-afterEach(() => {
-  vi.restoreAllMocks();
-});

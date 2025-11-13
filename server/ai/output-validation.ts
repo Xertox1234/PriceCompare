@@ -76,8 +76,8 @@ export const outputSchemas = {
 
   'search-suggestions': {
     type: 'array',
-    items: {
-      type: 'string',
+    items: 'string',
+    itemConstraints: {
       minLength: 3,
       maxLength: 100
     },
@@ -337,13 +337,15 @@ export function parseAndValidateJSON(
   schemaName: keyof typeof outputSchemas
 ): ValidationResult {
   try {
-    // Sanitize output first
-    let sanitized = sanitizeOutput(rawOutput) as string;
+    let sanitized = rawOutput;
 
-    // Try to extract JSON from markdown code blocks
+    // Try to extract JSON from markdown code blocks first (before sanitizing)
     const jsonMatch = sanitized.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
-      sanitized = jsonMatch[1];
+      sanitized = jsonMatch[1].trim();
+    } else {
+      // Only sanitize if there were no code blocks
+      sanitized = (sanitizeOutput(rawOutput) as string).trim();
     }
 
     // Parse JSON

@@ -11,14 +11,15 @@ describe('SearchHeader', () => {
 
   it('renders search input and button', () => {
     render(
-      <SearchHeader 
-        onSearch={mockOnSearch} 
-        searchQuery="" 
+      <SearchHeader
+        onSearch={mockOnSearch}
+        searchQuery=""
       />
     )
 
+    // Component has search input with aria-label, submission happens via Enter key
     expect(screen.getByPlaceholderText(/search for products/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/search for products/i)).toBeInTheDocument()
   })
 
   it('displays current search query', () => {
@@ -35,17 +36,16 @@ describe('SearchHeader', () => {
 
   it('calls onSearch when form is submitted', () => {
     render(
-      <SearchHeader 
-        onSearch={mockOnSearch} 
-        searchQuery="" 
+      <SearchHeader
+        onSearch={mockOnSearch}
+        searchQuery=""
       />
     )
 
     const input = screen.getByPlaceholderText(/search for products/i)
-    const button = screen.getByRole('button', { name: /search/i })
 
     fireEvent.change(input, { target: { value: 'laptop' } })
-    fireEvent.click(button)
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     expect(mockOnSearch).toHaveBeenCalledWith('laptop')
   })
@@ -68,14 +68,14 @@ describe('SearchHeader', () => {
 
   it('handles empty search gracefully', () => {
     render(
-      <SearchHeader 
-        onSearch={mockOnSearch} 
-        searchQuery="" 
+      <SearchHeader
+        onSearch={mockOnSearch}
+        searchQuery=""
       />
     )
 
-    const button = screen.getByRole('button', { name: /search/i })
-    fireEvent.click(button)
+    const input = screen.getByPlaceholderText(/search for products/i)
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     expect(mockOnSearch).toHaveBeenCalledWith('')
   })

@@ -1,4 +1,4 @@
-import "../../setup.js";
+import "../setup.js";
 
 /**
  * Integration tests for Amazon content script

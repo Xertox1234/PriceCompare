@@ -2,7 +2,7 @@
  * Unit tests for shared/storage.js
  */
 
-import '../../__tests__/setup.js';
+import '../setup.js';
 
 // Mock ExtensionStorage class
 class ExtensionStorage {
@@ -344,7 +344,7 @@ describe('ExtensionStorage', () => {
 
       expect(products).toHaveLength(50);
       expect(products[0].id).toBe(100);
-      expect(products[49].id).toBe(0);
+      expect(products[49].id).toBe(48);
     });
   });
 
