@@ -201,14 +201,17 @@ export class AdvancedSearchService {
       )
       .groupBy(products.id);
 
-    return results.map(result => ({
-      product: {
+    return results.map(result => {
+      const productWithOffers = {
         ...result.product,
         offers: (result.offers as any) || []
-      },
-      relevanceScore: this.calculateExactMatchScore(query, result.product),
-      matchType: 'exact' as const
-    }));
+      };
+      return {
+        product: productWithOffers,
+        relevanceScore: this.calculateExactMatchScore(query, productWithOffers),
+        matchType: 'exact' as const
+      };
+    });
   }
 
   /**
@@ -251,14 +254,17 @@ export class AdvancedSearchService {
       )
       .groupBy(products.id);
 
-    return results.map(result => ({
-      product: {
+    return results.map(result => {
+      const productWithOffers = {
         ...result.product,
         offers: (result.offers as any) || []
-      },
-      relevanceScore: this.calculateFuzzyScore(query, result.product),
-      matchType: 'fuzzy' as const
-    }));
+      };
+      return {
+        product: productWithOffers,
+        relevanceScore: this.calculateFuzzyScore(query, productWithOffers),
+        matchType: 'fuzzy' as const
+      };
+    });
   }
 
   /**

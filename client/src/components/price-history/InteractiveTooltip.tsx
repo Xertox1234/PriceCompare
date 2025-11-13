@@ -25,6 +25,7 @@ interface InteractiveTooltipProps {
     lowestPrice: number;
     highestPrice: number;
   };
+  [key: string]: any; // Allow additional Recharts props
 }
 
 export function InteractiveTooltip({

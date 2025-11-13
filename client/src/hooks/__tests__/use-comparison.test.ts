@@ -11,9 +11,10 @@ const mockProduct: ProductWithOffers = {
   category: 'Electronics',
   brand: 'TestBrand',
   model: 'Test Model',
-  imageUrl: 'https://example.com/image.jpg',
+  image: 'https://example.com/image.jpg',
+  embedding: null,
+  embeddingUpdatedAt: null,
   createdAt: new Date(),
-  updatedAt: new Date(),
   offers: [
     {
       id: 1,

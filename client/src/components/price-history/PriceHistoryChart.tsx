@@ -205,7 +205,7 @@ export function PriceHistoryChart({
               data={data}
               productName={productName}
               productId={productId}
-              timeRange={timeRange}
+              timeRange={timeRange ?? undefined}
             />
           )}
         </div>
