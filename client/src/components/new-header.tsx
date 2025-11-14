@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Menu, Activity } from 'lucide-react';
+import { ChevronDown, Menu, Activity, FolderHeart } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { AuthModal } from './auth/auth-modal';
@@ -42,6 +42,14 @@ export function NewHeader() {
                 Advanced Search
               </span>
             </Link>
+            {user && (
+              <Link href="/watchlists">
+                <span className="text-gray-600 hover:text-indigo-600 transition duration-300 cursor-pointer flex items-center">
+                  <FolderHeart className="mr-1 h-4 w-4" />
+                  Watch Lists
+                </span>
+              </Link>
+            )}
             <div className="relative group">
               <span className="text-gray-600 hover:text-indigo-600 transition duration-300 cursor-pointer flex items-center">
                 Categories <ChevronDown className="ml-1 h-4 w-4" />

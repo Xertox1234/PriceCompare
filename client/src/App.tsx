@@ -16,7 +16,7 @@ import MonitoringDashboard from "@/pages/monitoring";
 import NotFound from "@/pages/not-found";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
-import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage, LazyPriceHistoryPage } from "@/components/lazy";
+import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage, LazyPriceHistoryPage, LazyWatchListManager } from "@/components/lazy";
 import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
 
 function Router() {
@@ -70,6 +70,13 @@ function Router() {
             </RouteErrorBoundary>
           </Route>
           <Route path="/monitoring" component={MonitoringDashboard} />
+          <Route path="/watchlists">
+            <RouteErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <LazyWatchListManager />
+              </Suspense>
+            </RouteErrorBoundary>
+          </Route>
           <Route path="/products/:id/price-history">
             <RouteErrorBoundary>
               <Suspense fallback={<LoadingFallback />}>
