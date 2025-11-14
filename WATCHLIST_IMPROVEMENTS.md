@@ -257,9 +257,11 @@ This document tracks planned improvements to the PriceCompare watchlist and comm
 ### Next Steps
 
 1. **Testing & Integration** (Phase 1.1 Completion):
+   - **📖 See [WATCHLIST_INTEGRATION.md](./WATCHLIST_INTEGRATION.md) for detailed integration guide**
+   - Add route to App.tsx (`/watchlists`)
+   - Add navigation link to header
+   - Run database migration if not done (`npm run db:migrate`)
    - Manual testing of all UI components
-   - Integration testing with existing product pages
-   - Add route/page integration for WatchListManager
    - Test import/export functionality
    - Verify bulk operations work correctly
    - Test on mobile/responsive layouts
