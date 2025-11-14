@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Menu } from 'lucide-react';
+import { ChevronDown, Menu, Activity } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { AuthModal } from './auth/auth-modal';
@@ -48,7 +48,17 @@ export function NewHeader() {
               </span>
               {/* Dropdown menu could be added here */}
             </div>
-            
+
+            {/* Admin-only Monitoring link */}
+            {user?.isAdmin && (
+              <Link href="/monitoring">
+                <span className="text-gray-600 hover:text-indigo-600 transition duration-300 cursor-pointer flex items-center">
+                  <Activity className="mr-1 h-4 w-4" />
+                  Monitoring
+                </span>
+              </Link>
+            )}
+
             {/* Auth buttons */}
             {user ? (
               <div className="flex items-center space-x-4">

@@ -3,6 +3,7 @@ import compression from "compression";
 import session from "express-session";
 import { registerRoutes } from "./routes";
 import { registerScrapingRoutes } from "./scraping-routes";
+import { registerMonitoringRoutes } from "./monitoring-routes";
 import { registerAffiliateRoutes } from "./affiliate-routes";
 import { registerHybridDataRoutes } from "./hybrid-data-routes";
 import { registerDiscourseRoutes } from "./discourse-routes";
@@ -13,6 +14,7 @@ import { registerNotificationRoutes } from "./notification-routes";
 import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
 import { registerCommunityRoutes } from "./community-routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { websocketService } from "./services/websocket-service";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
 import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrfToken, csrfProtection } from "./middleware/security";
@@ -141,7 +143,10 @@ app.use(sanitizeInput);
   
   // Register AI scraping routes
   registerScrapingRoutes(app);
-  
+
+  // Register monitoring and dashboard routes
+  registerMonitoringRoutes(app);
+
   // Register affiliate routes
   registerAffiliateRoutes(app);
   
@@ -168,6 +173,10 @@ app.use(sanitizeInput);
 
   // Register community routes
   registerCommunityRoutes(app);
+
+  // Initialize WebSocket service for real-time dashboard updates
+  websocketService.initialize(server);
+  log("WebSocket service initialized for real-time monitoring");
 
   // Centralized error handling (must be after all routes)
   app.use(errorHandler);

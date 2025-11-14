@@ -8,14 +8,12 @@ import OpenAI from 'openai';
 import { googleSearchService } from '../services/google-search.js';
 import type { GoogleSearchResult } from '../services/google-search.js';
 import { logger } from '../utils/logger.js';
+import { safeSearchQueries, type AISearchQueries } from './ai-validation-schemas.js';
+import { queryCache } from '../services/redis-cache.js';
 
 export class SearchOrchestrationAgent extends BaseAgent {
   private openai: OpenAI;
   private retailers: Map<string, RetailerConfig>;
-  private queryGenerationCache: Map<string, { queries: string[]; timestamp: number }>;
-
-  // Cache size limit to prevent memory leaks
-  private readonly MAX_QUERY_GENERATION_CACHE_SIZE = 1000;
 
   constructor() {
     const config: AgentConfig = {
@@ -127,12 +125,16 @@ export class SearchOrchestrationAgent extends BaseAgent {
   }
 
   private async generateSearchQueries(productName: string, category?: string): Promise<string[]> {
-    // Check cache first (7 day TTL)
+    // Check Redis cache first (7 day TTL)
     const cacheKey = `${productName}:${category || 'none'}`;
-    const cached = this.queryGenerationCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < 604800000) { // 7 days = 604800000ms
-      return cached.queries;
+    const cached = await queryCache.get<string[]>(cacheKey);
+
+    if (cached) {
+      logger.debug('Query cache hit', { productName, category });
+      return cached;
     }
+
+    logger.debug('Query cache miss, generating with AI', { productName, category });
 
     try {
       const prompt = `
@@ -214,26 +216,52 @@ OUTPUT CONSTRAINTS:
         max_tokens: 200
       });
 
-      const queries = response.choices[0].message.content
-        ?.split('\n')
+      const rawResponse = response.choices[0].message.content || '';
+      const queries = rawResponse
+        .split('\n')
         .map(q => q.trim())
-        .filter(q => q.length > 0) || [];
+        .filter(q => q.length > 0);
 
-      const result = queries.length > 0 ? queries : [productName];
+      // Validate queries with Zod schema
+      let validatedQueries: AISearchQueries;
+      try {
+        const validationResult = safeSearchQueries(queries);
 
-      // Cache the result
-      this.queryGenerationCache.set(cacheKey, {
-        queries: result,
-        timestamp: Date.now()
-      });
+        if (!validationResult.success) {
+          logger.error('Search query validation failed', {
+            errors: validationResult.error.errors,
+            rawQueries: queries,
+            productName
+          });
+          throw new Error('Invalid search query format');
+        }
 
-      // Enforce cache size limit
-      if (this.queryGenerationCache.size > this.MAX_QUERY_GENERATION_CACHE_SIZE) {
-        const keysToDelete = Array.from(this.queryGenerationCache.keys()).slice(0, this.queryGenerationCache.size - this.MAX_QUERY_GENERATION_CACHE_SIZE);
-        keysToDelete.forEach(key => this.queryGenerationCache.delete(key));
+        validatedQueries = validationResult.data;
+        logger.debug('Search queries validated successfully', {
+          queryCount: validatedQueries.length,
+          productName
+        });
+
+      } catch (validationError) {
+        logger.error('Failed to validate search queries', {
+          error: validationError instanceof Error ? validationError.message : String(validationError),
+          rawResponse: rawResponse.substring(0, 200),
+          productName
+        });
+        // Fallback to product name
+        validatedQueries = [productName];
       }
 
-      return result;
+      // Cache the validated result in Redis (7 day TTL)
+      await queryCache.set(cacheKey, validatedQueries, 604800000);
+
+      logger.debug('Query cached in Redis', {
+        productName,
+        category,
+        queryCount: validatedQueries.length
+      });
+
+      return validatedQueries;
 
     } catch (error) {
       logger.error('AI query generation failed', {

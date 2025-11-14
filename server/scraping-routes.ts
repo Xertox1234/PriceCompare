@@ -569,4 +569,83 @@ export function registerScrapingRoutes(app: Express): void {
       });
     }
   });
+
+  // Get Redis cache statistics
+  app.get("/api/scraping/cache-stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { queryCache, generalCache } = await import('./services/redis-cache.js');
+
+      const queryCacheStats = queryCache.getStats();
+      const generalCacheStats = generalCache.getStats();
+
+      // Test connectivity
+      const queryPing = await queryCache.ping();
+      const generalPing = await generalCache.ping();
+
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        queryCache: {
+          ...queryCacheStats,
+          healthy: queryPing,
+          hitRatePercent: Math.round(queryCacheStats.hitRate * 100)
+        },
+        generalCache: {
+          ...generalCacheStats,
+          healthy: generalPing,
+          hitRatePercent: Math.round(generalCacheStats.hitRate * 100)
+        },
+        overall: {
+          totalHits: queryCacheStats.hits + generalCacheStats.hits,
+          totalMisses: queryCacheStats.misses + generalCacheStats.misses,
+          totalSets: queryCacheStats.sets + generalCacheStats.sets,
+          totalErrors: queryCacheStats.errors + generalCacheStats.errors,
+          combinedHitRate: (queryCacheStats.hits + generalCacheStats.hits) /
+            (queryCacheStats.hits + generalCacheStats.hits + queryCacheStats.misses + generalCacheStats.misses) || 0
+        }
+      });
+
+    } catch (error) {
+      logger.error('Failed to get cache stats:', { error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({
+        error: "Failed to retrieve cache statistics",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Clear Redis cache (admin only)
+  app.post("/api/scraping/cache-clear", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { queryCache, generalCache } = await import('./services/redis-cache.js');
+      const { cacheType } = req.body; // 'query', 'general', or 'all'
+
+      let clearedQuery = false;
+      let clearedGeneral = false;
+
+      if (cacheType === 'query' || cacheType === 'all') {
+        clearedQuery = await queryCache.clear();
+      }
+
+      if (cacheType === 'general' || cacheType === 'all') {
+        clearedGeneral = await generalCache.clear();
+      }
+
+      res.json({
+        success: true,
+        message: `Cache cleared successfully`,
+        cleared: {
+          query: clearedQuery,
+          general: clearedGeneral
+        }
+      });
+
+    } catch (error) {
+      logger.error('Failed to clear cache:', { error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({
+        error: "Failed to clear cache",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 }

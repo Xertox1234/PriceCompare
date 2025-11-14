@@ -31,11 +31,11 @@ export class ForumStorage {
 
   async createCategory(category: InsertForumCategory): Promise<ForumCategory> {
     const result = await db.insert(forumCategories).values(category).returning();
-    const category = getFirstResult(result);
-    if (!category) {
+    const createdCategory = getFirstResult(result);
+    if (!createdCategory) {
       throw new Error('Failed to create category');
     }
-    return category;
+    return createdCategory;
   }
 
   // Topics
