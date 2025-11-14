@@ -336,14 +336,37 @@ export const userBadges = pgTable("user_badges", {
 });
 
 // Product watches - users watching products for price changes
+// Watch lists for organizing watched products
+export const watchLists = pgTable("watch_lists", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 7 }), // Hex color code
+  icon: varchar("icon", { length: 50 }), // Icon name
+  isDefault: boolean("is_default").default(false),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIdx: index("watch_lists_user_id_idx").on(table.userId),
+}));
+
 export const productWatches = pgTable("product_watches", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   productId: integer("product_id").references(() => products.id).notNull(),
+  watchListId: integer("watch_list_id").references(() => watchLists.id),
+  category: varchar("category", { length: 100 }),
+  notes: text("notes"),
+  priority: integer("priority").default(3), // 1-5 scale
+  targetPrice: decimal("target_price", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   userIdIdx: index("product_watches_user_id_idx").on(table.userId),
   productIdIdx: index("product_watches_product_id_idx").on(table.productId),
+  watchListIdIdx: index("product_watches_watch_list_id_idx").on(table.watchListId),
 }));
 
 // User reputation for gamification
@@ -483,9 +506,16 @@ export const insertBadgeSchema = createInsertSchema(badges).omit({
   createdAt: true,
 });
 
+export const insertWatchListSchema = createInsertSchema(watchLists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertProductWatchSchema = createInsertSchema(productWatches).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertUserReputationSchema = createInsertSchema(userReputation).omit({
@@ -524,6 +554,7 @@ export type PostMention = typeof postMentions.$inferSelect;
 export type PrivateMessage = typeof privateMessages.$inferSelect;
 export type Badge = typeof badges.$inferSelect;
 export type UserBadge = typeof userBadges.$inferSelect;
+export type WatchList = typeof watchLists.$inferSelect;
 export type ProductWatch = typeof productWatches.$inferSelect;
 export type UserReputation = typeof userReputation.$inferSelect;
 export type DealSpotting = typeof dealSpottings.$inferSelect;
@@ -545,6 +576,7 @@ export type InsertNotificationPreferences = z.infer<typeof insertNotificationPre
 export type InsertTopicTag = z.infer<typeof insertTopicTagSchema>;
 export type InsertPrivateMessage = z.infer<typeof insertPrivateMessageSchema>;
 export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type InsertWatchList = z.infer<typeof insertWatchListSchema>;
 export type InsertProductWatch = z.infer<typeof insertProductWatchSchema>;
 export type InsertUserReputation = z.infer<typeof insertUserReputationSchema>;
 export type InsertDealSpotting = z.infer<typeof insertDealSpottingSchema>;
