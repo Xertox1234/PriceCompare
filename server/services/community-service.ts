@@ -2,6 +2,7 @@ import { db } from "../db";
 import { getFirstResult } from "../utils/db-helpers";
 import {
   productWatches,
+  watchLists,
   userReputation,
   dealSpottings,
   products,
@@ -12,9 +13,11 @@ import {
   badges,
   userBadges,
   type ProductWatch,
+  type WatchList,
   type UserReputation,
   type DealSpotting,
   type InsertProductWatch,
+  type InsertWatchList,
   type InsertUserReputation,
   type InsertDealSpotting,
   type InsertForumTopic,
@@ -488,4 +491,387 @@ export async function getRecentDealSpottings(limit: number = 10): Promise<DealSp
     .from(dealSpottings)
     .orderBy(desc(dealSpottings.createdAt))
     .limit(limit);
+}
+
+/**
+ * WATCH LIST MANAGEMENT FUNCTIONS
+ */
+
+export interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;
+}
+
+/**
+ * Create a new watch list for a user
+ */
+export async function createWatchList(
+  userId: number,
+  name: string,
+  description?: string,
+  color?: string,
+  icon?: string
+): Promise<WatchList> {
+  // Get the current max sort order for the user
+  const maxOrderResult = await db
+    .select({ maxOrder: sql<number>`COALESCE(MAX(${watchLists.sortOrder}), 0)` })
+    .from(watchLists)
+    .where(eq(watchLists.userId, userId));
+
+  const nextOrder = (maxOrderResult[0]?.maxOrder ?? 0) + 1;
+
+  const watchList: InsertWatchList = {
+    userId,
+    name,
+    description: description || null,
+    color: color || null,
+    icon: icon || null,
+    isDefault: false,
+    sortOrder: nextOrder,
+  };
+
+  const result = await db.insert(watchLists).values(watchList).returning();
+  return getFirstResult(result);
+}
+
+/**
+ * Get all watch lists for a user
+ */
+export async function getUserWatchLists(userId: number): Promise<WatchListWithStats[]> {
+  const result = await db
+    .select({
+      id: watchLists.id,
+      userId: watchLists.userId,
+      name: watchLists.name,
+      description: watchLists.description,
+      color: watchLists.color,
+      icon: watchLists.icon,
+      isDefault: watchLists.isDefault,
+      sortOrder: watchLists.sortOrder,
+      createdAt: watchLists.createdAt,
+      updatedAt: watchLists.updatedAt,
+      watchCount: sql<number>`COUNT(${productWatches.id})::int`,
+      highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
+    })
+    .from(watchLists)
+    .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
+    .where(eq(watchLists.userId, userId))
+    .groupBy(watchLists.id)
+    .orderBy(watchLists.sortOrder);
+
+  return result;
+}
+
+/**
+ * Get a specific watch list with details
+ */
+export async function getWatchListById(
+  userId: number,
+  listId: number
+): Promise<WatchListWithStats | null> {
+  const result = await db
+    .select({
+      id: watchLists.id,
+      userId: watchLists.userId,
+      name: watchLists.name,
+      description: watchLists.description,
+      color: watchLists.color,
+      icon: watchLists.icon,
+      isDefault: watchLists.isDefault,
+      sortOrder: watchLists.sortOrder,
+      createdAt: watchLists.createdAt,
+      updatedAt: watchLists.updatedAt,
+      watchCount: sql<number>`COUNT(${productWatches.id})::int`,
+      highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
+    })
+    .from(watchLists)
+    .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
+    .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+    .groupBy(watchLists.id)
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Update a watch list
+ */
+export async function updateWatchList(
+  userId: number,
+  listId: number,
+  updates: {
+    name?: string;
+    description?: string | null;
+    color?: string | null;
+    icon?: string | null;
+    sortOrder?: number;
+  }
+): Promise<WatchList | null> {
+  const result = await db
+    .update(watchLists)
+    .set(updates)
+    .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+    .returning();
+
+  return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Delete a watch list (products will be set to null watch_list_id)
+ */
+export async function deleteWatchList(
+  userId: number,
+  listId: number
+): Promise<boolean> {
+  // Prevent deletion of default list
+  const list = await db
+    .select()
+    .from(watchLists)
+    .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+    .limit(1);
+
+  if (list.length === 0) {
+    return false;
+  }
+
+  if (list[0].isDefault) {
+    throw new Error("Cannot delete default watch list");
+  }
+
+  const result = await db
+    .delete(watchLists)
+    .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+    .returning();
+
+  return result.length > 0;
+}
+
+/**
+ * Get products in a watch list with full details
+ */
+export async function getWatchListProducts(
+  userId: number,
+  listId: number
+): Promise<Array<ProductWatch & { productName?: string; productImage?: string }>> {
+  const result = await db
+    .select({
+      id: productWatches.id,
+      userId: productWatches.userId,
+      productId: productWatches.productId,
+      watchListId: productWatches.watchListId,
+      category: productWatches.category,
+      notes: productWatches.notes,
+      priority: productWatches.priority,
+      targetPrice: productWatches.targetPrice,
+      createdAt: productWatches.createdAt,
+      updatedAt: productWatches.updatedAt,
+      productName: products.name,
+      productImage: products.image,
+    })
+    .from(productWatches)
+    .innerJoin(products, eq(products.id, productWatches.productId))
+    .where(
+      and(
+        eq(productWatches.userId, userId),
+        eq(productWatches.watchListId, listId)
+      )
+    )
+    .orderBy(desc(productWatches.priority), desc(productWatches.updatedAt));
+
+  return result;
+}
+
+/**
+ * Update product watch details (category, notes, priority, target price)
+ */
+export async function updateProductWatch(
+  userId: number,
+  watchId: number,
+  updates: {
+    category?: string | null;
+    notes?: string | null;
+    priority?: number;
+    targetPrice?: string | null;
+    watchListId?: number | null;
+  }
+): Promise<ProductWatch | null> {
+  const result = await db
+    .update(productWatches)
+    .set(updates)
+    .where(and(eq(productWatches.id, watchId), eq(productWatches.userId, userId)))
+    .returning();
+
+  return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Move products to a different watch list (bulk operation)
+ */
+export async function moveProductsToWatchList(
+  userId: number,
+  productWatchIds: number[],
+  targetListId: number | null
+): Promise<number> {
+  // Verify the target list belongs to the user if specified
+  if (targetListId !== null) {
+    const targetList = await db
+      .select()
+      .from(watchLists)
+      .where(and(eq(watchLists.id, targetListId), eq(watchLists.userId, userId)))
+      .limit(1);
+
+    if (targetList.length === 0) {
+      throw new Error("Target watch list not found");
+    }
+  }
+
+  const result = await db
+    .update(productWatches)
+    .set({ watchListId: targetListId })
+    .where(
+      and(
+        sql`${productWatches.id} = ANY(${productWatchIds})`,
+        eq(productWatches.userId, userId)
+      )
+    )
+    .returning();
+
+  return result.length;
+}
+
+/**
+ * Remove multiple products from watch lists (bulk delete)
+ */
+export async function bulkRemoveProductWatches(
+  userId: number,
+  productWatchIds: number[]
+): Promise<number> {
+  const result = await db
+    .delete(productWatches)
+    .where(
+      and(
+        sql`${productWatches.id} = ANY(${productWatchIds})`,
+        eq(productWatches.userId, userId)
+      )
+    )
+    .returning();
+
+  return result.length;
+}
+
+/**
+ * Get user's default watch list
+ */
+export async function getUserDefaultWatchList(userId: number): Promise<WatchList | null> {
+  const result = await db
+    .select()
+    .from(watchLists)
+    .where(and(eq(watchLists.userId, userId), eq(watchLists.isDefault, true)))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Export user's watch lists and products as JSON
+ */
+export async function exportWatchLists(userId: number): Promise<any> {
+  const lists = await getUserWatchLists(userId);
+  const exportData = [];
+
+  for (const list of lists) {
+    const products = await getWatchListProducts(userId, list.id);
+    exportData.push({
+      name: list.name,
+      description: list.description,
+      color: list.color,
+      icon: list.icon,
+      products: products.map(p => ({
+        productId: p.productId,
+        productName: p.productName,
+        category: p.category,
+        notes: p.notes,
+        priority: p.priority,
+        targetPrice: p.targetPrice,
+      })),
+    });
+  }
+
+  return {
+    exportDate: new Date().toISOString(),
+    userId,
+    watchLists: exportData,
+  };
+}
+
+/**
+ * Import watch lists from JSON export
+ */
+export async function importWatchLists(
+  userId: number,
+  importData: any
+): Promise<{ created: number; skipped: number }> {
+  let created = 0;
+  let skipped = 0;
+
+  for (const listData of importData.watchLists) {
+    try {
+      // Check if list with this name already exists
+      const existing = await db
+        .select()
+        .from(watchLists)
+        .where(
+          and(
+            eq(watchLists.userId, userId),
+            eq(watchLists.name, listData.name)
+          )
+        )
+        .limit(1);
+
+      let listId: number;
+
+      if (existing.length > 0) {
+        listId = existing[0].id;
+        skipped++;
+      } else {
+        const newList = await createWatchList(
+          userId,
+          listData.name,
+          listData.description,
+          listData.color,
+          listData.icon
+        );
+        listId = newList.id;
+        created++;
+      }
+
+      // Import products into the list
+      for (const productData of listData.products) {
+        try {
+          const watch: InsertProductWatch = {
+            userId,
+            productId: productData.productId,
+            watchListId: listId,
+            category: productData.category || null,
+            notes: productData.notes || null,
+            priority: productData.priority || 3,
+            targetPrice: productData.targetPrice || null,
+          };
+
+          await db
+            .insert(productWatches)
+            .values(watch)
+            .onConflictDoNothing();
+        } catch (error) {
+          console.error('Error importing product watch:', error);
+          // Continue with next product
+        }
+      }
+    } catch (error) {
+      console.error('Error importing watch list:', error);
+      skipped++;
+    }
+  }
+
+  return { created, skipped };
 }
