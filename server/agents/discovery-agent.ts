@@ -6,6 +6,7 @@ import type { InsertTrendingProduct } from '../../shared/schema.js';
 import type { TrendData, DiscoveryTaskData, TrendSource } from './types.js';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
+import { safeTrendAnalysis, type AITrendAnalysis } from './ai-validation-schemas.js';
 
 export class ProductDiscoveryAgent extends BaseAgent {
   private openai: OpenAI;
@@ -233,8 +234,35 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
         max_tokens: 2000
       });
 
-      const aiAnalysis = JSON.parse(response.choices[0].message.content || '[]');
-      
+      const rawResponse = response.choices[0].message.content || '[]';
+
+      // Parse and validate AI response with Zod schema
+      let aiAnalysis: AITrendAnalysis[];
+      try {
+        const parsed = JSON.parse(rawResponse);
+        const validationResult = safeTrendAnalysis(parsed);
+
+        if (!validationResult.success) {
+          logger.error('AI response validation failed', {
+            errors: validationResult.error.errors,
+            rawResponse: rawResponse.substring(0, 500)
+          });
+          throw new Error('Invalid AI response format');
+        }
+
+        aiAnalysis = validationResult.data;
+        logger.debug('AI response validated successfully', {
+          validatedCount: aiAnalysis.length
+        });
+
+      } catch (parseError) {
+        logger.error('Failed to parse or validate AI response', {
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+          rawResponse: rawResponse.substring(0, 500)
+        });
+        throw parseError;
+      }
+
       // Merge AI analysis with original trend data
       return trends.map(trend => {
         const analysis = aiAnalysis.find((a: any) => a.originalQuery === trend.query);

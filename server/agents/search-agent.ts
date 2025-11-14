@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 import { googleSearchService } from '../services/google-search.js';
 import type { GoogleSearchResult } from '../services/google-search.js';
 import { logger } from '../utils/logger.js';
+import { safeSearchQueries, type AISearchQueries } from './ai-validation-schemas.js';
 
 export class SearchOrchestrationAgent extends BaseAgent {
   private openai: OpenAI;
@@ -214,16 +215,45 @@ OUTPUT CONSTRAINTS:
         max_tokens: 200
       });
 
-      const queries = response.choices[0].message.content
-        ?.split('\n')
+      const rawResponse = response.choices[0].message.content || '';
+      const queries = rawResponse
+        .split('\n')
         .map(q => q.trim())
-        .filter(q => q.length > 0) || [];
+        .filter(q => q.length > 0);
 
-      const result = queries.length > 0 ? queries : [productName];
+      // Validate queries with Zod schema
+      let validatedQueries: AISearchQueries;
+      try {
+        const validationResult = safeSearchQueries(queries);
 
-      // Cache the result
+        if (!validationResult.success) {
+          logger.error('Search query validation failed', {
+            errors: validationResult.error.errors,
+            rawQueries: queries,
+            productName
+          });
+          throw new Error('Invalid search query format');
+        }
+
+        validatedQueries = validationResult.data;
+        logger.debug('Search queries validated successfully', {
+          queryCount: validatedQueries.length,
+          productName
+        });
+
+      } catch (validationError) {
+        logger.error('Failed to validate search queries', {
+          error: validationError instanceof Error ? validationError.message : String(validationError),
+          rawResponse: rawResponse.substring(0, 200),
+          productName
+        });
+        // Fallback to product name
+        validatedQueries = [productName];
+      }
+
+      // Cache the validated result
       this.queryGenerationCache.set(cacheKey, {
-        queries: result,
+        queries: validatedQueries,
         timestamp: Date.now()
       });
 
@@ -233,7 +263,7 @@ OUTPUT CONSTRAINTS:
         keysToDelete.forEach(key => this.queryGenerationCache.delete(key));
       }
 
-      return result;
+      return validatedQueries;
 
     } catch (error) {
       logger.error('AI query generation failed', {
