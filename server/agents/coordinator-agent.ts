@@ -15,6 +15,7 @@ import type {
 } from '../../shared/schema.js';
 import type { CoordinatorTask, SystemStatus } from './types.js';
 import { logger } from '../utils/logger.js';
+import { distributedLock } from '../services/distributed-lock.js';
 
 interface CoordinatorConfig {
   maxConcurrentJobs: number;
@@ -411,10 +412,22 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async processJob(job: ScrapingJob): Promise<void> {
+    // Acquire distributed lock to prevent duplicate processing across instances
+    const lockKey = `job:${job.id}`;
+    const lock = await distributedLock.acquire(lockKey, 60000, 2, 100); // 60s TTL, 2 retries
+
+    if (!lock) {
+      logger.debug(`Job ${job.id} is already being processed by another instance, skipping`, {
+        jobId: job.id,
+        jobType: job.jobType
+      });
+      return; // Another instance is processing this job
+    }
+
     try {
       // Update job status to running
       await db.update(scrapingJobs)
-        .set({ 
+        .set({
           status: 'running',
           startedAt: new Date()
         })
@@ -443,6 +456,12 @@ export class CoordinationAgent extends BaseAgent {
         })
         .where(eq(scrapingJobs.id, job.id));
 
+      logger.info(`Job ${job.id} completed successfully`, {
+        jobId: job.id,
+        jobType: job.jobType,
+        duration: Date.now() - (job.startedAt?.getTime() || Date.now())
+      });
+
     } catch (error) {
       logger.error(`Job ${job.id} failed`, {
         error: error instanceof Error ? error.message : String(error),
@@ -459,6 +478,9 @@ export class CoordinationAgent extends BaseAgent {
           retryCount: (job.retryCount || 0) + 1
         })
         .where(eq(scrapingJobs.id, job.id));
+    } finally {
+      // Always release the lock
+      await distributedLock.release(lockKey, lock.lockId);
     }
   }
 

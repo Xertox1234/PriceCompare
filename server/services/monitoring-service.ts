@@ -3,6 +3,7 @@ import { scrapingJobs, trendingProducts, agentSessions, productOffers } from '..
 import { eq, desc, and, gte, count, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
 import { queryCache, generalCache } from './redis-cache.js';
+import { distributedLock } from './distributed-lock.js';
 
 /**
  * Monitoring Service
@@ -15,6 +16,7 @@ export interface DashboardMetrics {
   agents: AgentMetrics;
   jobs: JobMetrics;
   cache: CacheMetrics;
+  locks: LockMetrics;
   products: ProductMetrics;
   health: HealthStatus;
 }
@@ -79,6 +81,17 @@ export interface CacheMetrics {
   };
 }
 
+export interface LockMetrics {
+  acquisitionAttempts: number;
+  acquisitionsSucceeded: number;
+  acquisitionsFailed: number;
+  locksReleased: number;
+  activeLocks: number;
+  avgAcquisitionTime: number;
+  contentionRate: number;
+  successRate: number;
+}
+
 export interface ProductMetrics {
   totalProducts: number;
   totalOffers: number;
@@ -113,10 +126,11 @@ class MonitoringService {
    */
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     try {
-      const [agents, jobs, cache, products, health] = await Promise.all([
+      const [agents, jobs, cache, locks, products, health] = await Promise.all([
         this.getAgentMetrics(),
         this.getJobMetrics(),
         this.getCacheMetrics(),
+        this.getLockMetrics(),
         this.getProductMetrics(),
         this.getHealthStatus()
       ]);
@@ -126,6 +140,7 @@ class MonitoringService {
         agents,
         jobs,
         cache,
+        locks,
         products,
         health
       };
@@ -306,6 +321,44 @@ class MonitoringService {
         queryCache: { hits: 0, misses: 0, hitRate: 0, hitRatePercent: 0, connected: false },
         generalCache: { hits: 0, misses: 0, hitRate: 0, hitRatePercent: 0, connected: false },
         overall: { totalHits: 0, totalMisses: 0, combinedHitRate: 0 }
+      };
+    }
+  }
+
+  /**
+   * Get distributed lock metrics
+   */
+  private async getLockMetrics(): Promise<LockMetrics> {
+    try {
+      const metrics = distributedLock.getMetrics();
+
+      const successRate = metrics.acquisitionAttempts > 0
+        ? (metrics.acquisitionsSucceeded / metrics.acquisitionAttempts) * 100
+        : 100;
+
+      return {
+        acquisitionAttempts: metrics.acquisitionAttempts,
+        acquisitionsSucceeded: metrics.acquisitionsSucceeded,
+        acquisitionsFailed: metrics.acquisitionsFailed,
+        locksReleased: metrics.locksReleased,
+        activeLocks: metrics.activeLocks,
+        avgAcquisitionTime: metrics.avgAcquisitionTime,
+        contentionRate: metrics.contentionRate,
+        successRate: Math.round(successRate)
+      };
+    } catch (error) {
+      logger.error('Failed to get lock metrics', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return {
+        acquisitionAttempts: 0,
+        acquisitionsSucceeded: 0,
+        acquisitionsFailed: 0,
+        locksReleased: 0,
+        activeLocks: 0,
+        avgAcquisitionTime: 0,
+        contentionRate: 0,
+        successRate: 100
       };
     }
   }

@@ -394,7 +394,7 @@ export default function MonitoringDashboard() {
         </Card>
       )}
 
-      {/* Cache Details */}
+      {/* Cache & Lock Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
@@ -426,30 +426,59 @@ export default function MonitoringDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Trending Products</CardTitle>
+            <CardTitle className="text-base">Distributed Locks</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Discovered</span>
-                <span className="font-medium">{metrics.products.trendingDiscovered}</span>
+                <span className="text-sm text-gray-500">Success Rate</span>
+                <span className="font-medium text-green-600">{metrics.locks.successRate}%</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Processed</span>
-                <span className="font-medium text-green-600">{metrics.products.trendingProcessed}</span>
+                <span className="text-sm text-gray-500">Active Locks</span>
+                <span className="font-medium">{metrics.locks.activeLocks}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Failed</span>
-                <span className="font-medium text-red-600">{metrics.products.trendingFailed}</span>
+                <span className="text-sm text-gray-500">Avg Acquisition</span>
+                <span className="font-medium">{metrics.locks.avgAcquisitionTime}ms</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Total Offers</span>
-                <span className="font-medium">{metrics.products.totalOffers}</span>
+                <span className="text-sm text-gray-500">Contention</span>
+                <Badge className={metrics.locks.contentionRate > 0.1 ? "bg-yellow-600" : "bg-green-600"}>
+                  {Math.round(metrics.locks.contentionRate * 100)}%
+                </Badge>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Products Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Trending Products</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <div className="text-sm text-gray-500">Discovered</div>
+              <div className="text-2xl font-bold mt-1">{metrics.products.trendingDiscovered}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Processed</div>
+              <div className="text-2xl font-bold mt-1 text-green-600">{metrics.products.trendingProcessed}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Failed</div>
+              <div className="text-2xl font-bold mt-1 text-red-600">{metrics.products.trendingFailed}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Total Offers</div>
+              <div className="text-2xl font-bold mt-1">{metrics.products.totalOffers}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
