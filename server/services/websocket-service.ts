@@ -1,0 +1,248 @@
+import { Server as SocketIOServer, Socket } from 'socket.io';
+import type { Server as HTTPServer } from 'http';
+import { monitoringService } from './monitoring-service.js';
+import { alertService } from './alert-service.js';
+import { logger } from '../utils/logger.js';
+
+/**
+ * WebSocket Service for Real-Time Dashboard Updates
+ *
+ * Broadcasts system metrics and events to connected dashboard clients
+ */
+
+export interface WebSocketEvent {
+  type: string;
+  data: any;
+  timestamp: string;
+}
+
+class WebSocketService {
+  private io: SocketIOServer | null = null;
+  private updateInterval: NodeJS.Timeout | null = null;
+  private readonly UPDATE_FREQUENCY = 5000; // 5 seconds
+
+  /**
+   * Initialize WebSocket server
+   */
+  initialize(httpServer: HTTPServer): void {
+    this.io = new SocketIOServer(httpServer, {
+      cors: {
+        origin: process.env.CLIENT_URL || "http://localhost:5000",
+        methods: ["GET", "POST"],
+        credentials: true
+      },
+      path: '/socket.io'
+    });
+
+    this.io.on('connection', (socket: Socket) => {
+      logger.info('Dashboard client connected', {
+        socketId: socket.id,
+        clientIP: socket.handshake.address
+      });
+
+      // Send initial metrics immediately
+      this.sendMetricsToClient(socket);
+
+      // Handle client events
+      socket.on('request:metrics', () => {
+        this.sendMetricsToClient(socket);
+      });
+
+      socket.on('request:errors', () => {
+        this.sendErrorsToClient(socket);
+      });
+
+      socket.on('disconnect', (reason) => {
+        logger.info('Dashboard client disconnected', {
+          socketId: socket.id,
+          reason
+        });
+      });
+
+      socket.on('error', (error) => {
+        logger.error('WebSocket client error', {
+          socketId: socket.id,
+          error: error.message
+        });
+      });
+    });
+
+    // Start periodic updates
+    this.startPeriodicUpdates();
+
+    logger.info('WebSocket service initialized', {
+      updateFrequency: `${this.UPDATE_FREQUENCY / 1000}s`
+    });
+  }
+
+  /**
+   * Start broadcasting periodic updates to all connected clients
+   */
+  private startPeriodicUpdates(): void {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+    }
+
+    this.updateInterval = setInterval(async () => {
+      await this.broadcastMetrics();
+    }, this.UPDATE_FREQUENCY);
+  }
+
+  /**
+   * Broadcast metrics to all connected clients
+   */
+  private async broadcastMetrics(): Promise<void> {
+    if (!this.io) return;
+
+    try {
+      const metrics = await monitoringService.getDashboardMetrics();
+
+      // Check alert rules
+      await alertService.checkAlerts(metrics);
+
+      this.broadcast('metrics:update', {
+        metrics,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Failed to broadcast metrics', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Send metrics to a specific client
+   */
+  private async sendMetricsToClient(socket: Socket): Promise<void> {
+    try {
+      const metrics = await monitoringService.getDashboardMetrics();
+
+      socket.emit('metrics:update', {
+        metrics,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Failed to send metrics to client', {
+        error: error instanceof Error ? error.message : String(error),
+        socketId: socket.id
+      });
+    }
+  }
+
+  /**
+   * Send error logs to a specific client
+   */
+  private sendErrorsToClient(socket: Socket): void {
+    try {
+      const errors = monitoringService.getRecentErrors(20);
+
+      socket.emit('errors:update', {
+        errors,
+        count: errors.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Failed to send errors to client', {
+        error: error instanceof Error ? error.message : String(error),
+        socketId: socket.id
+      });
+    }
+  }
+
+  /**
+   * Broadcast an event to all connected clients
+   */
+  broadcast(event: string, data: any): void {
+    if (!this.io) {
+      logger.warn('Cannot broadcast - WebSocket not initialized');
+      return;
+    }
+
+    this.io.emit(event, {
+      ...data,
+      timestamp: new Date().toISOString()
+    });
+
+    logger.debug('Broadcasted WebSocket event', {
+      event,
+      clientCount: this.io.sockets.sockets.size
+    });
+  }
+
+  /**
+   * Broadcast an agent event (task started, completed, failed)
+   */
+  broadcastAgentEvent(agentType: string, event: string, data: any): void {
+    this.broadcast('agent:event', {
+      agentType,
+      event,
+      data
+    });
+  }
+
+  /**
+   * Broadcast a job event
+   */
+  broadcastJobEvent(jobId: number, jobType: string, status: string, data?: any): void {
+    this.broadcast('job:event', {
+      jobId,
+      jobType,
+      status,
+      data
+    });
+  }
+
+  /**
+   * Broadcast an error event
+   */
+  broadcastError(level: 'error' | 'warn', message: string, context?: Record<string, any>): void {
+    // Log to monitoring service
+    monitoringService.logError(level, message, context);
+
+    // Broadcast to connected clients
+    this.broadcast('error:new', {
+      level,
+      message,
+      context,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Broadcast a success event
+   */
+  broadcastSuccess(message: string, data?: any): void {
+    this.broadcast('success:event', {
+      message,
+      data
+    });
+  }
+
+  /**
+   * Get connected client count
+   */
+  getConnectedClients(): number {
+    return this.io ? this.io.sockets.sockets.size : 0;
+  }
+
+  /**
+   * Stop periodic updates and close connections
+   */
+  async shutdown(): Promise<void> {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+
+    if (this.io) {
+      await this.io.close();
+      this.io = null;
+    }
+
+    logger.info('WebSocket service shut down');
+  }
+}
+
+// Singleton instance
+export const websocketService = new WebSocketService();
