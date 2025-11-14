@@ -9,14 +9,11 @@ import { googleSearchService } from '../services/google-search.js';
 import type { GoogleSearchResult } from '../services/google-search.js';
 import { logger } from '../utils/logger.js';
 import { safeSearchQueries, type AISearchQueries } from './ai-validation-schemas.js';
+import { queryCache } from '../services/redis-cache.js';
 
 export class SearchOrchestrationAgent extends BaseAgent {
   private openai: OpenAI;
   private retailers: Map<string, RetailerConfig>;
-  private queryGenerationCache: Map<string, { queries: string[]; timestamp: number }>;
-
-  // Cache size limit to prevent memory leaks
-  private readonly MAX_QUERY_GENERATION_CACHE_SIZE = 1000;
 
   constructor() {
     const config: AgentConfig = {
@@ -128,12 +125,16 @@ export class SearchOrchestrationAgent extends BaseAgent {
   }
 
   private async generateSearchQueries(productName: string, category?: string): Promise<string[]> {
-    // Check cache first (7 day TTL)
+    // Check Redis cache first (7 day TTL)
     const cacheKey = `${productName}:${category || 'none'}`;
-    const cached = this.queryGenerationCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < 604800000) { // 7 days = 604800000ms
-      return cached.queries;
+    const cached = await queryCache.get<string[]>(cacheKey);
+
+    if (cached) {
+      logger.debug('Query cache hit', { productName, category });
+      return cached;
     }
+
+    logger.debug('Query cache miss, generating with AI', { productName, category });
 
     try {
       const prompt = `
@@ -251,17 +252,14 @@ OUTPUT CONSTRAINTS:
         validatedQueries = [productName];
       }
 
-      // Cache the validated result
-      this.queryGenerationCache.set(cacheKey, {
-        queries: validatedQueries,
-        timestamp: Date.now()
-      });
+      // Cache the validated result in Redis (7 day TTL)
+      await queryCache.set(cacheKey, validatedQueries, 604800000);
 
-      // Enforce cache size limit
-      if (this.queryGenerationCache.size > this.MAX_QUERY_GENERATION_CACHE_SIZE) {
-        const keysToDelete = Array.from(this.queryGenerationCache.keys()).slice(0, this.queryGenerationCache.size - this.MAX_QUERY_GENERATION_CACHE_SIZE);
-        keysToDelete.forEach(key => this.queryGenerationCache.delete(key));
-      }
+      logger.debug('Query cached in Redis', {
+        productName,
+        category,
+        queryCount: validatedQueries.length
+      });
 
       return validatedQueries;
 
