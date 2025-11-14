@@ -10,6 +10,7 @@ import type {
   InsertScrapingJob
 } from '../../shared/schema.js';
 import type { TaskResult, TaskMetrics } from './types.js';
+import { logger } from '../utils/logger.js';
 
 export interface AgentConfig {
   name: string;
@@ -53,9 +54,12 @@ export abstract class BaseAgent extends EventEmitter {
       this.dbSessionId = session.id;
       
       this.emit('initialized', { sessionId: this.sessionId, dbSessionId: this.dbSessionId });
-      console.log(`Agent ${this.config.name} initialized with session ${this.sessionId}`);
+      logger.info(`Agent ${this.config.name} initialized with session ${this.sessionId}`);
     } catch (error) {
-      console.error(`Failed to initialize agent ${this.config.name}:`, error);
+      logger.error(`Failed to initialize agent ${this.config.name}`, {
+        error: error instanceof Error ? error.message : String(error),
+        agentName: this.config.name
+      });
       throw error;
     }
   }
@@ -71,7 +75,7 @@ export abstract class BaseAgent extends EventEmitter {
 
     this.isRunning = true;
     this.emit('started', { sessionId: this.sessionId });
-    console.log(`Agent ${this.config.name} started`);
+    logger.info(`Agent ${this.config.name} started`);
   }
 
   async stop(): Promise<void> {
@@ -95,7 +99,7 @@ export abstract class BaseAgent extends EventEmitter {
     }
 
     this.emit('stopped', { sessionId: this.sessionId });
-    console.log(`Agent ${this.config.name} stopped`);
+    logger.info(`Agent ${this.config.name} stopped`);
   }
 
   protected async executeTask<T>(
@@ -139,7 +143,10 @@ export abstract class BaseAgent extends EventEmitter {
         const [createdJob] = await db.insert(scrapingJobs).values(job).returning();
         dbJobId = createdJob.id;
       } catch (error) {
-        console.error(`Failed to create job record:`, error);
+        logger.error('Failed to create job record', {
+          error: error instanceof Error ? error.message : String(error),
+          agentName: this.config.name
+        });
       }
     }
 
@@ -216,7 +223,10 @@ export abstract class BaseAgent extends EventEmitter {
         .set(updates)
         .where(eq(agentSessions.id, this.dbSessionId));
     } catch (error) {
-      console.error(`Failed to update session ${this.dbSessionId}:`, error);
+      logger.error(`Failed to update session ${this.dbSessionId}`, {
+        error: error instanceof Error ? error.message : String(error),
+        sessionId: this.dbSessionId
+      });
     }
   }
 
@@ -226,7 +236,10 @@ export abstract class BaseAgent extends EventEmitter {
         .set(updates)
         .where(eq(scrapingJobs.id, jobId));
     } catch (error) {
-      console.error(`Failed to update job ${jobId}:`, error);
+      logger.error(`Failed to update job ${jobId}`, {
+        error: error instanceof Error ? error.message : String(error),
+        jobId
+      });
     }
   }
 

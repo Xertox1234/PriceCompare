@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { getFirstResult } from "../utils/db-helpers";
 import {
   productWatches,
   userReputation,
@@ -72,7 +73,11 @@ export async function addProductWatch(
     .onConflictDoNothing()
     .returning();
 
-  return result[0];
+  const created = getFirstResult(result);
+  if (!created) {
+    throw new Error('Failed to create product watch');
+  }
+  return created;
 }
 
 /**

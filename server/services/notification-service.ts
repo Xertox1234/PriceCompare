@@ -8,6 +8,7 @@ import {
   type InsertNotificationPreferences
 } from "@shared/schema";
 import { eq, and, desc, count, gte, sql } from "drizzle-orm";
+import { getFirstResult } from "../utils/db-helpers";
 
 /**
  * Notification Service
@@ -200,7 +201,11 @@ export async function createNotification(
 
   // Create the notification
   const result = await db.insert(notifications).values(notification).returning();
-  return result[0];
+  const created = getFirstResult(result);
+  if (!created) {
+    throw new Error('Failed to create notification');
+  }
+  return created;
 }
 
 /**

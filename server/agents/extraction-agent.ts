@@ -6,6 +6,7 @@ import { db } from '../db';
 import { products, productOffers, retailers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import type { ExtractedProductData, ExtractionTask } from './types.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Data Extraction Agent - Extracts product information and pricing from retailer websites
@@ -65,22 +66,25 @@ export class DataExtractionAgent extends BaseAgent {
   }
 
   async processTask(task: ExtractionTask): Promise<any> {
-    console.log(`Starting extraction for ${task.url}`);
-    
+    logger.info(`Starting extraction for ${task.url}`);
+
     try {
       const extractedData = await this.extractProductData(task.url, task.retailer);
-      
+
       if (extractedData.price) {
         await this.storeProductData(extractedData, task.url, task.retailer, task.searchQuery);
-        console.log(`Successfully extracted and stored product: ${extractedData.title}`);
+        logger.info(`Successfully extracted and stored product: ${extractedData.title}`);
         return { success: true, data: extractedData };
       } else {
-        console.warn(`No price found for ${task.url}`);
+        logger.warn(`No price found for ${task.url}`);
         return { success: false, reason: 'No price data found' };
       }
-      
+
     } catch (error) {
-      console.error(`Extraction failed for ${task.url}:`, error);
+      logger.error(`Extraction failed for ${task.url}`, {
+        error: error instanceof Error ? error.message : String(error),
+        url: task.url
+      });
       throw error;
     }
   }
@@ -295,10 +299,13 @@ export class DataExtractionAgent extends BaseAgent {
         }
       });
 
-      console.log(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
-      
+      logger.info(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
+
     } catch (error) {
-      console.error(`Failed to store product data:`, error);
+      logger.error('Failed to store product data', {
+        error: error instanceof Error ? error.message : String(error),
+        productTitle: data.title
+      });
       throw error;
     }
   }

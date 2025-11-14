@@ -5,6 +5,7 @@ import { productOffers, priceAlerts, products, retailers } from '@shared/schema'
 import { eq, lt, and, desc, gte, isNotNull } from 'drizzle-orm';
 import { ScraperUtils } from '../utils/scraper-utils';
 import type { MonitoringTask, PriceChange, MonitoringStats } from './types.js';
+import { logger } from '../utils/logger.js';
 
 interface AlertNotification {
   alertId: number;
@@ -48,11 +49,11 @@ export class PriceMonitoringAgent extends BaseAgent {
 
   // Logging helpers
   protected logInfo(message: string): void {
-    console.log(`[${this.config.name}] ${message}`);
+    logger.info(`[${this.config.name}] ${message}`);
   }
 
   protected logError(message: string): void {
-    console.error(`[${this.config.name}] ERROR: ${message}`);
+    logger.error(`[${this.config.name}] ERROR: ${message}`);
   }
 
   async processTask(task: MonitoringTask): Promise<any> {

@@ -5,6 +5,7 @@ import { productOffers, retailers } from '../../shared/schema.js';
 import { eq, and, isNull, lt } from 'drizzle-orm';
 import type { ProductOffer, Retailer } from '../../shared/schema.js';
 import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types.js';
+import { logger } from '../utils/logger.js';
 
 export class AffiliateLinkAgent extends BaseAgent {
   constructor() {
@@ -88,7 +89,9 @@ export class AffiliateLinkAgent extends BaseAgent {
       };
 
     } catch (error) {
-      console.error('Affiliate link generation failed:', error);
+      logger.error('Affiliate link generation failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }
@@ -183,7 +186,9 @@ export class AffiliateLinkAgent extends BaseAgent {
       };
 
     } catch (error) {
-      console.error('Link health check failed:', error);
+      logger.error('Link health check failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }
@@ -291,7 +296,9 @@ export class AffiliateLinkAgent extends BaseAgent {
       try {
         await this.processTask({ action: 'health_check_links' });
       } catch (error) {
-        console.error('Scheduled health check failed:', error);
+        logger.error('Scheduled health check failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     }, 6 * 60 * 60 * 1000);
 
@@ -300,7 +307,9 @@ export class AffiliateLinkAgent extends BaseAgent {
       try {
         await this.processTask({ action: 'generate_affiliate_links', limit: 25 });
       } catch (error) {
-        console.error('Scheduled affiliate generation failed:', error);
+        logger.error('Scheduled affiliate generation failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     }, 60 * 60 * 1000);
   }
@@ -319,7 +328,9 @@ export class AffiliateLinkAgent extends BaseAgent {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Failed to get affiliate agent stats:', error);
+      logger.error('Failed to get affiliate agent stats', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       return null;
     }
   }
