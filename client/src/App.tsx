@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ComparisonPage from "@/pages/comparison";
+import MonitoringDashboard from "@/pages/monitoring";
 import NotFound from "@/pages/not-found";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
@@ -68,6 +69,7 @@ function Router() {
               </Suspense>
             </RouteErrorBoundary>
           </Route>
+          <Route path="/monitoring" component={MonitoringDashboard} />
           <Route path="/products/:id/price-history">
             <RouteErrorBoundary>
               <Suspense fallback={<LoadingFallback />}>
