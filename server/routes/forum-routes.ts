@@ -90,7 +90,6 @@ export function registerForumRoutes(app: Express): void {
       logger.info("Topic created", { topicId: topic.id, title: topic.title });
 
       // Create the first post
-      logger.debug("Creating first post for topic", { topicId: topic.id });
       const postData = {
         topicId: topic.id,
         authorId: user.id,
