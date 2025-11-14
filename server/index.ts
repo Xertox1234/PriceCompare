@@ -174,6 +174,11 @@ app.use(sanitizeInput);
   // Register community routes
   registerCommunityRoutes(app);
 
+  // Initialize advanced caching system
+  const { initializeAdvancedCache, performInitialCacheWarming } = await import("./cache-initialization");
+  await initializeAdvancedCache(app);
+  log("Advanced caching system initialized");
+
   // Initialize WebSocket service for real-time dashboard updates
   websocketService.initialize(server);
   log("WebSocket service initialized for real-time monitoring");
@@ -241,4 +246,9 @@ app.use(sanitizeInput);
   } catch (error) {
     log(`Error initializing price snapshot scheduler: ${error}`, 'error');
   }
+
+  // Perform initial cache warming (non-blocking)
+  performInitialCacheWarming().catch(error => {
+    log(`Error during initial cache warming: ${error}`, 'error');
+  });
 })();
