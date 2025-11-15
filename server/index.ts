@@ -1,3 +1,9 @@
+// IMPORTANT: Sentry must be initialized FIRST before any other imports
+import { initializeSentry, sentryRequestHandler, sentryTracingHandler, sentryErrorHandler } from "./config/sentry";
+
+// Initialize Sentry error monitoring
+initializeSentry();
+
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import session from "express-session";
@@ -37,6 +43,10 @@ validateEnvironment();
 setupGlobalErrorHandlers();
 
 const app = express();
+
+// SENTRY: Request handler must be first middleware
+app.use(sentryRequestHandler);
+app.use(sentryTracingHandler);
 
 // Performance optimizations
 app.use(compression()); // Enable gzip compression
@@ -188,6 +198,9 @@ app.use(sanitizeInput);
   // Initialize WebSocket service for real-time dashboard updates
   websocketService.initialize(server);
   log("WebSocket service initialized for real-time monitoring");
+
+  // SENTRY: Error handler must be BEFORE custom error handler
+  app.use(sentryErrorHandler);
 
   // Centralized error handling (must be after all routes)
   app.use(errorHandler);

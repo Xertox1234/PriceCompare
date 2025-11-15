@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError, isOperationalError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { captureException } from '../config/sentry';
 
 // Type guard for Zod errors
 interface ZodError extends Error {
@@ -147,10 +148,22 @@ function logError(err: Error, req: Request) {
     logger.error('Programming Error', errorLog);
   }
 
-  // TODO: Send to external error tracking service (e.g., Sentry)
-  // if (!isOperational) {
-  //   sentryClient.captureException(err, { extra: errorLog });
-  // }
+  // Send non-operational errors to Sentry for tracking
+  if (!isOperational) {
+    captureException(err, {
+      user: authenticatedReq.user ? {
+        id: authenticatedReq.user.id,
+        email: authenticatedReq.user.email,
+      } : undefined,
+      extra: errorLog,
+      tags: {
+        errorType: isOperational ? 'operational' : 'programming',
+        path: req.originalUrl,
+        method: req.method,
+      },
+      level: 'error',
+    });
+  }
 }
 
 /**
