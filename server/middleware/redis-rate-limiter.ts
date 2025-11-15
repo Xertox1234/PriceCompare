@@ -12,6 +12,21 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('RateLimiter');
 
+/**
+ * Rate limit tier multipliers
+ * These multipliers are applied to the base maxRequests value
+ */
+const TIER_MULTIPLIERS = {
+  admin: 100,      // 100x default limit
+  moderator: 10,   // 10x default limit
+  premium: 5,      // 5x default limit
+  user: 1,         // 1x default limit (baseline)
+  free: 0.5,       // 0.5x default limit (half)
+} as const;
+
+/**
+ * Configuration options for rate limiting
+ */
 interface RateLimitOptions {
   windowMs: number;     // Time window in milliseconds
   maxRequests: number;  // Maximum requests per window (for default/free tier)
@@ -20,6 +35,9 @@ interface RateLimitOptions {
   tiers?: RateLimitTiers; // Optional tiered limits based on user role
 }
 
+/**
+ * Rate limit information returned to clients
+ */
 interface RateLimitInfo {
   remaining: number;
   reset: number;
@@ -27,12 +45,21 @@ interface RateLimitInfo {
   tier?: string; // Which tier was applied
 }
 
+/**
+ * Rate limit tier configuration
+ * Allows different limits based on user roles
+ */
 interface RateLimitTiers {
-  free?: number;      // Free tier limit
-  user?: number;      // Basic user limit (default from maxRequests)
-  premium?: number;   // Premium user limit
-  moderator?: number; // Moderator limit
-  admin?: number;     // Admin limit (set very high or 0 for unlimited)
+  /** Free tier users (no account or unauthenticated) */
+  free?: number;
+  /** Basic authenticated users */
+  user?: number;
+  /** Premium subscription users */
+  premium?: number;
+  /** Moderator users */
+  moderator?: number;
+  /** Admin users (can be 0 for unlimited) */
+  admin?: number;
 }
 
 /**
@@ -75,7 +102,18 @@ function defaultKeyGenerator(req: Request): string {
 }
 
 /**
+ * Authenticated user interface for type safety
+ */
+interface AuthenticatedUser {
+  id: number;
+  role: string;
+  username: string;
+  email?: string;
+}
+
+/**
  * Get rate limit based on user tier
+ * Uses pre-defined tier multipliers for performance
  */
 function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: number; tier: string } {
   // If no tiers defined, use default
@@ -84,18 +122,33 @@ function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: 
   }
 
   // Get user role from request (set by auth middleware)
-  const userRole = (req.user as any)?.role || 'free';
+  // Validate it's a safe string value
+  let userRole = ((req.user as AuthenticatedUser)?.role || 'free').toLowerCase();
+  if (typeof userRole !== 'string' || userRole.length > 20) {
+    userRole = 'free';
+  }
 
-  // Map role to tier limit
-  const tierLimits: { [key: string]: number } = {
-    admin: options.tiers.admin || options.maxRequests * 100, // 100x default for admins
-    moderator: options.tiers.moderator || options.maxRequests * 10, // 10x for moderators
-    premium: options.tiers.premium || options.maxRequests * 5, // 5x for premium
-    user: options.tiers.user || options.maxRequests,
-    free: options.tiers.free || Math.floor(options.maxRequests * 0.5), // Half for free tier
-  };
+  // Calculate limit based on tier (custom or multiplier-based)
+  let limit: number;
 
-  const limit = tierLimits[userRole] || tierLimits.free;
+  switch (userRole) {
+    case 'admin':
+      limit = options.tiers.admin ?? options.maxRequests * TIER_MULTIPLIERS.admin;
+      break;
+    case 'moderator':
+      limit = options.tiers.moderator ?? options.maxRequests * TIER_MULTIPLIERS.moderator;
+      break;
+    case 'premium':
+      limit = options.tiers.premium ?? options.maxRequests * TIER_MULTIPLIERS.premium;
+      break;
+    case 'user':
+      limit = options.tiers.user ?? options.maxRequests * TIER_MULTIPLIERS.user;
+      break;
+    case 'free':
+    default:
+      limit = options.tiers.free ?? Math.floor(options.maxRequests * TIER_MULTIPLIERS.free);
+      break;
+  }
 
   // If limit is 0, treat as unlimited (use maximum safe integer)
   return {
