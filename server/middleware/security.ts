@@ -297,53 +297,30 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 
 /**
  * Input Sanitization Middleware
- * Sanitizes user input to prevent injection attacks
+ * Sanitizes user input to prevent injection attacks using DOMPurify
+ *
+ * SECURITY: Upgraded from regex-based to DOMPurify-based sanitization
+ * for comprehensive XSS prevention with industry-standard library.
  */
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
-  // Sanitize body
+  // Import DOMPurify-based sanitization
+  const { sanitizeObject, SanitizationContext } = require('../utils/sanitization');
+
+  // Sanitize body (most user input comes through body)
   if (req.body) {
-    req.body = sanitizeObject(req.body) as typeof req.body;
+    req.body = sanitizeObject(req.body, SanitizationContext.PLAIN_TEXT) as typeof req.body;
   }
 
-  // Sanitize query params
+  // Sanitize query params (used for search, filters, etc.)
   if (req.query) {
-    req.query = sanitizeObject(req.query) as typeof req.query;
+    req.query = sanitizeObject(req.query, SanitizationContext.PLAIN_TEXT) as typeof req.query;
   }
 
   next();
 }
 
-type SanitizableValue = string | number | boolean | null | undefined | SanitizableObject | SanitizableArray;
-interface SanitizableObject {
-  [key: string]: SanitizableValue;
-}
-interface SanitizableArray extends Array<SanitizableValue> {}
-
-function sanitizeObject(obj: unknown): unknown {
-  if (typeof obj === 'string') {
-    // Remove potential XSS patterns
-    return obj
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=/gi, '');
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item));
-  }
-
-  if (typeof obj === 'object' && obj !== null) {
-    const sanitized: Record<string, unknown> = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key]);
-      }
-    }
-    return sanitized;
-  }
-
-  return obj;
-}
+// Note: Legacy sanitizeObject function removed
+// Now using DOMPurify-based implementation from utils/sanitization.ts
 
 /**
  * CORS Configuration Middleware

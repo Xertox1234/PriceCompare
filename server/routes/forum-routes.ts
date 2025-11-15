@@ -116,6 +116,10 @@ export function registerForumRoutes(app: Express): void {
       const { topicId, content } = req.body;
       const user = req.user;
 
+      // SECURITY: Sanitize forum post content with DOMPurify
+      const { sanitizeForumPost } = require('../utils/sanitization');
+      const { html: sanitizedContent } = sanitizeForumPost(content);
+
       // Get the next post number for this topic
       const existingPosts = await forumStorage.getPostsByTopic(topicId);
       const postNumber = existingPosts.length + 1;
@@ -123,8 +127,8 @@ export function registerForumRoutes(app: Express): void {
       const post = await forumStorage.createPost({
         topicId,
         authorId: user.id,
-        content,
-        rawContent: content, // Store original content
+        content: sanitizedContent, // Sanitized HTML content
+        rawContent: content, // Store original content for editing
         postNumber,
         isFirstPost: false,
       });
