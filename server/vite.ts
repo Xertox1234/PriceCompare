@@ -21,6 +21,33 @@ export function log(message: string, source = "express") {
   logger.info(`${formattedTime} [${source}] ${message}`);
 }
 
+/**
+ * Inject CSP nonce into script and style tags in HTML
+ * SECURITY: This allows scripts/styles to execute under strict CSP without 'unsafe-inline'
+ *
+ * @param html - The HTML template string
+ * @param nonce - The cryptographic nonce for this request
+ * @returns HTML with nonce attributes added to script/style tags
+ */
+function injectNonceIntoHtml(html: string, nonce: string): string {
+  if (!nonce) return html;
+
+  // Inject nonce into all <script> tags (excluding external scripts)
+  // Match: <script and not already having nonce=
+  html = html.replace(
+    /<script(?![^>]*nonce=)([^>]*)>/gi,
+    `<script nonce="${nonce}"$1>`
+  );
+
+  // Inject nonce into all <style> tags
+  html = html.replace(
+    /<style(?![^>]*nonce=)([^>]*)>/gi,
+    `<style nonce="${nonce}"$1>`
+  );
+
+  return html;
+}
+
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
@@ -59,6 +86,11 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
+
+      // SECURITY: Inject CSP nonce into script tags
+      const nonce = res.locals.cspNonce || '';
+      template = injectNonceIntoHtml(template, nonce);
+
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
@@ -79,8 +111,31 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
+  // Cache the index.html template to avoid reading from disk on every request
+  const indexPath = path.resolve(distPath, "index.html");
+  let cachedTemplate: string | null = null;
+
+  try {
+    cachedTemplate = fs.readFileSync(indexPath, "utf-8");
+  } catch (error) {
+    logger.error('Failed to read index.html template:', { error });
+  }
+
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    // SECURITY: Inject CSP nonce into the HTML template
+    const nonce = res.locals.cspNonce || '';
+
+    if (cachedTemplate && nonce) {
+      // Inject nonce into the cached template
+      const htmlWithNonce = injectNonceIntoHtml(cachedTemplate, nonce);
+      res.status(200).set({ "Content-Type": "text/html" }).send(htmlWithNonce);
+    } else if (cachedTemplate) {
+      // Fallback: serve without nonce if not available (shouldn't happen)
+      res.status(200).set({ "Content-Type": "text/html" }).send(cachedTemplate);
+    } else {
+      // Fallback: use sendFile if cache failed
+      res.sendFile(indexPath);
+    }
   });
 }

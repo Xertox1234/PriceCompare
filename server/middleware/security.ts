@@ -253,6 +253,11 @@ export function attachCsrfToken(req: Request, res: Response, next: NextFunction)
  * Adds comprehensive security headers
  */
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
+  // Generate CSP nonce for this request
+  // SECURITY: Nonce must be cryptographically random and unique per request
+  const nonce = crypto.randomBytes(16).toString('base64');
+  res.locals.cspNonce = nonce;
+
   // Prevent MIME type sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
@@ -262,19 +267,19 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   // XSS Protection (legacy, but still good to have)
   res.setHeader('X-XSS-Protection', '1; mode=block');
 
-  // Content Security Policy
-  // Note: 'unsafe-inline' for styles is kept for compatibility with inline styles
-  // TODO: Replace with nonce-based or hash-based CSP for maximum security
+  // Content Security Policy with nonce-based script/style protection
+  // SECURITY: Removed 'unsafe-inline' and using nonce for maximum XSS protection
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   const cspDirectives = [
     "default-src 'self'",
-    // Removed 'unsafe-eval' entirely - not needed and dangerous
-    // In development, we allow 'unsafe-inline' for scripts due to HMR
+    // Use nonce for scripts - allows only scripts with matching nonce attribute
+    // In development, also allow Vite HMR and Replit banner
     isDevelopment
-      ? "script-src 'self' 'unsafe-inline'"
-      : "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+      ? `script-src 'self' 'nonce-${nonce}' https://replit.com`
+      : `script-src 'self' 'nonce-${nonce}'`,
+    // Use nonce for styles - no more 'unsafe-inline'
+    `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "connect-src 'self'",
