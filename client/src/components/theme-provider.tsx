@@ -1,4 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('ThemeProvider');
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -60,7 +63,7 @@ export function ThemeProvider({
         localStorage.setItem(storageKey, theme);
       } catch (error) {
         // localStorage may not be available - continue without persisting
-        console.warn('Failed to save theme preference:', error);
+        log.warn('Failed to save theme preference:', { error });
       }
       setTheme(theme);
     },

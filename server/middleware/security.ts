@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { getRequiredEnv } from '../config/env-validation';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('Security');
 
 /**
  * Rate Limiting Middleware
@@ -48,7 +51,7 @@ setInterval(() => {
       delete rateLimitStore[key];
     });
 
-    console.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
+    log.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
   }
 }, CLEANUP_INTERVAL_MS);
 
@@ -250,6 +253,11 @@ export function attachCsrfToken(req: Request, res: Response, next: NextFunction)
  * Adds comprehensive security headers
  */
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
+  // Generate CSP nonce for this request
+  // SECURITY: Nonce must be cryptographically random and unique per request
+  const nonce = crypto.randomBytes(16).toString('base64');
+  res.locals.cspNonce = nonce;
+
   // Prevent MIME type sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
@@ -259,19 +267,19 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   // XSS Protection (legacy, but still good to have)
   res.setHeader('X-XSS-Protection', '1; mode=block');
 
-  // Content Security Policy
-  // Note: 'unsafe-inline' for styles is kept for compatibility with inline styles
-  // TODO: Replace with nonce-based or hash-based CSP for maximum security
+  // Content Security Policy with nonce-based script/style protection
+  // SECURITY: Removed 'unsafe-inline' and using nonce for maximum XSS protection
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   const cspDirectives = [
     "default-src 'self'",
-    // Removed 'unsafe-eval' entirely - not needed and dangerous
-    // In development, we allow 'unsafe-inline' for scripts due to HMR
+    // Use nonce for scripts - allows only scripts with matching nonce attribute
+    // In development, also allow Vite HMR and Replit banner
     isDevelopment
-      ? "script-src 'self' 'unsafe-inline'"
-      : "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+      ? `script-src 'self' 'nonce-${nonce}' https://replit.com`
+      : `script-src 'self' 'nonce-${nonce}'`,
+    // Use nonce for styles - no more 'unsafe-inline'
+    `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "connect-src 'self'",
@@ -297,53 +305,30 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 
 /**
  * Input Sanitization Middleware
- * Sanitizes user input to prevent injection attacks
+ * Sanitizes user input to prevent injection attacks using DOMPurify
+ *
+ * SECURITY: Upgraded from regex-based to DOMPurify-based sanitization
+ * for comprehensive XSS prevention with industry-standard library.
  */
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
-  // Sanitize body
+  // Import DOMPurify-based sanitization
+  const { sanitizeObject, SanitizationContext } = require('../utils/sanitization');
+
+  // Sanitize body (most user input comes through body)
   if (req.body) {
-    req.body = sanitizeObject(req.body) as typeof req.body;
+    req.body = sanitizeObject(req.body, SanitizationContext.PLAIN_TEXT) as typeof req.body;
   }
 
-  // Sanitize query params
+  // Sanitize query params (used for search, filters, etc.)
   if (req.query) {
-    req.query = sanitizeObject(req.query) as typeof req.query;
+    req.query = sanitizeObject(req.query, SanitizationContext.PLAIN_TEXT) as typeof req.query;
   }
 
   next();
 }
 
-type SanitizableValue = string | number | boolean | null | undefined | SanitizableObject | SanitizableArray;
-interface SanitizableObject {
-  [key: string]: SanitizableValue;
-}
-interface SanitizableArray extends Array<SanitizableValue> {}
-
-function sanitizeObject(obj: unknown): unknown {
-  if (typeof obj === 'string') {
-    // Remove potential XSS patterns
-    return obj
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=/gi, '');
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item));
-  }
-
-  if (typeof obj === 'object' && obj !== null) {
-    const sanitized: Record<string, unknown> = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key]);
-      }
-    }
-    return sanitized;
-  }
-
-  return obj;
-}
+// Note: Legacy sanitizeObject function removed
+// Now using DOMPurify-based implementation from utils/sanitization.ts
 
 /**
  * CORS Configuration Middleware
@@ -365,7 +350,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
     } else {
       // SECURITY: In production, ALLOWED_ORIGINS must be explicitly set
       // Log warning if not set
-      console.warn('WARNING: ALLOWED_ORIGINS not set in production. CORS will be restrictive.');
+      log.warn('WARNING: ALLOWED_ORIGINS not set in production. CORS will be restrictive.');
       allowedOrigins = [];
     }
   }

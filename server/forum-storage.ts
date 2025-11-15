@@ -8,6 +8,9 @@ import {
   products
 } from '../shared/schema';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
+import { createLogger } from './utils/logger';
+
+const log = createLogger('ForumStorage');
 import type {
   User,
   ForumCategory,
@@ -198,8 +201,8 @@ export class ForumStorage {
   }
 
   async createPost(post: InsertForumPost): Promise<ForumPost> {
-    console.log("ForumStorage.createPost called with:", JSON.stringify(post, null, 2));
-    console.log("Schema field names:", Object.keys(forumPosts));
+    log.info("ForumStorage.createPost called with:", { post: JSON.stringify(post, null, 2) });
+    log.info("Schema field names:", { fieldNames: Object.keys(forumPosts) });
     const result = await db.insert(forumPosts).values(post).returning();
 
     // Update topic post count and last post time

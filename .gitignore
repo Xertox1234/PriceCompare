@@ -11,6 +11,18 @@ vite.config.ts.*
 .env.production
 .env.*.local
 
+# Security files (keys, certificates, credentials)
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+*_rsa
+*_rsa.pub
+credentials.json
+service-account.json
+
 # IDE
 .vscode
 .idea

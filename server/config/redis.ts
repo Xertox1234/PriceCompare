@@ -6,6 +6,9 @@
  */
 
 import type { Redis } from 'ioredis';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('Redis');
 
 let redisClient: Redis | null = null;
 let isRedisAvailable = false;
@@ -37,27 +40,27 @@ export async function initializeRedis(redisUrl?: string): Promise<Redis | null> 
     await redisClient.ping();
 
     isRedisAvailable = true;
-    console.log('✅ Redis connected successfully');
+    log.info('✅ Redis connected successfully');
 
     // Handle connection errors
     redisClient.on('error', (error) => {
-      console.error('Redis error:', error.message);
+      log.error('Redis error:', { message: error.message });
       isRedisAvailable = false;
     });
 
     redisClient.on('reconnecting', () => {
-      console.log('🔄 Redis reconnecting...');
+      log.info('🔄 Redis reconnecting...');
     });
 
     redisClient.on('connect', () => {
-      console.log('✅ Redis reconnected');
+      log.info('✅ Redis reconnected');
       isRedisAvailable = true;
     });
 
     return redisClient;
   } catch (error) {
-    console.warn('⚠️  Redis not available, falling back to in-memory storage');
-    console.warn('   To enable Redis: npm install ioredis && start Redis server');
+    log.warn('⚠️  Redis not available, falling back to in-memory storage');
+    log.warn('   To enable Redis: npm install ioredis && start Redis server');
     isRedisAvailable = false;
     return null;
   }

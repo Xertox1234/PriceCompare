@@ -1,3 +1,9 @@
+// IMPORTANT: Sentry must be initialized FIRST before any other imports
+import { initializeSentry, sentryRequestHandler, sentryTracingHandler, sentryErrorHandler } from "./config/sentry";
+
+// Initialize Sentry error monitoring
+initializeSentry();
+
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import session from "express-session";
@@ -18,6 +24,7 @@ import { websocketService } from "./services/websocket-service";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
 import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrfToken, csrfProtection } from "./middleware/security";
+import { createRateLimiter as redisRateLimiter } from "./middleware/redis-rate-limiter";
 import { performanceMonitoring, getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
 import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-limits";
@@ -37,6 +44,10 @@ setupGlobalErrorHandlers();
 
 const app = express();
 
+// SENTRY: Request handler must be first middleware
+app.use(sentryRequestHandler);
+app.use(sentryTracingHandler);
+
 // Performance optimizations
 app.use(compression()); // Enable gzip compression
 
@@ -53,20 +64,6 @@ app.use(corsMiddleware); // Handle cross-origin requests
 // Security middleware
 app.use(securityHeaders); // Comprehensive security headers
 
-// Global rate limiting - 100 requests per 15 minutes per IP
-app.use('/api', rateLimiter({
-  windowMs: RATE_LIMIT.WINDOW_MS,
-  maxRequests: RATE_LIMIT.MAX_REQUESTS,
-  message: 'Too many requests from this IP, please try again later'
-}));
-
-// Stricter rate limiting for authentication endpoints
-app.use('/api/auth', rateLimiter({
-  windowMs: RATE_LIMIT.WINDOW_MS,
-  maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
-  message: 'Too many authentication attempts, please try again later'
-}));
-
 // Input sanitization
 app.use(sanitizeInput);
 
@@ -74,6 +71,25 @@ app.use(sanitizeInput);
   // Initialize Redis for distributed features (sessions, rate limiting, lockouts)
   log('Initializing Redis connection...');
   const redisClient = await initializeRedis();
+
+  // SECURITY: Setup rate limiting (Redis-based if available, otherwise in-memory)
+  const rateLimiterMiddleware = redisClient ? redisRateLimiter : rateLimiter;
+  const limiterSource = redisClient ? 'Redis (distributed)' : 'in-memory (single server)';
+  log(`Rate limiting using: ${limiterSource}`);
+
+  // Global rate limiting - 100 requests per 15 minutes per IP
+  app.use('/api', rateLimiterMiddleware({
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    maxRequests: RATE_LIMIT.MAX_REQUESTS,
+    message: 'Too many requests from this IP, please try again later'
+  }));
+
+  // Stricter rate limiting for authentication endpoints
+  app.use('/api/auth', rateLimiterMiddleware({
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
+    message: 'Too many authentication attempts, please try again later'
+  }));
 
   // Create session store (Redis or in-memory fallback)
   const sessionStore = await createSessionStore(redisClient);
@@ -182,6 +198,9 @@ app.use(sanitizeInput);
   // Initialize WebSocket service for real-time dashboard updates
   websocketService.initialize(server);
   log("WebSocket service initialized for real-time monitoring");
+
+  // SENTRY: Error handler must be BEFORE custom error handler
+  app.use(sentryErrorHandler);
 
   // Centralized error handling (must be after all routes)
   app.use(errorHandler);

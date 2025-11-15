@@ -8,6 +8,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('RateLimiter');
 
 interface RateLimitOptions {
   windowMs: number;     // Time window in milliseconds
@@ -50,7 +53,7 @@ setInterval(() => {
   }
 
   if (cleaned > 0) {
-    console.log(`Cleaned ${cleaned} expired rate limit entries from memory`);
+    log.info(`Cleaned ${cleaned} expired rate limit entries from memory`);
   }
 }, 60000);
 
@@ -115,7 +118,7 @@ async function checkRateLimitRedis(
       },
     };
   } catch (error) {
-    console.error('Redis rate limit error:', error);
+    log.error('Redis rate limit error:', { error });
     // Fallback to in-memory
     return checkRateLimitMemory(key, options);
   }
@@ -202,7 +205,7 @@ export function createRateLimiter(options: RateLimitOptions) {
 
       next();
     } catch (error) {
-      console.error('Rate limiter error:', error);
+      log.error('Rate limiter error:', { error });
       // On error, allow request to proceed (fail open)
       next();
     }

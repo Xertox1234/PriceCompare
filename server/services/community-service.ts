@@ -25,6 +25,9 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { eq, and, desc, count, sql, gte } from "drizzle-orm";
+import { createLogger } from "../utils/logger";
+
+const log = createLogger('Community');
 
 /**
  * Community Service
@@ -450,7 +453,7 @@ _This deal was automatically detected by our price tracking system._
 
     return postResult[0].id;
   } catch (error) {
-    console.error('Error auto-posting price drop to forum:', error);
+    log.error('Error auto-posting price drop to forum:', { error });
     return null;
   }
 }
@@ -863,12 +866,12 @@ export async function importWatchLists(
             .values(watch)
             .onConflictDoNothing();
         } catch (error) {
-          console.error('Error importing product watch:', error);
+          log.error('Error importing product watch:', { error });
           // Continue with next product
         }
       }
     } catch (error) {
-      console.error('Error importing watch list:', error);
+      log.error('Error importing watch list:', { error });
       skipped++;
     }
   }

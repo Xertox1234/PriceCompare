@@ -5,6 +5,10 @@
  * Uses DOMPurify when available in the browser.
  */
 
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('Sanitize');
+
 /**
  * Sanitize HTML content to prevent XSS attacks
  * @param dirty - Untrusted HTML string
@@ -57,7 +61,7 @@ export function sanitizeHtml(
         });
       }
     } catch (error) {
-      console.warn('DOMPurify not available, using fallback sanitizer');
+      log.warn('DOMPurify not available, using fallback sanitizer');
     }
   }
 

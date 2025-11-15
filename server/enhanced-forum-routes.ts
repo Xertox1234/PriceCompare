@@ -134,11 +134,17 @@ export function registerEnhancedForumRoutes(app: Express) {
         return res.status(400).json({ error: validation.errors });
       }
 
-      const { mentions = [], ...postData } = req.body;
-      
+      const { mentions = [], content, rawContent, ...postData } = req.body;
+
+      // SECURITY: Sanitize forum post content with DOMPurify
+      const { sanitizeForumPost } = require('./utils/sanitization');
+      const { html: sanitizedContent } = sanitizeForumPost(content || rawContent);
+
       const post = await enhancedForumStorage.createPostWithMentions(
         {
           ...postData,
+          content: sanitizedContent, // Sanitized HTML
+          rawContent: rawContent || content, // Original for editing
           authorId: req.user!.id
         },
         mentions

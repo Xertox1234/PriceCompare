@@ -5,6 +5,9 @@ import { sharedUsers, ssoTokens, discourseUserMapping } from '../shared/auth-sch
 import { eq, and, lt, gt } from 'drizzle-orm';
 import type { SharedUser, SharedUserWithDiscourse } from '../shared/auth-schema';
 import { getRequiredEnv, getOptionalEnv } from './config/env-validation';
+import { createLogger } from './utils/logger';
+
+const log = createLogger('DiscourseSSO');
 
 // SECURITY: These values are required for SSO to function securely
 // Never use default values for SSO secrets in production
@@ -120,9 +123,9 @@ export async function handleDiscourseSSO(req: AuthenticatedRequest, res: Respons
     // Redirect back to Discourse with SSO response
     const redirectUrl = `${returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
     res.redirect(redirectUrl);
-    
+
   } catch (error) {
-    console.error('Discourse SSO error:', error);
+    log.error('Discourse SSO error:', { error });
     res.status(500).json({ error: 'SSO authentication failed' });
   }
 }
@@ -174,9 +177,9 @@ export async function completeSSOAfterLogin(req: AuthenticatedRequest, res: Resp
     // Redirect back to Discourse
     const redirectUrl = `${tokenRecord.returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
     res.redirect(redirectUrl);
-    
+
   } catch (error) {
-    console.error('SSO completion error:', error);
+    log.error('SSO completion error:', { error });
     res.status(500).json({ error: 'SSO completion failed' });
   }
 }
@@ -211,7 +214,7 @@ async function syncUserWithDiscourse(user: SharedUser): Promise<void> {
       });
     }
   } catch (error) {
-    console.error('Error syncing user with Discourse:', error);
+    log.error('Error syncing user with Discourse:', { error });
     // Don't throw - SSO should still work even if sync fails
   }
 }
@@ -273,10 +276,10 @@ export async function getUserWithDiscourse(userId: number): Promise<SharedUserWi
         lastSyncAt: user.mappingLastSyncAt!,
       };
     }
-    
+
     return result;
   } catch (error) {
-    console.error('Error getting user with Discourse info:', error);
+    log.error('Error getting user with Discourse info:', { error });
     return null;
   }
 }
@@ -288,7 +291,7 @@ export async function cleanupExpiredTokens(): Promise<void> {
   try {
     await db.delete(ssoTokens).where(lt(ssoTokens.expiresAt, new Date()));
   } catch (error) {
-    console.error('Error cleaning up expired SSO tokens:', error);
+    log.error('Error cleaning up expired SSO tokens:', { error });
   }
 }
 

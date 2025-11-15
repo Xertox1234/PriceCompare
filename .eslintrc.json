@@ -21,7 +21,7 @@
     "@typescript-eslint/no-unnecessary-type-assertion": "error",
     "@typescript-eslint/prefer-as-const": "error",
     "@typescript-eslint/no-inferrable-types": "warn",
-    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-console": "error",
     "no-debugger": "error",
     "no-eval": "error",
     "no-implied-eval": "error",
@@ -31,7 +31,14 @@
     {
       "files": ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
       "rules": {
-        "@typescript-eslint/no-explicit-any": "off"
+        "@typescript-eslint/no-explicit-any": "off",
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["**/utils/logger.ts"],
+      "rules": {
+        "no-console": "off"
       }
     }
   ]

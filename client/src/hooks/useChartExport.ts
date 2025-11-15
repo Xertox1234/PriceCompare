@@ -2,6 +2,9 @@ import { useCallback, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('ChartExport');
 
 interface PriceHistoryData {
   retailerName: string;
@@ -49,7 +52,7 @@ export function useChartExport() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to export chart';
       setError(errorMessage);
-      console.error('Export PNG error:', err);
+      log.error('Export PNG error:', { error: err });
       return false;
     } finally {
       setIsExporting(false);
@@ -100,7 +103,7 @@ export function useChartExport() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to export CSV';
       setError(errorMessage);
-      console.error('Export CSV error:', err);
+      log.error('Export CSV error:', { error: err });
       return false;
     } finally {
       setIsExporting(false);
@@ -150,7 +153,7 @@ export function useChartExport() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to copy to clipboard';
       setError(errorMessage);
-      console.error('Copy to clipboard error:', err);
+      log.error('Copy to clipboard error:', { error: err });
       return false;
     } finally {
       setIsExporting(false);

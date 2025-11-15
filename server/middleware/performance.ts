@@ -1,4 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('Performance');
 
 interface PerformanceMetrics {
   endpoint: string;
@@ -50,11 +53,11 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
 
     // Log performance issues
     if (duration > THRESHOLDS.CRITICAL) {
-      console.error(
+      log.error(
         `🚨 CRITICAL PERFORMANCE: ${method} ${endpoint} took ${duration}ms (${statusCode})`
       );
     } else if (duration > THRESHOLDS.WARN) {
-      console.warn(
+      log.warn(
         `⚠️  SLOW REQUEST: ${method} ${endpoint} took ${duration}ms (${statusCode})`
       );
     }

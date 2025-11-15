@@ -23,6 +23,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { format } from "date-fns";
+import { createLogger } from "@/utils/logger";
+
+const log = createLogger('ProductComparison');
 
 interface PriceHistoryData {
   id: number;
@@ -87,7 +90,7 @@ export function ProductComparison({
             setPriceHistoryData((prev) => ({ ...prev, [product.id]: data }));
           })
           .catch((error) => {
-            console.error(`Error fetching price history for product ${product.id}:`, error);
+            log.error(`Error fetching price history for product ${product.id}:`, { error });
           })
           .finally(() => {
             setLoading((prev) => ({ ...prev, [product.id]: false }));

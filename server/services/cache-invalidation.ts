@@ -11,7 +11,7 @@
 import { advancedCache, CachePrefix } from './advanced-cache';
 import { analyticsCacheService } from './analytics-cache';
 import { logger } from '../utils/logger';
-import { redisClient } from '../config/redis';
+import { getRedisClient } from '../config/redis';
 
 /**
  * Invalidation event types

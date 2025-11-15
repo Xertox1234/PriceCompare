@@ -7,6 +7,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createLogger } from "@/utils/logger";
+
+const log = createLogger('ForgotPassword');
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -54,7 +57,7 @@ export default function ForgotPassword() {
         setError(data.error || "An error occurred. Please try again.");
       }
     } catch (err) {
-      console.error("Forgot password error:", err);
+      log.error("Forgot password error:", { error: err });
       setError("Unable to process request. Please try again later.");
     } finally {
       setIsLoading(false);

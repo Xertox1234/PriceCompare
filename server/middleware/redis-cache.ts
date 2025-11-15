@@ -1,6 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 import { redis } from '../config/redis';
 import { CACHE_DURATION } from '../utils/constants';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('RedisCache');
 
 interface CacheOptions {
   ttl?: number; // Time to live in seconds (default: 300 = 5 minutes)
@@ -56,7 +59,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
       res.json = function (body: unknown) {
         // Cache the response asynchronously (don't block response)
         redis.setex(cacheKey, ttl, JSON.stringify(body)).catch(err => {
-          console.error('Failed to cache response:', err);
+          log.error('Failed to cache response:', { error: err });
         });
 
         // Send response
@@ -66,7 +69,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
       next();
     } catch (error) {
       // On error, skip caching and proceed
-      console.error('Cache middleware error:', error);
+      log.error('Cache middleware error:', { error });
       next();
     }
   };
@@ -101,7 +104,7 @@ export async function invalidateCache(pattern: string): Promise<number> {
     }
     return await redis.del(...keys);
   } catch (error) {
-    console.error('Failed to invalidate cache:', error);
+    log.error('Failed to invalidate cache:', { error });
     return 0;
   }
 }
@@ -114,7 +117,7 @@ export async function invalidateCacheKey(key: string): Promise<number> {
   try {
     return await redis.del(key);
   } catch (error) {
-    console.error('Failed to invalidate cache key:', error);
+    log.error('Failed to invalidate cache key:', { error });
     return 0;
   }
 }

@@ -8,6 +8,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('AccountLockout');
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -49,7 +52,7 @@ setInterval(() => {
   }
 
   if (cleaned > 0) {
-    console.log(`Cleaned ${cleaned} expired lockout entries from memory`);
+    log.info(`Cleaned ${cleaned} expired lockout entries from memory`);
   }
 }, 60 * 60 * 1000); // Every hour
 
@@ -97,7 +100,7 @@ async function isAccountLockedRedis(email: string): Promise<{
       attempts: record.attempts,
     };
   } catch (error) {
-    console.error('Redis lockout check error:', error);
+    log.error('Redis lockout check error:', { error });
     return isAccountLockedMemory(email);
   }
 }
@@ -192,7 +195,7 @@ async function recordFailedLoginRedis(email: string): Promise<{
       lockedUntil: record.lockedUntil ? new Date(record.lockedUntil) : undefined,
     };
   } catch (error) {
-    console.error('Redis record failed login error:', error);
+    log.error('Redis record failed login error:', { error });
     return recordFailedLoginMemory(email);
   }
 }
@@ -255,7 +258,7 @@ async function clearFailedLoginsRedis(email: string): Promise<void> {
     const key = REDIS_KEYS.ACCOUNT_LOCKOUT(email);
     await redis.del(key);
   } catch (error) {
-    console.error('Redis clear failed logins error:', error);
+    log.error('Redis clear failed logins error:', { error });
     clearFailedLoginsMemory(email);
   }
 }
@@ -320,7 +323,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
       next();
     })
     .catch(error => {
-      console.error('Lockout check error:', error);
+      log.error('Lockout check error:', { error });
       // On error, allow request (fail open)
       next();
     });

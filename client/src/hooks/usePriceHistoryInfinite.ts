@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createLogger } from "@/utils/logger";
+
+const log = createLogger('PriceHistoryInfinite');
 
 interface PriceHistoryData {
   id: number;
@@ -93,7 +96,7 @@ export function usePriceHistoryInfinite({
       } catch (err) {
         if (err instanceof Error) {
           if (err.name === 'AbortError') {
-            console.log('Request aborted');
+            log.debug('Request aborted');
             return;
           }
           setError(err);
@@ -161,7 +164,7 @@ export function usePriceHistoryInfinite({
           cacheRef.current.set(cacheKey, historyData);
         })
         .catch((err) => {
-          console.error('Prefetch error:', err);
+          log.error('Prefetch error:', { error: err });
         });
     }
   }, [productId, currentDays, incrementDays, maxDays, hasMore, isLoadingMore]);
