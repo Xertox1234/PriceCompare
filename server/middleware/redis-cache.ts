@@ -1,9 +1,57 @@
 import type { Request, Response, NextFunction } from 'express';
-import { redis } from '../config/redis';
+import { getRedisClient } from '../config/redis';
+import type { Redis } from 'ioredis';
 import { CACHE_DURATION } from '../utils/constants';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('RedisCache');
+
+/**
+ * In-memory fallback cache for when Redis is unavailable
+ */
+class InMemoryCache {
+  private store = new Map<string, { value: string; expiry: number }>();
+
+  async get(key: string): Promise<string | null> {
+    const item = this.store.get(key);
+    if (!item) return null;
+    if (item.expiry < Date.now()) {
+      this.store.delete(key);
+      return null;
+    }
+    return item.value;
+  }
+
+  async setex(key: string, seconds: number, value: string): Promise<'OK'> {
+    this.store.set(key, {
+      value,
+      expiry: Date.now() + seconds * 1000,
+    });
+    return 'OK';
+  }
+
+  async del(...keys: string[]): Promise<number> {
+    let deleted = 0;
+    for (const key of keys) {
+      if (this.store.delete(key)) deleted++;
+    }
+    return deleted;
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+    return Array.from(this.store.keys()).filter(key => regex.test(key));
+  }
+}
+
+const memoryCache = new InMemoryCache();
+
+/**
+ * Get cache client (Redis or in-memory fallback)
+ */
+function getCacheClient(): Redis | InMemoryCache {
+  return getRedisClient() || memoryCache;
+}
 
 interface CacheOptions {
   ttl?: number; // Time to live in seconds (default: 300 = 5 minutes)
@@ -37,8 +85,10 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
     const cacheKey = keyGenerator(req);
 
     try {
+      const cache = getCacheClient();
+
       // Try to get cached response
-      const cachedResponse = await redis.get(cacheKey);
+      const cachedResponse = await cache.get(cacheKey);
 
       if (cachedResponse) {
         // Cache hit - return cached response
@@ -58,7 +108,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
       // Override json method to cache the response
       res.json = function (body: unknown) {
         // Cache the response asynchronously (don't block response)
-        redis.setex(cacheKey, ttl, JSON.stringify(body)).catch(err => {
+        cache.setex(cacheKey, ttl, JSON.stringify(body)).catch(err => {
           log.error('Failed to cache response:', { error: err });
         });
 
@@ -98,11 +148,12 @@ function defaultSkipCache(req: Request): boolean {
  */
 export async function invalidateCache(pattern: string): Promise<number> {
   try {
-    const keys = await redis.keys(pattern);
+    const cache = getCacheClient();
+    const keys = await cache.keys(pattern);
     if (keys.length === 0) {
       return 0;
     }
-    return await redis.del(...keys);
+    return await cache.del(...keys);
   } catch (error) {
     log.error('Failed to invalidate cache:', { error });
     return 0;
@@ -115,7 +166,8 @@ export async function invalidateCache(pattern: string): Promise<number> {
  */
 export async function invalidateCacheKey(key: string): Promise<number> {
   try {
-    return await redis.del(key);
+    const cache = getCacheClient();
+    return await cache.del(key);
   } catch (error) {
     log.error('Failed to invalidate cache key:', { error });
     return 0;

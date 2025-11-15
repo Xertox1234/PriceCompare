@@ -749,7 +749,15 @@ export const priceSnapshots = pgTable("price_snapshots", {
   productDateIdx: index("price_snapshots_product_date_idx").on(table.productId, table.snapshotDate),
 }));
 
-// Weekly price aggregates for trend analysis
+/**
+ * Weekly price aggregates for trend analysis
+ *
+ * Stores aggregated price statistics per product/retailer/week combination.
+ * Enables week-over-week comparison and short-term trend identification.
+ *
+ * @table price_aggregates_weekly
+ * @unique product_id, retailer_id, year, week
+ */
 export const priceAggregatesWeekly = pgTable("price_aggregates_weekly", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
@@ -771,7 +779,15 @@ export const priceAggregatesWeekly = pgTable("price_aggregates_weekly", {
   createdAtIdx: index("weekly_created_idx").on(table.createdAt),
 }));
 
-// Monthly price aggregates for long-term analysis
+/**
+ * Monthly price aggregates for long-term analysis
+ *
+ * Stores aggregated price statistics per product/retailer/month combination.
+ * Enables month-over-month and year-over-year comparisons for seasonal analysis.
+ *
+ * @table price_aggregates_monthly
+ * @unique product_id, retailer_id, year, month
+ */
 export const priceAggregatesMonthly = pgTable("price_aggregates_monthly", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
@@ -794,7 +810,15 @@ export const priceAggregatesMonthly = pgTable("price_aggregates_monthly", {
   createdAtIdx: index("monthly_created_idx").on(table.createdAt),
 }));
 
-// Price trends and predictions
+/**
+ * Price trends and predictions using linear regression
+ *
+ * Stores calculated price trends (uptrend/downtrend/stable) with statistical
+ * confidence metrics. Includes predictions for next price based on trend analysis.
+ *
+ * @table price_trends
+ * @unique product_id, retailer_id
+ */
 export const priceTrends = pgTable("price_trends", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
