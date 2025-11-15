@@ -97,9 +97,9 @@ function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: 
 
   const limit = tierLimits[userRole] || tierLimits.free;
 
-  // If limit is 0, treat as unlimited (very high number)
+  // If limit is 0, treat as unlimited (use maximum safe integer)
   return {
-    limit: limit === 0 ? 999999 : limit,
+    limit: limit === 0 ? Number.MAX_SAFE_INTEGER : limit,
     tier: userRole
   };
 }
