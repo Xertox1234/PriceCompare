@@ -37,6 +37,7 @@ document.querySelector = vi.fn();
 document.querySelectorAll = vi.fn(() => []);
 document.getElementById = vi.fn();
 document.createElement = vi.fn((tag) => {
+  const attributes = {};
   const element = {
     tagName: tag.toUpperCase(),
     children: [],
@@ -46,8 +47,15 @@ document.createElement = vi.fn((tag) => {
       remove: vi.fn(),
       contains: vi.fn()
     },
-    setAttribute: vi.fn(),
-    getAttribute: vi.fn(),
+    setAttribute: vi.fn(function(key, value) {
+      attributes[key] = String(value);
+      if (key in this) {
+        this[key] = value;
+      }
+    }),
+    getAttribute: vi.fn(function(key) {
+      return attributes[key] || null;
+    }),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     appendChild: vi.fn(function(child) {

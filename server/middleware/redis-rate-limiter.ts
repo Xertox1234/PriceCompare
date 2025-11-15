@@ -14,15 +14,25 @@ const log = createLogger('RateLimiter');
 
 interface RateLimitOptions {
   windowMs: number;     // Time window in milliseconds
-  maxRequests: number;  // Maximum requests per window
+  maxRequests: number;  // Maximum requests per window (for default/free tier)
   message?: string;     // Error message
   keyGenerator?: (req: Request) => string; // Custom key generator
+  tiers?: RateLimitTiers; // Optional tiered limits based on user role
 }
 
 interface RateLimitInfo {
   remaining: number;
   reset: number;
   total: number;
+  tier?: string; // Which tier was applied
+}
+
+interface RateLimitTiers {
+  free?: number;      // Free tier limit
+  user?: number;      // Basic user limit (default from maxRequests)
+  premium?: number;   // Premium user limit
+  moderator?: number; // Moderator limit
+  admin?: number;     // Admin limit (set very high or 0 for unlimited)
 }
 
 /**
@@ -62,6 +72,36 @@ setInterval(() => {
  */
 function defaultKeyGenerator(req: Request): string {
   return req.ip || req.socket.remoteAddress || 'unknown';
+}
+
+/**
+ * Get rate limit based on user tier
+ */
+function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: number; tier: string } {
+  // If no tiers defined, use default
+  if (!options.tiers) {
+    return { limit: options.maxRequests, tier: 'default' };
+  }
+
+  // Get user role from request (set by auth middleware)
+  const userRole = (req.user as any)?.role || 'free';
+
+  // Map role to tier limit
+  const tierLimits: { [key: string]: number } = {
+    admin: options.tiers.admin || options.maxRequests * 100, // 100x default for admins
+    moderator: options.tiers.moderator || options.maxRequests * 10, // 10x for moderators
+    premium: options.tiers.premium || options.maxRequests * 5, // 5x for premium
+    user: options.tiers.user || options.maxRequests,
+    free: options.tiers.free || Math.floor(options.maxRequests * 0.5), // Half for free tier
+  };
+
+  const limit = tierLimits[userRole] || tierLimits.free;
+
+  // If limit is 0, treat as unlimited (very high number)
+  return {
+    limit: limit === 0 ? 999999 : limit,
+    tier: userRole
+  };
 }
 
 /**
@@ -175,12 +215,20 @@ export function createRateLimiter(options: RateLimitOptions) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const key = keyGen(req);
-      const { allowed, info } = await checkRateLimitRedis(key, options);
 
-      // Add rate limit headers
+      // Get tier-based rate limit for this user
+      const { limit, tier } = getRateLimitForUser(req, options);
+
+      // Create options with the user's specific limit
+      const userOptions = { ...options, maxRequests: limit };
+
+      const { allowed, info } = await checkRateLimitRedis(key, userOptions);
+
+      // Add rate limit headers (including tier information)
       res.setHeader('X-RateLimit-Limit', info.total);
       res.setHeader('X-RateLimit-Remaining', info.remaining);
       res.setHeader('X-RateLimit-Reset', Math.ceil(info.reset / 1000));
+      res.setHeader('X-RateLimit-Tier', tier);
 
       if (!allowed) {
         // SECURITY: Log rate limit exceeded

@@ -144,3 +144,8 @@ class InMemoryRedis {
  * Export redis instance (either real Redis or in-memory fallback)
  */
 export const redis: Redis | InMemoryRedis = redisClient || new InMemoryRedis();
+
+/**
+ * Export redisClient for services that need direct access
+ */
+export { redisClient };
