@@ -749,6 +749,72 @@ export const priceSnapshots = pgTable("price_snapshots", {
   productDateIdx: index("price_snapshots_product_date_idx").on(table.productId, table.snapshotDate),
 }));
 
+// Weekly price aggregates for trend analysis
+export const priceAggregatesWeekly = pgTable("price_aggregates_weekly", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: "cascade" }).notNull(),
+  year: integer("year").notNull(),
+  week: integer("week").notNull(), // ISO week number (1-53)
+  minPrice: decimal("min_price", { precision: 10, scale: 2 }).notNull(),
+  maxPrice: decimal("max_price", { precision: 10, scale: 2 }).notNull(),
+  avgPrice: decimal("avg_price", { precision: 10, scale: 2 }).notNull(),
+  medianPrice: decimal("median_price", { precision: 10, scale: 2 }),
+  volatilityScore: decimal("volatility_score", { precision: 5, scale: 2 }),
+  recordCount: integer("record_count").notNull().default(0),
+  weekOverWeekChange: decimal("week_over_week_change", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  productYearIdx: index("weekly_product_year_idx").on(table.productId, table.year, table.week),
+  retailerYearIdx: index("weekly_retailer_year_idx").on(table.retailerId, table.year, table.week),
+  createdAtIdx: index("weekly_created_idx").on(table.createdAt),
+}));
+
+// Monthly price aggregates for long-term analysis
+export const priceAggregatesMonthly = pgTable("price_aggregates_monthly", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: "cascade" }).notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(), // 1-12
+  minPrice: decimal("min_price", { precision: 10, scale: 2 }).notNull(),
+  maxPrice: decimal("max_price", { precision: 10, scale: 2 }).notNull(),
+  avgPrice: decimal("avg_price", { precision: 10, scale: 2 }).notNull(),
+  medianPrice: decimal("median_price", { precision: 10, scale: 2 }),
+  volatilityScore: decimal("volatility_score", { precision: 5, scale: 2 }),
+  recordCount: integer("record_count").notNull().default(0),
+  monthOverMonthChange: decimal("month_over_month_change", { precision: 10, scale: 2 }),
+  yearOverYearChange: decimal("year_over_year_change", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  productYearIdx: index("monthly_product_year_idx").on(table.productId, table.year, table.month),
+  retailerYearIdx: index("monthly_retailer_year_idx").on(table.retailerId, table.year, table.month),
+  createdAtIdx: index("monthly_created_idx").on(table.createdAt),
+}));
+
+// Price trends and predictions
+export const priceTrends = pgTable("price_trends", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: "cascade" }).notNull(),
+  trendDirection: varchar("trend_direction", { length: 20 }).notNull(), // uptrend, downtrend, stable
+  trendSlope: decimal("trend_slope", { precision: 10, scale: 4 }), // Linear regression slope ($/day)
+  trendStrength: decimal("trend_strength", { precision: 5, scale: 4 }), // R² value (0-1)
+  predictedNextPrice: decimal("predicted_next_price", { precision: 10, scale: 2 }),
+  confidenceLevel: varchar("confidence_level", { length: 20 }), // high, medium, low
+  analysisPeriodDays: integer("analysis_period_days").notNull(),
+  lastAnalyzedAt: timestamp("last_analyzed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  productIdx: index("trends_product_idx").on(table.productId),
+  retailerIdx: index("trends_retailer_idx").on(table.retailerId),
+  directionIdx: index("trends_direction_idx").on(table.trendDirection),
+  analyzedIdx: index("trends_analyzed_idx").on(table.lastAnalyzedAt),
+}));
+
 // Scraping source configuration
 export const scrapingSources = pgTable("scraping_sources", {
   id: serial("id").primaryKey(),
@@ -817,6 +883,25 @@ export const insertPriceSnapshotSchema = createInsertSchema(priceSnapshots).omit
   createdAt: true,
 });
 
+export const insertPriceAggregateWeeklySchema = createInsertSchema(priceAggregatesWeekly).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPriceAggregateMonthlySchema = createInsertSchema(priceAggregatesMonthly).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPriceTrendSchema = createInsertSchema(priceTrends).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastAnalyzedAt: true,
+});
+
 export const insertScrapingSourceSchema = createInsertSchema(scrapingSources).omit({
   id: true,
   createdAt: true,
@@ -837,6 +922,9 @@ export type ScrapingJob = typeof scrapingJobs.$inferSelect;
 export type PricePrediction = typeof pricePredictions.$inferSelect;
 // Note: PriceHistory and InsertPriceHistory are already defined above (lines 509, 533)
 export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
+export type PriceAggregateWeekly = typeof priceAggregatesWeekly.$inferSelect;
+export type PriceAggregateMonthly = typeof priceAggregatesMonthly.$inferSelect;
+export type PriceTrend = typeof priceTrends.$inferSelect;
 export type ScrapingSource = typeof scrapingSources.$inferSelect;
 export type ProductUrl = typeof productUrls.$inferSelect;
 
@@ -847,6 +935,9 @@ export type InsertScrapingJob = z.infer<typeof insertScrapingJobSchema>;
 export type InsertPricePrediction = z.infer<typeof insertPricePredictionSchema>;
 // Note: InsertPriceHistory is already defined above (line 533)
 export type InsertPriceSnapshot = z.infer<typeof insertPriceSnapshotSchema>;
+export type InsertPriceAggregateWeekly = z.infer<typeof insertPriceAggregateWeeklySchema>;
+export type InsertPriceAggregateMonthly = z.infer<typeof insertPriceAggregateMonthlySchema>;
+export type InsertPriceTrend = z.infer<typeof insertPriceTrendSchema>;
 export type InsertScrapingSource = z.infer<typeof insertScrapingSourceSchema>;
 export type InsertProductUrl = z.infer<typeof insertProductUrlSchema>;
 

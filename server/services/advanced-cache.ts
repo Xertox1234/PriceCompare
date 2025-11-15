@@ -9,7 +9,7 @@
  * - Cache warming for frequently accessed items
  */
 
-import { getRedisClient } from '../config/redis';
+import { getRedisClient, redisClient } from '../config/redis';
 import { logger } from '../utils/logger';
 
 /**

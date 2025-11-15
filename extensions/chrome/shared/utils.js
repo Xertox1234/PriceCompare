@@ -66,7 +66,14 @@ function formatPrice(price) {
  */
 function formatDate(date) {
   try {
+    if (date === null || date === undefined) {
+      return 'N/A';
+    }
     const d = new Date(date);
+    // Check if date is valid
+    if (isNaN(d.getTime())) {
+      return 'N/A';
+    }
     return d.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -110,7 +117,7 @@ function createElement(tag, attrs = {}, content = '') {
     } else if (key === 'style' && typeof value === 'object') {
       Object.assign(element.style, value);
     } else {
-      element.setAttribute(key, value);
+      element.setAttribute(key, String(value));
     }
   });
   if (content) {

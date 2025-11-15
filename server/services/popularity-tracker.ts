@@ -7,7 +7,7 @@
  * Uses Redis sorted sets for efficient popularity tracking.
  */
 
-import { getRedisClient } from '../config/redis';
+import { redisClient } from '../config/redis';
 import { logger } from '../utils/logger';
 
 /**

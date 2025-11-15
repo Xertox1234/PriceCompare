@@ -72,6 +72,18 @@ app.use(sanitizeInput);
   log('Initializing Redis connection...');
   const redisClient = await initializeRedis();
 
+  // CRITICAL: Redis is mandatory in production for distributed rate limiting and sessions
+  if (!redisClient && process.env.NODE_ENV === 'production') {
+    log('❌ FATAL: Redis is required in production but connection failed');
+    log('   Please ensure Redis is running and accessible at: ' + (process.env.REDIS_URL || 'redis://localhost:6379'));
+    log('   Production requires Redis for:');
+    log('   - Distributed rate limiting across multiple instances');
+    log('   - Session storage and management');
+    log('   - Account lockout tracking');
+    log('   - Caching and performance optimization');
+    process.exit(1);
+  }
+
   // SECURITY: Setup rate limiting (Redis-based if available, otherwise in-memory)
   const rateLimiterMiddleware = redisClient ? redisRateLimiter : rateLimiter;
   const limiterSource = redisClient ? 'Redis (distributed)' : 'in-memory (single server)';
