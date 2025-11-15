@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn, customType, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn, customType, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -777,6 +777,7 @@ export const priceAggregatesWeekly = pgTable("price_aggregates_weekly", {
   productYearIdx: index("weekly_product_year_idx").on(table.productId, table.year, table.week),
   retailerYearIdx: index("weekly_retailer_year_idx").on(table.retailerId, table.year, table.week),
   createdAtIdx: index("weekly_created_idx").on(table.createdAt),
+  uniqueProductRetailerWeek: unique("unique_product_retailer_week").on(table.productId, table.retailerId, table.year, table.week),
 }));
 
 /**
@@ -808,6 +809,7 @@ export const priceAggregatesMonthly = pgTable("price_aggregates_monthly", {
   productYearIdx: index("monthly_product_year_idx").on(table.productId, table.year, table.month),
   retailerYearIdx: index("monthly_retailer_year_idx").on(table.retailerId, table.year, table.month),
   createdAtIdx: index("monthly_created_idx").on(table.createdAt),
+  uniqueProductRetailerMonth: unique("unique_product_retailer_month").on(table.productId, table.retailerId, table.year, table.month),
 }));
 
 /**
@@ -837,6 +839,7 @@ export const priceTrends = pgTable("price_trends", {
   retailerIdx: index("trends_retailer_idx").on(table.retailerId),
   directionIdx: index("trends_direction_idx").on(table.trendDirection),
   analyzedIdx: index("trends_analyzed_idx").on(table.lastAnalyzedAt),
+  uniqueProductRetailer: unique("unique_product_retailer_trend").on(table.productId, table.retailerId),
 }));
 
 // Scraping source configuration

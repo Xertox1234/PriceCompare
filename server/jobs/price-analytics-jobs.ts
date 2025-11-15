@@ -1,0 +1,145 @@
+import cron, { type ScheduledTask } from 'node-cron';
+import { priceAggregationService } from '../services/price-aggregation-service';
+import { trendAnalysisService } from '../services/trend-analysis-service';
+import { logger } from '../utils/logger';
+
+/**
+ * Price Analytics Scheduled Jobs
+ * Contains all scheduled tasks related to price aggregation and trend analysis
+ */
+
+let weeklyAggregationJob: ScheduledTask | null = null;
+let monthlyAggregationJob: ScheduledTask | null = null;
+let trendAnalysisJob: ScheduledTask | null = null;
+
+/**
+ * Start all price analytics scheduled jobs
+ */
+export function startPriceAnalyticsJobs(): void {
+  logger.info('Starting price analytics scheduled jobs...');
+
+  // Weekly aggregation - runs every Sunday at 11:00 PM
+  weeklyAggregationJob = cron.schedule('0 23 * * 0', async () => {
+    try {
+      logger.info('Starting weekly price aggregation...');
+      const count = await priceAggregationService.calculateWeeklyAggregates();
+      logger.info(`Weekly price aggregation completed: ${count} aggregates calculated`);
+    } catch (error) {
+      logger.error('Error in weekly price aggregation:', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }, {
+    timezone: 'America/New_York'
+  });
+
+  // Monthly aggregation - runs on the last day of every month at 11:30 PM
+  monthlyAggregationJob = cron.schedule('30 23 28-31 * *', async () => {
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Only run if tomorrow is the first day of the month
+      if (tomorrow.getDate() === 1) {
+        logger.info('Starting monthly price aggregation...');
+        const count = await priceAggregationService.calculateMonthlyAggregates();
+        logger.info(`Monthly price aggregation completed: ${count} aggregates calculated`);
+      }
+    } catch (error) {
+      logger.error('Error in monthly price aggregation:', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }, {
+    timezone: 'America/New_York'
+  });
+
+  // Trend analysis - runs daily at 3:00 AM
+  trendAnalysisJob = cron.schedule('0 3 * * *', async () => {
+    try {
+      logger.info('Starting daily trend analysis...');
+      const count = await trendAnalysisService.analyzeTrendsForAllProducts(30);
+      logger.info(`Daily trend analysis completed: ${count} trends analyzed`);
+    } catch (error) {
+      logger.error('Error in daily trend analysis:', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }, {
+    timezone: 'America/New_York'
+  });
+
+  logger.info('Price analytics jobs scheduled:');
+  logger.info('- Weekly aggregation: 11:00 PM every Sunday');
+  logger.info('- Monthly aggregation: 11:30 PM on last day of month');
+  logger.info('- Trend analysis: 3:00 AM every day');
+}
+
+/**
+ * Stop all price analytics scheduled jobs
+ */
+export function stopPriceAnalyticsJobs(): void {
+  logger.info('Stopping price analytics scheduled jobs...');
+
+  if (weeklyAggregationJob) {
+    weeklyAggregationJob.stop();
+    weeklyAggregationJob = null;
+  }
+
+  if (monthlyAggregationJob) {
+    monthlyAggregationJob.stop();
+    monthlyAggregationJob = null;
+  }
+
+  if (trendAnalysisJob) {
+    trendAnalysisJob.stop();
+    trendAnalysisJob = null;
+  }
+
+  logger.info('Price analytics jobs stopped');
+}
+
+/**
+ * Get the status of scheduled jobs
+ */
+export function getPriceAnalyticsJobsStatus(): {
+  weeklyAggregationJob: boolean;
+  monthlyAggregationJob: boolean;
+  trendAnalysisJob: boolean;
+} {
+  return {
+    weeklyAggregationJob: weeklyAggregationJob !== null,
+    monthlyAggregationJob: monthlyAggregationJob !== null,
+    trendAnalysisJob: trendAnalysisJob !== null
+  };
+}
+
+/**
+ * Manually trigger weekly aggregation (for testing)
+ */
+export async function triggerWeeklyAggregation(): Promise<number> {
+  logger.info('Manually triggering weekly aggregation...');
+  const count = await priceAggregationService.calculateWeeklyAggregates();
+  logger.info(`Manual weekly aggregation completed: ${count} aggregates`);
+  return count;
+}
+
+/**
+ * Manually trigger monthly aggregation (for testing)
+ */
+export async function triggerMonthlyAggregation(): Promise<number> {
+  logger.info('Manually triggering monthly aggregation...');
+  const count = await priceAggregationService.calculateMonthlyAggregates();
+  logger.info(`Manual monthly aggregation completed: ${count} aggregates`);
+  return count;
+}
+
+/**
+ * Manually trigger trend analysis (for testing)
+ */
+export async function triggerTrendAnalysis(analysisPeriodDays: number = 30): Promise<number> {
+  logger.info(`Manually triggering trend analysis (${analysisPeriodDays} days)...`);
+  const count = await trendAnalysisService.analyzeTrendsForAllProducts(analysisPeriodDays);
+  logger.info(`Manual trend analysis completed: ${count} trends analyzed`);
+  return count;
+}

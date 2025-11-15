@@ -16,6 +16,7 @@ import { registerDiscourseRoutes } from "./discourse-routes";
 import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
 import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { registerPriceHistoryRoutes } from "./price-history-routes";
+import { registerPriceAnalyticsRoutes } from "./price-analytics-routes";
 import { registerNotificationRoutes } from "./notification-routes";
 import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
 import { registerCommunityRoutes } from "./community-routes";
@@ -33,6 +34,7 @@ import { createSessionStore } from "./config/session-store";
 import { cleanupExpiredTokens } from "./services/password-reset-service";
 import { initializePriceSnapshotScheduler, triggerManualSnapshot } from "./jobs/price-snapshot-queue";
 import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
+import { startPriceAnalyticsJobs } from "./jobs/price-analytics-jobs";
 import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handler";
 import { RATE_LIMIT, SESSION } from "./utils/constants";
 
@@ -193,6 +195,9 @@ app.use(sanitizeInput);
   // Register price history routes
   registerPriceHistoryRoutes(app);
 
+  // Register price analytics routes (trends and aggregates)
+  registerPriceAnalyticsRoutes(app);
+
   // Register notification routes
   registerNotificationRoutes(app);
 
@@ -240,6 +245,9 @@ app.use(sanitizeInput);
 
   // Start price history scheduled jobs
   startPriceHistoryJobs();
+
+  // Start price analytics scheduled jobs (aggregation and trend analysis)
+  startPriceAnalyticsJobs();
 
   // Password reset token cleanup - run every hour
   const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
