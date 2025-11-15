@@ -7,6 +7,9 @@
 
 import type { Redis } from 'ioredis';
 import type session from 'express-session';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('SessionStore');
 
 /**
  * Create session store (Redis or in-memory fallback)
@@ -18,10 +21,10 @@ export async function createSessionStore(
   redisClient: Redis | null
 ): Promise<session.Store | undefined> {
   if (!redisClient) {
-    console.warn('⚠️  Using in-memory session store (not suitable for production)');
-    console.warn('   Sessions will not persist across server restarts');
-    console.warn('   Sessions will not work with multiple server instances');
-    console.warn('   To fix: Install Redis and set REDIS_URL in .env');
+    log.warn('⚠️  Using in-memory session store (not suitable for production)');
+    log.warn('   Sessions will not persist across server restarts');
+    log.warn('   Sessions will not work with multiple server instances');
+    log.warn('   To fix: Install Redis and set REDIS_URL in .env');
     return undefined; // express-session will use MemoryStore
   }
 
@@ -37,12 +40,12 @@ export async function createSessionStore(
       ttl: 24 * 60 * 60, // 24 hours (in seconds)
     });
 
-    console.log('✅ Using Redis session store (distributed sessions enabled)');
+    log.info('✅ Using Redis session store (distributed sessions enabled)');
     return store;
   } catch (error) {
-    console.error('❌ Failed to create Redis session store:', error);
-    console.warn('⚠️  Falling back to in-memory session store');
-    console.warn('   To fix: npm install connect-redis --save');
+    log.error('❌ Failed to create Redis session store:', { error });
+    log.warn('⚠️  Falling back to in-memory session store');
+    log.warn('   To fix: npm install connect-redis --save');
     return undefined;
   }
 }

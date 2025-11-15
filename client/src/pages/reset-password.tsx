@@ -7,6 +7,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, AlertCircle, Eye, EyeOff, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createLogger } from "@/utils/logger";
+
+const log = createLogger('ResetPassword');
 
 export default function ResetPassword() {
   const [, setLocation] = useLocation();
@@ -49,7 +52,7 @@ export default function ResetPassword() {
         setTokenError(data.error || "Invalid or expired password reset token");
       }
     } catch (err) {
-      console.error("Token validation error:", err);
+      log.error("Token validation error:", { error: err });
       setTokenError("Unable to validate reset token. Please try again.");
     } finally {
       setIsValidating(false);
@@ -120,7 +123,7 @@ export default function ResetPassword() {
         setError(data.error || "Failed to reset password. Please try again.");
       }
     } catch (err) {
-      console.error("Reset password error:", err);
+      log.error("Reset password error:", { error: err });
       setError("Unable to process request. Please try again later.");
     } finally {
       setIsLoading(false);

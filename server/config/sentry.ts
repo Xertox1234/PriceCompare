@@ -9,6 +9,9 @@ import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import type { Request } from "express";
 import { isOperationalError } from "../utils/errors";
+import { createLogger } from "../utils/logger";
+
+const log = createLogger('Sentry');
 
 /**
  * Initialize Sentry error monitoring
@@ -22,15 +25,15 @@ export function initializeSentry(): void {
 
   if (!dsn) {
     if (isProduction) {
-      console.error('⚠️  WARNING: SENTRY_DSN not configured in production!');
-      console.error('   Error tracking is disabled. Set SENTRY_DSN to enable monitoring.');
+      log.error('⚠️  WARNING: SENTRY_DSN not configured in production!');
+      log.error('   Error tracking is disabled. Set SENTRY_DSN to enable monitoring.');
     } else {
-      console.log('ℹ️  Sentry not configured (SENTRY_DSN missing) - error tracking disabled');
+      log.info('ℹ️  Sentry not configured (SENTRY_DSN missing) - error tracking disabled');
     }
     return;
   }
 
-  console.log(`🔍 Initializing Sentry error monitoring (${environment})...`);
+  log.info(`🔍 Initializing Sentry error monitoring (${environment})...`);
 
   Sentry.init({
     dsn,
@@ -59,7 +62,7 @@ export function initializeSentry(): void {
         if (isOperationalError(error as Error)) {
           // Log operational errors locally but don't send to Sentry
           if (isDevelopment) {
-            console.log('Sentry: Skipping operational error:', error);
+            log.debug('Skipping operational error', { error });
           }
           return null;
         }
@@ -104,7 +107,7 @@ export function initializeSentry(): void {
     debug: isDevelopment,
   });
 
-  console.log('✅ Sentry initialized successfully');
+  log.info('✅ Sentry initialized successfully');
 }
 
 /**
@@ -231,7 +234,7 @@ export const sentryTracingHandler = Sentry.Handlers.tracingHandler();
  * Call this on graceful shutdown
  */
 export async function closeSentry(timeout: number = 2000): Promise<void> {
-  console.log('Closing Sentry connection...');
+  log.info('Closing Sentry connection...');
   await Sentry.close(timeout);
-  console.log('Sentry connection closed');
+  log.info('Sentry connection closed');
 }

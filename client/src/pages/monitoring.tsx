@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Activity, AlertCircle, CheckCircle2, Database, Server, TrendingUp, AlertTriangle } from "lucide-react";
 import { io, Socket } from "socket.io-client";
+import { createLogger } from "@/utils/logger";
+
+const log = createLogger('Monitoring');
 
 interface DashboardMetrics {
   timestamp: string;
@@ -90,12 +93,12 @@ export default function MonitoringDashboard() {
 
     socketInstance.on("connect", () => {
       setConnected(true);
-      console.log("✅ WebSocket connected");
+      log.info("✅ WebSocket connected");
     });
 
     socketInstance.on("disconnect", () => {
       setConnected(false);
-      console.log("❌ WebSocket disconnected");
+      log.info("❌ WebSocket disconnected");
     });
 
     socketInstance.on("metrics:update", (data: { metrics: DashboardMetrics; timestamp: string }) => {
@@ -131,7 +134,7 @@ export default function MonitoringDashboard() {
         setLastUpdate(new Date().toLocaleTimeString());
       }
     } catch (error) {
-      console.error("Failed to fetch metrics:", error);
+      log.error("Failed to fetch metrics:", { error });
     }
   };
 

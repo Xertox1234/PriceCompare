@@ -1,4 +1,7 @@
 import { Product, ProductOffer, Retailer } from "../../shared/schema";
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('HybridDataCollector');
 
 export interface DataSourceStrategy {
   retailer: string;
@@ -149,7 +152,7 @@ export class AmazonAPIService extends RetailerAPIService {
         };
       }) || [];
     } catch (error) {
-      console.error('Amazon API error:', error);
+      log.error('Amazon API error:', { error });
       throw error;
     }
   }
@@ -261,7 +264,7 @@ export class WalmartAPIService extends RetailerAPIService {
         };
       }) || [];
     } catch (error) {
-      console.error('Walmart API error:', error);
+      log.error('Walmart API error:', { error });
       throw error;
     }
   }
@@ -419,13 +422,13 @@ export class HybridDataCollector {
 
       // Fallback to scraping or primary scraping
       if (strategy.fallbackEnabled || strategy.primarySource === 'scraping') {
-        console.log(`Using scraping for ${retailer}${strategy.primarySource === 'api' ? ' (API fallback)' : ''}`);
+        log.info(`Using scraping for ${retailer}${strategy.primarySource === 'api' ? ' (API fallback)' : ''}`);
         return await this.scrapeRetailer(retailer, query, strategy.scrapingConfig);
       }
 
       throw new Error(`No available data source for ${retailer}`);
     } catch (error) {
-      console.error(`Data collection failed for ${retailer}:`, error);
+      log.error(`Data collection failed for ${retailer}:`, { error });
       throw error;
     }
   }
@@ -500,7 +503,7 @@ export class HybridDataCollector {
   private async scrapeRetailer(retailer: string, query: string, config?: ScrapingConfig): Promise<UnifiedProduct[]> {
     // This would integrate with your existing scraping infrastructure
     // For now, return empty array as placeholder
-    console.log(`Scraping ${retailer} for query: ${query}`);
+    log.info(`Scraping ${retailer} for query: ${query}`);
     return [];
   }
 

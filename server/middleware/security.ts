@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { getRequiredEnv } from '../config/env-validation';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('Security');
 
 /**
  * Rate Limiting Middleware
@@ -48,7 +51,7 @@ setInterval(() => {
       delete rateLimitStore[key];
     });
 
-    console.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
+    log.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
   }
 }, CLEANUP_INTERVAL_MS);
 
@@ -342,7 +345,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
     } else {
       // SECURITY: In production, ALLOWED_ORIGINS must be explicitly set
       // Log warning if not set
-      console.warn('WARNING: ALLOWED_ORIGINS not set in production. CORS will be restrictive.');
+      log.warn('WARNING: ALLOWED_ORIGINS not set in production. CORS will be restrictive.');
       allowedOrigins = [];
     }
   }

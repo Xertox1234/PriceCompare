@@ -6,6 +6,10 @@
  * missing or default secret values.
  */
 
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('EnvValidation');
+
 interface RequiredEnvVar {
   name: string;
   description: string;
@@ -94,7 +98,7 @@ export function validateEnvironment(): void {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  console.log('🔍 Validating environment configuration...');
+  log.info('🔍 Validating environment configuration...');
 
   // Check required variables
   for (const envVar of REQUIRED_ENV_VARS) {
@@ -112,19 +116,19 @@ export function validateEnvironment(): void {
       if (secretErrors.length > 0) {
         // SECURITY: Enforce strong secrets in all environments (including dev)
         // This prevents weak secrets from accidentally making it to production
-        console.error(`\n❌ SECURITY: Weak secret detected for ${envVar.name}:`);
-        secretErrors.forEach(e => console.error(`  ${e}`));
+        log.error(`\n❌ SECURITY: Weak secret detected for ${envVar.name}:`);
+        secretErrors.forEach(e => log.error(`  ${e}`));
 
         if (isDevelopment || isTest) {
-          console.error('\n💡 TIP: Even in development, use strong secrets.');
-          console.error('   Generate a secure secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+          log.error('\n💡 TIP: Even in development, use strong secrets.');
+          log.error('   Generate a secure secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
         }
 
         errors.push(...secretErrors);
       }
     }
 
-    console.log(`  ✅ ${envVar.name} is set`);
+    log.info(`  ✅ ${envVar.name} is set`);
   }
 
   // Check optional variables (warnings only)
@@ -134,36 +138,36 @@ export function validateEnvironment(): void {
     if (!value) {
       warnings.push(`⚠️  OPTIONAL: ${envVar.name} is not set (${envVar.description})`);
     } else {
-      console.log(`  ✅ ${envVar.name} is set`);
+      log.info(`  ✅ ${envVar.name} is set`);
     }
   }
 
   // Display warnings
   if (warnings.length > 0) {
-    console.log('\n⚠️  Environment Warnings:');
-    warnings.forEach(w => console.log(`  ${w}`));
+    log.warn('\n⚠️  Environment Warnings:');
+    warnings.forEach(w => log.warn(`  ${w}`));
   }
 
   // Handle errors
   if (errors.length > 0) {
-    console.error('\n❌ Environment Validation Failed:\n');
-    errors.forEach(e => console.error(`  ${e}`));
-    console.error('\n');
+    log.error('\n❌ Environment Validation Failed:\n');
+    errors.forEach(e => log.error(`  ${e}`));
+    log.error('\n');
 
     // SECURITY: Fail fast in all environments (including dev)
     // This enforces proper configuration and prevents weak secrets
-    console.error('💥 CRITICAL: Cannot start application with invalid environment configuration.');
-    console.error('   Please set all required environment variables with proper values.');
-    console.error('   See .env.example for reference.\n');
+    log.error('💥 CRITICAL: Cannot start application with invalid environment configuration.');
+    log.error('   Please set all required environment variables with proper values.');
+    log.error('   See .env.example for reference.\n');
 
     if (isDevelopment || isTest) {
-      console.error('📝 NOTE: Strong secrets are now required even in development.');
-      console.error('   This prevents accidentally deploying weak secrets to production.\n');
+      log.error('📝 NOTE: Strong secrets are now required even in development.');
+      log.error('   This prevents accidentally deploying weak secrets to production.\n');
     }
 
     process.exit(1);
   } else {
-    console.log('✅ Environment validation passed\n');
+    log.info('✅ Environment validation passed\n');
   }
 }
 
