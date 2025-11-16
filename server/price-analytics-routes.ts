@@ -3,7 +3,7 @@ import { logger } from "./utils/logger";
 import { z } from 'zod';
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
-import { priceAggregatesWeekly, priceAggregatesMonthly, priceTrends } from "../shared/schema";
+import { priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks } from "../shared/schema";
 import { trendAnalysisService } from './services/trend-analysis-service';
 import { priceAggregationService } from './services/price-aggregation-service';
 import type { AuthenticatedRequest } from '@shared/types';
@@ -399,6 +399,79 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
         error: error instanceof Error ? error.message : String(error)
       });
       res.status(500).json({ error: 'Failed to fetch analytics overview' });
+    }
+  });
+
+  /**
+   * GET /api/health/job-locks
+   * Health check endpoint for monitoring distributed job locks
+   *
+   * Returns information about active and expired locks across all servers
+   */
+  app.get('/api/health/job-locks', async (req: Request, res: Response) => {
+    try {
+      const now = new Date();
+
+      // Fetch all locks
+      const allLocks = await db
+        .select({
+          jobName: jobLocks.jobName,
+          lockedBy: jobLocks.lockedBy,
+          lockedAt: jobLocks.lockedAt,
+          expiresAt: jobLocks.expiresAt,
+        })
+        .from(jobLocks)
+        .orderBy(desc(jobLocks.lockedAt));
+
+      // Categorize locks
+      const activeLocks = allLocks.filter(lock => new Date(lock.expiresAt) > now);
+      const expiredLocks = allLocks.filter(lock => new Date(lock.expiresAt) <= now);
+
+      // Group by job name for analysis
+      const locksByJob: Record<string, { active: number; expired: number }> = {};
+      allLocks.forEach(lock => {
+        if (!locksByJob[lock.jobName]) {
+          locksByJob[lock.jobName] = { active: 0, expired: 0 };
+        }
+        if (new Date(lock.expiresAt) > now) {
+          locksByJob[lock.jobName].active++;
+        } else {
+          locksByJob[lock.jobName].expired++;
+        }
+      });
+
+      res.json({
+        status: 'ok',
+        timestamp: now.toISOString(),
+        summary: {
+          totalLocks: allLocks.length,
+          activeLocks: activeLocks.length,
+          expiredLocks: expiredLocks.length,
+        },
+        byJob: locksByJob,
+        activeLockDetails: activeLocks.map(lock => ({
+          jobName: lock.jobName,
+          lockedBy: lock.lockedBy,
+          lockedAt: lock.lockedAt,
+          expiresAt: lock.expiresAt,
+          expiresIn: Math.floor((new Date(lock.expiresAt).getTime() - now.getTime()) / 1000),
+        })),
+        expiredLockDetails: expiredLocks.map(lock => ({
+          jobName: lock.jobName,
+          lockedBy: lock.lockedBy,
+          lockedAt: lock.lockedAt,
+          expiresAt: lock.expiresAt,
+          expiredFor: Math.floor((now.getTime() - new Date(lock.expiresAt).getTime()) / 1000),
+        })),
+      });
+    } catch (error) {
+      logger.error('Error fetching job lock health:', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      res.status(500).json({
+        status: 'error',
+        error: 'Failed to fetch job lock health'
+      });
     }
   });
 

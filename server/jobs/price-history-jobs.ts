@@ -1,10 +1,14 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { generateDailySnapshots, cleanupOldPriceHistory } from '../services/price-history-service';
+import { jobLockService } from '../services/job-lock-service';
 import { logger } from '../utils/logger';
 
 /**
  * Price History Scheduled Jobs
  * Contains all scheduled tasks related to price history tracking
+ *
+ * LOCKING: All jobs use distributed locks to prevent duplicate execution
+ * in multi-server deployments
  */
 
 let snapshotJob: ScheduledTask | null = null;
@@ -18,28 +22,44 @@ export function startPriceHistoryJobs(): void {
 
   // Daily snapshot generation - runs at 1:00 AM every day
   snapshotJob = cron.schedule('0 1 * * *', async () => {
-    try {
-      logger.info('Starting daily price snapshot generation...');
-      const count = await generateDailySnapshots();
-      logger.info(`Daily price snapshots completed: ${count} snapshots generated`);
-    } catch (error) {
-      logger.error('Error in daily snapshot generation:', { error: error instanceof Error ? error.message : String(error) });
+    // Use distributed lock to prevent duplicate execution (1 hour TTL)
+    const result = await jobLockService.withLock(
+      'price-history:daily-snapshots',
+      async () => {
+        logger.info('Starting daily price snapshot generation...');
+        const count = await generateDailySnapshots();
+        logger.info(`Daily price snapshots completed: ${count} snapshots generated`);
+        return count;
+      },
+      3600 // 1 hour lock
+    );
+
+    if (result === null) {
+      logger.info('Snapshot generation skipped - already running on another server');
     }
   }, {
-    timezone: 'America/New_York' // Adjust to your timezone
+    timezone: 'America/New_York'
   });
 
   // Weekly cleanup - runs every Sunday at 2:00 AM
   cleanupJob = cron.schedule('0 2 * * 0', async () => {
-    try {
-      logger.info('Starting price history cleanup...');
-      const deletedCount = await cleanupOldPriceHistory(90); // Keep 90 days
-      logger.info(`Price history cleanup completed: ${deletedCount} records removed`);
-    } catch (error) {
-      logger.error('Error in price history cleanup:', { error: error instanceof Error ? error.message : String(error) });
+    // Use distributed lock to prevent duplicate execution (1 hour TTL)
+    const result = await jobLockService.withLock(
+      'price-history:cleanup',
+      async () => {
+        logger.info('Starting price history cleanup...');
+        const deletedCount = await cleanupOldPriceHistory(90); // Keep 90 days
+        logger.info(`Price history cleanup completed: ${deletedCount} records removed`);
+        return deletedCount;
+      },
+      3600 // 1 hour lock
+    );
+
+    if (result === null) {
+      logger.info('Price history cleanup skipped - already running on another server');
     }
   }, {
-    timezone: 'America/New_York' // Adjust to your timezone
+    timezone: 'America/New_York'
   });
 
   logger.info('Price history jobs scheduled:');

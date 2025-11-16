@@ -3,6 +3,7 @@ import { jobLocks } from "../../shared/schema";
 import { eq, and, lte, sql } from "drizzle-orm";
 import { logger } from "../utils/logger";
 import os from "os";
+import crypto from "crypto";
 
 /**
  * Job Lock Service
@@ -20,8 +21,10 @@ export class JobLockService {
   private readonly instanceId: string;
 
   constructor() {
-    // Create unique instance ID from hostname + process ID
-    this.instanceId = `${os.hostname()}-${process.pid}`;
+    // Create unique instance ID from hostname + process ID + short UUID
+    // UUID ensures uniqueness even in containerized environments with identical hostnames
+    const shortUuid = crypto.randomUUID().slice(0, 8);
+    this.instanceId = `${os.hostname()}-${process.pid}-${shortUuid}`;
   }
 
   /**
