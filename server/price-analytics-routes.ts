@@ -2,7 +2,7 @@ import { Express, Request, Response } from 'express';
 import { logger } from "./utils/logger";
 import { z } from 'zod';
 import { db } from "./db";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { priceAggregatesWeekly, priceAggregatesMonthly, priceTrends } from "../shared/schema";
 import { trendAnalysisService } from './services/trend-analysis-service';
 import { priceAggregationService } from './services/price-aggregation-service';
@@ -349,43 +349,49 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
   /**
    * GET /api/analytics/overview
    * Get analytics overview with aggregate statistics
+   *
+   * OPTIMIZED: Uses SQL COUNT(*) and GROUP BY instead of fetching all records
+   * Reduces memory usage and improves query performance significantly
    */
   app.get('/api/analytics/overview', async (req: Request, res: Response) => {
     try {
-      // Get count of weekly aggregates
-      const weeklyCount = await db
-        .select({ count: priceAggregatesWeekly.id })
+      // OPTIMIZATION 1: Use SQL COUNT(*) instead of fetching all IDs
+      const weeklyCountResult = await db
+        .select({ count: sql<number>`count(*)::int` })
         .from(priceAggregatesWeekly);
 
-      // Get count of monthly aggregates
-      const monthlyCount = await db
-        .select({ count: priceAggregatesMonthly.id })
+      const monthlyCountResult = await db
+        .select({ count: sql<number>`count(*)::int` })
         .from(priceAggregatesMonthly);
 
-      // Get trend statistics
-      const trendStats = await db
+      // OPTIMIZATION 2: Use GROUP BY to count trends by direction in a single query
+      const trendStatsResult = await db
         .select({
           direction: priceTrends.trendDirection,
-          count: priceTrends.id
+          count: sql<number>`count(*)::int`
         })
-        .from(priceTrends);
+        .from(priceTrends)
+        .groupBy(priceTrends.trendDirection);
 
+      // Convert grouped results to breakdown object
       const trendCounts = {
         uptrend: 0,
         downtrend: 0,
         stable: 0
       };
 
-      for (const stat of trendStats) {
-        if (stat.direction === 'uptrend') trendCounts.uptrend++;
-        else if (stat.direction === 'downtrend') trendCounts.downtrend++;
-        else if (stat.direction === 'stable') trendCounts.stable++;
+      let totalTrends = 0;
+      for (const stat of trendStatsResult) {
+        totalTrends += stat.count;
+        if (stat.direction === 'uptrend') trendCounts.uptrend = stat.count;
+        else if (stat.direction === 'downtrend') trendCounts.downtrend = stat.count;
+        else if (stat.direction === 'stable') trendCounts.stable = stat.count;
       }
 
       res.json({
-        weeklyAggregates: weeklyCount.length,
-        monthlyAggregates: monthlyCount.length,
-        totalTrends: trendStats.length,
+        weeklyAggregates: weeklyCountResult[0]?.count || 0,
+        monthlyAggregates: monthlyCountResult[0]?.count || 0,
+        totalTrends,
         trendBreakdown: trendCounts
       });
     } catch (error) {

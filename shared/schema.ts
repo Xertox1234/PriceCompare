@@ -876,6 +876,19 @@ export const productUrls = pgTable("product_urls", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Job locks for preventing duplicate execution in multi-server setups
+export const jobLocks = pgTable("job_locks", {
+  id: serial("id").primaryKey(),
+  jobName: varchar("job_name", { length: 100 }).notNull().unique(),
+  lockedBy: varchar("locked_by", { length: 200 }).notNull(), // Server instance ID or hostname
+  lockedAt: timestamp("locked_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(), // Auto-release if server dies
+  metadata: text("metadata"), // JSON for additional context
+}, (table) => ({
+  jobNameIdx: index("job_locks_name_idx").on(table.jobName),
+  expiresIdx: index("job_locks_expires_idx").on(table.expiresAt),
+}));
+
 // Insert schemas for scraping tables
 export const insertTrendingProductSchema = createInsertSchema(trendingProducts).omit({
   id: true,

@@ -1,11 +1,15 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { priceAggregationService } from '../services/price-aggregation-service';
 import { trendAnalysisService } from '../services/trend-analysis-service';
+import { jobLockService } from '../services/job-lock-service';
 import { logger } from '../utils/logger';
 
 /**
  * Price Analytics Scheduled Jobs
  * Contains all scheduled tasks related to price aggregation and trend analysis
+ *
+ * LOCKING: All jobs use distributed locks to prevent duplicate execution
+ * in multi-server deployments
  */
 
 let weeklyAggregationJob: ScheduledTask | null = null;
@@ -20,14 +24,20 @@ export function startPriceAnalyticsJobs(): void {
 
   // Weekly aggregation - runs every Sunday at 11:00 PM
   weeklyAggregationJob = cron.schedule('0 23 * * 0', async () => {
-    try {
-      logger.info('Starting weekly price aggregation...');
-      const count = await priceAggregationService.calculateWeeklyAggregates();
-      logger.info(`Weekly price aggregation completed: ${count} aggregates calculated`);
-    } catch (error) {
-      logger.error('Error in weekly price aggregation:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+    // Use distributed lock to prevent duplicate execution (1 hour TTL)
+    const result = await jobLockService.withLock(
+      'price-analytics:weekly-aggregation',
+      async () => {
+        logger.info('Starting weekly price aggregation...');
+        const count = await priceAggregationService.calculateWeeklyAggregates();
+        logger.info(`Weekly price aggregation completed: ${count} aggregates calculated`);
+        return count;
+      },
+      3600 // 1 hour lock
+    );
+
+    if (result === null) {
+      logger.info('Weekly aggregation skipped - already running on another server');
     }
   }, {
     timezone: 'America/New_York'
@@ -35,20 +45,26 @@ export function startPriceAnalyticsJobs(): void {
 
   // Monthly aggregation - runs on the last day of every month at 11:30 PM
   monthlyAggregationJob = cron.schedule('30 23 28-31 * *', async () => {
-    try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // Only run if tomorrow is the first day of the month
-      if (tomorrow.getDate() === 1) {
-        logger.info('Starting monthly price aggregation...');
-        const count = await priceAggregationService.calculateMonthlyAggregates();
-        logger.info(`Monthly price aggregation completed: ${count} aggregates calculated`);
+    // Only run if tomorrow is the first day of the month
+    if (tomorrow.getDate() === 1) {
+      // Use distributed lock to prevent duplicate execution (1 hour TTL)
+      const result = await jobLockService.withLock(
+        'price-analytics:monthly-aggregation',
+        async () => {
+          logger.info('Starting monthly price aggregation...');
+          const count = await priceAggregationService.calculateMonthlyAggregates();
+          logger.info(`Monthly price aggregation completed: ${count} aggregates calculated`);
+          return count;
+        },
+        3600 // 1 hour lock
+      );
+
+      if (result === null) {
+        logger.info('Monthly aggregation skipped - already running on another server');
       }
-    } catch (error) {
-      logger.error('Error in monthly price aggregation:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
     }
   }, {
     timezone: 'America/New_York'
@@ -56,14 +72,20 @@ export function startPriceAnalyticsJobs(): void {
 
   // Trend analysis - runs daily at 3:00 AM
   trendAnalysisJob = cron.schedule('0 3 * * *', async () => {
-    try {
-      logger.info('Starting daily trend analysis...');
-      const count = await trendAnalysisService.analyzeTrendsForAllProducts(30);
-      logger.info(`Daily trend analysis completed: ${count} trends analyzed`);
-    } catch (error) {
-      logger.error('Error in daily trend analysis:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+    // Use distributed lock to prevent duplicate execution (2 hour TTL for longer analysis)
+    const result = await jobLockService.withLock(
+      'price-analytics:trend-analysis',
+      async () => {
+        logger.info('Starting daily trend analysis...');
+        const count = await trendAnalysisService.analyzeTrendsForAllProducts(30);
+        logger.info(`Daily trend analysis completed: ${count} trends analyzed`);
+        return count;
+      },
+      7200 // 2 hour lock (trend analysis may take longer)
+    );
+
+    if (result === null) {
+      logger.info('Trend analysis skipped - already running on another server');
     }
   }, {
     timezone: 'America/New_York'
