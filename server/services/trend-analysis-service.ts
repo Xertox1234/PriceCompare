@@ -10,42 +10,42 @@ export class TrendAnalysisService {
    *
    * OPTIMIZED: Uses database-level aggregation and parallel batch processing
    * Reduces ~100 queries to 2 queries + batch processing
+   * TRANSACTIONAL: All trend updates committed atomically
    */
   async analyzeTrendsForAllProducts(analysisPeriodDays: number = 30): Promise<number> {
+    logger.info(`[TrendAnalysis] Starting trend analysis for all products (${analysisPeriodDays} days)`);
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - analysisPeriodDays);
+
+    // Fetch all data first (outside transaction to minimize lock time)
+    const priceDataGrouped = await db
+      .select({
+        productId: priceHistory.productId,
+        retailerId: priceHistory.retailerId,
+        prices: sql<Array<{price: number, timestamp: string}>>`
+          json_agg(
+            json_build_object(
+              'price', ${priceHistory.price}::numeric,
+              'timestamp', ${priceHistory.recordedAt}
+            ) ORDER BY ${priceHistory.recordedAt}
+          )`,
+        recordCount: sql<number>`count(*)::int`,
+      })
+      .from(priceHistory)
+      .where(gte(priceHistory.recordedAt, cutoffDate))
+      .groupBy(priceHistory.productId, priceHistory.retailerId)
+      .having(sql`count(*) >= 5`); // Only include if at least 5 data points
+
+    if (priceDataGrouped.length === 0) {
+      logger.info("[TrendAnalysis] No price data found for trend analysis");
+      return 0;
+    }
+
+    logger.info(`[TrendAnalysis] Found ${priceDataGrouped.length} product-retailer combinations to analyze`);
+
     try {
-      logger.info(`[TrendAnalysis] Starting trend analysis for all products (${analysisPeriodDays} days)`);
-
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - analysisPeriodDays);
-
-      // OPTIMIZATION 1: Fetch all price data grouped by product-retailer in a single query
-      // This includes aggregating prices into arrays and counting records
-      const priceDataGrouped = await db
-        .select({
-          productId: priceHistory.productId,
-          retailerId: priceHistory.retailerId,
-          prices: sql<Array<{price: number, timestamp: string}>>`
-            json_agg(
-              json_build_object(
-                'price', ${priceHistory.price}::numeric,
-                'timestamp', ${priceHistory.recordedAt}
-              ) ORDER BY ${priceHistory.recordedAt}
-            )`,
-          recordCount: sql<number>`count(*)::int`,
-        })
-        .from(priceHistory)
-        .where(gte(priceHistory.recordedAt, cutoffDate))
-        .groupBy(priceHistory.productId, priceHistory.retailerId)
-        .having(sql`count(*) >= 5`); // Only include if at least 5 data points
-
-      if (priceDataGrouped.length === 0) {
-        logger.info("[TrendAnalysis] No price data found for trend analysis");
-        return 0;
-      }
-
-      logger.info(`[TrendAnalysis] Found ${priceDataGrouped.length} product-retailer combinations to analyze`);
-
-      // OPTIMIZATION 2: Process trends in parallel batches to avoid overwhelming the system
+      // OPTIMIZATION 1: Process trends in parallel batches to avoid overwhelming the system
       const BATCH_SIZE = 20; // Process 20 at a time
       const trendValues: any[] = [];
       let analyzedCount = 0;
@@ -82,30 +82,34 @@ export class TrendAnalysisService {
         logger.info(`[TrendAnalysis] Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(priceDataGrouped.length / BATCH_SIZE)}`);
       }
 
-      // OPTIMIZATION 3: Batch insert/update all trends at once
+      // OPTIMIZATION 2: Batch insert/update all trends atomically within a transaction
       if (trendValues.length > 0) {
-        // Split into smaller chunks if needed (PostgreSQL has param limits)
-        const CHUNK_SIZE = 100;
-        for (let i = 0; i < trendValues.length; i += CHUNK_SIZE) {
-          const chunk = trendValues.slice(i, i + CHUNK_SIZE);
+        await db.transaction(async (tx) => {
+          // Split into smaller chunks if needed (PostgreSQL has param limits)
+          const CHUNK_SIZE = 100;
+          for (let i = 0; i < trendValues.length; i += CHUNK_SIZE) {
+            const chunk = trendValues.slice(i, i + CHUNK_SIZE);
 
-          await db
-            .insert(priceTrends)
-            .values(chunk)
-            .onConflictDoUpdate({
-              target: [priceTrends.productId, priceTrends.retailerId],
-              set: {
-                trendDirection: sql`excluded.trend_direction`,
-                trendSlope: sql`excluded.trend_slope`,
-                trendStrength: sql`excluded.trend_strength`,
-                predictedNextPrice: sql`excluded.predicted_next_price`,
-                confidenceLevel: sql`excluded.confidence_level`,
-                analysisPeriodDays: sql`excluded.analysis_period_days`,
-                lastAnalyzedAt: sql`excluded.last_analyzed_at`,
-                updatedAt: sql`excluded.updated_at`,
-              },
-            });
-        }
+            await tx
+              .insert(priceTrends)
+              .values(chunk)
+              .onConflictDoUpdate({
+                target: [priceTrends.productId, priceTrends.retailerId],
+                set: {
+                  trendDirection: sql`excluded.trend_direction`,
+                  trendSlope: sql`excluded.trend_slope`,
+                  trendStrength: sql`excluded.trend_strength`,
+                  predictedNextPrice: sql`excluded.predicted_next_price`,
+                  confidenceLevel: sql`excluded.confidence_level`,
+                  analysisPeriodDays: sql`excluded.analysis_period_days`,
+                  lastAnalyzedAt: sql`excluded.last_analyzed_at`,
+                  updatedAt: sql`excluded.updated_at`,
+                },
+              });
+          }
+
+          logger.info(`[TrendAnalysis] Transaction committed: ${trendValues.length} trends updated`);
+        });
       }
 
       logger.info(`[TrendAnalysis] Completed trend analysis for ${analyzedCount} product-retailer combinations`);
