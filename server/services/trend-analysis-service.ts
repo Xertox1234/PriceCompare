@@ -1,39 +1,110 @@
 import { db } from "../db";
 import { logger } from "../utils/logger";
 import { priceHistory, priceTrends } from "../../shared/schema";
-import { eq, and, gte, desc } from "drizzle-orm";
+import { eq, and, gte, desc, sql } from "drizzle-orm";
 
 export class TrendAnalysisService {
   /**
    * Analyze price trends for all products
    * Should be run daily (e.g., 3 AM)
+   *
+   * OPTIMIZED: Uses database-level aggregation and parallel batch processing
+   * Reduces ~100 queries to 2 queries + batch processing
    */
   async analyzeTrendsForAllProducts(analysisPeriodDays: number = 30): Promise<number> {
     try {
       logger.info(`[TrendAnalysis] Starting trend analysis for all products (${analysisPeriodDays} days)`);
 
-      // Get all unique product-retailer combinations
-      const combinations = await db
-        .selectDistinct({
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - analysisPeriodDays);
+
+      // OPTIMIZATION 1: Fetch all price data grouped by product-retailer in a single query
+      // This includes aggregating prices into arrays and counting records
+      const priceDataGrouped = await db
+        .select({
           productId: priceHistory.productId,
           retailerId: priceHistory.retailerId,
+          prices: sql<Array<{price: number, timestamp: string}>>`
+            json_agg(
+              json_build_object(
+                'price', ${priceHistory.price}::numeric,
+                'timestamp', ${priceHistory.recordedAt}
+              ) ORDER BY ${priceHistory.recordedAt}
+            )`,
+          recordCount: sql<number>`count(*)::int`,
         })
-        .from(priceHistory);
+        .from(priceHistory)
+        .where(gte(priceHistory.recordedAt, cutoffDate))
+        .groupBy(priceHistory.productId, priceHistory.retailerId)
+        .having(sql`count(*) >= 5`); // Only include if at least 5 data points
 
+      if (priceDataGrouped.length === 0) {
+        logger.info("[TrendAnalysis] No price data found for trend analysis");
+        return 0;
+      }
+
+      logger.info(`[TrendAnalysis] Found ${priceDataGrouped.length} product-retailer combinations to analyze`);
+
+      // OPTIMIZATION 2: Process trends in parallel batches to avoid overwhelming the system
+      const BATCH_SIZE = 20; // Process 20 at a time
+      const trendValues: any[] = [];
       let analyzedCount = 0;
 
-      for (const { productId, retailerId } of combinations) {
-        if (!productId || !retailerId) continue;
+      for (let i = 0; i < priceDataGrouped.length; i += BATCH_SIZE) {
+        const batch = priceDataGrouped.slice(i, i + BATCH_SIZE);
 
-        try {
-          await this.analyzeProductTrend(productId, retailerId, analysisPeriodDays);
-          analyzedCount++;
-        } catch (error) {
-          logger.error(
-            `[TrendAnalysis] Error analyzing product ${productId}, retailer ${retailerId}:`,
-            { error: error instanceof Error ? error.message : String(error) }
-          );
-          // Continue with other products
+        // Process batch in parallel
+        const results = await Promise.allSettled(
+          batch.map(data => this.analyzeTrendFromData(
+            data.productId!,
+            data.retailerId!,
+            data.prices,
+            analysisPeriodDays
+          ))
+        );
+
+        // Collect successful results
+        for (let j = 0; j < results.length; j++) {
+          const result = results[j];
+          const data = batch[j];
+
+          if (result.status === 'fulfilled' && result.value) {
+            trendValues.push(result.value);
+            analyzedCount++;
+          } else if (result.status === 'rejected') {
+            logger.error(
+              `[TrendAnalysis] Failed for product ${data.productId}, retailer ${data.retailerId}:`,
+              { error: result.reason instanceof Error ? result.reason.message : String(result.reason) }
+            );
+          }
+        }
+
+        logger.info(`[TrendAnalysis] Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(priceDataGrouped.length / BATCH_SIZE)}`);
+      }
+
+      // OPTIMIZATION 3: Batch insert/update all trends at once
+      if (trendValues.length > 0) {
+        // Split into smaller chunks if needed (PostgreSQL has param limits)
+        const CHUNK_SIZE = 100;
+        for (let i = 0; i < trendValues.length; i += CHUNK_SIZE) {
+          const chunk = trendValues.slice(i, i + CHUNK_SIZE);
+
+          await db
+            .insert(priceTrends)
+            .values(chunk)
+            .onConflictDoUpdate({
+              target: [priceTrends.productId, priceTrends.retailerId],
+              set: {
+                trendDirection: sql`excluded.trend_direction`,
+                trendSlope: sql`excluded.trend_slope`,
+                trendStrength: sql`excluded.trend_strength`,
+                predictedNextPrice: sql`excluded.predicted_next_price`,
+                confidenceLevel: sql`excluded.confidence_level`,
+                analysisPeriodDays: sql`excluded.analysis_period_days`,
+                lastAnalyzedAt: sql`excluded.last_analyzed_at`,
+                updatedAt: sql`excluded.updated_at`,
+              },
+            });
         }
       }
 
@@ -48,7 +119,68 @@ export class TrendAnalysisService {
   }
 
   /**
+   * Analyze trend from pre-fetched price data (no DB query needed)
+   * Returns trend values ready for batch insert
+   */
+  private async analyzeTrendFromData(
+    productId: number,
+    retailerId: number,
+    prices: Array<{price: number, timestamp: string}>,
+    analysisPeriodDays: number
+  ): Promise<any> {
+    try {
+      // Convert to data points for regression
+      const dataPoints = prices.map((p, index) => ({
+        x: index,
+        y: typeof p.price === 'number' ? p.price : parseFloat(String(p.price)),
+        timestamp: p.timestamp,
+      }));
+
+      if (dataPoints.length < 5) {
+        return null;
+      }
+
+      // Calculate linear regression
+      const regression = this.calculateLinearRegression(dataPoints);
+
+      // Determine trend direction based on slope
+      const trendDirection = this.determineTrendDirection(regression.slope, regression.rSquared);
+
+      // Determine confidence level based on R²
+      const confidenceLevel = this.determineConfidenceLevel(regression.rSquared);
+
+      // Predict next price (extrapolate one step forward)
+      const nextX = dataPoints.length;
+      const predictedNextPrice = regression.slope * nextX + regression.intercept;
+
+      // Convert slope from per-index to per-day
+      const daysBetweenPoints = analysisPeriodDays / dataPoints.length;
+      const slopePerDay = regression.slope / daysBetweenPoints;
+
+      return {
+        productId,
+        retailerId,
+        trendDirection,
+        trendSlope: slopePerDay.toFixed(4),
+        trendStrength: regression.rSquared.toFixed(4),
+        predictedNextPrice: Math.max(0, predictedNextPrice).toFixed(2),
+        confidenceLevel,
+        analysisPeriodDays,
+        lastAnalyzedAt: new Date(),
+        updatedAt: new Date(),
+      };
+    } catch (error) {
+      logger.error(
+        `[TrendAnalysis] Error analyzing data for product ${productId}, retailer ${retailerId}:`,
+        { error: error instanceof Error ? error.message : String(error) }
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Analyze price trend for a specific product-retailer combination
+   * (Kept for backward compatibility and ad-hoc analysis)
    */
   async analyzeProductTrend(
     productId: number,
