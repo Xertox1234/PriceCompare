@@ -41,6 +41,8 @@ export interface PriceTrend {
   id: number;
   productId: number;
   retailerId: number;
+  retailerName: string | null;
+  retailerLogo: string | null;
   trendDirection: "uptrend" | "downtrend" | "stable";
   trendSlope: string | null;
   trendStrength: string | null;

@@ -208,7 +208,18 @@ export default function AnalyticsPage() {
                 {trends.map((trend) => (
                   <Card key={trend.id}>
                     <CardHeader>
-                      <CardTitle className="text-base">Retailer ID: {trend.retailerId}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        {trend.retailerLogo && (
+                          <img
+                            src={trend.retailerLogo}
+                            alt={trend.retailerName || "Retailer"}
+                            className="h-6 w-6 rounded object-contain"
+                          />
+                        )}
+                        <CardTitle className="text-base">
+                          {trend.retailerName || `Retailer ${trend.retailerId}`}
+                        </CardTitle>
+                      </div>
                       <CardDescription>
                         {trend.analysisPeriodDays}-day trend analysis
                       </CardDescription>

@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { logger } from "../utils/logger";
-import { priceHistory, priceTrends } from "../../shared/schema";
+import { priceHistory, priceTrends, retailers } from "../../shared/schema";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 
 export class TrendAnalysisService {
@@ -292,12 +292,29 @@ export class TrendAnalysisService {
 
   /**
    * Get trend analysis for a specific product-retailer combination
+   * Includes retailer name and logo for better UI display
    */
   async getProductTrend(productId: number, retailerId: number) {
     try {
       const trend = await db
-        .select()
+        .select({
+          id: priceTrends.id,
+          productId: priceTrends.productId,
+          retailerId: priceTrends.retailerId,
+          retailerName: retailers.name,
+          retailerLogo: retailers.logo,
+          trendDirection: priceTrends.trendDirection,
+          trendSlope: priceTrends.trendSlope,
+          trendStrength: priceTrends.trendStrength,
+          predictedNextPrice: priceTrends.predictedNextPrice,
+          confidenceLevel: priceTrends.confidenceLevel,
+          analysisPeriodDays: priceTrends.analysisPeriodDays,
+          lastAnalyzedAt: priceTrends.lastAnalyzedAt,
+          createdAt: priceTrends.createdAt,
+          updatedAt: priceTrends.updatedAt,
+        })
         .from(priceTrends)
+        .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
         .where(
           and(
             eq(priceTrends.productId, productId),
@@ -397,12 +414,29 @@ export class TrendAnalysisService {
 
   /**
    * Get trend summary for a product across all retailers
+   * Includes retailer names and logos for better UI display
    */
   async getProductTrendSummary(productId: number) {
     try {
       const trends = await db
-        .select()
+        .select({
+          id: priceTrends.id,
+          productId: priceTrends.productId,
+          retailerId: priceTrends.retailerId,
+          retailerName: retailers.name,
+          retailerLogo: retailers.logo,
+          trendDirection: priceTrends.trendDirection,
+          trendSlope: priceTrends.trendSlope,
+          trendStrength: priceTrends.trendStrength,
+          predictedNextPrice: priceTrends.predictedNextPrice,
+          confidenceLevel: priceTrends.confidenceLevel,
+          analysisPeriodDays: priceTrends.analysisPeriodDays,
+          lastAnalyzedAt: priceTrends.lastAnalyzedAt,
+          createdAt: priceTrends.createdAt,
+          updatedAt: priceTrends.updatedAt,
+        })
         .from(priceTrends)
+        .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
         .where(eq(priceTrends.productId, productId))
         .orderBy(desc(priceTrends.lastAnalyzedAt));
 
