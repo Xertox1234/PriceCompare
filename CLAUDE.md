@@ -8,6 +8,37 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 
 **Tech Stack**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Puppeteer
 
+## Design System (MANDATORY)
+
+**All UI work MUST follow the design system defined in `DESIGN_SYSTEM.md`**
+
+### Quick Reference
+
+**Colors** (November 2025 Update):
+- Primary: Blue 500 (#3B82F6) - Use `className="bg-primary text-primary-foreground"`
+- Secondary: Amber 500 (#F59E0B) - Use `className="bg-secondary text-secondary-foreground"`
+- ❌ Never use hardcoded hex colors or inline styles
+- ❌ Never use old purple/pink colors (#5A5DFF, #E91E63)
+
+**Typography**:
+- Font: Inter (not Poppins)
+- Import: Already configured in `client/src/index.css`
+- Usage: Automatic via `--font-sans` token
+
+**Component Patterns**:
+- Navigation: ALWAYS use `SharedNavigation` from `@/components/shared-navigation`
+- Hero: Use `NewHeroSection` from `@/components/new-hero-section`
+- Categories: Use `NewCategories` from `@/components/new-categories`
+- ❌ Never create duplicate components - check first with `grep -r "function ComponentName"`
+
+**Critical Rules**:
+1. Use design tokens (e.g., `text-primary`) not hardcoded colors
+2. Use Tailwind classes not inline styles (except truly dynamic values)
+3. Test in both light and dark mode
+4. Maintain WCAG AA contrast ratios
+
+See `DESIGN_SYSTEM.md` for complete guidelines, examples, and migration patterns.
+
 ## Development Commands
 
 ```bash
