@@ -20,32 +20,40 @@ const log = createLogger('SessionStore');
 export async function createSessionStore(
   redisClient: Redis | null
 ): Promise<session.Store | undefined> {
+  // TEMPORARY: Disable Redis session store due to compatibility issues
+  // TODO: Fix connect-redis v9 + ioredis integration
+  log.warn('⚠️  Using in-memory session store (Redis session store temporarily disabled)');
+  log.warn('   Sessions will not persist across server restarts');
+  log.warn('   Sessions will not work with multiple server instances');
+  return undefined;
+
+  /* Disabled for now - causing Redis syntax errors
   if (!redisClient) {
-    log.warn('⚠️  Using in-memory session store (not suitable for production)');
+    log.warn('⚠️  Redis not available, using in-memory session store');
     log.warn('   Sessions will not persist across server restarts');
     log.warn('   Sessions will not work with multiple server instances');
-    log.warn('   To fix: Install Redis and set REDIS_URL in .env');
     return undefined; // express-session will use MemoryStore
   }
 
   try {
-    // Dynamically import connect-redis to avoid errors if not installed
-    // @ts-ignore - connect-redis is optional dependency
-    const RedisStoreModule = await import('connect-redis');
-    const RedisStore = RedisStoreModule.default;
+    // Dynamically import connect-redis (compatible with ioredis and v9+)
+    // connect-redis v9 exports RedisStore as a named export
+    const { RedisStore } = await import('connect-redis');
 
+    // Create and return RedisStore instance
+    // connect-redis v9 works with ioredis directly
     const store = new RedisStore({
       client: redisClient,
       prefix: 'session:',
-      ttl: 24 * 60 * 60, // 24 hours (in seconds)
+      ttl: 86400, // 1 day in seconds
     });
 
-    log.info('✅ Using Redis session store (distributed sessions enabled)');
+    log.info('✅ Redis session store initialized successfully');
     return store;
   } catch (error) {
-    log.error('❌ Failed to create Redis session store:', { error });
-    log.warn('⚠️  Falling back to in-memory session store');
-    log.warn('   To fix: npm install connect-redis --save');
+    log.error('Failed to initialize Redis session store:', error);
+    log.warn('Falling back to in-memory session store');
     return undefined;
   }
+  */
 }

@@ -83,6 +83,7 @@
     "cmdk": "^1.1.1",
     "compression": "^1.8.0",
     "connect-pg-simple": "^10.0.0",
+    "connect-redis": "^9.0.0",
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.0",
     "drizzle-orm": "^0.39.1",
@@ -107,6 +108,7 @@
     "openid-client": "^6.6.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "pg": "^8.16.3",
     "postcss": "^8.5.6",
     "puppeteer": "^24.10.2",
     "react": "19.2.0",
@@ -134,8 +136,6 @@
     "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
-    "@replit/vite-plugin-cartographer": "^0.2.7",
-    "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@testing-library/dom": "^10.4.1",
     "@types/connect-pg-simple": "^7.0.3",
@@ -149,6 +149,7 @@
     "@types/react-dom": "19.2.2",
     "@types/ws": "^8.5.13",
     "@vitejs/plugin-react": "^4.3.2",
+    "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.7",
     "esbuild": "^0.27.0",
     "prettier": "^3.6.2",

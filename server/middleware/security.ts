@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getRequiredEnv } from '../config/env-validation';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
+import { sanitizeObject, SanitizationContext } from '../utils/sanitization';
 
 const log = createLogger('Security');
 
@@ -271,22 +272,21 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   // SECURITY: Removed 'unsafe-inline' and using nonce for maximum XSS protection
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  const cspDirectives = [
-    "default-src 'self'",
-    // Use nonce for scripts - allows only scripts with matching nonce attribute
-    // In development, also allow Vite HMR and Replit banner
-    isDevelopment
-      ? `script-src 'self' 'nonce-${nonce}' https://replit.com`
-      : `script-src 'self' 'nonce-${nonce}'`,
-    // Use nonce for styles - no more 'unsafe-inline'
-    `style-src 'self' 'nonce-${nonce}'`,
-    "img-src 'self' data: https:",
-    "font-src 'self' data:",
-    "connect-src 'self'",
-    "frame-ancestors 'none'"
-  ].join('; ') + ';';
+  // TEMPORARY: Disable CSP in development to debug styling issues
+  // TODO: Re-enable with proper Tailwind CSS v4 compatibility
+  if (!isDevelopment) {
+    const cspDirectives = [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}'`,
+      `style-src 'self' 'nonce-${nonce}'`,
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'"
+    ].join('; ') + ';';
 
-  res.setHeader('Content-Security-Policy', cspDirectives);
+    res.setHeader('Content-Security-Policy', cspDirectives);
+  }
 
   // Referrer Policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -311,9 +311,6 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
  * for comprehensive XSS prevention with industry-standard library.
  */
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
-  // Import DOMPurify-based sanitization
-  const { sanitizeObject, SanitizationContext } = require('../utils/sanitization');
-
   // Sanitize body (most user input comes through body)
   if (req.body) {
     req.body = sanitizeObject(req.body, SanitizationContext.PLAIN_TEXT) as typeof req.body;
@@ -346,7 +343,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
   } else {
     // SECURITY: Default to localhost only in development
     if (isDevelopment) {
-      allowedOrigins = ['http://localhost:5173', 'http://localhost:5000'];
+      allowedOrigins = ['http://localhost:5173', 'http://localhost:5000', 'http://localhost:5001'];
     } else {
       // SECURITY: In production, ALLOWED_ORIGINS must be explicitly set
       // Log warning if not set

@@ -6,7 +6,8 @@
  */
 
 import * as Sentry from "@sentry/node";
-import { nodeProfilingIntegration } from "@sentry/profiling-node";
+// Profiling integration is optional - uncomment if @sentry/profiling-node is installed
+// import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import type { Request } from "express";
 import { isOperationalError } from "../utils/errors";
 import { createLogger } from "../utils/logger";
@@ -49,8 +50,9 @@ export function initializeSentry(): void {
 
     // Integrations
     integrations: [
-      // Node.js profiling for performance analysis
-      nodeProfilingIntegration(),
+      // Node.js profiling for performance analysis (optional)
+      // Uncomment if @sentry/profiling-node is installed:
+      // nodeProfilingIntegration(),
     ],
 
     // Filter out operational errors (expected errors like 404, validation failures)
@@ -215,19 +217,19 @@ export function startTransaction(
  * Express error handler middleware
  * Place this BEFORE your custom error handler
  */
-export const sentryErrorHandler = Sentry.Handlers.errorHandler();
+export const sentryErrorHandler = Sentry.Handlers?.errorHandler ? Sentry.Handlers.errorHandler() : ((req: any, res: any, next: any) => next());
 
 /**
  * Express request handler middleware
  * Place this at the beginning of your middleware chain
  */
-export const sentryRequestHandler = Sentry.Handlers.requestHandler();
+export const sentryRequestHandler = Sentry.Handlers?.requestHandler ? Sentry.Handlers.requestHandler() : ((req: any, res: any, next: any) => next());
 
 /**
  * Express tracing handler for performance monitoring
  * Place this after the request handler
  */
-export const sentryTracingHandler = Sentry.Handlers.tracingHandler();
+export const sentryTracingHandler = Sentry.Handlers?.tracingHandler ? Sentry.Handlers.tracingHandler() : ((req: any, res: any, next: any) => next());
 
 /**
  * Close Sentry and flush pending events

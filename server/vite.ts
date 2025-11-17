@@ -87,11 +87,14 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
 
-      // SECURITY: Inject CSP nonce into script tags
-      const nonce = res.locals.cspNonce || '';
-      template = injectNonceIntoHtml(template, nonce);
+      // First, let Vite transform the HTML (adds HMR and dev scripts)
+      let page = await vite.transformIndexHtml(url, template);
 
-      const page = await vite.transformIndexHtml(url, template);
+      // SECURITY: Inject CSP nonce into script tags AFTER Vite transformation
+      // This ensures Vite's injected inline scripts also get nonces
+      const nonce = res.locals.cspNonce || '';
+      page = injectNonceIntoHtml(page, nonce);
+
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);

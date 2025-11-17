@@ -225,6 +225,12 @@ export class CacheInvalidationService {
    * Publish invalidation event to Redis pub/sub
    */
   private async publishInvalidationEvent(payload: InvalidationPayload): Promise<void> {
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+      logger.warn('Redis not available, skipping invalidation event publication');
+      return;
+    }
+
     try {
       await redisClient.publish(
         this.INVALIDATION_CHANNEL,
@@ -239,6 +245,11 @@ export class CacheInvalidationService {
    * Subscribe to invalidation events
    */
   private subscribeToInvalidationEvents(): void {
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+      logger.warn('Redis not available, skipping invalidation event subscription');
+      return;
+    }
     const subscriber = redisClient.duplicate();
 
     subscriber.subscribe(this.INVALIDATION_CHANNEL, (err) => {

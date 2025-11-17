@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+import 'dotenv/config';
+
 // IMPORTANT: Sentry must be initialized FIRST before any other imports
 import { initializeSentry, sentryRequestHandler, sentryTracingHandler, sentryErrorHandler } from "./config/sentry";
 
@@ -231,14 +234,12 @@ app.use(sanitizeInput);
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // Serve the app on configured port (defaults to 5000)
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
   });
@@ -290,4 +291,7 @@ app.use(sanitizeInput);
   performInitialCacheWarming().catch(error => {
     log(`Error during initial cache warming: ${error}`, 'error');
   });
-})();
+})().catch(error => {
+  console.error('Fatal error during server startup:', error);
+  process.exit(1);
+});

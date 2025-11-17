@@ -1,5 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Store CSRF token in memory
+let csrfToken: string | null = null;
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -11,16 +14,32 @@ export async function apiRequest<T = any>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  // Add CSRF token for non-GET requests
+  if (options.method && !['GET', 'HEAD', 'OPTIONS'].includes(options.method.toUpperCase())) {
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
   const defaultOptions: RequestInit = {
     method: 'GET',
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     credentials: "include",
     ...options,
   };
 
   const res = await fetch(url, defaultOptions);
+
+  // Extract CSRF token from response headers
+  const newCsrfToken = res.headers.get('X-CSRF-Token');
+  if (newCsrfToken) {
+    csrfToken = newCsrfToken;
+  }
   
   // Don't throw for 401 errors, let components handle them
   if (res.status === 401) {

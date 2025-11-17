@@ -57,7 +57,7 @@ export const PAGINATION = {
 export const RATE_LIMIT = {
   WINDOW_MS: 15 * 60 * 1000,  // 15 minutes
   MAX_REQUESTS: 100,           // per window
-  AUTH_MAX_REQUESTS: 5,        // for auth endpoints
+  AUTH_MAX_REQUESTS: process.env.NODE_ENV === 'production' ? 5 : 50,  // for auth endpoints (lenient in dev)
   SKIP_SUCCESSFUL_REQUESTS: false,
 } as const;
 

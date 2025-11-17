@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import tailwindcssAnimate from 'tailwindcss-animate'
 
 export default {
   content: [
@@ -28,7 +29,6 @@ export default {
     },
   },
   plugins: [
-    require('tailwindcss-animate'),
-    require('tw-animate-css'),
+    tailwindcssAnimate,
   ],
 } satisfies Config
