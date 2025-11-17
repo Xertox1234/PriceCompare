@@ -1,13 +1,23 @@
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 
 export function NewHeroSection() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [, navigate] = useLocation();
 
   const handleSearch = () => {
-    // TODO: Implement search navigation
-    // For now, this is a placeholder
+    if (searchQuery.trim()) {
+      // Navigate to products page with search query
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
   };
 
   return (
@@ -19,10 +29,11 @@ export function NewHeroSection() {
       <div className="flex justify-center">
         <div className="relative w-full max-w-2xl">
           <input
-            type="text"
+            type="search"
             placeholder="What are you looking for?"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             className="w-full py-4 px-6 rounded-full border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary transition duration-300"
           />
           <Button
