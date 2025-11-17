@@ -6,11 +6,13 @@
  */
 
 import type { Redis } from 'ioredis';
+import type { RedisClientType } from 'redis';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('Redis');
 
 let redisClient: Redis | null = null;
+let redisSessionClient: RedisClientType | null = null;
 let isRedisAvailable = false;
 
 /**
@@ -40,7 +42,7 @@ export async function initializeRedis(redisUrl?: string): Promise<Redis | null> 
     await redisClient.ping();
 
     isRedisAvailable = true;
-    log.info('✅ Redis connected successfully');
+    log.info('✅ Redis (ioredis) connected successfully');
 
     // Handle connection errors
     redisClient.on('error', (error) => {
@@ -57,20 +59,45 @@ export async function initializeRedis(redisUrl?: string): Promise<Redis | null> 
       isRedisAvailable = true;
     });
 
+    // Also initialize redis client for session storage (connect-redis v9 requires 'redis' package)
+    try {
+      const { createClient } = await import('redis');
+      redisSessionClient = createClient({ url });
+
+      redisSessionClient.on('error', (error) => {
+        log.error('Redis session client error:', { message: error.message });
+      });
+
+      await redisSessionClient.connect();
+      log.info('✅ Redis session client connected successfully');
+    } catch (sessionError) {
+      log.warn('⚠️  Redis session client failed to initialize:', {
+        error: sessionError instanceof Error ? sessionError.message : String(sessionError)
+      });
+      redisSessionClient = null;
+    }
+
     return redisClient;
   } catch (error) {
     log.warn('⚠️  Redis not available, falling back to in-memory storage');
-    log.warn('   To enable Redis: npm install ioredis && start Redis server');
+    log.warn('   To enable Redis: npm install ioredis redis && start Redis server');
     isRedisAvailable = false;
     return null;
   }
 }
 
 /**
- * Get Redis client instance
+ * Get Redis client instance (ioredis)
  */
 export function getRedisClient(): Redis | null {
   return redisClient;
+}
+
+/**
+ * Get Redis session client instance (redis package for connect-redis)
+ */
+export function getRedisSessionClient(): RedisClientType | null {
+  return redisSessionClient;
 }
 
 /**
@@ -88,6 +115,10 @@ export async function closeRedis(): Promise<void> {
     await redisClient.quit();
     redisClient = null;
     isRedisAvailable = false;
+  }
+  if (redisSessionClient) {
+    await redisSessionClient.quit();
+    redisSessionClient = null;
   }
 }
 

@@ -32,7 +32,7 @@ import { createRateLimiter as redisRateLimiter } from "./middleware/redis-rate-l
 import { performanceMonitoring, getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
 import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
 import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-limits";
-import { initializeRedis } from "./config/redis";
+import { initializeRedis, getRedisSessionClient, closeRedis } from "./config/redis";
 import { createSessionStore } from "./config/session-store";
 import { cleanupExpiredTokens } from "./services/password-reset-service";
 import { initializePriceSnapshotScheduler, triggerManualSnapshot } from "./jobs/price-snapshot-queue";
@@ -109,7 +109,9 @@ app.use(sanitizeInput);
   }));
 
   // Create session store (Redis or in-memory fallback)
-  const sessionStore = await createSessionStore(redisClient);
+  // Use the Redis session client (from 'redis' package) for connect-redis v9 compatibility
+  const redisSessionClient = getRedisSessionClient();
+  const sessionStore = await createSessionStore(redisSessionClient);
 
   // Session configuration
   app.use(session({
@@ -295,3 +297,26 @@ app.use(sanitizeInput);
   console.error('Fatal error during server startup:', error);
   process.exit(1);
 });
+
+// Graceful shutdown handler
+async function gracefulShutdown(signal: string) {
+  log(`${signal} received, starting graceful shutdown...`);
+
+  try {
+    // Close Redis connections (both ioredis and redis clients)
+    log('Closing Redis connections...');
+    await closeRedis();
+    log('Redis connections closed');
+
+    // Exit process
+    log('Graceful shutdown completed');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
+}
+
+// Handle termination signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
