@@ -14,6 +14,7 @@ const mockProduct: ProductWithOffers = {
   createdAt: new Date(),
   embedding: null,
   embeddingUpdatedAt: null,
+  searchVector: null,
   offers: [
     {
       id: 1,

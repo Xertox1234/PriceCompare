@@ -110,7 +110,7 @@ export class MemStorage implements IStorage {
 
     sampleProducts.forEach(product => {
       const id = this.currentProductId++;
-      this.products.set(id, { ...product, id, createdAt: new Date(), embedding: null, embeddingUpdatedAt: null });
+      this.products.set(id, { ...product, id, createdAt: new Date(), embedding: null, embeddingUpdatedAt: null, searchVector: null });
     });
 
     // Sample product offers
@@ -186,7 +186,8 @@ export class MemStorage implements IStorage {
       description: product.description || null,
       model: product.model || null,
       embedding: (product.embedding as number[] | null) || null,
-      embeddingUpdatedAt: product.embeddingUpdatedAt || null
+      embeddingUpdatedAt: product.embeddingUpdatedAt || null,
+      searchVector: null
     };
     this.products.set(id, newProduct);
     return newProduct;

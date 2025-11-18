@@ -14,6 +14,7 @@ const mockProduct: ProductWithOffers = {
   image: 'https://example.com/image.jpg',
   embedding: null,
   embeddingUpdatedAt: null,
+  searchVector: null,
   createdAt: new Date(),
   offers: [
     {
