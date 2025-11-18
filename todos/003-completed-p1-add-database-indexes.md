@@ -22,8 +22,11 @@ Reviewed migrations and confirmed both critical indexes already exist:
 - **GIN Index**: `idx_products_search` on products.search_vector (migration 0002)
 - **Composite Index**: `idx_price_history_product_id` on price_history(product_id, recorded_at DESC) (migration 0004)
 
-### 2. Schema Alignment (2025-11-18)
-Updated `shared/schema.ts` to match actual database index names and structure:
+### 2. Schema Completion (2025-11-18 - Two Passes)
+
+**First Pass**: Updated `price_history` table indexes to match migrations
+
+**Second Pass**: Added missing `products.search_vector` column and index
 
 **File**: `/Users/williamtower/projects/PriceCompare/shared/schema.ts` (lines 85-95)
 
@@ -118,22 +121,48 @@ Missing database indexes on frequently queried columns will cause severe perform
 ## Technical Details
 
 - **Affected Files**:
-  - `shared/schema.ts` (updated lines 85-95)
+  - `shared/schema.ts` (updated lines 18-29 for tsvector type, 45-60 for products table)
+  - `shared/schema.ts` (updated lines 85-95 for price_history indexes - first pass)
+  - `server/storage.ts` (updated lines 113, 190 to include searchVector field)
+  - `client/src/components/__tests__/product-card.test.tsx` (updated line 17)
+  - `client/src/hooks/__tests__/use-comparison.test.ts` (updated line 17)
   - `migrations/0002_add_performance_indexes.sql` (reviewed)
   - `migrations/0004_add_price_history.sql` (reviewed)
 - **Database Changes**: None required (indexes already exist)
-- **Schema Changes**: Documentation and naming alignment only
+- **Schema Changes**:
+  - Added tsvector custom type
+  - Added searchVector column to products table
+  - Added GIN index definition for full-text search
+  - Updated price_history index naming (first pass)
 - **Breaking Changes**: None
 - **Downtime**: None
 
 ## Work Log
 
-### 2025-11-18 - Schema Alignment Resolution
+### 2025-11-18 (Second Pass) - Complete Schema Implementation
+**By:** Claude Code (compounding-engineering:work agent)
+**Actions:**
+- Discovered products table schema was missing `search_vector` column entirely
+- Added custom `tsvector` type for PostgreSQL full-text search
+- Added `searchVector` column to products table schema
+- Added GIN index definition (`idx_products_search`) matching migration 0002
+- Updated `server/storage.ts` to include `searchVector: null` for new products
+- Fixed test mocks in `product-card.test.tsx` and `use-comparison.test.ts`
+- All TypeScript compilation errors resolved
+- Committed changes (06d6a13) and closed GitHub issue #49
+
+**Learnings:**
+- Previous schema alignment only fixed `price_history` indexes
+- The `products.search_vector` column was completely missing from Drizzle schema
+- Auto-generated database columns (via triggers) should still be defined in schema as nullable
+- Test mocks must include all schema fields, even auto-generated ones
+
+### 2025-11-18 (First Pass) - Schema Alignment Resolution
 **By:** Claude Code (code-review-specialist)
 **Actions:**
 - Analyzed migration files 0002 and 0004
 - Confirmed both required indexes already exist in database
-- Updated Drizzle schema to match actual database index names
+- Updated Drizzle schema to match actual database index names (price_history only)
 - Removed duplicate index definition (`productDateIdx`)
 - Made all price_history indexes composite with `recorded_at` for optimal performance
 - Added documentation comments explaining each index
