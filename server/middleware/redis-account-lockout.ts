@@ -9,6 +9,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
+import { cleanupManager } from '../utils/cleanup-manager';
 
 const log = createLogger('AccountLockout');
 
@@ -30,7 +31,7 @@ const inMemoryAttempts = new Map<string, FailedLoginAttempt>();
 const MAX_MEMORY_ENTRIES = 10000;
 
 // Cleanup expired entries
-setInterval(() => {
+const redisLockoutCleanupInterval = setInterval(() => {
   const now = new Date();
   let cleaned = 0;
 
@@ -55,6 +56,7 @@ setInterval(() => {
     log.info(`Cleaned ${cleaned} expired lockout entries from memory`);
   }
 }, 60 * 60 * 1000); // Every hour
+cleanupManager.addInterval('redis-account-lockout-cleanup', redisLockoutCleanupInterval);
 
 /**
  * Check if account is locked using Redis

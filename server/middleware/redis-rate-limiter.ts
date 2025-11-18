@@ -9,6 +9,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
+import { cleanupManager } from '../utils/cleanup-manager';
 
 const log = createLogger('RateLimiter');
 
@@ -70,7 +71,7 @@ const inMemoryStore = new Map<string, { count: number; resetTime: number }>();
 const MAX_MEMORY_ENTRIES = 10000; // Prevent memory exhaustion
 
 // Cleanup expired entries every 60 seconds
-setInterval(() => {
+const redisRateLimitCleanupInterval = setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
 
@@ -93,6 +94,7 @@ setInterval(() => {
     log.info(`Cleaned ${cleaned} expired rate limit entries from memory`);
   }
 }, 60000);
+cleanupManager.addInterval('redis-rate-limiter-cleanup', redisRateLimitCleanupInterval);
 
 /**
  * Default key generator - uses IP address

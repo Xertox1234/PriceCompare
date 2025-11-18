@@ -4,6 +4,7 @@ import { getRequiredEnv } from '../config/env-validation';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
 import { sanitizeObject, SanitizationContext } from '../utils/sanitization';
+import { cleanupManager } from '../utils/cleanup-manager';
 
 const log = createLogger('Security');
 
@@ -29,7 +30,7 @@ const MAX_RATE_LIMIT_ENTRIES = 10000;
 // Deterministic cleanup timer for rate limit store
 // Runs every 60 seconds to remove expired entries
 const CLEANUP_INTERVAL_MS = 60 * 1000;
-setInterval(() => {
+const rateLimitCleanupInterval = setInterval(() => {
   const now = Date.now();
   const entries = Object.entries(rateLimitStore);
 
@@ -55,6 +56,7 @@ setInterval(() => {
     log.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
   }
 }, CLEANUP_INTERVAL_MS);
+cleanupManager.addInterval('rate-limit-cleanup', rateLimitCleanupInterval);
 
 export function rateLimiter(options: {
   windowMs: number;

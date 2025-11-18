@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { users } from '../../shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
+import { cleanupManager } from '../utils/cleanup-manager';
 
 /**
  * Account Lockout Middleware
@@ -40,7 +41,8 @@ function cleanupExpiredLockouts() {
 }
 
 // Start periodic cleanup
-setInterval(cleanupExpiredLockouts, CLEANUP_INTERVAL_MS);
+const lockoutCleanupInterval = setInterval(cleanupExpiredLockouts, CLEANUP_INTERVAL_MS);
+cleanupManager.addInterval('account-lockout-cleanup', lockoutCleanupInterval);
 
 /**
  * Check if an account is currently locked

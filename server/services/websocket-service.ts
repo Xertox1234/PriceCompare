@@ -3,6 +3,7 @@ import type { Server as HTTPServer } from 'http';
 import { monitoringService } from './monitoring-service.js';
 import { alertService } from './alert-service.js';
 import { logger } from '../utils/logger.js';
+import { cleanupManager } from '../utils/cleanup-manager.js';
 
 /**
  * WebSocket Service for Real-Time Dashboard Updates
@@ -86,6 +87,9 @@ class WebSocketService {
     this.updateInterval = setInterval(async () => {
       await this.broadcastMetrics();
     }, this.UPDATE_FREQUENCY);
+
+    // Register with cleanup manager
+    cleanupManager.addInterval('websocket-updates', this.updateInterval);
   }
 
   /**

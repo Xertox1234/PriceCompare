@@ -1,6 +1,7 @@
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
 import { log } from '../vite';
+import { cleanupManager } from '../utils/cleanup-manager';
 
 /**
  * Lock acquisition result
@@ -282,6 +283,9 @@ export class DistributedLock {
     }, renewalInterval);
 
     this.renewalIntervals.set(lockKey, interval);
+
+    // Register with cleanup manager (using lockKey as identifier)
+    cleanupManager.addInterval(`lock-renewal:${lockKey}`, interval);
   }
 
   /**
@@ -292,6 +296,8 @@ export class DistributedLock {
     if (interval) {
       clearInterval(interval);
       this.renewalIntervals.delete(lockKey);
+      // Remove from cleanup manager
+      cleanupManager.removeInterval(`lock-renewal:${lockKey}`);
     }
   }
 

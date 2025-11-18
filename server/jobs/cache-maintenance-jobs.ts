@@ -1,8 +1,7 @@
 /**
  * Cache Maintenance Scheduled Jobs
  *
- * Handles periodic cache warming, cleanup, and optimization tasks:
- * - Cache warming for popular products
+ * Handles periodic cache cleanup and optimization tasks:
  * - Popularity data cleanup
  * - Cache statistics logging
  */
@@ -10,54 +9,24 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { advancedCache } from '../services/advanced-cache';
 import { popularityTracker } from '../services/popularity-tracker';
-import { CacheWarmingService } from '../services/cache-warming';
 import { logger } from '../utils/logger';
 import type { IStorage } from '../storage';
 
-let warmingJob: ScheduledTask | null = null;
 let cleanupJob: ScheduledTask | null = null;
 let statsJob: ScheduledTask | null = null;
-let cacheWarmingService: CacheWarmingService | null = null;
 
 /**
  * Initialize cache maintenance jobs
  */
-export function initializeCacheJobs(storage: IStorage): void {
-  cacheWarmingService = new CacheWarmingService(storage);
+export function initializeCacheJobs(_storage: IStorage): void {
+  // No initialization needed currently
 }
 
 /**
  * Start all cache maintenance scheduled jobs
  */
-export function startCacheMaintenanceJobs(storage?: IStorage): void {
+export function startCacheMaintenanceJobs(_storage?: IStorage): void {
   logger.info('Starting cache maintenance scheduled jobs...');
-
-  // Initialize cache warming service if not already done
-  if (!cacheWarmingService && storage) {
-    initializeCacheJobs(storage);
-  }
-
-  if (!cacheWarmingService) {
-    logger.error('Cannot start cache jobs: CacheWarmingService not initialized');
-    return;
-  }
-
-  // Cache warming - runs every 5 minutes
-  warmingJob = cron.schedule('*/5 * * * *', async () => {
-    try {
-      logger.info('Starting scheduled cache warming...');
-      const warmedCount = await cacheWarmingService!.warmTopProducts({
-        topProductsCount: 100,
-        includeAnalytics: true,
-        includeSearches: true,
-      });
-      logger.info(`Cache warming completed: ${warmedCount} products warmed`);
-    } catch (error) {
-      logger.error('Error during cache warming:', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
 
   // Popularity cleanup - runs every hour
   cleanupJob = cron.schedule('0 * * * *', async () => {
@@ -90,7 +59,6 @@ export function startCacheMaintenanceJobs(storage?: IStorage): void {
   });
 
   logger.info('Cache maintenance jobs scheduled:');
-  logger.info('- Cache warming: Every 5 minutes');
   logger.info('- Popularity cleanup: Every hour');
   logger.info('- Statistics logging: Every 15 minutes');
 }
@@ -100,11 +68,6 @@ export function startCacheMaintenanceJobs(storage?: IStorage): void {
  */
 export function stopCacheMaintenanceJobs(): void {
   logger.info('Stopping cache maintenance scheduled jobs...');
-
-  if (warmingJob) {
-    warmingJob.stop();
-    warmingJob = null;
-  }
 
   if (cleanupJob) {
     cleanupJob.stop();
@@ -123,35 +86,26 @@ export function stopCacheMaintenanceJobs(): void {
  * Get the status of scheduled jobs
  */
 export function getCacheJobsStatus(): {
-  warmingJob: boolean;
   cleanupJob: boolean;
   statsJob: boolean;
-  warmingServiceInitialized: boolean;
 } {
   return {
-    warmingJob: warmingJob !== null,
     cleanupJob: cleanupJob !== null,
     statsJob: statsJob !== null,
-    warmingServiceInitialized: cacheWarmingService !== null,
   };
 }
 
 /**
  * Manually trigger cache warming (for testing)
+ * @deprecated Cache warming service has been removed as dead code
  */
-export async function triggerCacheWarming(options?: {
+export async function triggerCacheWarming(_options?: {
   topProductsCount?: number;
   includeAnalytics?: boolean;
   includeSearches?: boolean;
 }): Promise<number> {
-  if (!cacheWarmingService) {
-    throw new Error('CacheWarmingService not initialized');
-  }
-
-  logger.info('Manually triggering cache warming...');
-  const count = await cacheWarmingService.warmTopProducts(options || {});
-  logger.info(`Manual cache warming completed: ${count} products warmed`);
-  return count;
+  logger.warn('Cache warming service has been removed - returning 0');
+  return 0;
 }
 
 /**
@@ -170,7 +124,7 @@ export async function getCacheStatistics() {
   const cacheStats = advancedCache.getStats();
   const popularityStats = await popularityTracker.getStats();
 
-  const warmingStatus = cacheWarmingService?.getStatus() || {
+  const warmingStatus = {
     isWarming: false,
     lastWarmingTime: 0,
     lastWarmingAgo: null,

@@ -545,49 +545,6 @@ export class AdvancedSearchService {
   }
 
   /**
-   * Calculate semantic similarity using cosine similarity
-   */
-  private async calculateSemanticSimilarity(query: string, text: string): Promise<number> {
-    if (!this.openai) {
-      return 0;
-    }
-    
-    try {
-      let textEmbedding = this.embeddingCache.get(text);
-      
-      if (!textEmbedding) {
-        const response = await this.openai.embeddings.create({
-          model: 'text-embedding-3-small',
-          input: text
-        });
-        textEmbedding = response.data[0].embedding;
-        this.embeddingCache.set(text, textEmbedding);
-        this.enforceEmbeddingCacheLimit();
-      }
-
-      const queryEmbedding = this.embeddingCache.get(query);
-      if (!queryEmbedding) return 0;
-
-      return this.cosineSimilarity(queryEmbedding, textEmbedding);
-    } catch (error) {
-      logger.error('Error calculating semantic similarity:', { error: error instanceof Error ? error.message : String(error) });
-      return 0;
-    }
-  }
-
-  /**
-   * Calculate cosine similarity between two vectors
-   */
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-    const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-    const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-    
-    if (magnitudeA === 0 || magnitudeB === 0) return 0;
-    return dotProduct / (magnitudeA * magnitudeB);
-  }
-
-  /**
    * Remove duplicates and rank by relevance score
    */
   private removeDuplicatesAndRank(results: SearchResult[]): SearchResult[] {

@@ -83,11 +83,15 @@ export const priceHistory = pgTable("price_history", {
   recordedAt: timestamp("recorded_at").notNull(), // When this price snapshot was recorded
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
-  offerIdIdx: index("price_history_offer_id_idx").on(table.productOfferId),
-  productIdIdx: index("price_history_product_id_idx").on(table.productId),
-  retailerIdIdx: index("price_history_retailer_id_idx").on(table.retailerId),
-  recordedAtIdx: index("price_history_recorded_at_idx").on(table.recordedAt),
-  productDateIdx: index("price_history_product_date_idx").on(table.productId, table.recordedAt),
+  // Index for querying history by product offer
+  offerIdIdx: index("idx_price_history_offer_id").on(table.productOfferId, table.recordedAt),
+  // Primary composite index for product price history queries (matches migration 0004)
+  // Enables efficient time-series queries: WHERE product_id = X AND recorded_at > Y
+  productIdIdx: index("idx_price_history_product_id").on(table.productId, table.recordedAt),
+  // Index for querying history by retailer
+  retailerIdIdx: index("idx_price_history_retailer_id").on(table.retailerId, table.recordedAt),
+  // Index for time-series queries
+  recordedAtIdx: index("idx_price_history_recorded_at").on(table.recordedAt),
 }));
 
 // Users table for authentication with Discourse-like features

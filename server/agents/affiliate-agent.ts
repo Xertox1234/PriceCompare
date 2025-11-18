@@ -6,6 +6,7 @@ import { eq, and, isNull, lt } from 'drizzle-orm';
 import type { ProductOffer, Retailer } from '../../shared/schema.js';
 import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types.js';
 import { logger } from '../utils/logger.js';
+import { cleanupManager } from '../utils/cleanup-manager.js';
 
 export class AffiliateLinkAgent extends BaseAgent {
   constructor() {
@@ -292,7 +293,7 @@ export class AffiliateLinkAgent extends BaseAgent {
    */
   async scheduleMaintenance(): Promise<void> {
     // Health check links every 6 hours
-    setInterval(async () => {
+    const healthCheckInterval = setInterval(async () => {
       try {
         await this.processTask({ action: 'health_check_links' });
       } catch (error) {
@@ -301,9 +302,10 @@ export class AffiliateLinkAgent extends BaseAgent {
         });
       }
     }, 6 * 60 * 60 * 1000);
+    cleanupManager.addInterval('affiliate-health-check', healthCheckInterval);
 
     // Generate missing affiliate links every hour
-    setInterval(async () => {
+    const affiliateGenInterval = setInterval(async () => {
       try {
         await this.processTask({ action: 'generate_affiliate_links', limit: 25 });
       } catch (error) {
@@ -312,6 +314,7 @@ export class AffiliateLinkAgent extends BaseAgent {
         });
       }
     }, 60 * 60 * 1000);
+    cleanupManager.addInterval('affiliate-generation', affiliateGenInterval);
   }
 
   /**

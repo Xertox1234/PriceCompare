@@ -14,7 +14,6 @@ import { registerRoutes } from "./routes";
 import { registerScrapingRoutes } from "./scraping-routes";
 import { registerMonitoringRoutes } from "./monitoring-routes";
 import { registerAffiliateRoutes } from "./affiliate-routes";
-import { registerHybridDataRoutes } from "./hybrid-data-routes";
 import { registerDiscourseRoutes } from "./discourse-routes";
 import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
 import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
@@ -40,6 +39,7 @@ import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
 import { startPriceAnalyticsJobs } from "./jobs/price-analytics-jobs";
 import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handler";
 import { RATE_LIMIT, SESSION } from "./utils/constants";
+import { cleanupManager } from "./utils/cleanup-manager";
 
 // Validate environment variables on startup
 validateEnvironment();
@@ -184,10 +184,7 @@ app.use(sanitizeInput);
 
   // Register affiliate routes
   registerAffiliateRoutes(app);
-  
-  // Register hybrid data collection routes
-  registerHybridDataRoutes(app);
-  
+
   // Register Discourse SSO routes
   registerDiscourseRoutes(app);
   
@@ -254,7 +251,7 @@ app.use(sanitizeInput);
 
   // Password reset token cleanup - run every hour
   const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
-  setInterval(async () => {
+  const tokenCleanupInterval = setInterval(async () => {
     try {
       const deletedCount = await cleanupExpiredTokens();
       if (deletedCount > 0) {
@@ -264,6 +261,7 @@ app.use(sanitizeInput);
       log(`Error cleaning up expired tokens: ${error}`, 'error');
     }
   }, CLEANUP_INTERVAL);
+  cleanupManager.addInterval('token-cleanup', tokenCleanupInterval);
 
   // Run cleanup immediately on startup
   try {
@@ -303,7 +301,18 @@ async function gracefulShutdown(signal: string) {
   log(`${signal} received, starting graceful shutdown...`);
 
   try {
-    // Close Redis connections (both ioredis and redis clients)
+    // Step 1: Stop all timers and cleanup intervals
+    log('Running cleanup manager...');
+    await cleanupManager.cleanup();
+    const stats = cleanupManager.getStats();
+    log(`Cleaned up ${stats.intervals} intervals and ran ${stats.cleanupHandlers} handlers`);
+
+    // Step 2: Close WebSocket connections
+    log('Closing WebSocket connections...');
+    await websocketService.shutdown();
+    log('WebSocket connections closed');
+
+    // Step 3: Close Redis connections (both ioredis and redis clients)
     log('Closing Redis connections...');
     await closeRedis();
     log('Redis connections closed');
