@@ -7,7 +7,7 @@ import {
 } from '@shared/schema';
 import type {
   User, ForumCategory, ForumTopic, ForumPost, PostLike, Notification,
-  TopicTag, PrivateMessage, Badge, UserBadge, PostRevision,
+  TopicTag, PostMention, PrivateMessage, Badge, UserBadge, PostRevision,
   InsertUser, InsertForumCategory, InsertForumTopic, InsertForumPost,
   InsertPostLike, InsertNotification, InsertTopicTag, InsertPrivateMessage,
   InsertBadge, InsertPostRevision,
@@ -235,7 +235,7 @@ export class EnhancedForumStorage {
       })
       .from(postLikes)
       .innerJoin(users, eq(postLikes.userId, users.id))
-      .where(sql`${postLikes.postId} IN (${postIds.join(',')})`);
+      .where(inArray(postLikes.postId, postIds));
 
     const likesByPost = likesResult.reduce((acc, item) => {
       if (!acc[item.postId]) acc[item.postId] = [];
@@ -252,13 +252,13 @@ export class EnhancedForumStorage {
       })
       .from(postMentions)
       .innerJoin(users, eq(postMentions.mentionedUserId, users.id))
-      .where(sql`${postMentions.postId} IN (${postIds.join(',')})`);
+      .where(inArray(postMentions.postId, postIds));
 
     const mentionsByPost = mentionsResult.reduce((acc, item) => {
       if (!acc[item.postId]) acc[item.postId] = [];
       acc[item.postId].push({ ...item.mention, mentionedUser: item.mentionedUser });
       return acc;
-    }, {} as Record<number, any[]>);
+    }, {} as Record<number, (PostMention & { mentionedUser: User })[]>);
 
     return posts.map(result => ({
       ...result.post,
@@ -441,7 +441,7 @@ export class EnhancedForumStorage {
     const conditions = [eq(notifications.userId, userId)];
 
     if (notificationIds?.length) {
-      conditions.push(sql`${notifications.id} IN (${notificationIds.join(',')})`);
+      conditions.push(inArray(notifications.id, notificationIds));
     }
 
     await db
