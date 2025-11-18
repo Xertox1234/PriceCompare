@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PriceCompare is a full-stack price comparison platform with AI-powered product discovery, web scraping, price tracking, and community features built with TypeScript.
 
-**Tech Stack**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Puppeteer
+**Tech Stack**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Playwright (Chromium)
 
 ## Development Commands
 
@@ -15,7 +15,9 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 npm run dev              # Start dev server (port 5000) with Vite HMR + TSX watch
 
 # Testing
-npm test                 # Run all tests once
+# ⚠️ NEVER run 'npm test' without permission - it launches browser instances
+# ALWAYS run specific test files only:
+npm test path/to/specific.test.ts  # Run specific test file
 npm run test:watch       # Watch mode
 npm run test:coverage    # Generate coverage report
 npm run test:security    # Security-specific tests only
