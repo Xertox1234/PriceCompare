@@ -43,3 +43,4 @@ Thumbs.db# GitHub Actions workflow - must be added manually via GitHub UI due to
 server/routes.ts.backup
 .worktrees
 .claude/settings.local.json
+*.backup*

@@ -1,5 +1,5 @@
 import { db } from './db';
-import { eq, desc, asc, sql, and, or, count, isNull } from 'drizzle-orm';
+import { eq, desc, asc, sql, and, or, count, isNull, inArray, ilike } from 'drizzle-orm';
 import {
   users, forumCategories, forumTopics, forumPosts, postLikes, notifications,
   topicTags, topicTagRelations, postMentions, privateMessages, badges, userBadges,
@@ -19,7 +19,23 @@ export class EnhancedForumStorage {
   // User management with enhanced profiles
   async getUserWithProfile(id: number): Promise<UserWithProfile | null> {
     const [userResult] = await db
-      .select()
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        role: users.role,
+        trustLevel: users.trustLevel,
+        isActive: users.isActive,
+        isBanned: users.isBanned,
+        lastLoginAt: users.lastLoginAt,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        postCount: users.postCount,
+        topicCount: users.topicCount,
+        likesReceived: users.likesReceived,
+        likesGiven: users.likesGiven,
+        // SECURITY: Never expose passwordHash
+      })
       .from(users)
       .where(eq(users.id, id))
       .limit(1);
@@ -126,7 +142,7 @@ export class EnhancedForumStorage {
       })
       .from(topicTagRelations)
       .innerJoin(topicTags, eq(topicTagRelations.tagId, topicTags.id))
-      .where(sql`${topicTagRelations.topicId} IN (${topicIds.join(',')})`);
+      .where(inArray(topicTagRelations.topicId, topicIds));
 
     const tagsByTopic = tagsResult.reduce((acc, item) => {
       if (!acc[item.topicId]) acc[item.topicId] = [];
@@ -281,9 +297,13 @@ export class EnhancedForumStorage {
       // Handle mentions
       if (mentions.length > 0) {
         const mentionedUsers = await tx
-          .select()
+          .select({
+            id: users.id,
+            username: users.username,
+            // SECURITY: Never expose passwordHash
+          })
           .from(users)
-          .where(sql`${users.username} IN (${mentions.map(m => `'${m}'`).join(',')})`);
+          .where(inArray(users.username, mentions));
 
         for (const mentionedUser of mentionedUsers) {
           // Create mention record
@@ -484,7 +504,7 @@ export class EnhancedForumStorage {
     return await db
       .select()
       .from(topicTags)
-      .where(sql`${topicTags.name} ILIKE ${'%' + query + '%'}`)
+      .where(ilike(topicTags.name, `%${query}%`))
       .orderBy(desc(topicTags.usageCount))
       .limit(10);
   }
@@ -530,7 +550,7 @@ export class EnhancedForumStorage {
 
   // Search functionality
   async searchPosts(query: string, categoryId?: number): Promise<ForumPostWithDetails[]> {
-    const conditions = [sql`${forumPosts.content} ILIKE ${'%' + query + '%'}`];
+    const conditions = [ilike(forumPosts.content, `%${query}%`)];
 
     if (categoryId) {
       conditions.push(eq(forumTopics.categoryId, categoryId));
