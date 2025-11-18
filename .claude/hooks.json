@@ -1,0 +1,6 @@
+{
+  "pre-commit": {
+    "agent": "code-review-specialist",
+    "prompt": "Review the staged changes in this commit. Focus on the diff and highlight any issues before I commit."
+  }
+}
