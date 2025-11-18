@@ -97,7 +97,7 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
   const { originalPrice, currentPrice, savings, savingsPercentage } = priceInfo;
 
   return (
-    <Card className="rounded-2xl overflow-hidden group">
+    <Card className="rounded-lg overflow-hidden group shadow-sm hover:shadow-md transition-shadow">
       <div className="relative">
         <img
           src={product.image || DEFAULT_PRODUCT_IMAGE}
@@ -109,7 +109,7 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
         {/* Deal badge with modern styling */}
         {bestOffer.dealType && (
           <div className="absolute top-4 left-4">
-            <Badge className="gradient-deal text-white px-3 py-1 font-semibold shadow-lg">
+            <Badge className="bg-secondary text-secondary-foreground px-3 py-1 font-semibold">
               {bestOffer.dealType === "best_price" && "🏆 Best Price"}
               {bestOffer.dealType === "bundle_deal" && "📦 Bundle Deal"}
               {bestOffer.dealType === "limited_time" && "⚡ Limited Time"}
@@ -120,7 +120,7 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
         {/* Savings badge */}
         {savings > 0 && (
           <div className="absolute top-4 right-4">
-            <Badge className="gradient-success text-white px-2 py-1 text-xs font-bold">
+            <Badge className="bg-success text-success-foreground px-2 py-1 text-xs font-bold">
               -{savingsPercentage}%
             </Badge>
           </div>
@@ -194,7 +194,7 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
             </Button>
             <Button
               size="sm"
-              className="flex-1 gradient-brand text-white hover:opacity-90"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleViewDeal}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
@@ -204,7 +204,7 @@ export const ProductCard = memo(({ product, onAddToComparison }: ProductCardProp
           <Button
             variant="outline"
             size="sm"
-            className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300"
+            className="w-full border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
             onClick={() => setDetailDialogOpen(true)}
           >
             <TrendingUp className="h-4 w-4 mr-2" />
