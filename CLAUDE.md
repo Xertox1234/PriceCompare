@@ -39,6 +39,55 @@ npm run security:fix     # Auto-fix security vulnerabilities
 npm run security:full    # Run all security checks + tests
 ```
 
+## Pre-Commit Hook System
+
+**MANDATORY**: All commits go through automated code review checks.
+
+The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces code quality standards:
+
+### Commit Blockers (Will FAIL commits):
+- ❌ `any` types in new code - Must use proper TypeScript types
+- ❌ `console.log` in production code - Must use `log()` function or remove
+- ❌ N+1 query patterns - Queries inside loops are forbidden
+- ❌ passwordHash exposure - Never expose in database queries
+
+### Warnings (Allow commits, but flag issues):
+- ⚠️ Direct `db` imports in routes (should use `storage.ts`)
+- ⚠️ Hardcoded hex colors (should use design tokens)
+- ⚠️ Missing `createErrorResponse()` for error handling
+
+**Bypass hook** (not recommended): `git commit --no-verify`
+
+### Claude Code Hooks
+
+Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent to review commits made through Claude Code.
+
+## Design System (MANDATORY for UI Work)
+
+**All UI work MUST follow the design system** to maintain consistency.
+
+### Key Design Requirements:
+- **Colors**: Use design tokens (`bg-primary`, `text-secondary`) NOT hardcoded hex values
+  - Primary: Blue 500 (#3B82F6) - Use `className="bg-primary"`
+  - Secondary: Amber 500 (#F59E0B) - Use `className="bg-secondary"`
+  - ❌ Never use old colors (purple #5A5DFF, pink #E91E63)
+
+- **Typography**: Inter font (configured in `client/src/index.css`)
+  - Automatic via `--font-sans` token
+
+- **Components**: ALWAYS reuse existing shared components
+  - Navigation: `SharedNavigation` from `@/components/shared-navigation`
+  - Hero: `NewHeroSection` from `@/components/new-hero-section`
+  - Categories: `NewCategories` from `@/components/new-categories`
+  - ❌ Never duplicate components - search first with `grep -r "function ComponentName"`
+
+- **Styling Rules**:
+  - Use Tailwind classes, NOT inline styles (except truly dynamic values)
+  - Test in both light and dark mode
+  - Maintain WCAG AA contrast ratios
+
+**See DESIGN_SYSTEM.md** (if it exists) for complete guidelines.
+
 ## Architecture Overview
 
 ### Dual Redis Client Architecture
