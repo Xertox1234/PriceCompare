@@ -7,7 +7,7 @@ import {
 } from '@shared/schema';
 import type {
   User, ForumCategory, ForumTopic, ForumPost, PostLike, Notification,
-  TopicTag, PrivateMessage, Badge, UserBadge, PostRevision,
+  TopicTag, PostMention, PrivateMessage, Badge, UserBadge, PostRevision,
   InsertUser, InsertForumCategory, InsertForumTopic, InsertForumPost,
   InsertPostLike, InsertNotification, InsertTopicTag, InsertPrivateMessage,
   InsertBadge, InsertPostRevision,
@@ -258,7 +258,7 @@ export class EnhancedForumStorage {
       if (!acc[item.postId]) acc[item.postId] = [];
       acc[item.postId].push({ ...item.mention, mentionedUser: item.mentionedUser });
       return acc;
-    }, {} as Record<number, any[]>);
+    }, {} as Record<number, (PostMention & { mentionedUser: User })[]>);
 
     return posts.map(result => ({
       ...result.post,
