@@ -119,6 +119,51 @@ app.get('/api/products/:id', async (req, res) => {
 });
 ```
 
+### Foreign Key Cascade Strategy
+
+**ALL foreign keys MUST have explicit cascade rules** to prevent orphaned records and maintain referential integrity.
+
+**Cascade Types:**
+- **CASCADE** (`onDelete: 'cascade'`) - Child data is meaningless without parent, delete automatically
+- **SET NULL** (`onDelete: 'set null'`) - Child data persists but reference becomes null
+- **RESTRICT** (rare) - Prevent deletion if children exist
+
+**Strategy Guidelines:**
+
+1. **Use CASCADE when:**
+   - Child records are meaningless without parent (e.g., productOffers → products)
+   - Data is transactional/temporary (e.g., priceAlerts → users)
+   - Relationship is ownership-based (e.g., watchLists → users)
+
+2. **Use SET NULL when:**
+   - Child should persist for historical/audit purposes (e.g., forumPosts → users)
+   - Child has independent value (e.g., notifications → relatedPost)
+   - You want to anonymize rather than delete (e.g., forumTopics → authorId)
+
+3. **Examples from schema.ts:**
+   ```typescript
+   // CASCADE - Offers die with products
+   productId: integer("product_id")
+     .references(() => products.id, { onDelete: 'cascade' })
+     .notNull(),
+
+   // SET NULL - Posts persist, author anonymized
+   authorId: integer("author_id")
+     .references(() => users.id, { onDelete: 'set null' })
+     .notNull(),
+   ```
+
+4. **Migration Pattern:**
+   ```sql
+   -- Drop existing constraint and recreate with CASCADE
+   ALTER TABLE product_offers
+     DROP CONSTRAINT IF EXISTS product_offers_product_id_fkey,
+     ADD CONSTRAINT product_offers_product_id_fkey
+       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE;
+   ```
+
+**NEVER create foreign keys without cascade rules** - this causes silent data corruption over time.
+
 ### Route Organization
 
 Routes are modular and registered in `server/routes/index.ts`:

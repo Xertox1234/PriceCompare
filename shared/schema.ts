@@ -61,8 +61,8 @@ export const products = pgTable("products", {
 
 export const productOffers = pgTable("product_offers", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id).notNull(),
-  retailerId: integer("retailer_id").references(() => retailers.id).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: 'cascade' }).notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
   availability: text("availability").default("in_stock"), // in_stock, out_of_stock, limited_stock
@@ -86,9 +86,9 @@ export const productOffers = pgTable("product_offers", {
 // Price history tracking for historical price trends and analysis
 export const priceHistory = pgTable("price_history", {
   id: serial("id").primaryKey(),
-  productOfferId: integer("product_offer_id").references(() => productOffers.id).notNull(),
-  productId: integer("product_id").references(() => products.id).notNull(), // Denormalized for fast queries
-  retailerId: integer("retailer_id").references(() => retailers.id).notNull(), // Denormalized for fast queries
+  productOfferId: integer("product_offer_id").references(() => productOffers.id, { onDelete: 'cascade' }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(), // Denormalized for fast queries
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: 'cascade' }).notNull(), // Denormalized for fast queries
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
   availability: text("availability"),
@@ -160,7 +160,7 @@ export const forumCategories = pgTable("forum_categories", {
   icon: varchar("icon", { length: 50 }), // lucide icon name
   isActive: boolean("is_active").default(true),
   sortOrder: integer("sort_order").default(0),
-  parentId: integer("parent_id").references((): AnyPgColumn => forumCategories.id), // for subcategories
+  parentId: integer("parent_id").references((): AnyPgColumn => forumCategories.id, { onDelete: 'set null' }), // for subcategories
   moderatorIds: integer("moderator_ids").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -171,9 +171,9 @@ export const forumTopics = pgTable("forum_topics", {
   title: varchar("title", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull(),
   content: text("content"), // Initial post content
-  categoryId: integer("category_id").references(() => forumCategories.id),
-  authorId: integer("author_id").references(() => users.id).notNull(),
-  productId: integer("product_id").references(() => products.id), // Link to products
+  categoryId: integer("category_id").references(() => forumCategories.id, { onDelete: 'set null' }),
+  authorId: integer("author_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'set null' }), // Link to products
   tags: varchar("tags", { length: 500 }).array(), // Topic tags
   isPinned: boolean("is_pinned").default(false),
   isLocked: boolean("is_locked").default(false),
@@ -194,20 +194,20 @@ export const forumTopics = pgTable("forum_topics", {
 // Forum posts with enhanced features
 export const forumPosts = pgTable("forum_posts", {
   id: serial("id").primaryKey(),
-  topicId: integer("topic_id").references(() => forumTopics.id).notNull(),
-  authorId: integer("author_id").references(() => users.id).notNull(),
+  topicId: integer("topic_id").references(() => forumTopics.id, { onDelete: 'cascade' }).notNull(),
+  authorId: integer("author_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
   content: text("content").notNull(),
   rawContent: text("raw_content").notNull(), // Original markdown/text content
   isFirstPost: boolean("is_first_post").default(false),
   postNumber: integer("post_number").notNull(), // Sequential number within topic
-  replyToPostId: integer("reply_to_post_id").references((): AnyPgColumn => forumPosts.id),
+  replyToPostId: integer("reply_to_post_id").references((): AnyPgColumn => forumPosts.id, { onDelete: 'set null' }),
   likeCount: integer("like_count").default(0),
   replyCount: integer("reply_count").default(0),
   readCount: integer("read_count").default(0),
   isHidden: boolean("is_hidden").default(false),
   hiddenReason: varchar("hidden_reason", { length: 255 }),
   editedAt: timestamp("edited_at"),
-  editedById: integer("edited_by_id").references(() => users.id),
+  editedById: integer("edited_by_id").references(() => users.id, { onDelete: 'set null' }),
   version: integer("version").default(1),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -220,8 +220,8 @@ export const forumPosts = pgTable("forum_posts", {
 // Price alerts that can notify the community
 export const priceAlerts = pgTable("price_alerts", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  productId: integer("product_id").references(() => products.id).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
   targetPrice: decimal("target_price", { precision: 10, scale: 2 }).notNull(),
   isActive: boolean("is_active").default(true),
   notifyForum: boolean("notify_forum").default(false), // Whether to post to forum when triggered
@@ -245,8 +245,8 @@ export const priceAlerts = pgTable("price_alerts", {
 // Post likes/reactions
 export const postLikes = pgTable("post_likes", {
   id: serial("id").primaryKey(),
-  postId: integer("post_id").references(() => forumPosts.id).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  postId: integer("post_id").references(() => forumPosts.id, { onDelete: 'cascade' }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   reactionType: varchar("reaction_type", { length: 20 }).default("like"), // like, love, laugh, etc.
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
@@ -257,14 +257,14 @@ export const postLikes = pgTable("post_likes", {
 // User notifications
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   type: varchar("type", { length: 50 }).notNull(), // mention, reply, like, price_drop, price_alert, etc.
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content"),
-  relatedPostId: integer("related_post_id").references(() => forumPosts.id),
-  relatedTopicId: integer("related_topic_id").references(() => forumTopics.id),
-  relatedUserId: integer("related_user_id").references(() => users.id),
-  relatedProductId: integer("related_product_id").references(() => products.id),
+  relatedPostId: integer("related_post_id").references(() => forumPosts.id, { onDelete: 'set null' }),
+  relatedTopicId: integer("related_topic_id").references(() => forumTopics.id, { onDelete: 'set null' }),
+  relatedUserId: integer("related_user_id").references(() => users.id, { onDelete: 'set null' }),
+  relatedProductId: integer("related_product_id").references(() => products.id, { onDelete: 'set null' }),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
@@ -276,7 +276,7 @@ export const notifications = pgTable("notifications", {
 // Notification preferences for users
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
   // Price drop settings
   priceDropEnabled: boolean("price_drop_enabled").default(true),
   priceDropThresholdPercent: integer("price_drop_threshold_percent").default(10), // 10% default
@@ -308,8 +308,8 @@ export const topicTags = pgTable("topic_tags", {
 // Many-to-many relationship for topics and tags
 export const topicTagRelations = pgTable("topic_tag_relations", {
   id: serial("id").primaryKey(),
-  topicId: integer("topic_id").references(() => forumTopics.id).notNull(),
-  tagId: integer("tag_id").references(() => topicTags.id).notNull(),
+  topicId: integer("topic_id").references(() => forumTopics.id, { onDelete: 'cascade' }).notNull(),
+  tagId: integer("tag_id").references(() => topicTags.id, { onDelete: 'cascade' }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   topicIdIdx: index("topic_tag_relations_topic_id_idx").on(table.topicId),
@@ -319,17 +319,17 @@ export const topicTagRelations = pgTable("topic_tag_relations", {
 // User mentions in posts
 export const postMentions = pgTable("post_mentions", {
   id: serial("id").primaryKey(),
-  postId: integer("post_id").references(() => forumPosts.id).notNull(),
-  mentionedUserId: integer("mentioned_user_id").references(() => users.id).notNull(),
-  mentioningUserId: integer("mentioning_user_id").references(() => users.id).notNull(),
+  postId: integer("post_id").references(() => forumPosts.id, { onDelete: 'cascade' }).notNull(),
+  mentionedUserId: integer("mentioned_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  mentioningUserId: integer("mentioning_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Private messages
 export const privateMessages = pgTable("private_messages", {
   id: serial("id").primaryKey(),
-  senderId: integer("sender_id").references(() => users.id).notNull(),
-  recipientId: integer("recipient_id").references(() => users.id).notNull(),
+  senderId: integer("sender_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  recipientId: integer("recipient_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   subject: varchar("subject", { length: 255 }).notNull(),
   content: text("content").notNull(),
   isRead: boolean("is_read").default(false),
@@ -351,8 +351,8 @@ export const badges = pgTable("badges", {
 // User badge assignments
 export const userBadges = pgTable("user_badges", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  badgeId: integer("badge_id").references(() => badges.id).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  badgeId: integer("badge_id").references(() => badges.id, { onDelete: 'cascade' }).notNull(),
   grantedAt: timestamp("granted_at").defaultNow(),
 });
 
@@ -360,7 +360,7 @@ export const userBadges = pgTable("user_badges", {
 // Watch lists for organizing watched products
 export const watchLists = pgTable("watch_lists", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   color: varchar("color", { length: 7 }), // Hex color code
@@ -375,9 +375,9 @@ export const watchLists = pgTable("watch_lists", {
 
 export const productWatches = pgTable("product_watches", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  productId: integer("product_id").references(() => products.id).notNull(),
-  watchListId: integer("watch_list_id").references(() => watchLists.id),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  watchListId: integer("watch_list_id").references(() => watchLists.id, { onDelete: 'cascade' }),
   category: varchar("category", { length: 100 }),
   notes: text("notes"),
   priority: integer("priority").default(3), // 1-5 scale
@@ -393,7 +393,7 @@ export const productWatches = pgTable("product_watches", {
 // User reputation for gamification
 export const userReputation = pgTable("user_reputation", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
   reputationPoints: integer("reputation_points").default(0),
   dealsSpotted: integer("deals_spotted").default(0),
   accuratePredictions: integer("accurate_predictions").default(0),
@@ -406,11 +406,11 @@ export const userReputation = pgTable("user_reputation", {
 // Deal spotting events for tracking who found deals
 export const dealSpottings = pgTable("deal_spottings", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  productId: integer("product_id").references(() => products.id).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
   priceDropPercent: decimal("price_drop_percent", { precision: 5, scale: 2 }).notNull(),
   priceDropAmount: decimal("price_drop_amount", { precision: 10, scale: 2 }).notNull(),
-  forumPostId: integer("forum_post_id").references(() => forumPosts.id),
+  forumPostId: integer("forum_post_id").references(() => forumPosts.id, { onDelete: 'set null' }),
   reputationAwarded: integer("reputation_awarded").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
@@ -421,10 +421,10 @@ export const dealSpottings = pgTable("deal_spottings", {
 // Post revision history
 export const postRevisions = pgTable("post_revisions", {
   id: serial("id").primaryKey(),
-  postId: integer("post_id").references(() => forumPosts.id).notNull(),
+  postId: integer("post_id").references(() => forumPosts.id, { onDelete: 'cascade' }).notNull(),
   content: text("content").notNull(),
   rawContent: text("raw_content").notNull(),
-  editedById: integer("edited_by_id").references(() => users.id).notNull(),
+  editedById: integer("edited_by_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
   editReason: varchar("edit_reason", { length: 255 }),
   version: integer("version").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -683,7 +683,7 @@ export const trendingProducts = pgTable("trending_products", {
   sourceData: text("source_data"), // JSON data from source
   discoveryDate: timestamp("discovery_date").defaultNow(),
   status: varchar("status", { length: 20 }).default("discovered"), // discovered, processing, scraped, failed
-  productId: integer("product_id").references(() => products.id), // Link to created product
+  productId: integer("product_id").references(() => products.id, { onDelete: 'set null' }), // Link to created product
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -691,8 +691,8 @@ export const trendingProducts = pgTable("trending_products", {
 // Search queries generated by AI agents
 export const searchQueries = pgTable("search_queries", {
   id: serial("id").primaryKey(),
-  trendingProductId: integer("trending_product_id").references(() => trendingProducts.id),
-  productId: integer("product_id").references(() => products.id),
+  trendingProductId: integer("trending_product_id").references(() => trendingProducts.id, { onDelete: 'cascade' }),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'set null' }),
   queryText: varchar("query_text", { length: 500 }).notNull(),
   retailer: varchar("retailer", { length: 50 }),
   queryType: varchar("query_type", { length: 30 }).default("product_search"), // product_search, price_check, availability
@@ -731,7 +731,7 @@ export const scrapingJobs = pgTable("scraping_jobs", {
   scheduledAt: timestamp("scheduled_at"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
-  agentSessionId: integer("agent_session_id").references(() => agentSessions.id),
+  agentSessionId: integer("agent_session_id").references(() => agentSessions.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -739,7 +739,7 @@ export const scrapingJobs = pgTable("scraping_jobs", {
 // Price predictions and historical analysis
 export const pricePredictions = pgTable("price_predictions", {
   id: serial("id").primaryKey(),
-  productOfferId: integer("product_offer_id").references(() => productOffers.id).notNull(),
+  productOfferId: integer("product_offer_id").references(() => productOffers.id, { onDelete: 'cascade' }).notNull(),
   currentPrice: decimal("current_price", { precision: 10, scale: 2 }).notNull(),
   predictedPrice: decimal("predicted_price", { precision: 10, scale: 2 }).notNull(),
   predictionType: varchar("prediction_type", { length: 30 }).notNull(), // daily, weekly, monthly, seasonal
@@ -755,8 +755,8 @@ export const pricePredictions = pgTable("price_predictions", {
 // Price snapshots - Daily aggregated price data
 export const priceSnapshots = pgTable("price_snapshots", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id).notNull(),
-  retailerId: integer("retailer_id").references(() => retailers.id).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: 'cascade' }).notNull(),
   lowestPrice: decimal("lowest_price", { precision: 10, scale: 2 }).notNull(),
   highestPrice: decimal("highest_price", { precision: 10, scale: 2 }).notNull(),
   averagePrice: decimal("average_price", { precision: 10, scale: 2 }).notNull(),
@@ -883,8 +883,8 @@ export const scrapingSources = pgTable("scraping_sources", {
 // Product URL tracking and validation
 export const productUrls = pgTable("product_urls", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id).notNull(),
-  retailerId: integer("retailer_id").references(() => retailers.id).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: 'cascade' }).notNull(),
   url: text("url").notNull(),
   urlType: varchar("url_type", { length: 30 }).default("product_page"), // product_page, search_result, api_endpoint
   isActive: boolean("is_active").default(true),
