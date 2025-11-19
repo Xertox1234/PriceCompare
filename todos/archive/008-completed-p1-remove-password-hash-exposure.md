@@ -189,6 +189,41 @@ author: {
 - Only INSERT/UPDATE operations reference passwordHash (safe operations)
 - Pre-existing TypeScript errors not introduced by these changes
 
+### 2025-11-18 - Additional auth.ts Fixes (Code Review Follow-up)
+**By:** Claude Code
+**Actions:**
+- Code review specialist identified additional exposures in auth.ts
+- Fixed passport strategy (line 50) - Uses explicit field selection with passwordHash only for bcrypt verification
+- Fixed deserializeUser (line 89) - Excludes passwordHash from req.user serialization
+- Fixed findUserByEmail (line 115) - Returns SafeUser type without passwordHash
+- Fixed findUserById (line 120) - Returns SafeUser type without passwordHash
+- Created SafeUser type = Omit<User, 'passwordHash'>
+- Updated Express.User declaration to use SafeUser
+- Fixed createUser() - Returns SafeUser, explicitly extracts safe fields from INSERT...RETURNING
+- Removed conflicting Express.User type declaration in routes/helpers.ts
+- Committed auth.ts fixes (commit fdf7956)
+- Committed final fixes (commit 82a3103)
+- Pushed all changes to add_scraping branch
+
+**Results:**
+- ✅ 100% password hash exposure remediation complete
+- ✅ 0 bare .select() calls exposing passwordHash
+- ✅ SafeUser type enforced throughout application
+- ✅ 5+ security comments documenting exclusions
+- ✅ Zero TypeScript errors in modified files
+- ✅ Pre-commit hooks passing
+
+**Technical Notes:**
+- SafeUser type provides type-safe guarantee that req.user never contains passwordHash
+- Passport strategy correctly maintains passwordHash for bcrypt.compare() verification only
+- createUser() now returns SafeUser to prevent passwordHash from appearing in route handlers
+- Type conflict in routes/helpers.ts resolved by removing duplicate Express.User declaration
+
+**Commits:**
+- ad59f87 - Merge PR #58 (forum & discourse fixes)
+- fdf7956 - Fix auth.ts SELECT queries and type safety
+- 82a3103 - Fix createUser() and type conflicts (final fix)
+
 ## Notes
 
 **SECURITY**: The project's pre-commit hook is supposed to prevent this pattern, but these instances slipped through. After fixing, strengthen the pre-commit validation.
