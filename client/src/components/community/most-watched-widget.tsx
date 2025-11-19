@@ -68,13 +68,19 @@ export function MostWatchedWidget({ limit = 10, compact = false }: MostWatchedWi
   );
 }
 
+interface WatchedProductData {
+  productId: number;
+  productName: string;
+  watchCount: number;
+}
+
 // Watched Product Item Component
 function WatchedProductItem({
   product,
   rank,
   compact,
 }: {
-  product: any;
+  product: WatchedProductData;
   rank: number;
   compact: boolean;
 }) {

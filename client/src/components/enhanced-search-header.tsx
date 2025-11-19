@@ -112,9 +112,9 @@ export function EnhancedSearchHeader({
   };
 
   // Quick filter application
-  const applyQuickFilter = (filterType: string, value: any) => {
-    const newFilters = { ...filters };
-    
+  const applyQuickFilter = (filterType: string, value: string | null) => {
+    const newFilters: Partial<SearchFilters> = { ...filters };
+
     switch (filterType) {
       case 'price-low':
         newFilters.sortBy = 'price_low';
@@ -126,13 +126,15 @@ export function EnhancedSearchHeader({
         newFilters.sortBy = 'rating';
         break;
       case 'category':
-        newFilters.category = value;
+        newFilters.category = value || undefined;
         break;
       case 'retailer':
-        newFilters.retailers = [value];
+        // Note: retailers filter requires retailer IDs (numbers), not names
+        // This would need to be implemented with a proper retailer lookup
+        // For now, we skip this functionality
         break;
     }
-    
+
     onFilterChange?.(newFilters);
     setShowQuickFilters(false);
   };

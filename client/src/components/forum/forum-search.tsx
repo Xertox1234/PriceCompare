@@ -155,7 +155,7 @@ export function ForumSearch() {
     );
   };
 
-  const renderPostResult = (post: any) => (
+  const renderPostResult = (post: SearchResult['posts'][0]) => (
     <Card key={post.id} className="hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4">
         <div className="flex space-x-3">
@@ -195,7 +195,7 @@ export function ForumSearch() {
     </Card>
   );
 
-  const renderTopicResult = (topic: any) => (
+  const renderTopicResult = (topic: SearchResult['topics'][0]) => (
     <Card key={topic.id} className="hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-3">
@@ -240,7 +240,7 @@ export function ForumSearch() {
         
         {topic.tags && topic.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {topic.tags.map((tag: any, index: number) => (
+            {topic.tags.map((tag, index: number) => (
               <Badge 
                 key={index} 
                 variant="outline" 
@@ -257,7 +257,7 @@ export function ForumSearch() {
     </Card>
   );
 
-  const renderUserResult = (user: any) => (
+  const renderUserResult = (user: SearchResult['users'][0]) => (
     <Card key={user.id} className="hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4">
         <div className="flex items-center space-x-4">

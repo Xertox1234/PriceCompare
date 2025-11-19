@@ -47,7 +47,18 @@ export class TrendAnalysisService {
     try {
       // OPTIMIZATION 1: Process trends in parallel batches to avoid overwhelming the system
       const BATCH_SIZE = 20; // Process 20 at a time
-      const trendValues: any[] = [];
+      const trendValues: Array<{
+        productId: number;
+        retailerId: number;
+        trendDirection: string;
+        trendSlope: string;
+        trendStrength: string;
+        predictedNextPrice: string;
+        confidenceLevel: string;
+        analysisPeriodDays: number;
+        lastAnalyzedAt: Date;
+        updatedAt: Date;
+      }> = [];
       let analyzedCount = 0;
 
       for (let i = 0; i < priceDataGrouped.length; i += BATCH_SIZE) {
@@ -131,7 +142,18 @@ export class TrendAnalysisService {
     retailerId: number,
     prices: Array<{price: number, timestamp: string}>,
     analysisPeriodDays: number
-  ): Promise<any> {
+  ): Promise<{
+    productId: number;
+    retailerId: number;
+    trendDirection: string;
+    trendSlope: string;
+    trendStrength: string;
+    predictedNextPrice: string;
+    confidenceLevel: string;
+    analysisPeriodDays: number;
+    lastAnalyzedAt: Date;
+    updatedAt: Date;
+  } | null> {
     try {
       // Convert to data points for regression
       const dataPoints = prices.map((p, index) => ({

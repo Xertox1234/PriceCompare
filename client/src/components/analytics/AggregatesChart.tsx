@@ -138,7 +138,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Current Avg</div>
             <div className="text-lg font-bold">
-              ${chartData[chartData.length - 1]?.avg.toFixed(2)}
+              ${chartData[chartData.length - 1]?.avg.toFixed(2) || "N/A"}
             </div>
           </div>
           <div className="text-center">
@@ -152,26 +152,26 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
                   : "text-gray-600"
               }`}
             >
-              {chartData[chartData.length - 1]?.change
-                ? `${chartData[chartData.length - 1].change > 0 ? "+" : ""}${chartData[
+              {chartData[chartData.length - 1]?.change !== null && chartData[chartData.length - 1]?.change !== undefined
+                ? `${chartData[chartData.length - 1]!.change! > 0 ? "+" : ""}${chartData[
                     chartData.length - 1
-                  ].change.toFixed(2)}%`
+                  ]!.change!.toFixed(2)}%`
                 : "N/A"}
             </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Volatility</div>
             <div className="text-lg font-bold">
-              {chartData[chartData.length - 1]?.volatility
-                ? `${chartData[chartData.length - 1].volatility.toFixed(2)}%`
+              {chartData[chartData.length - 1]?.volatility !== null && chartData[chartData.length - 1]?.volatility !== undefined
+                ? `${chartData[chartData.length - 1]!.volatility!.toFixed(2)}%`
                 : "N/A"}
             </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Price Range</div>
             <div className="text-lg font-bold">
-              ${chartData[chartData.length - 1]?.min.toFixed(2)} - $
-              {chartData[chartData.length - 1]?.max.toFixed(2)}
+              ${chartData[chartData.length - 1]?.min.toFixed(2) || "N/A"} - $
+              {chartData[chartData.length - 1]?.max.toFixed(2) || "N/A"}
             </div>
           </div>
         </div>
@@ -180,8 +180,23 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
   );
 }
 
-function CustomTooltip({ active, payload, label }: any) {
-  if (active && payload && payload.length) {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: {
+      avg: number;
+      min: number;
+      max: number;
+      median: number | null;
+      volatility: number | null;
+      change: number | null;
+    };
+  }>;
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (active && payload && payload.length > 0 && payload[0]) {
     const data = payload[0].payload;
     return (
       <div className="bg-background border border-border p-3 rounded-lg shadow-lg">

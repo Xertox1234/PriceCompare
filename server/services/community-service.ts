@@ -778,7 +778,7 @@ export async function getUserDefaultWatchList(userId: number): Promise<WatchList
 /**
  * Export user's watch lists and products as JSON
  */
-export async function exportWatchLists(userId: number): Promise<any> {
+export async function exportWatchLists(userId: number): Promise<Record<string, unknown>> {
   const lists = await getUserWatchLists(userId);
   const exportData = [];
 
@@ -812,7 +812,7 @@ export async function exportWatchLists(userId: number): Promise<any> {
  */
 export async function importWatchLists(
   userId: number,
-  importData: any
+  importData: Record<string, unknown>
 ): Promise<{ created: number; skipped: number }> {
   let created = 0;
   let skipped = 0;

@@ -25,7 +25,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    * GET /api/smart-alerts/suggestions/:productId
    * Get smart threshold suggestions for a product
    */
-  app.get("/api/smart-alerts/suggestions/:productId", async (req: Request, res: Response) => {
+  app.get("/api/smart-alerts/suggestions/:productId", async (req: Request, res: Response): Promise<void> => {
     try {
       const productId = parseInt(req.params.productId);
       const currentPrice = req.query.currentPrice
@@ -33,11 +33,13 @@ export function registerSmartAlertsRoutes(app: Express) {
         : undefined;
 
       if (isNaN(productId)) {
-        return res.status(400).json({ error: "Invalid product ID" });
+        res.status(400).json({ error: "Invalid product ID" });
+        return;
       }
 
       if (!currentPrice) {
-        return res.status(400).json({ error: "Current price is required" });
+        res.status(400).json({ error: "Current price is required" });
+        return;
       }
 
       const suggestions = await smartAlertsService.generateSmartThresholdSuggestions(
@@ -52,7 +54,8 @@ export function registerSmartAlertsRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error generating smart suggestions:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to generate suggestions" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate suggestions";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
@@ -72,7 +75,8 @@ export function registerSmartAlertsRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error generating predictive alerts:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to generate predictive alerts" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate predictive alerts";
+      res.status(500).json({ error: errorMessage });
     }
   }));
 
@@ -92,7 +96,8 @@ export function registerSmartAlertsRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error getting alert effectiveness:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to get effectiveness metrics" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to get effectiveness metrics";
+      res.status(500).json({ error: errorMessage });
     }
   }));
 
@@ -111,7 +116,8 @@ export function registerSmartAlertsRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error getting alert analytics:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to get analytics" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to get analytics";
+      res.status(500).json({ error: errorMessage });
     }
   }));
 
@@ -119,7 +125,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    * POST /api/smart-alerts/create-suggested
    * Create a suggested alert based on smart recommendations
    */
-  app.post("/api/smart-alerts/create-suggested", withAuth(async (req, res) => {
+  app.post("/api/smart-alerts/create-suggested", withAuth(async (req, res): Promise<void> => {
     try {
       const user = req.user!; // Auth verified by withAuth middleware
 
@@ -157,9 +163,11 @@ export function registerSmartAlertsRoutes(app: Express) {
     } catch (error: unknown) {
       logger.error('Error creating suggested alert:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.issues });
+        res.status(400).json({ error: "Invalid data", details: error.issues });
+        return;
       }
-      res.status(500).json({ error: error.message || "Failed to create suggested alert" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to create suggested alert";
+      res.status(500).json({ error: errorMessage });
     }
   }));
 }

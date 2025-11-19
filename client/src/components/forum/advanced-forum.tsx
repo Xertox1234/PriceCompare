@@ -93,7 +93,7 @@ export default function AdvancedForum() {
       const data = await response.json();
       
       // Enhanced with forum features
-      return data.map((topic: any) => ({
+      return data.map((topic: Partial<Topic>) => ({
         ...topic,
         views: Math.floor(Math.random() * 1000) + 50,
         likes: Math.floor(Math.random() * 100) + 5,
@@ -119,7 +119,7 @@ export default function AdvancedForum() {
       const data = await response.json();
 
       // Enhanced with forum features
-      return data.map((post: any, index: number) => ({
+      return data.map((post: Partial<Post>, index: number) => ({
         ...post,
         likes: Math.floor(Math.random() * 50) + 1,
         isLiked: Math.random() > 0.8,

@@ -29,9 +29,15 @@ interface Category {
   icon: string;
 }
 
+interface User {
+  id: number;
+  username: string;
+  [key: string]: unknown;
+}
+
 interface CreateTopicDialogProps {
   categories: Category[];
-  user: any;
+  user: User | null | undefined;
   redirectToLogin: () => void;
 }
 

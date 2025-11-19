@@ -134,8 +134,9 @@ function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, un
     const keyLower = key.toLowerCase();
     if (sensitiveKeys.some(sensitive => keyLower.includes(sensitive))) {
       sanitized[key] = '[REDACTED]';
-    } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeMetadata(value);
+    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Recursively sanitize nested objects
+      sanitized[key] = sanitizeMetadata(value as Record<string, unknown>);
     } else {
       sanitized[key] = value;
     }
@@ -204,14 +205,15 @@ export function logSecurityEvent(
 
 /**
  * Extended Request type with optional user
+ * Note: Using type instead of interface to avoid extension issues
  */
-interface AuthenticatedRequest extends Request {
+type AuthenticatedRequest = Request & {
   user?: {
     id: number;
     username?: string;
     email?: string;
   };
-}
+};
 
 /**
  * Helper to extract user info from request

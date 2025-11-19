@@ -8,13 +8,28 @@ import { createLogger } from "@/utils/logger";
 
 const log = createLogger('Monitoring');
 
+interface AgentSession {
+  id: string;
+  status: string;
+  startedAt: string;
+  [key: string]: unknown;
+}
+
+interface RecentJob {
+  id: string;
+  status: string;
+  createdAt: string;
+  completedAt?: string;
+  [key: string]: unknown;
+}
+
 interface DashboardMetrics {
   timestamp: string;
   agents: {
     total: number;
     active: number;
     inactive: number;
-    sessions: any[];
+    sessions: AgentSession[];
   };
   jobs: {
     total: number;
@@ -24,7 +39,7 @@ interface DashboardMetrics {
     failed: number;
     successRate: number;
     avgDuration: number | null;
-    recentJobs: any[];
+    recentJobs: RecentJob[];
   };
   cache: {
     queryCache: {
@@ -53,6 +68,12 @@ interface DashboardMetrics {
     trendingDiscovered: number;
     trendingProcessed: number;
     trendingFailed: number;
+  };
+  locks: {
+    successRate: number;
+    activeLocks: number;
+    avgAcquisitionTime: number;
+    contentionRate: number;
   };
   health: {
     overall: "healthy" | "degraded" | "unhealthy";

@@ -132,7 +132,7 @@ interface CacheStats {
  * Advanced caching service with multi-tier support
  */
 export class AdvancedCacheService {
-  private l1Cache: LRUCache<any>;
+  private l1Cache: LRUCache<unknown>;
   private stats: CacheStats;
   private readonly PUBSUB_CHANNEL = 'cache:invalidate';
 
@@ -196,7 +196,7 @@ export class AdvancedCacheService {
    */
   async set(
     key: string,
-    value: any,
+    value: unknown,
     tier: CacheTier = CacheTier.WARM,
     useL1: boolean = true
   ): Promise<void> {
@@ -430,7 +430,7 @@ export const advancedCache = new AdvancedCacheService();
 /**
  * Cache product details with automatic tier selection
  */
-export async function cacheProductDetail(productId: number, data: any, isPopular: boolean = false) {
+export async function cacheProductDetail(productId: number, data: unknown, isPopular: boolean = false) {
   const key = AdvancedCacheService.generateKey(CachePrefix.PRODUCT_DETAIL, productId);
   const tier = isPopular ? CacheTier.HOT : CacheTier.WARM;
   await advancedCache.set(key, data, tier, isPopular);
@@ -460,8 +460,8 @@ export async function invalidateProductCache(productId: number) {
 export async function cacheAnalytics(
   type: string,
   productId: number,
-  params: Record<string, any>,
-  data: any
+  params: Record<string, unknown>,
+  data: unknown
 ) {
   const paramStr = Object.entries(params)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -483,7 +483,7 @@ export async function cacheAnalytics(
 export async function getCachedAnalytics(
   type: string,
   productId: number,
-  params: Record<string, any>
+  params: Record<string, unknown>
 ) {
   const paramStr = Object.entries(params)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -502,7 +502,7 @@ export async function getCachedAnalytics(
 /**
  * Cache search results
  */
-export async function cacheSearchResults(query: string, filters: any, data: any) {
+export async function cacheSearchResults(query: string, filters: unknown, data: unknown) {
   const filterStr = JSON.stringify(filters);
   const key = AdvancedCacheService.generateKey(CachePrefix.PRODUCT_SEARCH, query, filterStr);
   await advancedCache.set(key, data, CacheTier.WARM, false);
@@ -511,7 +511,7 @@ export async function cacheSearchResults(query: string, filters: any, data: any)
 /**
  * Get cached search results
  */
-export async function getCachedSearchResults(query: string, filters: any) {
+export async function getCachedSearchResults(query: string, filters: unknown) {
   const filterStr = JSON.stringify(filters);
   const key = AdvancedCacheService.generateKey(CachePrefix.PRODUCT_SEARCH, query, filterStr);
   return advancedCache.get(key, false);

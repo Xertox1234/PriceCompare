@@ -35,10 +35,10 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
   const seasonalPatterns = calculateSeasonalPatterns(history || []);
 
   // Generate buy recommendation
-  const buyRecommendation = generateBuyRecommendation(stats, history || []);
+  const buyRecommendation = generateBuyRecommendation(stats as LocalPriceStats | undefined, history || []);
 
   // Calculate price volatility
-  const volatility = stats ? calculateVolatility(stats) : null;
+  const volatility = stats ? calculateVolatility(stats as LocalPriceStats) : null;
 
   if (isLoading) {
     return (
@@ -232,7 +232,9 @@ function SeasonalPatternsSection({ patterns }: { patterns: SeasonalPattern[] }) 
 }
 
 // Historical Insights Section
-function HistoricalInsightsSection({ stats, history }: { stats: any; history: any[] }) {
+function HistoricalInsightsSection({ stats, history }: { stats: LocalPriceStats | undefined; history: LocalPriceHistoryItem[] }) {
+  if (!stats) return null;
+
   const daysSinceLowest = history.findIndex(h => parseFloat(h.price) === stats.lowestPrice);
   const daysSinceHighest = history.findIndex(h => parseFloat(h.price) === stats.highestPrice);
 
@@ -272,13 +274,14 @@ function HistoricalInsightsSection({ stats, history }: { stats: any; history: an
 
 // Helper Functions
 
-function calculateSeasonalPatterns(history: any[]): SeasonalPattern[] {
+function calculateSeasonalPatterns(history: LocalPriceHistoryItem[]): SeasonalPattern[] {
   if (history.length < 90) return []; // Need at least 3 months of data
 
   const monthlyData: Record<string, number[]> = {};
 
   history.forEach(entry => {
-    const date = new Date(entry.recordedAt || entry.createdAt);
+    const dateValue = entry.recordedAt || entry.createdAt || new Date();
+    const date = new Date(dateValue);
     const month = date.toLocaleString('default', { month: 'short' });
 
     if (!monthlyData[month]) {
@@ -313,7 +316,21 @@ function calculateSeasonalPatterns(history: any[]): SeasonalPattern[] {
   return patterns;
 }
 
-function generateBuyRecommendation(stats: any, history: any[]): BuyRecommendation {
+interface LocalPriceStats {
+  currentPrice: number;
+  lowestPrice: number;
+  averagePrice: number;
+  highestPrice: number;
+}
+
+interface LocalPriceHistoryItem {
+  price: string;
+  recordedAt: Date | string;
+  createdAt: Date | string | null;
+  [key: string]: unknown;
+}
+
+function generateBuyRecommendation(stats: LocalPriceStats | undefined, history: LocalPriceHistoryItem[]): BuyRecommendation {
   if (!stats || history.length === 0) {
     return {
       status: 'fair',
@@ -396,7 +413,7 @@ function generateBuyRecommendation(stats: any, history: any[]): BuyRecommendatio
   };
 }
 
-function calculateVolatility(stats: any): { level: string; percentage: number; description: string } {
+function calculateVolatility(stats: LocalPriceStats): { level: string; percentage: number; description: string } {
   const range = stats.highestPrice - stats.lowestPrice;
   const percentage = (range / stats.averagePrice) * 100;
 

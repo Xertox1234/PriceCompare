@@ -69,6 +69,15 @@ export function Leaderboard({ limit = 10, showBadges = true, compact = false }: 
   );
 }
 
+interface LeaderboardEntryData {
+  userId: number;
+  username: string;
+  reputationPoints: number;
+  level: number;
+  dealsSpotted: number;
+  badges?: string[];
+}
+
 // Leaderboard Entry Component
 function LeaderboardEntry({
   entry,
@@ -76,7 +85,7 @@ function LeaderboardEntry({
   showBadges,
   compact,
 }: {
-  entry: any;
+  entry: LeaderboardEntryData;
   rank: number;
   showBadges: boolean;
   compact: boolean;

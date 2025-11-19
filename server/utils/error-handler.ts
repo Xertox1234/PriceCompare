@@ -202,7 +202,7 @@ export function errorHandlerMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
-) {
+): void {
   if (error instanceof AppError) {
     // Handle known application errors
     const errorResponse: ErrorResponse = {
@@ -221,7 +221,8 @@ export function errorHandlerMiddleware(
       timestamp: new Date().toISOString()
     });
 
-    return res.status(error.statusCode).json(errorResponse);
+    res.status(error.statusCode).json(errorResponse);
+    return;
   }
 
   // Handle unknown errors
