@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import { monitoringService } from './monitoring-service.js';
+import { monitoringService, DashboardMetrics } from './monitoring-service.js';
 import { alertService } from './alert-service.js';
 import { logger } from '../utils/logger.js';
 import { cleanupManager } from '../utils/cleanup-manager.js';
@@ -11,10 +11,48 @@ import { cleanupManager } from '../utils/cleanup-manager.js';
  * Broadcasts system metrics and events to connected dashboard clients
  */
 
-export interface WebSocketEvent {
+// Generic WebSocket event with typed data payload
+export interface WebSocketEvent<T = unknown> {
   type: string;
-  data: any;
+  data: T;
   timestamp: string;
+}
+
+// Specific event payload types
+export interface MetricsUpdatePayload {
+  metrics: DashboardMetrics;
+  timestamp: string;
+}
+
+export interface ErrorsUpdatePayload {
+  errors: unknown[];
+  count: number;
+  timestamp: string;
+}
+
+export interface AgentEventPayload {
+  agentType: string;
+  event: string;
+  data: unknown;
+}
+
+export interface JobEventPayload {
+  jobId: number;
+  jobType: string;
+  status: string;
+  data?: unknown;
+}
+
+export interface ErrorEventPayload {
+  level: 'error' | 'warn';
+  message: string;
+  context?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface SuccessEventPayload {
+  message: string;
+  data?: unknown;
 }
 
 class WebSocketService {
@@ -157,7 +195,7 @@ class WebSocketService {
   /**
    * Broadcast an event to all connected clients
    */
-  broadcast(event: string, data: any): void {
+  broadcast(event: string, data: Record<string, unknown>): void {
     if (!this.io) {
       logger.warn('Cannot broadcast - WebSocket not initialized');
       return;
@@ -177,7 +215,7 @@ class WebSocketService {
   /**
    * Broadcast an agent event (task started, completed, failed)
    */
-  broadcastAgentEvent(agentType: string, event: string, data: any): void {
+  broadcastAgentEvent(agentType: string, event: string, data: unknown): void {
     this.broadcast('agent:event', {
       agentType,
       event,
@@ -188,7 +226,7 @@ class WebSocketService {
   /**
    * Broadcast a job event
    */
-  broadcastJobEvent(jobId: number, jobType: string, status: string, data?: any): void {
+  broadcastJobEvent(jobId: number, jobType: string, status: string, data?: unknown): void {
     this.broadcast('job:event', {
       jobId,
       jobType,
@@ -200,7 +238,7 @@ class WebSocketService {
   /**
    * Broadcast an error event
    */
-  broadcastError(level: 'error' | 'warn', message: string, context?: Record<string, any>): void {
+  broadcastError(level: 'error' | 'warn', message: string, context?: Record<string, unknown>): void {
     // Log to monitoring service
     monitoringService.logError(level, message, context);
 
@@ -216,7 +254,7 @@ class WebSocketService {
   /**
    * Broadcast a success event
    */
-  broadcastSuccess(message: string, data?: any): void {
+  broadcastSuccess(message: string, data?: unknown): void {
     this.broadcast('success:event', {
       message,
       data

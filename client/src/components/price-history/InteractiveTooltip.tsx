@@ -13,9 +13,18 @@ interface TooltipDataPoint {
   url?: string;
 }
 
+// Recharts payload entry type
+interface RechartsPayloadEntry {
+  dataKey: string;
+  value?: number | string;
+  color?: string;
+  fill?: string;
+  [key: string]: unknown;
+}
+
 interface InteractiveTooltipProps {
   active?: boolean;
-  payload?: readonly any[];
+  payload?: readonly RechartsPayloadEntry[];
   label?: string | number;
   retailers: Array<{ id: number; name: string; logo: string | null }>;
   onSetAlert?: (retailerId: number, price: number) => void;
@@ -42,7 +51,7 @@ export function InteractiveTooltip({
   if (!active || !payload || payload.length === 0) return null;
 
   // Parse data points
-  const dataPoints: TooltipDataPoint[] = payload.map((entry: { dataKey: string; value?: number; color?: string; [key: string]: unknown }) => {
+  const dataPoints: TooltipDataPoint[] = payload.map((entry) => {
     const retailerId = parseInt(entry.dataKey.split("_")[1]);
     const retailer = retailers.find((r) => r.id === retailerId);
 

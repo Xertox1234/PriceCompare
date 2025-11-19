@@ -317,7 +317,13 @@ export function registerCommunityRoutes(app: Express) {
       }
 
       const { name, description, color, icon, sortOrder } = req.body;
-      const updates: any = {};
+      const updates: {
+        name?: string;
+        description?: string | null;
+        color?: string | null;
+        icon?: string | null;
+        sortOrder?: number;
+      } = {};
 
       if (name !== undefined) updates.name = name;
       if (description !== undefined) updates.description = description;
@@ -407,7 +413,13 @@ export function registerCommunityRoutes(app: Express) {
       }
 
       const { category, notes, priority, targetPrice, watchListId } = req.body;
-      const updates: any = {};
+      const updates: {
+        category?: string | null;
+        notes?: string | null;
+        priority?: number;
+        targetPrice?: string | null;
+        watchListId?: number | null;
+      } = {};
 
       if (category !== undefined) updates.category = category;
       if (notes !== undefined) updates.notes = notes;
