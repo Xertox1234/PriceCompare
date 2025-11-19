@@ -241,12 +241,13 @@ describe('Encryption Utilities (GDPR Compliance)', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false for invalid encryption key', () => {
+    it('should return true for different but valid encryption key', () => {
       const originalKey = process.env.ENCRYPTION_KEY;
-      process.env.ENCRYPTION_KEY = '0'.repeat(64); // Valid format but wrong key
+      process.env.ENCRYPTION_KEY = '0'.repeat(64); // Different but valid format key
 
+      // A different valid key still works for encrypting/decrypting NEW data
       const result = verifyEncryption();
-      expect(result).toBe(true); // Should still work, just with different key
+      expect(result).toBe(true);
 
       // Restore key
       process.env.ENCRYPTION_KEY = originalKey;

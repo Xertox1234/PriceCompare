@@ -35,8 +35,22 @@ interface MigrationStats {
 const stats: MigrationStats[] = [];
 
 // Batch size for processing large datasets
-// Adjust based on available memory and database performance
-const BATCH_SIZE = 100;
+// Configurable via MIGRATION_BATCH_SIZE environment variable
+// Default: 100, Min: 1, Max: 10000
+const getBatchSize = (): number => {
+  const envBatchSize = process.env.MIGRATION_BATCH_SIZE;
+  const batchSize = envBatchSize ? parseInt(envBatchSize, 10) : 100;
+
+  if (isNaN(batchSize) || batchSize < 1 || batchSize > 10000) {
+    throw new Error(
+      `MIGRATION_BATCH_SIZE must be between 1 and 10000. Got: ${envBatchSize}`
+    );
+  }
+
+  return batchSize;
+};
+
+const BATCH_SIZE = getBatchSize();
 
 /**
  * Safely encrypt a value, skipping if already encrypted
@@ -103,15 +117,14 @@ async function encryptUserEmails() {
 
   // Process in batches for better performance on large datasets
   await processBatches(allUsers, BATCH_SIZE, async (batch) => {
-    // Process all items in batch concurrently
-    await Promise.all(batch.map(async (user) => {
+    // Process all items in batch concurrently and collect results
+    const results = await Promise.all(batch.map(async (user) => {
       try {
         const currentEmail = user.email;
 
         if (isEncrypted(currentEmail)) {
-          tableStats.alreadyEncrypted++;
           console.log(`    ✅ User ${user.id}: email already encrypted`);
-          return;
+          return { success: true, alreadyEncrypted: true };
         }
 
         const encryptedEmail = encrypt(currentEmail);
@@ -123,14 +136,26 @@ async function encryptUserEmails() {
           WHERE id = ${user.id}
         `);
 
-        tableStats.encrypted++;
         console.log(`    ✅ User ${user.id}: encrypted email`);
+        return { success: true, alreadyEncrypted: false };
       } catch (error) {
-        tableStats.errors++;
         console.error(`    ❌ User ${user.id}: encryption failed`, error);
-        throw error; // Stop on first error for safety
+        return { success: false, error, userId: user.id };
       }
     }));
+
+    // Atomically update stats after all promises complete
+    for (const result of results) {
+      if (!result.success) {
+        tableStats.errors++;
+        // Throw to stop migration on first error
+        throw new Error(`Encryption failed for user ${result.userId}: ${result.error}`);
+      } else if (result.alreadyEncrypted) {
+        tableStats.alreadyEncrypted++;
+      } else {
+        tableStats.encrypted++;
+      }
+    }
   });
 
   stats.push(tableStats);
@@ -337,6 +362,7 @@ async function main() {
   }
 
   console.log('✅ Encryption key validated');
+  console.log(`📦 Batch size: ${BATCH_SIZE} records per batch`);
   console.log(`📊 Starting encryption of existing PII data...\n`);
 
   try {
