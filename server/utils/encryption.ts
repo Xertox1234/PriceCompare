@@ -178,3 +178,41 @@ export function encryptIfNeeded(value: string | null): string | null {
   if (isEncrypted(value)) return value;
   return encrypt(value);
 }
+
+/**
+ * Verify that encryption key works correctly
+ * Useful for startup checks and health monitoring
+ *
+ * @returns true if encryption/decryption works, false otherwise
+ *
+ * @example
+ * if (!verifyEncryption()) {
+ *   console.error('Encryption verification failed - key may be invalid');
+ *   process.exit(1);
+ * }
+ */
+export function verifyEncryption(): boolean {
+  try {
+    // Test with timestamp to ensure uniqueness
+    const testData = `encryption_test_${Date.now()}_${Math.random()}`;
+    const encrypted = encrypt(testData);
+    const decrypted = decrypt(encrypted);
+
+    // Verify roundtrip works correctly
+    if (decrypted !== testData) {
+      console.error('[Encryption] Verification failed: decrypted data does not match original');
+      return false;
+    }
+
+    // Verify encrypted format is correct
+    if (!isEncrypted(encrypted)) {
+      console.error('[Encryption] Verification failed: encrypted data has invalid format');
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[Encryption] Verification failed with error:', error);
+    return false;
+  }
+}

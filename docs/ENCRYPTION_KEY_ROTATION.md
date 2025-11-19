@@ -356,6 +356,219 @@ schedule.scheduleJob('0 2 1 */3 *', async () => {
 });
 ```
 
+## Emergency Key Access Procedures
+
+### If the Current ENCRYPTION_KEY is Lost
+
+**CRITICAL**: Loss of the encryption key means **ALL encrypted data becomes permanently unrecoverable**. This includes:
+- User email addresses
+- IP addresses from password reset tokens
+- User agent strings
+- All private messages
+- Notification content containing PII
+
+**Immediate Actions:**
+
+1. **Assess Impact**:
+   ```bash
+   # Count affected records
+   psql -d pricecompare -c "SELECT COUNT(*) FROM users;"
+   psql -d pricecompare -c "SELECT COUNT(*) FROM private_messages;"
+   ```
+
+2. **Activate Incident Response**:
+   - Notify security team and management immediately
+   - Activate data breach protocol
+   - Consult legal team for GDPR Article 33 requirements (72-hour breach notification)
+
+3. **User Communication Plan**:
+   - Draft user notification explaining the situation
+   - Implement "re-verify account" flow
+   - Request users to re-provide email addresses
+
+4. **System Recovery**:
+   ```sql
+   -- Clear unrecoverable encrypted data (after user notification)
+   UPDATE users SET email = NULL WHERE id IN (SELECT id FROM users);
+   UPDATE private_messages SET content = '[Message unrecoverable due to data incident]';
+   ```
+
+5. **Generate New Encryption Key**:
+   ```bash
+   openssl rand -hex 32
+   # Store in AWS Secrets Manager / HashiCorp Vault
+   ```
+
+6. **Post-Incident**:
+   - Root cause analysis
+   - Update key backup procedures
+   - Test backup restoration quarterly
+
+### Preventing Key Loss
+
+**Never** store encryption keys in:
+- Git repositories (even private ones)
+- Configuration files committed to version control
+- Plain text files on disk
+- Email or chat applications
+- Unencrypted cloud storage
+
+## Key Backup Strategy
+
+### Primary Storage (Production Key)
+
+**AWS Secrets Manager** (Recommended):
+```bash
+# Store encryption key in AWS Secrets Manager
+aws secretsmanager create-secret \
+  --name pricecompare/encryption-key \
+  --description "AES-256 encryption key for PII data at rest" \
+  --secret-string "{\"ENCRYPTION_KEY\":\"$(openssl rand -hex 32)\"}" \
+  --tags Key=Environment,Value=Production Key=Application,Value=PriceCompare
+
+# Enable automatic rotation (optional - requires custom Lambda)
+aws secretsmanager rotate-secret \
+  --secret-id pricecompare/encryption-key \
+  --rotation-lambda-arn arn:aws:lambda:region:account:function:encryption-key-rotation
+```
+
+**HashiCorp Vault** (Alternative):
+```bash
+# Store in Vault with versioning
+vault kv put secret/pricecompare/encryption-key \
+  key="$(openssl rand -hex 32)" \
+  created="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  created_by="$USER"
+
+# Enable audit logging
+vault audit enable file file_path=/var/log/vault/audit.log
+```
+
+**Azure Key Vault** (Alternative):
+```bash
+# Store in Azure Key Vault
+az keyvault secret set \
+  --vault-name pricecompare-vault \
+  --name encryption-key \
+  --value "$(openssl rand -hex 32)"
+```
+
+### Backup Locations (Ordered by Priority)
+
+1. **Primary Secrets Manager** (e.g., AWS Secrets Manager)
+   - Automatic versioning and access logging
+   - Integrated with application deployment
+   - Recovery time: < 5 minutes
+
+2. **Secondary Secrets Manager** (different cloud provider)
+   - Cross-cloud redundancy
+   - Protection against cloud provider outages
+   - Recovery time: < 30 minutes
+
+3. **Offline Hardware Security Module (HSM)**
+   - Physical security device
+   - Stored in secure facility (bank vault, safe)
+   - Recovery time: 1-4 hours (requires physical access)
+
+4. **Encrypted USB Drive** (offline backup)
+   - Encrypted with strong passphrase
+   - Stored in physical safe
+   - Multiple copies in different secure locations
+   - Recovery time: 1-24 hours (depending on location)
+
+5. **Paper Backup** (disaster recovery only)
+   - QR code + human-readable hex
+   - Laminated, stored in fireproof safe
+   - Multiple copies in geographically distributed locations
+   - Recovery time: 24-72 hours
+
+### Backup Creation Procedure
+
+```bash
+#!/bin/bash
+# backup-encryption-key.sh
+
+set -euo pipefail
+
+KEY="$ENCRYPTION_KEY"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# 1. AWS Secrets Manager (primary)
+aws secretsmanager put-secret-value \
+  --secret-id pricecompare/encryption-key \
+  --secret-string "{\"key\":\"$KEY\",\"backed_up\":\"$TIMESTAMP\"}"
+
+# 2. Azure Key Vault (secondary)
+az keyvault secret set \
+  --vault-name pricecompare-vault-backup \
+  --name encryption-key \
+  --value "$KEY"
+
+# 3. Encrypted USB backup
+echo "$KEY" | gpg --symmetric --cipher-algo AES256 --armor \
+  > "/media/secure-usb/encryption-key-backup-$TIMESTAMP.gpg"
+
+# 4. Generate QR code for paper backup
+qrencode -o "/tmp/encryption-key-qr-$TIMESTAMP.png" "$KEY"
+echo "QR code saved to /tmp/encryption-key-qr-$TIMESTAMP.png"
+echo "Print this and store in secure location"
+
+# 5. Log backup completion
+echo "$(date): Backup completed for key ending in ...${KEY: -8}" \
+  >> /var/log/encryption-key-backups.log
+```
+
+### Access Control
+
+**Who Should Have Key Access:**
+- DevOps Lead (primary)
+- CTO/Security Officer (emergency)
+- Senior Backend Engineer (backup)
+
+**Access Audit:**
+```bash
+# AWS Secrets Manager - Check who accessed the key
+aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=ResourceName,AttributeValue=pricecompare/encryption-key \
+  --max-results 50
+
+# Vault audit log
+vault audit list
+cat /var/log/vault/audit.log | grep "secret/pricecompare/encryption-key"
+```
+
+### Quarterly Backup Verification
+
+```bash
+#!/bin/bash
+# verify-key-backups.sh
+# Run this quarterly to ensure backups are accessible
+
+set -euo pipefail
+
+echo "🔍 Verifying encryption key backups..."
+
+# 1. Verify AWS Secrets Manager
+aws secretsmanager get-secret-value \
+  --secret-id pricecompare/encryption-key \
+  --query 'SecretString' \
+  --output text > /dev/null && echo "✅ AWS Secrets Manager: OK"
+
+# 2. Verify Azure Key Vault
+az keyvault secret show \
+  --vault-name pricecompare-vault-backup \
+  --name encryption-key \
+  --query 'value' \
+  --output tsv > /dev/null && echo "✅ Azure Key Vault: OK"
+
+# 3. Test USB backup decryption (requires passphrase)
+echo "⚠️  USB backup test requires manual verification"
+
+# 4. Document verification
+echo "$(date): Quarterly backup verification completed" \
+  >> /var/log/encryption-key-verification.log
+```
+
 ## Compliance Documentation
 
 After key rotation, update compliance documentation:
@@ -367,6 +580,277 @@ After key rotation, update compliance documentation:
 3. **Risk Assessment**: Note reduced risk due to key rotation
 
 4. **Incident Response Plan**: Update with new key details
+
+5. **Key Backup Verification**: Confirm all backup locations are updated
+
+## Database Indexing Strategy for Encrypted Fields
+
+### Overview
+
+Encrypted data appears **completely random** to the database, which fundamentally changes how indexing and searching work. Understanding these limitations is critical for application performance.
+
+### What Doesn't Work with Encrypted Fields
+
+**1. Standard B-tree Indexes**
+```sql
+-- ❌ This index is USELESS for encrypted data
+CREATE INDEX idx_users_email ON users(email);
+
+-- Encrypted emails look like random text:
+-- 'a1b2c3d4e5f6...':  Cannot be sorted
+-- 'f6e5d4c3b2a1...':  Cannot be compared
+-- No collation, no ordering, no range queries
+```
+
+**2. Pattern Matching (LIKE queries)**
+```sql
+-- ❌ NEVER works with encrypted data
+SELECT * FROM users WHERE email LIKE '%@example.com';
+
+-- Encrypted: '7f3e2d...' contains no '@' or 'example.com'
+```
+
+**3. Full-Text Search**
+```sql
+-- ❌ Cannot index encrypted text
+CREATE INDEX idx_messages_content_fts ON private_messages
+USING gin(to_tsvector('english', content));
+
+-- Encrypted content has no searchable words
+```
+
+**4. Case-Insensitive Searches**
+```sql
+-- ❌ Case becomes meaningless after encryption
+SELECT * FROM users WHERE LOWER(email) = LOWER('User@Example.Com');
+
+-- Both encrypt to completely different values
+```
+
+### What DOES Work
+
+**1. Exact Match with Application-Side Encryption**
+```typescript
+// ✅ Encrypt search term, then exact match in database
+import { encrypt } from './utils/encryption';
+
+const searchEmail = 'user@example.com';
+const encryptedSearch = encrypt(searchEmail);
+
+const user = await db.select()
+  .from(users)
+  .where(eq(users.email, encryptedSearch))
+  .limit(1);
+```
+
+**Limitation**: You must know the EXACT value to search for. No partial matches, no wildcards.
+
+**2. Hash-Based Lookup Columns**
+
+For searchable fields, maintain a **separate hash column** alongside the encrypted data:
+
+```sql
+-- Add hash column for email lookups
+ALTER TABLE users ADD COLUMN email_hash VARCHAR(64);
+
+-- Create index on hash (this DOES work)
+CREATE INDEX idx_users_email_hash ON users(email_hash);
+
+-- Add comment
+COMMENT ON COLUMN users.email_hash IS
+  'SHA-256 hash of email for lookup purposes (not reversible)';
+```
+
+Application code:
+```typescript
+import crypto from 'crypto';
+import { encrypt } from './utils/encryption';
+
+function hashEmail(email: string): string {
+  return crypto.createHash('sha256').update(email.toLowerCase()).digest('hex');
+}
+
+// When creating user
+const email = 'user@example.com';
+await db.insert(users).values({
+  email: encrypt(email),          // Encrypted for storage
+  emailHash: hashEmail(email),    // Hashed for lookup
+  // ... other fields
+});
+
+// When searching
+const searchEmail = 'user@example.com';
+const emailHash = hashEmail(searchEmail);
+
+const user = await db.select()
+  .from(users)
+  .where(eq(users.emailHash, emailHash))
+  .limit(1);
+
+// Decrypt email for display
+if (user) {
+  const decryptedEmail = decrypt(user.email);
+}
+```
+
+**Benefits**:
+- Fast lookups using standard B-tree index
+- Hash is one-way (cannot reverse to get email)
+- Case-insensitive by default (hash lowercase email)
+- GDPR compliant (hash alone is not PII)
+
+**Limitations**:
+- Still no partial matching or wildcards
+- Hash collisions possible (but extremely rare with SHA-256)
+
+**3. Primary Key / Foreign Key Lookups**
+
+```typescript
+// ✅ Lookups by ID work normally
+const user = await db.select()
+  .from(users)
+  .where(eq(users.id, userId));
+
+// ✅ Foreign key relationships work
+const userMessages = await db.select()
+  .from(privateMessages)
+  .where(eq(privateMessages.recipientId, userId));
+```
+
+**4. Session-Based Identification**
+
+```typescript
+// ✅ Prefer session/token authentication over email lookups
+app.get('/api/user/profile', authenticate, async (req, res) => {
+  const userId = req.session.userId; // From session
+
+  const user = await db.select()
+    .from(users)
+    .where(eq(users.id, userId));
+
+  res.json(user);
+});
+```
+
+### Recommended Architecture Patterns
+
+**Pattern 1: User ID as Primary Identifier**
+
+```typescript
+// ❌ DON'T: Look up by email frequently
+async function getUserByEmail(email: string) {
+  const encrypted = encrypt(email);
+  return db.select().from(users).where(eq(users.email, encrypted));
+}
+
+// ✅ DO: Use session/token with user ID
+async function getUserById(id: number) {
+  return db.select().from(users).where(eq(users.id, id));
+}
+
+// Login stores user ID in session, all subsequent requests use ID
+```
+
+**Pattern 2: Hash Column for Initial Lookup**
+
+```typescript
+// ✅ Login flow with hash column
+async function login(email: string, password: string) {
+  const emailHash = hashEmail(email);
+
+  // Fast lookup by hash
+  const user = await db.select()
+    .from(users)
+    .where(eq(users.emailHash, emailHash))
+    .limit(1);
+
+  if (!user) return null;
+
+  // Verify actual email matches (prevent hash collisions)
+  const decryptedEmail = decrypt(user.email);
+  if (decryptedEmail !== email) return null;
+
+  // Verify password...
+  return user;
+}
+```
+
+**Pattern 3: Avoid Searching Encrypted Private Messages**
+
+```typescript
+// ❌ DON'T: Try to search encrypted message content
+// This requires decrypting ALL messages (very slow)
+
+// ✅ DO: Search by metadata (sender, recipient, date)
+async function getUserMessages(userId: number, limit = 50) {
+  return db.select()
+    .from(privateMessages)
+    .where(
+      or(
+        eq(privateMessages.senderId, userId),
+        eq(privateMessages.recipientId, userId)
+      )
+    )
+    .orderBy(desc(privateMessages.createdAt))
+    .limit(limit);
+
+  // Decrypt content only for display
+}
+```
+
+### Performance Implications
+
+**Without Encryption**:
+```sql
+-- Fast: Uses index, returns instantly
+SELECT * FROM users WHERE email = 'user@example.com';
+-- Query time: ~1ms
+```
+
+**With Encryption (No Hash Column)**:
+```sql
+-- Slow: Full table scan, must decrypt every row
+SELECT * FROM users WHERE email = '<encrypted_value>';
+-- Query time: ~1000ms for 100K users
+```
+
+**With Encryption + Hash Column**:
+```sql
+-- Fast: Uses index on hash column
+SELECT * FROM users WHERE email_hash = '<sha256_hash>';
+-- Query time: ~1ms (same as non-encrypted)
+```
+
+### Migration Strategy for Hash Columns
+
+If you need searchable encrypted fields:
+
+```sql
+-- 1. Add hash column
+ALTER TABLE users ADD COLUMN email_hash VARCHAR(64);
+
+-- 2. Create index
+CREATE INDEX idx_users_email_hash ON users(email_hash);
+
+-- 3. Populate hash column (one-time)
+UPDATE users SET email_hash = encode(sha256(decode(email, 'escape')), 'hex');
+
+-- 4. Add NOT NULL constraint
+ALTER TABLE users ALTER COLUMN email_hash SET NOT NULL;
+```
+
+### Summary
+
+| Operation | Encrypted Field | Hash Column | User ID |
+|-----------|----------------|-------------|---------|
+| Exact match lookup | Slow (decrypt all) | Fast (indexed) | Fast (indexed) |
+| Partial match | Impossible | Impossible | N/A |
+| Case-insensitive | Slow | Fast | N/A |
+| Range queries | Impossible | Impossible | Fast |
+| Sorting | Impossible | Impossible | Fast |
+| Full-text search | Impossible | Impossible | N/A |
+
+**Recommendation**: Design application to minimize lookups on encrypted fields. Use user IDs in sessions and hash columns only when absolutely necessary.
 
 ## Support
 

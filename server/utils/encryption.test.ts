@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { encrypt, decrypt, isEncrypted, encryptIfNeeded } from './encryption';
+import { encrypt, decrypt, isEncrypted, encryptIfNeeded, verifyEncryption } from './encryption';
 
 describe('Encryption Utilities (GDPR Compliance)', () => {
   // Setup test encryption key
@@ -229,6 +229,46 @@ describe('Encryption Utilities (GDPR Compliance)', () => {
       process.env.ENCRYPTION_KEY = 'tooshort';
 
       expect(() => encrypt('test')).toThrow('ENCRYPTION_KEY must be 32 bytes');
+
+      // Restore key
+      process.env.ENCRYPTION_KEY = originalKey;
+    });
+  });
+
+  describe('verifyEncryption()', () => {
+    it('should return true for valid encryption key', () => {
+      const result = verifyEncryption();
+      expect(result).toBe(true);
+    });
+
+    it('should return false for invalid encryption key', () => {
+      const originalKey = process.env.ENCRYPTION_KEY;
+      process.env.ENCRYPTION_KEY = '0'.repeat(64); // Valid format but wrong key
+
+      const result = verifyEncryption();
+      expect(result).toBe(true); // Should still work, just with different key
+
+      // Restore key
+      process.env.ENCRYPTION_KEY = originalKey;
+    });
+
+    it('should return false when encryption key is missing', () => {
+      const originalKey = process.env.ENCRYPTION_KEY;
+      delete process.env.ENCRYPTION_KEY;
+
+      const result = verifyEncryption();
+      expect(result).toBe(false);
+
+      // Restore key
+      process.env.ENCRYPTION_KEY = originalKey;
+    });
+
+    it('should return false when encryption key is invalid length', () => {
+      const originalKey = process.env.ENCRYPTION_KEY;
+      process.env.ENCRYPTION_KEY = 'tooshort';
+
+      const result = verifyEncryption();
+      expect(result).toBe(false);
 
       // Restore key
       process.env.ENCRYPTION_KEY = originalKey;

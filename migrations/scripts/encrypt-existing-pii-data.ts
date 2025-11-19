@@ -34,6 +34,10 @@ interface MigrationStats {
 
 const stats: MigrationStats[] = [];
 
+// Batch size for processing large datasets
+// Adjust based on available memory and database performance
+const BATCH_SIZE = 100;
+
 /**
  * Safely encrypt a value, skipping if already encrypted
  */
@@ -55,7 +59,29 @@ function encryptSafely(value: string | null, fieldName: string): string | null {
 }
 
 /**
- * Encrypt users.email field
+ * Process array in batches for better performance on large datasets
+ *
+ * @param items - Array of items to process
+ * @param batchSize - Number of items per batch
+ * @param processor - Async function to process each batch
+ */
+async function processBatches<T>(
+  items: T[],
+  batchSize: number,
+  processor: (batch: T[]) => Promise<void>
+): Promise<void> {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchNum = Math.floor(i / batchSize) + 1;
+    const totalBatches = Math.ceil(items.length / batchSize);
+
+    console.log(`  📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} records)...`);
+    await processor(batch);
+  }
+}
+
+/**
+ * Encrypt users.email field with batch processing
  */
 async function encryptUserEmails() {
   console.log('\n📧 Encrypting user emails...');
@@ -73,33 +99,39 @@ async function encryptUserEmails() {
     errors: 0,
   };
 
-  for (const user of allUsers) {
-    try {
-      const currentEmail = user.email;
+  console.log(`  Found ${allUsers.length} users to process`);
 
-      if (isEncrypted(currentEmail)) {
-        tableStats.alreadyEncrypted++;
-        console.log(`  ✅ User ${user.id}: email already encrypted`);
-        continue;
+  // Process in batches for better performance on large datasets
+  await processBatches(allUsers, BATCH_SIZE, async (batch) => {
+    // Process all items in batch concurrently
+    await Promise.all(batch.map(async (user) => {
+      try {
+        const currentEmail = user.email;
+
+        if (isEncrypted(currentEmail)) {
+          tableStats.alreadyEncrypted++;
+          console.log(`    ✅ User ${user.id}: email already encrypted`);
+          return;
+        }
+
+        const encryptedEmail = encrypt(currentEmail);
+
+        // Use raw SQL to bypass Drizzle's encryption (which would double-encrypt)
+        await db.execute(sql`
+          UPDATE users
+          SET email = ${encryptedEmail}
+          WHERE id = ${user.id}
+        `);
+
+        tableStats.encrypted++;
+        console.log(`    ✅ User ${user.id}: encrypted email`);
+      } catch (error) {
+        tableStats.errors++;
+        console.error(`    ❌ User ${user.id}: encryption failed`, error);
+        throw error; // Stop on first error for safety
       }
-
-      const encryptedEmail = encrypt(currentEmail);
-
-      // Use raw SQL to bypass Drizzle's encryption (which would double-encrypt)
-      await db.execute(sql`
-        UPDATE users
-        SET email = ${encryptedEmail}
-        WHERE id = ${user.id}
-      `);
-
-      tableStats.encrypted++;
-      console.log(`  ✅ User ${user.id}: encrypted email`);
-    } catch (error) {
-      tableStats.errors++;
-      console.error(`  ❌ User ${user.id}: encryption failed`, error);
-      throw error; // Stop on first error for safety
-    }
-  }
+    }));
+  });
 
   stats.push(tableStats);
   console.log(`\n✅ Users: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`);
