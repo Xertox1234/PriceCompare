@@ -1,4 +1,8 @@
 import { Express } from "express";
+import { db } from "../db";
+import * as schema from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
+import type { ForumTopic } from "@shared/schema";
 import { forumStorage } from "../forum-storage";
 import { withAuth } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
@@ -79,31 +83,54 @@ export function registerForumRoutes(app: Express): void {
         return res.status(400).json({ error: "Title is required" });
       }
 
-      // Create the topic
-      const topic = await forumStorage.createTopic({
-        title,
-        authorId: user.id,
-        categoryId: categoryId || null,
-        productId: productId || null,
+      // DATA INTEGRITY: Use transaction to ensure topic and first post are created atomically
+      // If first post creation fails, topic should not exist (violates business logic)
+      let topic: ForumTopic;
+      await db.transaction(async (tx) => {
+        // Create the topic (forumStorage.createTopic uses db directly, need to reimplement here)
+        // Generate slug from title
+        let slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+        // Check for existing slug and append random suffix if needed
+        const existing = await tx.select().from(schema.forumTopics).where(eq(schema.forumTopics.slug, slug)).limit(1);
+        if (existing.length > 0) {
+          const crypto = await import('crypto');
+          slug = `${slug}-${crypto.randomBytes(4).toString('hex')}`;
+        }
+
+        const topicResult = await tx.insert(schema.forumTopics).values({
+          title,
+          authorId: user.id,
+          categoryId: categoryId || null,
+          productId: productId || null,
+          slug,
+        }).returning();
+        topic = topicResult[0];
+
+        logger.info("Topic created", { topicId: topic.id, title: topic.title });
+
+        // Create the first post - must succeed or rollback topic creation
+        await tx.insert(schema.forumPosts).values({
+          topicId: topic.id,
+          authorId: user.id,
+          content: content || '',
+          rawContent: content || '',
+          isFirstPost: true,
+          postNumber: 1,
+        });
+
+        // Update topic post count and last post time
+        await tx.update(schema.forumTopics)
+          .set({
+            postCount: sql`${schema.forumTopics.postCount} + 1`,
+            lastPostAt: new Date(),
+          })
+          .where(eq(schema.forumTopics.id, topic.id));
+
+        logger.info("First post created", { topicId: topic.id });
       });
 
-      logger.info("Topic created", { topicId: topic.id, title: topic.title });
-
-      // Create the first post
-      const postData = {
-        topicId: topic.id,
-        authorId: user.id,
-        content: content || '',
-        rawContent: content || '', // Store same content for both fields
-        isFirstPost: true,
-        postNumber: 1, // First post in topic
-      };
-
-      // Use the correct camelCase field names that match the Drizzle schema
-      await forumStorage.createPost(postData);
-
-      logger.info("First post created", { topicId: topic.id });
-      res.json({ success: true, topic });
+      res.json({ success: true, topic: topic! });
     } catch (error) {
       logger.error('Create topic error', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to create topic" });

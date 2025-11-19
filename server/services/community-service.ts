@@ -296,18 +296,22 @@ async function checkAndAwardBadges(
           .limit(1);
 
         if (hasBadge.length === 0) {
-          // Award badge
-          await db.insert(userBadges).values({
-            userId,
-            badgeId,
-          });
+          // UX: Use transaction to ensure badge award and notification are atomic
+          // If notification fails, user gets badge but never knows about it (poor UX)
+          await db.transaction(async (tx) => {
+            // Award badge
+            await tx.insert(userBadges).values({
+              userId,
+              badgeId,
+            });
 
-          // Send notification
-          await db.insert(notifications).values({
-            userId,
-            type: 'badge_earned',
-            title: `Badge Earned: ${badge.name}!`,
-            content: `Congratulations! You've earned the "${badge.name}" badge!`,
+            // Send notification - must succeed or rollback badge award
+            await tx.insert(notifications).values({
+              userId,
+              type: 'badge_earned',
+              title: `Badge Earned: ${badge.name}!`,
+              content: `Congratulations! You've earned the "${badge.name}" badge!`,
+            });
           });
         }
       }
@@ -340,12 +344,30 @@ export async function recordDealSpotting(
     reputationAwarded,
   };
 
-  const result = await db.insert(dealSpottings).values(spotting).returning();
+  // DATA INTEGRITY: Use transaction to ensure deal spotting and reputation award are atomic
+  // If reputation award fails, deal should not be recorded (inconsistent data)
+  let dealSpotting: DealSpotting;
+  await db.transaction(async (tx) => {
+    const result = await tx.insert(dealSpottings).values(spotting).returning();
+    dealSpotting = result[0];
 
-  // Award reputation
-  await awardReputation(userId, reputationAwarded, 'deal_spotted');
+    // Award reputation - must succeed or rollback deal spotting
+    const reputationEntry: InsertUserReputation = {
+      userId,
+      reputationChange: reputationAwarded,
+      reason: 'deal_spotted',
+      relatedEntityType: 'deal_spotting',
+      relatedEntityId: dealSpotting.id,
+    };
 
-  return result[0];
+    await tx.insert(userReputation).values(reputationEntry);
+  });
+
+  // Check and award badges after transaction (badge award itself has its own transaction)
+  const currentReputation = await getUserReputation(userId);
+  await checkAndAwardBadges(userId, currentReputation);
+
+  return dealSpotting!;
 }
 
 /**
@@ -401,27 +423,31 @@ export async function autoPostPriceDropToForum(
       .limit(1);
 
     let topicId: number;
+    let postId: number;
 
-    if (recentTopic.length > 0) {
-      topicId = recentTopic[0].id;
-    } else {
-      // Create new topic
-      const topicTitle = `🔥 ${dealPost.dropPercent.toFixed(0)}% Price Drop: ${dealPost.productName}`;
-      const newTopic: InsertForumTopic = {
-        categoryId: 1, // Deals category (assuming ID 1)
-        title: topicTitle,
-        slug: topicTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-        authorId: userId || 1, // System user
-        productId: dealPost.productId,
-        isPinned: dealPost.dropPercent >= 50, // Pin massive drops
-      };
+    // DATA INTEGRITY: Use transaction for topic+post+notification creation
+    // If any step fails, rollback all changes (prevents orphaned topics/posts)
+    await db.transaction(async (tx) => {
+      if (recentTopic.length > 0) {
+        topicId = recentTopic[0].id;
+      } else {
+        // Create new topic
+        const topicTitle = `🔥 ${dealPost.dropPercent.toFixed(0)}% Price Drop: ${dealPost.productName}`;
+        const newTopic: InsertForumTopic = {
+          categoryId: 1, // Deals category (assuming ID 1)
+          title: topicTitle,
+          slug: topicTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          authorId: userId || 1, // System user
+          productId: dealPost.productId,
+          isPinned: dealPost.dropPercent >= 50, // Pin massive drops
+        };
 
-      const topicResult = await db.insert(forumTopics).values(newTopic).returning();
-      topicId = topicResult[0].id;
-    }
+        const topicResult = await tx.insert(forumTopics).values(newTopic).returning();
+        topicId = topicResult[0].id;
+      }
 
-    // Create post in the topic
-    const postContent = `
+      // Create post in the topic - must succeed or rollback topic
+      const postContent = `
 ## Major Price Drop Alert! 🎉
 
 **Product:** ${dealPost.productName}
@@ -436,22 +462,39 @@ ${dealPost.dropPercent >= 50 ? '🔥 **MASSIVE DEAL!** This is an exceptional pr
 ${dealPost.dropPercent >= 30 && dealPost.dropPercent < 50 ? '💰 **Great Deal!** Significant savings on this product.' : ''}
 
 _This deal was automatically detected by our price tracking system._
-    `.trim();
+      `.trim();
 
-    const newPost: InsertForumPost = {
-      topicId,
-      authorId: userId || 1, // System user
-      content: postContent,
-      rawContent: postContent,
-      postNumber: 1,
-    };
+      const newPost: InsertForumPost = {
+        topicId,
+        authorId: userId || 1, // System user
+        content: postContent,
+        rawContent: postContent,
+        postNumber: 1,
+      };
 
-    const postResult = await db.insert(forumPosts).values(newPost).returning();
+      const postResult = await tx.insert(forumPosts).values(newPost).returning();
+      postId = postResult[0].id;
 
-    // Notify all users watching this product
-    await notifyWatchers(dealPost.productId, topicId, dealPost);
+      // Notify all users watching this product - must succeed or rollback all
+      const watchers = await tx
+        .select({ userId: productWatches.userId })
+        .from(productWatches)
+        .where(eq(productWatches.productId, dealPost.productId));
 
-    return postResult[0].id;
+      if (watchers.length > 0) {
+        const notificationList: InsertNotification[] = watchers.map(w => ({
+          userId: w.userId,
+          type: 'price_drop',
+          title: `${dealPost.dropPercent.toFixed(0)}% Price Drop on ${dealPost.productName}!`,
+          content: `The price dropped from $${dealPost.oldPrice.toFixed(2)} to $${dealPost.newPrice.toFixed(2)}`,
+          relatedPostId: postId,
+        }));
+
+        await tx.insert(notifications).values(notificationList);
+      }
+    });
+
+    return postId!;
   } catch (error) {
     log.error('Error auto-posting price drop to forum:', { error });
     return null;
@@ -814,67 +857,72 @@ export async function importWatchLists(
   userId: number,
   importData: Record<string, unknown>
 ): Promise<{ created: number; skipped: number }> {
-  let created = 0;
-  let skipped = 0;
+  // DATA INTEGRITY: Use transaction to ensure all-or-nothing import
+  // If mid-import failure occurs, rollback prevents partial data corruption
+  return await db.transaction(async (tx) => {
+    let created = 0;
+    let skipped = 0;
 
-  for (const listData of importData.watchLists) {
-    try {
-      // Check if list with this name already exists
-      const existing = await db
-        .select()
-        .from(watchLists)
-        .where(
-          and(
-            eq(watchLists.userId, userId),
-            eq(watchLists.name, listData.name)
+    for (const listData of importData.watchLists) {
+      try {
+        // Check if list with this name already exists
+        const existing = await tx
+          .select()
+          .from(watchLists)
+          .where(
+            and(
+              eq(watchLists.userId, userId),
+              eq(watchLists.name, listData.name)
+            )
           )
-        )
-        .limit(1);
+          .limit(1);
 
-      let listId: number;
+        let listId: number;
 
-      if (existing.length > 0) {
-        listId = existing[0].id;
-        skipped++;
-      } else {
-        const newList = await createWatchList(
-          userId,
-          listData.name,
-          listData.description,
-          listData.color,
-          listData.icon
-        );
-        listId = newList.id;
-        created++;
-      }
-
-      // Import products into the list
-      for (const productData of listData.products) {
-        try {
-          const watch: InsertProductWatch = {
+        if (existing.length > 0) {
+          listId = existing[0].id;
+          skipped++;
+        } else {
+          // Inline createWatchList logic within transaction
+          const newListResult = await tx.insert(watchLists).values({
             userId,
-            productId: productData.productId,
-            watchListId: listId,
-            category: productData.category || null,
-            notes: productData.notes || null,
-            priority: productData.priority || 3,
-            targetPrice: productData.targetPrice || null,
-          };
-
-          await db
-            .insert(productWatches)
-            .values(watch)
-            .onConflictDoNothing();
-        } catch (error) {
-          log.error('Error importing product watch:', { error });
-          // Continue with next product
+            name: listData.name,
+            description: listData.description || null,
+            color: listData.color || null,
+            icon: listData.icon || null,
+          }).returning();
+          listId = newListResult[0].id;
+          created++;
         }
-      }
-    } catch (error) {
-      log.error('Error importing watch list:', { error });
-      skipped++;
-    }
-  }
 
-  return { created, skipped };
+        // Import products into the list
+        for (const productData of listData.products) {
+          try {
+            const watch: InsertProductWatch = {
+              userId,
+              productId: productData.productId,
+              watchListId: listId,
+              category: productData.category || null,
+              notes: productData.notes || null,
+              priority: productData.priority || 3,
+              targetPrice: productData.targetPrice || null,
+            };
+
+            await tx
+              .insert(productWatches)
+              .values(watch)
+              .onConflictDoNothing();
+          } catch (error) {
+            log.error('Error importing product watch:', { error });
+            // Continue with next product
+          }
+        }
+      } catch (error) {
+        log.error('Error importing watch list:', { error });
+        skipped++;
+      }
+    }
+
+    return { created, skipped };
+  });
 }
