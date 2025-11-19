@@ -684,20 +684,33 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 7. **Account lockout**: Failed logins trigger temporary lockouts (`server/middleware/account-lockout.ts`)
 8. **Dual Redis clients**: Use correct client - `ioredis` for cache, `redis` package for sessions
 
-## Documentation Reference
+## Pattern Documentation (CRITICAL)
 
-### Essential Reading
-- `ARCHITECTURE.md` - System overview, diagrams, data flows, ADRs, caching strategy, deployment
-- `SECURITY_GUIDELINES.md` - Security patterns (never expose passwords, sanitize errors, etc.)
-- `.github/copilot-instructions.md` - Comprehensive development patterns
+**ALWAYS consult these pattern files before implementing features** - they codify lessons learned and prevent repeated mistakes:
 
-### Pattern Libraries (docs/)
-- `docs/PATTERNS.md` - Database query patterns, distributed locking, aggregation best practices
-- `docs/PERFORMANCE_GUIDE.md` - Frontend/backend optimization, caching, lazy loading
+### Core Pattern Files (docs/)
+- **`docs/DATABASE_PATTERNS.md`** - N+1 prevention, transactions, query optimization, foreign keys (CRITICAL)
+- **`docs/SECURITY_PATTERNS.md`** - Password hash exposure, input validation, error sanitization (CRITICAL)
+- **`docs/TYPESCRIPT_PATTERNS.md`** - Type safety, avoiding `any`, Zod integration (CRITICAL)
+- **`docs/ERROR_HANDLING_PATTERNS.md`** - Error sanitization, validation errors, recovery strategies
+- **`docs/API_PATTERNS.md`** - Route organization, middleware pipeline, caching, pagination
+
+### Additional Documentation
+- `ARCHITECTURE.md` - System overview, diagrams, data flows, ADRs, caching strategy
+- `.github/copilot-instructions.md` - Comprehensive development patterns (mirrors core patterns)
 - `docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
-- `docs/PROMPT_ENGINEERING_GUIDE.md` - AI prompt structure and best practices
 - `docs/API_DOCUMENTATION.md` - Complete API endpoint reference
 - `server/ai/README.md` - AI prompt system documentation
 
-**Start here for big picture**: `ARCHITECTURE.md` explains the "why" behind architectural decisions.
-- Always call the code-review-specialist sub agent to perform a code review on the files that were changed in that session.
+### Subagent Documentation (.claude/knowledge/)
+- `claude-code-subagent-setup-guide.md` - Complete subagent system guide
+- `subagent-quick-reference.md` - Quick reference for delegation patterns
+
+**Pattern files save time**: They document what NOT to do (anti-patterns) and what TO do (correct patterns) with real code examples from this codebase.
+
+## Code Review Workflow
+
+**After implementing features or making changes:**
+- Always invoke the `code-review-specialist` subagent to review files changed in the session
+- The agent will check against all pattern files and pre-commit hook requirements
+- Address any critical issues before committing
