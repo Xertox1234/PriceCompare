@@ -1,13 +1,9 @@
 import { Request, Response } from "express";
 import type { AuthenticatedRequest } from "@shared/types";
-import type { User as SchemaUser } from "@shared/schema";
 
-// Extend Express Request to include user
-declare global {
-  namespace Express {
-    interface User extends SchemaUser {}
-  }
-}
+// SECURITY: Express.User type is properly defined in server/auth.ts as SafeUser
+// This ensures passwordHash is never exposed in req.user throughout the application
+// Do not redeclare Express.User here to avoid type conflicts
 
 /**
  * Type predicate to check if request is authenticated
