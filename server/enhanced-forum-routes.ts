@@ -344,17 +344,21 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
       const { reason } = req.body;
 
-      await db.update(users)
-        .set({ isSuspended: true, updatedAt: new Date() })
-        .where(eq(users.id, userId));
+      // UX: Use transaction to ensure suspension and notification are atomic
+      // If notification fails, user suspended but never informed (poor moderation UX)
+      await db.transaction(async (tx) => {
+        await tx.update(users)
+          .set({ isSuspended: true, updatedAt: new Date() })
+          .where(eq(users.id, userId));
 
-      // Create notification
-      await db.insert(notifications).values({
-        userId,
-        type: 'moderation',
-        title: 'Account suspended',
-        content: reason || 'Your account has been suspended',
-        relatedUserId: req.user!.id
+        // Create notification - must succeed or rollback suspension
+        await tx.insert(notifications).values({
+          userId,
+          type: 'moderation',
+          title: 'Account suspended',
+          content: reason || 'Your account has been suspended',
+          relatedUserId: req.user!.id
+        });
       });
 
       res.json({ success: true });

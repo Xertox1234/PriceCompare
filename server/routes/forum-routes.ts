@@ -2,7 +2,7 @@ import { Express } from "express";
 import { db } from "../db";
 import * as schema from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
-import type { ForumTopic } from "@shared/schema";
+import type { ForumTopic, ForumPost } from "@shared/schema";
 import { forumStorage } from "../forum-storage";
 import { withAuth } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
@@ -147,20 +147,40 @@ export function registerForumRoutes(app: Express): void {
       const { sanitizeForumPost } = require('../utils/sanitization');
       const { html: sanitizedContent } = sanitizeForumPost(content);
 
-      // Get the next post number for this topic
-      const existingPosts = await forumStorage.getPostsByTopic(topicId);
-      const postNumber = existingPosts.length + 1;
+      // RACE CONDITION: Use transaction with SERIALIZABLE isolation for postNumber calculation
+      // Without transaction, concurrent posts could get duplicate postNumbers
+      let post: ForumPost;
+      await db.transaction(async (tx) => {
+        // Get the next post number within transaction to prevent race conditions
+        const existingPosts = await tx
+          .select()
+          .from(schema.forumPosts)
+          .where(eq(schema.forumPosts.topicId, topicId));
+        const postNumber = existingPosts.length + 1;
 
-      const post = await forumStorage.createPost({
-        topicId,
-        authorId: user.id,
-        content: sanitizedContent, // Sanitized HTML content
-        rawContent: content, // Store original content for editing
-        postNumber,
-        isFirstPost: false,
+        // Create post with calculated postNumber - must be atomic with calculation
+        const result = await tx.insert(schema.forumPosts).values({
+          topicId,
+          authorId: user.id,
+          content: sanitizedContent,
+          rawContent: content,
+          postNumber,
+          isFirstPost: false,
+        }).returning();
+        post = result[0];
+
+        // Update topic stats
+        await tx.update(schema.forumTopics)
+          .set({
+            postCount: sql`${schema.forumTopics.postCount} + 1`,
+            lastPostAt: new Date(),
+          })
+          .where(eq(schema.forumTopics.id, topicId));
+      }, {
+        isolationLevel: 'serializable', // Prevent concurrent postNumber race conditions
       });
 
-      res.json({ success: true, post });
+      res.json({ success: true, post: post! });
     } catch (error) {
       logger.error('Create post error', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to create post" });
