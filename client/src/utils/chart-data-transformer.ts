@@ -13,7 +13,7 @@ export interface PriceDataPoint {
 export interface AggregatedDataPoint {
   date: string;
   timestamp: number;
-  [key: string]: any; // retailer_${id}: price
+  [key: string]: string | number; // retailer_${id}: price (number), or date/timestamp (string/number)
 }
 
 export type AggregationLevel = 'none' | 'daily' | 'weekly' | 'monthly';

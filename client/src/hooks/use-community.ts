@@ -534,12 +534,28 @@ export function useExportWatchLists() {
   });
 }
 
+interface WatchListImportData {
+  watchLists?: Array<{
+    name: string;
+    description?: string;
+    color?: string;
+    icon?: string;
+    products?: Array<{
+      productId: number;
+      notes?: string;
+      priority?: number;
+      targetPrice?: string;
+    }>;
+  }>;
+  [key: string]: unknown;
+}
+
 // Import watch lists from JSON
 export function useImportWatchLists() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (importData: any) => {
+    mutationFn: async (importData: WatchListImportData) => {
       const response = await fetch('/api/community/watch-lists/import', {
         method: 'POST',
         credentials: 'include',

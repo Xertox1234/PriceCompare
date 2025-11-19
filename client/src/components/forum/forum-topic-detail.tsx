@@ -73,10 +73,16 @@ interface Post {
   replies: Post[];
 }
 
+interface User {
+  id: number;
+  username: string;
+  [key: string]: unknown;
+}
+
 interface ForumTopicDetailProps {
   topic: Topic;
   posts: Post[];
-  user: any;
+  user: User | null | undefined;
   onBack: () => void;
   redirectToLogin: () => void;
 }

@@ -104,7 +104,7 @@ export function advancedCacheMiddleware(options: CacheOptions) {
       const originalJson = res.json.bind(res);
 
       // Override json method to cache response
-      res.json = function(data: any) {
+      res.json = function(data: Record<string, unknown> | unknown[] | null = {}) {
         // Cache the response
         advancedCache.set(cacheKey, data, tier, useL1).catch(error => {
           logger.error('Error caching response:', error);
@@ -184,7 +184,7 @@ export function productDetailCacheMiddleware() {
       const originalJson = res.json.bind(res);
 
       // Override json method to cache response
-      res.json = function(data: any) {
+      res.json = function(data: Record<string, unknown> | unknown[] | null = {}) {
         // Cache the response
         advancedCache.set(cacheKey, data, cacheTier, useL1).catch(error => {
           logger.error('Error caching product detail:', error);
@@ -248,7 +248,7 @@ export function analyticsCacheMiddleware(analyticsType: string) {
       const originalJson = res.json.bind(res);
 
       // Override json method to cache response
-      res.json = function(data: any) {
+      res.json = function(data: Record<string, unknown> | unknown[] | null = {}) {
         // Cache the response
         advancedCache.set(cacheKey, data, CacheTier.COMPUTED, false).catch(error => {
           logger.error('Error caching analytics:', error);

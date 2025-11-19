@@ -14,10 +14,17 @@ export async function apiRequest<T = any>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...options.headers,
   };
+
+  // Merge existing headers
+  if (options.headers) {
+    const existingHeaders = new Headers(options.headers);
+    existingHeaders.forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
 
   // Add CSRF token for non-GET requests
   if (options.method && !['GET', 'HEAD', 'OPTIONS'].includes(options.method.toUpperCase())) {

@@ -260,7 +260,7 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
                   <div className="rounded-lg border bg-background p-2 shadow-sm">
                     <div className="grid gap-2">
                       <div className="text-sm font-medium">{label}</div>
-                      {payload.map((entry: any, index: number) => (
+                      {payload.map((entry: { color?: string; name?: string; value?: number }, index: number) => (
                         <div key={index} className="flex items-center gap-2 text-sm">
                           <div
                             className="h-2 w-2 rounded-full"

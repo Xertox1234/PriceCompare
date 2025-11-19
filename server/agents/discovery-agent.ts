@@ -265,7 +265,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
 
       // Merge AI analysis with original trend data
       return trends.map(trend => {
-        const analysis = aiAnalysis.find((a: any) => a.originalQuery === trend.query);
+        const analysis = aiAnalysis.find((a) => a.originalQuery === trend.query);
         if (analysis && analysis.isProduct && analysis.confidence > 60) {
           return {
             ...trend,

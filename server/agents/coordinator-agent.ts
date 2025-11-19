@@ -13,7 +13,7 @@ import type {
   InsertProduct,
   InsertProductOffer
 } from '../../shared/schema.js';
-import type { CoordinatorTask, SystemStatus } from './types.js';
+import type { CoordinatorTask, SystemStatus, TrendData } from './types.js';
 import { logger } from '../utils/logger.js';
 import { distributedLock } from '../services/distributed-lock.js';
 
@@ -93,7 +93,7 @@ export class CoordinationAgent extends BaseAgent {
 
   async processTask(taskData: unknown): Promise<unknown> {
     const taskId = `coordinator_${Date.now()}`;
-    
+
     return await this.executeTask(
       taskId,
       () => this.coordinateWorkflow(taskData),
@@ -104,8 +104,12 @@ export class CoordinationAgent extends BaseAgent {
     );
   }
 
-  private async coordinateWorkflow(taskData: any): Promise<void> {
-    const { action, ...params } = taskData;
+  private async coordinateWorkflow(taskData: unknown): Promise<void> {
+    if (typeof taskData !== 'object' || taskData === null) {
+      throw new Error('Invalid task data');
+    }
+
+    const { action, ...params } = taskData as Record<string, unknown>;
 
     switch (action) {
       case 'discover_trends':
@@ -224,7 +228,7 @@ export class CoordinationAgent extends BaseAgent {
     }
   }
 
-  private async createProductFromTrending(trendingProduct: TrendingProduct): Promise<any> {
+  private async createProductFromTrending(trendingProduct: TrendingProduct): Promise<InsertProduct | null> {
     try {
       const productData: InsertProduct = {
         name: trendingProduct.name,
@@ -262,7 +266,7 @@ export class CoordinationAgent extends BaseAgent {
     return undefined;
   }
 
-  private async queueSearchJobs(trends: Array<Record<string, unknown>>): Promise<void> {
+  private async queueSearchJobs(trends: TrendData[]): Promise<void> {
     const jobsToCreate: InsertScrapingJob[] = trends.map(trend => ({
       jobType: 'search',
       priority: this.coordinatorConfig.jobPriorities.search,
@@ -433,8 +437,8 @@ export class CoordinationAgent extends BaseAgent {
         })
         .where(eq(scrapingJobs.id, job.id));
 
-      let result: any;
-      const targetData = JSON.parse(job.targetData);
+      let result: unknown;
+      const targetData = JSON.parse(job.targetData) as Record<string, unknown>;
 
       switch (job.jobType) {
         case 'discovery':

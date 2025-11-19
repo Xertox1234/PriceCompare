@@ -25,7 +25,7 @@ interface InteractiveTooltipProps {
     lowestPrice: number;
     highestPrice: number;
   };
-  [key: string]: any; // Allow additional Recharts props
+  [key: string]: unknown; // Allow additional Recharts props
 }
 
 export function InteractiveTooltip({
@@ -42,7 +42,7 @@ export function InteractiveTooltip({
   if (!active || !payload || payload.length === 0) return null;
 
   // Parse data points
-  const dataPoints: TooltipDataPoint[] = payload.map((entry: any) => {
+  const dataPoints: TooltipDataPoint[] = payload.map((entry: { dataKey: string; value?: number; color?: string; [key: string]: unknown }) => {
     const retailerId = parseInt(entry.dataKey.split("_")[1]);
     const retailer = retailers.find((r) => r.id === retailerId);
 
@@ -50,8 +50,8 @@ export function InteractiveTooltip({
       retailerId,
       retailerName: retailer?.name || "Unknown",
       retailerLogo: retailer?.logo || null,
-      price: parseFloat(entry.value),
-      color: entry.color,
+      price: parseFloat(String(entry.value ?? 0)),
+      color: entry.color || "#000000",
     };
   });
 

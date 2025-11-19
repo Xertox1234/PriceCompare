@@ -4,6 +4,13 @@ import { SearchFilters, Product } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { useDebounce } from './use-debounce';
 
+interface SearchFacets {
+  categories?: Record<string, number>;
+  brands?: Record<string, number>;
+  priceRanges?: Array<{ min: number; max: number; count: number }>;
+  [key: string]: unknown;
+}
+
 interface EnhancedSearchResults {
   results: Product[];
   metadata: {
@@ -11,7 +18,7 @@ interface EnhancedSearchResults {
     page: number;
     limit: number;
     totalPages: number;
-    facets?: any;
+    facets?: SearchFacets;
     searchTime?: number;
     searchMode?: string;
     suggestions?: string[];

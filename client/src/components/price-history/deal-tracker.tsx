@@ -28,7 +28,7 @@ export function DealTracker({ productId, offerId, className }: DealTrackerProps)
   const isLoading = historyLoading || statsLoading;
 
   // Calculate deal data
-  const dealData = history && stats ? calculateDealData(history, stats) : null;
+  const dealData = history && stats ? calculateDealData(history as unknown as DealCalculationHistory[], stats as DealCalculationStats) : null;
 
   if (isLoading) {
     return (
@@ -86,7 +86,7 @@ export function DealTracker({ productId, offerId, className }: DealTrackerProps)
 
         {/* Savings Calculator */}
         <SavingsCalculatorSection
-          stats={stats}
+          stats={stats as SavingsStats}
           currentPrice={stats.currentPrice}
           lowestPrice={stats.lowestPrice}
         />
@@ -147,8 +147,17 @@ function BestDealSection({ deal, currentPrice }: { deal: Deal; currentPrice: num
 }
 
 // Deal Frequency Section
-function DealFrequencySection({ dealData }: { dealData: any }) {
+interface DealFrequencyData {
+  dealFrequency: string;
+  averageDealDiscount: number;
+  daysToNextDeal: number;
+  recentDeals: Deal[];
+  [key: string]: unknown;
+}
+
+function DealFrequencySection({ dealData }: { dealData: DealFrequencyData }) {
   const { dealFrequency, averageDealDiscount, daysToNextDeal } = dealData;
+  const dealFrequencyNum = parseFloat(dealFrequency);
 
   return (
     <div className="space-y-3">
@@ -186,7 +195,7 @@ function DealFrequencySection({ dealData }: { dealData: any }) {
         </div>
       </div>
 
-      {dealFrequency > 2 && (
+      {!isNaN(dealFrequencyNum) && dealFrequencyNum > 2 && (
         <p className="text-xs text-muted-foreground">
           💡 This product goes on sale frequently. Consider waiting for a deal!
         </p>
@@ -196,12 +205,16 @@ function DealFrequencySection({ dealData }: { dealData: any }) {
 }
 
 // Savings Calculator Section
+interface SavingsStats {
+  averagePrice: number;
+}
+
 function SavingsCalculatorSection({
   stats,
   currentPrice,
   lowestPrice,
 }: {
-  stats: any;
+  stats: SavingsStats;
   currentPrice: number;
   lowestPrice: number;
 }) {
@@ -307,8 +320,21 @@ function RecentDealsSection({ deals }: { deals: Deal[] }) {
   );
 }
 
+interface DealCalculationHistory {
+  recordedAt: Date | string;
+  createdAt: Date | string | null;
+  price: string;
+  originalPrice?: string;
+  [key: string]: unknown;
+}
+
+interface DealCalculationStats {
+  averagePrice: number;
+  lowestPrice: number;
+}
+
 // Helper Function: Calculate Deal Data
-function calculateDealData(history: any[], stats: any) {
+function calculateDealData(history: DealCalculationHistory[], stats: DealCalculationStats) {
   // Identify deals (significant price drops)
   const deals: Deal[] = [];
   const priceData = history.map(h => parseFloat(h.price));
@@ -317,7 +343,8 @@ function calculateDealData(history: any[], stats: any) {
   history.forEach((entry, index) => {
     const price = parseFloat(entry.price);
     const originalPrice = entry.originalPrice ? parseFloat(entry.originalPrice) : null;
-    const date = new Date(entry.recordedAt || entry.createdAt);
+    const dateValue = entry.recordedAt || entry.createdAt || new Date();
+    const date = new Date(dateValue);
     const daysAgo = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
 
     // Consider it a deal if:
@@ -346,11 +373,11 @@ function calculateDealData(history: any[], stats: any) {
 
   // Find best deal
   const bestDeal = deals[0] || {
-    date: new Date(history[0].recordedAt || history[0].createdAt).toISOString(),
+    date: new Date(history[0].recordedAt || history[0].createdAt || new Date()).toISOString(),
     price: stats.lowestPrice,
     discountPercent: 0,
     savingsAmount: 0,
-    daysAgo: Math.floor((Date.now() - new Date(history[0].recordedAt || history[0].createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+    daysAgo: Math.floor((Date.now() - new Date(history[0].recordedAt || history[0].createdAt || new Date()).getTime()) / (1000 * 60 * 60 * 24)),
   };
 
   // Calculate deal frequency (deals per month)

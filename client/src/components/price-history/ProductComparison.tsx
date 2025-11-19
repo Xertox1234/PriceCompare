@@ -369,9 +369,11 @@ export function ProductComparison({
                             {format(new Date(label), "MMM d, yyyy")}
                           </p>
                           <div className="space-y-1">
-                            {payload.map((entry: any, index: number) => {
+                            {payload.map((entry: { dataKey: string; value?: number; color?: string; [key: string]: unknown }, index: number) => {
                               const productId = parseInt(entry.dataKey.split("_")[1]);
                               const product = products.find((p) => p.id === productId);
+
+                              if (entry.value === undefined) return null;
 
                               return (
                                 <div key={index} className="flex items-center justify-between gap-4">
@@ -383,7 +385,7 @@ export function ProductComparison({
                                     {product?.name}
                                   </span>
                                   <span className="font-semibold text-sm">
-                                    ${parseFloat(entry.value).toFixed(2)}
+                                    ${entry.value.toFixed(2)}
                                   </span>
                                 </div>
                               );

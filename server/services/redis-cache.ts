@@ -121,7 +121,7 @@ export class RedisCache {
    * @param key - Cache key (prefix will be added automatically)
    * @returns Cached value or null if not found
    */
-  async get<T = any>(key: string): Promise<T | null> {
+  async get<T = unknown>(key: string): Promise<T | null> {
     if (!this.isConnected || !this.client) {
       logger.debug('Redis not connected, cache miss', { key });
       this.stats.misses++;
@@ -160,7 +160,7 @@ export class RedisCache {
    * @param value - Value to cache (will be JSON serialized)
    * @param ttl - Time to live in milliseconds (optional)
    */
-  async set(key: string, value: any, ttl?: number): Promise<boolean> {
+  async set(key: string, value: unknown, ttl?: number): Promise<boolean> {
     if (!this.isConnected || !this.client) {
       logger.debug('Redis not connected, skipping cache set', { key });
       return false;
@@ -245,7 +245,7 @@ export class RedisCache {
    * @param keys - Array of cache keys
    * @returns Map of key -> value (only includes found keys)
    */
-  async getMany<T = any>(keys: string[]): Promise<Map<string, T>> {
+  async getMany<T = unknown>(keys: string[]): Promise<Map<string, T>> {
     const result = new Map<string, T>();
 
     if (!this.isConnected || !this.client || keys.length === 0) {

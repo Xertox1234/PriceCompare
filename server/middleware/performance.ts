@@ -30,7 +30,7 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
   const originalEnd = res.end;
 
   // Override res.end to capture metrics
-  res.end = function (chunk?: any, encoding?: any, callback?: any): any {
+  res.end = function (chunk?: unknown, encoding?: unknown, callback?: unknown): unknown {
     const duration = Date.now() - startTime;
     const statusCode = res.statusCode;
     const method = req.method;
@@ -63,7 +63,7 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
     }
 
     // Call original end
-    return originalEnd.call(this, chunk, encoding, callback);
+    return originalEnd.call(this, chunk as any, encoding as BufferEncoding, callback as any);
   };
 
   next();

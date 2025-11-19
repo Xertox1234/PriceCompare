@@ -19,8 +19,8 @@ async function createAdmin() {
     console.log('Password: Admin123!');
     console.log('Role: admin');
     process.exit(0);
-  } catch (error: any) {
-    if (error.code === '23505') { // Unique constraint violation
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === '23505') { // Unique constraint violation
       console.log('⚠️  Admin user already exists');
       process.exit(0);
     }

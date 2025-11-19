@@ -136,10 +136,11 @@ export function RetailerManagement() {
         description: "Retailer has been successfully added to the system.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create retailer.";
       toast({
         title: "Creation Failed",
-        description: error.message || "Failed to create retailer.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -153,16 +154,17 @@ export function RetailerManagement() {
         body: JSON.stringify({ query: 'test product' })
       });
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: { productCount?: number; responseTime?: number }) => {
       toast({
         title: "Connection Test Successful",
-        description: `Retrieved ${data.productCount} products in ${data.responseTime}ms`,
+        description: `Retrieved ${data.productCount ?? 0} products in ${data.responseTime ?? 0}ms`,
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to connect to retailer.";
       toast({
         title: "Connection Test Failed",
-        description: error.message || "Failed to connect to retailer.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -183,10 +185,11 @@ export function RetailerManagement() {
         description: "Retailer data source has been switched successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to switch data source.";
       toast({
         title: "Switch Failed",
-        description: error.message || "Failed to switch data source.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

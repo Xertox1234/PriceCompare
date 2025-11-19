@@ -294,11 +294,11 @@ export const cacheInvalidation = new CacheInvalidationService();
  * Middleware to automatically invalidate cache on price updates
  * Can be used in Bull job processors
  */
-export function withCacheInvalidation<T extends (...args: any[]) => Promise<any>>(
+export function withCacheInvalidation<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T,
   eventType: InvalidationEvent
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     const result = await fn(...args);
 
     // Extract productId from result or args

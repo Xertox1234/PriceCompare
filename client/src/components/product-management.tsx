@@ -115,10 +115,11 @@ export function ProductManagement() {
         description: "Product has been successfully added to catalog.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create product.";
       toast({
         title: "Creation Failed",
-        description: error.message || "Failed to create product.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -140,10 +141,11 @@ export function ProductManagement() {
         description: "Product has been successfully updated.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update product.";
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update product.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -163,10 +165,11 @@ export function ProductManagement() {
         description: "Product has been removed from catalog.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete product.";
       toast({
         title: "Deletion Failed",
-        description: error.message || "Failed to delete product.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
