@@ -28,6 +28,37 @@ const tsvector = customType<{ data: string; driverData: string }>({
   },
 });
 
+// Custom encrypted text type for PII data (GDPR Article 32 compliance)
+// Transparently encrypts/decrypts data using AES-256-GCM
+// NOTE: This custom type is only available on the server side.
+// Client-side code should never import this schema file directly.
+const encryptedText = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return "text";
+  },
+  toDriver(value: string): string {
+    // Lazy-load encryption functions to avoid circular dependencies
+    // and ensure this code only runs on the server
+    if (typeof process === 'undefined' || !process.env) {
+      throw new Error('encryptedText type can only be used on the server side');
+    }
+
+    // Dynamic import to avoid bundling server code in client
+    const { encrypt } = require('../server/utils/encryption');
+    return encrypt(value);
+  },
+  fromDriver(value: string): string {
+    // Lazy-load decryption functions
+    if (typeof process === 'undefined' || !process.env) {
+      throw new Error('encryptedText type can only be used on the server side');
+    }
+
+    // Dynamic import to avoid bundling server code in client
+    const { decrypt } = require('../server/utils/encryption');
+    return decrypt(value);
+  },
+});
+
 export const retailers = pgTable("retailers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -115,7 +146,7 @@ export const priceHistory = pgTable("price_history", {
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 50 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
+  email: encryptedText("email").notNull().unique(), // GDPR Article 32: Encrypted PII
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   role: varchar("role", { length: 20 }).default("user"),
   trustLevel: integer("trust_level").default(0), // 0-4 trust levels like Discourse
@@ -145,8 +176,8 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   expiresAt: timestamp("expires_at").notNull(),
   isUsed: boolean("is_used").default(false),
   usedAt: timestamp("used_at"),
-  ipAddress: varchar("ip_address", { length: 45 }), // IPv6 max length
-  userAgent: varchar("user_agent", { length: 500 }),
+  ipAddress: encryptedText("ip_address"), // GDPR Article 32: IP addresses are PII
+  userAgent: encryptedText("user_agent"), // GDPR Article 32: Browser fingerprinting is PII
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -260,7 +291,7 @@ export const notifications = pgTable("notifications", {
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   type: varchar("type", { length: 50 }).notNull(), // mention, reply, like, price_drop, price_alert, etc.
   title: varchar("title", { length: 255 }).notNull(),
-  content: text("content"),
+  content: encryptedText("content"), // GDPR Article 32: May contain user-generated content or PII
   relatedPostId: integer("related_post_id").references(() => forumPosts.id, { onDelete: 'set null' }),
   relatedTopicId: integer("related_topic_id").references(() => forumTopics.id, { onDelete: 'set null' }),
   relatedUserId: integer("related_user_id").references(() => users.id, { onDelete: 'set null' }),
@@ -330,8 +361,8 @@ export const privateMessages = pgTable("private_messages", {
   id: serial("id").primaryKey(),
   senderId: integer("sender_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
   recipientId: integer("recipient_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  subject: varchar("subject", { length: 255 }).notNull(),
-  content: text("content").notNull(),
+  subject: encryptedText("subject").notNull(), // GDPR Article 32: Private communication is PII
+  content: encryptedText("content").notNull(), // GDPR Article 32: Private communication is PII
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
