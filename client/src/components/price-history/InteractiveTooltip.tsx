@@ -13,9 +13,18 @@ interface TooltipDataPoint {
   url?: string;
 }
 
+// Recharts payload entry type
+interface RechartsPayloadEntry {
+  dataKey?: string;
+  value?: number | string;
+  color?: string;
+  fill?: string;
+  [key: string]: unknown;
+}
+
 interface InteractiveTooltipProps {
   active?: boolean;
-  payload?: readonly any[];
+  payload?: readonly RechartsPayloadEntry[];
   label?: string | number;
   retailers: Array<{ id: number; name: string; logo: string | null }>;
   onSetAlert?: (retailerId: number, price: number) => void;

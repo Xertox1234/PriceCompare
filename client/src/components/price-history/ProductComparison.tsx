@@ -113,7 +113,12 @@ export function ProductComparison({
 
   // Transform data for overlay mode
   const getOverlayChartData = () => {
-    const allDataByDate = new Map<string, any>();
+    interface ChartDataPoint {
+      date: string;
+      timestamp: number;
+      [key: string]: string | number;
+    }
+    const allDataByDate = new Map<string, ChartDataPoint>();
 
     products.forEach((product, productIndex) => {
       const data = priceHistoryData[product.id] || [];
