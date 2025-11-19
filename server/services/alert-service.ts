@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger.js';
 import { websocketService } from './websocket-service.js';
+import type { DashboardMetrics } from './monitoring-service.js';
 
 /**
  * Alert Service
@@ -14,16 +15,16 @@ export interface Alert {
   level: AlertLevel;
   title: string;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   timestamp: string;
 }
 
 export interface AlertRule {
   id: string;
   name: string;
-  condition: (metrics: any) => boolean;
+  condition: (metrics: DashboardMetrics) => boolean;
   level: AlertLevel;
-  message: (metrics: any) => string;
+  message: (metrics: DashboardMetrics) => string;
   cooldown: number; // milliseconds
 }
 
@@ -97,7 +98,7 @@ class AlertService {
   /**
    * Check all alert rules against current metrics
    */
-  async checkAlerts(metrics: any): Promise<void> {
+  async checkAlerts(metrics: DashboardMetrics): Promise<void> {
     for (const rule of this.rules) {
       try {
         if (rule.condition(metrics)) {
@@ -115,7 +116,7 @@ class AlertService {
   /**
    * Trigger an alert if not in cooldown
    */
-  private async triggerAlert(rule: AlertRule, metrics: any): Promise<void> {
+  private async triggerAlert(rule: AlertRule, metrics: DashboardMetrics): Promise<void> {
     const now = Date.now();
     const lastAlertTime = this.lastAlertTimes.get(rule.id) || 0;
 
@@ -160,7 +161,7 @@ class AlertService {
     await this.sendSlackAlert(alert);
 
     // Broadcast to WebSocket clients
-    websocketService.broadcast('alert:triggered', alert);
+    websocketService.broadcast('alert:triggered', alert as unknown as Record<string, unknown>);
   }
 
   /**
@@ -233,7 +234,7 @@ class AlertService {
     level: AlertLevel,
     title: string,
     message: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<void> {
     const alert: Alert = {
       id: `custom_${Date.now()}`,
@@ -260,7 +261,7 @@ class AlertService {
     await this.sendSlackAlert(alert);
 
     // Broadcast to WebSocket clients
-    websocketService.broadcast('alert:triggered', alert);
+    websocketService.broadcast('alert:triggered', alert as unknown as Record<string, unknown>);
   }
 
   /**

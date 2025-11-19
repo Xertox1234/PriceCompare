@@ -18,7 +18,7 @@ export interface AnalyticsParams {
   productId: number;
   days?: number;
   retailerId?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export class AnalyticsCacheService {
@@ -161,7 +161,9 @@ export class AnalyticsCacheService {
 
       logger.info(`Invalidated analytics cache for product ${productId}`);
     } catch (error) {
-      logger.error(`Error invalidating analytics cache for product ${productId}:`, error);
+      logger.error(`Error invalidating analytics cache for product ${productId}:`, {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
@@ -174,7 +176,9 @@ export class AnalyticsCacheService {
       await advancedCache.invalidatePattern(pattern);
       logger.info(`Invalidated ${type} analytics cache for product ${productId}`);
     } catch (error) {
-      logger.error(`Error invalidating ${type} analytics cache:`, error);
+      logger.error(`Error invalidating ${type} analytics cache:`, {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
@@ -201,14 +205,14 @@ export class AnalyticsCacheService {
   async warmProductAnalytics(
     productId: number,
     computeFunctions: {
-      trend?: () => Promise<any>;
-      volatility?: () => Promise<any>;
-      seasonal?: () => Promise<any>;
-      bestTime?: () => Promise<any>;
-      predictions?: () => Promise<any>;
+      trend?: () => Promise<unknown>;
+      volatility?: () => Promise<unknown>;
+      seasonal?: () => Promise<unknown>;
+      bestTime?: () => Promise<unknown>;
+      predictions?: () => Promise<unknown>;
     }
   ): Promise<void> {
-    const tasks: Promise<any>[] = [];
+    const tasks: Promise<unknown>[] = [];
 
     if (computeFunctions.trend) {
       tasks.push(this.cachePriceTrend(productId, 30, computeFunctions.trend));
@@ -249,13 +253,13 @@ export const analyticsCacheService = new AnalyticsCacheService();
  */
 export function cacheAnalytics(type: string, ...paramNames: string[]) {
   return function (
-    target: any,
+    target: unknown,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       // Build params object from argument names
       const params: AnalyticsParams = {} as AnalyticsParams;
       paramNames.forEach((name, index) => {

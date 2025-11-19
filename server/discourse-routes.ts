@@ -54,7 +54,7 @@ function verifySSO(sso: string, sig: string): boolean {
  * Verify webhook signature from Discourse
  * SECURITY: Critical for preventing unauthorized webhook submissions
  */
-function verifyWebhookSignature(payload: any, signature: string | undefined): boolean {
+function verifyWebhookSignature(payload: string | Record<string, unknown>, signature: string | undefined): boolean {
   if (!signature) {
     logger.warn('Webhook verification failed: No signature provided');
     return false;
