@@ -497,3 +497,4 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `server/ai/README.md` - AI prompt system documentation
 
 **Start here for big picture**: `ARCHITECTURE.md` explains the "why" behind architectural decisions.
+- Always call the code-review-specialist sub agent to perform a code review on the files that were changed in that session.
