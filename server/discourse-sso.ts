@@ -230,7 +230,7 @@ export async function getUserWithDiscourse(userId: number): Promise<SharedUserWi
         id: sharedUsers.id,
         username: sharedUsers.username,
         email: sharedUsers.email,
-        passwordHash: sharedUsers.passwordHash,
+        // SECURITY: Never expose passwordHash
         discourseUserId: sharedUsers.discourseUserId,
         role: sharedUsers.role,
         bio: sharedUsers.bio,
@@ -249,14 +249,14 @@ export async function getUserWithDiscourse(userId: number): Promise<SharedUserWi
       .leftJoin(discourseUserMapping, eq(sharedUsers.id, discourseUserMapping.priceAppUserId))
       .where(eq(sharedUsers.id, userId))
       .limit(1);
-    
+
     if (!user) return null;
-    
+
     const result: SharedUserWithDiscourse = {
       id: user.id,
       username: user.username,
       email: user.email,
-      passwordHash: user.passwordHash,
+      passwordHash: '', // SECURITY: Never expose - empty string to satisfy type
       discourseUserId: user.discourseUserId,
       role: user.role,
       bio: user.bio,
