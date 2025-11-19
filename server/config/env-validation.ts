@@ -28,6 +28,11 @@ const REQUIRED_ENV_VARS: RequiredEnvVar[] = [
     critical: true,
   },
   {
+    name: 'ENCRYPTION_KEY',
+    description: 'AES-256 encryption key for PII data at rest (64 hex characters = 32 bytes)',
+    critical: true,
+  },
+  {
     name: 'DISCOURSE_SSO_SECRET',
     description: 'Secret key for Discourse SSO HMAC signing',
     critical: true,
@@ -110,8 +115,40 @@ export function validateEnvironment(): void {
       continue;
     }
 
-    // Validate secret strength for critical secrets
-    if (envVar.critical && envVar.name.includes('SECRET')) {
+    // Validate ENCRYPTION_KEY separately (hex format, not base64)
+    if (envVar.critical && envVar.name === 'ENCRYPTION_KEY') {
+      const keyErrors: string[] = [];
+
+      // Check if it's valid hex
+      if (!/^[0-9a-fA-F]+$/.test(value)) {
+        keyErrors.push(`${envVar.name} must be a valid hex string (only 0-9, a-f characters)`);
+      }
+
+      // Check length (must be 64 hex characters = 32 bytes)
+      if (value.length !== 64) {
+        keyErrors.push(
+          `${envVar.name} must be exactly 64 hex characters (32 bytes for AES-256). ` +
+          `Current: ${value.length} characters`
+        );
+      }
+
+      // Verify it decodes to correct byte length
+      const keyBuffer = Buffer.from(value, 'hex');
+      if (keyBuffer.length !== 32) {
+        keyErrors.push(
+          `${envVar.name} decodes to ${keyBuffer.length} bytes, but must be 32 bytes for AES-256`
+        );
+      }
+
+      if (keyErrors.length > 0) {
+        log.error(`\n❌ SECURITY: Invalid encryption key for ${envVar.name}:`);
+        keyErrors.forEach(e => log.error(`  ${e}`));
+        log.error('\n💡 Generate a valid encryption key with: openssl rand -hex 32');
+        errors.push(...keyErrors);
+      }
+    }
+    // Validate secret strength for critical secrets (SESSION_SECRET, CSRF_SECRET, etc.)
+    else if (envVar.critical && envVar.name.includes('SECRET')) {
       const secretErrors = validateSecretStrength(envVar.name, value);
       if (secretErrors.length > 0) {
         // SECURITY: Enforce strong secrets in all environments (including dev)
