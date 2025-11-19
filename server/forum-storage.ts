@@ -184,7 +184,7 @@ export class ForumStorage {
           id: users.id,
           username: users.username,
           email: users.email,
-          passwordHash: users.passwordHash,
+          // SECURITY: Never expose passwordHash
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
         }
