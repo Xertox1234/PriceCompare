@@ -14,6 +14,9 @@ import { logSecurityEvent, SecurityEventType } from './utils/security-logger';
 // Export the User type for use elsewhere
 export type User = DatabaseUser;
 
+// Export a safe user type without passwordHash for API responses and req.user
+export type SafeUser = Omit<DatabaseUser, 'passwordHash'>;
+
 // Extended verify options to include lockout information
 interface ExtendedVerifyOptions extends IVerifyOptions {
   locked?: boolean;
@@ -21,10 +24,10 @@ interface ExtendedVerifyOptions extends IVerifyOptions {
   remainingAttempts?: number;
 }
 
-// Extend Express types to include our User type
+// Extend Express types to include our User type (without passwordHash for security)
 declare global {
   namespace Express {
-    interface User extends DatabaseUser {}
+    interface User extends SafeUser {}
   }
 }
 
@@ -47,7 +50,34 @@ passport.use(new LocalStrategy(
         } as ExtendedVerifyOptions);
       }
 
-      const userResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      const userResult = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          passwordHash: users.passwordHash, // SECURITY: Only for internal password verification, never exposed in API
+          role: users.role,
+          trustLevel: users.trustLevel,
+          isActive: users.isActive,
+          isSuspended: users.isSuspended,
+          reputation: users.reputation,
+          avatarUrl: users.avatarUrl,
+          bio: users.bio,
+          location: users.location,
+          website: users.website,
+          lastSeenAt: users.lastSeenAt,
+          postCount: users.postCount,
+          topicCount: users.topicCount,
+          likesGiven: users.likesGiven,
+          likesReceived: users.likesReceived,
+          timeReadPosts: users.timeReadPosts,
+          daysVisited: users.daysVisited,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
 
       if (!userResult.length) {
         // Record failed attempt (user not found)
@@ -86,8 +116,35 @@ passport.serializeUser((user: Express.User, done) => {
 
 passport.deserializeUser(async (id: number, done) => {
   try {
-    const userResult = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    done(null, userResult[0] || null);
+    const userResult = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        // SECURITY: Never expose passwordHash in req.user
+        role: users.role,
+        trustLevel: users.trustLevel,
+        isActive: users.isActive,
+        isSuspended: users.isSuspended,
+        reputation: users.reputation,
+        avatarUrl: users.avatarUrl,
+        bio: users.bio,
+        location: users.location,
+        website: users.website,
+        lastSeenAt: users.lastSeenAt,
+        postCount: users.postCount,
+        topicCount: users.topicCount,
+        likesGiven: users.likesGiven,
+        likesReceived: users.likesReceived,
+        timeReadPosts: users.timeReadPosts,
+        daysVisited: users.daysVisited,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+    done(null, userResult[0] as Express.User || null);
   } catch (error) {
     done(error);
   }
@@ -111,13 +168,67 @@ export async function createUser(userData: { username: string; email: string; pa
   return newUserResult[0];
 }
 
-export async function findUserByEmail(email: string): Promise<User | null> {
-  const userResult = await db.select().from(users).where(eq(users.email, email)).limit(1);
+export async function findUserByEmail(email: string): Promise<SafeUser | null> {
+  const userResult = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      // SECURITY: Never expose passwordHash - this function is used in API routes
+      role: users.role,
+      trustLevel: users.trustLevel,
+      isActive: users.isActive,
+      isSuspended: users.isSuspended,
+      reputation: users.reputation,
+      avatarUrl: users.avatarUrl,
+      bio: users.bio,
+      location: users.location,
+      website: users.website,
+      lastSeenAt: users.lastSeenAt,
+      postCount: users.postCount,
+      topicCount: users.topicCount,
+      likesGiven: users.likesGiven,
+      likesReceived: users.likesReceived,
+      timeReadPosts: users.timeReadPosts,
+      daysVisited: users.daysVisited,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
   return userResult[0] || null;
 }
 
-export async function findUserById(id: number): Promise<User | null> {
-  const userResult = await db.select().from(users).where(eq(users.id, id)).limit(1);
+export async function findUserById(id: number): Promise<SafeUser | null> {
+  const userResult = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      // SECURITY: Never expose passwordHash - this function is used in API routes
+      role: users.role,
+      trustLevel: users.trustLevel,
+      isActive: users.isActive,
+      isSuspended: users.isSuspended,
+      reputation: users.reputation,
+      avatarUrl: users.avatarUrl,
+      bio: users.bio,
+      location: users.location,
+      website: users.website,
+      lastSeenAt: users.lastSeenAt,
+      postCount: users.postCount,
+      topicCount: users.topicCount,
+      likesGiven: users.likesGiven,
+      likesReceived: users.likesReceived,
+      timeReadPosts: users.timeReadPosts,
+      daysVisited: users.daysVisited,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
   return userResult[0] || null;
 }
 
