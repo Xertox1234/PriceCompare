@@ -8,6 +8,13 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 
 **Tech Stack**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Playwright (Chromium)
 
+## Subagent Usage
+Use orchestrator for complex tasks requiring multiple domains.
+Direct subagent delegation for focused work:
+- "Use backend-architect to implement..."
+- "Use frontend-specialist to create..."
+- "Use test-engineer to add tests for..."
+
 ## Development Commands
 
 ```bash
