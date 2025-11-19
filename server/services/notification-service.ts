@@ -181,31 +181,37 @@ export async function createNotification(
     }
   }
 
-  // Check daily limit
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // RACE CONDITION: Use transaction with SERIALIZABLE isolation for limit check + creation
+  // Without transaction, concurrent notifications could bypass daily limit
+  return await db.transaction(async (tx) => {
+    // Check daily limit within transaction
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  const todayCount = await db
-    .select({ count: count() })
-    .from(notifications)
-    .where(
-      and(
-        eq(notifications.userId, notification.userId),
-        gte(notifications.createdAt, today)
-      )
-    );
+    const todayCount = await tx
+      .select({ count: count() })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, notification.userId),
+          gte(notifications.createdAt, today)
+        )
+      );
 
-  if (prefs.maxDailyNotifications && todayCount[0].count >= prefs.maxDailyNotifications) {
-    throw new Error('Daily notification limit reached');
-  }
+    if (prefs.maxDailyNotifications && todayCount[0].count >= prefs.maxDailyNotifications) {
+      throw new Error('Daily notification limit reached');
+    }
 
-  // Create the notification
-  const result = await db.insert(notifications).values(notification).returning();
-  const created = getFirstResult(result);
-  if (!created) {
-    throw new Error('Failed to create notification');
-  }
-  return created;
+    // Create the notification - must be atomic with limit check
+    const result = await tx.insert(notifications).values(notification).returning();
+    const created = getFirstResult(result);
+    if (!created) {
+      throw new Error('Failed to create notification');
+    }
+    return created;
+  }, {
+    isolationLevel: 'serializable', // Prevent concurrent notification limit bypass
+  });
 }
 
 /**
@@ -272,26 +278,47 @@ export async function updateUserPreferences(
   userId: number,
   updates: Partial<InsertNotificationPreferences>
 ): Promise<NotificationPreferences> {
-  // Check if preferences exist
-  const existing = await db
-    .select()
-    .from(notificationPreferences)
-    .where(eq(notificationPreferences.userId, userId))
-    .limit(1);
+  // RACE CONDITION: Use transaction with SERIALIZABLE isolation for check + create/update
+  // Without transaction, concurrent updates could both try to create defaults (constraint violation)
+  return await db.transaction(async (tx) => {
+    // Check if preferences exist within transaction
+    const existing = await tx
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId))
+      .limit(1);
 
-  if (existing.length === 0) {
-    // Create with updates
-    return await createDefaultPreferences(userId);
-  }
+    if (existing.length === 0) {
+      // Create with updates - must be atomic with existence check
+      const defaultPrefs: InsertNotificationPreferences = {
+        userId,
+        inAppEnabled: true,
+        emailEnabled: false,
+        priceDropEnabled: true,
+        priceAlertEnabled: true,
+        forumMentionEnabled: true,
+        badgeEarnedEnabled: true,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        maxDailyNotifications: 50,
+        ...updates, // Apply user updates
+      };
 
-  // Update existing
-  const result = await db
-    .update(notificationPreferences)
-    .set(updates)
-    .where(eq(notificationPreferences.userId, userId))
-    .returning();
+      const result = await tx.insert(notificationPreferences).values(defaultPrefs).returning();
+      return result[0];
+    }
 
-  return result[0];
+    // Update existing
+    const result = await tx
+      .update(notificationPreferences)
+      .set(updates)
+      .where(eq(notificationPreferences.userId, userId))
+      .returning();
+
+    return result[0];
+  }, {
+    isolationLevel: 'serializable', // Prevent concurrent preference creation race
+  });
 }
 
 /**

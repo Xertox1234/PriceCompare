@@ -1,6 +1,6 @@
 import { Express, Request } from "express";
 import { db } from "../db";
-import { passport, createUser, findUserByEmail, findUserById, hashPassword, User } from "../auth";
+import { passport, createUser, findUserByEmail, findUserById, hashPassword, User, SafeUser } from "../auth";
 import { generateCsrfToken } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
 import { logger } from "../utils/logger";
@@ -78,25 +78,50 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(400).json({ error: 'User already exists' });
       }
 
-      // Check if this is the first user (make them admin)
-      const userCount = await db.select({ count: sql`count(*)` }).from(schema.users);
-      const isFirstUser = parseInt(userCount[0].count as string) === 0;
+      // SECURITY: Use SERIALIZABLE transaction to prevent race condition on first admin check
+      // Without SERIALIZABLE isolation, concurrent registrations could both see count=0 and become admins
+      let user: SafeUser;
+      let isFirstUser: boolean;
+      await db.transaction(async (tx) => {
+        // Check if this is the first user (make them admin)
+        const userCount = await tx.select({ count: sql`count(*)` }).from(schema.users);
+        isFirstUser = parseInt(userCount[0].count as string) === 0;
 
-      const user = await createUser({
-        username,
-        email,
-        password,
-        role: isFirstUser ? 'admin' : 'user'
+        // Hash password
+        const passwordHash = await hashPassword(password); // SECURITY: NEVER expose passwordHash
+
+        // Create user - must be in same transaction as count check
+        const newUserResult = await tx.insert(schema.users).values({
+          username,
+          email,
+          passwordHash, // SECURITY: NEVER expose - only used internally
+          role: isFirstUser ? 'admin' : 'user',
+        }).returning();
+
+        // SECURITY: Explicitly extract safe fields, never expose passwordHash
+        user = {
+          id: newUserResult[0].id,
+          username: newUserResult[0].username,
+          email: newUserResult[0].email,
+          role: newUserResult[0].role,
+          trustLevel: newUserResult[0].trustLevel,
+          isActive: newUserResult[0].isActive,
+          isSuspended: newUserResult[0].isSuspended,
+          createdAt: newUserResult[0].createdAt,
+          updatedAt: newUserResult[0].updatedAt,
+        };
+      }, {
+        isolationLevel: 'serializable', // Prevent concurrent first-user race condition
       });
 
       // SECURITY: Log successful registration
       logSecurityEvent(SecurityEventType.REGISTER, req, {
-        userId: user.id,
-        username: user.username,
-        email: user.email,
+        userId: user!.id,
+        username: user!.username,
+        email: user!.email,
         success: true,
         metadata: {
-          role: user.role,
+          role: user!.role,
           isFirstUser,
         }
       });
@@ -398,17 +423,27 @@ export function registerAuthRoutes(app: Express): void {
       // Hash the new password
       const newPasswordHash = await hashPassword(password);
 
-      // Update the user's password
-      await db
-        .update(schema.users)
-        .set({
-          passwordHash: newPasswordHash,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.users.id, user.id));
+      // SECURITY: Use transaction to ensure password update and token marking are atomic
+      // If markTokenAsUsed fails after password update, token remains valid (security vulnerability)
+      await db.transaction(async (tx) => {
+        // Update the user's password
+        await tx
+          .update(schema.users)
+          .set({
+            passwordHash: newPasswordHash, // SECURITY: NEVER expose - used internally for auth
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.users.id, user.id));
 
-      // Mark the token as used
-      await markTokenAsUsed(token);
+        // Mark the token as used - must succeed or rollback password change
+        await tx
+          .update(schema.passwordResetTokens)
+          .set({
+            isUsed: true,
+            usedAt: new Date(),
+          })
+          .where(eq(schema.passwordResetTokens.token, token));
+      });
 
       // Log the successful password reset
       logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {

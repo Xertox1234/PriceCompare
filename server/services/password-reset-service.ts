@@ -34,24 +34,28 @@ export async function createPasswordResetToken(
   const token = generateSecureToken();
   const expiresAt = new Date(Date.now() + TOKEN_EXPIRATION_TIME);
 
-  // Invalidate any existing unused tokens for this user (optional security measure)
-  await db
-    .delete(passwordResetTokens)
-    .where(
-      and(
-        eq(passwordResetTokens.userId, userId),
-        eq(passwordResetTokens.isUsed, false)
-      )
-    );
+  // SECURITY: Use transaction to ensure old token deletion and new token creation are atomic
+  // If token creation fails after deletion, user has no valid tokens (lockout scenario)
+  await db.transaction(async (tx) => {
+    // Invalidate any existing unused tokens for this user (optional security measure)
+    await tx
+      .delete(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.userId, userId),
+          eq(passwordResetTokens.isUsed, false)
+        )
+      );
 
-  // Create the new token
-  await db.insert(passwordResetTokens).values({
-    userId,
-    token,
-    expiresAt,
-    isUsed: false,
-    ipAddress: ipAddress?.substring(0, 45), // Ensure it fits in VARCHAR(45)
-    userAgent: userAgent?.substring(0, 500), // Ensure it fits in VARCHAR(500)
+    // Create the new token - must succeed or rollback deletion
+    await tx.insert(passwordResetTokens).values({
+      userId,
+      token,
+      expiresAt,
+      isUsed: false,
+      ipAddress: ipAddress?.substring(0, 45), // Ensure it fits in VARCHAR(45)
+      userAgent: userAgent?.substring(0, 500), // Ensure it fits in VARCHAR(500)
+    });
   });
 
   return token;

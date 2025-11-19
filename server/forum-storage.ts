@@ -203,21 +203,29 @@ export class ForumStorage {
   async createPost(post: InsertForumPost): Promise<ForumPost> {
     log.info("ForumStorage.createPost called with:", { post: JSON.stringify(post, null, 2) });
     log.info("Schema field names:", { fieldNames: Object.keys(forumPosts) });
-    const result = await db.insert(forumPosts).values(post).returning();
 
-    // Update topic post count and last post time
-    await db.update(forumTopics)
-      .set({
-        postCount: sql`${forumTopics.postCount} + 1`,
-        lastPostAt: new Date(),
-      })
-      .where(eq(forumTopics.id, post.topicId));
+    // DATA INTEGRITY: Use transaction to ensure post creation and topic update are atomic
+    // If topic update fails, post should not exist (leads to incorrect post counts)
+    let newPost: ForumPost;
+    await db.transaction(async (tx) => {
+      const result = await tx.insert(forumPosts).values(post).returning();
 
-    const newPost = getFirstResult(result);
-    if (!newPost) {
-      throw new Error('Failed to create post');
-    }
-    return newPost;
+      // Update topic post count and last post time - must succeed or rollback post creation
+      await tx.update(forumTopics)
+        .set({
+          postCount: sql`${forumTopics.postCount} + 1`,
+          lastPostAt: new Date(),
+        })
+        .where(eq(forumTopics.id, post.topicId));
+
+      const post = getFirstResult(result);
+      if (!post) {
+        throw new Error('Failed to create post');
+      }
+      newPost = post;
+    });
+
+    return newPost!;
   }
 
   // Price Alerts

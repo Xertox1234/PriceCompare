@@ -413,6 +413,157 @@ const priceData = await db
 - **IN clause**: When you need to batch-fetch optional related data or filter by IDs
 - **array_agg()**: When you need grouped/nested data in a single query
 
+## Transaction Boundaries (MANDATORY)
+
+**ALL multi-step database operations MUST use transactions** to maintain data integrity and prevent partial updates.
+
+### When to Use Transactions
+
+Use transactions whenever you perform 2+ related database operations that must succeed or fail together:
+
+1. **Create + Related Records**: Topic + first post, product + offers, user + profile
+2. **Update + Related Updates**: Post creation + topic stats update, suspension + notification
+3. **Delete + Cascading Deletes**: Alert deletion + notification cleanup
+4. **Check-Then-Act**: User count check + admin creation (race condition prevention)
+5. **Import Operations**: Batch imports that should be all-or-nothing
+
+### Basic Transaction Pattern
+
+```typescript
+// ✅ CORRECT - Atomic multi-step operation
+await db.transaction(async (tx) => {
+  // Step 1: Create main record
+  const [topic] = await tx.insert(forumTopics).values(topicData).returning();
+
+  // Step 2: Create related record - must succeed or rollback topic
+  await tx.insert(forumPosts).values({
+    topicId: topic.id,
+    ...postData
+  });
+
+  // Step 3: Update stats - must succeed or rollback all
+  await tx.update(forumTopics)
+    .set({ postCount: sql`${forumTopics.postCount} + 1` })
+    .where(eq(forumTopics.id, topic.id));
+});
+```
+
+### Transaction Isolation Levels
+
+Use SERIALIZABLE isolation for operations with race condition risks:
+
+```typescript
+// ✅ CORRECT - Prevent race conditions with SERIALIZABLE
+await db.transaction(async (tx) => {
+  // Check if first user (count could change concurrently)
+  const userCount = await tx.select({ count: sql`count(*)` }).from(users);
+  const isFirstUser = parseInt(userCount[0].count as string) === 0;
+
+  // Create user - role determined by count check
+  await tx.insert(users).values({
+    ...userData,
+    role: isFirstUser ? 'admin' : 'user'
+  }).returning();
+}, {
+  isolationLevel: 'serializable' // Prevent concurrent first-user race
+});
+```
+
+**When to use SERIALIZABLE**:
+- Counter/sequence calculations (postNumber, order numbers)
+- Check-then-insert patterns (first user, duplicate prevention)
+- Daily limit enforcement (notification limits)
+- Any operation where concurrent execution could cause logical errors
+
+**Default (READ COMMITTED)** is fine for:
+- Simple multi-step creates with no conditionals
+- Operations on records locked by primary key
+- Sequential operations with no race condition risk
+
+### Common Patterns
+
+**Pattern 1: Create + Notification**
+```typescript
+// UX: User must be notified of important events
+await db.transaction(async (tx) => {
+  await tx.update(users).set({ isSuspended: true }).where(eq(users.id, userId));
+  await tx.insert(notifications).values({
+    userId,
+    type: 'moderation',
+    title: 'Account suspended',
+    content: reason
+  });
+});
+```
+
+**Pattern 2: Record + Reputation Award**
+```typescript
+// DATA INTEGRITY: Reputation must match recorded achievements
+await db.transaction(async (tx) => {
+  const [deal] = await tx.insert(dealSpottings).values(dealData).returning();
+  await tx.insert(userReputation).values({
+    userId,
+    reputationChange: points,
+    relatedEntityId: deal.id
+  });
+});
+```
+
+**Pattern 3: Batch Import**
+```typescript
+// DATA INTEGRITY: All-or-nothing imports
+return await db.transaction(async (tx) => {
+  for (const item of importData) {
+    const [list] = await tx.insert(watchLists).values(listData).returning();
+    for (const product of item.products) {
+      await tx.insert(productWatches).values({ listId: list.id, ...product });
+    }
+  }
+  return { imported: importData.length };
+});
+```
+
+### What NOT to Include in Transactions
+
+- **External API calls**: Move these outside transactions (HTTP requests, email sending)
+- **Long-running operations**: Keep transactions short to avoid lock contention
+- **Read-only operations**: Use transactions only when writes need atomicity
+- **Independent operations**: Don't wrap unrelated operations together
+
+```typescript
+// ❌ WRONG - External API call in transaction
+await db.transaction(async (tx) => {
+  await tx.insert(users).values(userData);
+  await sendWelcomeEmail(email); // DON'T DO THIS
+});
+
+// ✅ CORRECT - External calls after transaction
+await db.transaction(async (tx) => {
+  await tx.insert(users).values(userData);
+});
+// Email after successful commit
+if (emailService.isReady()) {
+  await sendWelcomeEmail(email);
+}
+```
+
+### Security Notes
+
+- Mark passwordHash usage with `// SECURITY: NEVER expose` to pass pre-commit hooks
+- Transactions protect against partial updates but not SQL injection (still validate inputs)
+- Use explicit field selection, never expose sensitive fields like passwordHash
+
+### Performance Considerations
+
+- Transaction overhead: <5ms typically
+- Cost of data corruption: Potentially catastrophic
+- **Always prefer correctness over premature optimization**
+- Keep transactions short - acquire locks, do work, release quickly
+
+### Related Issues
+
+See GitHub issue #67 for the comprehensive audit that identified 13 missing transaction boundaries in the codebase.
+
 ## Path Aliases
 
 TypeScript paths configured in `tsconfig.json`:
