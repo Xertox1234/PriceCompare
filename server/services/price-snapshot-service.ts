@@ -2,7 +2,8 @@ import { db } from "../db";
 import { logger } from "../utils/logger";
 import { productOffers, priceHistory } from "../../shared/schema";
 import type { InsertPriceHistory } from "../../shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, lte, isNotNull } from "drizzle-orm";
+import { priceAggregationService } from "./price-aggregation-service";
 
 export class PriceSnapshotService {
   /**
@@ -118,22 +119,66 @@ export class PriceSnapshotService {
   }
 
   /**
-   * Clean up old price history data
-   * Keeps detailed data for 1 year, aggregated data for 2 years
+   * Clean up old price history data with aggregation-before-deletion
+   *
+   * DATA LIFECYCLE (enforced by this method):
+   * - 0-30 days: Keep raw priceHistory data
+   * - 30-90 days: Aggregate to daily summaries, keep raw data
+   * - 90-365 days: Weekly aggregation (handled by scheduled job), keep raw data
+   * - 1-2 years: Monthly aggregation (handled by scheduled job), keep raw data
+   * - 2+ years: Delete raw data (ONLY if already aggregated)
+   *
+   * This method ensures data is never lost by aggregating before deletion.
+   * Only records with `aggregated_at` set (marked by daily/weekly/monthly jobs)
+   * are eligible for deletion.
+   *
+   * SAFETY: Uses aggregation service to preserve statistics before deletion.
+   * TRANSACTIONAL: Aggregation uses transactions to prevent partial updates.
+   *
+   * @throws Error if aggregation or cleanup fails
+   *
+   * @example
+   * // Typically run weekly via scheduled job
+   * await priceSnapshotService.cleanupOldData();
    */
   async cleanupOldData(): Promise<void> {
     try {
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const now = new Date();
 
-      const twoYearsAgo = new Date();
-      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+      // Step 1: Aggregate 30-90 day old data to daily
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      const ninetyDaysAgo = new Date(now);
+      ninetyDaysAgo.setDate(now.getDate() - 90);
 
-      // Delete data older than 2 years
-      // TODO: Implement aggregation for 1-2 year old data before deletion
-      logger.info("[PriceSnapshot] Cleanup complete");
+      logger.info('[PriceSnapshot] Starting cleanup: aggregating 30-90 day old data');
+      const dailyCount = await priceAggregationService.aggregateToDaily(
+        ninetyDaysAgo,
+        thirtyDaysAgo
+      );
+      logger.info(`[PriceSnapshot] Created ${dailyCount} daily aggregates`);
+
+      // Step 2 & 3: Weekly and monthly are handled by scheduled jobs
+      // No action needed here - they run on their own schedules
+
+      // Step 4: Delete raw data older than 2 years (only if aggregated)
+      const twoYearsAgo = new Date(now);
+      twoYearsAgo.setFullYear(now.getFullYear() - 2);
+
+      const result = await db.delete(priceHistory)
+        .where(and(
+          lte(priceHistory.recordedAt, twoYearsAgo),
+          isNotNull(priceHistory.aggregatedAt)
+        ));
+
+      logger.info(
+        `[PriceSnapshot] Deleted ${result.rowCount || 0} raw records older than 2 years (already aggregated)`
+      );
+      logger.info('[PriceSnapshot] Cleanup complete');
     } catch (error) {
-      logger.error("[PriceSnapshot] Error cleaning up old data:", { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[PriceSnapshot] Error cleaning up old data:', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }

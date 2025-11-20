@@ -739,51 +739,63 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Price History Methods
+  /**
+   * Get price history with smart data source selection
+   * Automatically uses aggregated data for longer time ranges
+   */
   async getPriceHistory(productId: number, days?: number): Promise<PriceHistoryWithDetails[]> {
-    const conditions = [eq(priceHistory.productId, productId)];
+    // Use optimized query that selects appropriate data source based on date range
+    const { getPriceHistoryOptimized } = await import('./services/price-history-service');
+    const optimizedData = await getPriceHistoryOptimized(productId, days || 30);
 
-    if (days) {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-      conditions.push(gte(priceHistory.recordedAt, cutoffDate));
-    }
-
-    const result = await db
-      .select({
-        history: priceHistory,
-        retailer: retailers
-      })
-      .from(priceHistory)
-      .innerJoin(retailers, eq(priceHistory.retailerId, retailers.id))
-      .where(and(...conditions))
-      .orderBy(asc(priceHistory.recordedAt));
-
-    return result.map(row => ({
-      ...row.history,
-      retailerName: row.retailer.name,
-      retailerLogo: row.retailer.logo,
+    // Convert normalized format to legacy format for backward compatibility
+    return optimizedData.map(point => ({
+      id: 0, // Not available in aggregated data
+      productOfferId: 0, // Not available in aggregated data
+      productId,
+      retailerId: point.retailerId,
+      price: point.price.toFixed(2),
+      originalPrice: null,
+      availability: point.availability || null,
+      rating: null,
+      reviewCount: null,
+      source: point.source,
+      confidence: '1.00',
+      metadata: null,
+      recordedAt: point.date,
+      aggregatedAt: null,
+      createdAt: point.date,
+      retailerName: point.retailerName || '',
+      retailerLogo: null,
     }));
   }
 
+  /**
+   * Get retailer-specific price history with smart data source selection
+   */
   async getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]> {
-    const conditions = [
-      eq(priceHistory.productId, productId),
-      eq(priceHistory.retailerId, retailerId)
-    ];
+    // Use optimized query with retailer filter
+    const { getPriceHistoryOptimized } = await import('./services/price-history-service');
+    const optimizedData = await getPriceHistoryOptimized(productId, days || 30, retailerId);
 
-    if (days) {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-      conditions.push(gte(priceHistory.recordedAt, cutoffDate));
-    }
-
-    const result = await db
-      .select()
-      .from(priceHistory)
-      .where(and(...conditions))
-      .orderBy(asc(priceHistory.recordedAt));
-
-    return result;
+    // Convert normalized format to legacy format
+    return optimizedData.map(point => ({
+      id: 0,
+      productOfferId: 0,
+      productId,
+      retailerId: point.retailerId,
+      price: point.price.toFixed(2),
+      originalPrice: null,
+      availability: point.availability || null,
+      rating: null,
+      reviewCount: null,
+      source: point.source,
+      confidence: '1.00',
+      metadata: null,
+      recordedAt: point.date,
+      aggregatedAt: null,
+      createdAt: point.date,
+    }));
   }
 
   async getPriceTrend(productId: number): Promise<PriceTrendAnalysis> {
