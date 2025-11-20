@@ -1,7 +1,7 @@
 ---
 name: orchestrator
 description: Strategic coordinator that decomposes complex tasks and delegates to specialized subagents. Use for multi-domain work requiring coordination across frontend, backend, database, and testing.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, WebSearch, WebFetch
 model: sonnet
 ---
 

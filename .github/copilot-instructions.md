@@ -4,7 +4,9 @@
 
 PriceCompare is a full-stack price comparison platform with AI-powered product discovery, web scraping, price tracking, and community features. Built with TypeScript across frontend, backend, and Chrome extension.
 
-**Key Architecture**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Puppeteer
+**Key Architecture**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Playwright
+
+**⚠️ CRITICAL**: This project uses **Playwright EXCLUSIVELY** for all browser automation and testing. **NEVER use Puppeteer.**
 
 **See `ARCHITECTURE.md` for**:
 - High-level system diagrams and component interactions

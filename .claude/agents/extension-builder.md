@@ -1,7 +1,7 @@
 ---
 name: extension-builder
 description: Chrome Extension Manifest V3 expert for service workers, content scripts, popup UI, and extension-specific architecture. Use for browser extension features, message passing, and Chrome API integration.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 model: sonnet
 ---
 

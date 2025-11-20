@@ -1,7 +1,7 @@
 ---
 name: database-engineer
 description: PostgreSQL and Drizzle ORM specialist for schema design, migrations, complex queries, indexing, and database performance optimization. Use for database schema changes, query optimization, and data modeling.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 model: sonnet
 ---
 

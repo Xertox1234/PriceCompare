@@ -1,7 +1,11 @@
 import { Express } from "express";
+import express from 'express';
 import { db } from "../db";
 import { sql } from 'drizzle-orm';
 import { getRedisClient, getRedisSessionClient } from '../config/redis';
+import { createLogger } from '../utils/logger';
+
+const cspLog = createLogger('CSP');
 
 /**
  * Health Check Routes
@@ -82,4 +86,31 @@ export function registerHealthRoutes(app: Express): void {
       checks
     });
   });
+
+  // CSP Violation Report Endpoint
+  // SECURITY: Receives browser reports of CSP violations for monitoring
+  // Browsers send violation reports to this endpoint when CSP blocks a resource
+  app.post("/api/csp-violation-report",
+    express.json({ type: ['application/json', 'application/csp-report'] }),
+    (req, res) => {
+      // Browser sends violations in 'csp-report' wrapper
+      const report = req.body['csp-report'] || req.body;
+
+      // Log violation with structured data for analysis
+      cspLog.warn('CSP Violation Detected', {
+        documentUri: report['document-uri'],
+        violatedDirective: report['violated-directive'],
+        blockedUri: report['blocked-uri'],
+        sourceFile: report['source-file'],
+        lineNumber: report['line-number'],
+        columnNumber: report['column-number'],
+        statusCode: report['status-code'],
+        userAgent: req.headers['user-agent'],
+        timestamp: new Date().toISOString()
+      });
+
+      // Return 204 No Content - browser doesn't need response
+      res.status(204).end();
+    }
+  );
 }

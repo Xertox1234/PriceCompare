@@ -165,7 +165,7 @@ Integration tests for Amazon:
 
 ### 5. e2e/extension-load.test.js
 
-E2E tests with Puppeteer:
+E2E tests with Playwright:
 - Extension loading
 - Service worker activation
 - Basic functionality
@@ -354,7 +354,7 @@ For features that can't be easily automated:
 
 - [Jest Documentation](https://jestjs.io/docs/getting-started)
 - [Testing Library](https://testing-library.com/)
-- [Puppeteer Docs](https://pptr.dev/)
+- [Playwright Documentation](https://playwright.dev/)
 - [Chrome Extension Testing](https://developer.chrome.com/docs/extensions/mv3/tut_testing/)
 
 ## Contributing

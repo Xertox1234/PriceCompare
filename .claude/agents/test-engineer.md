@@ -1,7 +1,7 @@
 ---
 name: test-engineer
 description: Vitest and React Testing Library expert for unit tests, integration tests, component tests, and test architecture. Use for writing tests, debugging test failures, and improving test coverage.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 model: sonnet
 ---
 

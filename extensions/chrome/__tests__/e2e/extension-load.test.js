@@ -4,21 +4,22 @@ import "../setup.js";
  * E2E Tests for PriceCompare Extension
  * Tests extension loading and basic functionality in a real browser
  *
- * Note: These tests require Puppeteer and may take longer to run
+ * Note: These tests require Playwright and may take longer to run
  * Run with: npm run test:e2e
  */
 
-const puppeteer = require('puppeteer');
+const { chromium } = require('@playwright/test');
 const path = require('path');
 
 describe('Extension E2E Tests', () => {
   let browser;
+  let context;
   let page;
   const extensionPath = path.join(__dirname, '../..');
 
   beforeAll(async () => {
-    // Launch browser with extension loaded
-    browser = await puppeteer.launch({
+    // Launch browser with extension loaded using Playwright
+    browser = await chromium.launch({
       headless: false, // Extensions don't work in headless mode
       args: [
         `--disable-extensions-except=${extensionPath}`,
@@ -27,16 +28,21 @@ describe('Extension E2E Tests', () => {
         '--disable-setuid-sandbox'
       ]
     });
+
+    context = await browser.newContext();
   });
 
   afterAll(async () => {
+    if (context) {
+      await context.close();
+    }
     if (browser) {
       await browser.close();
     }
   });
 
   beforeEach(async () => {
-    page = await browser.newPage();
+    page = await context.newPage();
   });
 
   afterEach(async () => {
@@ -47,24 +53,17 @@ describe('Extension E2E Tests', () => {
 
   describe('Extension Loading', () => {
     it('should load extension successfully', async () => {
-      const targets = await browser.targets();
-      const extensionTarget = targets.find(
-        target => target.type() === 'service_worker'
-      );
-
-      expect(extensionTarget).toBeDefined();
+      // Playwright automatically handles extension service workers
+      const serviceWorker = context.serviceWorkers()[0];
+      expect(serviceWorker).toBeDefined();
     }, 30000);
 
     it('should have extension popup available', async () => {
-      const targets = await browser.targets();
-      const extensionTarget = targets.find(
-        target => target.type() === 'service_worker'
-      );
+      const serviceWorker = context.serviceWorkers()[0];
+      expect(serviceWorker).toBeDefined();
 
-      expect(extensionTarget).toBeDefined();
-
-      // Check if extension has a valid ID
-      const extensionUrl = extensionTarget.url();
+      // Check if extension has a valid URL
+      const extensionUrl = serviceWorker.url();
       expect(extensionUrl).toContain('chrome-extension://');
     }, 30000);
   });
@@ -131,16 +130,16 @@ describe('Extension E2E Tests', () => {
   // 1. A mock API server running
   // 2. Mock product pages
   // 3. Ability to test content script injection
-  // 4. UI interaction testing
+  // 4. UI interaction testing using Playwright's locators
 
   describe('Popup UI', () => {
     it.skip('should open extension popup', async () => {
       // This test is skipped because programmatically opening extension popups
-      // is challenging in Puppeteer. In manual E2E testing, you would:
-      // 1. Click the extension icon
-      // 2. Verify popup opens
-      // 3. Interact with popup elements
-      // 4. Verify functionality
+      // is challenging in automated tests. In manual E2E testing with Playwright, you would:
+      // 1. Use page.goto() to navigate to extension popup URL
+      // 2. Verify popup content loads
+      // 3. Use Playwright locators to interact with elements
+      // 4. Verify functionality with expect() assertions
 
       // Placeholder for manual testing checklist:
       // - [ ] Extension icon appears in toolbar

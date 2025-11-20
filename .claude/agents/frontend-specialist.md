@@ -1,7 +1,7 @@
 ---
 name: frontend-specialist
 description: React 19 and Vite expert for building UI components, managing client-side state with React Query, creating charts with Recharts, and optimizing frontend performance. Use for React components, hooks, state management, and UI features.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 model: sonnet
 ---
 

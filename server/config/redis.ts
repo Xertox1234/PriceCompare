@@ -20,8 +20,11 @@ let isRedisAvailable = false;
  *
  * @param redisUrl Optional Redis connection URL (default: redis://localhost:6379)
  * @returns Redis client or null if unavailable
+ * @throws Error in production if Redis connection fails
  */
 export async function initializeRedis(redisUrl?: string): Promise<Redis | null> {
+  const isProduction = process.env.NODE_ENV === 'production';
+
   try {
     // Dynamically import ioredis to avoid errors if not installed
     const { default: IORedis } = await import('ioredis');
@@ -48,6 +51,13 @@ export async function initializeRedis(redisUrl?: string): Promise<Redis | null> 
     redisClient.on('error', (error) => {
       log.error('Redis error:', { message: error.message });
       isRedisAvailable = false;
+
+      // CRITICAL: In production, Redis errors are fatal
+      if (isProduction) {
+        log.error('❌ FATAL: Redis connection lost in production environment');
+        log.error('   Production requires Redis for distributed operations');
+        process.exit(1);
+      }
     });
 
     redisClient.on('reconnecting', () => {
@@ -66,20 +76,54 @@ export async function initializeRedis(redisUrl?: string): Promise<Redis | null> 
 
       redisSessionClient.on('error', (error) => {
         log.error('Redis session client error:', { message: error.message });
+
+        // CRITICAL: In production, session client errors are fatal
+        if (isProduction) {
+          log.error('❌ FATAL: Redis session client connection lost in production');
+          process.exit(1);
+        }
       });
 
       await redisSessionClient.connect();
       log.info('✅ Redis session client connected successfully');
     } catch (sessionError) {
-      log.warn('⚠️  Redis session client failed to initialize:', {
-        error: sessionError instanceof Error ? sessionError.message : String(sessionError)
-      });
+      const errorMsg = sessionError instanceof Error ? sessionError.message : String(sessionError);
+
+      // CRITICAL: Fail fast in production if session client unavailable
+      if (isProduction) {
+        log.error('❌ FATAL: Redis session client failed to initialize in production');
+        log.error(`   Error: ${errorMsg}`);
+        log.error('   Production requires Redis for distributed session storage');
+        throw new Error(`Redis session client initialization failed: ${errorMsg}`);
+      }
+
+      log.warn('⚠️  Redis session client failed to initialize:', { error: errorMsg });
       redisSessionClient = null;
     }
 
     return redisClient;
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // CRITICAL: Fail fast in production if Redis is unavailable
+    if (isProduction) {
+      log.error('❌ FATAL: Redis connection failed in production environment');
+      log.error(`   Error: ${errorMsg}`);
+      log.error('   Redis URL: ' + (redisUrl || process.env.REDIS_URL || 'redis://localhost:6379'));
+      log.error('\n   Production requires Redis for:');
+      log.error('   - Distributed rate limiting across multiple instances');
+      log.error('   - Session storage and management');
+      log.error('   - Account lockout tracking');
+      log.error('   - Caching and performance optimization');
+      log.error('   - Job queue coordination\n');
+      throw new Error(`Redis initialization failed: ${errorMsg}`);
+    }
+
+    // Development: Allow fallback to in-memory with clear warnings
     log.warn('⚠️  Redis not available, falling back to in-memory storage');
+    log.warn('   ⚠️  WARNING: In-memory storage is NOT suitable for production');
+    log.warn('   ⚠️  Sessions will not persist across server restarts');
+    log.warn('   ⚠️  Rate limiting will not work across multiple instances');
     log.warn('   To enable Redis: npm install ioredis redis && start Redis server');
     isRedisAvailable = false;
     return null;

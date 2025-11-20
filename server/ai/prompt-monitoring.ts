@@ -9,6 +9,10 @@
  * - Cost estimation
  */
 
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('PromptMonitoring');
+
 export interface PromptExecutionMetrics {
   promptName: string;
   promptVersion: string;
@@ -107,7 +111,7 @@ class PromptMonitor {
       .find(m => m.promptName === promptName && !m.endTime);
 
     if (!execution) {
-      console.warn(`No active execution found for prompt: ${promptName}`);
+      log.warn('No active execution found', { promptName });
       return;
     }
 
@@ -154,23 +158,33 @@ class PromptMonitor {
    * Log execution metrics
    */
   private logExecution(metrics: PromptExecutionMetrics): void {
-    const status = metrics.success ? '✅' : '❌';
     const latency = metrics.latency ? `${metrics.latency}ms` : 'N/A';
     const cost = metrics.estimatedCost ? `$${metrics.estimatedCost.toFixed(6)}` : 'N/A';
     const quality = metrics.qualityScore !== undefined ? metrics.qualityScore.toFixed(2) : 'N/A';
 
-    console.log(
-      `${status} AI Prompt: ${metrics.promptName} (${metrics.promptVersion}) | ` +
-      `Latency: ${latency} | Quality: ${quality} | Cost: ${cost} | ` +
-      `Tokens: ${metrics.totalTokens || 'N/A'}` +
-      (metrics.error ? ` | Error: ${metrics.error}` : '')
-    );
+    const logData = {
+      promptName: metrics.promptName,
+      promptVersion: metrics.promptVersion,
+      success: metrics.success,
+      latency,
+      quality,
+      cost,
+      tokens: metrics.totalTokens || 'N/A',
+      error: metrics.error,
+    };
+
+    if (metrics.success) {
+      log.info('AI prompt execution succeeded', logData);
+    } else {
+      log.error('AI prompt execution failed', logData);
+    }
 
     // Log validation failures
     if (metrics.validationPassed === false && metrics.validationErrors) {
-      console.warn(
-        `⚠️  Validation failed for ${metrics.promptName}: ${metrics.validationErrors} error(s)`
-      );
+      log.warn('Validation failed', {
+        promptName: metrics.promptName,
+        validationErrors: metrics.validationErrors,
+      });
     }
   }
 
@@ -302,7 +316,7 @@ class PromptMonitor {
     if (this.metrics.length > this.MAX_METRICS_SIZE) {
       const toRemove = this.metrics.length - this.MAX_METRICS_SIZE;
       this.metrics.splice(0, toRemove);
-      console.log(`📊 Cleared ${toRemove} old prompt metrics`);
+      log.info('Cleared old prompt metrics', { removedCount: toRemove });
     }
   }
 
@@ -318,7 +332,7 @@ class PromptMonitor {
    * Print performance report to console
    */
   printReport(): void {
-    console.log('\n📊 === AI Prompt Performance Report ===\n');
+    log.info('AI Prompt Performance Report');
 
     const prompts = this.getAllPromptNames();
 
@@ -326,18 +340,22 @@ class PromptMonitor {
       const summary = this.getSummary(promptName);
       if (!summary) continue;
 
-      console.log(`\n🔹 ${promptName}`);
-      console.log(`   Version: ${summary.promptVersion}`);
-      console.log(`   Executions: ${summary.totalExecutions} (${summary.successfulExecutions} success, ${summary.failedExecutions} failed)`);
-      console.log(`   Success Rate: ${(summary.successRate * 100).toFixed(1)}%`);
-      console.log(`   Avg Latency: ${summary.avgLatency.toFixed(0)}ms (min: ${summary.minLatency}ms, max: ${summary.maxLatency}ms)`);
-      console.log(`   Avg Quality: ${summary.avgQualityScore.toFixed(1)}/100`);
-      console.log(`   Total Tokens: ${summary.totalTokens.toLocaleString()}`);
-      console.log(`   Estimated Cost: $${summary.estimatedTotalCost.toFixed(4)}`);
-      console.log(`   Last Executed: ${summary.lastExecuted.toISOString()}`);
+      log.info('Prompt metrics', {
+        promptName,
+        version: summary.promptVersion,
+        totalExecutions: summary.totalExecutions,
+        successful: summary.successfulExecutions,
+        failed: summary.failedExecutions,
+        successRate: `${(summary.successRate * 100).toFixed(1)}%`,
+        avgLatency: `${summary.avgLatency.toFixed(0)}ms`,
+        minLatency: `${summary.minLatency}ms`,
+        maxLatency: `${summary.maxLatency}ms`,
+        avgQuality: `${summary.avgQualityScore.toFixed(1)}/100`,
+        totalTokens: summary.totalTokens.toLocaleString(),
+        estimatedCost: `$${summary.estimatedTotalCost.toFixed(4)}`,
+        lastExecuted: summary.lastExecuted.toISOString(),
+      });
     }
-
-    console.log('\n=====================================\n');
   }
 }
 

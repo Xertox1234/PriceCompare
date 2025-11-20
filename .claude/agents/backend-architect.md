@@ -1,7 +1,7 @@
 ---
 name: backend-architect
 description: Expert in Node.js/TypeScript/Express backend development, Bull job queues, Redis caching, Playwright scraping, and PostgreSQL integration via Drizzle ORM. Use for API routes, background jobs, scraping logic, and server-side features.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 model: sonnet
 ---
 

@@ -69,8 +69,8 @@ export default defineConfig({
     },
     // Warn for chunks larger than 600KB
     chunkSizeWarningLimit: 600,
-    // Enable source maps for production debugging (can be disabled if not needed)
-    sourcemap: false,
+    // Enable source maps for production debugging (required for Sentry error tracking)
+    sourcemap: true,
   },
   server: {
     fs: {

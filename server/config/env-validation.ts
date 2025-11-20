@@ -44,7 +44,20 @@ const REQUIRED_ENV_VARS: RequiredEnvVar[] = [
   },
 ];
 
+const PRODUCTION_REQUIRED_ENV_VARS: RequiredEnvVar[] = [
+  {
+    name: 'REDIS_URL',
+    description: 'Redis connection URL (required in production for distributed features)',
+    critical: true,
+  },
+];
+
 const OPTIONAL_ENV_VARS: RequiredEnvVar[] = [
+  {
+    name: 'REDIS_URL',
+    description: 'Redis connection URL (optional in development, REQUIRED in production)',
+    critical: false,
+  },
   {
     name: 'DISCOURSE_URL',
     description: 'Discourse forum URL',
@@ -100,12 +113,13 @@ function validateSecretStrength(name: string, value: string): string[] {
 export function validateEnvironment(): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const isTest = process.env.NODE_ENV === 'test';
+  const isProduction = process.env.NODE_ENV === 'production';
   const errors: string[] = [];
   const warnings: string[] = [];
 
   log.info('🔍 Validating environment configuration...');
 
-  // Check required variables
+  // Check required variables (all environments)
   for (const envVar of REQUIRED_ENV_VARS) {
     const value = process.env[envVar.name];
 
@@ -166,6 +180,28 @@ export function validateEnvironment(): void {
     }
 
     log.info(`  ✅ ${envVar.name} is set`);
+  }
+
+  // Check production-required variables (only in production)
+  if (isProduction) {
+    for (const envVar of PRODUCTION_REQUIRED_ENV_VARS) {
+      const value = process.env[envVar.name];
+
+      if (!value) {
+        const message = `❌ CRITICAL: ${envVar.name} is not set (${envVar.description})`;
+        errors.push(message);
+        log.error(message);
+        log.error('\n💡 PRODUCTION REQUIREMENT: Redis is mandatory in production for:');
+        log.error('   - Distributed rate limiting across multiple server instances');
+        log.error('   - Session storage and persistence');
+        log.error('   - Account lockout tracking');
+        log.error('   - Caching and performance optimization');
+        log.error('   - Job queue coordination');
+        log.error('\n   Set REDIS_URL in your environment: redis://hostname:6379');
+      } else {
+        log.info(`  ✅ ${envVar.name} is set (production requirement)`);
+      }
+    }
   }
 
   // Check optional variables (warnings only)

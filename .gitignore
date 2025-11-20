@@ -36,6 +36,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Test coverage
+coverage
+.nyc_output
+
 # OS
 .DS_Store
 Thumbs.db# GitHub Actions workflow - must be added manually via GitHub UI due to permissions

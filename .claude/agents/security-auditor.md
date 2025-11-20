@@ -1,7 +1,7 @@
 ---
 name: security-auditor
 description: Security specialist for code review, vulnerability assessment, authentication/authorization, input validation, and security best practices. Use for security audits, auth implementation review, and production readiness checks.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, WebSearch, WebFetch
 model: sonnet
 ---
 

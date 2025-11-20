@@ -1,11 +1,14 @@
 import { db } from '../db.js';
 import { users } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('MakeAdmin');
 
 const email = process.argv[2];
 
 if (!email) {
-  console.error('Usage: tsx server/scripts/make-admin.ts <email>');
+  log.error('Usage: tsx server/scripts/make-admin.ts <email>');
   process.exit(1);
 }
 
@@ -18,14 +21,18 @@ async function makeAdmin() {
       .returning();
 
     if (result.length === 0) {
-      console.error(`No user found with email: ${email}`);
+      log.error('No user found with email', { email });
       process.exit(1);
     }
 
-    console.log(`✅ User ${email} is now an admin!`);
+    log.info('User promoted to admin', { email });
     process.exit(0);
   } catch (error) {
-    console.error('Error making user admin:', error);
+    log.error('Error making user admin', {
+      email,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     process.exit(1);
   }
 }

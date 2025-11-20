@@ -1,13 +1,16 @@
 import 'dotenv/config';
 import { db } from '../db.js';
 import { products, retailers, productOffers, priceHistory } from '../../shared/schema.js';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('SeedData');
 
 async function seedMockData() {
-  console.log('🌱 Seeding mock data...\n');
+  log.info('Seeding mock data');
 
   try {
     // Create retailers
-    console.log('📦 Creating retailers...');
+    log.info('Creating retailers...');
     const retailerData = await db.insert(retailers).values([
       {
         name: 'Amazon',
@@ -35,10 +38,10 @@ async function seedMockData() {
         logoUrl: 'https://logo.clearbit.com/newegg.com',
       },
     ]).returning();
-    console.log(`✅ Created ${retailerData.length} retailers\n`);
+    log.info('Created retailers', { count: retailerData.length });
 
     // Create products with offers
-    console.log('📱 Creating products with offers...');
+    log.info('Creating products with offers...');
 
     const productsData = [
       {
@@ -189,16 +192,22 @@ async function seedMockData() {
         }
       }
 
-      console.log(`  ✅ Created: ${product.name} with ${offerData.length} offers`);
+      log.info('Created product with offers', {
+        productName: product.name,
+        offerCount: offerData.length
+      });
     }
 
-    console.log(`\n✅ Successfully seeded ${productsData.length} products!`);
-    console.log('\n🎉 Mock data seeding complete!\n');
-    console.log('You can now view products at: http://localhost:5001\n');
+    log.info('Successfully seeded products', { count: productsData.length });
+    log.info('Mock data seeding complete');
+    log.info('You can now view products at: http://localhost:5001');
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error seeding data:', error);
+    log.error('Error seeding data', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     process.exit(1);
   }
 }

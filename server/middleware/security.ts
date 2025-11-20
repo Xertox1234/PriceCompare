@@ -274,21 +274,31 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   // SECURITY: Removed 'unsafe-inline' and using nonce for maximum XSS protection
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  // TEMPORARY: Disable CSP in development to debug styling issues
-  // TODO: Re-enable with proper Tailwind CSS v4 compatibility
-  if (!isDevelopment) {
-    const cspDirectives = [
-      "default-src 'self'",
-      `script-src 'self' 'nonce-${nonce}'`,
-      `style-src 'self' 'nonce-${nonce}'`,
-      "img-src 'self' data: https:",
-      "font-src 'self' data:",
-      "connect-src 'self'",
-      "frame-ancestors 'none'"
-    ].join('; ') + ';';
+  // Build connect-src directive based on environment
+  // Development needs WebSocket for Vite HMR (Hot Module Replacement)
+  const connectSrc = isDevelopment
+    ? "connect-src 'self' ws: wss:"
+    : "connect-src 'self'";
 
-    res.setHeader('Content-Security-Policy', cspDirectives);
-  }
+  const cspDirectives = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    connectSrc,
+    "frame-ancestors 'none'",
+    "report-uri /api/csp-violation-report"
+  ].join('; ') + ';';
+
+  // SECURITY: Start with Report-Only mode to monitor violations
+  // Set CSP_ENFORCE=true in environment to enable full enforcement
+  // After 24-48 hours of no violations in report-only mode, enable enforcement
+  const cspHeader = process.env.CSP_ENFORCE === 'true'
+    ? 'Content-Security-Policy'
+    : 'Content-Security-Policy-Report-Only';
+
+  res.setHeader(cspHeader, cspDirectives);
 
   // Referrer Policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');

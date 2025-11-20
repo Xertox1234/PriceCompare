@@ -1,7 +1,7 @@
 ---
 name: scraper-expert
 description: Playwright browser automation specialist for web scraping, price extraction, and selector strategies. Use for implementing scrapers, debugging extraction logic, and handling anti-bot measures. Uses Playwright MCP for browser automation.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 model: sonnet
 ---
 

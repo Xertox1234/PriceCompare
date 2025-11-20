@@ -18,6 +18,9 @@
  */
 
 import crypto from 'crypto';
+import { createLogger } from './logger';
+
+const log = createLogger('Encryption');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16; // 128 bits for GCM
@@ -200,19 +203,22 @@ export function verifyEncryption(): boolean {
 
     // Verify roundtrip works correctly
     if (decrypted !== testData) {
-      console.error('[Encryption] Verification failed: decrypted data does not match original');
+      log.error('Verification failed: decrypted data does not match original');
       return false;
     }
 
     // Verify encrypted format is correct
     if (!isEncrypted(encrypted)) {
-      console.error('[Encryption] Verification failed: encrypted data has invalid format');
+      log.error('Verification failed: encrypted data has invalid format');
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('[Encryption] Verification failed with error:', error);
+    log.error('Verification failed with error', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return false;
   }
 }

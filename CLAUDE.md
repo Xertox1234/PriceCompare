@@ -8,6 +8,40 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 
 **Tech Stack**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Playwright (Chromium)
 
+## Browser Automation - MANDATORY REQUIREMENT
+
+**⚠️ CRITICAL: This project uses Playwright EXCLUSIVELY for all browser automation and testing.**
+
+**NEVER use Puppeteer.** All browser automation, web scraping, and E2E testing MUST use Playwright.
+
+### Why Playwright Only:
+- Modern API with better async/await support
+- Superior cross-browser testing capabilities
+- Built-in auto-waiting and retry logic
+- Better TypeScript support
+- Active development and Microsoft backing
+- Already integrated throughout the codebase
+
+### Usage:
+```typescript
+import { chromium } from '@playwright/test';
+
+// Launch browser
+const browser = await chromium.launch();
+const context = await browser.newContext();
+const page = await context.newPage();
+
+// Navigate and interact
+await page.goto('https://example.com');
+await page.locator('button').click();
+
+// Cleanup
+await context.close();
+await browser.close();
+```
+
+**If you find ANY references to Puppeteer in the codebase, remove them immediately and replace with Playwright equivalents.**
+
 ## Subagent Usage
 Use orchestrator for complex tasks requiring multiple domains.
 Direct subagent delegation for focused work:
@@ -107,7 +141,12 @@ The application uses **two separate Redis clients** for compatibility:
 
 Both clients are initialized in `server/config/redis.ts`. Always use `getRedisClient()` for cache/rate limiting and `getRedisSessionClient()` for sessions.
 
-**Critical**: Redis is MANDATORY in production. The server validates this at startup (`server/index.ts:81-90`) and exits if Redis is unavailable.
+**CRITICAL - Production Requirement**:
+- Redis is **MANDATORY** in production environments
+- Application will **EXIT ON STARTUP** if `REDIS_URL` is not configured in production
+- Validated at 4 levels: environment validation, Redis initialization, session store, rate limiter
+- Development mode allows in-memory fallback (with prominent warnings)
+- See `REDIS_PRODUCTION_REQUIREMENT.md` for complete testing guide and deployment examples
 
 ### Database Layer Pattern
 
@@ -616,16 +655,22 @@ app.use(rateLimiter({ maxRequests: RATE_LIMIT.MAX_REQUESTS }));
 
 ## Environment Variables
 
-**Required secrets** (generate with `openssl rand -base64 32`):
+**Required in ALL environments** (generate with `openssl rand -base64 32`):
 - `SESSION_SECRET` - Express session encryption
 - `CSRF_SECRET` - CSRF token generation
 - `DISCOURSE_SSO_SECRET` - Forum SSO integration
 - `DATABASE_URL` - PostgreSQL connection string
 
+**Required in PRODUCTION** (app will exit if missing):
+- `REDIS_URL` - **MANDATORY** for distributed rate limiting, sessions, and caching
+  - Format: `redis://hostname:6379` or `rediss://user:pass@host:port` (SSL)
+  - Recommended providers: Upstash, Redis Cloud, AWS ElastiCache
+  - In development: Optional (falls back to in-memory with warnings)
+  - In production: **Application will fail to start without this**
+
 **Optional but recommended**:
-- `REDIS_URL` - Required in production for distributed systems
 - `OPENAI_API_KEY` - For AI-powered features
-- `SENTRY_DSN` - Error monitoring
+- `SENTRY_DSN` - Error monitoring and performance tracking
 
 ## TypeScript Strict Mode
 
@@ -676,7 +721,10 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 ## Common Pitfalls to Avoid
 
 1. **N+1 QUERIES**: NEVER query in a loop - always use JOINs or `inArray()` batch queries
-2. **Redis required in production**: App validates this in `server/index.ts` and exits if missing
+2. **Redis MANDATORY in production**: Application will **FAIL TO START** if `REDIS_URL` not set in production
+   - Validated at startup in `server/config/env-validation.ts` and `server/index.ts`
+   - Development allows fallback with warnings, production exits with error
+   - See `REDIS_PRODUCTION_REQUIREMENT.md` for testing guide
 3. **CSRF tokens**: Attached by middleware, client must include in requests
 4. **Type safety**: Enable strict mode, avoid `any` types
 5. **Pagination**: Always paginate large datasets using `PAGINATION.DEFAULT_LIMIT`

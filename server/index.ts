@@ -40,6 +40,9 @@ import { startPriceAnalyticsJobs } from "./jobs/price-analytics-jobs";
 import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handler";
 import { RATE_LIMIT, SESSION } from "./utils/constants";
 import { cleanupManager } from "./utils/cleanup-manager";
+import { createLogger } from "./utils/logger";
+
+const serverLog = createLogger('Server');
 
 // Validate environment variables on startup
 validateEnvironment();
@@ -77,22 +80,39 @@ app.use(sanitizeInput);
   log('Initializing Redis connection...');
   const redisClient = await initializeRedis();
 
-  // CRITICAL: Redis is mandatory in production for distributed rate limiting and sessions
-  if (!redisClient && process.env.NODE_ENV === 'production') {
-    log('❌ FATAL: Redis is required in production but connection failed');
-    log('   Please ensure Redis is running and accessible at: ' + (process.env.REDIS_URL || 'redis://localhost:6379'));
-    log('   Production requires Redis for:');
-    log('   - Distributed rate limiting across multiple instances');
-    log('   - Session storage and management');
-    log('   - Account lockout tracking');
-    log('   - Caching and performance optimization');
-    process.exit(1);
+  // CRITICAL: Redis is mandatory in production for distributed operations
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (!redisClient) {
+    if (isProduction) {
+      // Production: Redis initialization already threw error in initializeRedis()
+      // This should never be reached, but added as safety check
+      log('❌ FATAL: Redis is required in production but not available');
+      log('   Please ensure Redis is running and REDIS_URL is set');
+      process.exit(1);
+    } else {
+      // Development: Log prominent warnings about in-memory fallback
+      log('⚠️  ================================ WARNING ================================');
+      log('⚠️  Running in DEVELOPMENT mode WITHOUT Redis');
+      log('⚠️  Using in-memory fallbacks for rate limiting and sessions');
+      log('⚠️  This is NOT suitable for production deployment');
+      log('⚠️  ========================================================================');
+    }
   }
 
-  // SECURITY: Setup rate limiting (Redis-based if available, otherwise in-memory)
+  // SECURITY: Setup rate limiting
+  // Production: MUST use Redis (fail fast if unavailable - checked above)
+  // Development: Fallback to in-memory with warnings
   const rateLimiterMiddleware = redisClient ? redisRateLimiter : rateLimiter;
   const limiterSource = redisClient ? 'Redis (distributed)' : 'in-memory (single server)';
   log(`Rate limiting using: ${limiterSource}`);
+
+  // Additional production safety check for rate limiter
+  if (isProduction && !redisClient) {
+    log('❌ FATAL: Cannot use in-memory rate limiting in production');
+    log('   Production requires distributed rate limiting via Redis');
+    process.exit(1);
+  }
 
   // Global rate limiting - 100 requests per 15 minutes per IP
   app.use('/api', rateLimiterMiddleware({
@@ -292,7 +312,10 @@ app.use(sanitizeInput);
     log(`Error during initial cache warming: ${error}`, 'error');
   });
 })().catch(error => {
-  console.error('Fatal error during server startup:', error);
+  serverLog.error('Fatal error during server startup', {
+    error: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined
+  });
   process.exit(1);
 });
 
@@ -321,7 +344,10 @@ async function gracefulShutdown(signal: string) {
     log('Graceful shutdown completed');
     process.exit(0);
   } catch (error) {
-    console.error('Error during graceful shutdown:', error);
+    serverLog.error('Error during graceful shutdown', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     process.exit(1);
   }
 }
