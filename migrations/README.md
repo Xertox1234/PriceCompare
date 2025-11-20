@@ -15,7 +15,11 @@ Migrations are numbered sequentially and executed in order:
 - `0007_add_community_features.sql` - Forum and community features
 - `0008_add_watch_lists.sql` - Product watch lists
 - `0009_add_price_aggregation.sql` - **Price analytics tables** (weekly/monthly aggregates, trends)
-- `0010_add_job_locks.sql` - **Distributed job locking** (NEW - Nov 16, 2025)
+- `0010_add_job_locks.sql` - **Distributed job locking** (Nov 16, 2025)
+- `0011_add_cascade_rules.sql` - **Foreign key cascade rules** (referential integrity)
+- `0012_encrypt_pii_data_at_rest.sql` - **PII encryption at rest** (security enhancement)
+- `0013_add_daily_price_aggregates.sql` - **Daily price aggregates** (aggregatedAt tracking, daily aggregation table)
+- `0014_add_aggregation_indexes.sql` - **Aggregation performance indexes** (optimizes time-range queries, 10-100x faster)
 
 ## How to Apply Migrations
 
