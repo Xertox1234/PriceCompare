@@ -5,13 +5,9 @@
  * Usage: npm run migrate
  */
 
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-neonConfig.webSocketConstructor = ws;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,7 +16,25 @@ async function runMigrations() {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // Detect database type (same logic as server/db.ts)
+  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
+                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+
+  // Union type for either Neon or pg Pool
+  type PoolClient = { query: (text: string) => Promise<unknown>; end: () => Promise<void> };
+  let pool: PoolClient;
+
+  if (isNeonDatabase) {
+    // Use Neon serverless driver for cloud deployment
+    const { Pool: NeonPool, neonConfig } = await import('@neondatabase/serverless');
+    const ws = await import('ws');
+    neonConfig.webSocketConstructor = ws.default;
+    pool = new NeonPool({ connectionString: process.env.DATABASE_URL });
+  } else {
+    // Use standard pg driver for local PostgreSQL
+    const { Pool: PgPool } = await import('pg');
+    pool = new PgPool({ connectionString: process.env.DATABASE_URL });
+  }
 
   try {
     console.log('🔄 Starting database migrations...\n');
