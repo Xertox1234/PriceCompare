@@ -271,6 +271,7 @@ jobs:
           echo "✅ All pre-commit checks passed"
 
   # Final: All Checks Status
+  # Note: E2E tests run in a separate workflow (e2e-tests.yml)
   ci-success:
     name: All Checks Passed
     runs-on: ubuntu-latest
@@ -289,3 +290,5 @@ jobs:
             exit 1
           fi
           echo "✅ All CI checks passed!"
+          echo ""
+          echo "ℹ️ E2E tests run in parallel - check the E2E Tests workflow"

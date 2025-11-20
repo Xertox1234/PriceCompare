@@ -2,7 +2,9 @@ name: Dependabot Auto-Merge
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, add_scraping]
+  pull_request_target:
+    branches: [main, develop, add_scraping]
 
 permissions:
   contents: write
@@ -31,10 +33,46 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Auto-approve minor updates
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' &&
+          steps.metadata.outputs.dependency-type == 'direct:production'
+        run: |
+          gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-approve dev dependency updates
+        if: steps.metadata.outputs.dependency-type == 'direct:development'
+        run: |
+          gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Enable auto-merge for security patches
         if: |
           steps.metadata.outputs.update-type == 'version-update:semver-patch' &&
           steps.metadata.outputs.dependency-type == 'direct:production'
+        run: |
+          gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for minor production updates
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' &&
+          steps.metadata.outputs.dependency-type == 'direct:production'
+        run: |
+          gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for dev dependencies
+        if: steps.metadata.outputs.dependency-type == 'direct:development'
         run: |
           gh pr merge --auto --squash "$PR_URL"
         env:
