@@ -1,6 +1,8 @@
 import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn, customType, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Custom vector type for pgvector extension
 const vector = customType<{ data: number[]; driverData: string }>({
@@ -32,6 +34,35 @@ const tsvector = customType<{ data: string; driverData: string }>({
 // Transparently encrypts/decrypts data using AES-256-GCM
 // NOTE: This custom type is only available on the server side.
 // Client-side code should never import this schema file directly.
+//
+// Cache the encryption module to avoid repeated requires
+let encryptionModule: { encrypt: (value: string) => string; decrypt: (value: string) => string } | null = null;
+
+function getEncryptionModule() {
+  if (!encryptionModule) {
+    // In test environment, use no-op encryption for simplicity
+    if (process.env.NODE_ENV === 'test') {
+      encryptionModule = {
+        encrypt: (value: string) => value,
+        decrypt: (value: string) => value,
+      };
+    } else {
+      // Load production encryption from standard path
+      // Fail fast with clear error if module can't be loaded
+      try {
+        encryptionModule = require('../server/utils/encryption');
+      } catch (error) {
+        throw new Error(
+          'Failed to load encryption module. ' +
+          'This is required for database field encryption. ' +
+          `Path: server/utils/encryption.ts. Error: ${(error as Error).message}`
+        );
+      }
+    }
+  }
+  return encryptionModule;
+}
+
 const encryptedText = customType<{ data: string; driverData: string }>({
   dataType() {
     return "text";
@@ -43,8 +74,7 @@ const encryptedText = customType<{ data: string; driverData: string }>({
       throw new Error('encryptedText type can only be used on the server side');
     }
 
-    // Dynamic import to avoid bundling server code in client
-    const { encrypt } = require('../server/utils/encryption');
+    const { encrypt } = getEncryptionModule();
     return encrypt(value);
   },
   fromDriver(value: string): string {
@@ -53,8 +83,7 @@ const encryptedText = customType<{ data: string; driverData: string }>({
       throw new Error('encryptedText type can only be used on the server side');
     }
 
-    // Dynamic import to avoid bundling server code in client
-    const { decrypt } = require('../server/utils/encryption');
+    const { decrypt } = getEncryptionModule();
     return decrypt(value);
   },
 });
@@ -129,6 +158,7 @@ export const priceHistory = pgTable("price_history", {
   confidence: decimal("confidence", { precision: 3, scale: 2 }).default("1.00"), // 0.00 to 1.00
   metadata: text("metadata"), // JSON - Additional context about price change
   recordedAt: timestamp("recorded_at").notNull(), // When this price snapshot was recorded
+  aggregatedAt: timestamp("aggregated_at"), // When this record was aggregated (for cleanup)
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   // Index for querying history by product offer
@@ -140,6 +170,8 @@ export const priceHistory = pgTable("price_history", {
   retailerIdIdx: index("idx_price_history_retailer_id").on(table.retailerId, table.recordedAt),
   // Index for time-series queries
   recordedAtIdx: index("idx_price_history_recorded_at").on(table.recordedAt),
+  // Index for aggregation queries
+  aggregatedAtIdx: index("idx_price_history_aggregated_at").on(table.aggregatedAt),
 }));
 
 // Users table for authentication with Discourse-like features
@@ -865,6 +897,42 @@ export const priceAggregatesMonthly = pgTable("price_aggregates_monthly", {
 }));
 
 /**
+ * Daily price aggregates for short-term analysis
+ *
+ * Stores aggregated price statistics per product/retailer/day combination.
+ * Enables day-over-day comparison and replaces raw price history for 30-90 day range.
+ * Part of data lifecycle: 0-30d raw, 30-90d daily, 90-365d weekly, 1y+ monthly.
+ *
+ * @table price_aggregates_daily
+ * @unique product_id, retailer_id, date
+ */
+export const priceAggregatesDaily = pgTable("price_aggregates_daily", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+  retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: "cascade" }).notNull(),
+
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD format
+
+  minPrice: decimal("min_price", { precision: 10, scale: 2 }).notNull(),
+  maxPrice: decimal("max_price", { precision: 10, scale: 2 }).notNull(),
+  avgPrice: decimal("avg_price", { precision: 10, scale: 2 }).notNull(),
+  medianPrice: decimal("median_price", { precision: 10, scale: 2 }),
+  volatilityScore: decimal("volatility_score", { precision: 5, scale: 2 }),
+
+  recordCount: integer("record_count").notNull().default(0),
+  dayOverDayChange: decimal("day_over_day_change", { precision: 5, scale: 2 }),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  productDateIdx: index("daily_product_date_idx").on(table.productId, table.date),
+  retailerDateIdx: index("daily_retailer_date_idx").on(table.retailerId, table.date),
+  dateIdx: index("daily_date_idx").on(table.date),
+  createdAtIdx: index("daily_created_idx").on(table.createdAt),
+  uniqueProductRetailerDate: unique("unique_product_retailer_date").on(table.productId, table.retailerId, table.date),
+}));
+
+/**
  * Price trends and predictions using linear regression
  *
  * Stores calculated price trends (uptrend/downtrend/stable) with statistical
@@ -987,6 +1055,12 @@ export const insertPriceAggregateMonthlySchema = createInsertSchema(priceAggrega
   updatedAt: true,
 });
 
+export const insertPriceAggregateDailySchema = createInsertSchema(priceAggregatesDaily).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertPriceTrendSchema = createInsertSchema(priceTrends).omit({
   id: true,
   createdAt: true,
@@ -1016,6 +1090,7 @@ export type PricePrediction = typeof pricePredictions.$inferSelect;
 export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
 export type PriceAggregateWeekly = typeof priceAggregatesWeekly.$inferSelect;
 export type PriceAggregateMonthly = typeof priceAggregatesMonthly.$inferSelect;
+export type PriceAggregateDaily = typeof priceAggregatesDaily.$inferSelect;
 export type PriceTrend = typeof priceTrends.$inferSelect;
 export type ScrapingSource = typeof scrapingSources.$inferSelect;
 export type ProductUrl = typeof productUrls.$inferSelect;
@@ -1029,6 +1104,7 @@ export type InsertPricePrediction = z.infer<typeof insertPricePredictionSchema>;
 export type InsertPriceSnapshot = z.infer<typeof insertPriceSnapshotSchema>;
 export type InsertPriceAggregateWeekly = z.infer<typeof insertPriceAggregateWeeklySchema>;
 export type InsertPriceAggregateMonthly = z.infer<typeof insertPriceAggregateMonthlySchema>;
+export type InsertPriceAggregateDaily = z.infer<typeof insertPriceAggregateDailySchema>;
 export type InsertPriceTrend = z.infer<typeof insertPriceTrendSchema>;
 export type InsertScrapingSource = z.infer<typeof insertScrapingSourceSchema>;
 export type InsertProductUrl = z.infer<typeof insertProductUrlSchema>;

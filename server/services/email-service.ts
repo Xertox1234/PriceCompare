@@ -1,6 +1,44 @@
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { log } from '../vite';
+import { z } from 'zod';
+
+/**
+ * Escape HTML special characters to prevent XSS attacks
+ * @param unsafe - Unsafe string that may contain HTML
+ * @returns HTML-safe string
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Validation schema for password reset email parameters
+ */
+const sendPasswordResetEmailSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  resetToken: z.string()
+    .min(32, 'Reset token too short')
+    .max(256, 'Reset token too long'),
+  username: z.string()
+    .min(1, 'Username required')
+    .max(200, 'Username too long'),
+});
+
+/**
+ * Validation schema for password reset confirmation email parameters
+ */
+const sendPasswordResetConfirmationEmailSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  username: z.string()
+    .min(1, 'Username required')
+    .max(200, 'Username too long'),
+});
 
 interface EmailConfig {
   host: string;
@@ -85,7 +123,15 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string, username: string): Promise<boolean> {
-    const resetUrl = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
+    // Validate inputs
+    const validated = sendPasswordResetEmailSchema.parse({
+      email,
+      resetToken,
+      username,
+    });
+
+    const resetUrl = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${validated.resetToken}`;
+    const safeUsername = escapeHtml(validated.username); // XSS Prevention: Escape username for HTML
 
     const subject = 'Password Reset Request - PriceCompare';
 
@@ -160,7 +206,7 @@ class EmailService {
           <h1>Password Reset Request</h1>
         </div>
         <div class="content">
-          <p>Hi ${username},</p>
+          <p>Hi ${safeUsername},</p>
 
           <p>We received a request to reset your password for your PriceCompare account. If you made this request, click the button below to reset your password:</p>
 
@@ -223,7 +269,7 @@ This is an automated email, please do not reply.
     `.trim();
 
     return this.sendEmail({
-      to: email,
+      to: validated.email,
       subject,
       html,
       text,
@@ -231,6 +277,14 @@ This is an automated email, please do not reply.
   }
 
   async sendPasswordResetConfirmationEmail(email: string, username: string): Promise<boolean> {
+    // Validate inputs
+    const validated = sendPasswordResetConfirmationEmailSchema.parse({
+      email,
+      username,
+    });
+
+    const safeUsername = escapeHtml(validated.username); // XSS Prevention: Escape username for HTML
+
     const subject = 'Password Successfully Reset - PriceCompare';
 
     const html = `
@@ -288,7 +342,7 @@ This is an automated email, please do not reply.
           <h1>✓ Password Reset Successful</h1>
         </div>
         <div class="content">
-          <p>Hi ${username},</p>
+          <p>Hi ${safeUsername},</p>
 
           <div class="success">
             <strong>Your password has been successfully reset.</strong>
@@ -323,7 +377,7 @@ This is an automated email, please do not reply.
     `;
 
     const text = `
-Hi ${username},
+Hi ${validated.username},
 
 ✓ Your password has been successfully reset.
 
@@ -349,7 +403,7 @@ This is an automated email, please do not reply.
     `.trim();
 
     return this.sendEmail({
-      to: email,
+      to: validated.email,
       subject,
       html,
       text,

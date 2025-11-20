@@ -7,7 +7,7 @@ import {
   type InsertNotification,
   type InsertNotificationPreferences
 } from "@shared/schema";
-import { eq, and, desc, count, gte, sql } from "drizzle-orm";
+import { eq, and, desc, count, gte, sql, inArray } from "drizzle-orm";
 import { getFirstResult } from "../utils/db-helpers";
 
 /**
@@ -63,25 +63,39 @@ export async function getUserNotifications(
 
 /**
  * Get notification statistics for a user
+ * Uses database aggregation for optimal performance
  */
 export async function getNotificationStats(userId: number): Promise<NotificationStats> {
-  const allNotifications = await db
-    .select()
+  // Get total and unread counts in a single query
+  const [counts] = await db
+    .select({
+      total: count(),
+      unread: sql<number>`count(*) FILTER (WHERE ${notifications.isRead} = false)::int`,
+    })
     .from(notifications)
     .where(eq(notifications.userId, userId));
 
-  const stats: NotificationStats = {
-    total: allNotifications.length,
-    unread: allNotifications.filter(n => !n.isRead).length,
-    byType: {},
-  };
+  // Get counts by type using GROUP BY
+  const typeRows = await db
+    .select({
+      type: notifications.type,
+      count: count(),
+    })
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .groupBy(notifications.type);
 
-  // Count by type
-  allNotifications.forEach(notification => {
-    stats.byType[notification.type] = (stats.byType[notification.type] || 0) + 1;
+  // Build byType object from rows
+  const byType: Record<string, number> = {};
+  typeRows.forEach(row => {
+    byType[row.type] = Number(row.count);
   });
 
-  return stats;
+  return {
+    total: Number(counts?.total || 0),
+    unread: counts?.unread || 0,
+    byType,
+  };
 }
 
 /**
@@ -99,7 +113,7 @@ export async function markAsRead(
     .where(
       and(
         eq(notifications.userId, userId),
-        sql`${notifications.id} = ANY(${ids})`
+        inArray(notifications.id, ids)
       )
     )
     .returning();
@@ -246,6 +260,8 @@ export async function getUserPreferences(userId: number): Promise<NotificationPr
 
 /**
  * Create default notification preferences for a user
+ * Uses ON CONFLICT to handle race conditions when multiple requests
+ * try to create preferences simultaneously
  */
 export async function createDefaultPreferences(
   userId: number
@@ -263,10 +279,22 @@ export async function createDefaultPreferences(
     quietHoursEnd: null,
   };
 
+  // Use ON CONFLICT to handle concurrent creation attempts
   const result = await db
     .insert(notificationPreferences)
     .values(defaultPrefs)
+    .onConflictDoNothing({ target: notificationPreferences.userId })
     .returning();
+
+  // If conflict occurred (result is empty), fetch the existing preference
+  if (result.length === 0) {
+    const existing = await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId))
+      .limit(1);
+    return existing[0];
+  }
 
   return result[0];
 }

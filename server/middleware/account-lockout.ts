@@ -9,6 +9,15 @@ import { cleanupManager } from '../utils/cleanup-manager';
  * Prevents brute force attacks by locking accounts after too many failed attempts
  */
 
+// Extend Express Request type to avoid 'any' usage
+declare global {
+  namespace Express {
+    interface Request {
+      loginEmail?: string;
+    }
+  }
+}
+
 interface FailedLoginAttempt {
   email: string;
   attempts: number;
@@ -182,7 +191,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
   }
 
   // Store email in request for use in login handler
-  (req as any).loginEmail = email;
+  req.loginEmail = email;
   next();
 }
 
@@ -224,4 +233,19 @@ export function unlockAccount(email: string): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * Reset all failed login attempts (for testing only)
+ * WARNING: Only use this in test environments
+ * @throws {Error} If called outside of test environment
+ */
+export function resetFailedAttempts(): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      'resetFailedAttempts() is only available in test environment. ' +
+      'This prevents accidental rate limit bypass in production.'
+    );
+  }
+  failedAttempts.clear();
 }

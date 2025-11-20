@@ -5,7 +5,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { users } from '../shared/schema';
 import { sharedUsers } from '../shared/auth-schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { User as DatabaseUser } from '../shared/schema';
 import type { SharedUser } from '../shared/auth-schema';
 import { recordFailedLogin, clearFailedLogins, isAccountLocked } from './middleware/account-lockout';
@@ -50,6 +50,7 @@ passport.use(new LocalStrategy(
         } as ExtendedVerifyOptions);
       }
 
+      // Case-insensitive email lookup using LOWER() for better UX
       const userResult = await db
         .select({
           id: users.id,
@@ -76,7 +77,7 @@ passport.use(new LocalStrategy(
           updatedAt: users.updatedAt,
         })
         .from(users)
-        .where(eq(users.email, email))
+        .where(sql`LOWER(${users.email}) = LOWER(${email})`)
         .limit(1);
 
       if (!userResult.length) {
