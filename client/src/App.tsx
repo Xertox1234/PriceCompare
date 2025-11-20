@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SharedNavigation } from "@/components/shared-navigation";
+import { RateLimitBanner } from "@/components/RateLimitBanner";
 import { NewFooter } from "@/components/new-footer";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +35,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-background">
       <SharedNavigation />
+      <RateLimitBanner />
       <main className="container mx-auto px-6 py-12">
         <Switch>
           <Route path="/" component={Home} />

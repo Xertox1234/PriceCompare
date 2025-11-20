@@ -10,20 +10,9 @@ import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
+import { RATE_LIMIT_TIERS } from '../utils/constants';
 
 const log = createLogger('RateLimiter');
-
-/**
- * Rate limit tier multipliers
- * These multipliers are applied to the base maxRequests value
- */
-const TIER_MULTIPLIERS = {
-  admin: 100,      // 100x default limit
-  moderator: 10,   // 10x default limit
-  premium: 5,      // 5x default limit
-  user: 1,         // 1x default limit (baseline)
-  free: 0.5,       // 0.5x default limit (half)
-} as const;
 
 /**
  * Configuration options for rate limiting
@@ -115,7 +104,35 @@ interface AuthenticatedUser {
 
 /**
  * Get rate limit based on user tier
- * Uses pre-defined tier multipliers for performance
+ *
+ * Calculates the appropriate rate limit for a user based on their role/tier.
+ * Uses tier multipliers from RATE_LIMIT_TIERS constant to scale the base limit.
+ *
+ * Tier calculation logic:
+ * 1. If no tiers configured, use default maxRequests
+ * 2. Extract user role from req.user (set by auth middleware)
+ * 3. Apply tier multiplier to base maxRequests
+ * 4. Allow custom tier overrides via options.tiers
+ * 5. Default to 'free' tier if user not authenticated
+ *
+ * Security considerations:
+ * - Validates role is a string with max length 20 to prevent injection
+ * - Defaults to most restrictive tier (free) on invalid input
+ * - Treats limit of 0 as unlimited (for admin overrides)
+ *
+ * @param req - Express request object with optional user property
+ * @param options - Rate limit configuration with optional tier overrides
+ * @returns Object containing calculated limit and applied tier name
+ *
+ * @example
+ * // Anonymous user with base limit 100
+ * getRateLimitForUser(req, { maxRequests: 100, tiers: {} })
+ * // Returns: { limit: 50, tier: 'free' } (0.5x multiplier)
+ *
+ * @example
+ * // Admin user with base limit 100
+ * getRateLimitForUser(req, { maxRequests: 100, tiers: {} })
+ * // Returns: { limit: 10000, tier: 'admin' } (100x multiplier)
  */
 function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: number; tier: string } {
   // If no tiers defined, use default
@@ -135,20 +152,20 @@ function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: 
 
   switch (userRole) {
     case 'admin':
-      limit = options.tiers.admin ?? options.maxRequests * TIER_MULTIPLIERS.admin;
+      limit = options.tiers.admin ?? options.maxRequests * RATE_LIMIT_TIERS.admin.multiplier;
       break;
     case 'moderator':
-      limit = options.tiers.moderator ?? options.maxRequests * TIER_MULTIPLIERS.moderator;
+      limit = options.tiers.moderator ?? options.maxRequests * RATE_LIMIT_TIERS.moderator.multiplier;
       break;
     case 'premium':
-      limit = options.tiers.premium ?? options.maxRequests * TIER_MULTIPLIERS.premium;
+      limit = options.tiers.premium ?? options.maxRequests * RATE_LIMIT_TIERS.premium.multiplier;
       break;
     case 'user':
-      limit = options.tiers.user ?? options.maxRequests * TIER_MULTIPLIERS.user;
+      limit = options.tiers.user ?? options.maxRequests * RATE_LIMIT_TIERS.user.multiplier;
       break;
     case 'free':
     default:
-      limit = options.tiers.free ?? Math.floor(options.maxRequests * TIER_MULTIPLIERS.free);
+      limit = options.tiers.free ?? Math.floor(options.maxRequests * RATE_LIMIT_TIERS.free.multiplier);
       break;
   }
 
@@ -261,7 +278,73 @@ function checkRateLimitMemory(
 }
 
 /**
- * Create a rate limiter middleware
+ * Create a rate limiter middleware with tiered limits
+ *
+ * Creates an Express middleware that enforces rate limits based on user tier/role.
+ * Uses Redis for distributed rate limiting (with in-memory fallback) and implements
+ * a sliding window counter algorithm for accurate rate tracking.
+ *
+ * Tiered Rate Limiting:
+ * - Automatically adjusts rate limits based on user authentication and role
+ * - Uses tier multipliers from RATE_LIMIT_TIERS constant
+ * - Anonymous/free users: 0.5x base limit (most restrictive)
+ * - Standard users: 1x base limit (baseline)
+ * - Premium users: 5x base limit
+ * - Moderators: 10x base limit
+ * - Admins: 100x base limit (least restrictive)
+ *
+ * Response Headers:
+ * - X-RateLimit-Limit: Total requests allowed in window
+ * - X-RateLimit-Remaining: Requests remaining in current window
+ * - X-RateLimit-Reset: Timestamp when window resets (Unix seconds)
+ * - X-RateLimit-Tier: Applied tier (free/user/premium/moderator/admin)
+ *
+ * Storage Strategy:
+ * 1. Attempts Redis-based rate limiting (distributed, multi-server safe)
+ * 2. Falls back to in-memory storage if Redis unavailable (single server only)
+ * 3. Fails open on errors (allows request to proceed) to prevent DoS
+ *
+ * Security Features:
+ * - Logs rate limit violations for security monitoring
+ * - Validates user roles to prevent privilege escalation
+ * - Returns 429 status with retry-after header when limit exceeded
+ * - Uses IP address as fallback identifier for unauthenticated users
+ *
+ * @param options - Rate limit configuration
+ * @param options.windowMs - Time window in milliseconds (e.g., 15 * 60 * 1000 for 15 minutes)
+ * @param options.maxRequests - Maximum requests per window for baseline tier
+ * @param options.message - Optional custom error message for rate limit exceeded
+ * @param options.keyGenerator - Optional custom key generator function (defaults to IP address)
+ * @param options.tiers - Optional custom tier limits (overrides multiplier-based calculation)
+ *
+ * @returns Express middleware function
+ *
+ * @example
+ * // General API rate limiting with tiered limits
+ * app.use('/api', createRateLimiter({
+ *   windowMs: 15 * 60 * 1000, // 15 minutes
+ *   maxRequests: 100, // 100 for users, 50 for free, 500 for premium
+ *   tiers: {}, // Enable tiered limits with default multipliers
+ * }));
+ *
+ * @example
+ * // Strict auth endpoint limiting (no tiers)
+ * app.use('/api/auth', createRateLimiter({
+ *   windowMs: 15 * 60 * 1000,
+ *   maxRequests: 10, // Same for all users
+ *   // No tiers = strict limit for security
+ * }));
+ *
+ * @example
+ * // Custom tier limits
+ * app.use('/api/premium', createRateLimiter({
+ *   windowMs: 60 * 1000,
+ *   maxRequests: 100,
+ *   tiers: {
+ *     premium: 1000, // Override: premium gets 1000 instead of 500
+ *     user: 0, // Override: block non-premium users
+ *   },
+ * }));
  */
 export function createRateLimiter(options: RateLimitOptions) {
   const keyGen = options.keyGenerator || defaultKeyGenerator;

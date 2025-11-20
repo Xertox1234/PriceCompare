@@ -103,7 +103,6 @@ app.use(sanitizeInput);
   // SECURITY: Setup rate limiting
   // Production: MUST use Redis (fail fast if unavailable - checked above)
   // Development: Fallback to in-memory with warnings
-  const rateLimiterMiddleware = redisClient ? redisRateLimiter : rateLimiter;
   const limiterSource = redisClient ? 'Redis (distributed)' : 'in-memory (single server)';
   log(`Rate limiting using: ${limiterSource}`);
 
@@ -114,19 +113,44 @@ app.use(sanitizeInput);
     process.exit(1);
   }
 
-  // Global rate limiting - 100 requests per 15 minutes per IP
-  app.use('/api', rateLimiterMiddleware({
-    windowMs: RATE_LIMIT.WINDOW_MS,
-    maxRequests: RATE_LIMIT.MAX_REQUESTS,
-    message: 'Too many requests from this IP, please try again later'
-  }));
+  // Global rate limiting with tiered limits (Redis only) or flat limits (in-memory fallback)
+  if (redisClient) {
+    // Redis available: Use tiered rate limiting based on user role
+    // - Free/Anonymous: 50 req/15min (0.5x multiplier)
+    // - User: 100 req/15min (1x baseline)
+    // - Premium: 500 req/15min (5x multiplier)
+    // - Moderator: 1000 req/15min (10x multiplier)
+    // - Admin: 10,000 req/15min (100x multiplier)
+    app.use('/api', redisRateLimiter({
+      windowMs: RATE_LIMIT.WINDOW_MS,
+      maxRequests: RATE_LIMIT.MAX_REQUESTS,
+      message: 'Too many requests from this IP, please try again later',
+      tiers: {}, // Enable tiered limits with default multipliers from RATE_LIMIT_TIERS
+    }));
 
-  // Stricter rate limiting for authentication endpoints
-  app.use('/api/auth', rateLimiterMiddleware({
-    windowMs: RATE_LIMIT.WINDOW_MS,
-    maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
-    message: 'Too many authentication attempts, please try again later'
-  }));
+    // Stricter rate limiting for authentication endpoints (NO TIERS for security)
+    // All users get same strict limit to prevent credential stuffing attacks
+    app.use('/api/auth', redisRateLimiter({
+      windowMs: RATE_LIMIT.WINDOW_MS,
+      maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
+      message: 'Too many authentication attempts, please try again later',
+      // No tiers property = strict limit for all users
+    }));
+  } else {
+    // Redis unavailable: Use in-memory rate limiting (development only)
+    // No tiered limits - all users get same flat limit
+    app.use('/api', rateLimiter({
+      windowMs: RATE_LIMIT.WINDOW_MS,
+      maxRequests: RATE_LIMIT.MAX_REQUESTS,
+      message: 'Too many requests from this IP, please try again later',
+    }));
+
+    app.use('/api/auth', rateLimiter({
+      windowMs: RATE_LIMIT.WINDOW_MS,
+      maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
+      message: 'Too many authentication attempts, please try again later',
+    }));
+  }
 
   // Create session store (Redis or in-memory fallback)
   // Use the Redis session client (from 'redis' package) for connect-redis v9 compatibility
