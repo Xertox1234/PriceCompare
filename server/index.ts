@@ -37,6 +37,7 @@ import { cleanupExpiredTokens } from "./services/password-reset-service";
 import { initializePriceSnapshotScheduler, triggerManualSnapshot } from "./jobs/price-snapshot-queue";
 import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
 import { startPriceAnalyticsJobs } from "./jobs/price-analytics-jobs";
+import { startPriceAggregationJobs } from "./jobs/price-aggregation-job";
 import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handler";
 import { RATE_LIMIT, SESSION } from "./utils/constants";
 import { cleanupManager } from "./utils/cleanup-manager";
@@ -292,6 +293,9 @@ app.use(sanitizeInput);
 
   // Start price analytics scheduled jobs (aggregation and trend analysis)
   startPriceAnalyticsJobs();
+
+  // Start price aggregation scheduled jobs (daily/weekly/monthly aggregates and cleanup)
+  startPriceAggregationJobs();
 
   // Password reset token cleanup - run every hour
   const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour

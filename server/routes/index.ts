@@ -8,6 +8,8 @@ import { registerAlertRoutes } from "./alert-routes";
 import { registerRetailerRoutes } from "./retailer-routes";
 import { registerProductRoutes } from "./product-routes";
 import { registerAdminRoutes } from "./admin-routes";
+import aggregationMetricsRoutes from "./aggregation-metrics-routes";
+import adminAggregationRoutes from "./admin-aggregation-routes";
 
 /**
  * Register all application routes
@@ -36,6 +38,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerRetailerRoutes(app);
   registerProductRoutes(app);
   registerAdminRoutes(app);
+  app.use('/api/aggregation-metrics', aggregationMetricsRoutes);
+  app.use('/api/admin/aggregation', adminAggregationRoutes);
 
   // Create HTTP server
   const httpServer = createServer(app);
