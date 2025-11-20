@@ -8,7 +8,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./client/src/test/setup.ts'],
+    setupFiles: ['./client/src/test/setup.ts', './server/test/setup.ts'],
+    fileParallelism: false, // Disable file parallelism to prevent database deadlocks in service tests
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
@@ -20,17 +21,58 @@ export default defineConfig({
     ],
     css: true,
     coverage: {
-      reporter: ['text', 'json', 'html'],
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      reportsDirectory: './coverage',
       exclude: [
+        // Dependencies
         'node_modules/',
-        'src/test/',
+        'dist/',
+
+        // Test files
+        '**/__tests__/**',
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/*.spec.ts',
+        '**/*.spec.tsx',
+        'client/src/test/**',
+        'server/test/**',
+        'e2e/**',
+
+        // Config files
         '**/*.d.ts',
         '**/*.config.*',
-        'src/main.tsx',
-        'src/components/ui/**', // shadcn/ui components are already tested
+        'vitest.config.ts',
+        'playwright.config.ts',
+        'tailwind.config.ts',
+        'postcss.config.js',
+
+        // Build and tooling
+        'scripts/**',
+        'migrations/**',
+        '.claude/**',
+
+        // Entry points (minimal logic)
+        'client/src/main.tsx',
+        'server/index.ts',
+
+        // Third-party components
+        'client/src/components/ui/**', // shadcn/ui components are already tested upstream
+
+        // Static assets and docs
         'download_package/',
         'attached_assets/',
-        'docs/'
+        'docs/',
+        'public/',
+
+        // Generated files
+        '**/*.generated.ts',
+        '**/generated/**'
+      ],
+      include: [
+        'client/src/**/*.{ts,tsx}',
+        'server/**/*.{ts,tsx}',
+        'shared/**/*.{ts,tsx}'
       ],
       thresholds: {
         global: {
@@ -38,8 +80,25 @@ export default defineConfig({
           functions: 80,
           lines: 80,
           statements: 80
+        },
+        // Per-file thresholds can be stricter for critical files
+        'server/auth.ts': {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90
+        },
+        'server/middleware/csrf.ts': {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90
         }
-      }
+      },
+      // Fail CI if coverage drops below thresholds
+      all: true,
+      skipFull: false,
+      clean: true
     }
   },
   resolve: {
