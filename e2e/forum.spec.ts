@@ -466,7 +466,7 @@ async function seedTestData() {
 /**
  * Helper to create a forum topic
  */
-async function createTopic(page: any, title: string, content: string) {
+async function createTopic(page: Page, title: string, content: string) {
   await page.goto('/forum');
   await page.waitForLoadState('networkidle');
 

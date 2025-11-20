@@ -429,7 +429,7 @@ async function seedTestData() {
 /**
  * Helper to create alert via API
  */
-async function createAlertViaApi(page: any, productName: string, targetPrice: number) {
+async function createAlertViaApi(page: Page, productName: string, targetPrice: number) {
   await page.goto('/alerts/new');
   await page.waitForLoadState('networkidle');
 
