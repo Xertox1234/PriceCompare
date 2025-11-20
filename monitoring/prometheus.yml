@@ -1,0 +1,157 @@
+# Prometheus Configuration for PriceCompare Price Aggregation Monitoring
+#
+# This configuration scrapes metrics from the price aggregation system
+# and includes basic Prometheus self-monitoring.
+
+global:
+  # How frequently to scrape targets
+  scrape_interval: 15s
+
+  # How frequently to evaluate rules
+  evaluation_interval: 15s
+
+  # Timeout for scraping targets
+  scrape_timeout: 10s
+
+  # External labels to attach to any time series or alerts
+  external_labels:
+    environment: 'production'
+    cluster: 'price-compare'
+    monitor: 'prometheus'
+
+# Load alert rules from external files
+rule_files:
+  - '/etc/prometheus/aggregation-alerts.yml'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+      scheme: http
+      timeout: 10s
+
+# Scrape configurations
+scrape_configs:
+  # ============================================
+  # Price Aggregation Metrics
+  # ============================================
+  - job_name: 'price-aggregation'
+
+    # Scrape frequently for timely alerting
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+    # Metrics path
+    metrics_path: '/api/aggregation-metrics/prometheus'
+
+    # Target configuration
+    static_configs:
+      - targets:
+          - 'price-app:5000'
+        labels:
+          service: 'price-compare'
+          component: 'aggregation'
+          tier: 'backend'
+
+    # Relabel configurations (optional)
+    # Useful for adding/modifying labels from service discovery
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: [__scheme__]
+        target_label: scheme
+
+  # ============================================
+  # Application Health Check
+  # ============================================
+  - job_name: 'price-aggregation-health'
+
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+    # Use /health endpoint to check for warnings
+    metrics_path: '/api/aggregation-metrics/health'
+
+    static_configs:
+      - targets:
+          - 'price-app:5000'
+        labels:
+          service: 'price-compare'
+          component: 'health-check'
+
+    # This endpoint returns JSON, so we'll use metric_relabel_configs
+    # to extract useful metrics from the health status
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'up'
+        action: keep
+
+  # ============================================
+  # Prometheus Self-Monitoring
+  # ============================================
+  - job_name: 'prometheus'
+
+    scrape_interval: 15s
+
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+        labels:
+          service: 'monitoring'
+          component: 'prometheus'
+
+  # ============================================
+  # AlertManager Monitoring
+  # ============================================
+  - job_name: 'alertmanager'
+
+    scrape_interval: 15s
+
+    static_configs:
+      - targets:
+          - 'alertmanager:9093'
+        labels:
+          service: 'monitoring'
+          component: 'alertmanager'
+
+  # ============================================
+  # Optional: Redis Exporter
+  # ============================================
+  # Uncomment if you add redis_exporter to docker-compose
+  # - job_name: 'redis'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets:
+  #         - 'redis-exporter:9121'
+  #       labels:
+  #         service: 'cache'
+  #         component: 'redis'
+
+  # ============================================
+  # Optional: PostgreSQL Exporter
+  # ============================================
+  # Uncomment if you add postgres_exporter to docker-compose
+  # - job_name: 'postgresql'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets:
+  #         - 'postgres-exporter:9187'
+  #       labels:
+  #         service: 'database'
+  #         component: 'postgresql'
+
+# ============================================
+# Storage Configuration
+# ============================================
+storage:
+  tsdb:
+    # Retention time for metrics (default: 15 days)
+    retention.time: 30d
+
+    # Maximum size of storage (optional)
+    # retention.size: 10GB
+
+    # Path where metrics are stored
+    path: /prometheus

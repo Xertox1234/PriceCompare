@@ -1,0 +1,238 @@
+# Docker Compose Monitoring Stack Extension
+#
+# This file extends the main docker-compose.yml with monitoring services.
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml up
+#
+# Services added:
+# - Prometheus (metrics collection) - http://localhost:9090
+# - AlertManager (alert routing) - http://localhost:9093
+# - Grafana (visualization) - http://localhost:3001
+
+version: '3.8'
+
+services:
+  # ============================================
+  # Prometheus - Metrics Collection & Alerting
+  # ============================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pricecompare-prometheus
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      # Configuration files
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/aggregation-alerts.yml:/etc/prometheus/aggregation-alerts.yml:ro
+
+      # Data persistence
+      - prometheus-data:/prometheus
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      # Enable admin API for management
+      - '--web.enable-admin-api'
+
+    networks:
+      - app-network
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    labels:
+      - "com.pricecompare.service=monitoring"
+      - "com.pricecompare.component=prometheus"
+
+  # ============================================
+  # AlertManager - Alert Routing & Notification
+  # ============================================
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: pricecompare-alertmanager
+
+    ports:
+      - "9093:9093"
+
+    volumes:
+      # Configuration
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+      # Data persistence (for silence state, etc.)
+      - alertmanager-data:/alertmanager
+
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      # Cluster configuration (for HA setups)
+      - '--cluster.listen-address=0.0.0.0:9094'
+
+    networks:
+      - app-network
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    labels:
+      - "com.pricecompare.service=monitoring"
+      - "com.pricecompare.component=alertmanager"
+
+  # ============================================
+  # Grafana - Metrics Visualization
+  # ============================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pricecompare-grafana
+
+    ports:
+      - "3001:3000"
+
+    environment:
+      # Admin credentials (CHANGE IN PRODUCTION!)
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
+      # Server configuration
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_SERVER_DOMAIN=localhost
+
+      # Anonymous access (disable in production)
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+
+      # Datasource configuration
+      - GF_DATASOURCES_DEFAULT_NAME=Prometheus
+
+      # Feature toggles
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+
+      # Logging
+      - GF_LOG_MODE=console
+      - GF_LOG_LEVEL=info
+
+    volumes:
+      # Data persistence
+      - grafana-data:/var/lib/grafana
+
+      # Provisioning (auto-configure datasources and dashboards)
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+
+      # Custom dashboards (create this directory and add dashboards)
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    networks:
+      - app-network
+
+    depends_on:
+      - prometheus
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    labels:
+      - "com.pricecompare.service=monitoring"
+      - "com.pricecompare.component=grafana"
+
+  # ============================================
+  # Optional: Node Exporter - System Metrics
+  # ============================================
+  # Uncomment to monitor host system metrics (CPU, memory, disk, network)
+  # node-exporter:
+  #   image: prom/node-exporter:latest
+  #   container_name: pricecompare-node-exporter
+  #
+  #   ports:
+  #     - "9100:9100"
+  #
+  #   command:
+  #     - '--path.procfs=/host/proc'
+  #     - '--path.sysfs=/host/sys'
+  #     - '--path.rootfs=/host'
+  #     - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+  #
+  #   volumes:
+  #     - /proc:/host/proc:ro
+  #     - /sys:/host/sys:ro
+  #     - /:/host:ro,rslave
+  #
+  #   networks:
+  #     - app-network
+  #
+  #   restart: unless-stopped
+  #
+  #   labels:
+  #     - "com.pricecompare.service=monitoring"
+  #     - "com.pricecompare.component=node-exporter"
+
+  # ============================================
+  # Optional: cAdvisor - Container Metrics
+  # ============================================
+  # Uncomment to monitor container resource usage
+  # cadvisor:
+  #   image: gcr.io/cadvisor/cadvisor:latest
+  #   container_name: pricecompare-cadvisor
+  #
+  #   ports:
+  #     - "8080:8080"
+  #
+  #   volumes:
+  #     - /:/rootfs:ro
+  #     - /var/run:/var/run:ro
+  #     - /sys:/sys:ro
+  #     - /var/lib/docker:/var/lib/docker:ro
+  #     - /dev/disk:/dev/disk:ro
+  #
+  #   privileged: true
+  #
+  #   networks:
+  #     - app-network
+  #
+  #   restart: unless-stopped
+  #
+  #   labels:
+  #     - "com.pricecompare.service=monitoring"
+  #     - "com.pricecompare.component=cadvisor"
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  prometheus-data:
+    driver: local
+
+  alertmanager-data:
+    driver: local
+
+  grafana-data:
+    driver: local
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  app-network:
+    external: true
+    # Uses the existing app-network from docker-compose.yml

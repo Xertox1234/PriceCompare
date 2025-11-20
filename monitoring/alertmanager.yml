@@ -1,0 +1,207 @@
+# AlertManager Configuration for PriceCompare
+#
+# Handles routing and delivery of alerts from Prometheus
+
+# Global configuration
+global:
+  # SMTP configuration for email alerts
+  # Replace with your actual SMTP server details
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@pricecompare.example.com'
+  smtp_auth_username: 'your-email@example.com'
+  smtp_auth_password: 'your-app-password'
+  smtp_require_tls: true
+
+  # Slack webhook URL (replace with your actual webhook)
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+  # Resolve timeout - how long to wait before considering alert resolved
+  resolve_timeout: 5m
+
+# Template files for custom alert formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route configuration - defines how alerts are grouped and where they go
+route:
+  # Default receiver for all alerts
+  receiver: 'default-notifications'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'component']
+
+  # How long to wait before sending initial notification for a group
+  group_wait: 10s
+
+  # How long to wait before sending notifications about new alerts in a group
+  group_interval: 5m
+
+  # How long to wait before resending an alert
+  repeat_interval: 4h
+
+  # Routes for different alert types
+  routes:
+    # Critical alerts - immediate notification via multiple channels
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 5s
+      repeat_interval: 1h
+
+    # Warning alerts - standard notification
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 12h
+
+    # Aggregation-specific alerts
+    - match:
+        component: aggregation
+      receiver: 'aggregation-alerts'
+      group_by: ['operation', 'severity']
+
+    # Data quality alerts
+    - match:
+        alert_type: data_quality
+      receiver: 'data-quality-alerts'
+
+# Inhibition rules - prevent redundant alerts
+inhibit_rules:
+  # If a critical alert is firing, silence warnings from the same service
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['service', 'component']
+
+  # If aggregation is stalled, silence other aggregation alerts
+  - source_match:
+      alertname: 'AggregationStalled'
+    target_match_re:
+      alertname: '^Aggregation.*'
+    equal: ['operation']
+
+# Receiver configurations - where alerts are sent
+receivers:
+  # Default receiver - sends to both email and Slack
+  - name: 'default-notifications'
+    email_configs:
+      - to: 'ops-team@example.com'
+        headers:
+          Subject: '[PriceCompare] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Alert: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <hr>
+          <h3>Firing Alerts:</h3>
+          {{ range .Alerts }}
+          <p>
+            <strong>{{ .Labels.alertname }}</strong><br>
+            Status: {{ .Status }}<br>
+            Started: {{ .StartsAt }}<br>
+            {{ if .Annotations.runbook_url }}<a href="{{ .Annotations.runbook_url }}">Runbook</a>{{ end }}
+          </p>
+          {{ end }}
+
+    slack_configs:
+      - channel: '#alerts'
+        title: 'Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Severity:* {{ .CommonLabels.severity }}
+          *Summary:* {{ .CommonAnnotations.summary }}
+          {{ .CommonAnnotations.description }}
+
+  # Critical alerts - immediate notification
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'on-call@example.com, ops-team@example.com'
+        headers:
+          Subject: '[CRITICAL] PriceCompare Alert - {{ .GroupLabels.alertname }}'
+          Priority: 'urgent'
+        html: |
+          <div style="background-color: #f44336; color: white; padding: 10px;">
+            <h1>🚨 CRITICAL ALERT</h1>
+          </div>
+          <h2>{{ .GroupLabels.alertname }}</h2>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          {{ if .CommonAnnotations.runbook_url }}
+          <p><a href="{{ .CommonAnnotations.runbook_url }}" style="background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none;">View Runbook</a></p>
+          {{ end }}
+
+    slack_configs:
+      - channel: '#alerts-critical'
+        username: 'AlertManager'
+        icon_emoji: ':rotating_light:'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          *Severity:* {{ .CommonLabels.severity }}
+          *Component:* {{ .CommonLabels.component }}
+          *Summary:* {{ .CommonAnnotations.summary }}
+
+          {{ .CommonAnnotations.description }}
+
+          {{ if .CommonAnnotations.runbook_url }}*Runbook:* {{ .CommonAnnotations.runbook_url }}{{ end }}
+        color: 'danger'
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'ops-team@example.com'
+        headers:
+          Subject: '[WARNING] PriceCompare - {{ .GroupLabels.alertname }}'
+
+    slack_configs:
+      - channel: '#alerts'
+        title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+        color: 'warning'
+
+  # Aggregation-specific alerts
+  - name: 'aggregation-alerts'
+    email_configs:
+      - to: 'data-team@example.com'
+        headers:
+          Subject: '[Aggregation] {{ .GroupLabels.alertname }} - {{ .GroupLabels.operation }}'
+        html: |
+          <h2>Aggregation Alert: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Operation:</strong> {{ .GroupLabels.operation }}</p>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <hr>
+          <p><em>Check the metrics dashboard for detailed information.</em></p>
+
+    slack_configs:
+      - channel: '#data-alerts'
+        title: '📊 Aggregation: {{ .GroupLabels.alertname }}'
+        text: |
+          *Operation:* {{ .GroupLabels.operation }}
+          *Severity:* {{ .CommonLabels.severity }}
+
+          {{ .CommonAnnotations.summary }}
+          {{ .CommonAnnotations.description }}
+
+  # Data quality alerts
+  - name: 'data-quality-alerts'
+    email_configs:
+      - to: 'data-team@example.com, ops-team@example.com'
+        headers:
+          Subject: '[Data Quality] {{ .GroupLabels.alertname }}'
+
+    slack_configs:
+      - channel: '#data-quality'
+        title: '🔍 Data Quality: {{ .GroupLabels.alertname }}'
+        color: '#FF9800'
+
+# Mute timers - silence alerts during maintenance windows
+# mute_time_intervals:
+#   - name: maintenance_window
+#     time_intervals:
+#       - weekdays: ['saturday', 'sunday']
+#         times:
+#           - start_time: '02:00'
+#             end_time: '04:00'
