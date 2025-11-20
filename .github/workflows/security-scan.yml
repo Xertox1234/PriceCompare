@@ -1,0 +1,251 @@
+name: Security Scanning
+
+on:
+  # Run on every PR
+  pull_request:
+    branches: [main, develop, add_scraping]
+
+  # Run on push to main
+  push:
+    branches: [main]
+
+  # Weekly scheduled scan (Monday at 9 AM UTC)
+  schedule:
+    - cron: '0 9 * * 1'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  dependency-audit:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: |
+          echo "Running npm audit..."
+          npm audit --audit-level=moderate --json > audit-results.json || true
+
+          # Parse results
+          HIGH_COUNT=$(cat audit-results.json | jq '.metadata.vulnerabilities.high // 0')
+          CRITICAL_COUNT=$(cat audit-results.json | jq '.metadata.vulnerabilities.critical // 0')
+
+          echo "High vulnerabilities: $HIGH_COUNT"
+          echo "Critical vulnerabilities: $CRITICAL_COUNT"
+
+          if [ "$CRITICAL_COUNT" -gt 0 ] || [ "$HIGH_COUNT" -gt 0 ]; then
+            echo "❌ Found $CRITICAL_COUNT critical and $HIGH_COUNT high vulnerabilities"
+            npm audit --audit-level=moderate
+            exit 1
+          fi
+
+          echo "✅ No high or critical vulnerabilities found"
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-results
+          path: audit-results.json
+          retention-days: 30
+
+  secret-scanning:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better detection
+
+      - name: Run TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+      - name: Manual secret patterns check
+        run: |
+          echo "Scanning for hardcoded secrets..."
+
+          SECRETS_FOUND=0
+
+          # AWS keys
+          if grep -rE "AKIA[0-9A-Z]{16}" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --exclude-dir=node_modules --exclude-dir=.git; then
+            echo "❌ Found potential AWS access key"
+            SECRETS_FOUND=$((SECRETS_FOUND + 1))
+          fi
+
+          # Private keys
+          if grep -rE "-----BEGIN.*PRIVATE KEY-----" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --exclude-dir=node_modules --exclude-dir=.git; then
+            echo "❌ Found private key"
+            SECRETS_FOUND=$((SECRETS_FOUND + 1))
+          fi
+
+          # Generic API keys (with length check)
+          if grep -rE "(api_key|apikey|api-key).*[:=].*['\"][a-zA-Z0-9]{20,}['\"]" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --exclude-dir=node_modules --exclude-dir=.git | grep -v "process.env" | grep -v "example" | grep -v "CHANGE_THIS"; then
+            echo "❌ Found potential hardcoded API key"
+            SECRETS_FOUND=$((SECRETS_FOUND + 1))
+          fi
+
+          if [ $SECRETS_FOUND -gt 0 ]; then
+            echo ""
+            echo "❌ Found $SECRETS_FOUND potential secret(s)"
+            echo "Review and remove any hardcoded credentials"
+            exit 1
+          fi
+
+          echo "✅ No hardcoded secrets detected"
+
+  security-tests:
+    name: Security Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security test suite
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+          NODE_ENV: test
+          SESSION_SECRET: test-secret
+          CSRF_SECRET: test-csrf-secret
+        run: npm run test:security
+
+      - name: Check sanitization coverage
+        run: |
+          echo "Checking DOMPurify sanitization test coverage..."
+          npm run test:coverage -- server/__tests__/security/sanitization.test.ts
+
+  docker-security:
+    name: Docker Image Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image (if Dockerfile exists)
+        run: |
+          if [ -f "Dockerfile.app" ]; then
+            docker build -f Dockerfile.app -t pricecompare:${{ github.sha }} .
+          else
+            echo "⚠️ No Dockerfile.app found, skipping Docker scan"
+            exit 0
+          fi
+
+      - name: Run Trivy vulnerability scanner
+        if: hashFiles('Dockerfile.app') != ''
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'pricecompare:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        if: hashFiles('Dockerfile.app') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  security-report:
+    name: Security Report Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, secret-scanning, security-tests]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Audit | ${{ needs.dependency-audit.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scanning | ${{ needs.secret-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Tests | ${{ needs.security-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.dependency-audit.result }}" != "success" ] || \
+             [ "${{ needs.secret-scanning.result }}" != "success" ] || \
+             [ "${{ needs.security-tests.result }}" != "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Security issues detected. Review failed checks above.**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All security checks passed!**" >> $GITHUB_STEP_SUMMARY

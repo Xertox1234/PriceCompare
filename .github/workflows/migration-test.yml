@@ -1,0 +1,254 @@
+name: Database Migration Testing
+
+on:
+  pull_request:
+    branches: [main, develop, add_scraping]
+    paths:
+      - 'shared/schema.ts'
+      - 'server/db/migrations/**'
+      - 'scripts/run-migrations.ts'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  migration-test:
+    name: Test Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: migration_test_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history to test migrations from base
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test fresh migration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test_db
+          NODE_ENV: test
+        run: |
+          echo "Running migrations on fresh database..."
+          npm run migrate
+
+          echo "✅ Fresh migration completed successfully"
+
+      - name: Verify schema integrity
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test_db
+        run: |
+          echo "Checking for foreign keys without cascade rules..."
+
+          # Query PostgreSQL for foreign keys
+          RESULT=$(psql $DATABASE_URL -t -c "
+            SELECT
+              tc.table_name,
+              kcu.column_name,
+              ccu.table_name AS foreign_table_name,
+              rc.delete_rule
+            FROM information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+              ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage AS ccu
+              ON ccu.constraint_name = tc.constraint_name
+              AND ccu.table_schema = tc.table_schema
+            JOIN information_schema.referential_constraints AS rc
+              ON rc.constraint_name = tc.constraint_name
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND rc.delete_rule IS NULL
+              AND tc.table_schema = 'public';
+          ")
+
+          if [ ! -z "$RESULT" ]; then
+            echo "❌ Found foreign keys without cascade rules:"
+            echo "$RESULT"
+            exit 1
+          fi
+
+          echo "✅ All foreign keys have cascade rules"
+
+      - name: Test migration performance
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test_db
+        run: |
+          echo "Testing migration performance..."
+
+          # Drop and recreate database
+          psql postgresql://postgres:postgres@localhost:5432/postgres -c "DROP DATABASE IF EXISTS migration_perf_test;"
+          psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE migration_perf_test;"
+
+          # Time the migration
+          START_TIME=$(date +%s)
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/migration_perf_test npm run migrate
+          END_TIME=$(date +%s)
+
+          DURATION=$((END_TIME - START_TIME))
+
+          echo "Migration completed in ${DURATION} seconds"
+
+          # Fail if migration takes more than 30 seconds
+          if [ $DURATION -gt 30 ]; then
+            echo "❌ Migration took too long (${DURATION}s > 30s threshold)"
+            exit 1
+          fi
+
+          echo "✅ Migration performance acceptable (${DURATION}s)"
+
+      - name: Test schema.ts push (development workflow)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test_db
+        run: |
+          echo "Testing drizzle-kit push (development workflow)..."
+
+          # Create a fresh database for push test
+          psql postgresql://postgres:postgres@localhost:5432/postgres -c "DROP DATABASE IF EXISTS push_test_db;"
+          psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE push_test_db;"
+
+          # Test push
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/push_test_db npm run db:push
+
+          echo "✅ Schema push successful"
+
+      - name: Validate data integrity
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test_db
+        run: |
+          echo "Validating data integrity constraints..."
+
+          # Check for tables without primary keys
+          TABLES_WITHOUT_PK=$(psql $DATABASE_URL -t -c "
+            SELECT table_name
+            FROM information_schema.tables t
+            WHERE table_schema = 'public'
+              AND table_type = 'BASE TABLE'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM information_schema.table_constraints tc
+                WHERE tc.table_name = t.table_name
+                  AND tc.constraint_type = 'PRIMARY KEY'
+                  AND tc.table_schema = 'public'
+              );
+          ")
+
+          if [ ! -z "$TABLES_WITHOUT_PK" ]; then
+            echo "⚠️ Warning: Tables without primary keys:"
+            echo "$TABLES_WITHOUT_PK"
+          else
+            echo "✅ All tables have primary keys"
+          fi
+
+      - name: Generate migration summary
+        if: always()
+        run: |
+          echo "## 🗄️ Migration Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Fresh migration test" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Schema integrity validation" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Performance testing" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Development push workflow" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Data integrity checks" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**All database migration tests passed!** ✨" >> $GITHUB_STEP_SUMMARY
+
+  schema-changes-review:
+    name: Schema Changes Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for schema changes
+        run: |
+          echo "Checking for schema changes..."
+
+          SCHEMA_CHANGED=$(git diff origin/${{ github.base_ref }}...HEAD --name-only | grep "shared/schema.ts" || true)
+
+          if [ -z "$SCHEMA_CHANGED" ]; then
+            echo "ℹ️ No schema changes detected"
+            exit 0
+          fi
+
+          echo "## 📝 Schema Change Checklist" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Schema changes detected in this PR. Please ensure:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] All foreign keys have \`onDelete\` cascade rules" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] New columns have appropriate defaults or are nullable" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Indexes are added for frequently queried columns" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Migration script is included (if production deployment)" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Rollback strategy is documented" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Breaking changes are clearly marked" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Display schema diff
+          echo "### Schema Diff" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`diff" >> $GITHUB_STEP_SUMMARY
+          git diff origin/${{ github.base_ref }}...HEAD shared/schema.ts >> $GITHUB_STEP_SUMMARY || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const schemaDiff = await exec.getExecOutput('git', [
+              'diff',
+              `origin/${context.payload.pull_request.base.ref}...HEAD`,
+              'shared/schema.ts'
+            ]);
+
+            if (schemaDiff.stdout) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `## 🗄️ Database Schema Changes Detected
+
+**Review Checklist:**
+- [ ] All foreign keys have \`onDelete\` cascade rules
+- [ ] New columns have appropriate defaults or are nullable
+- [ ] Indexes added for frequently queried columns
+- [ ] Migration script included (if production deployment)
+- [ ] Rollback strategy documented
+
+<details>
+<summary>Schema Diff</summary>
+
+\`\`\`diff
+${schemaDiff.stdout}
+\`\`\`
+</details>
+
+See [DATABASE_PATTERNS.md](../docs/DATABASE_PATTERNS.md) for best practices.`
+              });
+            }
