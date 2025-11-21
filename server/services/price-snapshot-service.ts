@@ -1,8 +1,8 @@
 import { db } from "../db";
 import { logger } from "../utils/logger";
-import { productOffers, priceHistory } from "../../shared/schema";
+import { productOffers, priceHistory, products, retailers } from "../../shared/schema";
 import type { InsertPriceHistory } from "../../shared/schema";
-import { eq, and, lte, isNotNull } from "drizzle-orm";
+import { eq, and, lte, isNotNull, sql } from "drizzle-orm";
 import { priceAggregationService } from "./price-aggregation-service";
 
 export class PriceSnapshotService {
@@ -65,6 +65,21 @@ export class PriceSnapshotService {
         return 0;
       }
 
+      // Get previous prices to detect changes
+      const previousPrices = new Map<number, number>();
+      for (const offer of offers) {
+        const [lastSnapshot] = await db
+          .select({ price: priceHistory.price })
+          .from(priceHistory)
+          .where(eq(priceHistory.productOfferId, offer.id))
+          .orderBy(sql`${priceHistory.recordedAt} DESC`)
+          .limit(1);
+
+        if (lastSnapshot) {
+          previousPrices.set(offer.id, parseFloat(lastSnapshot.price));
+        }
+      }
+
       const now = new Date();
       const snapshots = offers.map((offer) => ({
         productOfferId: offer.id,
@@ -86,6 +101,54 @@ export class PriceSnapshotService {
       logger.info(
         `[PriceSnapshot] Snapshotted ${snapshots.length} prices for product ${productId}`
       );
+
+      // Emit price update events for significant changes
+      try {
+        const { getSocketIO } = await import('../websocket');
+        const { emitPriceUpdate } = await import('../websocket/handlers/price-update-handler');
+        const io = getSocketIO();
+
+        if (io) {
+          // Get product and retailer details
+          const [productDetails] = await db
+            .select({ name: products.name })
+            .from(products)
+            .where(eq(products.id, productId))
+            .limit(1);
+
+          if (productDetails) {
+            for (const offer of offers) {
+              const previousPrice = previousPrices.get(offer.id);
+              const currentPrice = parseFloat(offer.price);
+
+              // Only emit if price changed and we have a previous price
+              if (previousPrice && previousPrice !== currentPrice) {
+                const percentageChange = ((currentPrice - previousPrice) / previousPrice) * 100;
+
+                // Get retailer name
+                const [retailerDetails] = await db
+                  .select({ name: retailers.name })
+                  .from(retailers)
+                  .where(eq(retailers.id, offer.retailerId))
+                  .limit(1);
+
+                emitPriceUpdate(io, productId, {
+                  productName: productDetails.name,
+                  retailerName: retailerDetails?.name || 'Retailer',
+                  oldPrice: previousPrice,
+                  newPrice: currentPrice,
+                  percentageChange,
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Don't fail the operation if WebSocket emit fails
+        logger.error('Failed to emit price update events:', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       return snapshots.length;
     } catch (error) {

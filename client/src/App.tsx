@@ -22,6 +22,10 @@ import ResetPassword from "@/pages/reset-password";
 import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage, LazyPriceHistoryPage, LazyAnalyticsPage, LazyWatchListManager } from "@/components/lazy";
 import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
 import { useRealtimeNotifications } from "@/hooks/useSmartNotifications";
+import { ConnectionStatus } from "@/components/connection-status";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { useWatchListUpdates } from "@/hooks/use-watchlist-updates";
+import { useNotificationUpdates } from "@/hooks/use-notification-updates";
 
 function Router() {
   const LoadingFallback = () => (
@@ -107,6 +111,15 @@ function Router() {
 }
 
 function App() {
+  // Initialize WebSocket connection for real-time updates
+  useWebSocket();
+
+  // Subscribe to real-time watch list updates
+  useWatchListUpdates();
+
+  // Subscribe to real-time notification updates
+  useNotificationUpdates();
+
   // Initialize WebSocket connection for real-time smart notifications
   useRealtimeNotifications();
 
@@ -119,6 +132,7 @@ function App() {
               <div className="min-h-screen bg-background">
                 <Router />
                 <Toaster />
+                <ConnectionStatus />
               </div>
             </TooltipProvider>
           </QueryClientProvider>

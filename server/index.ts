@@ -43,6 +43,7 @@ import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handl
 import { RATE_LIMIT, SESSION } from "./utils/constants";
 import { cleanupManager } from "./utils/cleanup-manager";
 import { createLogger } from "./utils/logger";
+import { initializeWebSocket, shutdownWebSocket } from "./websocket/index";
 
 const serverLog = createLogger('Server');
 
@@ -160,7 +161,8 @@ app.use(sanitizeInput);
   const sessionStore = await createSessionStore(redisSessionClient);
 
   // Session configuration
-  app.use(session({
+  // Store session middleware for WebSocket authentication
+  const sessionMiddleware = session({
     store: sessionStore,
     secret: getRequiredEnv('SESSION_SECRET'),
     resave: false,
@@ -171,7 +173,9 @@ app.use(sanitizeInput);
       sameSite: 'lax',
       maxAge: SESSION.MAX_AGE,
     },
-  }));
+  });
+
+  app.use(sessionMiddleware);
 
   // Initialize Passport
   app.use(passport.initialize());
@@ -263,6 +267,11 @@ app.use(sanitizeInput);
   // Initialize WebSocket service for real-time dashboard updates
   websocketService.initialize(server);
   log("WebSocket service initialized for real-time monitoring");
+
+  // Initialize WebSocket server for watch list real-time notifications
+  // Pass session middleware for authentication
+  initializeWebSocket(server, sessionMiddleware);
+  log("WebSocket server initialized for watch list notifications (path: /ws)");
 
   // SENTRY: Error handler must be BEFORE custom error handler
   app.use(sentryErrorHandler);
@@ -371,6 +380,7 @@ async function gracefulShutdown(signal: string) {
     // Step 2: Close WebSocket connections
     log('Closing WebSocket connections...');
     await websocketService.shutdown();
+    await shutdownWebSocket();
     log('WebSocket connections closed');
 
     // Step 3: Close Redis connections (both ioredis and redis clients)

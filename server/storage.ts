@@ -1161,6 +1161,24 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
 
+    // Emit WebSocket event for real-time updates
+    try {
+      const { getSocketIO } = await import('./websocket');
+      const { emitWatchListUpdate } = await import('./websocket/handlers/watch-list-handler');
+      const io = getSocketIO();
+      if (io) {
+        emitWatchListUpdate(io, userId, 'created', {
+          id: result.id,
+          name: result.name,
+          description: result.description,
+          productCount: 0,
+        });
+      }
+    } catch (error) {
+      // Don't fail the operation if WebSocket emit fails
+      console.error('Failed to emit watch list created event:', error);
+    }
+
     return result;
   }
 
@@ -1209,6 +1227,23 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Watch list not found or unauthorized');
     }
 
+    // Emit WebSocket event for real-time updates
+    try {
+      const { getSocketIO } = await import('./websocket');
+      const { emitWatchListUpdate } = await import('./websocket/handlers/watch-list-handler');
+      const io = getSocketIO();
+      if (io) {
+        emitWatchListUpdate(io, userId, 'updated', {
+          id: result.id,
+          name: result.name,
+          description: result.description,
+        });
+      }
+    } catch (error) {
+      // Don't fail the operation if WebSocket emit fails
+      console.error('Failed to emit watch list updated event:', error);
+    }
+
     return result;
   }
 
@@ -1230,6 +1265,23 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Watch list not found or unauthorized');
     }
 
+    // Emit WebSocket event for real-time updates
+    try {
+      const { getSocketIO } = await import('./websocket');
+      const { emitWatchListUpdate } = await import('./websocket/handlers/watch-list-handler');
+      const io = getSocketIO();
+      if (io) {
+        emitWatchListUpdate(io, userId, 'deleted', {
+          id: result.id,
+          name: result.name,
+          description: result.description,
+        });
+      }
+    } catch (error) {
+      // Don't fail the operation if WebSocket emit fails
+      console.error('Failed to emit watch list deleted event:', error);
+    }
+
     return result;
   }
 
@@ -1243,7 +1295,7 @@ export class DatabaseStorage implements IStorage {
     productId: number,
     userId: number
   ): Promise<ProductWatch> {
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       // Verify watch list ownership
       const [watchList] = await tx
         .select({ id: watchLists.id })
@@ -1258,9 +1310,13 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Watch list not found or unauthorized');
       }
 
-      // Check product exists
+      // Check product exists and get details for WebSocket event
       const [product] = await tx
-        .select({ id: products.id })
+        .select({
+          id: products.id,
+          name: products.name,
+          image: products.image,
+        })
         .from(products)
         .where(eq(products.id, productId))
         .limit(1);
@@ -1305,10 +1361,40 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
-      return result;
+      // Get current price for WebSocket event (optional - outside transaction critical path)
+      const offers = await tx
+        .select({ price: productOffers.price })
+        .from(productOffers)
+        .where(eq(productOffers.productId, productId))
+        .orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`))
+        .limit(1);
+
+      const currentPrice = offers.length > 0 ? parseFloat(offers[0].price) : null;
+
+      return { result, product, currentPrice };
     }, {
       isolationLevel: 'serializable' // Prevent race conditions on concurrent adds
     });
+
+    // Emit WebSocket event after transaction commits
+    try {
+      const { getSocketIO } = await import('./websocket');
+      const { emitProductAdded } = await import('./websocket/handlers/watch-list-handler');
+      const io = getSocketIO();
+      if (io) {
+        emitProductAdded(io, userId, watchListId, {
+          id: result.product.id,
+          name: result.product.name,
+          image: result.product.image,
+          currentPrice: result.currentPrice,
+        });
+      }
+    } catch (error) {
+      // Don't fail the operation if WebSocket emit fails
+      console.error('Failed to emit product added event:', error);
+    }
+
+    return result.result;
   }
 
   /**
@@ -1331,6 +1417,19 @@ export class DatabaseStorage implements IStorage {
 
     if (!result) {
       throw new Error('Product watch not found or unauthorized');
+    }
+
+    // Emit WebSocket event for real-time updates
+    try {
+      const { getSocketIO } = await import('./websocket');
+      const { emitProductRemoved } = await import('./websocket/handlers/watch-list-handler');
+      const io = getSocketIO();
+      if (io) {
+        emitProductRemoved(io, userId, watchListId, productId);
+      }
+    } catch (error) {
+      // Don't fail the operation if WebSocket emit fails
+      console.error('Failed to emit product removed event:', error);
     }
 
     return result;

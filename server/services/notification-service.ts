@@ -197,7 +197,7 @@ export async function createNotification(
 
   // RACE CONDITION: Use transaction with SERIALIZABLE isolation for limit check + creation
   // Without transaction, concurrent notifications could bypass daily limit
-  return await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     // Check daily limit within transaction
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -226,6 +226,31 @@ export async function createNotification(
   }, {
     isolationLevel: 'serializable', // Prevent concurrent notification limit bypass
   });
+
+  // Emit WebSocket event after transaction commits
+  try {
+    const { getSocketIO } = await import('../websocket');
+    const { emitNewNotification } = await import('../websocket/handlers/notification-handler');
+    const io = getSocketIO();
+    if (io) {
+      // Get updated unread count
+      const stats = await getNotificationStats(notification.userId);
+
+      emitNewNotification(io, notification.userId, {
+        id: created.id,
+        type: created.type,
+        title: created.title,
+        content: created.content,
+        priority: created.priority,
+        metadata: created.metadata,
+      }, stats.unread);
+    }
+  } catch (error) {
+    // Don't fail the operation if WebSocket emit fails
+    console.error('Failed to emit new notification event:', error);
+  }
+
+  return created;
 }
 
 /**

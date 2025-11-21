@@ -203,6 +203,7 @@ export async function checkPriceAlertsForDrop(
       productName: products.name,
       retailerName: retailers.name,
       productUrl: productOffers.productUrl,
+      price: productOffers.price,
     })
     .from(productOffers)
     .leftJoin(products, eq(productOffers.productId, products.id))
@@ -238,7 +239,36 @@ export async function checkPriceAlertsForDrop(
       relatedProductId: offer.productId,
     };
 
-    await db.insert(notifications).values(notification);
+    const [created] = await db.insert(notifications).values(notification).returning();
+
+    // Emit WebSocket price alert event
+    if (created) {
+      try {
+        const { getSocketIO } = await import('../websocket');
+        const { emitPriceAlert } = await import('../websocket/handlers/price-update-handler');
+        const io = getSocketIO();
+        if (io) {
+          const previousPrice = parseFloat(offer.price);
+          const targetPrice = parseFloat(alert.targetPrice);
+          const percentageChange = ((newPrice - previousPrice) / previousPrice) * 100;
+
+          emitPriceAlert(io, alert.userId, {
+            alertId: alert.id,
+            productId: offer.productId,
+            productName: offer.productName || 'Product',
+            currentPrice: newPrice,
+            previousPrice,
+            targetPrice,
+            percentageChange,
+            retailerName: offer.retailerName || 'Retailer',
+            retailerUrl: offer.productUrl || '',
+          });
+        }
+      } catch (error) {
+        // Don't fail the operation if WebSocket emit fails
+        console.error('Failed to emit price alert event:', error);
+      }
+    }
 
     // Optionally deactivate the alert after triggering
     // await db.update(priceAlerts)
