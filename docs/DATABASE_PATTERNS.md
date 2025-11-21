@@ -265,13 +265,87 @@ await db.transaction(async (tx) => {
 
 ### Transaction Isolation Levels
 
-#### When to Use SERIALIZABLE
-```typescript
-// Use for operations where concurrent execution causes logical errors
-await db.transaction(async (tx) => {
-  // Examples that need SERIALIZABLE:
+PostgreSQL supports multiple isolation levels. Understanding when to use each is critical for data integrity.
 
-  // 1. Sequential numbering
+#### Isolation Levels Explained
+
+| Level | Prevents | Use Case | Performance |
+|-------|----------|----------|-------------|
+| **READ COMMITTED** (default) | Dirty reads | Most operations | Fast |
+| **REPEATABLE READ** | Non-repeatable reads | Consistent snapshots | Moderate |
+| **SERIALIZABLE** | All anomalies | Race conditions in check-then-act | Slowest |
+
+#### When to Use SERIALIZABLE (CRITICAL)
+
+Use SERIALIZABLE when concurrent transactions could violate business rules even if each transaction is individually correct.
+
+**Pattern: Check-Then-Act with Limits**
+```typescript
+// ✅ CORRECT - Prevents race conditions with SERIALIZABLE
+await db.transaction(async (tx) => {
+  // Check current count
+  const [result] = await tx.select({
+    count: sql<number>`count(*)::int`
+  }).from(productWatches)
+    .where(eq(productWatches.watchListId, watchListId));
+
+  // Business rule: Maximum 100 products per watch list
+  if (result.count >= 100) {
+    throw new Error('Watch list is full (maximum 100 products)');
+  }
+
+  // Add product - SERIALIZABLE ensures count is still valid
+  await tx.insert(productWatches).values({
+    watchListId,
+    productId,
+  });
+}, {
+  isolationLevel: 'serializable', // MANDATORY for race condition prevention
+});
+```
+
+**Without SERIALIZABLE - Race Condition Example:**
+```typescript
+// ❌ WRONG - Race condition possible with default READ COMMITTED
+// Time: T1                          Time: T2
+// User A checks count = 99          User B checks count = 99
+// User A inserts (count now 100)    User B inserts (count now 101) ❌ VIOLATED LIMIT!
+await db.transaction(async (tx) => {
+  const count = await tx.select(...);
+  if (count >= 100) throw new Error('Full');
+  await tx.insert(...); // Race condition!
+});
+// Missing: { isolationLevel: 'serializable' }
+```
+
+#### Common SERIALIZABLE Use Cases
+
+**1. Limit Enforcement**
+```typescript
+// Maximum alerts per user
+await db.transaction(async (tx) => {
+  const [result] = await tx.select({
+    count: sql<number>`count(*)::int`
+  }).from(priceAlerts)
+    .where(and(
+      eq(priceAlerts.userId, userId),
+      eq(priceAlerts.status, 'active')
+    ));
+
+  if (result.count >= 10) {
+    throw new Error('Maximum 10 active alerts per user');
+  }
+
+  await tx.insert(priceAlerts).values(alertData);
+}, {
+  isolationLevel: 'serializable', // Prevents concurrent limit violations
+});
+```
+
+**2. Sequential Numbering**
+```typescript
+// Post numbers must be sequential within a topic
+await db.transaction(async (tx) => {
   const [lastPost] = await tx.select({
     postNumber: forumPosts.postNumber
   }).from(forumPosts)
@@ -287,24 +361,80 @@ await db.transaction(async (tx) => {
     content,
   });
 }, {
-  isolationLevel: 'serializable',
+  isolationLevel: 'serializable', // Prevents gaps in numbering
+});
+```
+
+**3. Conditional Updates**
+```typescript
+// Update only if condition still holds
+await db.transaction(async (tx) => {
+  const [product] = await tx.select({
+    stock: products.stock
+  }).from(products)
+    .where(eq(products.id, productId))
+    .for('update'); // Lock row
+
+  if (product.stock < quantity) {
+    throw new Error('Insufficient stock');
+  }
+
+  await tx.update(products)
+    .set({ stock: product.stock - quantity })
+    .where(eq(products.id, productId));
+}, {
+  isolationLevel: 'serializable', // Ensures stock check is still valid
 });
 ```
 
 #### Default READ COMMITTED is Fine For:
+
+**1. Simple Multi-Step Operations (No Conditionals)**
 ```typescript
-// Simple multi-step operations without conditionals
+// Create parent + children - no race condition risk
 await db.transaction(async (tx) => {
-  // Create product
   const [product] = await tx.insert(products).values(data).returning();
 
-  // Add offers (no race condition risk)
+  // No check-then-act - just insert with product.id
   await tx.insert(productOffers).values(offers.map(o => ({
     productId: product.id,
     ...o,
   })));
 });
+// No isolationLevel needed - default READ COMMITTED is fine
 ```
+
+**2. Operations on Locked Records**
+```typescript
+// Primary key lookups with updates - already exclusive
+await db.transaction(async (tx) => {
+  const [user] = await tx.select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .for('update'); // Row lock - no concurrent modification
+
+  await tx.update(users)
+    .set({ lastLogin: new Date() })
+    .where(eq(users.id, userId));
+});
+```
+
+#### Performance Considerations
+
+- **SERIALIZABLE transactions are slower** - use only when necessary
+- They can fail with serialization errors - implement retry logic
+- Default READ COMMITTED is adequate for 95% of operations
+- Use SERIALIZABLE when business rules MUST be enforced atomically
+
+#### Detecting Missing SERIALIZABLE
+
+Ask these questions:
+1. Does the transaction check a count/limit before inserting?
+2. Does it read a value and make a decision based on it?
+3. Could concurrent transactions violate a business rule?
+4. Does it calculate sequential numbers?
+
+If **YES** to any → Use `isolationLevel: 'serializable'`
 
 ### What NOT to Include in Transactions
 

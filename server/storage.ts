@@ -1,6 +1,6 @@
-import { retailers, products, productOffers, priceHistory, type Retailer, type Product, type ProductOffer, type PriceHistory, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, inArray, sql, desc, asc } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, sql, desc, asc, isNull, or } from "drizzle-orm";
 
 export interface IStorage {
   // Retailers
@@ -25,6 +25,17 @@ export interface IStorage {
   getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]>;
   getPriceTrend(productId: number): Promise<PriceTrendAnalysis>;
   getBestTimeToBuy(productId: number): Promise<BestTimeAnalysis>;
+
+  // Watch Lists
+  getUserWatchLists(userId: number): Promise<WatchListWithCount[]>;
+  getWatchListById(watchListId: number, userId: number): Promise<WatchListWithProducts | null>;
+  createWatchList(userId: number, data: { name: string; description?: string }): Promise<WatchList>;
+  updateWatchList(watchListId: number, userId: number, updates: { name?: string; description?: string }): Promise<WatchList>;
+  deleteWatchList(watchListId: number, userId: number): Promise<WatchList>;
+  addProductToWatchList(watchListId: number, productId: number, userId: number): Promise<ProductWatch>;
+  removeProductFromWatchList(watchListId: number, productId: number, userId: number): Promise<ProductWatch>;
+  getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductInfo[]>;
+  getWatchListStats(userId: number): Promise<WatchListStats>;
 }
 
 export class MemStorage implements IStorage {
@@ -419,6 +430,54 @@ export class MemStorage implements IStorage {
       recommendation: 'buy_now',
       confidenceScore: 0.5,
       priceChangeVelocity: 0,
+    };
+  }
+
+  // Watch Lists (stub implementations for in-memory storage)
+  async getUserWatchLists(_userId: number): Promise<WatchListWithCount[]> {
+    return [];
+  }
+
+  async getWatchListById(_watchListId: number, _userId: number): Promise<WatchListWithProducts | null> {
+    return null;
+  }
+
+  async createWatchList(_userId: number, _data: { name: string; description?: string }): Promise<WatchList> {
+    throw new Error('Watch lists not supported in memory storage');
+  }
+
+  async updateWatchList(_watchListId: number, _userId: number, _updates: { name?: string; description?: string }): Promise<WatchList> {
+    throw new Error('Watch lists not supported in memory storage');
+  }
+
+  async deleteWatchList(_watchListId: number, _userId: number): Promise<WatchList> {
+    throw new Error('Watch lists not supported in memory storage');
+  }
+
+  async addProductToWatchList(_watchListId: number, _productId: number, _userId: number): Promise<ProductWatch> {
+    throw new Error('Watch lists not supported in memory storage');
+  }
+
+  async removeProductFromWatchList(_watchListId: number, _productId: number, _userId: number): Promise<ProductWatch> {
+    throw new Error('Watch lists not supported in memory storage');
+  }
+
+  async getWatchedProducts(_userId: number, _options?: WatchedProductsOptions): Promise<WatchedProductInfo[]> {
+    return [];
+  }
+
+  async getWatchListStats(_userId: number): Promise<WatchListStats> {
+    return {
+      totalWatchLists: 0,
+      totalProducts: 0,
+      totalPotentialSavings: 0,
+      activeAlerts: 0,
+      triggeredAlerts: 0,
+      bestDeals: [],
+      weeklyStats: {
+        newDeals: 0,
+        triggeredAlerts: 0,
+      },
     };
   }
 }
@@ -949,6 +1008,633 @@ export class DatabaseStorage implements IStorage {
       priceChangeVelocity,
     };
   }
+
+  // Watch Lists Implementation
+
+  /**
+   * Get all watch lists for a user with product counts
+   * PERFORMANCE: Single query with LEFT JOIN and GROUP BY to count products
+   */
+  async getUserWatchLists(userId: number): Promise<WatchListWithCount[]> {
+    const results = await db
+      .select({
+        id: watchLists.id,
+        userId: watchLists.userId,
+        name: watchLists.name,
+        description: watchLists.description,
+        color: watchLists.color,
+        icon: watchLists.icon,
+        isDefault: watchLists.isDefault,
+        sortOrder: watchLists.sortOrder,
+        createdAt: watchLists.createdAt,
+        updatedAt: watchLists.updatedAt,
+        productCount: sql<number>`COUNT(${productWatches.id})::int`.as('product_count'),
+      })
+      .from(watchLists)
+      .leftJoin(productWatches, eq(watchLists.id, productWatches.watchListId))
+      .where(eq(watchLists.userId, userId))
+      .groupBy(watchLists.id)
+      .orderBy(asc(watchLists.sortOrder), asc(watchLists.createdAt));
+
+    return results;
+  }
+
+  /**
+   * Get watch list by ID with full product details
+   * PERFORMANCE: Single query with JOINs to get product details and pricing
+   * SECURITY: Verifies userId ownership before returning data
+   */
+  async getWatchListById(watchListId: number, userId: number): Promise<WatchListWithProducts | null> {
+    // First verify ownership and get watch list
+    const [watchList] = await db
+      .select({
+        id: watchLists.id,
+        name: watchLists.name,
+        description: watchLists.description,
+        color: watchLists.color,
+        icon: watchLists.icon,
+        isDefault: watchLists.isDefault,
+        sortOrder: watchLists.sortOrder,
+        createdAt: watchLists.createdAt,
+        updatedAt: watchLists.updatedAt,
+      })
+      .from(watchLists)
+      .where(and(
+        eq(watchLists.id, watchListId),
+        eq(watchLists.userId, userId) // Ownership verification
+      ))
+      .limit(1);
+
+    if (!watchList) {
+      return null;
+    }
+
+    // Get products with enriched data
+    // PERFORMANCE: Single query with aggregations for current/historical prices
+    const productResults = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        image: products.image,
+        addedAt: productWatches.createdAt,
+        // Current price from lowest active offer
+        currentPrice: sql<number | null>`
+          MIN(CAST(${productOffers.price} AS DECIMAL))
+        `.as('current_price'),
+        // Lowest historical price from price history (last 90 days)
+        lowestHistoricalPrice: sql<number | null>`
+          (
+            SELECT MIN(CAST(price AS DECIMAL))
+            FROM ${priceHistory}
+            WHERE ${priceHistory.productId} = ${products.id}
+              AND ${priceHistory.recordedAt} >= NOW() - INTERVAL '90 days'
+          )
+        `.as('lowest_historical_price'),
+      })
+      .from(productWatches)
+      .innerJoin(products, eq(productWatches.productId, products.id))
+      .leftJoin(productOffers, eq(products.id, productOffers.productId))
+      .where(eq(productWatches.watchListId, watchListId))
+      .groupBy(products.id, productWatches.createdAt)
+      .orderBy(desc(productWatches.createdAt));
+
+    // Calculate price drop percentage
+    const productsWithCalcs = productResults.map(p => {
+      const currentPrice = p.currentPrice || 0;
+      const lowestPrice = p.lowestHistoricalPrice || currentPrice;
+      const priceDropPercent = lowestPrice > 0
+        ? Math.round(((currentPrice - lowestPrice) / lowestPrice) * 100)
+        : 0;
+
+      return {
+        id: p.id,
+        name: p.name,
+        imageUrl: p.image || '',
+        addedAt: p.addedAt || new Date(),
+        currentPrice,
+        lowestHistoricalPrice: lowestPrice,
+        priceDropPercent,
+      };
+    });
+
+    return {
+      id: watchList.id,
+      name: watchList.name,
+      description: watchList.description,
+      color: watchList.color,
+      icon: watchList.icon,
+      products: productsWithCalcs,
+    };
+  }
+
+  /**
+   * Create a new watch list for a user
+   * VALIDATION: Enforces max 20 lists per user
+   */
+  async createWatchList(userId: number, data: { name: string; description?: string }): Promise<WatchList> {
+    // Check user limit (max 20 lists)
+    const [countResult] = await db
+      .select({
+        count: sql<number>`COUNT(*)::int`
+      })
+      .from(watchLists)
+      .where(eq(watchLists.userId, userId));
+
+    if (countResult.count >= 20) {
+      throw new Error('Maximum watch list limit reached (20 lists per user)');
+    }
+
+    // Validate name length
+    if (!data.name || data.name.trim().length === 0) {
+      throw new Error('Watch list name is required');
+    }
+    if (data.name.length > 100) {
+      throw new Error('Watch list name must be 100 characters or less');
+    }
+
+    const [result] = await db
+      .insert(watchLists)
+      .values({
+        userId,
+        name: data.name.trim(),
+        description: data.description?.trim() || null,
+      })
+      .returning();
+
+    return result;
+  }
+
+  /**
+   * Update watch list name/description
+   * SECURITY: Verifies userId ownership before update
+   */
+  async updateWatchList(
+    watchListId: number,
+    userId: number,
+    updates: { name?: string; description?: string }
+  ): Promise<WatchList> {
+    // Validate updates
+    if (updates.name !== undefined) {
+      if (updates.name.trim().length === 0) {
+        throw new Error('Watch list name cannot be empty');
+      }
+      if (updates.name.length > 100) {
+        throw new Error('Watch list name must be 100 characters or less');
+      }
+    }
+
+    // Build update object with only provided fields
+    const updateData: Partial<typeof watchLists.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+
+    if (updates.name !== undefined) {
+      updateData.name = updates.name.trim();
+    }
+
+    if (updates.description !== undefined) {
+      updateData.description = updates.description.trim() || null;
+    }
+
+    const [result] = await db
+      .update(watchLists)
+      .set(updateData)
+      .where(and(
+        eq(watchLists.id, watchListId),
+        eq(watchLists.userId, userId) // Ownership verification
+      ))
+      .returning();
+
+    if (!result) {
+      throw new Error('Watch list not found or unauthorized');
+    }
+
+    return result;
+  }
+
+  /**
+   * Delete watch list
+   * SECURITY: Verifies userId ownership before deletion
+   * CASCADE: productWatches entries deleted automatically by FK constraint
+   */
+  async deleteWatchList(watchListId: number, userId: number): Promise<WatchList> {
+    const [result] = await db
+      .delete(watchLists)
+      .where(and(
+        eq(watchLists.id, watchListId),
+        eq(watchLists.userId, userId) // Ownership verification
+      ))
+      .returning();
+
+    if (!result) {
+      throw new Error('Watch list not found or unauthorized');
+    }
+
+    return result;
+  }
+
+  /**
+   * Add product to watch list
+   * TRANSACTION: Atomic check and insert
+   * VALIDATION: Checks product exists, not already in list, and list limit
+   */
+  async addProductToWatchList(
+    watchListId: number,
+    productId: number,
+    userId: number
+  ): Promise<ProductWatch> {
+    return await db.transaction(async (tx) => {
+      // Verify watch list ownership
+      const [watchList] = await tx
+        .select({ id: watchLists.id })
+        .from(watchLists)
+        .where(and(
+          eq(watchLists.id, watchListId),
+          eq(watchLists.userId, userId)
+        ))
+        .limit(1);
+
+      if (!watchList) {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
+      // Check product exists
+      const [product] = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
+
+      if (!product) {
+        throw new Error('Product not found');
+      }
+
+      // Check if already in watch list
+      const [existing] = await tx
+        .select({ id: productWatches.id })
+        .from(productWatches)
+        .where(and(
+          eq(productWatches.watchListId, watchListId),
+          eq(productWatches.productId, productId)
+        ))
+        .limit(1);
+
+      if (existing) {
+        throw new Error('Product already in watch list');
+      }
+
+      // Check product limit per list (max 100 products)
+      const [countResult] = await tx
+        .select({
+          count: sql<number>`COUNT(*)::int`
+        })
+        .from(productWatches)
+        .where(eq(productWatches.watchListId, watchListId));
+
+      if (countResult.count >= 100) {
+        throw new Error('Watch list is full (max 100 products per list)');
+      }
+
+      // Add product to watch list
+      const [result] = await tx
+        .insert(productWatches)
+        .values({
+          userId,
+          productId,
+          watchListId,
+        })
+        .returning();
+
+      return result;
+    }, {
+      isolationLevel: 'serializable' // Prevent race conditions on concurrent adds
+    });
+  }
+
+  /**
+   * Remove product from watch list
+   * SECURITY: Verifies userId ownership
+   */
+  async removeProductFromWatchList(
+    watchListId: number,
+    productId: number,
+    userId: number
+  ): Promise<ProductWatch> {
+    const [result] = await db
+      .delete(productWatches)
+      .where(and(
+        eq(productWatches.watchListId, watchListId),
+        eq(productWatches.productId, productId),
+        eq(productWatches.userId, userId) // Ownership verification
+      ))
+      .returning();
+
+    if (!result) {
+      throw new Error('Product watch not found or unauthorized');
+    }
+
+    return result;
+  }
+
+  /**
+   * Get all watched products across all user's lists with mini-chart data
+   * PERFORMANCE: Complex single query with aggregations for sparkline data
+   */
+  async getWatchedProducts(
+    userId: number,
+    options?: WatchedProductsOptions
+  ): Promise<WatchedProductInfo[]> {
+    const sortBy = options?.sortBy || 'priceDropPercent';
+    const limit = Math.min(options?.limit || 50, 100);
+
+    // Get 7 days ago for sparkline data
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // Build complex query with price aggregations
+    const results = await db
+      .select({
+        productId: productWatches.productId,
+        watchListId: productWatches.watchListId,
+        watchListName: watchLists.name,
+        productName: products.name,
+        imageUrl: products.image,
+        addedAt: productWatches.createdAt,
+        // Current price (lowest active offer)
+        currentPrice: sql<number | null>`
+          (
+            SELECT MIN(CAST(price AS DECIMAL))
+            FROM ${productOffers}
+            WHERE ${productOffers.productId} = ${products.id}
+          )
+        `.as('current_price'),
+        // Lowest price in last 90 days
+        lowestPrice: sql<number | null>`
+          (
+            SELECT MIN(CAST(price AS DECIMAL))
+            FROM ${priceHistory}
+            WHERE ${priceHistory.productId} = ${products.id}
+              AND ${priceHistory.recordedAt} >= NOW() - INTERVAL '90 days'
+          )
+        `.as('lowest_price'),
+        // Average price in last 30 days
+        averagePrice: sql<number | null>`
+          (
+            SELECT AVG(CAST(price AS DECIMAL))
+            FROM ${priceHistory}
+            WHERE ${priceHistory.productId} = ${products.id}
+              AND ${priceHistory.recordedAt} >= NOW() - INTERVAL '30 days'
+          )
+        `.as('average_price'),
+        // Last 7 days price history for sparkline
+        last7Days: sql<string>`
+          COALESCE(
+            (
+              SELECT json_agg(
+                json_build_object(
+                  'date', DATE(recorded_at),
+                  'price', CAST(price AS DECIMAL)
+                )
+                ORDER BY recorded_at
+              )
+              FROM (
+                SELECT DISTINCT ON (DATE(recorded_at))
+                  recorded_at,
+                  price
+                FROM ${priceHistory}
+                WHERE ${priceHistory.productId} = ${products.id}
+                  AND ${priceHistory.recordedAt} >= ${sevenDaysAgo}
+                ORDER BY DATE(recorded_at), recorded_at DESC
+              ) AS daily_prices
+            ),
+            '[]'::json
+          )
+        `.as('last_7_days'),
+        // Alert status
+        hasActiveAlert: sql<boolean>`
+          EXISTS(
+            SELECT 1 FROM ${priceAlerts}
+            WHERE ${priceAlerts.productId} = ${products.id}
+              AND ${priceAlerts.userId} = ${userId}
+              AND ${priceAlerts.isActive} = true
+          )
+        `.as('has_active_alert'),
+        hasTriggeredAlert: sql<boolean>`
+          EXISTS(
+            SELECT 1 FROM ${priceAlerts}
+            WHERE ${priceAlerts.productId} = ${products.id}
+              AND ${priceAlerts.userId} = ${userId}
+              AND ${priceAlerts.lastTriggeredAt} >= NOW() - INTERVAL '7 days'
+          )
+        `.as('has_triggered_alert'),
+      })
+      .from(productWatches)
+      .innerJoin(products, eq(productWatches.productId, products.id))
+      .innerJoin(watchLists, eq(productWatches.watchListId, watchLists.id))
+      .where(eq(productWatches.userId, userId))
+      .limit(limit);
+
+    // Post-process to calculate derived values and sort
+    const enrichedResults = results.map(r => {
+      const currentPrice = r.currentPrice || 0;
+      const lowestPrice = r.lowestPrice || currentPrice;
+      const averagePrice = r.averagePrice || currentPrice;
+      const priceDropPercent = lowestPrice > 0
+        ? ((currentPrice - lowestPrice) / lowestPrice) * 100
+        : 0;
+      const savingsPotential = currentPrice > lowestPrice ? currentPrice - lowestPrice : 0;
+
+      // Determine alert status
+      let alertStatus: 'active' | 'triggered' | 'none' = 'none';
+      if (r.hasTriggeredAlert) {
+        alertStatus = 'triggered';
+      } else if (r.hasActiveAlert) {
+        alertStatus = 'active';
+      }
+
+      // Sparkline data is already parsed by Drizzle (json_agg returns JSON object, not string)
+      const last7Days = (r.last7Days as unknown as Array<{ date: string; price: number }>) || [];
+
+      return {
+        productId: r.productId,
+        watchListId: r.watchListId,
+        watchListName: r.watchListName,
+        productName: r.productName,
+        imageUrl: r.imageUrl || '',
+        addedAt: r.addedAt || new Date(),
+        currentPrice,
+        lowestPrice,
+        averagePrice,
+        priceDropPercent,
+        savingsPotential,
+        last7Days,
+        alertStatus,
+      };
+    });
+
+    // Sort based on sortBy option
+    enrichedResults.sort((a, b) => {
+      switch (sortBy) {
+        case 'priceDropPercent':
+          return b.priceDropPercent - a.priceDropPercent; // Descending
+        case 'savings':
+          return b.savingsPotential - a.savingsPotential; // Descending
+        case 'dateAdded':
+          return b.addedAt.getTime() - a.addedAt.getTime(); // Most recent first
+        default:
+          return 0;
+      }
+    });
+
+    return enrichedResults;
+  }
+
+  /**
+   * Get aggregated statistics for user's watch lists
+   * PERFORMANCE: Uses CTEs and database aggregations for efficiency
+   */
+  async getWatchListStats(userId: number): Promise<WatchListStats> {
+    // Get one week ago for weekly stats
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    // Complex query with multiple aggregations
+    const stats = await db.execute(sql`
+      WITH user_products AS (
+        SELECT DISTINCT pw.product_id
+        FROM ${productWatches} pw
+        WHERE pw.user_id = ${userId}
+      ),
+      price_data AS (
+        SELECT
+          up.product_id,
+          p.name AS product_name,
+          (
+            SELECT MIN(CAST(price AS DECIMAL))
+            FROM ${productOffers}
+            WHERE product_id = up.product_id
+          ) AS current_price,
+          (
+            SELECT MIN(CAST(price AS DECIMAL))
+            FROM ${priceHistory}
+            WHERE product_id = up.product_id
+              AND recorded_at >= NOW() - INTERVAL '90 days'
+          ) AS lowest_price
+        FROM user_products up
+        INNER JOIN ${products} p ON up.product_id = p.id
+      ),
+      best_deals_data AS (
+        SELECT
+          product_id,
+          product_name,
+          current_price,
+          lowest_price,
+          CASE
+            WHEN lowest_price > 0 AND current_price IS NOT NULL
+            THEN ((current_price - lowest_price) / lowest_price * 100)
+            ELSE 0
+          END AS discount_percent
+        FROM price_data
+        WHERE current_price IS NOT NULL
+          AND lowest_price IS NOT NULL
+          AND lowest_price > 0
+        ORDER BY discount_percent DESC
+        LIMIT 5
+      ),
+      weekly_deals AS (
+        SELECT COUNT(DISTINCT ph.product_id) AS new_deals
+        FROM ${priceHistory} ph
+        INNER JOIN user_products up ON ph.product_id = up.product_id
+        WHERE ph.recorded_at >= ${oneWeekAgo}
+          AND CAST(ph.price AS DECIMAL) < (
+            SELECT AVG(CAST(price AS DECIMAL))
+            FROM ${priceHistory} ph2
+            WHERE ph2.product_id = ph.product_id
+              AND ph2.recorded_at >= NOW() - INTERVAL '30 days'
+          )
+      )
+      SELECT
+        (SELECT COUNT(*) FROM ${watchLists} WHERE user_id = ${userId})::int AS total_watch_lists,
+        (SELECT COUNT(*) FROM user_products)::int AS total_products,
+        (
+          SELECT COALESCE(SUM(
+            CASE WHEN current_price > lowest_price
+            THEN current_price - lowest_price
+            ELSE 0 END
+          ), 0)
+          FROM price_data
+        )::numeric AS total_potential_savings,
+        (
+          SELECT COUNT(*)
+          FROM ${priceAlerts}
+          WHERE user_id = ${userId}
+            AND is_active = true
+        )::int AS active_alerts,
+        (
+          SELECT COUNT(*)
+          FROM ${priceAlerts}
+          WHERE user_id = ${userId}
+            AND last_triggered_at >= ${oneWeekAgo}
+        )::int AS triggered_alerts,
+        (
+          SELECT json_agg(
+            json_build_object(
+              'productId', product_id,
+              'productName', product_name,
+              'currentPrice', current_price,
+              'lowestPrice', lowest_price,
+              'discountPercent', ROUND(discount_percent::numeric, 2)
+            )
+          )
+          FROM best_deals_data
+        ) AS best_deals,
+        (SELECT COALESCE(new_deals, 0) FROM weekly_deals)::int AS weekly_new_deals
+    `);
+
+    const row = stats.rows[0] as {
+      total_watch_lists: number;
+      total_products: number;
+      total_potential_savings: string;
+      active_alerts: number;
+      triggered_alerts: number;
+      best_deals: Array<{
+        productId: number;
+        productName: string;
+        currentPrice: string;
+        lowestPrice: string;
+        discountPercent: number;
+      }> | null;
+      weekly_new_deals: number;
+    };
+
+    // NOTE: db.execute() with json_agg returns already-parsed JSON objects, not strings
+    const bestDeals = row.best_deals || [];
+
+    return {
+      totalWatchLists: row.total_watch_lists,
+      totalProducts: row.total_products,
+      totalPotentialSavings: parseFloat(row.total_potential_savings),
+      activeAlerts: row.active_alerts,
+      triggeredAlerts: row.triggered_alerts,
+      bestDeals: bestDeals.map((deal: {
+        productId: number;
+        productName: string;
+        currentPrice: string;
+        lowestPrice: string;
+        discountPercent: number;
+      }) => ({
+        productId: deal.productId,
+        productName: deal.productName,
+        currentPrice: parseFloat(deal.currentPrice),
+        lowestPrice: parseFloat(deal.lowestPrice),
+        discountPercent: deal.discountPercent,
+      })),
+      weeklyStats: {
+        newDeals: row.weekly_new_deals,
+        triggeredAlerts: row.triggered_alerts,
+      },
+    };
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
@@ -982,4 +1668,76 @@ export interface BestTimeAnalysis {
   recommendation: 'buy_now' | 'wait' | 'good_deal';
   confidenceScore: number;
   priceChangeVelocity: number; // Price change rate ($/day)
+}
+
+// Watch List Types
+export interface WatchListWithCount {
+  id: number;
+  userId: number;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  isDefault: boolean | null;
+  sortOrder: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  productCount: number;
+}
+
+export interface WatchListWithProducts {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  products: Array<{
+    id: number;
+    name: string;
+    imageUrl: string;
+    addedAt: Date;
+    currentPrice: number;
+    lowestHistoricalPrice: number;
+    priceDropPercent: number;
+  }>;
+}
+
+export interface WatchedProductsOptions {
+  sortBy?: 'priceDropPercent' | 'savings' | 'dateAdded';
+  limit?: number;
+}
+
+export interface WatchedProductInfo {
+  productId: number;
+  watchListId: number;
+  watchListName: string;
+  productName: string;
+  imageUrl: string;
+  addedAt: Date;
+  currentPrice: number;
+  lowestPrice: number;
+  averagePrice: number;
+  priceDropPercent: number;
+  savingsPotential: number;
+  last7Days: Array<{ date: string; price: number }>;
+  alertStatus: 'active' | 'triggered' | 'none';
+}
+
+export interface WatchListStats {
+  totalWatchLists: number;
+  totalProducts: number;
+  totalPotentialSavings: number;
+  activeAlerts: number;
+  triggeredAlerts: number;
+  bestDeals: Array<{
+    productId: number;
+    productName: string;
+    currentPrice: number;
+    lowestPrice: number;
+    discountPercent: number;
+  }>;
+  weeklyStats: {
+    newDeals: number;
+    triggeredAlerts: number;
+  };
 }

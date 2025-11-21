@@ -14,11 +14,14 @@ import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ComparisonPage from "@/pages/comparison";
 import MonitoringDashboard from "@/pages/monitoring";
+import PriceWatch from "@/pages/price-watch";
+import NotificationsPage from "@/pages/notifications";
 import NotFound from "@/pages/not-found";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage, LazyPriceHistoryPage, LazyAnalyticsPage, LazyWatchListManager } from "@/components/lazy";
 import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
+import { useRealtimeNotifications } from "@/hooks/useSmartNotifications";
 
 function Router() {
   const LoadingFallback = () => (
@@ -72,6 +75,8 @@ function Router() {
             </RouteErrorBoundary>
           </Route>
           <Route path="/monitoring" component={MonitoringDashboard} />
+          <Route path="/price-watch" component={PriceWatch} />
+          <Route path="/notifications" component={NotificationsPage} />
           <Route path="/watchlists">
             <RouteErrorBoundary>
               <Suspense fallback={<LoadingFallback />}>
@@ -102,6 +107,9 @@ function Router() {
 }
 
 function App() {
+  // Initialize WebSocket connection for real-time smart notifications
+  useRealtimeNotifications();
+
   return (
     <ErrorBoundary>
       <HelmetProvider>

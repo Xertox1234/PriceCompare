@@ -38,6 +38,7 @@ import { initializePriceSnapshotScheduler, triggerManualSnapshot } from "./jobs/
 import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
 import { startPriceAnalyticsJobs } from "./jobs/price-analytics-jobs";
 import { startPriceAggregationJobs } from "./jobs/price-aggregation-job";
+import { initializeNotificationProcessor } from "./jobs/notification-processor";
 import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handler";
 import { RATE_LIMIT, SESSION } from "./utils/constants";
 import { cleanupManager } from "./utils/cleanup-manager";
@@ -333,6 +334,15 @@ app.use(sanitizeInput);
     // await triggerManualSnapshot();
   } catch (error) {
     log(`Error initializing price snapshot scheduler: ${error}`, 'error');
+  }
+
+  // Initialize smart notification processor
+  try {
+    log('Initializing smart notification processor...');
+    initializeNotificationProcessor();
+    log('Smart notification processor initialized successfully');
+  } catch (error) {
+    log(`Error initializing notification processor: ${error}`, 'error');
   }
 
   // Perform initial cache warming (non-blocking)

@@ -41,14 +41,20 @@ catch (error) {
 }
 ```
 
-#### ✅ CORRECT - Use Error Sanitizer
+**Why this is dangerous:**
+- Database errors reveal table names, column names, constraints
+- Stack traces expose file paths and internal code structure
+- Error messages may contain sensitive data or SQL queries
+- Attackers use this information to craft targeted attacks
+
+#### ✅ CORRECT - Use Error Sanitizer (MANDATORY)
 ```typescript
 import { createErrorResponse } from '../utils/error-sanitizer';
 
 try {
   await db.insert(users).values(userData);
 } catch (error) {
-  // Log full error server-side
+  // ALWAYS log full error server-side for debugging
   console.error('User creation failed:', error);
 
   // Send sanitized response to client
@@ -57,6 +63,73 @@ try {
     error: errorResponse.error, // Generic message in production
     details: errorResponse.details, // Only in development
   });
+}
+```
+
+#### Detection Rule
+```bash
+# Find routes that expose raw error messages
+# This will catch most violations
+grep -r "error\.message" server/routes/ server/*-routes.ts | grep -v "createErrorResponse" | grep -v "log\."
+
+# Find direct error object responses
+grep -r "res\..*json.*error" server/routes/ | grep -v "createErrorResponse"
+```
+
+#### Pre-Commit Hook Check
+The pre-commit hook automatically detects:
+- `error.message` in response bodies
+- Raw `error` objects passed to `res.json()`
+- Missing `createErrorResponse` in catch blocks
+
+**To pass the hook**, ensure ALL error responses use `createErrorResponse()`.
+
+#### Common Violations and Fixes
+
+**Violation 1: Direct error.message**
+```typescript
+// ❌ WRONG
+catch (error) {
+  res.status(500).json({ error: error.message });
+}
+
+// ✅ FIXED
+catch (error) {
+  const errorResponse = createErrorResponse(error, 'OperationName');
+  res.status(errorResponse.status).json(errorResponse);
+}
+```
+
+**Violation 2: Validation errors without sanitization**
+```typescript
+// ❌ WRONG
+catch (error) {
+  if (error instanceof z.ZodError) {
+    res.status(400).json({ error: error.errors }); // Exposes internal validation structure
+  }
+}
+
+// ✅ FIXED
+catch (error) {
+  const errorResponse = createErrorResponse(error, 'ValidationError');
+  res.status(errorResponse.status).json(errorResponse);
+  // createErrorResponse handles Zod errors properly
+}
+```
+
+**Violation 3: Database errors**
+```typescript
+// ❌ WRONG
+catch (error) {
+  // Exposes: "duplicate key value violates unique constraint users_email_key"
+  res.status(400).json({ error: error.message });
+}
+
+// ✅ FIXED
+catch (error) {
+  // Returns: "This item already exists" (production) or detailed error (dev)
+  const errorResponse = createErrorResponse(error, 'CreateUser');
+  res.status(errorResponse.status).json(errorResponse);
 }
 ```
 

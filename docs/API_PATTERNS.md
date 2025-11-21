@@ -18,6 +18,52 @@ This document codifies API and route patterns to ensure consistent, secure, and 
 
 ## Route Organization
 
+### Route Registration Order (CRITICAL)
+
+Express matches routes in the order they are registered. Specific routes MUST be registered BEFORE parameterized routes to prevent conflicts.
+
+#### ❌ WRONG - Parameterized Route Registered First
+```typescript
+// THIS CAUSES 404 ERRORS!
+app.get("/api/watchlists/:id", getWatchlistById);        // Matches first - "stats" treated as :id
+app.get("/api/watchlists/stats", getWatchlistStats);     // NEVER REACHED - always returns 404
+app.get("/api/watchlists/products", getWatchlistProducts); // NEVER REACHED
+```
+
+**Why this fails:**
+1. User requests `/api/watchlists/stats`
+2. Express checks routes in order
+3. `/api/watchlists/:id` matches first with `id = "stats"`
+4. Handler tries `parseIntSafe("stats", ...)` → validation error
+5. Stats endpoint never reached, even though it exists
+
+#### ✅ CORRECT - Specific Routes First
+```typescript
+// Specific routes BEFORE parameterized routes
+app.get("/api/watchlists/products", getWatchlistProducts);   // Specific - matches exactly
+app.get("/api/watchlists/stats", getWatchlistStats);         // Specific - matches exactly
+app.get("/api/watchlists/:id", getWatchlistById);            // Parameterized - matches last
+```
+
+#### Detection Rule
+```bash
+# Find route files with potential ordering issues
+# Look for :id routes before specific routes
+grep -A 5 "/:id" server/routes/*.ts | grep -B 5 '"/[a-z]'
+```
+
+**Rule of Thumb:**
+1. Static paths first: `/api/watchlists/stats`
+2. Specific patterns: `/api/watchlists/user/:userId`
+3. Generic params last: `/api/watchlists/:id`
+
+Always add a comment when order matters:
+```typescript
+// IMPORTANT: Specific routes must be registered before parameterized :id route
+app.get("/api/watchlists/stats", getStats);
+app.get("/api/watchlists/:id", getById);
+```
+
 ### File Structure Pattern
 
 #### ✅ CORRECT - Modular Route Files

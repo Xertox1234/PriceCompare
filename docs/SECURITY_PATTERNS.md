@@ -285,26 +285,57 @@ router.post('/api/products', csrfProtection, async (req, res) => {
 });
 ```
 
-### Integer Parsing
+### Safe Integer Parsing (MANDATORY)
+
+NEVER use `parseInt()` directly for user input. Always use `parseIntSafe()` or `parseIntOptional()` with validation.
 
 #### ❌ WRONG - Unsafe Parsing
 ```typescript
-// Vulnerable to NaN, undefined, negative values
-const id = parseInt(req.params.id);
-const limit = parseInt(req.query.limit);
+// THIS WILL FAIL CODE REVIEW!
+const id = parseInt(req.params.id);        // Accepts NaN, negative, floats
+const limit = parseInt(req.query.limit);   // No validation
+const offset = Number(req.query.offset);   // No bounds checking
+
+// Problems:
+// - parseInt("abc") returns NaN → database errors
+// - parseInt("-5") returns -5 → invalid ID
+// - parseInt("3.14") returns 3 → silent data loss
+// - No max bounds → memory exhaustion attacks
 ```
 
-#### ✅ CORRECT - Safe Parsing
+#### ✅ CORRECT - Safe Parsing with Validation
 ```typescript
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 
-// Throws on invalid input
-const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+// Required parameter with validation
+const id = parseIntSafe(req.params.id, 'watchlistId', { min: 1 });
+// - Throws ValidationError if not a valid integer
+// - Enforces minimum value of 1
+// - Returns validated number or throws
 
-// Returns undefined for invalid input
+// Optional parameter with default
 const limit = parseIntOptional(req.query.limit) || 50;
+// - Returns number if valid
+// - Returns undefined if invalid
+// - Caller provides default value
 
-// Implementation
+// Optional with bounds
+const offset = parseIntOptional(req.query.offset, { min: 0, max: 10000 }) || 0;
+```
+
+#### Detection Rule
+```bash
+# Find unsafe parseInt usage in route handlers
+# Should use parseIntSafe or parseIntOptional instead
+grep -r "parseInt(" server/routes/ server/*-routes.ts | grep -v "parseIntSafe" | grep -v "parseIntOptional"
+
+# Find Number() coercion (also unsafe)
+grep -r "Number(req\." server/routes/ server/*-routes.ts
+```
+
+#### Implementation Reference
+```typescript
+// utils/validation-helpers.ts
 export function parseIntSafe(
   value: unknown,
   fieldName: string,
@@ -313,19 +344,60 @@ export function parseIntSafe(
   const parsed = parseInt(String(value), 10);
 
   if (isNaN(parsed)) {
-    throw new Error(`${fieldName} must be a valid integer`);
+    throw new ValidationError(`${fieldName} must be a valid integer`, {
+      [fieldName]: 'Invalid integer',
+    });
   }
 
   if (options.min !== undefined && parsed < options.min) {
-    throw new Error(`${fieldName} must be at least ${options.min}`);
+    throw new ValidationError(`${fieldName} must be at least ${options.min}`, {
+      [fieldName]: `Minimum value is ${options.min}`,
+    });
   }
 
   if (options.max !== undefined && parsed > options.max) {
-    throw new Error(`${fieldName} must not exceed ${options.max}`);
+    throw new ValidationError(`${fieldName} must not exceed ${options.max}`, {
+      [fieldName]: `Maximum value is ${options.max}`,
+    });
   }
 
   return parsed;
 }
+
+export function parseIntOptional(
+  value: unknown,
+  options: { min?: number; max?: number } = {}
+): number | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  try {
+    return parseIntSafe(value, 'value', options);
+  } catch {
+    return undefined;
+  }
+}
+```
+
+#### Common Use Cases
+```typescript
+// Route parameters (required, positive IDs)
+const userId = parseIntSafe(req.params.userId, 'userId', { min: 1 });
+const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
+
+// Pagination parameters (optional, with limits)
+const page = parseIntOptional(req.query.page, { min: 1 }) || 1;
+const limit = Math.min(
+  parseIntOptional(req.query.limit, { min: 1, max: 100 }) || 50,
+  100
+);
+
+// Array of IDs from query string
+const ids = req.query.ids
+  ?.split(',')
+  .map((id: string) => parseIntSafe(id, 'productId', { min: 1 }))
+  .filter((id: number) => id > 0) || [];
 ```
 
 ### File Upload Validation
@@ -486,6 +558,84 @@ export function logSecurityEvent(
 ---
 
 ## CSRF Protection
+
+### CSRF Protection Enforcement (MANDATORY)
+
+ALL mutating operations (POST, PATCH, DELETE, PUT) MUST use `csrfProtection` middleware.
+
+#### ❌ WRONG - Missing CSRF Protection
+```typescript
+// THIS WILL FAIL CODE REVIEW!
+app.post('/api/notifications/preferences', requireAuth, async (req, res) => {
+  // Missing csrfProtection middleware - vulnerable to CSRF attacks!
+  await storage.updateNotificationPreferences(req.session.userId, req.body);
+  res.json({ success: true });
+});
+
+app.delete('/api/watchlists/:id', requireAuth, async (req, res) => {
+  // Missing csrfProtection - attacker can delete user's watchlists!
+  await storage.deleteWatchlist(id);
+  res.json({ success: true });
+});
+```
+
+#### ✅ CORRECT - CSRF Protection Applied
+```typescript
+import { csrfProtection } from '../middleware/security';
+
+// POST endpoint with CSRF protection
+app.post('/api/notifications/preferences',
+  requireAuth,
+  csrfProtection,  // MANDATORY for all mutating operations
+  async (req, res) => {
+    await storage.updateNotificationPreferences(req.session.userId, req.body);
+    res.json({ success: true });
+  }
+);
+
+// DELETE endpoint with CSRF protection
+app.delete('/api/watchlists/:id',
+  requireAuth,
+  csrfProtection,  // MANDATORY - protects against malicious deletions
+  async (req, res) => {
+    await storage.deleteWatchlist(id);
+    res.json({ success: true });
+  }
+);
+```
+
+#### Detection Rule
+```bash
+# Find POST/PATCH/DELETE routes without csrfProtection
+# Run in code review to catch missing CSRF protection
+grep -r "app\.\(post\|patch\|delete\|put\)" server/routes/ | grep -v csrfProtection | grep -v "// CSRF exempt"
+
+# Check specific route file
+grep -E "router\.(post|patch|delete|put)" server/routes/notification-routes.ts | grep -v csrfProtection
+```
+
+**CSRF Exemptions** (rare, require security review):
+```typescript
+// Only exempt for specific use cases (webhook callbacks, public endpoints)
+app.post('/api/affiliate/track-click', async (req, res) => {
+  // CSRF exempt: Public tracking endpoint with no authentication
+  await trackAffiliateClick(req.body);
+  res.json({ success: true });
+});
+```
+
+### Middleware Order for CSRF
+```typescript
+// CORRECT order: auth → csrf → handler
+app.post('/api/endpoint',
+  requireAuth,        // 1. Verify user is authenticated
+  csrfProtection,     // 2. Verify CSRF token
+  validateRequest(),  // 3. Validate input
+  async (req, res) => {
+    // 4. Execute business logic
+  }
+);
+```
 
 ### Token Management
 

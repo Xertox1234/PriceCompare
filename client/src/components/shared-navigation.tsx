@@ -10,7 +10,7 @@ import { AuthModal } from './auth/auth-modal';
 import { ThemeToggle } from './theme-toggle';
 
 interface SharedNavigationProps {
-  currentPage?: 'home' | 'forum' | 'admin';
+  currentPage?: 'home' | 'forum' | 'admin' | 'price-watch';
 }
 
 export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps) {

@@ -84,19 +84,25 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
+            const dependencyName = '${{ steps.metadata.outputs.dependency-name }}';
+            const prTitle = context.payload.pull_request.title;
+            const body = [
+              '⚠️ **Major version update detected**',
+              '',
+              `This PR updates \`${prTitle}\` to a new major version.`,
+              '',
+              '**Manual review required:**',
+              '- [ ] Check changelog for breaking changes',
+              '- [ ] Update code if APIs changed',
+              '- [ ] Run full test suite locally',
+              '- [ ] Test in staging environment',
+              '',
+              `See [CHANGELOG](https://github.com/${dependencyName}/releases) for migration guide.`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: `⚠️ **Major version update detected**
-
-This PR updates \`${context.payload.pull_request.title}\` to a new major version.
-
-**Manual review required:**
-- [ ] Check changelog for breaking changes
-- [ ] Update code if APIs changed
-- [ ] Run full test suite locally
-- [ ] Test in staging environment
-
-See [CHANGELOG](https://github.com/${{ steps.metadata.outputs.dependency-name }}/releases) for migration guide.`
+              body: body
             });
