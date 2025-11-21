@@ -70,7 +70,7 @@ export function SmartSuggestions({ productId, currentPrice, onSuggestionAccepted
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-purple-600" />
+          <Sparkles className="w-5 h-5 text-primary" />
           Smart Suggestions
         </CardTitle>
         <CardDescription>
@@ -115,14 +115,14 @@ function SuggestionCard({
     seasonal_pattern: {
       icon: Calendar,
       label: 'Seasonal Pattern',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
     },
     trending_down: {
       icon: Activity,
       label: 'Trending Down',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
     },
     below_average: {
       icon: DollarSign,

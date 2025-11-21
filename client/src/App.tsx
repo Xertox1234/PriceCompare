@@ -110,7 +110,11 @@ function Router() {
   );
 }
 
-function App() {
+/**
+ * AppContent - Component that uses hooks requiring QueryClient context
+ * Must be rendered inside QueryClientProvider
+ */
+function AppContent() {
   // Initialize WebSocket connection for real-time updates
   useWebSocket();
 
@@ -124,17 +128,23 @@ function App() {
   useRealtimeNotifications();
 
   return (
+    <TooltipProvider>
+      <div className="min-h-screen bg-background">
+        <Router />
+        <Toaster />
+        <ConnectionStatus />
+      </div>
+    </TooltipProvider>
+  );
+}
+
+function App() {
+  return (
     <ErrorBoundary>
       <HelmetProvider>
         <ThemeProvider defaultTheme="light" storageKey="pricecompare-theme">
           <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-              <div className="min-h-screen bg-background">
-                <Router />
-                <Toaster />
-                <ConnectionStatus />
-              </div>
-            </TooltipProvider>
+            <AppContent />
           </QueryClientProvider>
         </ThemeProvider>
       </HelmetProvider>

@@ -167,13 +167,13 @@ function DealFrequencySection({ dealData }: { dealData: DealFrequencyData }) {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+        <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-center gap-1 mb-1">
-            <Calendar className="w-4 h-4 text-blue-600" />
-            <span className="text-xs text-blue-700">Frequency</span>
+            <Calendar className="w-4 h-4 text-primary" />
+            <span className="text-xs text-primary/80">Frequency</span>
           </div>
-          <p className="text-lg font-semibold text-blue-900">{dealFrequency}</p>
-          <p className="text-xs text-blue-600">deals/month</p>
+          <p className="text-lg font-semibold text-primary">{dealFrequency}</p>
+          <p className="text-xs text-primary/70">deals/month</p>
         </div>
 
         <div className="p-3 rounded-lg bg-green-50 border border-green-200">
@@ -185,13 +185,13 @@ function DealFrequencySection({ dealData }: { dealData: DealFrequencyData }) {
           <p className="text-xs text-green-600">when on sale</p>
         </div>
 
-        <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
+        <div className="p-3 rounded-lg bg-secondary/10 border border-secondary/20">
           <div className="flex items-center gap-1 mb-1">
-            <Sparkles className="w-4 h-4 text-purple-600" />
-            <span className="text-xs text-purple-700">Next Deal</span>
+            <Sparkles className="w-4 h-4 text-secondary" />
+            <span className="text-xs text-secondary/80">Next Deal</span>
           </div>
-          <p className="text-lg font-semibold text-purple-900">~{daysToNextDeal}</p>
-          <p className="text-xs text-purple-600">days (est.)</p>
+          <p className="text-lg font-semibold text-secondary">~{daysToNextDeal}</p>
+          <p className="text-xs text-secondary/70">days (est.)</p>
         </div>
       </div>
 

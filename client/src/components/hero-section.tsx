@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 
-export function NewHeroSection() {
+export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState('');
   const [, navigate] = useLocation();
 

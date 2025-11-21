@@ -44,7 +44,7 @@ const categories = [
   }
 ];
 
-export function NewCategories() {
+export function Categories() {
   return (
     <section className="mb-12">
       <h3 className="text-3xl font-bold text-muted-foreground mb-8 text-center">
@@ -69,7 +69,7 @@ export function NewCategories() {
         {/* See All Categories Button */}
         <div className="col-span-2 md:col-span-3 lg:col-span-6 flex justify-center">
           <Link href="/products">
-            <Button className="bg-pink-500 text-white font-semibold py-3 px-8 rounded-full hover:bg-pink-600 transition duration-300 mt-4">
+            <Button className="bg-secondary text-secondary-foreground font-semibold py-3 px-8 rounded-full hover:bg-secondary/90 transition duration-300 mt-4">
               See All Categories
             </Button>
           </Link>

@@ -50,10 +50,9 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full">
       <div className="space-y-2">
-        <Label 
-          htmlFor="email" 
-          className="font-medium"
-          style={{ color: 'black' }}
+        <Label
+          htmlFor="email"
+          className="font-medium text-foreground"
         >
           Email
         </Label>
@@ -64,20 +63,15 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={loginMutation.isPending}
-          style={{
-            backgroundColor: 'white',
-            color: 'black',
-            border: '1px solid #d1d5db'
-          }}
+          className="bg-background text-foreground border-border"
           required
         />
       </div>
       
       <div className="space-y-2">
-        <Label 
-          htmlFor="password" 
-          className="font-medium"
-          style={{ color: 'black' }}
+        <Label
+          htmlFor="password"
+          className="font-medium text-foreground"
         >
           Password
         </Label>
@@ -89,20 +83,14 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={loginMutation.isPending}
-            style={{
-              backgroundColor: 'white',
-              color: 'black',
-              border: '1px solid #d1d5db',
-              paddingRight: '2.5rem'
-            }}
+            className="bg-background text-foreground border-border pr-10"
             required
           />
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-0 top-0 h-full px-3 py-2"
-            style={{ color: 'black' }}
+            className="absolute right-0 top-0 h-full px-3 py-2 text-foreground"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
@@ -117,8 +105,7 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
             <Button
               type="button"
               variant="link"
-              className="p-0 h-auto text-sm hover:underline"
-              style={{ color: '#5A5DFF' }}
+              className="p-0 h-auto text-sm hover:underline text-primary hover:text-primary/90"
             >
               Forgot password?
             </Button>
@@ -136,13 +123,9 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
         </Alert>
       )}
 
-      <Button 
-        type="submit" 
-        className="w-full"
-        style={{
-          backgroundColor: '#5A5DFF',
-          color: 'white'
-        }}
+      <Button
+        type="submit"
+        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
         disabled={loginMutation.isPending || !email.trim() || !password.trim()}
       >
         {loginMutation.isPending ? 'Signing In...' : 'Sign In'}
@@ -150,11 +133,10 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       {onToggleMode && (
         <div className="text-center text-sm pt-2">
-          <span style={{ color: '#6b7280' }}>Don't have an account? </span>
-          <Button 
-            variant="link" 
-            className="p-0 hover:underline" 
-            style={{ color: '#5A5DFF' }}
+          <span className="text-muted-foreground">Don't have an account? </span>
+          <Button
+            variant="link"
+            className="p-0 hover:underline text-primary hover:text-primary/90"
             onClick={onToggleMode}
           >
             Sign up
@@ -211,10 +193,9 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full">
       <div className="space-y-2">
-        <Label 
-          htmlFor="username" 
-          className="font-medium"
-          style={{ color: 'black' }}
+        <Label
+          htmlFor="username"
+          className="font-medium text-foreground"
         >
           Username
         </Label>
@@ -225,20 +206,15 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           disabled={registerMutation.isPending}
-          style={{
-            backgroundColor: 'white',
-            color: 'black',
-            border: '1px solid #d1d5db'
-          }}
+          className="bg-background text-foreground border-border"
           required
         />
       </div>
 
       <div className="space-y-2">
-        <Label 
-          htmlFor="email" 
-          className="font-medium"
-          style={{ color: 'black' }}
+        <Label
+          htmlFor="email"
+          className="font-medium text-foreground"
         >
           Email
         </Label>
@@ -249,20 +225,15 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={registerMutation.isPending}
-          style={{
-            backgroundColor: 'white',
-            color: 'black',
-            border: '1px solid #d1d5db'
-          }}
+          className="bg-background text-foreground border-border"
           required
         />
       </div>
       
       <div className="space-y-2">
-        <Label 
-          htmlFor="password" 
-          className="font-medium"
-          style={{ color: 'black' }}
+        <Label
+          htmlFor="password"
+          className="font-medium text-foreground"
         >
           Password
         </Label>
@@ -274,20 +245,14 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={registerMutation.isPending}
-            style={{
-              backgroundColor: 'white',
-              color: 'black',
-              border: '1px solid #d1d5db',
-              paddingRight: '2.5rem'
-            }}
+            className="bg-background text-foreground border-border pr-10"
             required
           />
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-0 top-0 h-full px-3 py-2"
-            style={{ color: 'black' }}
+            className="absolute right-0 top-0 h-full px-3 py-2 text-foreground"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
@@ -300,10 +265,9 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label 
-          htmlFor="confirmPassword" 
-          className="font-medium"
-          style={{ color: 'black' }}
+        <Label
+          htmlFor="confirmPassword"
+          className="font-medium text-foreground"
         >
           Confirm Password
         </Label>
@@ -314,15 +278,11 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           disabled={registerMutation.isPending}
-          style={{
-            backgroundColor: 'white',
-            color: 'black',
-            border: '1px solid #d1d5db'
-          }}
+          className="bg-background text-foreground border-border"
           required
         />
         {passwordMismatch && (
-          <p className="text-sm font-medium" style={{ color: '#dc2626' }}>
+          <p className="text-sm font-medium text-destructive">
             Passwords do not match
           </p>
         )}
@@ -338,18 +298,14 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
         </Alert>
       )}
 
-      <Button 
-        type="submit" 
-        className="w-full"
-        style={{
-          backgroundColor: '#5A5DFF',
-          color: 'white'
-        }}
+      <Button
+        type="submit"
+        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
         disabled={
-          registerMutation.isPending || 
-          !username.trim() || 
-          !email.trim() || 
-          !password.trim() || 
+          registerMutation.isPending ||
+          !username.trim() ||
+          !email.trim() ||
+          !password.trim() ||
           passwordMismatch
         }
       >
@@ -358,11 +314,10 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       {onToggleMode && (
         <div className="text-center text-sm pt-2">
-          <span style={{ color: '#6b7280' }}>Already have an account? </span>
-          <Button 
-            variant="link" 
-            className="p-0 hover:underline"
-            style={{ color: '#5A5DFF' }}
+          <span className="text-muted-foreground">Already have an account? </span>
+          <Button
+            variant="link"
+            className="p-0 hover:underline text-primary hover:text-primary/90"
             onClick={onToggleMode}
           >
             Sign in

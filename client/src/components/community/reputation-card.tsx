@@ -81,7 +81,7 @@ export function ReputationCard({ compact = false, showBadges = true }: Reputatio
           <div className="grid grid-cols-3 gap-3 pt-2 border-t">
             <div className="text-center">
               <div className="flex items-center justify-center mb-1">
-                <Award className="w-4 h-4 text-blue-600" />
+                <Award className="w-4 h-4 text-primary" />
               </div>
               <div className="text-2xl font-bold">{reputation.dealsSpotted}</div>
               <div className="text-xs text-muted-foreground">Deals</div>
@@ -97,7 +97,7 @@ export function ReputationCard({ compact = false, showBadges = true }: Reputatio
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-1">
-                <Users className="w-4 h-4 text-purple-600" />
+                <Users className="w-4 h-4 text-primary" />
               </div>
               <div className="text-2xl font-bold">{reputation.communityContributions}</div>
               <div className="text-xs text-muted-foreground">Posts</div>

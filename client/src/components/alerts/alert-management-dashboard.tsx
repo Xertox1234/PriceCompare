@@ -59,8 +59,8 @@ export function AlertManagementDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-blue-600" />
-              <span className="text-3xl font-bold text-blue-600">{stats?.activeAlerts || 0}</span>
+              <Target className="w-5 h-5 text-primary" />
+              <span className="text-3xl font-bold text-primary">{stats?.activeAlerts || 0}</span>
             </div>
           </CardContent>
         </Card>
@@ -97,7 +97,7 @@ export function AlertManagementDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-600" />
+              <Sparkles className="w-5 h-5 text-primary" />
               Predictive Insights
             </CardTitle>
             <CardDescription>AI-powered predictions for your watched products</CardDescription>
@@ -186,8 +186,8 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
   const predictionConfig = {
     price_likely_to_drop: {
       icon: TrendingDown,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50 border-blue-200',
+      color: 'text-primary',
+      bgColor: 'bg-primary/10 border-primary/20',
       title: 'Price Likely to Drop',
     },
     best_deal_soon: {
@@ -198,8 +198,8 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
     },
     seasonal_opportunity: {
       icon: Sparkles,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50 border-purple-200',
+      color: 'text-primary',
+      bgColor: 'bg-primary/10 border-primary/20',
       title: 'Seasonal Opportunity',
     },
   } as const;

@@ -120,8 +120,8 @@ Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent
 
 - **Components**: ALWAYS reuse existing shared components
   - Navigation: `SharedNavigation` from `@/components/shared-navigation`
-  - Hero: `NewHeroSection` from `@/components/new-hero-section`
-  - Categories: `NewCategories` from `@/components/new-categories`
+  - Hero: `HeroSection` from `@/components/hero-section`
+  - Categories: `Categories` from `@/components/categories`
   - ❌ Never duplicate components - search first with `grep -r "function ComponentName"`
 
 - **Styling Rules**:
