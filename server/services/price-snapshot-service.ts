@@ -113,12 +113,20 @@ export class PriceSnapshotService {
         const io = getSocketIO();
 
         if (io) {
-          // Get product and retailer details
+          // Batch fetch product and retailer details to avoid N+1 queries
           const [productDetails] = await db
             .select({ name: products.name })
             .from(products)
             .where(eq(products.id, productId))
             .limit(1);
+
+          // Batch fetch all retailers for the offers
+          const retailerIds = [...new Set(offers.map(o => o.retailerId))];
+          const retailerData = await db
+            .select({ id: retailers.id, name: retailers.name })
+            .from(retailers)
+            .where(inArray(retailers.id, retailerIds));
+          const retailerMap = new Map(retailerData.map(r => [r.id, r.name]));
 
           if (productDetails) {
             for (const offer of offers) {
@@ -129,16 +137,9 @@ export class PriceSnapshotService {
               if (previousPrice && previousPrice !== currentPrice) {
                 const percentageChange = ((currentPrice - previousPrice) / previousPrice) * 100;
 
-                // Get retailer name
-                const [retailerDetails] = await db
-                  .select({ name: retailers.name })
-                  .from(retailers)
-                  .where(eq(retailers.id, offer.retailerId))
-                  .limit(1);
-
                 emitPriceUpdate(io, productId, {
                   productName: productDetails.name,
-                  retailerName: retailerDetails?.name || 'Retailer',
+                  retailerName: retailerMap.get(offer.retailerId) || 'Retailer',
                   oldPrice: previousPrice,
                   newPrice: currentPrice,
                   percentageChange,

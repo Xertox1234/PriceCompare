@@ -48,7 +48,7 @@ export function registerNotificationRoutes(app: Express) {
         count: notifications.length
       });
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      logger.error('Error fetching notifications:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetNotifications');
       res.status(errorResponse.status).json({
         error: errorResponse.error,
@@ -71,7 +71,7 @@ export function registerNotificationRoutes(app: Express) {
         data: stats
       });
     } catch (error) {
-      console.error('Error fetching notification stats:', error);
+      logger.error('Error fetching notification stats:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetNotificationStats');
       res.status(errorResponse.status).json({
         error: errorResponse.error,
@@ -111,7 +111,7 @@ export function registerNotificationRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      logger.error('Error marking notification as read:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'MarkNotificationRead');
       res.status(errorResponse.status).json({
         error: errorResponse.error,
@@ -148,7 +148,7 @@ export function registerNotificationRoutes(app: Express) {
         count
       });
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      logger.error('Error marking all as read:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'MarkAllNotificationsRead');
       res.status(errorResponse.status).json({
         error: errorResponse.error,

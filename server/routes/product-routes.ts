@@ -267,7 +267,12 @@ export function registerProductRoutes(app: Express): void {
       }
 
       // Group data by retailer
-      const retailerDataMap = new Map<number, any>();
+      interface RetailerAnalysisData {
+        retailerId: number;
+        retailerName: string | null;
+        priceHistory: Array<{ price: string; recordedAt: Date; availability: string | null }>;
+      }
+      const retailerDataMap = new Map<number, RetailerAnalysisData>();
       history.forEach(entry => {
         if (!retailerDataMap.has(entry.retailerId)) {
           retailerDataMap.set(entry.retailerId, {
