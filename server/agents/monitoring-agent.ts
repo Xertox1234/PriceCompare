@@ -2,7 +2,7 @@ import { BaseAgent } from './base-agent';
 import { dataExtractionAgent } from './extraction-agent';
 import { db } from '../db';
 import { productOffers, priceAlerts, products, retailers } from '@shared/schema';
-import { eq, lt, and, desc, gte, isNotNull } from 'drizzle-orm';
+import { eq, lt, and, desc, gte, isNotNull, sql, count } from 'drizzle-orm';
 import { ScraperUtils } from '../utils/scraper-utils';
 import type { MonitoringTask, MonitoringStats } from './types.js';
 import { logger } from '../utils/logger.js';
@@ -323,52 +323,58 @@ export class PriceMonitoringAgent extends BaseAgent {
 
   /**
    * Get monitoring statistics
+   *
+   * Optimized: Combines multiple queries into 2 aggregate queries using conditional counting
+   * - 1 query for all offer statistics (instead of 3 separate queries)
+   * - 1 query for all alert statistics (instead of 2 separate queries)
    */
   async getMonitoringStats(): Promise<MonitoringStats> {
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Count recent price checks
-    const recentChecks = await db.query.productOffers.findMany({
-      where: gte(productOffers.lastLinkCheck, last24h),
-      columns: { id: true }
-    });
+    // Combine all offer statistics into a single query using conditional counting
+    // This replaces 5 separate queries with 2 aggregate queries
+    const [offerStats] = await db
+      .select({
+        recentChecks24h: sql<number>`count(case when ${productOffers.lastLinkCheck} >= ${last24h} then 1 end)`,
+        recentChecks7d: sql<number>`count(case when ${productOffers.lastLinkCheck} >= ${last7d} then 1 end)`,
+        available: sql<number>`count(case when ${productOffers.availability} = 'in_stock' then 1 end)`,
+        outOfStock: sql<number>`count(case when ${productOffers.availability} = 'out_of_stock' then 1 end)`,
+        unknownAvailability: sql<number>`count(case when ${productOffers.availability} is null or ${productOffers.availability} not in ('in_stock', 'out_of_stock') then 1 end)`
+      })
+      .from(productOffers);
 
-    // Count active alerts
-    const activeAlerts = await db.query.priceAlerts.findMany({
-      where: eq(priceAlerts.isActive, true),
-      columns: { id: true }
-    });
-
-    // Count inactive alerts (triggered alerts - field doesn't exist in schema)
-    const inactiveAlerts = await db.query.priceAlerts.findMany({
-      where: eq(priceAlerts.isActive, false),
-      columns: { id: true }
-    });
-
-    // Get total offers
-    const totalOffers = await db.query.productOffers.findMany({
-      columns: { id: true }
-    });
-
-    // Get stale offers (>24h old)
-    const staleOffers = await db.query.productOffers.findMany({
-      where: lt(productOffers.lastLinkCheck, last24h),
-      columns: { id: true }
-    });
+    // Combine all alert statistics into a single query using conditional counting
+    const [alertStats] = await db
+      .select({
+        totalAlerts: count(),
+        activeAlerts: sql<number>`count(case when ${priceAlerts.isActive} = true then 1 end)`,
+        triggeredAlerts: sql<number>`count(case when ${priceAlerts.isActive} = false then 1 end)`
+      })
+      .from(priceAlerts);
 
     return {
-      totalOffers: totalOffers.length,
-      recentChecks: recentChecks.length,
-      staleOffers: staleOffers.length,
-      activeAlerts: activeAlerts.length,
-      inactiveAlerts: inactiveAlerts.length,
-      monitoringHealth: {
-        upToDate: ((totalOffers.length - staleOffers.length) / totalOffers.length * 100).toFixed(1) + '%',
-        alertsTriggered: inactiveAlerts.length,
-        averageCheckAge: '12 hours' // Could be calculated from actual data
-      }
+      recentChecks: {
+        last24h: Number(offerStats?.recentChecks24h ?? 0),
+        last7d: Number(offerStats?.recentChecks7d ?? 0)
+      },
+      activeAlerts: {
+        total: Number(alertStats?.totalAlerts ?? 0),
+        triggered: Number(alertStats?.triggeredAlerts ?? 0),
+        byType: {} // Would require additional grouping query if needed
+      },
+      priceChanges: {
+        increases: 0, // Would require price history comparison
+        decreases: 0,
+        stable: 0
+      },
+      availability: {
+        available: Number(offerStats?.available ?? 0),
+        outOfStock: Number(offerStats?.outOfStock ?? 0),
+        unknown: Number(offerStats?.unknownAvailability ?? 0)
+      },
+      timestamp: now.toISOString()
     };
   }
 

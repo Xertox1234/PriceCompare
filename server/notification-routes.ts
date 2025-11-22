@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { logger } from "./utils/logger";
 import { z } from "zod";
 import * as notificationService from "./services/notification-service";
@@ -13,7 +13,7 @@ import { createErrorResponse } from "./utils/error-sanitizer";
  */
 
 export function registerNotificationRoutes(app: Express) {
-  // Middleware to ensure user is authenticated
+  // Middleware to ensure user is authenticated (HOC for routes without CSRF)
   const withAuth = (handler: (req: Request, res: Response) => Promise<void>) => {
     return async (req: Request, res: Response) => {
       if (!req.user) {
@@ -22,6 +22,15 @@ export function registerNotificationRoutes(app: Express) {
       return handler(req, res);
     };
   };
+
+  // Middleware function for routes with CSRF (works with middleware chaining)
+  function requireAuth(req: Request, res: Response, next: NextFunction) {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    next();
+  }
 
   /**
    * GET /api/notifications
@@ -85,28 +94,16 @@ export function registerNotificationRoutes(app: Express) {
    * Mark a notification as read
    * @security CSRF protection required
    */
-  app.post("/api/notifications/:id/read", withAuth(async (req, res) => {
-    // CSRF protection check
-    const csrfValid = await new Promise((resolve) => {
-      csrfProtection(req, res, (err) => {
-        if (err) {
-          res.status(403).json({ error: "Invalid CSRF token" });
-          resolve(false);
-        } else {
-          resolve(true);
-        }
-      });
-    });
-    if (!csrfValid) return;
-
+  app.post("/api/notifications/:id/read", requireAuth, csrfProtection, async (req: Request, res: Response) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user!; // Auth verified by requireAuth middleware
       const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
       const count = await notificationService.markAsRead(user.id, notificationId);
 
       if (count === 0) {
-        return res.status(404).json({ error: "Notification not found" });
+        res.status(404).json({ error: "Notification not found" });
+        return;
       }
 
       res.json({ success: true });
@@ -118,29 +115,16 @@ export function registerNotificationRoutes(app: Express) {
         details: errorResponse.details
       });
     }
-  }));
+  });
 
   /**
    * POST /api/notifications/read-all
    * Mark all notifications as read
    * @security CSRF protection required
    */
-  app.post("/api/notifications/read-all", withAuth(async (req, res) => {
-    // CSRF protection check
-    const csrfValid = await new Promise((resolve) => {
-      csrfProtection(req, res, (err) => {
-        if (err) {
-          res.status(403).json({ error: "Invalid CSRF token" });
-          resolve(false);
-        } else {
-          resolve(true);
-        }
-      });
-    });
-    if (!csrfValid) return;
-
+  app.post("/api/notifications/read-all", requireAuth, csrfProtection, async (req: Request, res: Response) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user!; // Auth verified by requireAuth middleware
       const count = await notificationService.markAllAsRead(user.id);
 
       res.json({
@@ -155,52 +139,59 @@ export function registerNotificationRoutes(app: Express) {
         details: errorResponse.details
       });
     }
-  }));
+  });
 
   /**
    * DELETE /api/notifications/:id
    * Delete a notification
+   * @security CSRF protection required
    */
-  app.delete("/api/notifications/:id", withAuth(async (req, res) => {
+  app.delete("/api/notifications/:id", requireAuth, csrfProtection, async (req: Request, res: Response) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
-      const notificationId = parseInt(req.params.id);
-
-      if (isNaN(notificationId)) {
-        return res.status(400).json({ error: "Invalid notification ID" });
-      }
+      const user = req.user!; // Auth verified by requireAuth middleware
+      const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
       const deleted = await notificationService.deleteNotification(user.id, notificationId);
 
       if (!deleted) {
-        return res.status(404).json({ error: "Notification not found" });
+        res.status(404).json({ error: "Notification not found" });
+        return;
       }
 
       res.json({ success: true });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error deleting notification:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to delete notification" });
+      const errorResponse = createErrorResponse(error, 'DeleteNotification');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
-  }));
+  });
 
   /**
    * DELETE /api/notifications
    * Delete all notifications for the user
+   * @security CSRF protection required
    */
-  app.delete("/api/notifications", withAuth(async (req, res) => {
+  app.delete("/api/notifications", requireAuth, csrfProtection, async (req: Request, res: Response) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user!; // Auth verified by requireAuth middleware
       const count = await notificationService.deleteAllNotifications(user.id);
 
       res.json({
         success: true,
         count
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error deleting all notifications:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to delete notifications" });
+      const errorResponse = createErrorResponse(error, 'DeleteAllNotifications');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
-  }));
+  });
 
   /**
    * GET /api/notifications/preferences
@@ -215,19 +206,24 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: preferences
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error fetching preferences:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch preferences" });
+      const errorResponse = createErrorResponse(error, 'GetNotificationPreferences');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
   }));
 
   /**
    * PATCH /api/notifications/preferences
    * Update user's notification preferences
+   * @security CSRF protection required
    */
-  app.patch("/api/notifications/preferences", withAuth(async (req, res) => {
+  app.patch("/api/notifications/preferences", requireAuth, csrfProtection, async (req: Request, res: Response) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user!; // Auth verified by requireAuth middleware
 
       const updateSchema = z.object({
         priceDropEnabled: z.boolean().optional(),
@@ -249,14 +245,15 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: preferences
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error updating preferences:', { error: error instanceof Error ? error.message : String(error) });
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid preferences data", details: error.issues });
-      }
-      res.status(500).json({ error: error.message || "Failed to update preferences" });
+      const errorResponse = createErrorResponse(error, 'UpdateNotificationPreferences');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
-  }));
+  });
 
   /**
    * GET /api/notifications/price-drops
@@ -265,7 +262,9 @@ export function registerNotificationRoutes(app: Express) {
   app.get("/api/notifications/price-drops", withAuth(async (req, res) => {
     try {
       const user = req.user!; // Auth verified by withAuth middleware
-      const days = req.query.days ? parseInt(req.query.days as string) : 7;
+      const days = req.query.days
+        ? parseIntSafe(req.query.days as string, 'days', { min: 1, max: 365 })
+        : 7;
 
       const notifications = await notificationService.getRecentPriceDrops(user.id, days);
 
@@ -274,9 +273,13 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error fetching price drops:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch price drops" });
+      const errorResponse = createErrorResponse(error, 'GetPriceDropNotifications');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
   }));
 
@@ -287,7 +290,9 @@ export function registerNotificationRoutes(app: Express) {
   app.get("/api/notifications/price-alerts", withAuth(async (req, res) => {
     try {
       const user = req.user!; // Auth verified by withAuth middleware
-      const days = req.query.days ? parseInt(req.query.days as string) : 7;
+      const days = req.query.days
+        ? parseIntSafe(req.query.days as string, 'days', { min: 1, max: 365 })
+        : 7;
 
       const notifications = await notificationService.getRecentPriceAlerts(user.id, days);
 
@@ -296,9 +301,13 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error fetching price alerts:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch price alerts" });
+      const errorResponse = createErrorResponse(error, 'GetPriceAlertNotifications');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
   }));
 
@@ -348,27 +357,25 @@ export function registerNotificationRoutes(app: Express) {
         data: filteredNotifications,
         count: filteredNotifications.length
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error fetching smart notifications:', { error: error instanceof Error ? error.message : String(error) });
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid filter parameters", details: error.issues });
-      }
-      res.status(500).json({ error: error.message || "Failed to fetch smart notifications" });
+      const errorResponse = createErrorResponse(error, 'GetSmartNotifications');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
   }));
 
   /**
    * POST /api/notifications/smart/:id/snooze
    * Snooze a smart notification for specified duration
+   * @security CSRF protection required
    */
-  app.post("/api/notifications/smart/:id/snooze", withAuth(async (req, res) => {
+  app.post("/api/notifications/smart/:id/snooze", requireAuth, csrfProtection, async (req: Request, res: Response) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
-      const notificationId = parseInt(req.params.id);
-
-      if (isNaN(notificationId)) {
-        return res.status(400).json({ error: "Invalid notification ID" });
-      }
+      const user = req.user!; // Auth verified by requireAuth middleware
+      const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
       const snoozeSchema = z.object({
         duration: z.number().min(3600).max(7 * 24 * 60 * 60), // 1 hour to 7 days in seconds
@@ -385,11 +392,13 @@ export function registerNotificationRoutes(app: Express) {
       const notification = notifications.find(n => n.id === notificationId);
 
       if (!notification) {
-        return res.status(404).json({ error: "Notification not found" });
+        res.status(404).json({ error: "Notification not found" });
+        return;
       }
 
       if (notification.type !== 'smart_alert') {
-        return res.status(400).json({ error: "Can only snooze smart notifications" });
+        res.status(400).json({ error: "Can only snooze smart notifications" });
+        return;
       }
 
       // Mark as read and update metadata with snooze timestamp
@@ -409,27 +418,25 @@ export function registerNotificationRoutes(app: Express) {
         snoozedUntil: snoozeUntil.toISOString(),
         message: `Notification snoozed for ${duration / 3600} hours`
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error snoozing notification:', { error: error instanceof Error ? error.message : String(error) });
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid snooze duration", details: error.issues });
-      }
-      res.status(500).json({ error: error.message || "Failed to snooze notification" });
+      const errorResponse = createErrorResponse(error, 'SnoozeNotification');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
-  }));
+  });
 
   /**
    * POST /api/notifications/smart/:id/dismiss
    * Dismiss a smart notification
+   * @security CSRF protection required
    */
-  app.post("/api/notifications/smart/:id/dismiss", withAuth(async (req, res) => {
+  app.post("/api/notifications/smart/:id/dismiss", requireAuth, csrfProtection, async (req: Request, res: Response) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
-      const notificationId = parseInt(req.params.id);
-
-      if (isNaN(notificationId)) {
-        return res.status(400).json({ error: "Invalid notification ID" });
-      }
+      const user = req.user!; // Auth verified by requireAuth middleware
+      const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
       // Get the notification to verify ownership and type
       const notifications = await notificationService.getUserNotifications(user.id, {
@@ -440,11 +447,13 @@ export function registerNotificationRoutes(app: Express) {
       const notification = notifications.find(n => n.id === notificationId);
 
       if (!notification) {
-        return res.status(404).json({ error: "Notification not found" });
+        res.status(404).json({ error: "Notification not found" });
+        return;
       }
 
       if (notification.type !== 'smart_alert') {
-        return res.status(400).json({ error: "Can only dismiss smart notifications" });
+        res.status(400).json({ error: "Can only dismiss smart notifications" });
+        return;
       }
 
       // Mark as read
@@ -454,9 +463,13 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         message: "Notification dismissed successfully"
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Error dismissing notification:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to dismiss notification" });
+      const errorResponse = createErrorResponse(error, 'DismissNotification');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details
+      });
     }
-  }));
+  });
 }
