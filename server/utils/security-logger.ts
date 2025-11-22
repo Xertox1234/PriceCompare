@@ -6,6 +6,11 @@
  */
 
 import { Request } from 'express';
+import { createLogger } from './logger';
+import { captureMessage, addBreadcrumb } from '../config/sentry';
+import type { SeverityLevel } from '@sentry/node';
+
+const log = createLogger('Security');
 
 /**
  * Security event types
@@ -180,27 +185,82 @@ export function logSecurityEvent(
     metadata: sanitizeMetadata(options.metadata),
   };
 
-  // Log to console in structured format
-  const logLevel = event.severity === SecurityEventSeverity.CRITICAL ? 'error' :
-    event.severity === SecurityEventSeverity.ERROR ? 'error' :
-    event.severity === SecurityEventSeverity.WARNING ? 'warn' : 'info';
+  // Log using structured logger (outputs JSON in production for log aggregators)
+  const logMessage = `[${event.type}] ${event.message || (event.success ? 'Success' : 'Failed')}`;
+  const logMetadata = {
+    eventType: event.type,
+    severity: event.severity,
+    userId: event.userId,
+    username: event.username,
+    ipAddress: event.ipAddress,
+    path: event.path,
+    method: event.method,
+    success: event.success,
+    ...event.metadata,
+  };
 
-  console[logLevel]('[SECURITY]', JSON.stringify(event, null, 2));
+  switch (event.severity) {
+    case SecurityEventSeverity.CRITICAL:
+      log.error(logMessage, logMetadata);
+      break;
+    case SecurityEventSeverity.ERROR:
+      log.error(logMessage, logMetadata);
+      break;
+    case SecurityEventSeverity.WARNING:
+      log.warn(logMessage, logMetadata);
+      break;
+    default:
+      log.info(logMessage, logMetadata);
+  }
 
-  // TODO: In production, integrate with logging service
-  // Examples:
-  // - Winston for file/stream logging
-  // - Sentry for error tracking
-  // - CloudWatch/Datadog for metrics
-  // - ELK stack for log aggregation
-  //
-  // if (loggingService) {
-  //   loggingService.logSecurityEvent(event);
-  // }
-  //
-  // if (event.severity === SecurityEventSeverity.CRITICAL) {
-  //   alertingService.sendAlert(event);
-  // }
+  // Add breadcrumb to Sentry for tracking security event trail
+  addBreadcrumb(
+    logMessage,
+    'security',
+    {
+      eventType: event.type,
+      userId: event.userId,
+      ipAddress: event.ipAddress,
+      success: event.success,
+    },
+    mapSeverityToSentryLevel(event.severity)
+  );
+
+  // Send critical and error security events to Sentry for alerting
+  if (event.severity === SecurityEventSeverity.CRITICAL || event.severity === SecurityEventSeverity.ERROR) {
+    captureMessage(
+      `Security Event: ${event.type}`,
+      mapSeverityToSentryLevel(event.severity),
+      {
+        eventType: event.type,
+        userId: event.userId,
+        username: event.username,
+        ipAddress: event.ipAddress,
+        userAgent: event.userAgent,
+        path: event.path,
+        method: event.method,
+        success: event.success,
+        message: event.message,
+        metadata: event.metadata,
+      }
+    );
+  }
+}
+
+/**
+ * Map security severity to Sentry severity level
+ */
+function mapSeverityToSentryLevel(severity: SecurityEventSeverity): SeverityLevel {
+  switch (severity) {
+    case SecurityEventSeverity.CRITICAL:
+      return 'fatal';
+    case SecurityEventSeverity.ERROR:
+      return 'error';
+    case SecurityEventSeverity.WARNING:
+      return 'warning';
+    default:
+      return 'info';
+  }
 }
 
 /**

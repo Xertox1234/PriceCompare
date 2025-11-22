@@ -337,13 +337,11 @@ export function registerNotificationRoutes(app: Express) {
 
       const notifications = await notificationService.getUserNotifications(user.id, baseFilters);
 
-      // Filter by urgency if specified (metadata is JSON in database)
-      let filteredNotifications = notifications;
-      if (filters.urgency) {
-        // Note: This would require parsing metadata from notifications
-        // For now, return all smart_alert notifications
-        // TODO: Add metadata query support in notification-service
-      }
+      // Note: Urgency filtering is not currently supported as the notifications table
+      // does not have a metadata field. To enable urgency-based filtering, a schema
+      // migration would be needed to add a metadata column to store urgency levels.
+      // For now, all smart_alert notifications are returned regardless of urgency parameter.
+      const filteredNotifications = notifications;
 
       res.json({
         success: true,
@@ -400,8 +398,11 @@ export function registerNotificationRoutes(app: Express) {
       // Calculate snooze until timestamp
       const snoozeUntil = new Date(Date.now() + duration * 1000);
 
-      // TODO: Store snooze metadata in notification
-      // For now, just mark as read
+      // Note: Full snooze functionality with reactivation requires a metadata field
+      // in the notifications table to store snoozeUntil timestamp. Currently, snooze
+      // only marks the notification as read. To enable full snooze support, add a
+      // metadata column to the notifications schema and implement snooze expiration
+      // checking in getUserNotifications.
 
       res.json({
         success: true,

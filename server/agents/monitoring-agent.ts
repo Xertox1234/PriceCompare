@@ -4,8 +4,34 @@ import { db } from '../db';
 import { productOffers, priceAlerts, products, retailers } from '@shared/schema';
 import { eq, lt, and, desc, gte, isNotNull } from 'drizzle-orm';
 import { ScraperUtils } from '../utils/scraper-utils';
-import type { MonitoringTask, PriceChange, MonitoringStats } from './types.js';
+import type { MonitoringTask, MonitoringStats } from './types.js';
 import { logger } from '../utils/logger.js';
+
+interface PriceChange {
+  offerId: number;
+  productName: string;
+  retailerName: string;
+  oldPrice: number;
+  newPrice: number;
+  priceChange: number;
+  percentChange: number;
+  url: string;
+}
+
+interface MonitorPriceChangesResult {
+  changes: PriceChange[];
+  checked: number;
+}
+
+interface CheckAlertsResult {
+  triggered: AlertNotification[];
+  checked: number;
+}
+
+interface RefreshOffersResult {
+  refreshed: number;
+  failed: number;
+}
 
 interface AlertNotification {
   alertId: number;
@@ -16,6 +42,26 @@ interface AlertNotification {
   retailerName: string;
   url: string;
 }
+
+// Type definitions for query results with relations
+import type { Product, ProductOffer, Retailer, PriceAlert } from '@shared/schema';
+
+type ProductOfferWithRelations = ProductOffer & {
+  product: Product | null;
+  retailer: Retailer | null;
+};
+
+type OfferWithRetailer = ProductOffer & {
+  retailer: Retailer | null;
+};
+
+type ProductWithOffers = Product & {
+  offers: OfferWithRetailer[];
+};
+
+type PriceAlertWithProduct = PriceAlert & {
+  product: ProductWithOffers | null;
+};
 
 /**
  * Price Monitoring Agent - Tracks price changes and triggers alerts
@@ -56,7 +102,7 @@ export class PriceMonitoringAgent extends BaseAgent {
     logger.error(`[${this.config.name}] ERROR: ${message}`);
   }
 
-  async processTask(task: MonitoringTask): Promise<any> {
+  async processTask(task: MonitoringTask): Promise<MonitorPriceChangesResult | CheckAlertsResult | RefreshOffersResult> {
     switch (task.action) {
       case 'monitor_price_changes':
         return await this.monitorPriceChanges(task.maxAge);
@@ -65,7 +111,7 @@ export class PriceMonitoringAgent extends BaseAgent {
       case 'refresh_offers':
         return await this.refreshStaleOffers(task.maxAge);
       default:
-        throw new Error(`Unknown monitoring task: ${task.action}`);
+        throw new Error(`Unknown monitoring task: ${(task as MonitoringTask).action}`);
     }
   }
 
@@ -78,14 +124,14 @@ export class PriceMonitoringAgent extends BaseAgent {
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
     
     // Get offers that need checking
-    const staleOffers = await db.query.productOffers.findMany({
+    const staleOffers: ProductOfferWithRelations[] = await db.query.productOffers.findMany({
       where: lt(productOffers.lastLinkCheck, cutoffTime),
       with: {
         product: true,
         retailer: true
       },
       limit: 50 // Process in batches
-    }) /* TODO: Add proper return type */;
+    });
 
     this.logInfo(`Found ${staleOffers.length} offers to check`);
 
@@ -163,7 +209,7 @@ export class PriceMonitoringAgent extends BaseAgent {
     this.logInfo('Checking price alerts');
 
     // Get active price alerts with current offers
-    const alerts = await db.query.priceAlerts.findMany({
+    const alerts: PriceAlertWithProduct[] = await db.query.priceAlerts.findMany({
       where: eq(priceAlerts.isActive, true),
       with: {
         product: {
@@ -177,7 +223,7 @@ export class PriceMonitoringAgent extends BaseAgent {
           }
         }
       }
-    }) /* TODO: Add proper return type */;
+    });
 
     const triggeredAlerts: AlertNotification[] = [];
 
@@ -185,10 +231,10 @@ export class PriceMonitoringAgent extends BaseAgent {
       const product = alert.product;
 
       // Find the best current price across all retailers
-      const offers = (product?.offers || []) /* TODO: Add proper return type */;
+      const offers: OfferWithRetailer[] = product?.offers || [];
       const bestOffer = offers
-        .filter((offer: unknown) => offer.availability === 'in_stock')
-        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => parseFloat(a.price) - parseFloat(b.price))[0];
+        .filter((offer) => offer.availability === 'in_stock')
+        .sort((a, b) => parseFloat(a.price) - parseFloat(b.price))[0];
 
       const targetPrice = parseFloat(alert.targetPrice);
       const currentPrice = bestOffer ? parseFloat(bestOffer.price) : Infinity;
@@ -229,14 +275,14 @@ export class PriceMonitoringAgent extends BaseAgent {
 
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
 
-    const staleOffers = await db.query.productOffers.findMany({
+    const staleOffers: ProductOfferWithRelations[] = await db.query.productOffers.findMany({
       where: lt(productOffers.lastLinkCheck, cutoffTime),
       with: {
         retailer: true,
         product: true
       },
       limit: 20 // Smaller batch for full refresh
-    }) /* TODO: Add proper return type */;
+    });
 
     let refreshed = 0;
     let failed = 0;

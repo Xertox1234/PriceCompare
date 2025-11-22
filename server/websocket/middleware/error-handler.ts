@@ -16,6 +16,7 @@
 
 import type { AuthenticatedSocket } from '../types';
 import { createLogger } from '../../utils/logger';
+import { monitoringService } from '../../services/monitoring-service';
 
 const log = createLogger('WebSocket:ErrorHandler');
 
@@ -170,11 +171,17 @@ export function withErrorHandling<T = unknown>(
 /**
  * Track error metrics for monitoring
  *
- * This is a stub - integrate with your monitoring service (e.g., Sentry, DataDog)
+ * Integrates with the monitoring service to log WebSocket errors for dashboard visibility.
+ * Errors are tracked in the monitoring service's error log and can be viewed via the
+ * monitoring dashboard API endpoints.
  */
 function trackErrorMetric(errorCode: string, eventName: string): void {
-  // TODO: Integrate with monitoring service
-  // Example: Sentry.captureMessage(`WebSocket error: ${errorCode} in ${eventName}`);
+  // Log to monitoring service for dashboard visibility
+  monitoringService.logError('error', `WebSocket error: ${errorCode} in ${eventName}`, {
+    errorCode,
+    eventName,
+    source: 'websocket',
+  });
   log.debug('Error metric tracked', { errorCode, eventName });
 }
 

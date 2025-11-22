@@ -26,6 +26,62 @@ import type {
 } from '../shared/schema';
 import { getFirstResult } from './utils/db-helpers.js';
 
+// Type definitions for raw query results before mapping
+// SECURITY: These types intentionally exclude passwordHash
+type TopicQueryAuthor = {
+  id: number | null;
+  username: string | null;
+  email: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+type TopicQueryCategory = {
+  id: number | null;
+  name: string | null;
+  slug: string | null;
+  description: string | null;
+  color: string | null;
+  isActive: boolean | null;
+  createdAt: Date | null;
+};
+
+type TopicQueryResult = {
+  id: number;
+  title: string;
+  slug: string;
+  categoryId: number | null;
+  authorId: number | null;
+  productId: number | null;
+  isPinned: boolean;
+  isLocked: boolean;
+  postCount: number;
+  lastPostAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  author: TopicQueryAuthor | null;
+  category: TopicQueryCategory | null;
+};
+
+type PostQueryAuthor = {
+  id: number | null;
+  username: string | null;
+  email: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+type PostQueryResult = {
+  id: number;
+  topicId: number;
+  authorId: number | null;
+  content: string;
+  isFirstPost: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  author: PostQueryAuthor | null;
+};
+
 export class ForumStorage {
   // Categories
   async getCategories(): Promise<ForumCategory[]> {
@@ -88,13 +144,13 @@ export class ForumStorage {
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(forumTopics.isPinned), desc(forumTopics.lastPostAt))
-      .execute() /* TODO: Add proper return type */;
+      .execute() as unknown as TopicQueryResult[];
 
-    return results.map((result: unknown) => ({
+    return results.map((result) => ({
       ...result,
       author: result.author!,
       category: result.category || undefined,
-    }));
+    })) as ForumTopicWithDetails[];
   }
 
   async getTopicById(id: number): Promise<ForumTopicWithDetails | null> {
@@ -134,7 +190,7 @@ export class ForumStorage {
       .leftJoin(users, eq(forumTopics.authorId, users.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
       .where(eq(forumTopics.id, id))
-      .limit(1) /* TODO: Add proper return type */;
+      .limit(1) as unknown as TopicQueryResult[];
 
     const topic = getFirstResult(result);
     if (!topic) return null;
@@ -192,7 +248,7 @@ export class ForumStorage {
       .from(forumPosts)
       .leftJoin(users, eq(forumPosts.authorId, users.id))
       .where(eq(forumPosts.topicId, topicId))
-      .orderBy(asc(forumPosts.createdAt)) /* TODO: Add proper return type */;
+      .orderBy(asc(forumPosts.createdAt)) as unknown as PostQueryResult[];
 
     return results.map((result) => ({
       ...result,

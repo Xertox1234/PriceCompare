@@ -131,7 +131,7 @@ export class EnhancedForumStorage {
       .innerJoin(users, eq(forumTopics.authorId, users.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(forumTopics.lastPostAt)) /* TODO: Add proper return type */;
+      .orderBy(desc(forumTopics.lastPostAt));
 
     // Get tags for each topic
     const topicIds = results.map(r => r.topic.id);
@@ -427,7 +427,7 @@ export class EnhancedForumStorage {
       .leftJoin(forumPosts, eq(notifications.relatedPostId, forumPosts.id))
       .leftJoin(forumTopics, eq(notifications.relatedTopicId, forumTopics.id))
       .where(and(...conditions))
-      .orderBy(desc(notifications.createdAt)) /* TODO: Add proper return type */;
+      .orderBy(desc(notifications.createdAt));
 
     return results.map(result => ({
       ...result.notification,
@@ -568,9 +568,9 @@ export class EnhancedForumStorage {
       .innerJoin(forumTopics, eq(forumPosts.topicId, forumTopics.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
       .where(and(...conditions))
-      .orderBy(desc(forumPosts.createdAt)) /* TODO: Add proper return type */;
+      .orderBy(desc(forumPosts.createdAt));
 
-    return results.map((result: unknown) => ({
+    return results.map((result) => ({
       ...result.post,
       author: {
         ...result.author,
