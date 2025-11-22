@@ -1,17 +1,21 @@
 import { Express } from "express";
-import { db } from "../db";
 import { storage } from "../storage";
 import { forumStorage } from "../forum-storage";
 import type { SearchFilters } from "@shared/schema";
-import * as schema from "@shared/schema";
-import { eq, like } from 'drizzle-orm';
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from "../utils/validation-helpers";
-import { cacheChartData } from "../middleware/chart-cache";
 import {
   productCacheMiddleware,
   searchCacheMiddleware,
+  redisCacheMiddleware,
 } from "../middleware/redis-cache";
+import { CACHE_DURATION } from "../utils/constants";
 import { logger } from "../utils/logger";
+
+// Price history cache middleware - using redis cache with 1 hour TTL
+const priceHistoryCacheMiddleware = redisCacheMiddleware({
+  ttl: CACHE_DURATION.VERY_LONG, // 1 hour
+  keyGenerator: (req) => `cache:price-history:${req.params.id}:${req.query.days || '30'}:${req.query.retailerId || 'all'}`,
+});
 
 /**
  * Product Routes
@@ -27,24 +31,14 @@ export function registerProductRoutes(app: Express): void {
       if (req.query.url) {
         const productUrl = decodeURIComponent(req.query.url as string);
 
-        // Search for product by URL in product offers
-        const allProductOffers = await db
-          .select({
-            offer: schema.productOffers,
-            product: schema.products,
-            retailer: schema.retailers
-          })
-          .from(schema.productOffers)
-          .innerJoin(schema.products, eq(schema.productOffers.productId, schema.products.id))
-          .innerJoin(schema.retailers, eq(schema.productOffers.retailerId, schema.retailers.id))
-          .where(like(schema.productOffers.productUrl, `%${productUrl}%`));
+        // Search for product by URL using storage layer
+        const result = await storage.getProductByUrl(productUrl);
 
-        if (allProductOffers.length === 0) {
+        if (!result) {
           return res.json({ product: null });
         }
 
-        // Get the first matching product
-        const { product, offer, retailer } = allProductOffers[0];
+        const { product } = result;
 
         // Get all offers for this product
         const offers = await storage.getProductOffers(product.id);
@@ -142,7 +136,7 @@ export function registerProductRoutes(app: Express): void {
 
   // Price History Endpoints
   // Get price history for a product (with caching)
-  app.get("/api/products/:id/price-history", cacheChartData(3600), async (req, res) => {
+  app.get("/api/products/:id/price-history", priceHistoryCacheMiddleware, async (req, res) => {
     try {
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
       const days = parseIntOptional(req.query.days as string);

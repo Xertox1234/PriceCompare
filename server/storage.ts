@@ -1,6 +1,6 @@
 import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, inArray, sql, desc, asc, isNull, or } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, sql, desc, asc, isNull, or, like } from "drizzle-orm";
 
 export interface IStorage {
   // Retailers
@@ -19,6 +19,13 @@ export interface IStorage {
   // Product Offers
   getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]>;
   createProductOffer(offer: InsertProductOffer): Promise<ProductOffer>;
+
+  // Product URL Search (for browser extension)
+  getProductByUrl(productUrl: string): Promise<{
+    product: Product;
+    offer: ProductOffer;
+    retailer: Retailer;
+  } | null>;
 
   // Price History
   getPriceHistory(productId: number, days?: number): Promise<PriceHistoryWithDetails[]>;
@@ -390,6 +397,24 @@ export class MemStorage implements IStorage {
     };
     this.productOffers.set(id, newOffer);
     return newOffer;
+  }
+
+  async getProductByUrl(productUrl: string): Promise<{
+    product: Product;
+    offer: ProductOffer;
+    retailer: Retailer;
+  } | null> {
+    // Search for matching offer by URL
+    for (const offer of Array.from(this.productOffers.values())) {
+      if (offer.productUrl && offer.productUrl.includes(productUrl)) {
+        const product = this.products.get(offer.productId);
+        const retailer = this.retailers.get(offer.retailerId);
+        if (product && retailer) {
+          return { product, offer, retailer };
+        }
+      }
+    }
+    return null;
   }
 
   // Price History Methods (stub implementations for in-memory storage)
@@ -795,6 +820,35 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  /**
+   * Search for a product by URL (used by browser extension)
+   * Searches product offers for matching URLs using LIKE pattern
+   */
+  async getProductByUrl(productUrl: string): Promise<{
+    product: Product;
+    offer: ProductOffer;
+    retailer: Retailer;
+  } | null> {
+    const result = await db
+      .select({
+        offer: productOffers,
+        product: products,
+        retailer: retailers
+      })
+      .from(productOffers)
+      .innerJoin(products, eq(productOffers.productId, products.id))
+      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(like(productOffers.productUrl, `%${productUrl}%`))
+      .limit(1);
+
+    if (result.length === 0) {
+      return null;
+    }
+
+    const { product, offer, retailer } = result[0];
+    return { product, offer, retailer };
   }
 
   // Price History Methods

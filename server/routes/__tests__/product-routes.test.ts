@@ -29,12 +29,9 @@ vi.mock('../../middleware/redis-cache', () => ({
   productCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
   searchCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
   retailerCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
+  redisCacheMiddleware: () => (req: unknown, res: unknown, next: () => void) => next(),
 }));
 
-// Mock chart cache middleware
-vi.mock('../../middleware/chart-cache', () => ({
-  cacheChartData: () => (req: unknown, res: unknown, next: () => void) => next(),
-}));
 
 // Mock logger to avoid console noise
 vi.mock('../../utils/logger', () => ({

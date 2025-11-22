@@ -7,6 +7,33 @@
  * - Tiered TTL based on data popularity
  * - Smart cache invalidation with pub/sub
  * - Cache warming for frequently accessed items
+ *
+ * TODO: GitHub Issue #89 - Consolidate Caching Layer
+ * This file should become the single unified caching service. The following
+ * files have overlapping functionality that should be consolidated:
+ *
+ * SERVICES (to merge into this file):
+ * - services/redis-cache.ts (393 lines) - Provides RedisCache class with
+ *   queryCache and generalCache singletons. Used by search-agent, scraping-routes,
+ *   monitoring-service. Merge the RedisCache class functionality and exports.
+ * - services/analytics-cache.ts (276 lines) - Wraps this service for analytics.
+ *   Keep as thin wrapper or merge caching logic here.
+ * - services/cache-invalidation.ts (324 lines) - Smart invalidation with pub/sub.
+ *   Consider merging invalidation logic into this service.
+ *
+ * MIDDLEWARE (to consolidate):
+ * - middleware/cache.ts (30 lines) - Simple HTTP cache headers. Keep separate
+ *   as it serves a different purpose (HTTP caching vs data caching).
+ * - middleware/redis-cache.ts (212 lines) - Redis-backed response caching with
+ *   in-memory fallback. Used by product-routes, retailer-routes. Evaluate if
+ *   this can use AdvancedCacheService instead of separate Redis connection.
+ *
+ * CONSOLIDATION STRATEGY:
+ * 1. Make AdvancedCacheService the single source of truth for all caching
+ * 2. Export convenience methods for different use cases (query, chart, analytics)
+ * 3. Keep middleware thin - just use the unified service
+ * 4. Preserve the multi-tier (L1/L2) architecture
+ * 5. Maintain backward compatibility during migration
  */
 
 import { getRedisClient, redisClient } from '../config/redis';
