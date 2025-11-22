@@ -235,7 +235,7 @@ export const forumTopics = pgTable("forum_topics", {
   slug: varchar("slug", { length: 255 }).notNull(),
   content: text("content"), // Initial post content
   categoryId: integer("category_id").references(() => forumCategories.id, { onDelete: 'set null' }),
-  authorId: integer("author_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  authorId: integer("author_id").references(() => users.id, { onDelete: 'set null' }), // Nullable to allow SET NULL on user deletion
   productId: integer("product_id").references(() => products.id, { onDelete: 'set null' }), // Link to products
   tags: varchar("tags", { length: 500 }).array(), // Topic tags
   isPinned: boolean("is_pinned").default(false),
@@ -258,7 +258,7 @@ export const forumTopics = pgTable("forum_topics", {
 export const forumPosts = pgTable("forum_posts", {
   id: serial("id").primaryKey(),
   topicId: integer("topic_id").references(() => forumTopics.id, { onDelete: 'cascade' }).notNull(),
-  authorId: integer("author_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  authorId: integer("author_id").references(() => users.id, { onDelete: 'set null' }), // Nullable to allow SET NULL on user deletion
   content: text("content").notNull(),
   rawContent: text("raw_content").notNull(), // Original markdown/text content
   isFirstPost: boolean("is_first_post").default(false),
@@ -487,7 +487,7 @@ export const postRevisions = pgTable("post_revisions", {
   postId: integer("post_id").references(() => forumPosts.id, { onDelete: 'cascade' }).notNull(),
   content: text("content").notNull(),
   rawContent: text("raw_content").notNull(),
-  editedById: integer("edited_by_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  editedById: integer("edited_by_id").references(() => users.id, { onDelete: 'set null' }), // Nullable to allow SET NULL on user deletion
   editReason: varchar("edit_reason", { length: 255 }),
   version: integer("version").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
