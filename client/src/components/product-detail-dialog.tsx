@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -33,16 +33,59 @@ export function ProductDetailDialog({
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+
+  // Mutation for creating price alerts
+  const createAlertMutation = useMutation({
+    mutationFn: async (data: { productId: number; targetPrice: number; notifyForum: boolean }) => {
+      const res = await fetch('/api/price-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to create price alert');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
+    },
+  });
 
   // Handler for setting price alert from interactive tooltip
   const handleSetAlert = useCallback((retailerId: number, price: number) => {
+    if (!product?.id) return;
+
     const retailer = product?.offers?.find(o => o.retailer.id === retailerId)?.retailer;
-    toast({
-      title: "Price Alert Created",
-      description: `You'll be notified when the price at ${retailer?.name || 'this retailer'} drops below $${price.toFixed(2)}`,
-    });
-    // TODO: Implement actual alert creation API call
-  }, [product, toast]);
+
+    createAlertMutation.mutate(
+      {
+        productId: product.id,
+        targetPrice: price,
+        notifyForum: false,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Price Alert Created",
+            description: `You'll be notified when the price at ${retailer?.name || 'this retailer'} drops below $${price.toFixed(2)}`,
+          });
+        },
+        onError: (error: Error) => {
+          toast({
+            title: "Failed to Create Alert",
+            description: error.message === 'Unauthorized'
+              ? "Please log in to create price alerts"
+              : error.message,
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  }, [product, toast, createAlertMutation]);
 
   // Handler for viewing retailer from interactive tooltip
   const handleViewRetailer = useCallback((retailerId: number) => {

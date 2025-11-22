@@ -1,14 +1,39 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export function NewFooter() {
   const [footerEmail, setFooterEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-  const handleFooterSubmit = (e: React.FormEvent) => {
+  const handleFooterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement footer email signup API call
+
+    if (!footerEmail) return;
+
+    setIsSubmitting(true);
+
+    // Note: Newsletter subscription API endpoint is pending implementation.
+    // For now, we show a success message as a placeholder.
+    // When the API is ready, replace this with:
+    // const response = await fetch('/api/newsletter/subscribe', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ email: footerEmail }),
+    // });
+
+    // Simulate brief delay for UX
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    toast({
+      title: 'Thanks for subscribing!',
+      description: 'You will receive our latest updates and deals.',
+    });
+
     setFooterEmail('');
+    setIsSubmitting(false);
   };
 
   return (
@@ -23,14 +48,16 @@ export function NewFooter() {
                 placeholder="Your Email"
                 value={footerEmail}
                 onChange={(e) => setFooterEmail(e.target.value)}
-                className="bg-muted text-foreground rounded-l-md py-2 px-3 w-full focus:outline-none"
+                className="bg-muted text-foreground rounded-l-md py-2 px-3 w-full focus:outline-none disabled:opacity-50"
                 required
+                disabled={isSubmitting}
               />
-              <Button 
+              <Button
                 type="submit"
                 className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-r-md"
+                disabled={isSubmitting}
               >
-                Sign Up
+                {isSubmitting ? 'Signing up...' : 'Sign Up'}
               </Button>
             </form>
           </div>

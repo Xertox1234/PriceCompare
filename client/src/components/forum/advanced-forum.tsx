@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearch, useLocation } from 'wouter';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { Input } from '@/components/ui/input';
@@ -73,9 +74,24 @@ export default function AdvancedForum() {
   const [sortBy, setSortBy] = useState('latest');
 
   const { data: user } = useAuth();
+  const searchString = useSearch();
+  const [, navigate] = useLocation();
+
+  // Parse URL parameters for topic navigation from notifications
+  const urlParams = new URLSearchParams(searchString);
+  const topicIdFromUrl = urlParams.get('topicId');
 
   const redirectToLogin = () => {
     window.location.assign('/api/auth/login');
+  };
+
+  // Handle clearing URL params when going back to topic list
+  const handleBackToList = () => {
+    setSelectedTopic(null);
+    // Clear URL params when returning to list
+    if (topicIdFromUrl) {
+      navigate('/forum');
+    }
   };
 
   const { data: categories = [] } = useQuery<Category[]>({
@@ -137,13 +153,35 @@ export default function AdvancedForum() {
     enabled: !!selectedTopic
   });
 
+  // Auto-select topic from URL parameters (e.g., from notification navigation)
+  useEffect(() => {
+    if (topicIdFromUrl && topics.length > 0 && !selectedTopic) {
+      const topicId = parseInt(topicIdFromUrl, 10);
+      const topic = topics.find(t => t.id === topicId);
+      if (topic) {
+        setSelectedTopic(topic);
+        // Handle hash anchor for scrolling to specific post
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#post-')) {
+          // Delay scroll to allow topic detail to render
+          setTimeout(() => {
+            const postElement = document.querySelector(hash);
+            if (postElement) {
+              postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+      }
+    }
+  }, [topicIdFromUrl, topics, selectedTopic]);
+
   if (selectedTopic) {
     return (
       <ForumTopicDetail
         topic={selectedTopic}
         posts={posts}
         user={user}
-        onBack={() => setSelectedTopic(null)}
+        onBack={handleBackToList}
         redirectToLogin={redirectToLogin}
       />
     );

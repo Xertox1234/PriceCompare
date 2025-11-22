@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  Bell, Heart, MessageSquare, Trophy, UserPlus, Flag, 
+import {
+  Bell, Heart, MessageSquare, Trophy, UserPlus, Flag,
   Mail, CheckCheck, X
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
@@ -38,6 +39,7 @@ interface Notification {
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications'],
@@ -129,12 +131,13 @@ export function NotificationBell() {
     }
 
     // Navigate to related content
-    // TODO: Implement navigation to topic/post when routing is set up
-    // if (notification.relatedPost && notification.relatedTopic) {
-    //   navigate to topic/post
-    // } else if (notification.relatedTopic) {
-    //   navigate to topic
-    // }
+    if (notification.relatedPost && notification.relatedTopic) {
+      // Navigate to specific post within topic using hash anchor
+      navigate(`/forum?topicId=${notification.relatedTopic.id}#post-${notification.relatedPost.id}`);
+    } else if (notification.relatedTopic) {
+      // Navigate to topic
+      navigate(`/forum?topicId=${notification.relatedTopic.id}`);
+    }
 
     setIsOpen(false);
   };

@@ -228,7 +228,7 @@ export function ForumTopicDetail({ topic, posts, user, onBack, redirectToLogin }
       {/* Posts */}
       <div className="space-y-4">
         {posts.map((post) => (
-          <Card key={post.id}>
+          <Card key={post.id} id={`post-${post.id}`}>
             <CardContent className="pt-4">
               <div className="flex gap-4">
                 <div className="flex flex-col items-center space-y-2 min-w-[120px]">

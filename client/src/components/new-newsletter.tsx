@@ -1,15 +1,34 @@
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { Loader2, CheckCircle } from 'lucide-react';
+
+type SubmissionState = 'idle' | 'loading' | 'success';
 
 export function NewNewsletter() {
   const [email, setEmail] = useState('');
+  const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement newsletter signup API call
-    // For now, just clear the input
+
+    if (!email.trim()) {
+      return;
+    }
+
+    setSubmissionState('loading');
+
+    // NOTE: Newsletter signup API endpoint pending implementation
+    // Currently simulates a successful subscription for UI demonstration
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    setSubmissionState('success');
     setEmail('');
-  };
+
+    // Reset to idle after showing success message
+    setTimeout(() => {
+      setSubmissionState('idle');
+    }, 3000);
+  }, [email]);
 
   return (
     <section className="bg-card rounded-2xl shadow-lg p-10 flex items-center justify-between">
@@ -30,22 +49,38 @@ export function NewNewsletter() {
           Become a PriceGrabber Insider and get deals delivered right to your inbox.
         </p>
         
-        <form className="flex" onSubmit={handleSubmit}>
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full py-3 px-5 rounded-l-full border-2 border-border focus:outline-none focus:ring-2 focus:ring-indigo-400 transition duration-300"
-            required
-          />
-          <Button 
-            type="submit"
-            className="bg-primary text-white font-semibold py-3 px-8 rounded-r-full hover:bg-primary transition duration-300"
-          >
-            Sign Up
-          </Button>
-        </form>
+        {submissionState === 'success' ? (
+          <div className="flex items-center gap-2 py-3 px-5 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full border-2 border-emerald-200 dark:border-emerald-800">
+            <CheckCircle className="h-5 w-5" />
+            <span className="font-medium">Thanks for subscribing! Check your inbox to confirm.</span>
+          </div>
+        ) : (
+          <form className="flex" onSubmit={handleSubmit}>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submissionState === 'loading'}
+              className="w-full py-3 px-5 rounded-l-full border-2 border-border focus:outline-none focus:ring-2 focus:ring-indigo-400 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              required
+            />
+            <Button
+              type="submit"
+              disabled={submissionState === 'loading'}
+              className="bg-primary text-white font-semibold py-3 px-8 rounded-r-full hover:bg-primary/90 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submissionState === 'loading' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Signing Up...
+                </>
+              ) : (
+                'Sign Up'
+              )}
+            </Button>
+          </form>
+        )}
       </div>
     </section>
   );
