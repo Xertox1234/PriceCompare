@@ -3,6 +3,9 @@
 @import "tailwindcss";
 
 @theme {
+  /* Floating header background - solid colors for each theme */
+  --floating-header-bg: #ffffff;
+
   /* Modern Blue/Amber Brand Colors */
   --color-primary: 217 91% 60%; /* #3B82F6 - Blue 500 */
   --color-primary-hover: 217 91% 55%;
@@ -60,6 +63,7 @@
 
 /* Dark mode color overrides */
 .dark {
+  --floating-header-bg: #0f172a;
   --color-background: 222 47% 11%; /* #0F172A - Slate 900 */
   --color-foreground: 210 40% 98%; /* #F8FAFC - Slate 50 */
   --color-card: 222 47% 11%;
@@ -72,6 +76,56 @@
   --color-accent-foreground: 210 40% 98%;
   --color-border: 215 25% 27%; /* #334155 - Slate 700 */
   --color-input: 217 33% 17%;
+}
+
+/* High Contrast mode - WCAG AAA compliant (7:1 contrast ratio) */
+.high-contrast {
+  --floating-header-bg: #ffffff;
+  --color-background: 0 0% 100%; /* Pure white */
+  --color-foreground: 0 0% 0%; /* Pure black */
+  --color-card: 0 0% 100%;
+  --color-card-foreground: 0 0% 0%;
+  --color-popover: 0 0% 100%;
+  --color-popover-foreground: 0 0% 0%;
+  --color-muted: 0 0% 95%; /* Very light gray */
+  --color-muted-foreground: 0 0% 20%; /* Dark gray */
+  --color-accent: 217 100% 40%; /* Darker blue for better contrast */
+  --color-accent-foreground: 0 0% 100%;
+  --color-border: 0 0% 0%; /* Black borders */
+  --color-input: 0 0% 95%;
+  --color-primary: 217 100% 35%; /* Darker blue */
+  --color-primary-hover: 217 100% 25%;
+  --color-secondary: 25 100% 40%; /* Darker amber/orange */
+  --color-secondary-hover: 25 100% 30%;
+  --color-success: 142 100% 25%; /* Darker green */
+  --color-warning: 25 100% 40%; /* Darker amber */
+  --color-error: 0 100% 40%; /* Darker red */
+  --color-ring: 0 0% 0%; /* Black focus ring */
+}
+
+/* High Contrast Dark mode */
+.high-contrast.dark {
+  --floating-header-bg: #000000;
+  --color-background: 0 0% 0%; /* Pure black */
+  --color-foreground: 0 0% 100%; /* Pure white */
+  --color-card: 0 0% 0%;
+  --color-card-foreground: 0 0% 100%;
+  --color-popover: 0 0% 0%;
+  --color-popover-foreground: 0 0% 100%;
+  --color-muted: 0 0% 10%; /* Very dark gray */
+  --color-muted-foreground: 0 0% 85%; /* Light gray */
+  --color-accent: 217 100% 70%; /* Brighter blue for dark bg */
+  --color-accent-foreground: 0 0% 0%;
+  --color-border: 0 0% 100%; /* White borders */
+  --color-input: 0 0% 10%;
+  --color-primary: 217 100% 70%; /* Brighter blue */
+  --color-primary-hover: 217 100% 80%;
+  --color-secondary: 38 100% 60%; /* Brighter amber */
+  --color-secondary-hover: 38 100% 70%;
+  --color-success: 142 100% 50%; /* Brighter green */
+  --color-warning: 38 100% 60%; /* Brighter amber */
+  --color-error: 0 100% 60%; /* Brighter red */
+  --color-ring: 0 0% 100%; /* White focus ring */
 }
 
 /* Base styles for the application */
@@ -132,7 +186,15 @@
   }
 }
 
+/* Utility to hide scrollbar while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
 
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
 
 /* Essential custom styles for Tech Space theme */
 ::-webkit-scrollbar {
@@ -193,4 +255,367 @@
   background-color: hsl(220 13% 9%) !important;
   color: hsl(210 40% 98%) !important;
   border-color: hsl(215 28% 17%) !important;
+}
+
+/* Hero Slider Styles - Smooth animated slider with thumbnails */
+.hero-slider {
+  border-radius: 10px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-slide {
+  width: 140px;
+  height: 180px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  background-position: 50% 50%;
+  background-size: cover;
+  display: inline-block;
+  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* First two slides become the full background */
+.hero-slide[data-index="0"],
+.hero-slide[data-index="1"] {
+  top: 0;
+  left: 0;
+  transform: translateY(0);
+  border-radius: 10px;
+  width: 100%;
+  height: 100%;
+}
+
+/* Position thumbnails on the right side */
+.hero-slide[data-index="2"] {
+  right: 20px;
+  left: auto;
+  top: 20px;
+  transform: translateY(0);
+}
+
+.hero-slide[data-index="3"] {
+  right: 20px;
+  left: auto;
+  top: calc(20px + 180px + 15px);
+  transform: translateY(0);
+}
+
+/* Hide additional slides */
+.hero-slide[data-index="4"],
+.hero-slide[data-index="5"],
+.hero-slide[data-index="6"] {
+  right: 20px;
+  left: auto;
+  top: calc(20px + 360px + 30px);
+  transform: translateY(0);
+  opacity: 0;
+}
+
+/* Slide content - only visible on active (index 1) */
+.hero-slide-content {
+  position: absolute;
+  bottom: 80px;
+  left: 40px;
+  width: 350px;
+  text-align: left;
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  display: none;
+  z-index: 5;
+}
+
+.hero-slide[data-index="1"] .hero-slide-content {
+  display: block;
+}
+
+/* Dark overlay for readability on active slide */
+.hero-slide[data-index="1"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.5) 50%, transparent 80%);
+  border-radius: 10px;
+  z-index: 1;
+}
+
+.hero-slide-tagline {
+  font-size: 16px;
+  color: #d1d5db;
+  margin-bottom: 8px;
+  opacity: 0;
+  animation: heroSlideIn 0.6s ease-out 0.1s forwards;
+}
+
+.hero-slide-name {
+  font-size: 42px;
+  font-weight: 400;
+  line-height: 1.1;
+  margin-bottom: 24px;
+  white-space: pre-line;
+  opacity: 0;
+  animation: heroSlideIn 0.6s ease-out 0.2s forwards;
+}
+
+.hero-slide-price-block {
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: heroSlideIn 0.6s ease-out 0.3s forwards;
+}
+
+.hero-slide-price-label {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.hero-slide-price {
+  font-size: 56px;
+  font-weight: 700;
+  color: hsl(var(--color-secondary));
+}
+
+.hero-slide-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  color: black;
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+  opacity: 0;
+  animation: heroSlideIn 0.6s ease-out 0.4s forwards;
+}
+
+.hero-slide-button:hover {
+  background: #f3f4f6;
+  transform: translateX(4px);
+}
+
+@keyframes heroSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Expandable Product Card Styles */
+.expandable-card {
+  --card-bg: hsl(var(--color-card));
+  --card-title: hsl(var(--color-foreground));
+  --card-text: hsl(var(--color-muted-foreground));
+  --card-button-bg: hsl(var(--color-muted));
+  --card-button-hover: hsl(var(--color-border));
+  background: var(--card-bg);
+  border-radius: 1.25rem;
+  padding: 0.375rem;
+  overflow: clip;
+  position: relative;
+}
+
+.expandable-card::before {
+  content: "";
+  position: absolute;
+  width: calc(100% - 0.75rem);
+  height: 35%;
+  bottom: 0.375rem;
+  left: 0.375rem;
+  mask: linear-gradient(transparent, black 80%);
+  backdrop-filter: blur(0.75rem);
+  border-radius: 0 0 1rem 1rem;
+  translate: 0 0;
+  transition: translate 0.25s ease-out;
+  z-index: 1;
+}
+
+.expandable-card-image-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: aspect-ratio 0.3s ease-out;
+}
+
+.expandable-card-image {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 1rem;
+  display: block;
+  transition: aspect-ratio 0.3s ease-out, object-position 0.3s ease-out, opacity 0.8s ease-in-out;
+}
+
+.expandable-card-image-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.expandable-card-content {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
+}
+
+.expandable-card-category {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--card-text);
+  margin-bottom: 0.25rem;
+  opacity: 0;
+  translate: 0 -100%;
+  transition: opacity 0.4s ease-out, translate 0.25s ease-out;
+}
+
+.expandable-card-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--card-title);
+  line-height: 1.3;
+  margin: 0 0 0.5rem 0;
+  opacity: 1;
+  translate: 0 -50%;
+  transition: opacity 0.4s ease-out, translate 0.25s ease-out, color 0.3s;
+}
+
+.expandable-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  opacity: 0;
+  translate: 0 50%;
+  transition: opacity 0.4s ease-out 0.1s, translate 0.25s ease-out 0.1s;
+}
+
+.expandable-card-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  opacity: 0;
+  translate: 0 50%;
+  transition: opacity 0.4s ease-out 0.15s, translate 0.25s ease-out 0.15s;
+}
+
+.expandable-card-price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--card-title);
+}
+
+.expandable-card-original-price {
+  font-size: 0.8rem;
+  color: var(--card-text);
+  text-decoration: line-through;
+}
+
+.expandable-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid hsl(var(--color-border));
+  opacity: 0;
+  translate: 0 50%;
+  transition: opacity 0.4s ease-out 0.2s, translate 0.25s ease-out 0.2s;
+}
+
+.expandable-card-button {
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.6rem 1rem;
+  background: hsl(var(--color-primary));
+  color: hsl(var(--color-primary-foreground));
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.expandable-card-button:hover {
+  background: hsl(var(--color-primary-hover));
+  transform: translateY(-1px);
+}
+
+/* Badge positioning */
+.expandable-card-badges {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  z-index: 3;
+}
+
+.expandable-card-quick-actions {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.25s ease-out;
+}
+
+/* Hover state - expand content */
+.expandable-card:hover::before,
+.expandable-card:focus-within::before {
+  translate: 0 100%;
+}
+
+.expandable-card:hover .expandable-card-image-container,
+.expandable-card:focus-within .expandable-card-image-container {
+  aspect-ratio: 4 / 3;
+}
+
+.expandable-card:hover .expandable-card-image,
+.expandable-card:focus-within .expandable-card-image {
+  aspect-ratio: 4 / 3;
+  object-position: center 20%;
+}
+
+.expandable-card:hover .expandable-card-category,
+.expandable-card:focus-within .expandable-card-category,
+.expandable-card:hover .expandable-card-name,
+.expandable-card:focus-within .expandable-card-name,
+.expandable-card:hover .expandable-card-rating,
+.expandable-card:focus-within .expandable-card-rating,
+.expandable-card:hover .expandable-card-price-row,
+.expandable-card:focus-within .expandable-card-price-row,
+.expandable-card:hover .expandable-card-actions,
+.expandable-card:focus-within .expandable-card-actions {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.expandable-card:hover .expandable-card-quick-actions,
+.expandable-card:focus-within .expandable-card-quick-actions {
+  opacity: 1;
 }

@@ -329,8 +329,20 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   }
 
   // Sanitize query params (used for search, filters, etc.)
-  if (req.query) {
-    req.query = sanitizeObject(req.query, SanitizationContext.PLAIN_TEXT) as typeof req.query;
+  // Note: In Express 5, req.query is read-only, so we sanitize values in place
+  if (req.query && typeof req.query === 'object') {
+    for (const key of Object.keys(req.query)) {
+      const value = req.query[key];
+      if (typeof value === 'string') {
+        // Sanitize string values directly on the query object
+        (req.query as Record<string, unknown>)[key] = sanitizeObject({ v: value }, SanitizationContext.PLAIN_TEXT).v;
+      } else if (Array.isArray(value)) {
+        // Sanitize array values
+        (req.query as Record<string, unknown>)[key] = value.map(v =>
+          typeof v === 'string' ? sanitizeObject({ v }, SanitizationContext.PLAIN_TEXT).v : v
+        );
+      }
+    }
   }
 
   next();

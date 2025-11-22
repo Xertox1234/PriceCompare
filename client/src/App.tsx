@@ -11,7 +11,14 @@ import { NewFooter } from "@/components/new-footer";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Home from "@/pages/home";
+import HomeNew from "@/pages/home-new";
+import ProductDetailPage from "@/pages/product-detail-new";
 import Products from "@/pages/products";
+import ProductsNew from "@/pages/products-new";
+import WishlistNew from "@/pages/wishlist-new";
+import CompareNew from "@/pages/compare-new";
+import CartNew from "@/pages/cart-new";
+import CheckoutNew from "@/pages/checkout-new";
 import ComparisonPage from "@/pages/comparison";
 import MonitoringDashboard from "@/pages/monitoring";
 import PriceWatch from "@/pages/price-watch";
@@ -40,73 +47,98 @@ function Router() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <SharedNavigation />
-      <RateLimitBanner />
-      <main className="container mx-auto px-6 py-12">
-        <Switch>
-          <Route path="/" component={Home} />
-          <Route path="/products" component={Products} />
-          <Route path="/compare" component={ComparisonPage} />
-          <Route path="/forgot-password" component={ForgotPassword} />
-          <Route path="/reset-password" component={ResetPassword} />
-          <Route path="/search">
-            <RouteErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <LazyAdvancedSearchPage />
-              </Suspense>
-            </RouteErrorBoundary>
-          </Route>
-          <Route path="/search/advanced">
-            <RouteErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <LazyAdvancedSearchPage />
-              </Suspense>
-            </RouteErrorBoundary>
-          </Route>
-          <Route path="/forum">
-            <RouteErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <LazyForumPage />
-              </Suspense>
-            </RouteErrorBoundary>
-          </Route>
-          <Route path="/admin">
-            <RouteErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <LazyAdminPage />
-              </Suspense>
-            </RouteErrorBoundary>
-          </Route>
-          <Route path="/monitoring" component={MonitoringDashboard} />
-          <Route path="/price-watch" component={PriceWatch} />
-          <Route path="/notifications" component={NotificationsPage} />
-          <Route path="/watchlists">
-            <RouteErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <LazyWatchListManager />
-              </Suspense>
-            </RouteErrorBoundary>
-          </Route>
-          <Route path="/products/:id/price-history">
-            <RouteErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <LazyPriceHistoryPage />
-              </Suspense>
-            </RouteErrorBoundary>
-          </Route>
-          <Route path="/products/:id/analytics">
-            <RouteErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <LazyAnalyticsPage />
-              </Suspense>
-            </RouteErrorBoundary>
-          </Route>
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-      <NewFooter />
-    </div>
+    <Switch>
+      {/* Main homepage with Onsus template layout */}
+      <Route path="/" component={HomeNew} />
+
+      {/* Product detail page with Onsus template layout */}
+      <Route path="/product/:id" component={ProductDetailPage} />
+
+      {/* Shop/Products page with Onsus template layout */}
+      <Route path="/shop" component={ProductsNew} />
+
+      {/* Wishlist page with Onsus template layout */}
+      <Route path="/wishlist" component={WishlistNew} />
+
+      {/* Compare page with Onsus template layout */}
+      <Route path="/compare" component={CompareNew} />
+
+      {/* Cart page with Onsus template layout */}
+      <Route path="/cart" component={CartNew} />
+
+      {/* Checkout page with Onsus template layout */}
+      <Route path="/checkout" component={CheckoutNew} />
+
+      {/* Legacy routes with default layout */}
+      <Route>
+        <div className="min-h-screen bg-background">
+          <SharedNavigation />
+          <RateLimitBanner />
+          <main className="container mx-auto px-6 py-12">
+            <Switch>
+              <Route path="/legacy" component={Home} />
+              <Route path="/products" component={Products} />
+              <Route path="/forgot-password" component={ForgotPassword} />
+              <Route path="/reset-password" component={ResetPassword} />
+              <Route path="/search">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyAdvancedSearchPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+              <Route path="/search/advanced">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyAdvancedSearchPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+              <Route path="/forum">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyForumPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+              <Route path="/admin">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyAdminPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+              <Route path="/monitoring" component={MonitoringDashboard} />
+              <Route path="/price-watch" component={PriceWatch} />
+              <Route path="/notifications" component={NotificationsPage} />
+              <Route path="/watchlists">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyWatchListManager />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+              <Route path="/products/:id/price-history">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyPriceHistoryPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+              <Route path="/products/:id/analytics">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <LazyAnalyticsPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+              <Route component={NotFound} />
+            </Switch>
+          </main>
+          <NewFooter />
+        </div>
+      </Route>
+    </Switch>
   );
 }
 
