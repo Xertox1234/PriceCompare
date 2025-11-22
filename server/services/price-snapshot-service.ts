@@ -2,7 +2,7 @@ import { db } from "../db";
 import { logger } from "../utils/logger";
 import { productOffers, priceHistory, products, retailers } from "../../shared/schema";
 import type { InsertPriceHistory } from "../../shared/schema";
-import { eq, and, lte, isNotNull, sql } from "drizzle-orm";
+import { eq, and, lte, isNotNull, sql, inArray, desc } from "drizzle-orm";
 import { priceAggregationService } from "./price-aggregation-service";
 
 export class PriceSnapshotService {
@@ -65,18 +65,22 @@ export class PriceSnapshotService {
         return 0;
       }
 
-      // Get previous prices to detect changes
-      const previousPrices = new Map<number, number>();
-      for (const offer of offers) {
-        const [lastSnapshot] = await db
-          .select({ price: priceHistory.price })
-          .from(priceHistory)
-          .where(eq(priceHistory.productOfferId, offer.id))
-          .orderBy(sql`${priceHistory.recordedAt} DESC`)
-          .limit(1);
+      // BATCH QUERY: Get previous prices to detect changes (fixes N+1)
+      const offerIds = offers.map(o => o.id);
+      const allLastSnapshots = await db
+        .select({
+          productOfferId: priceHistory.productOfferId,
+          price: priceHistory.price,
+        })
+        .from(priceHistory)
+        .where(inArray(priceHistory.productOfferId, offerIds))
+        .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
 
-        if (lastSnapshot) {
-          previousPrices.set(offer.id, parseFloat(lastSnapshot.price));
+      // Build map of offerId -> latest price (first entry per offerId due to ordering)
+      const previousPrices = new Map<number, number>();
+      for (const snapshot of allLastSnapshots) {
+        if (!previousPrices.has(snapshot.productOfferId)) {
+          previousPrices.set(snapshot.productOfferId, parseFloat(snapshot.price));
         }
       }
 
