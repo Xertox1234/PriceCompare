@@ -5,8 +5,21 @@ import { ScraperUtils } from '../utils/scraper-utils';
 import { db } from '../db';
 import { products, productOffers, retailers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import type { ExtractedProductData, ExtractionTask } from './types.js';
+import type { ExtractedProductData, ExtractionTask, TaskResult } from './types.js';
 import { logger } from '../utils/logger.js';
+import type { AxiosResponse } from 'axios';
+
+/** Result of a successful extraction task */
+interface ExtractionTaskResult {
+  success: true;
+  data: ExtractedProductData;
+}
+
+/** Result of a failed extraction task */
+interface ExtractionTaskFailure {
+  success: false;
+  reason: string;
+}
 
 /**
  * Data Extraction Agent - Extracts product information and pricing from retailer websites
@@ -65,7 +78,7 @@ export class DataExtractionAgent extends BaseAgent {
     ]);
   }
 
-  async processTask(task: ExtractionTask): Promise<any> {
+  async processTask(task: ExtractionTask): Promise<ExtractionTaskResult | ExtractionTaskFailure> {
     logger.info(`Starting extraction for ${task.url}`);
 
     try {
@@ -113,7 +126,7 @@ export class DataExtractionAgent extends BaseAgent {
     return extractedData;
   }
 
-  private async fetchPage(url: string): Promise<any> {
+  private async fetchPage(url: string): Promise<AxiosResponse<string>> {
     const userAgent = this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
     
     // Add random delay to avoid detection
@@ -136,13 +149,15 @@ export class DataExtractionAgent extends BaseAgent {
       
       return response;
     } catch (error: unknown) {
-      if (error.response?.status === 403) {
-        throw new Error('Access denied - anti-bot protection detected');
-      } else if (error.response?.status === 404) {
-        throw new Error('Product page not found');
-      } else {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          throw new Error('Access denied - anti-bot protection detected');
+        } else if (error.response?.status === 404) {
+          throw new Error('Product page not found');
+        }
         throw new Error(`Failed to fetch page: ${error.message}`);
       }
+      throw new Error(`Failed to fetch page: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

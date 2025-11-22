@@ -258,12 +258,13 @@ export class GoogleCustomSearchService {
   rankResults(results: GoogleSearchResult[], query: string): GoogleSearchResult[] {
     const queryWords = query.toLowerCase().split(' ').filter(word => word.length > 2);
     
-    return results
-      .map(result => ({
-        ...result,
-        relevanceScore: this.calculateRelevanceScore(result, queryWords)
-      }))
-      .sort((a, b) => (b as any).relevanceScore - (a as any).relevanceScore)
+    const scoredResults = results.map(result => ({
+      ...result,
+      relevanceScore: this.calculateRelevanceScore(result, queryWords)
+    }));
+
+    return scoredResults
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .map(({ relevanceScore, ...result }) => result);
   }
 

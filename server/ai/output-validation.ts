@@ -14,6 +14,36 @@ interface JsonObject {
 }
 interface JsonArray extends Array<JsonValue> {}
 
+/** Schema type definitions for type-safe validation */
+interface ItemConstraints {
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+}
+
+interface PropertySchema {
+  type?: string;
+  enum?: string[];
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+}
+
+interface ObjectItemSchema {
+  type: 'object';
+  required?: string[];
+  properties?: Record<string, PropertySchema>;
+}
+
+interface ArraySchema {
+  type: 'array';
+  items: string | ObjectItemSchema;
+  minItems?: number;
+  maxItems?: number;
+  itemConstraints?: ItemConstraints;
+}
+
 export interface ValidationResult<T = JsonValue> {
   valid: boolean;
   errors: ValidationError[];
@@ -116,7 +146,7 @@ export function validateOutput(
     }
 
     // Validate array length
-    const arraySchema = schema as any; // Union type, access properties safely
+    const arraySchema = schema as ArraySchema;
     if (arraySchema.minItems !== undefined && data.length < arraySchema.minItems) {
       errors.push({
         field: 'array',
@@ -143,7 +173,7 @@ export function validateOutput(
           errors.push({
             field: `[${index}]`,
             message: `Item must be of type ${schema.items}`,
-            expected: schema.items as any, // Union type assertion
+            expected: schema.items as string,
             received: typeof item
           });
         }
@@ -231,7 +261,7 @@ function validateObject(
     Object.keys(properties).forEach((key) => {
       if (!(key in obj)) return; // Skip optional fields
 
-      const propSchema = properties[key] as any;
+      const propSchema = properties[key] as PropertySchema;
       const value = (obj as Record<string, unknown>)[key];
       const fieldPath = `${path}.${key}`;
 

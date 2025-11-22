@@ -13,7 +13,7 @@
 
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import type { RequestHandler } from 'express';
+import type { RequestHandler, Request, Response } from 'express';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { getRedisClient } from '../config/redis';
 import { createLogger } from '../utils/logger';
@@ -23,6 +23,30 @@ import type {
   ClientToServerEvents,
   RateLimitData,
 } from './types';
+
+/**
+ * Extended request type for Socket.io integration with Express sessions
+ * Includes session data populated by express-session middleware
+ */
+interface SocketRequestWithSession extends Request {
+  session: {
+    passport?: {
+      user?: number;
+    };
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Minimal response object for Express middleware compatibility
+ * Socket.io doesn't use the response, but middleware expects it
+ */
+interface MinimalResponse {
+  getHeader: () => undefined;
+  setHeader: () => MinimalResponse;
+  writeHead: () => MinimalResponse;
+  end: () => MinimalResponse;
+}
 
 const log = createLogger('WebSocket');
 
@@ -142,13 +166,13 @@ async function authenticationMiddleware(
   }
 
   // Convert Socket.io handshake to Express-compatible request/response
-  const req = socket.request as any;
-  const res = {
-    getHeader: () => {},
-    setHeader: () => {},
-    writeHead: () => {},
-    end: () => {},
-  } as any;
+  const req = socket.request as SocketRequestWithSession;
+  const res: MinimalResponse = {
+    getHeader: () => undefined,
+    setHeader: function() { return this; },
+    writeHead: function() { return this; },
+    end: function() { return this; },
+  };
 
   // Run Express session middleware
   sessionMiddleware(req, res, (err?: Error) => {
@@ -377,7 +401,8 @@ export function emitToUser<K extends keyof ServerToClientEvents>(
   }
 
   const room = `user:${userId}`;
-  io.to(room).emit(event, data as any);
+  // Type assertion needed for Socket.io's complex generic emit signature
+  io.to(room).emit(event, data as Parameters<ServerToClientEvents[K]>[0]);
 
   log.debug('Event emitted to user', {
     userId,

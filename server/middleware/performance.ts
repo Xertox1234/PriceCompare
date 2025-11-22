@@ -30,7 +30,12 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
   const originalEnd = res.end;
 
   // Override res.end to capture metrics
-  res.end = function (chunk?: unknown, encoding?: unknown, callback?: unknown): unknown {
+  // Type signature matches Node's ServerResponse.end() overloads
+  res.end = function (
+    chunk?: string | Buffer | Uint8Array,
+    encoding?: BufferEncoding | (() => void),
+    callback?: () => void
+  ): Response {
     const duration = Date.now() - startTime;
     const statusCode = res.statusCode;
     const method = req.method;
@@ -62,8 +67,11 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
       );
     }
 
-    // Call original end
-    return originalEnd.call(this, chunk as any, encoding as BufferEncoding, callback as any);
+    // Call original end - use explicit overload matching
+    if (typeof encoding === 'function') {
+      return originalEnd.call(this, chunk, encoding) as Response;
+    }
+    return originalEnd.call(this, chunk, encoding, callback) as Response;
   };
 
   next();

@@ -67,6 +67,14 @@ import {
 } from "../utils/retry-with-backoff";
 import { measureAggregation } from "./aggregation-metrics";
 
+/**
+ * Type-safe filter to remove null/undefined values from arrays
+ * This replaces `array.filter(Boolean) as any[]` pattern with proper typing
+ */
+function filterNullish<T>(array: (T | null | undefined)[]): T[] {
+  return array.filter((item): item is T => item != null);
+}
+
 export class PriceAggregationService {
   /**
    * Calculate weekly price aggregates for all products
@@ -137,7 +145,7 @@ export class PriceAggregationService {
         }
 
         // OPTIMIZATION 3: Prepare all values for batch insert
-        const values = priceData.map(data => {
+        const rawValues = priceData.map(data => {
           try {
             // Validate product and retailer IDs
             const { productId, retailerId } = validateProductRetailer(
@@ -187,7 +195,8 @@ export class PriceAggregationService {
             });
             return null; // Skip invalid records
           }
-        }).filter(Boolean) as any[];
+        });
+        const values = filterNullish(rawValues);
 
         if (values.length === 0) {
           logger.info("[PriceAggregation] No valid data to insert");
@@ -323,7 +332,7 @@ export class PriceAggregationService {
         }
 
         // OPTIMIZATION 3: Prepare all values for batch insert
-        const values = priceData.map(data => {
+        const rawValues = priceData.map(data => {
           try {
             // Validate product and retailer IDs
             const { productId, retailerId } = validateProductRetailer(
@@ -382,7 +391,8 @@ export class PriceAggregationService {
             });
             return null; // Skip invalid records
           }
-        }).filter(Boolean) as any[];
+        });
+        const values = filterNullish(rawValues);
 
         if (values.length === 0) {
           logger.info("[PriceAggregation] No valid data to insert");
@@ -515,7 +525,7 @@ export class PriceAggregationService {
         }
 
         // OPTIMIZATION 3: Prepare all values for batch insert
-        const values = priceData.map(data => {
+        const rawValues = priceData.map(data => {
           try {
             // Validate product and retailer IDs
             const { productId, retailerId } = validateProductRetailer(
@@ -562,7 +572,8 @@ export class PriceAggregationService {
             });
             return null; // Skip invalid records
           }
-        }).filter(Boolean) as any[];
+        });
+        const values = filterNullish(rawValues);
 
         if (values.length === 0) {
           logger.info("[PriceAggregation] No valid data to insert");
@@ -740,7 +751,7 @@ export class PriceAggregationService {
           }
 
           // Prepare values with validation
-          const values = priceData.map(data => {
+          const rawValues = priceData.map(data => {
             try {
               // Validate product and retailer IDs
               const { productId, retailerId } = validateProductRetailer(
@@ -785,7 +796,8 @@ export class PriceAggregationService {
               });
               return null; // Skip invalid records
             }
-          }).filter(Boolean) as any[];
+          });
+        const values = filterNullish(rawValues);
 
           if (values.length > 0) {
             // Use upsert to support force re-aggregation
@@ -1058,7 +1070,7 @@ export class PriceAggregationService {
       previousDayMap.set(record.retailerId, record);
     }
 
-    const values = priceData.map(data => {
+    const rawValues = priceData.map(data => {
       if (!data.retailerId) return null;
 
       const pricesArray = this.parsePostgresArray(data.prices);
@@ -1084,7 +1096,8 @@ export class PriceAggregationService {
         dayOverDayChange,
         updatedAt: new Date(),
       };
-    }).filter(Boolean) as any[];
+    });
+        const values = filterNullish(rawValues);
 
     if (values.length > 0) {
       await db
@@ -1158,7 +1171,7 @@ export class PriceAggregationService {
       previousWeekMap.set(record.retailerId, record);
     }
 
-    const values = priceData.map(data => {
+    const rawValues = priceData.map(data => {
       if (!data.retailerId) return null;
 
       const pricesArray = this.parsePostgresArray(data.prices);
@@ -1185,7 +1198,8 @@ export class PriceAggregationService {
         weekOverWeekChange,
         updatedAt: new Date(),
       };
-    }).filter(Boolean) as any[];
+    });
+        const values = filterNullish(rawValues);
 
     if (values.length > 0) {
       await db
@@ -1278,7 +1292,7 @@ export class PriceAggregationService {
       lastYearMap.set(record.retailerId, record);
     }
 
-    const values = priceData.map(data => {
+    const rawValues = priceData.map(data => {
       if (!data.retailerId) return null;
 
       const pricesArray = this.parsePostgresArray(data.prices);
@@ -1313,7 +1327,8 @@ export class PriceAggregationService {
         yearOverYearChange,
         updatedAt: new Date(),
       };
-    }).filter(Boolean) as any[];
+    });
+        const values = filterNullish(rawValues);
 
     if (values.length > 0) {
       await db

@@ -8,6 +8,48 @@ import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './t
 import { logger } from '../utils/logger.js';
 import { cleanupManager } from '../utils/cleanup-manager.js';
 
+/** Result of affiliate link generation batch */
+interface GenerateLinksResult {
+  processed: number;
+  successful: number;
+  failed: number;
+  results: Array<{
+    offerId: number;
+    success: boolean;
+    affiliateUrl?: string;
+    error?: string;
+  }>;
+}
+
+/** Result of processing a single offer */
+interface ProcessOfferResult {
+  affiliateUrl: string;
+  isHealthy: boolean;
+  originalUrl: string;
+}
+
+/** Result of link health check */
+interface HealthCheckResult {
+  total: number;
+  healthy: number;
+  broken: number;
+}
+
+/** Result of single offer health check */
+interface SingleHealthCheckResult {
+  isHealthy: boolean;
+  affiliateUrl: string;
+}
+
+/** Result of updating a single offer */
+interface UpdateOfferResult {
+  skipped?: boolean;
+  reason?: string;
+  affiliateUrl?: string;
+  isHealthy?: boolean;
+  originalUrl?: string;
+}
+
 export class AffiliateLinkAgent extends BaseAgent {
   constructor() {
     const config: AgentConfig = {
@@ -29,11 +71,11 @@ export class AffiliateLinkAgent extends BaseAgent {
       case 'generate_affiliate_links':
         return await this.generateAffiliateLinks(params);
       case 'health_check_links':
-        return await this.healthCheckLinks(params);
+        return await this.healthCheckLinks(params as LinkHealthCheckTask);
       case 'update_single_offer':
-        return await this.updateSingleOffer(params);
+        return await this.updateSingleOffer(params as AffiliateLinkTask);
       case 'batch_process_retailer':
-        return await this.batchProcessRetailer(params);
+        return await this.batchProcessRetailer(params as { retailerId: number });
       default:
         throw new Error(`Unknown affiliate task action: ${action}`);
     }
@@ -42,15 +84,15 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Generate affiliate links for offers without them
    */
-  private async generateAffiliateLinks(params: Record<string, unknown>): Promise<any> {
-    const limit = params.limit || 50;
-    const retailerId = params.retailerId;
+  private async generateAffiliateLinks(params: Record<string, unknown>): Promise<GenerateLinksResult> {
+    const limit = typeof params.limit === 'number' ? params.limit : 50;
+    const retailerId = typeof params.retailerId === 'number' ? params.retailerId : undefined;
 
     try {
       // Get offers without affiliate links
       const whereConditions = [isNull(productOffers.affiliateUrl)];
-      
-      if (retailerId) {
+
+      if (retailerId !== undefined) {
         whereConditions.push(eq(productOffers.retailerId, retailerId));
       }
 
@@ -74,10 +116,11 @@ export class AffiliateLinkAgent extends BaseAgent {
           }
         );
 
+        const resultData = result.data as ProcessOfferResult | undefined;
         results.push({
           offerId: offer.id,
           success: result.success,
-          affiliateUrl: result.data?.affiliateUrl,
+          affiliateUrl: resultData?.affiliateUrl,
           error: result.error
         });
       }
@@ -100,7 +143,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Process affiliate link for a single offer
    */
-  private async processOfferAffiliateLink(offer: ProductOffer): Promise<any> {
+  private async processOfferAffiliateLink(offer: ProductOffer): Promise<ProcessOfferResult> {
     if (!offer.productUrl) {
       throw new Error(`No product URL for offer ${offer.id}`);
     }
@@ -134,7 +177,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Health check existing affiliate links
    */
-  private async healthCheckLinks(params: LinkHealthCheckTask): Promise<any> {
+  private async healthCheckLinks(params: LinkHealthCheckTask): Promise<HealthCheckResult | SingleHealthCheckResult> {
     try {
       if (params.offerId) {
         return await this.healthCheckSingleOffer(params.offerId);
@@ -172,7 +215,8 @@ export class AffiliateLinkAgent extends BaseAgent {
             }
           );
 
-          if (result.success && result.data?.isHealthy) {
+          const healthData = result.data as { isHealthy: boolean } | undefined;
+          if (result.success && healthData?.isHealthy) {
             healthy++;
           } else {
             broken++;
@@ -197,7 +241,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Health check a single offer's affiliate link
    */
-  private async healthCheckSingleOffer(offerId: number): Promise<any> {
+  private async healthCheckSingleOffer(offerId: number): Promise<SingleHealthCheckResult> {
     const [offer] = await db.select()
       .from(productOffers)
       .where(eq(productOffers.id, offerId))
@@ -221,7 +265,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Check health of a single offer's link
    */
-  private async checkOfferLinkHealth(offer: ProductOffer): Promise<any> {
+  private async checkOfferLinkHealth(offer: ProductOffer): Promise<{ isHealthy: boolean }> {
     if (!offer.affiliateUrl) {
       throw new Error('No affiliate URL to check');
     }
@@ -240,7 +284,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Update affiliate link for a single offer
    */
-  private async updateSingleOffer(params: AffiliateLinkTask): Promise<any> {
+  private async updateSingleOffer(params: AffiliateLinkTask): Promise<UpdateOfferResult | ProcessOfferResult> {
     const { offerId, retailerId, productUrl, forceRegenerate } = params;
 
     const [offer] = await db.select()
@@ -267,7 +311,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Batch process all offers for a retailer
    */
-  private async batchProcessRetailer(params: { retailerId: number }): Promise<any> {
+  private async batchProcessRetailer(params: { retailerId: number }): Promise<GenerateLinksResult> {
     const { retailerId } = params;
 
     // Verify retailer has affiliate configuration

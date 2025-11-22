@@ -1,6 +1,12 @@
 import { db } from '../db';
 import { products, productOffers, retailers } from '@shared/schema';
+import type { Product, ProductOffer, Retailer } from '@shared/schema';
 import { eq, like, or, and, desc, isNotNull, sql, count } from 'drizzle-orm';
+
+/** Product with offers from query result */
+interface ProductWithOffers extends Product {
+  offers?: Array<ProductOffer & { retailer?: Retailer | null }>;
+}
 
 /**
  * Fallback product discovery service for when external APIs are unavailable
@@ -35,21 +41,24 @@ export class ProductDiscoveryFallback {
       limit: maxResults
     });
 
-    return searchResults.map((product) => ({
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      category: product.category,
-      brand: product.brand,
-      image: product.image,
-      offers: ((product as any).offers || []).map((offer: unknown) => ({
-        id: offer.id,
-        price: offer.price,
-        availability: offer.availability,
-        retailer: offer.retailer?.name || 'Unknown',
-        productUrl: offer.productUrl
-      }))
-    }));
+    return searchResults.map((product) => {
+      const typedProduct = product as ProductWithOffers;
+      return {
+        id: typedProduct.id,
+        name: typedProduct.name,
+        description: typedProduct.description,
+        category: typedProduct.category,
+        brand: typedProduct.brand,
+        image: typedProduct.image,
+        offers: (typedProduct.offers || []).map((offer) => ({
+          id: offer.id,
+          price: offer.price,
+          availability: offer.availability,
+          retailer: offer.retailer?.name || 'Unknown',
+          productUrl: offer.productUrl
+        }))
+      };
+    });
   }
 
   /**
