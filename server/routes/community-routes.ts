@@ -3,6 +3,7 @@ import { logger } from "../utils/logger";
 import * as communityService from "../services/community-service";
 import { parseIntSafe, parseIntOptional } from "../utils/validation-helpers";
 import { createErrorResponse } from "../utils/error-sanitizer";
+import { withAuth } from "./helpers";
 
 /**
  * Community Routes
@@ -12,15 +13,6 @@ import { createErrorResponse } from "../utils/error-sanitizer";
  */
 
 export function registerCommunityRoutes(app: Express) {
-  // Middleware to ensure user is authenticated
-  const withAuth = (handler: (req: Request, res: Response) => Promise<void>) => {
-    return async (req: Request, res: Response) => {
-      if (!req.user) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      return handler(req, res);
-    };
-  };
 
   /**
    * POST /api/community/watch/:productId

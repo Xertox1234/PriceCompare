@@ -1,10 +1,11 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { logger } from "./utils/logger";
+import { logger } from "../utils/logger";
 import { z } from "zod";
-import * as notificationService from "./services/notification-service";
-import { csrfProtection } from "./middleware/security";
-import { parseIntSafe } from "./utils/validation-helpers";
-import { createErrorResponse } from "./utils/error-sanitizer";
+import * as notificationService from "../services/notification-service";
+import { csrfProtection } from "../middleware/security";
+import { parseIntSafe } from "../utils/validation-helpers";
+import { createErrorResponse } from "../utils/error-sanitizer";
+import { withAuth } from "./helpers";
 
 /**
  * Notification Routes
@@ -13,16 +14,6 @@ import { createErrorResponse } from "./utils/error-sanitizer";
  */
 
 export function registerNotificationRoutes(app: Express) {
-  // Middleware to ensure user is authenticated (HOC for routes without CSRF)
-  const withAuth = (handler: (req: Request, res: Response) => Promise<void>) => {
-    return async (req: Request, res: Response) => {
-      if (!req.user) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      return handler(req, res);
-    };
-  };
-
   // Middleware function for routes with CSRF (works with middleware chaining)
   function requireAuth(req: Request, res: Response, next: NextFunction) {
     if (!req.user) {

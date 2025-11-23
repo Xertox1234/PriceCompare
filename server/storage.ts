@@ -2581,33 +2581,48 @@ export class DatabaseStorage implements IStorage {
   // =====================================================
 
   async getUserWishlists(userId: number): Promise<WishlistWithItems[]> {
+    // 1. Get all wishlists for user (1 query)
     const userWishlists = await db
       .select()
       .from(wishlists)
       .where(eq(wishlists.userId, userId))
       .orderBy(desc(wishlists.createdAt));
 
-    const result: WishlistWithItems[] = [];
+    if (userWishlists.length === 0) {
+      return [];
+    }
 
-    for (const wishlist of userWishlists) {
-      const items = await db
-        .select({
-          item: wishlistItems,
-          product: products,
-        })
-        .from(wishlistItems)
-        .innerJoin(products, eq(wishlistItems.productId, products.id))
-        .where(eq(wishlistItems.wishlistId, wishlist.id))
-        .orderBy(desc(wishlistItems.priority), desc(wishlistItems.addedAt));
+    // 2. Batch fetch all items for all wishlists (1 query instead of N)
+    const wishlistIds = userWishlists.map(w => w.id);
+    const allItems = await db
+      .select({
+        item: wishlistItems,
+        product: products,
+      })
+      .from(wishlistItems)
+      .innerJoin(products, eq(wishlistItems.productId, products.id))
+      .where(inArray(wishlistItems.wishlistId, wishlistIds))
+      .orderBy(desc(wishlistItems.priority), desc(wishlistItems.addedAt));
 
-      result.push({
+    // 3. Group items by wishlist ID
+    const itemsByWishlist = new Map<number, typeof allItems>();
+    for (const item of allItems) {
+      const wishlistId = item.item.wishlistId;
+      if (!itemsByWishlist.has(wishlistId)) {
+        itemsByWishlist.set(wishlistId, []);
+      }
+      itemsByWishlist.get(wishlistId)!.push(item);
+    }
+
+    // 4. Build result with grouped items
+    return userWishlists.map(wishlist => {
+      const items = itemsByWishlist.get(wishlist.id) || [];
+      return {
         ...wishlist,
         items: items.map(({ item, product }) => ({ ...item, product })),
         itemCount: items.length,
-      });
-    }
-
-    return result;
+      };
+    });
   }
 
   async getWishlistById(wishlistId: number, userId: number): Promise<WishlistWithItems | null> {

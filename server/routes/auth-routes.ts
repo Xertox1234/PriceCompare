@@ -1,5 +1,8 @@
 import { Express, Request } from "express";
+import { eq } from "drizzle-orm";
 import { storage } from "../storage";
+import { db } from "../db";
+import * as schema from "@shared/schema";
 import { passport, createUser, findUserByEmail, findUserById, hashPassword, User, SafeUser } from "../auth";
 import { generateCsrfToken } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";

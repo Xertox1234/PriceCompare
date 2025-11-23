@@ -21,6 +21,8 @@ import {
 } from '../jobs/cache-maintenance-jobs';
 import { logger } from '../utils/logger';
 import { parseIntSafe } from '../utils/validation-helpers';
+import { withAdmin } from './helpers';
+import { createErrorResponse } from '../utils/error-sanitizer';
 
 /**
  * Register cache management routes
@@ -30,24 +32,21 @@ export function registerCacheRoutes(app: Express): void {
    * Get cache statistics and metrics
    * GET /api/admin/cache/stats
    */
-  app.get('/api/admin/cache/stats', async (req, res) => {
+  app.get('/api/admin/cache/stats', withAdmin(async (req, res) => {
     try {
       const stats = await getCacheStatistics();
       res.json(stats);
     } catch (error: unknown) {
-      logger.error('Error getting cache statistics:', error);
-      res.status(500).json({
-        error: 'Failed to retrieve cache statistics',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'GetCacheStats');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Get top products by popularity
    * GET /api/admin/cache/popularity/products
    */
-  app.get('/api/admin/cache/popularity/products', async (req, res) => {
+  app.get('/api/admin/cache/popularity/products', withAdmin(async (req, res) => {
     try {
       const limit = req.query.limit
         ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 1000 })
@@ -63,19 +62,16 @@ export function registerCacheRoutes(app: Express): void {
         products: topProducts,
       });
     } catch (error: unknown) {
-      logger.error('Error getting top products:', error);
-      res.status(500).json({
-        error: 'Failed to retrieve top products',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'GetTopProducts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Get top search queries
    * GET /api/admin/cache/popularity/searches
    */
-  app.get('/api/admin/cache/popularity/searches', async (req, res) => {
+  app.get('/api/admin/cache/popularity/searches', withAdmin(async (req, res) => {
     try {
       const limit = req.query.limit
         ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 1000 })
@@ -89,19 +85,16 @@ export function registerCacheRoutes(app: Express): void {
         queries: topSearches,
       });
     } catch (error: unknown) {
-      logger.error('Error getting top searches:', error);
-      res.status(500).json({
-        error: 'Failed to retrieve top searches',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'GetTopSearches');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Get popularity tier for a product
    * GET /api/admin/cache/popularity/product/:id
    */
-  app.get('/api/admin/cache/popularity/product/:id', async (req, res) => {
+  app.get('/api/admin/cache/popularity/product/:id', withAdmin(async (req, res) => {
     try {
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
@@ -120,19 +113,16 @@ export function registerCacheRoutes(app: Express): void {
         },
       });
     } catch (error: unknown) {
-      logger.error('Error getting product popularity:', error);
-      res.status(500).json({
-        error: 'Failed to retrieve product popularity',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'GetProductPopularity');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Trigger manual cache warming
    * POST /api/admin/cache/warm
    */
-  app.post('/api/admin/cache/warm', async (req, res) => {
+  app.post('/api/admin/cache/warm', withAdmin(async (req, res) => {
     try {
       const options = {
         topProductsCount: req.body.topProductsCount || 100,
@@ -148,19 +138,16 @@ export function registerCacheRoutes(app: Express): void {
         options,
       });
     } catch (error: unknown) {
-      logger.error('Error triggering cache warming:', error);
-      res.status(500).json({
-        error: 'Failed to trigger cache warming',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'TriggerCacheWarming');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Invalidate cache for a specific product
    * POST /api/admin/cache/invalidate/product/:id
    */
-  app.post('/api/admin/cache/invalidate/product/:id', async (req, res) => {
+  app.post('/api/admin/cache/invalidate/product/:id', withAdmin(async (req, res) => {
     try {
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
@@ -172,19 +159,16 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Product cache invalidated',
       });
     } catch (error: unknown) {
-      logger.error('Error invalidating product cache:', error);
-      res.status(500).json({
-        error: 'Failed to invalidate product cache',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'InvalidateProductCache');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Invalidate all search caches
    * POST /api/admin/cache/invalidate/search
    */
-  app.post('/api/admin/cache/invalidate/search', async (req, res) => {
+  app.post('/api/admin/cache/invalidate/search', withAdmin(async (req, res) => {
     try {
       await cacheInvalidation.invalidateSearchCaches();
 
@@ -193,19 +177,16 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Search caches invalidated',
       });
     } catch (error: unknown) {
-      logger.error('Error invalidating search caches:', error);
-      res.status(500).json({
-        error: 'Failed to invalidate search caches',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'InvalidateSearchCaches');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Trigger popularity cleanup
    * POST /api/admin/cache/cleanup/popularity
    */
-  app.post('/api/admin/cache/cleanup/popularity', async (req, res) => {
+  app.post('/api/admin/cache/cleanup/popularity', withAdmin(async (req, res) => {
     try {
       await triggerPopularityCleanup();
 
@@ -214,19 +195,16 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Popularity data cleaned up',
       });
     } catch (error: unknown) {
-      logger.error('Error cleaning up popularity data:', error);
-      res.status(500).json({
-        error: 'Failed to clean up popularity data',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'TriggerPopularityCleanup');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Reset cache statistics
    * POST /api/admin/cache/stats/reset
    */
-  app.post('/api/admin/cache/stats/reset', async (req, res) => {
+  app.post('/api/admin/cache/stats/reset', withAdmin(async (req, res) => {
     try {
       resetCacheStats();
 
@@ -235,26 +213,24 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Cache statistics reset',
       });
     } catch (error: unknown) {
-      logger.error('Error resetting cache statistics:', error);
-      res.status(500).json({
-        error: 'Failed to reset cache statistics',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'ResetCacheStats');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Clear all caches (use with caution!)
    * POST /api/admin/cache/clear
    */
-  app.post('/api/admin/cache/clear', async (req, res) => {
+  app.post('/api/admin/cache/clear', withAdmin(async (req, res) => {
     try {
       // Require confirmation
       if (req.body.confirm !== true) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Confirmation required',
           message: 'Set "confirm": true in request body to clear all caches',
         });
+        return;
       }
 
       await clearAllCaches();
@@ -264,19 +240,16 @@ export function registerCacheRoutes(app: Express): void {
         message: 'All caches cleared',
       });
     } catch (error: unknown) {
-      logger.error('Error clearing caches:', error);
-      res.status(500).json({
-        error: 'Failed to clear caches',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const errorResponse = createErrorResponse(error, 'ClearAllCaches');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
-  });
+  }));
 
   /**
    * Get cache health status
    * GET /api/admin/cache/health
    */
-  app.get('/api/admin/cache/health', async (req, res) => {
+  app.get('/api/admin/cache/health', withAdmin(async (req, res) => {
     try {
       const stats = await getCacheStatistics();
 
@@ -322,14 +295,13 @@ export function registerCacheRoutes(app: Express): void {
 
       res.json(health);
     } catch (error: unknown) {
-      logger.error('Error getting cache health:', error);
+      const errorResponse = createErrorResponse(error, 'GetCacheHealth');
       res.status(500).json({
         status: 'error',
-        error: 'Failed to retrieve cache health',
-        message: error instanceof Error ? error.message : String(error),
+        error: errorResponse.error,
       });
     }
-  });
+  }));
 
   logger.info('Cache management routes registered');
 }

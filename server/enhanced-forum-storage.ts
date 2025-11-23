@@ -165,7 +165,7 @@ export class EnhancedForumStorage {
 
   async createTopicWithTags(topicData: Omit<InsertForumTopic, 'slug'>, tags: string[]): Promise<ForumTopic> {
     const slug = this.generateSlug(topicData.title);
-    
+
     return await db.transaction(async (tx) => {
       // Create topic
       const [topic] = await tx
@@ -173,36 +173,48 @@ export class EnhancedForumStorage {
         .values({ ...topicData, slug })
         .returning();
 
-      // Handle tags
+      // Handle tags with batch operations (fixes N+1 query pattern)
       if (tags.length > 0) {
-        for (const tagName of tags) {
-          // Create or get existing tag
-          let [tag] = await tx
-            .select()
-            .from(topicTags)
-            .where(eq(topicTags.name, tagName))
-            .limit(1);
+        // 1. Batch fetch all existing tags (1 query instead of N)
+        const existingTags = await tx
+          .select()
+          .from(topicTags)
+          .where(inArray(topicTags.name, tags));
 
-          if (!tag) {
-            [tag] = await tx
-              .insert(topicTags)
-              .values({ name: tagName })
-              .returning();
+        const existingTagMap = new Map(existingTags.map(t => [t.name, t]));
+        const newTagNames = tags.filter(name => !existingTagMap.has(name));
+
+        // 2. Batch insert new tags (1 query instead of up to N)
+        if (newTagNames.length > 0) {
+          const insertedTags = await tx
+            .insert(topicTags)
+            .values(newTagNames.map(name => ({ name })))
+            .onConflictDoNothing()
+            .returning();
+
+          // Add newly inserted tags to our map
+          for (const tag of insertedTags) {
+            existingTagMap.set(tag.name, tag);
           }
+        }
 
-          // Link tag to topic
+        // 3. Collect all tag IDs for batch operations
+        const tagIds = tags
+          .map(name => existingTagMap.get(name)?.id)
+          .filter((id): id is number => id !== undefined);
+
+        // 4. Batch insert tag relations (1 query instead of N)
+        if (tagIds.length > 0) {
           await tx
             .insert(topicTagRelations)
-            .values({
-              topicId: topic.id,
-              tagId: tag.id
-            });
+            .values(tagIds.map(tagId => ({ topicId: topic.id, tagId })))
+            .onConflictDoNothing();
 
-          // Update tag usage count
+          // 5. Batch update usage counts (1 query instead of N)
           await tx
             .update(topicTags)
             .set({ usageCount: sql`${topicTags.usageCount} + 1` })
-            .where(eq(topicTags.id, tag.id));
+            .where(inArray(topicTags.id, tagIds));
         }
       }
 

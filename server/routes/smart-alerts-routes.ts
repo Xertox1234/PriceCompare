@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as smartAlertsService from "../services/smart-alerts-service";
 import { parseIntSafe, parseFloatSafe } from "../utils/validation-helpers";
 import { createErrorResponse } from "../utils/error-sanitizer";
+import { withAuth } from "./helpers";
 
 /**
  * Smart Alerts Routes
@@ -13,15 +14,6 @@ import { createErrorResponse } from "../utils/error-sanitizer";
  */
 
 export function registerSmartAlertsRoutes(app: Express) {
-  // Middleware to ensure user is authenticated
-  const withAuth = (handler: (req: Request, res: Response) => Promise<void>) => {
-    return async (req: Request, res: Response) => {
-      if (!req.user) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      return handler(req, res);
-    };
-  };
 
   /**
    * GET /api/smart-alerts/suggestions/:productId
