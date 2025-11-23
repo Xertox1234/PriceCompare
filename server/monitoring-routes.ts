@@ -3,6 +3,7 @@ import { requireAuth, requireAdmin } from './auth.js';
 import { monitoringService } from './services/monitoring-service.js';
 import { alertService } from './services/alert-service.js';
 import { logger } from './utils/logger.js';
+import { parseIntOptional } from './utils/validation-helpers.js';
 
 /**
  * Monitoring and Dashboard Routes
@@ -41,7 +42,7 @@ export function registerMonitoringRoutes(app: Express): void {
    */
   app.get("/api/monitoring/errors", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 20;
+      const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
       const errors = monitoringService.getRecentErrors(limit);
 
       res.json({
@@ -52,6 +53,10 @@ export function registerMonitoringRoutes(app: Express): void {
         }
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ success: false, error: error.message });
+        return;
+      }
       logger.error('Failed to get error logs', {
         error: error instanceof Error ? error.message : String(error)
       });
@@ -117,7 +122,7 @@ export function registerMonitoringRoutes(app: Express): void {
    */
   app.get("/api/monitoring/alerts", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 20;
+      const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
       const alerts = alertService.getAlertHistory(limit);
 
       res.json({
@@ -128,6 +133,10 @@ export function registerMonitoringRoutes(app: Express): void {
         }
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ success: false, error: error.message });
+        return;
+      }
       logger.error('Failed to get alert history', {
         error: error instanceof Error ? error.message : String(error)
       });

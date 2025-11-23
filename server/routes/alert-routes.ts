@@ -46,7 +46,7 @@ export function registerAlertRoutes(app: Express): void {
   app.patch("/api/price-alerts/:id", withAuth(async (req, res) => {
     try {
       const user = req.user;
-      const alertId = parseInt(req.params.id);
+      const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
       const updates = req.body;
 
       const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
@@ -56,6 +56,9 @@ export function registerAlertRoutes(app: Express): void {
 
       res.json(updatedAlert);
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Failed to update price alert" });
     }
   }));
@@ -64,7 +67,7 @@ export function registerAlertRoutes(app: Express): void {
   app.delete("/api/price-alerts/:id", withAuth(async (req, res) => {
     try {
       const user = req.user;
-      const alertId = parseInt(req.params.id);
+      const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
 
       const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
       if (!deleted) {
@@ -73,6 +76,9 @@ export function registerAlertRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Failed to delete price alert" });
     }
   }));

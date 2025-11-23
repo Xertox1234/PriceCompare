@@ -1,6 +1,7 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "./utils/logger";
 import { z } from 'zod';
+import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
 import {
   recordPriceChange,
   getPriceHistory,
@@ -86,12 +87,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/offers/:offerId/price-history', async (req: Request, res: Response) => {
     try {
-      const productOfferId = parseInt(req.params.offerId);
-
-      if (isNaN(productOfferId)) {
-        res.status(400).json({ error: 'Invalid offer ID' });
-        return;
-      }
+      const productOfferId = parseIntSafe(req.params.offerId, 'offerId', { min: 1 });
 
       const queryParams = priceHistoryQuerySchema.safeParse(req.query);
 
@@ -111,6 +107,10 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: history.length
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching price history:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch price history' });
     }
@@ -122,12 +122,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/offers/:offerId/price-stats', async (req: Request, res: Response) => {
     try {
-      const productOfferId = parseInt(req.params.offerId);
-
-      if (isNaN(productOfferId)) {
-        res.status(400).json({ error: 'Invalid offer ID' });
-        return;
-      }
+      const productOfferId = parseIntSafe(req.params.offerId, 'offerId', { min: 1 });
 
       const queryParams = priceStatsSchema.safeParse(req.query);
 
@@ -148,6 +143,10 @@ export function registerPriceHistoryRoutes(app: Express): void {
         data: stats
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching price stats:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch price statistics' });
     }
@@ -159,12 +158,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/price-snapshots', async (req: Request, res: Response) => {
     try {
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        res.status(400).json({ error: 'Invalid product ID' });
-        return;
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const queryParams = priceSnapshotsQuerySchema.safeParse(req.query);
 
@@ -186,6 +180,10 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: snapshots.length
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching price snapshots:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to fetch price snapshots' });
     }
@@ -287,12 +285,9 @@ export function registerPriceHistoryRoutes(app: Express): void {
    */
   app.delete('/api/admin/price-history/cleanup', withAdmin(async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const daysToKeep = req.query.days ? parseInt(req.query.days as string) : 90;
-
-      if (isNaN(daysToKeep) || daysToKeep < 1) {
-        res.status(400).json({ error: 'Invalid days parameter' });
-        return;
-      }
+      const daysToKeep = req.query.days
+        ? parseIntSafe(req.query.days as string, 'days', { min: 1 })
+        : 90;
 
       const deletedCount = await cleanupOldPriceHistory(daysToKeep);
 
@@ -302,6 +297,10 @@ export function registerPriceHistoryRoutes(app: Express): void {
         deletedCount
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error cleaning up price history:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to clean up price history' });
     }

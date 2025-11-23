@@ -2,6 +2,7 @@ import { Express, Request, Response } from 'express';
 import { logger } from "./utils/logger";
 import { z } from 'zod';
 import { db } from "./db";
+import { parseIntSafe } from './utils/validation-helpers';
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks } from "../shared/schema";
 import { trendAnalysisService } from './services/trend-analysis-service';
@@ -52,12 +53,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/aggregates/weekly', async (req: Request, res: Response) => {
     try {
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        res.status(400).json({ error: 'Invalid product ID' });
-        return;
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const queryParams = weeklyAggregatesQuerySchema.safeParse(req.query);
 
@@ -88,6 +84,10 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching weekly aggregates:', {
         error: error instanceof Error ? error.message : String(error)
       });
@@ -101,12 +101,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/aggregates/monthly', async (req: Request, res: Response) => {
     try {
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        res.status(400).json({ error: 'Invalid product ID' });
-        return;
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const queryParams = monthlyAggregatesQuerySchema.safeParse(req.query);
 
@@ -137,6 +132,10 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching monthly aggregates:', {
         error: error instanceof Error ? error.message : String(error)
       });
@@ -150,13 +149,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/retailers/:retailerId/aggregates/weekly', async (req: Request, res: Response) => {
     try {
-      const productId = parseInt(req.params.productId);
-      const retailerId = parseInt(req.params.retailerId);
-
-      if (isNaN(productId) || isNaN(retailerId)) {
-        res.status(400).json({ error: 'Invalid product or retailer ID' });
-        return;
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
+      const retailerId = parseIntSafe(req.params.retailerId, 'retailerId', { min: 1 });
 
       const queryParams = weeklyAggregatesQuerySchema.safeParse(req.query);
 
@@ -181,6 +175,10 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching weekly aggregates:', {
         error: error instanceof Error ? error.message : String(error)
       });
@@ -194,13 +192,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/retailers/:retailerId/aggregates/monthly', async (req: Request, res: Response) => {
     try {
-      const productId = parseInt(req.params.productId);
-      const retailerId = parseInt(req.params.retailerId);
-
-      if (isNaN(productId) || isNaN(retailerId)) {
-        res.status(400).json({ error: 'Invalid product or retailer ID' });
-        return;
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
+      const retailerId = parseIntSafe(req.params.retailerId, 'retailerId', { min: 1 });
 
       const queryParams = monthlyAggregatesQuerySchema.safeParse(req.query);
 
@@ -225,6 +218,10 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching monthly aggregates:', {
         error: error instanceof Error ? error.message : String(error)
       });
@@ -238,17 +235,16 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/trends', async (req: Request, res: Response) => {
     try {
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        res.status(400).json({ error: 'Invalid product ID' });
-        return;
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const trends = await trendAnalysisService.getProductTrendSummary(productId);
 
       res.json(trends);
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching trends:', {
         error: error instanceof Error ? error.message : String(error)
       });
@@ -262,13 +258,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    */
   app.get('/api/products/:productId/retailers/:retailerId/trend', async (req: Request, res: Response) => {
     try {
-      const productId = parseInt(req.params.productId);
-      const retailerId = parseInt(req.params.retailerId);
-
-      if (isNaN(productId) || isNaN(retailerId)) {
-        res.status(400).json({ error: 'Invalid product or retailer ID' });
-        return;
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
+      const retailerId = parseIntSafe(req.params.retailerId, 'retailerId', { min: 1 });
 
       const trend = await trendAnalysisService.getProductTrend(productId, retailerId);
 
@@ -279,6 +270,10 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(trend);
     } catch (error) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       logger.error('Error fetching trend:', {
         error: error instanceof Error ? error.message : String(error)
       });

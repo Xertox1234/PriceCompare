@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import * as communityService from "./services/community-service";
+import { parseIntSafe, parseIntOptional } from "./utils/validation-helpers";
 
 /**
  * Community Routes
@@ -27,11 +28,7 @@ export function registerCommunityRoutes(app: Express) {
   app.post("/api/community/watch/:productId", withAuth(async (req, res) => {
     try {
       const user = req.user!; // Auth verified by withAuth middleware
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        return res.status(400).json({ error: "Invalid product ID" });
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const watch = await communityService.addProductWatch(user.id, productId);
 
@@ -40,8 +37,11 @@ export function registerCommunityRoutes(app: Express) {
         data: watch,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error adding product watch:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to add watch" });
+      res.status(500).json({ error: (error as Error).message || "Failed to add watch" });
     }
   }));
 
@@ -52,11 +52,7 @@ export function registerCommunityRoutes(app: Express) {
   app.delete("/api/community/watch/:productId", withAuth(async (req, res) => {
     try {
       const user = req.user!; // Auth verified by withAuth middleware
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        return res.status(400).json({ error: "Invalid product ID" });
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const removed = await communityService.removeProductWatch(user.id, productId);
 
@@ -66,8 +62,11 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error removing product watch:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to remove watch" });
+      res.status(500).json({ error: (error as Error).message || "Failed to remove watch" });
     }
   }));
 
@@ -97,11 +96,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watch-count/:productId", async (req, res) => {
     try {
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        return res.status(400).json({ error: "Invalid product ID" });
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const count = await communityService.getProductWatchCount(productId);
 
@@ -110,8 +105,11 @@ export function registerCommunityRoutes(app: Express) {
         count,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error fetching watch count:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch watch count" });
+      res.status(500).json({ error: (error as Error).message || "Failed to fetch watch count" });
     }
   });
 
@@ -122,11 +120,7 @@ export function registerCommunityRoutes(app: Express) {
   app.get("/api/community/is-watching/:productId", withAuth(async (req, res) => {
     try {
       const user = req.user!; // Auth verified by withAuth middleware
-      const productId = parseInt(req.params.productId);
-
-      if (isNaN(productId)) {
-        return res.status(400).json({ error: "Invalid product ID" });
-      }
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const isWatching = await communityService.isUserWatchingProduct(user.id, productId);
 
@@ -135,8 +129,11 @@ export function registerCommunityRoutes(app: Express) {
         isWatching,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error checking watch status:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to check watch status" });
+      res.status(500).json({ error: (error as Error).message || "Failed to check watch status" });
     }
   }));
 
@@ -146,7 +143,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/most-watched", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 10;
       const products = await communityService.getMostWatchedProducts(limit);
 
       res.json({
@@ -155,8 +152,11 @@ export function registerCommunityRoutes(app: Express) {
         count: products.length,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error fetching most watched:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch most watched products" });
+      res.status(500).json({ error: (error as Error).message || "Failed to fetch most watched products" });
     }
   });
 
@@ -185,7 +185,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/leaderboard", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 10;
       const leaderboard = await communityService.getLeaderboard(limit);
 
       res.json({
@@ -194,8 +194,11 @@ export function registerCommunityRoutes(app: Express) {
         count: leaderboard.length,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error fetching leaderboard:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch leaderboard" });
+      res.status(500).json({ error: (error as Error).message || "Failed to fetch leaderboard" });
     }
   });
 
@@ -205,7 +208,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/recent-deals", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 10;
       const deals = await communityService.getRecentDealSpottings(limit);
 
       res.json({
@@ -214,8 +217,11 @@ export function registerCommunityRoutes(app: Express) {
         count: deals.length,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error fetching recent deals:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch recent deals" });
+      res.status(500).json({ error: (error as Error).message || "Failed to fetch recent deals" });
     }
   });
 
@@ -281,11 +287,7 @@ export function registerCommunityRoutes(app: Express) {
   app.get("/api/community/watch-lists/:listId", withAuth(async (req, res) => {
     try {
       const user = req.user!;
-      const listId = parseInt(req.params.listId);
-
-      if (isNaN(listId)) {
-        return res.status(400).json({ error: "Invalid list ID" });
-      }
+      const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
 
       const watchList = await communityService.getWatchListById(user.id, listId);
 
@@ -298,8 +300,11 @@ export function registerCommunityRoutes(app: Express) {
         data: watchList,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error fetching watch list:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch watch list" });
+      res.status(500).json({ error: (error as Error).message || "Failed to fetch watch list" });
     }
   }));
 
@@ -310,11 +315,7 @@ export function registerCommunityRoutes(app: Express) {
   app.patch("/api/community/watch-lists/:listId", withAuth(async (req, res) => {
     try {
       const user = req.user!;
-      const listId = parseInt(req.params.listId);
-
-      if (isNaN(listId)) {
-        return res.status(400).json({ error: "Invalid list ID" });
-      }
+      const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
 
       const { name, description, color, icon, sortOrder } = req.body;
       const updates: {
@@ -342,8 +343,11 @@ export function registerCommunityRoutes(app: Express) {
         data: updated,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error updating watch list:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to update watch list" });
+      res.status(500).json({ error: (error as Error).message || "Failed to update watch list" });
     }
   }));
 
@@ -354,11 +358,7 @@ export function registerCommunityRoutes(app: Express) {
   app.delete("/api/community/watch-lists/:listId", withAuth(async (req, res) => {
     try {
       const user = req.user!;
-      const listId = parseInt(req.params.listId);
-
-      if (isNaN(listId)) {
-        return res.status(400).json({ error: "Invalid list ID" });
-      }
+      const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
 
       const deleted = await communityService.deleteWatchList(user.id, listId);
 
@@ -368,8 +368,11 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error deleting watch list:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to delete watch list" });
+      res.status(500).json({ error: (error as Error).message || "Failed to delete watch list" });
     }
   }));
 
@@ -380,11 +383,7 @@ export function registerCommunityRoutes(app: Express) {
   app.get("/api/community/watch-lists/:listId/products", withAuth(async (req, res) => {
     try {
       const user = req.user!;
-      const listId = parseInt(req.params.listId);
-
-      if (isNaN(listId)) {
-        return res.status(400).json({ error: "Invalid list ID" });
-      }
+      const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
 
       const products = await communityService.getWatchListProducts(user.id, listId);
 
@@ -394,8 +393,11 @@ export function registerCommunityRoutes(app: Express) {
         count: products.length,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error fetching watch list products:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch watch list products" });
+      res.status(500).json({ error: (error as Error).message || "Failed to fetch watch list products" });
     }
   }));
 
@@ -406,11 +408,7 @@ export function registerCommunityRoutes(app: Express) {
   app.patch("/api/community/product-watches/:watchId", withAuth(async (req, res) => {
     try {
       const user = req.user!;
-      const watchId = parseInt(req.params.watchId);
-
-      if (isNaN(watchId)) {
-        return res.status(400).json({ error: "Invalid watch ID" });
-      }
+      const watchId = parseIntSafe(req.params.watchId, 'watchId', { min: 1 });
 
       const { category, notes, priority, targetPrice, watchListId } = req.body;
       const updates: {
@@ -444,8 +442,11 @@ export function registerCommunityRoutes(app: Express) {
         data: updated,
       });
     } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('must be')) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error('Error updating product watch:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to update product watch" });
+      res.status(500).json({ error: (error as Error).message || "Failed to update product watch" });
     }
   }));
 
