@@ -1,6 +1,6 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, inArray, sql, desc, asc, isNull, or, like } from "drizzle-orm";
+import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
 import { logger } from "./utils/logger";
 
@@ -29,6 +29,13 @@ export interface IStorage {
   getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]>;
   createProductOffer(offer: InsertProductOffer): Promise<ProductOffer>;
 
+  // Affiliate Link Operations
+  getProductOfferById(offerId: number): Promise<ProductOffer | null>;
+  updateProductOfferAffiliateLink(offerId: number, data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }): Promise<void>;
+  incrementProductOfferClickCount(offerId: number): Promise<void>;
+  getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]>;
+  getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats>;
+
   // Product URL Search (for browser extension)
   getProductByUrl(productUrl: string): Promise<{
     product: Product;
@@ -56,6 +63,7 @@ export interface IStorage {
   // Users (Admin)
   getAllUsers(): Promise<SafeUser[]>;
   getUserCount(): Promise<number>;
+  getUserByIdSafe(id: number): Promise<SafeUser | null>;
   updateUserProfile(userId: number, updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
   updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
   suspendUser(userId: number, reason: string, suspendedBy: number): Promise<void>;
@@ -83,6 +91,22 @@ export interface IStorage {
   getMonthlyAggregates(productId: number, options?: { year?: number; month?: number; retailerId?: number; limit?: number }): Promise<MonthlyAggregate[]>;
   getAnalyticsOverview(): Promise<AnalyticsOverview>;
   getJobLocks(): Promise<JobLock[]>;
+
+  // Job Lock Operations
+  acquireJobLock(jobName: string, lockedBy: string, ttlSeconds: number): Promise<{ success: boolean; id?: number }>;
+  getJobLockByName(jobName: string): Promise<JobLock | null>;
+  updateExpiredJobLock(jobName: string, lockedBy: string, newExpiresAt: Date): Promise<{ success: boolean; id?: number }>;
+  releaseJobLock(jobName: string, lockedBy: string): Promise<boolean>;
+  extendJobLock(jobName: string, lockedBy: string, additionalSeconds: number): Promise<boolean>;
+  isJobLocked(jobName: string): Promise<boolean>;
+  cleanupExpiredJobLocks(): Promise<number>;
+
+  // Password Reset Token Operations
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date, metadata?: { ipAddress?: string; userAgent?: string }): Promise<void>;
+  validatePasswordResetToken(token: string): Promise<PasswordResetToken | null>;
+  markPasswordResetTokenAsUsed(token: string): Promise<void>;
+  cleanupExpiredPasswordResetTokens(): Promise<number>;
+  getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number>;
 
   // Forum Operations (with transactions)
   createTopicWithFirstPost(topicData: {
@@ -505,6 +529,57 @@ export class MemStorage implements IStorage {
     return newOffer;
   }
 
+  // Affiliate Link Operations (MemStorage stubs)
+  async getProductOfferById(offerId: number): Promise<ProductOffer | null> {
+    return this.productOffers.get(offerId) ?? null;
+  }
+
+  async updateProductOfferAffiliateLink(
+    offerId: number,
+    data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }
+  ): Promise<void> {
+    const offer = this.productOffers.get(offerId);
+    if (offer) {
+      this.productOffers.set(offerId, {
+        ...offer,
+        affiliateUrl: data.affiliateUrl,
+        linkHealthStatus: data.linkHealthStatus,
+        lastLinkCheck: data.lastLinkCheck
+      });
+    }
+  }
+
+  async incrementProductOfferClickCount(offerId: number): Promise<void> {
+    const offer = this.productOffers.get(offerId);
+    if (offer) {
+      this.productOffers.set(offerId, {
+        ...offer,
+        clickCount: (offer.clickCount ?? 0) + 1
+      });
+    }
+  }
+
+  async getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]> {
+    return Array.from(this.productOffers.values()).filter(
+      offer => offer.retailerId === retailerId
+    );
+  }
+
+  async getAffiliateLinkStats(_retailerId?: number): Promise<AffiliateLinkStats> {
+    // Basic in-memory implementation
+    const offers = _retailerId
+      ? Array.from(this.productOffers.values()).filter(o => o.retailerId === _retailerId)
+      : Array.from(this.productOffers.values());
+
+    return {
+      total_offers: offers.length,
+      affiliate_offers: offers.filter(o => o.affiliateUrl).length,
+      total_clicks: offers.reduce((sum, o) => sum + (o.clickCount ?? 0), 0),
+      healthy_links: offers.filter(o => o.linkHealthStatus === 'healthy').length,
+      broken_links: offers.filter(o => o.linkHealthStatus === 'broken').length
+    };
+  }
+
   async getProductByUrl(productUrl: string): Promise<{
     product: Product;
     offer: ProductOffer;
@@ -649,6 +724,10 @@ export class MemStorage implements IStorage {
     return 0;
   }
 
+  async getUserByIdSafe(_id: number): Promise<SafeUser | null> {
+    return null;
+  }
+
   async updateUserProfile(_userId: number, _updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
@@ -709,6 +788,56 @@ export class MemStorage implements IStorage {
 
   async getJobLocks(): Promise<JobLock[]> {
     return [];
+  }
+
+  // Job Lock Operations (stub implementations - job locking not supported in memory storage)
+  async acquireJobLock(_jobName: string, _lockedBy: string, _ttlSeconds: number): Promise<{ success: boolean; id?: number }> {
+    return { success: false };
+  }
+
+  async getJobLockByName(_jobName: string): Promise<JobLock | null> {
+    return null;
+  }
+
+  async updateExpiredJobLock(_jobName: string, _lockedBy: string, _newExpiresAt: Date): Promise<{ success: boolean; id?: number }> {
+    return { success: false };
+  }
+
+  async releaseJobLock(_jobName: string, _lockedBy: string): Promise<boolean> {
+    return false;
+  }
+
+  async extendJobLock(_jobName: string, _lockedBy: string, _additionalSeconds: number): Promise<boolean> {
+    return false;
+  }
+
+  async isJobLocked(_jobName: string): Promise<boolean> {
+    return false;
+  }
+
+  async cleanupExpiredJobLocks(): Promise<number> {
+    return 0;
+  }
+
+  // Password Reset Token Operations (stub implementations)
+  async createPasswordResetToken(_userId: number, _token: string, _expiresAt: Date, _metadata?: { ipAddress?: string; userAgent?: string }): Promise<void> {
+    // Not supported in memory storage
+  }
+
+  async validatePasswordResetToken(_token: string): Promise<PasswordResetToken | null> {
+    return null;
+  }
+
+  async markPasswordResetTokenAsUsed(_token: string): Promise<void> {
+    // Not supported in memory storage
+  }
+
+  async cleanupExpiredPasswordResetTokens(): Promise<number> {
+    return 0;
+  }
+
+  async getPasswordResetAttemptCount(_userId: number, _sinceDate: Date): Promise<number> {
+    return 0;
   }
 
   // Forum Operations (stub implementations)
@@ -858,6 +987,33 @@ export class DatabaseStorage implements IStorage {
         website: retailer.website || null,
         isActive: retailer.isActive ?? true
       })
+      .returning();
+    return result;
+  }
+
+  async getAllRetailers(): Promise<Retailer[]> {
+    const result = await db.select().from(retailers);
+    return result;
+  }
+
+  async getRetailerById(id: number): Promise<Retailer | undefined> {
+    const [result] = await db.select().from(retailers).where(eq(retailers.id, id)).limit(1);
+    return result;
+  }
+
+  async updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | undefined> {
+    const [result] = await db
+      .update(retailers)
+      .set(updates)
+      .where(eq(retailers.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteRetailer(id: number): Promise<Retailer | undefined> {
+    const [result] = await db
+      .delete(retailers)
+      .where(eq(retailers.id, id))
       .returning();
     return result;
   }
@@ -1165,6 +1321,70 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  // Affiliate Link Operations
+  async getProductOfferById(offerId: number): Promise<ProductOffer | null> {
+    const [offer] = await db
+      .select()
+      .from(productOffers)
+      .where(eq(productOffers.id, offerId))
+      .limit(1);
+    return offer ?? null;
+  }
+
+  async updateProductOfferAffiliateLink(
+    offerId: number,
+    data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }
+  ): Promise<void> {
+    await db
+      .update(productOffers)
+      .set({
+        affiliateUrl: data.affiliateUrl,
+        linkHealthStatus: data.linkHealthStatus,
+        lastLinkCheck: data.lastLinkCheck,
+      })
+      .where(eq(productOffers.id, offerId));
+  }
+
+  async incrementProductOfferClickCount(offerId: number): Promise<void> {
+    await db
+      .update(productOffers)
+      .set({
+        clickCount: sql`COALESCE(${productOffers.clickCount}, 0) + 1`,
+      })
+      .where(eq(productOffers.id, offerId));
+  }
+
+  async getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]> {
+    return db
+      .select()
+      .from(productOffers)
+      .where(eq(productOffers.retailerId, retailerId));
+  }
+
+  async getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats> {
+    const baseQuery = db
+      .select({
+        total_offers: count(),
+        affiliate_offers: sql<number>`COUNT(${productOffers.affiliateUrl})`,
+        total_clicks: sql<number>`COALESCE(SUM(${productOffers.clickCount}), 0)`,
+        healthy_links: sql<number>`COUNT(CASE WHEN ${productOffers.linkHealthStatus} = 'healthy' THEN 1 END)`,
+        broken_links: sql<number>`COUNT(CASE WHEN ${productOffers.linkHealthStatus} = 'broken' THEN 1 END)`,
+      })
+      .from(productOffers);
+
+    const result = retailerId
+      ? await baseQuery.where(eq(productOffers.retailerId, retailerId))
+      : await baseQuery;
+
+    return result[0] || {
+      total_offers: 0,
+      affiliate_offers: 0,
+      total_clicks: 0,
+      healthy_links: 0,
+      broken_links: 0
+    };
   }
 
   /**
@@ -2463,6 +2683,30 @@ export class DatabaseStorage implements IStorage {
     }).from(users);
   }
 
+  async getUserByIdSafe(id: number): Promise<SafeUser | null> {
+    // SECURITY: Never expose passwordHash - explicit field selection
+    const [user] = await db.select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      role: users.role,
+      trustLevel: users.trustLevel,
+      isActive: users.isActive,
+      isSuspended: users.isSuspended,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt
+    }).from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    return user || null;
+  }
+
+  async getUserCount(): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+    return result?.count ?? 0;
+  }
+
   async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
     const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
       db.select({ count: sql`count(*)` }).from(users),
@@ -2862,12 +3106,195 @@ export class DatabaseStorage implements IStorage {
       specGroups,
     };
   }
+
+  // Job Lock Operations
+  async acquireJobLock(jobName: string, lockedBy: string, ttlSeconds: number): Promise<{ success: boolean; id?: number }> {
+    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+    const result = await db
+      .insert(jobLocks)
+      .values({
+        jobName,
+        lockedBy,
+        expiresAt,
+        lockedAt: new Date(),
+      })
+      .onConflictDoNothing()
+      .returning({ id: jobLocks.id });
+
+    return result.length > 0 ? { success: true, id: result[0].id } : { success: false };
+  }
+
+  async getJobLockByName(jobName: string): Promise<JobLock | null> {
+    const [lock] = await db
+      .select()
+      .from(jobLocks)
+      .where(eq(jobLocks.jobName, jobName))
+      .limit(1);
+    return lock ?? null;
+  }
+
+  async updateExpiredJobLock(jobName: string, lockedBy: string, newExpiresAt: Date): Promise<{ success: boolean; id?: number }> {
+    const result = await db
+      .update(jobLocks)
+      .set({
+        lockedBy,
+        lockedAt: new Date(),
+        expiresAt: newExpiresAt,
+      })
+      .where(
+        and(
+          eq(jobLocks.jobName, jobName),
+          lte(jobLocks.expiresAt, new Date())
+        )
+      )
+      .returning({ id: jobLocks.id });
+
+    return result.length > 0 ? { success: true, id: result[0].id } : { success: false };
+  }
+
+  async releaseJobLock(jobName: string, lockedBy: string): Promise<boolean> {
+    const result = await db
+      .delete(jobLocks)
+      .where(
+        and(
+          eq(jobLocks.jobName, jobName),
+          eq(jobLocks.lockedBy, lockedBy)
+        )
+      )
+      .returning({ id: jobLocks.id });
+
+    return result.length > 0;
+  }
+
+  async extendJobLock(jobName: string, lockedBy: string, additionalSeconds: number): Promise<boolean> {
+    const result = await db
+      .update(jobLocks)
+      .set({
+        expiresAt: sql`${jobLocks.expiresAt} + (${additionalSeconds} * INTERVAL '1 second')`,
+      })
+      .where(
+        and(
+          eq(jobLocks.jobName, jobName),
+          eq(jobLocks.lockedBy, lockedBy)
+        )
+      )
+      .returning({ id: jobLocks.id });
+
+    return result.length > 0;
+  }
+
+  async isJobLocked(jobName: string): Promise<boolean> {
+    const locks = await db
+      .select({ id: jobLocks.id })
+      .from(jobLocks)
+      .where(
+        and(
+          eq(jobLocks.jobName, jobName),
+          sql`${jobLocks.expiresAt} > NOW()`
+        )
+      )
+      .limit(1);
+
+    return locks.length > 0;
+  }
+
+  async cleanupExpiredJobLocks(): Promise<number> {
+    const result = await db
+      .delete(jobLocks)
+      .where(lte(jobLocks.expiresAt, new Date()))
+      .returning({ id: jobLocks.id });
+
+    return result.length;
+  }
+
+  // Password Reset Token Operations
+  async createPasswordResetToken(
+    userId: number,
+    token: string,
+    expiresAt: Date,
+    metadata?: { ipAddress?: string; userAgent?: string }
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Invalidate any existing unused tokens for this user
+      await tx
+        .delete(passwordResetTokens)
+        .where(
+          and(
+            eq(passwordResetTokens.userId, userId),
+            eq(passwordResetTokens.isUsed, false)
+          )
+        );
+
+      // Create the new token
+      await tx.insert(passwordResetTokens).values({
+        userId,
+        token,
+        expiresAt,
+        isUsed: false,
+        ipAddress: metadata?.ipAddress?.substring(0, 45),
+        userAgent: metadata?.userAgent?.substring(0, 500),
+      });
+    });
+  }
+
+  async validatePasswordResetToken(token: string): Promise<PasswordResetToken | null> {
+    const tokenRecord = await db.query.passwordResetTokens.findFirst({
+      where: and(
+        eq(passwordResetTokens.token, token),
+        eq(passwordResetTokens.isUsed, false),
+        sql`${passwordResetTokens.expiresAt} > NOW()`
+      ),
+    });
+    return tokenRecord || null;
+  }
+
+  async markPasswordResetTokenAsUsed(token: string): Promise<void> {
+    await db
+      .update(passwordResetTokens)
+      .set({
+        isUsed: true,
+        usedAt: new Date(),
+      })
+      .where(eq(passwordResetTokens.token, token));
+  }
+
+  async cleanupExpiredPasswordResetTokens(): Promise<number> {
+    const result = await db
+      .delete(passwordResetTokens)
+      .where(lt(passwordResetTokens.expiresAt, new Date()));
+    return result.rowCount || 0;
+  }
+
+  async getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number> {
+    // Use COUNT instead of fetching all records for better performance
+    const [result] = await db.select({
+      count: sql<number>`COUNT(*)::int`
+    }).from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.userId, userId),
+          sql`${passwordResetTokens.createdAt} > ${sinceDate}`
+        )
+      );
+
+    return result?.count ?? 0;
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
 export const storage = process.env.DATABASE_URL
   ? new DatabaseStorage()
   : new MemStorage();
+
+// Job Lock Type
+export interface JobLock {
+  id: number;
+  jobName: string;
+  lockedBy: string;
+  lockedAt: Date;
+  expiresAt: Date;
+  metadata: string | null;
+}
 
 // Price History Types
 export interface PriceHistoryWithDetails extends PriceHistory {
@@ -3023,6 +3450,14 @@ export interface AffiliateConfig {
   commissionRate?: string | null;
   affiliateStatus?: string | null;
   affiliateConfig?: Record<string, unknown> | null;
+}
+
+export interface AffiliateLinkStats {
+  total_offers: number;
+  affiliate_offers: number;
+  total_clicks: number;
+  healthy_links: number;
+  broken_links: number;
 }
 
 // Admin User Types

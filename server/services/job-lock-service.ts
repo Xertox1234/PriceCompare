@@ -1,6 +1,4 @@
-import { db } from "../db";
-import { jobLocks } from "../../shared/schema";
-import { eq, and, lte, sql } from "drizzle-orm";
+import { storage } from "../storage";
 import { logger } from "../utils/logger";
 import os from "os";
 import crypto from "crypto";
@@ -42,18 +40,9 @@ export class JobLockService {
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
       // Try to insert a new lock
-      const result = await db
-        .insert(jobLocks)
-        .values({
-          jobName,
-          lockedBy: this.instanceId,
-          expiresAt,
-          lockedAt: new Date(),
-        })
-        .onConflictDoNothing() // If lock exists, do nothing
-        .returning({ id: jobLocks.id });
+      const result = await storage.acquireJobLock(jobName, this.instanceId, ttlSeconds);
 
-      if (result.length > 0) {
+      if (result.success) {
         logger.info(`[JobLock] Acquired lock for job "${jobName}"`, {
           instanceId: this.instanceId,
           expiresAt: expiresAt.toISOString(),
@@ -62,44 +51,25 @@ export class JobLockService {
       }
 
       // Lock already exists, check if it's ours or expired
-      const existingLock = await db
-        .select()
-        .from(jobLocks)
-        .where(eq(jobLocks.jobName, jobName))
-        .limit(1);
+      const existingLock = await storage.getJobLockByName(jobName);
 
-      if (existingLock.length > 0) {
-        const lock = existingLock[0];
-
+      if (existingLock) {
         // Check if lock is expired
-        if (new Date(lock.expiresAt) < new Date()) {
+        if (new Date(existingLock.expiresAt) < new Date()) {
           // Try to acquire expired lock
-          const updated = await db
-            .update(jobLocks)
-            .set({
-              lockedBy: this.instanceId,
-              lockedAt: new Date(),
-              expiresAt,
-            })
-            .where(
-              and(
-                eq(jobLocks.jobName, jobName),
-                lte(jobLocks.expiresAt, new Date()) // Only update if still expired
-              )
-            )
-            .returning({ id: jobLocks.id });
+          const updated = await storage.updateExpiredJobLock(jobName, this.instanceId, expiresAt);
 
-          if (updated.length > 0) {
+          if (updated.success) {
             logger.info(`[JobLock] Acquired expired lock for job "${jobName}"`, {
               instanceId: this.instanceId,
-              previousOwner: lock.lockedBy,
+              previousOwner: existingLock.lockedBy,
             });
             return true;
           }
         }
 
-        logger.debug(`[JobLock] Job "${jobName}" is already locked by "${lock.lockedBy}"`, {
-          expiresAt: lock.expiresAt,
+        logger.debug(`[JobLock] Job "${jobName}" is already locked by "${existingLock.lockedBy}"`, {
+          expiresAt: existingLock.expiresAt,
         });
         return false;
       }
@@ -121,17 +91,9 @@ export class JobLockService {
    */
   async releaseLock(jobName: string): Promise<boolean> {
     try {
-      const result = await db
-        .delete(jobLocks)
-        .where(
-          and(
-            eq(jobLocks.jobName, jobName),
-            eq(jobLocks.lockedBy, this.instanceId)
-          )
-        )
-        .returning({ id: jobLocks.id });
+      const released = await storage.releaseJobLock(jobName, this.instanceId);
 
-      if (result.length > 0) {
+      if (released) {
         logger.info(`[JobLock] Released lock for job "${jobName}"`, {
           instanceId: this.instanceId,
         });
@@ -160,20 +122,9 @@ export class JobLockService {
    */
   async extendLock(jobName: string, additionalSeconds: number): Promise<boolean> {
     try {
-      const result = await db
-        .update(jobLocks)
-        .set({
-          expiresAt: sql`${jobLocks.expiresAt} + INTERVAL '${sql.raw(additionalSeconds.toString())} seconds'`,
-        })
-        .where(
-          and(
-            eq(jobLocks.jobName, jobName),
-            eq(jobLocks.lockedBy, this.instanceId)
-          )
-        )
-        .returning({ id: jobLocks.id });
+      const extended = await storage.extendJobLock(jobName, this.instanceId, additionalSeconds);
 
-      if (result.length > 0) {
+      if (extended) {
         logger.debug(`[JobLock] Extended lock for job "${jobName}" by ${additionalSeconds}s`);
         return true;
       }
@@ -195,18 +146,7 @@ export class JobLockService {
    */
   async isLocked(jobName: string): Promise<boolean> {
     try {
-      const locks = await db
-        .select({ id: jobLocks.id })
-        .from(jobLocks)
-        .where(
-          and(
-            eq(jobLocks.jobName, jobName),
-            sql`${jobLocks.expiresAt} > NOW()` // Not expired
-          )
-        )
-        .limit(1);
-
-      return locks.length > 0;
+      return await storage.isJobLocked(jobName);
     } catch (error) {
       logger.error(`[JobLock] Error checking lock for job "${jobName}":`, {
         error: error instanceof Error ? error.message : String(error),
@@ -221,16 +161,13 @@ export class JobLockService {
    */
   async cleanupExpiredLocks(): Promise<number> {
     try {
-      const result = await db
-        .delete(jobLocks)
-        .where(lte(jobLocks.expiresAt, new Date()))
-        .returning({ id: jobLocks.id });
+      const cleanedCount = await storage.cleanupExpiredJobLocks();
 
-      if (result.length > 0) {
-        logger.info(`[JobLock] Cleaned up ${result.length} expired locks`);
+      if (cleanedCount > 0) {
+        logger.info(`[JobLock] Cleaned up ${cleanedCount} expired locks`);
       }
 
-      return result.length;
+      return cleanedCount;
     } catch (error) {
       logger.error('[JobLock] Error cleaning up expired locks:', {
         error: error instanceof Error ? error.message : String(error),

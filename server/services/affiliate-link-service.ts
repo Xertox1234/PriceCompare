@@ -1,6 +1,4 @@
-import { db } from '../db';
-import { retailers, productOffers } from '../../shared/schema';
-import { eq, sql, count } from 'drizzle-orm';
+import { storage, type AffiliateLinkStats } from '../storage';
 import type { Retailer } from '../../shared/schema';
 import { createLogger } from '../utils/logger';
 
@@ -43,7 +41,7 @@ export class AffiliateLinkService {
   ): Promise<LinkGenerationResult> {
     try {
       const retailer = await this.getRetailerConfig(retailerId);
-      
+
       if (!retailer || retailer.affiliateStatus !== 'active') {
         return {
           success: false,
@@ -53,7 +51,7 @@ export class AffiliateLinkService {
       }
 
       const affiliateUrl = await this.transformUrl(retailer, productUrl, metadata);
-      
+
       if (affiliateUrl) {
         return {
           success: true,
@@ -94,19 +92,19 @@ export class AffiliateLinkService {
     switch (retailer.affiliateProgram) {
       case 'amazon_associates':
         return this.generateAmazonLink(productUrl, config, productId);
-      
+
       case 'walmart_connect':
         return this.generateWalmartLink(productUrl, config, productId);
-      
+
       case 'target_partners':
         return this.generateTargetLink(productUrl, config);
-      
+
       case 'bestbuy_affiliate':
         return this.generateBestBuyLink(productUrl, config);
-      
+
       case 'generic_utm':
         return this.addUTMTracking(productUrl, retailer.name, config);
-      
+
       default:
         return null;
     }
@@ -166,15 +164,15 @@ export class AffiliateLinkService {
    * Add UTM tracking parameters
    */
   private addUTMTracking(
-    url: string, 
-    retailerName: string, 
+    url: string,
+    retailerName: string,
     config?: AffiliateConfig
   ): string {
     const separator = url.includes('?') ? '&' : '?';
     const source = config?.source || 'pricecompare';
     const campaign = config?.campaign || 'product';
     const medium = config?.medium || 'affiliate';
-    
+
     return `${url}${separator}utm_source=${source}&utm_medium=${medium}&utm_campaign=${campaign}&utm_content=${retailerName.toLowerCase()}`;
   }
 
@@ -198,10 +196,7 @@ export class AffiliateLinkService {
     }
 
     try {
-      const [retailer] = await db.select()
-        .from(retailers)
-        .where(eq(retailers.id, retailerId))
-        .limit(1);
+      const retailer = await storage.getRetailerById(retailerId);
 
       if (retailer) {
         this.retailerCache.set(retailerId, retailer);
@@ -236,13 +231,13 @@ export class AffiliateLinkService {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(affiliateUrl, { 
+
+      const response = await fetch(affiliateUrl, {
         method: 'HEAD',
         redirect: 'follow',
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
@@ -255,18 +250,16 @@ export class AffiliateLinkService {
    * Update product offer with affiliate URL
    */
   async updateOfferWithAffiliateLink(
-    offerId: number, 
-    affiliateUrl: string, 
+    offerId: number,
+    affiliateUrl: string,
     isHealthy: boolean = true
   ): Promise<void> {
     try {
-      await db.update(productOffers)
-        .set({
-          affiliateUrl,
-          linkHealthStatus: isHealthy ? 'healthy' : 'broken',
-          lastLinkCheck: new Date()
-        })
-        .where(eq(productOffers.id, offerId));
+      await storage.updateProductOfferAffiliateLink(offerId, {
+        affiliateUrl,
+        linkHealthStatus: isHealthy ? 'healthy' : 'broken',
+        lastLinkCheck: new Date()
+      });
     } catch (error) {
       log.error('Failed to update offer with affiliate link:', { error });
     }
@@ -277,18 +270,7 @@ export class AffiliateLinkService {
    */
   async trackLinkClick(offerId: number): Promise<void> {
     try {
-      const [offer] = await db.select()
-        .from(productOffers)
-        .where(eq(productOffers.id, offerId))
-        .limit(1);
-
-      if (offer) {
-        await db.update(productOffers)
-          .set({
-            clickCount: (offer.clickCount || 0) + 1
-          })
-          .where(eq(productOffers.id, offerId));
-      }
+      await storage.incrementProductOfferClickCount(offerId);
     } catch (error) {
       log.error('Failed to track link click:', { error });
     }
@@ -303,9 +285,7 @@ export class AffiliateLinkService {
     broken: number;
   }> {
     try {
-      const offers = await db.select()
-        .from(productOffers)
-        .where(eq(productOffers.retailerId, retailerId));
+      const offers = await storage.getProductOffersByRetailerId(retailerId);
 
       let healthy = 0;
       let broken = 0;
@@ -313,9 +293,9 @@ export class AffiliateLinkService {
       for (const offer of offers) {
         if (offer.affiliateUrl) {
           const isHealthy = await this.validateAffiliateLink(offer.affiliateUrl);
-          
+
           await this.updateOfferWithAffiliateLink(offer.id, offer.affiliateUrl, isHealthy);
-          
+
           if (isHealthy) {
             healthy++;
           } else {
@@ -345,36 +325,9 @@ export class AffiliateLinkService {
   /**
    * Get affiliate link statistics
    */
-  async getAffiliateLinkStats(retailerId?: number): Promise<{
-    total_offers: number;
-    affiliate_offers: number;
-    total_clicks: number;
-    healthy_links: number;
-    broken_links: number;
-  } | null> {
+  async getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats | null> {
     try {
-      // Use Drizzle ORM for safe query building
-      const baseQuery = db
-        .select({
-          total_offers: count(),
-          affiliate_offers: sql<number>`COUNT(${productOffers.affiliateUrl})`,
-          total_clicks: sql<number>`COALESCE(SUM(${productOffers.clickCount}), 0)`,
-          healthy_links: sql<number>`COUNT(CASE WHEN ${productOffers.linkHealthStatus} = 'healthy' THEN 1 END)`,
-          broken_links: sql<number>`COUNT(CASE WHEN ${productOffers.linkHealthStatus} = 'broken' THEN 1 END)`,
-        })
-        .from(productOffers);
-
-      const result = retailerId
-        ? await baseQuery.where(eq(productOffers.retailerId, retailerId))
-        : await baseQuery;
-
-      return result[0] || {
-        total_offers: 0,
-        affiliate_offers: 0,
-        total_clicks: 0,
-        healthy_links: 0,
-        broken_links: 0
-      };
+      return await storage.getAffiliateLinkStats(retailerId);
     } catch (error) {
       log.error('Failed to get affiliate link stats:', { error });
       return null;
