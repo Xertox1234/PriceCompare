@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { z } from "zod";
 import * as smartAlertsService from "./services/smart-alerts-service";
+import { parseIntSafe, parseFloatSafe } from "./utils/validation-helpers";
 
 /**
  * Smart Alerts Routes
@@ -27,15 +28,10 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/suggestions/:productId", async (req: Request, res: Response): Promise<void> => {
     try {
-      const productId = parseInt(req.params.productId);
+      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
       const currentPrice = req.query.currentPrice
-        ? parseFloat(req.query.currentPrice as string)
+        ? parseFloatSafe(req.query.currentPrice as string, 'currentPrice', { min: 0 })
         : undefined;
-
-      if (isNaN(productId)) {
-        res.status(400).json({ error: "Invalid product ID" });
-        return;
-      }
 
       if (!currentPrice) {
         res.status(400).json({ error: "Current price is required" });
@@ -54,6 +50,10 @@ export function registerSmartAlertsRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error generating smart suggestions:', { error: error instanceof Error ? error.message : String(error) });
+      if (error instanceof Error && error.message.includes('must be')) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       const errorMessage = error instanceof Error ? error.message : "Failed to generate suggestions";
       res.status(500).json({ error: errorMessage });
     }
