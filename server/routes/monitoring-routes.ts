@@ -1,9 +1,10 @@
 import type { Express, Request, Response } from "express";
-import { requireAuth, requireAdmin } from './auth.js';
-import { monitoringService } from './services/monitoring-service.js';
-import { alertService } from './services/alert-service.js';
-import { logger } from './utils/logger.js';
-import { parseIntOptional } from './utils/validation-helpers.js';
+import { requireAuth, requireAdmin } from '../middleware/auth';
+import { monitoringService } from '../services/monitoring-service';
+import { alertService } from '../services/alert-service';
+import { logger } from '../utils/logger';
+import { parseIntOptional } from '../utils/validation-helpers';
+import { createErrorResponse } from '../utils/error-sanitizer';
 
 /**
  * Monitoring and Dashboard Routes
@@ -25,14 +26,8 @@ export function registerMonitoringRoutes(app: Express): void {
         data: metrics
       });
     } catch (error) {
-      logger.error('Failed to get dashboard metrics', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve dashboard metrics',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      const errorResponse = createErrorResponse(error, 'GetDashboardMetrics');
+      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
     }
   });
 
@@ -53,18 +48,8 @@ export function registerMonitoringRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ success: false, error: error.message });
-        return;
-      }
-      logger.error('Failed to get error logs', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve error logs',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      const errorResponse = createErrorResponse(error, 'GetRecentErrors');
+      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
     }
   });
 
@@ -81,14 +66,8 @@ export function registerMonitoringRoutes(app: Express): void {
         message: 'Error logs cleared successfully'
       });
     } catch (error) {
-      logger.error('Failed to clear error logs', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to clear error logs',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      const errorResponse = createErrorResponse(error, 'ClearErrors');
+      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
     }
   });
 
@@ -110,8 +89,7 @@ export function registerMonitoringRoutes(app: Express): void {
       res.status(503).json({
         success: false,
         status: 'unhealthy',
-        error: 'Health check failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Health check failed'
       });
     }
   });
@@ -133,18 +111,8 @@ export function registerMonitoringRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ success: false, error: error.message });
-        return;
-      }
-      logger.error('Failed to get alert history', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve alert history',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      const errorResponse = createErrorResponse(error, 'GetAlertHistory');
+      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
     }
   });
 
@@ -166,14 +134,8 @@ export function registerMonitoringRoutes(app: Express): void {
         message: 'Test alert sent successfully'
       });
     } catch (error) {
-      logger.error('Failed to send test alert', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to send test alert',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      const errorResponse = createErrorResponse(error, 'SendTestAlert');
+      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
     }
   });
 }

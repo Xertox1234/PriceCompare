@@ -1,8 +1,9 @@
 import type { Express, Request, Response } from "express";
-import { logger } from "./utils/logger";
+import { logger } from "../utils/logger";
 import { z } from "zod";
-import * as smartAlertsService from "./services/smart-alerts-service";
-import { parseIntSafe, parseFloatSafe } from "./utils/validation-helpers";
+import * as smartAlertsService from "../services/smart-alerts-service";
+import { parseIntSafe, parseFloatSafe } from "../utils/validation-helpers";
+import { createErrorResponse } from "../utils/error-sanitizer";
 
 /**
  * Smart Alerts Routes
@@ -49,13 +50,8 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: suggestions.length,
       });
     } catch (error: unknown) {
-      logger.error('Error generating smart suggestions:', { error: error instanceof Error ? error.message : String(error) });
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate suggestions";
-      res.status(500).json({ error: errorMessage });
+      const errorResponse = createErrorResponse(error, 'GenerateSmartSuggestions');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -74,9 +70,8 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: alerts.length,
       });
     } catch (error: unknown) {
-      logger.error('Error generating predictive alerts:', { error: error instanceof Error ? error.message : String(error) });
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate predictive alerts";
-      res.status(500).json({ error: errorMessage });
+      const errorResponse = createErrorResponse(error, 'GeneratePredictiveAlerts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -95,9 +90,8 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: effectiveness.length,
       });
     } catch (error: unknown) {
-      logger.error('Error getting alert effectiveness:', { error: error instanceof Error ? error.message : String(error) });
-      const errorMessage = error instanceof Error ? error.message : "Failed to get effectiveness metrics";
-      res.status(500).json({ error: errorMessage });
+      const errorResponse = createErrorResponse(error, 'GetAlertEffectiveness');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -115,9 +109,8 @@ export function registerSmartAlertsRoutes(app: Express) {
         data: analytics,
       });
     } catch (error: unknown) {
-      logger.error('Error getting alert analytics:', { error: error instanceof Error ? error.message : String(error) });
-      const errorMessage = error instanceof Error ? error.message : "Failed to get analytics";
-      res.status(500).json({ error: errorMessage });
+      const errorResponse = createErrorResponse(error, 'GetAlertAnalytics');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -161,13 +154,12 @@ export function registerSmartAlertsRoutes(app: Express) {
         data: alert,
       });
     } catch (error: unknown) {
-      logger.error('Error creating suggested alert:', { error: error instanceof Error ? error.message : String(error) });
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid data", details: error.issues });
         return;
       }
-      const errorMessage = error instanceof Error ? error.message : "Failed to create suggested alert";
-      res.status(500).json({ error: errorMessage });
+      const errorResponse = createErrorResponse(error, 'CreateSuggestedAlert');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 }
