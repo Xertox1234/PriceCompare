@@ -63,6 +63,7 @@ export interface IStorage {
   // Users (Admin)
   getAllUsers(): Promise<SafeUser[]>;
   getUserCount(): Promise<number>;
+  getUserByIdSafe(id: number): Promise<SafeUser | null>;
   updateUserProfile(userId: number, updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
   updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
   suspendUser(userId: number, reason: string, suspendedBy: number): Promise<void>;
@@ -721,6 +722,10 @@ export class MemStorage implements IStorage {
 
   async getUserCount(): Promise<number> {
     return 0;
+  }
+
+  async getUserByIdSafe(_id: number): Promise<SafeUser | null> {
+    return null;
   }
 
   async updateUserProfile(_userId: number, _updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
@@ -2678,6 +2683,30 @@ export class DatabaseStorage implements IStorage {
     }).from(users);
   }
 
+  async getUserByIdSafe(id: number): Promise<SafeUser | null> {
+    // SECURITY: Never expose passwordHash - explicit field selection
+    const [user] = await db.select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      role: users.role,
+      trustLevel: users.trustLevel,
+      isActive: users.isActive,
+      isSuspended: users.isSuspended,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt
+    }).from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    return user || null;
+  }
+
+  async getUserCount(): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+    return result?.count ?? 0;
+  }
+
   async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
     const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
       db.select({ count: sql`count(*)` }).from(users),
@@ -3141,7 +3170,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .update(jobLocks)
       .set({
-        expiresAt: sql`${jobLocks.expiresAt} + INTERVAL '${sql.raw(additionalSeconds.toString())} seconds'`,
+        expiresAt: sql`${jobLocks.expiresAt} + (${additionalSeconds} * INTERVAL '1 second')`,
       })
       .where(
         and(
@@ -3237,13 +3266,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number> {
-    const tokens = await db.query.passwordResetTokens.findMany({
-      where: and(
-        eq(passwordResetTokens.userId, userId),
-        sql`${passwordResetTokens.createdAt} > ${sinceDate}`
-      ),
-    });
-    return tokens.length;
+    // Use COUNT instead of fetching all records for better performance
+    const [result] = await db.select({
+      count: sql<number>`COUNT(*)::int`
+    }).from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.userId, userId),
+          sql`${passwordResetTokens.createdAt} > ${sinceDate}`
+        )
+      );
+
+    return result?.count ?? 0;
   }
 }
 

@@ -1,9 +1,6 @@
 import * as crypto from 'crypto';
 import { storage } from '../storage';
 import type { PasswordResetToken } from '@shared/schema';
-import { db } from '../db';
-import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 
 /**
  * Password Reset Token Service
@@ -74,26 +71,8 @@ export async function getUserByResetToken(token: string) {
     return null;
   }
 
-  // TODO: This should use a storage method like storage.getUserByIdSafe()
-  // that returns SafeUser instead of exposing passwordHash.
-  // For now, using direct db query with explicit field selection for security.
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, tokenRecord.userId),
-    columns: {
-      id: true,
-      username: true,
-      email: true,
-      role: true,
-      trustLevel: true,
-      isActive: true,
-      isSuspended: true,
-      createdAt: true,
-      updatedAt: true,
-      // SECURITY: NEVER expose passwordHash
-    },
-  });
-
-  return user || null;
+  // SECURITY: getUserByIdSafe() never exposes passwordHash
+  return storage.getUserByIdSafe(tokenRecord.userId);
 }
 
 /**
