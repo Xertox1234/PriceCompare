@@ -82,15 +82,15 @@ export function ForumSearch() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [] } = useQuery<ForumCategory[]>({
     queryKey: ['forum-categories'],
     queryFn: async (): Promise<ForumCategory[]> => {
-      const response = await apiRequest('/api/forum/categories');
+      const response = await apiRequest<ForumCategory[]>('/api/forum/categories');
       return response || [];
     },
   });
 
-  const { data: searchResults, isLoading } = useQuery({
+  const { data: searchResults, isLoading } = useQuery<SearchResult>({
     queryKey: ['forum-search', debouncedQuery, selectedCategory, sortBy],
     queryFn: async (): Promise<SearchResult> => {
       if (!debouncedQuery.trim()) {
@@ -102,16 +102,16 @@ export function ForumSearch() {
       if (selectedCategory) params.append('categoryId', selectedCategory);
       if (sortBy !== 'relevance') params.append('sortBy', sortBy);
 
-      const response = await apiRequest(`/api/forum/search?${params}`);
+      const response = await apiRequest<SearchResult>(`/api/forum/search?${params}`);
       return response || { posts: [], topics: [], users: [] };
     },
     enabled: debouncedQuery.trim().length > 0,
   });
 
-  const { data: popularTags = [] } = useQuery({
+  const { data: popularTags = [] } = useQuery<Array<{ name: string; usageCount: number; color: string }>>({
     queryKey: ['forum-tags'],
     queryFn: async (): Promise<Array<{ name: string; usageCount: number; color: string }>> => {
-      const response = await apiRequest('/api/forum/tags?limit=10');
+      const response = await apiRequest<Array<{ name: string; usageCount: number; color: string }>>('/api/forum/tags?limit=10');
       return response || [];
     },
   });

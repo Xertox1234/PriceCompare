@@ -45,17 +45,17 @@ export function useEnhancedProductsSearch({
   const debouncedQuery = useDebounce(query, debounceMs);
 
   // Enhanced search mutation with multiple search strategies
-  const searchMutation = useMutation({
-    mutationFn: async (params: {
-      searchQuery: string;
-      searchFilters: SearchFilters;
-      searchMode: 'basic' | 'smart' | 'intent';
-    }) => {
+  const searchMutation = useMutation<EnhancedSearchResults, Error, {
+    searchQuery: string;
+    searchFilters: SearchFilters;
+    searchMode: 'basic' | 'smart' | 'intent';
+  }>({
+    mutationFn: async (params): Promise<EnhancedSearchResults> => {
       const { searchQuery, searchFilters, searchMode } = params;
-      
+
       // Choose the appropriate search endpoint based on mode
       let endpoint = '/api/search/advanced';
-      
+
       switch (searchMode) {
         case 'smart':
           endpoint = '/api/search/smart';
@@ -63,15 +63,15 @@ export function useEnhancedProductsSearch({
         case 'intent':
           // First analyze intent, then search with optimized filters
           try {
-            const analysis = await apiRequest('/api/search/analyze', {
+            const analysis = await apiRequest<{ intent?: string }>('/api/search/analyze', {
               method: 'POST',
               body: JSON.stringify({ query: searchQuery })
             });
-            
+
             if (analysis && analysis.intent) {
               endpoint = `/api/search/intent/${analysis.intent}`;
             }
-          } catch (error) {
+          } catch {
             // Fall back to advanced search if intent analysis fails
             // Silently fall through to use default endpoint
           }
@@ -98,7 +98,7 @@ export function useEnhancedProductsSearch({
       });
       
       // apiRequest already returns parsed JSON
-      return await apiRequest(`${endpoint}?${searchParams.toString()}`);
+      return await apiRequest<EnhancedSearchResults>(`${endpoint}?${searchParams.toString()}`);
     },
     onSuccess: (data, variables) => {
       // Update search history
@@ -143,9 +143,9 @@ export function useEnhancedProductsSearch({
   });
 
   // Fallback to regular products query when no search query
-  const defaultProductsQuery = useQuery({
+  const defaultProductsQuery = useQuery<EnhancedSearchResults>({
     queryKey: ['/api/products/search', filters],
-    queryFn: async () => {
+    queryFn: async (): Promise<EnhancedSearchResults> => {
       const searchParams = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -156,9 +156,9 @@ export function useEnhancedProductsSearch({
           }
         }
       });
-      
+
       // apiRequest already returns parsed JSON
-      return await apiRequest(`/api/products/search?${searchParams.toString()}`);
+      return await apiRequest<EnhancedSearchResults>(`/api/products/search?${searchParams.toString()}`);
     },
     enabled: !autoSearch || !debouncedQuery.trim(),
     staleTime: 5 * 60 * 1000, // 5 minutes

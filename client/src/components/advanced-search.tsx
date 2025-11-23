@@ -18,6 +18,15 @@ interface AdvancedSearchResult {
   matchType: 'exact' | 'fuzzy' | 'semantic' | 'synonym';
 }
 
+interface SearchResponse {
+  results: AdvancedSearchResult[];
+  metadata?: {
+    detectedIntent?: string;
+    searchStrategy?: string;
+    totalCount?: number;
+  };
+}
+
 interface AdvancedSearchProps {
   onResults?: (results: AdvancedSearchResult[]) => void;
   initialQuery?: string;
@@ -56,10 +65,10 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
   });
 
   // Perform search
-  const searchMutation = useMutation({
-    mutationFn: async (searchFilters: SearchFilters) => {
+  const searchMutation = useMutation<SearchResponse, Error, SearchFilters>({
+    mutationFn: async (searchFilters: SearchFilters): Promise<SearchResponse> => {
       const params = new URLSearchParams();
-      
+
       if (searchFilters.query) params.append('query', searchFilters.query);
       if (searchFilters.category) params.append('category', searchFilters.category);
       if (searchFilters.minPrice) params.append('minPrice', searchFilters.minPrice.toString());
@@ -74,11 +83,11 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
         endpoint = `/api/search/intent/${analysis.intent}`;
       }
 
-      const response = await apiRequest(`${endpoint}?${params.toString()}`);
+      const response = await apiRequest<SearchResponse>(`${endpoint}?${params.toString()}`);
       return response;
     },
     onSuccess: (data) => {
-      if (onResults) {
+      if (onResults && data.results) {
         onResults(data.results);
       }
       queryClient.setQueryData(['/api/search/last-results'], data);
@@ -132,7 +141,7 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
   return (
     <div className="space-y-6">
       {/* Search Mode Selector */}
-      <Tabs value={searchMode} onValueChange={(value) => setSearchMode(value as any)}>
+      <Tabs value={searchMode} onValueChange={(value) => setSearchMode(value as 'basic' | 'smart' | 'intent')}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="basic" className="flex items-center gap-2">
             <Search className="h-4 w-4" />
@@ -346,8 +355,8 @@ export function AdvancedSearch({ onResults, initialQuery = '', showFilters = tru
               {/* Sort By */}
               <div>
                 <label className="text-sm font-medium mb-2 block">Sort By</label>
-                <Select value={filters.sortBy || ''} onValueChange={(value) => 
-                  setFilters(prev => ({ ...prev, sortBy: value as any || undefined }))
+                <Select value={filters.sortBy || ''} onValueChange={(value) =>
+                  setFilters(prev => ({ ...prev, sortBy: (value || undefined) as SearchFilters['sortBy'] }))
                 }>
                   <SelectTrigger>
                     <SelectValue placeholder="Relevance" />

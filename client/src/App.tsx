@@ -17,8 +17,6 @@ import Products from "@/pages/products";
 import ProductsNew from "@/pages/products-new";
 import WishlistNew from "@/pages/wishlist-new";
 import CompareNew from "@/pages/compare-new";
-import CartNew from "@/pages/cart-new";
-import CheckoutNew from "@/pages/checkout-new";
 import ComparisonPage from "@/pages/comparison";
 import MonitoringDashboard from "@/pages/monitoring";
 import PriceWatch from "@/pages/price-watch";
@@ -62,12 +60,6 @@ function Router() {
 
       {/* Compare page with Onsus template layout */}
       <Route path="/compare" component={CompareNew} />
-
-      {/* Cart page with Onsus template layout */}
-      <Route path="/cart" component={CartNew} />
-
-      {/* Checkout page with Onsus template layout */}
-      <Route path="/checkout" component={CheckoutNew} />
 
       {/* Legacy routes with default layout */}
       <Route>

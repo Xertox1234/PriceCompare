@@ -41,19 +41,19 @@ export function NotificationBell() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
 
-  const { data: notifications = [], isLoading } = useQuery({
+  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async (): Promise<Notification[]> => {
-      const response = await apiRequest('/api/notifications');
+      const response = await apiRequest<Notification[]>('/api/notifications');
       return response || [];
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const { data: unreadCount = 0 } = useQuery({
+  const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: ['notifications-unread'],
     queryFn: async (): Promise<number> => {
-      const response = await apiRequest('/api/notifications?unreadOnly=true');
+      const response = await apiRequest<Notification[]>('/api/notifications?unreadOnly=true');
       return response?.length || 0;
     },
     refetchInterval: 10000, // Check unread count every 10 seconds

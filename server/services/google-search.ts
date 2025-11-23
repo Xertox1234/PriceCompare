@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { ScraperUtils, RateLimiter } from '../utils/scraper-utils';
 import { createLogger } from '../utils/logger';
+import { agentQueryLimiter } from './agent-query-limiter';
 
 const log = createLogger('GoogleSearch');
 
@@ -100,6 +101,12 @@ export class GoogleCustomSearchService {
       return cached.results;
     }
 
+    // Check daily query limit before making API call
+    const limitResult = await agentQueryLimiter.checkAndIncrement('google_search');
+    if (!limitResult.allowed) {
+      throw new Error(`Daily agent query limit exceeded (${limitResult.remaining} remaining). Resets at ${limitResult.resetTime.toISOString()}`);
+    }
+
     await this.rateLimiter.waitIfNeeded();
 
     const searchParams = {
@@ -190,6 +197,12 @@ export class GoogleCustomSearchService {
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
       log.debug(`[CACHE_HIT] Google Search: ${query}`);
       return cached.results;
+    }
+
+    // Check daily query limit before making API call
+    const limitResult = await agentQueryLimiter.checkAndIncrement('google_search');
+    if (!limitResult.allowed) {
+      throw new Error(`Daily agent query limit exceeded (${limitResult.remaining} remaining). Resets at ${limitResult.resetTime.toISOString()}`);
     }
 
     await this.rateLimiter.waitIfNeeded();

@@ -20,40 +20,18 @@ import {
 } from '@/components/template';
 import { CartModal, QuickviewModal, CompareModal, MobileMenu, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
-import {
-  dealOfTheDayProducts,
-  bestSellerProducts,
-  newArrivalsProducts,
-  trendingProducts,
-  laptopsProducts,
-  smartHomeProducts,
-  allProducts,
-  categories,
-  type TemplateProduct,
-} from '@/data/template-data';
+import { useHomePageData } from '@/hooks/use-home-data';
+import { Loader2 } from 'lucide-react';
 
-// Convert template products to ProductData format for ProductCard
-function toProductData(products: TemplateProduct[]) {
-  return products.map((p) => ({
-    id: p.id,
-    name: p.title,
-    category: p.category,
-    price: p.price,
-    originalPrice: p.oldPrice,
-    image: p.imgSrc,
-    hoverImage: p.imgHover,
-    rating: p.rating,
-    reviewCount: p.reviewCount,
-    priceChange: p.salePercentage ? ('down' as const) : ('stable' as const),
-    priceChangePercent: p.salePercentage ? parseInt(p.salePercentage) : undefined,
-    retailer: p.brand,
-    discount: p.salePercentage ? parseInt(p.salePercentage) : undefined,
-    // Deal specific
-    countdownTimer: p.countdownTimer,
-    sold: p.sold,
-    available: p.available,
-  }));
-}
+// Static categories for now (could be fetched from API later)
+const categories = [
+  { slug: 'laptops', name: 'Laptops', image: '/placeholder-product.png', productCount: 0 },
+  { slug: 'smartphones', name: 'Smartphones', image: '/placeholder-product.png', productCount: 0 },
+  { slug: 'tablets', name: 'Tablets', image: '/placeholder-product.png', productCount: 0 },
+  { slug: 'headphones', name: 'Headphones', image: '/placeholder-product.png', productCount: 0 },
+  { slug: 'cameras', name: 'Cameras', image: '/placeholder-product.png', productCount: 0 },
+  { slug: 'gaming', name: 'Gaming', image: '/placeholder-product.png', productCount: 0 },
+];
 
 function HomeNewContent() {
   const { toggleWishlist, isInWishlist, toggleCompare, addSimpleToCart } = useShop();
@@ -63,41 +41,20 @@ function HomeNewContent() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [quickviewProduct, setQuickviewProduct] = useState<ProductData | null>(null);
 
+  // Fetch real data from API
+  const { products, isLoading, error } = useHomePageData();
+
   // Add watchlist status to products
-  const dealProducts = toProductData(dealOfTheDayProducts).map((p) => ({
-    ...p,
-    inWatchlist: isInWishlist(p.id),
-  }));
+  const addWatchlistStatus = (productList: typeof products.all) =>
+    productList.map((p) => ({ ...p, inWatchlist: isInWishlist(p.id) }));
 
-  const bestSellers = toProductData(bestSellerProducts).map((p) => ({
-    ...p,
-    inWatchlist: isInWishlist(p.id),
-  }));
-
-  const newArrivals = toProductData(newArrivalsProducts).map((p) => ({
-    ...p,
-    inWatchlist: isInWishlist(p.id),
-  }));
-
-  const trending = toProductData(trendingProducts).map((p) => ({
-    ...p,
-    inWatchlist: isInWishlist(p.id),
-  }));
-
-  const laptops = toProductData(laptopsProducts).map((p) => ({
-    ...p,
-    inWatchlist: isInWishlist(p.id),
-  }));
-
-  const smartHome = toProductData(smartHomeProducts).map((p) => ({
-    ...p,
-    inWatchlist: isInWishlist(p.id),
-  }));
-
-  const allProductsData = toProductData(allProducts).map((p) => ({
-    ...p,
-    inWatchlist: isInWishlist(p.id),
-  }));
+  const dealProducts = addWatchlistStatus(products.deals);
+  const bestSellers = addWatchlistStatus(products.bestSellers);
+  const newArrivals = addWatchlistStatus(products.newArrivals);
+  const trending = addWatchlistStatus(products.trending);
+  const laptops = addWatchlistStatus(products.laptops);
+  const smartHome = addWatchlistStatus(products.smartphones); // Use smartphones as smart home for now
+  const allProductsData = addWatchlistStatus(products.all);
 
   const handleWatchlist = (product: { id: number }) => {
     toggleWishlist(product.id);
@@ -120,6 +77,24 @@ function HomeNewContent() {
     link: `/shop?category=${c.slug}`,
   }));
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <TemplateHeader
+          onOpenCart={() => setCartOpen(true)}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          onOpenCompare={() => setCompareOpen(true)}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading products...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -138,24 +113,26 @@ function HomeNewContent() {
         {/* Features Bar */}
         <FeaturesBar />
 
-        {/* Deal of the Day */}
-        <DealOfTheDaySection
-          featuredProduct={dealProducts[0]}
-          sideProducts={dealProducts.slice(1)}
-          onWatchlist={handleWatchlist}
-          onCompare={handleCompare}
-          onQuickView={handleQuickView}
-          onAddToCart={(product) => {
-            addSimpleToCart({
-              id: product.id,
-              name: product.name,
-              price: product.price,
-              image: product.image,
-              quantity: 1,
-            });
-            setCartOpen(true);
-          }}
-        />
+        {/* Deal of the Day - only show if we have deals */}
+        {dealProducts.length > 0 && (
+          <DealOfTheDaySection
+            featuredProduct={dealProducts[0]}
+            sideProducts={dealProducts.slice(1)}
+            onWatchlist={handleWatchlist}
+            onCompare={handleCompare}
+            onQuickView={handleQuickView}
+            onAddToCart={(product) => {
+              addSimpleToCart({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                image: product.image,
+                quantity: 1,
+              });
+              setCartOpen(true);
+            }}
+          />
+        )}
 
         {/* Category Grid */}
         <CategoryGrid categories={categoryData} />

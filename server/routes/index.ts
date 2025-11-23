@@ -26,6 +26,9 @@ import { registerPriceAnalyticsRoutes } from "./price-analytics-routes";
 import { registerNotificationRoutes } from "./notification-routes";
 import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
 import { registerCommunityRoutes } from "./community-routes";
+import wishlistRoutes from "./wishlist-routes";
+import specificationRoutes from "./specification-routes";
+import agentLimitsRoutes from "./agent-limits-routes";
 
 /**
  * Register all application routes
@@ -82,6 +85,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerNotificationRoutes(app);
   registerSmartAlertsRoutes(app);
   registerCommunityRoutes(app);
+
+  // Wishlist routes (simple "I want this" lists)
+  app.use('/api/wishlists', wishlistRoutes);
+
+  // Product specification routes
+  app.use('/api', specificationRoutes);
+
+  // Agent query limits routes
+  app.use('/api/agent-limits', agentLimitsRoutes);
 
   // Create HTTP server
   const httpServer = createServer(app);

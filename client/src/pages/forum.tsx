@@ -14,10 +14,10 @@ import type { ForumCategory } from '@shared/schema';
 function ForumPage() {
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
 
-  const { data: categories, isLoading } = useQuery({
+  const { data: categories = [], isLoading } = useQuery<ForumCategory[]>({
     queryKey: ['forum-categories'],
     queryFn: async (): Promise<ForumCategory[]> => {
-      const response = await apiRequest('/api/forum/categories');
+      const response = await apiRequest<ForumCategory[]>('/api/forum/categories');
       return response || [];
     },
   });

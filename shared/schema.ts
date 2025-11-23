@@ -987,6 +987,54 @@ export const scrapingSources = pgTable("scraping_sources", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// User wishlists - simple "I want this" product lists (separate from price tracking watchlists)
+export const wishlists = pgTable("wishlists", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 255 }).notNull().default("My Wishlist"),
+  description: text("description"),
+  isPublic: boolean("is_public").default(false), // Allow sharing wishlists
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIdx: index("wishlists_user_id_idx").on(table.userId),
+}));
+
+// Wishlist items - products a user wants (no price tracking, just a simple list)
+export const wishlistItems = pgTable("wishlist_items", {
+  id: serial("id").primaryKey(),
+  wishlistId: integer("wishlist_id").references(() => wishlists.id, { onDelete: 'cascade' }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  notes: text("notes"), // User notes about why they want this
+  priority: integer("priority").default(3), // 1-5, higher = more wanted
+  addedAt: timestamp("added_at").defaultNow(),
+}, (table) => ({
+  wishlistIdIdx: index("wishlist_items_wishlist_id_idx").on(table.wishlistId),
+  userIdIdx: index("wishlist_items_user_id_idx").on(table.userId),
+  productIdIdx: index("wishlist_items_product_id_idx").on(table.productId),
+  uniqueWishlistProduct: unique("unique_wishlist_product").on(table.wishlistId, table.productId),
+}));
+
+// Product specifications - structured key/value specs for electronics, appliances, etc.
+export const productSpecifications = pgTable("product_specifications", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  specGroup: varchar("spec_group", { length: 100 }), // e.g., "Display", "Processor", "Battery", "Dimensions"
+  specName: varchar("spec_name", { length: 100 }).notNull(), // e.g., "Screen Size", "RAM", "Weight"
+  specValue: text("spec_value").notNull(), // e.g., "6.1 inches", "8GB", "174g"
+  specUnit: varchar("spec_unit", { length: 50 }), // e.g., "inches", "GB", "g", "mAh"
+  sortOrder: integer("sort_order").default(0), // For display ordering within group
+  isHighlight: boolean("is_highlight").default(false), // Show in product card/summary
+  source: varchar("source", { length: 50 }).default("scraper"), // scraper, manual, api
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  productIdIdx: index("product_specs_product_id_idx").on(table.productId),
+  specGroupIdx: index("product_specs_group_idx").on(table.productId, table.specGroup),
+  uniqueProductSpec: unique("unique_product_spec").on(table.productId, table.specGroup, table.specName),
+}));
+
 // Product URL tracking and validation
 export const productUrls = pgTable("product_urls", {
   id: serial("id").primaryKey(),
@@ -1088,6 +1136,25 @@ export const insertProductUrlSchema = createInsertSchema(productUrls).omit({
   updatedAt: true,
 });
 
+// Insert schemas for wishlist system
+export const insertWishlistSchema = createInsertSchema(wishlists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWishlistItemSchema = createInsertSchema(wishlistItems).omit({
+  id: true,
+  addedAt: true,
+});
+
+// Insert schema for product specifications
+export const insertProductSpecificationSchema = createInsertSchema(productSpecifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type definitions for scraping system
 export type TrendingProduct = typeof trendingProducts.$inferSelect;
 export type SearchQuery = typeof searchQueries.$inferSelect;
@@ -1102,6 +1169,15 @@ export type PriceAggregateDaily = typeof priceAggregatesDaily.$inferSelect;
 export type PriceTrend = typeof priceTrends.$inferSelect;
 export type ScrapingSource = typeof scrapingSources.$inferSelect;
 export type ProductUrl = typeof productUrls.$inferSelect;
+
+// Wishlist types
+export type Wishlist = typeof wishlists.$inferSelect;
+export type WishlistItem = typeof wishlistItems.$inferSelect;
+export type ProductSpecification = typeof productSpecifications.$inferSelect;
+
+export type InsertWishlist = z.infer<typeof insertWishlistSchema>;
+export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
+export type InsertProductSpecification = z.infer<typeof insertProductSpecificationSchema>;
 
 export type InsertTrendingProduct = z.infer<typeof insertTrendingProductSchema>;
 export type InsertSearchQuery = z.infer<typeof insertSearchQuerySchema>;
@@ -1174,3 +1250,32 @@ export interface QueryAnalysis {
   suggestions?: string[];
   category?: string;
 }
+
+// Wishlist extended types
+export type WishlistWithItems = Wishlist & {
+  items: (WishlistItem & { product: Product })[];
+  itemCount: number;
+};
+
+export type WishlistItemWithProduct = WishlistItem & {
+  product: ProductWithOffers;
+  wishlist?: Wishlist;
+};
+
+// Product with specifications
+export type ProductWithSpecifications = Product & {
+  specifications: ProductSpecification[];
+  specGroups?: { [groupName: string]: ProductSpecification[] };
+};
+
+// Grouped specifications for display
+export interface SpecificationGroup {
+  groupName: string;
+  specs: ProductSpecification[];
+}
+
+// Full product type with all details
+export type ProductFull = ProductWithOffers & {
+  specifications?: ProductSpecification[];
+  specGroups?: SpecificationGroup[];
+};

@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
 import {
   ChevronRight,
-  Minus,
-  Plus,
-  ShoppingCart,
   Heart,
   GitCompare,
   Star,
@@ -14,56 +11,44 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   Check,
+  Loader2,
+  ExternalLink,
 } from 'lucide-react';
-import { TemplateHeader, TemplateFooter, ProductSection, type ProductData } from '@/components/template';
+import { TemplateHeader, TemplateFooter, ProductSection } from '@/components/template';
 import { CartSidebar } from '@/components/template/cart-sidebar';
 import { MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { addToRecentlyViewed } from '@/components/template/recently-viewed';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  allProducts,
-  type TemplateProduct,
-} from '@/data/template-data';
-
-function toProductData(products: TemplateProduct[]): ProductData[] {
-  return products.map((p) => ({
-    id: p.id,
-    name: p.title,
-    category: p.category,
-    price: p.price,
-    originalPrice: p.oldPrice,
-    image: p.imgSrc,
-    hoverImage: p.imgHover,
-    rating: p.rating,
-    reviewCount: p.reviewCount,
-    retailer: p.brand,
-    discount: p.salePercentage ? parseInt(p.salePercentage) : undefined,
-  }));
-}
+import { useProductFull, useProductsByCategory, transformProduct } from '@/hooks/use-home-data';
 
 function ProductDetailContent() {
   const params = useParams<{ id: string }>();
-  const productId = parseInt(params.id || '1', 10);
+  const productId = parseInt(params.id || '0', 10);
 
   const {
     toggleWishlist,
     isInWishlist,
     toggleCompare,
-    addSimpleToCart,
     openCart,
-    isInCart,
   } = useShop();
 
-  const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Find product from data
-  const product = allProducts.find((p) => p.id === productId) || allProducts[0];
+  // Fetch product from API
+  const { data: productData, isLoading, error } = useProductFull(productId || null);
+  const product = productData?.data;
+
+  // Fetch related products (same category)
+  const { data: relatedData } = useProductsByCategory(product?.category ?? '', 4);
+  const relatedProducts = relatedData?.results
+    ?.filter(p => p.id !== productId)
+    .slice(0, 4)
+    .map(transformProduct) ?? [];
 
   // Track product view
   useEffect(() => {
@@ -72,41 +57,59 @@ function ProductDetailContent() {
     }
   }, [product]);
 
-  // Generate image gallery (using main image + hover image)
-  const images = [
-    product.imgSrc,
-    product.imgHover || product.imgSrc,
-    product.imgSrc, // Placeholder for more images
-  ].filter(Boolean);
+  // Generate image gallery from product
+  const images = product ? [
+    product.image ?? '/placeholder-product.png',
+  ] : [];
 
-  // Related products (same category or random)
-  const relatedProducts = allProducts
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 4);
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading product...</span>
+      </div>
+    );
+  }
 
-  const relatedProductsData = toProductData(
-    relatedProducts.length > 0 ? relatedProducts : allProducts.slice(0, 4)
-  ).map((p) => ({
+  // Error state
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <p className="text-lg font-medium text-destructive mb-2">Product not found</p>
+        <Link href="/shop">
+          <a className="text-primary hover:underline">Back to shop</a>
+        </Link>
+      </div>
+    );
+  }
+
+  // Get best offer and price info
+  const bestOffer = product.offers?.[0];
+  const price = product.bestPrice ?? (bestOffer ? parseFloat(bestOffer.price) : 0);
+  const originalPrice = bestOffer?.originalPrice ? parseFloat(bestOffer.originalPrice) : undefined;
+  const discount = originalPrice && originalPrice > price
+    ? Math.round(((originalPrice - price) / originalPrice) * 100)
+    : undefined;
+  const rating = bestOffer?.rating ? parseFloat(bestOffer.rating) : 4.0;
+  const reviewCount = bestOffer?.reviewCount ?? 0;
+  const category = product.category ?? 'General';
+
+  // Transform related products for display
+  const relatedProductsData = relatedProducts.map((p) => ({
     ...p,
     inWatchlist: isInWishlist(p.id),
   }));
 
-  const handleAddToCart = () => {
-    addSimpleToCart({
-      id: product.id,
-      name: product.title,
-      price: product.price,
-      image: product.imgSrc,
-      quantity,
-    });
-    openCart();
-  };
-
-  const inCart = isInCart(product.id);
   const inWishlist = isInWishlist(product.id);
-  const discount = product.oldPrice
-    ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
-    : 0;
+
+  // Handle viewing the best offer at retailer
+  const handleViewBestOffer = () => {
+    const offerUrl = bestOffer?.affiliateUrl ?? bestOffer?.productUrl;
+    if (offerUrl) {
+      window.open(offerUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,7 +132,7 @@ function ProductDetailContent() {
               Shop
             </Link>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="text-foreground font-medium line-clamp-1">{product.title}</span>
+            <span className="text-foreground font-medium line-clamp-1">{product.name}</span>
           </nav>
         </div>
       </div>
@@ -143,17 +146,12 @@ function ProductDetailContent() {
             <div className="relative aspect-square bg-muted rounded-2xl overflow-hidden">
               <img
                 src={images[selectedImageIndex]}
-                alt={product.title}
+                alt={product.name}
                 className="w-full h-full object-cover"
               />
-              {discount > 0 && (
+              {discount && discount > 0 && (
                 <div className="absolute top-4 left-4 bg-destructive text-white px-3 py-1 rounded-full text-sm font-medium">
                   -{discount}% OFF
-                </div>
-              )}
-              {product.isNew && (
-                <div className="absolute top-4 right-4 bg-primary text-white px-3 py-1 rounded-full text-sm font-medium">
-                  NEW
                 </div>
               )}
 
@@ -194,13 +192,13 @@ function ProductDetailContent() {
             {/* Category & Title */}
             <div>
               <Link
-                href={`/shop?category=${product.category.toLowerCase()}`}
+                href={`/shop?category=${category.toLowerCase()}`}
                 className="text-sm text-primary hover:underline"
               >
-                {product.category}
+                {category}
               </Link>
               <h1 className="text-2xl lg:text-3xl font-bold text-foreground mt-2">
-                {product.title}
+                {product.name}
               </h1>
 
               {/* Rating & Reviews */}
@@ -211,14 +209,14 @@ function ProductDetailContent() {
                       key={i}
                       className={cn(
                         'h-4 w-4',
-                        i < Math.floor(product.rating)
+                        i < Math.floor(rating)
                           ? 'text-yellow-400 fill-yellow-400'
                           : 'text-muted-foreground'
                       )}
                     />
                   ))}
                   <span className="ml-1 text-sm text-muted-foreground">
-                    {product.rating} ({product.reviewCount.toLocaleString()} reviews)
+                    {rating.toFixed(1)} ({reviewCount.toLocaleString()} reviews)
                   </span>
                 </div>
                 <span className="text-sm text-muted-foreground">|</span>
@@ -229,15 +227,15 @@ function ProductDetailContent() {
             {/* Price */}
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-bold text-primary">
-                ${product.price.toFixed(2)}
+                ${price.toFixed(2)}
               </span>
-              {product.oldPrice && (
+              {originalPrice && originalPrice > price && (
                 <>
                   <span className="text-xl text-muted-foreground line-through">
-                    ${product.oldPrice.toFixed(2)}
+                    ${originalPrice.toFixed(2)}
                   </span>
                   <span className="text-sm font-medium text-destructive">
-                    Save ${(product.oldPrice - product.price).toFixed(2)}
+                    Save ${(originalPrice - price).toFixed(2)}
                   </span>
                 </>
               )}
@@ -246,51 +244,19 @@ function ProductDetailContent() {
             {/* Brand */}
             <div className="flex items-center gap-2 py-3 border-y border-border">
               <span className="text-muted-foreground">Brand:</span>
-              <span className="font-medium text-foreground">{product.brand}</span>
+              <span className="font-medium text-foreground">{product.brand ?? 'Unknown'}</span>
             </div>
 
-            {/* Quantity & Add to Cart */}
+            {/* Action Buttons */}
             <div className="space-y-4">
-              {/* Quantity Selector */}
-              <div className="flex items-center gap-4">
-                <span className="text-muted-foreground">Quantity:</span>
-                <div className="flex items-center border border-border rounded-lg">
-                  <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="p-3 hover:bg-muted transition-colors"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="px-6 font-medium">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="p-3 hover:bg-muted transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
               <div className="flex gap-3">
                 <Button
-                  onClick={handleAddToCart}
-                  className={cn(
-                    'flex-1 py-6 text-base',
-                    inCart ? 'bg-success hover:bg-success/90' : 'bg-primary hover:bg-primary-hover'
-                  )}
+                  onClick={handleViewBestOffer}
+                  disabled={!bestOffer?.affiliateUrl && !bestOffer?.productUrl}
+                  className="flex-1 py-6 text-base bg-primary hover:bg-primary/90"
                 >
-                  {inCart ? (
-                    <>
-                      <Check className="h-5 w-5 mr-2" />
-                      Added to Cart
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="h-5 w-5 mr-2" />
-                      Add to Cart
-                    </>
-                  )}
+                  <ExternalLink className="h-5 w-5 mr-2" />
+                  {bestOffer?.retailer?.name ? `View at ${bestOffer.retailer.name}` : 'View Best Offer'}
                 </Button>
                 <Button
                   variant="outline"
@@ -336,26 +302,28 @@ function ProductDetailContent() {
         <div className="mt-12 p-6 bg-card rounded-2xl border border-border">
           <h2 className="text-xl font-bold mb-4">About this item</h2>
           <ul className="space-y-2 text-muted-foreground">
+            {product.brand && (
+              <li className="flex items-start gap-2">
+                <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                <span>Premium quality product from {product.brand}</span>
+              </li>
+            )}
             <li className="flex items-start gap-2">
               <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-              <span>Premium quality product from {product.brand}</span>
+              <span>Category: {category}</span>
             </li>
-            <li className="flex items-start gap-2">
-              <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-              <span>Category: {product.category}</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-              <span>Customer rating: {product.rating}/5 based on {product.reviewCount.toLocaleString()} reviews</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-              <span>Free shipping on orders over $99</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-              <span>1 year warranty included</span>
-            </li>
+            {reviewCount > 0 && (
+              <li className="flex items-start gap-2">
+                <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                <span>Customer rating: {rating.toFixed(1)}/5 based on {reviewCount.toLocaleString()} reviews</span>
+              </li>
+            )}
+            {product.offers && product.offers.length > 1 && (
+              <li className="flex items-start gap-2">
+                <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                <span>Price compared across {product.offers.length} retailers</span>
+              </li>
+            )}
           </ul>
         </div>
 

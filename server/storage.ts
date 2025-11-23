@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, passwordResetTokens, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, sql, desc, asc, isNull, or, like } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
@@ -128,6 +128,27 @@ export interface IStorage {
     email: string,
     passwordHash: string
   ): Promise<{ user: SafeUser; isFirstUser: boolean }>;
+
+  // Wishlists (simple "I want this" lists - separate from price tracking watchlists)
+  getUserWishlists(userId: number): Promise<WishlistWithItems[]>;
+  getWishlistById(wishlistId: number, userId: number): Promise<WishlistWithItems | null>;
+  createWishlist(userId: number, data: { name: string; description?: string; isPublic?: boolean }): Promise<Wishlist>;
+  updateWishlist(wishlistId: number, userId: number, updates: Partial<InsertWishlist>): Promise<Wishlist | null>;
+  deleteWishlist(wishlistId: number, userId: number): Promise<boolean>;
+  addToWishlist(wishlistId: number, userId: number, productId: number, data?: { notes?: string; priority?: number }): Promise<WishlistItem>;
+  removeFromWishlist(wishlistId: number, userId: number, productId: number): Promise<boolean>;
+  isInWishlist(userId: number, productId: number): Promise<boolean>;
+  getUserWishlistItems(userId: number): Promise<WishlistItemWithProduct[]>;
+
+  // Product Specifications
+  getProductSpecifications(productId: number): Promise<ProductSpecification[]>;
+  getProductSpecificationsGrouped(productId: number): Promise<SpecificationGroup[]>;
+  createProductSpecification(spec: InsertProductSpecification): Promise<ProductSpecification>;
+  createProductSpecificationsBatch(specs: InsertProductSpecification[]): Promise<ProductSpecification[]>;
+  updateProductSpecification(specId: number, updates: Partial<InsertProductSpecification>): Promise<ProductSpecification | null>;
+  deleteProductSpecification(specId: number): Promise<boolean>;
+  deleteProductSpecifications(productId: number): Promise<number>;
+  getProductFull(productId: number): Promise<ProductFull | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -792,6 +813,33 @@ export class MemStorage implements IStorage {
   ): Promise<{ user: SafeUser; isFirstUser: boolean }> {
     throw new Error('User registration not supported in memory storage');
   }
+
+  // Wishlist stubs for MemStorage
+  async getUserWishlists(_userId: number): Promise<WishlistWithItems[]> { return []; }
+  async getWishlistById(_wishlistId: number, _userId: number): Promise<WishlistWithItems | null> { return null; }
+  async createWishlist(_userId: number, _data: { name: string; description?: string; isPublic?: boolean }): Promise<Wishlist> {
+    throw new Error('Wishlists not supported in memory storage');
+  }
+  async updateWishlist(_wishlistId: number, _userId: number, _updates: Partial<InsertWishlist>): Promise<Wishlist | null> { return null; }
+  async deleteWishlist(_wishlistId: number, _userId: number): Promise<boolean> { return false; }
+  async addToWishlist(_wishlistId: number, _userId: number, _productId: number, _data?: { notes?: string; priority?: number }): Promise<WishlistItem> {
+    throw new Error('Wishlists not supported in memory storage');
+  }
+  async removeFromWishlist(_wishlistId: number, _userId: number, _productId: number): Promise<boolean> { return false; }
+  async isInWishlist(_userId: number, _productId: number): Promise<boolean> { return false; }
+  async getUserWishlistItems(_userId: number): Promise<WishlistItemWithProduct[]> { return []; }
+
+  // Product specification stubs for MemStorage
+  async getProductSpecifications(_productId: number): Promise<ProductSpecification[]> { return []; }
+  async getProductSpecificationsGrouped(_productId: number): Promise<SpecificationGroup[]> { return []; }
+  async createProductSpecification(_spec: InsertProductSpecification): Promise<ProductSpecification> {
+    throw new Error('Product specifications not supported in memory storage');
+  }
+  async createProductSpecificationsBatch(_specs: InsertProductSpecification[]): Promise<ProductSpecification[]> { return []; }
+  async updateProductSpecification(_specId: number, _updates: Partial<InsertProductSpecification>): Promise<ProductSpecification | null> { return null; }
+  async deleteProductSpecification(_specId: number): Promise<boolean> { return false; }
+  async deleteProductSpecifications(_productId: number): Promise<number> { return 0; }
+  async getProductFull(_productId: number): Promise<ProductFull | null> { return null; }
 }
 
 // Database Storage Implementation
@@ -2526,6 +2574,278 @@ export class DatabaseStorage implements IStorage {
     );
 
     return { user: user!, isFirstUser };
+  }
+
+  // =====================================================
+  // WISHLIST METHODS
+  // =====================================================
+
+  async getUserWishlists(userId: number): Promise<WishlistWithItems[]> {
+    const userWishlists = await db
+      .select()
+      .from(wishlists)
+      .where(eq(wishlists.userId, userId))
+      .orderBy(desc(wishlists.createdAt));
+
+    const result: WishlistWithItems[] = [];
+
+    for (const wishlist of userWishlists) {
+      const items = await db
+        .select({
+          item: wishlistItems,
+          product: products,
+        })
+        .from(wishlistItems)
+        .innerJoin(products, eq(wishlistItems.productId, products.id))
+        .where(eq(wishlistItems.wishlistId, wishlist.id))
+        .orderBy(desc(wishlistItems.priority), desc(wishlistItems.addedAt));
+
+      result.push({
+        ...wishlist,
+        items: items.map(({ item, product }) => ({ ...item, product })),
+        itemCount: items.length,
+      });
+    }
+
+    return result;
+  }
+
+  async getWishlistById(wishlistId: number, userId: number): Promise<WishlistWithItems | null> {
+    const [wishlist] = await db
+      .select()
+      .from(wishlists)
+      .where(and(eq(wishlists.id, wishlistId), eq(wishlists.userId, userId)));
+
+    if (!wishlist) return null;
+
+    const items = await db
+      .select({
+        item: wishlistItems,
+        product: products,
+      })
+      .from(wishlistItems)
+      .innerJoin(products, eq(wishlistItems.productId, products.id))
+      .where(eq(wishlistItems.wishlistId, wishlistId))
+      .orderBy(desc(wishlistItems.priority), desc(wishlistItems.addedAt));
+
+    return {
+      ...wishlist,
+      items: items.map(({ item, product }) => ({ ...item, product })),
+      itemCount: items.length,
+    };
+  }
+
+  async createWishlist(userId: number, data: { name: string; description?: string; isPublic?: boolean }): Promise<Wishlist> {
+    const [wishlist] = await db
+      .insert(wishlists)
+      .values({
+        userId,
+        name: data.name,
+        description: data.description ?? null,
+        isPublic: data.isPublic ?? false,
+      })
+      .returning();
+
+    return wishlist;
+  }
+
+  async updateWishlist(wishlistId: number, userId: number, updates: Partial<InsertWishlist>): Promise<Wishlist | null> {
+    const [wishlist] = await db
+      .update(wishlists)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(wishlists.id, wishlistId), eq(wishlists.userId, userId)))
+      .returning();
+
+    return wishlist ?? null;
+  }
+
+  async deleteWishlist(wishlistId: number, userId: number): Promise<boolean> {
+    const result = await db
+      .delete(wishlists)
+      .where(and(eq(wishlists.id, wishlistId), eq(wishlists.userId, userId)))
+      .returning();
+
+    return result.length > 0;
+  }
+
+  async addToWishlist(wishlistId: number, userId: number, productId: number, data?: { notes?: string; priority?: number }): Promise<WishlistItem> {
+    // Verify wishlist belongs to user
+    const [wishlist] = await db
+      .select()
+      .from(wishlists)
+      .where(and(eq(wishlists.id, wishlistId), eq(wishlists.userId, userId)));
+
+    if (!wishlist) {
+      throw new Error('Wishlist not found or access denied');
+    }
+
+    const [item] = await db
+      .insert(wishlistItems)
+      .values({
+        wishlistId,
+        userId,
+        productId,
+        notes: data?.notes ?? null,
+        priority: data?.priority ?? 3,
+      })
+      .returning();
+
+    return item;
+  }
+
+  async removeFromWishlist(wishlistId: number, userId: number, productId: number): Promise<boolean> {
+    const result = await db
+      .delete(wishlistItems)
+      .where(
+        and(
+          eq(wishlistItems.wishlistId, wishlistId),
+          eq(wishlistItems.userId, userId),
+          eq(wishlistItems.productId, productId)
+        )
+      )
+      .returning();
+
+    return result.length > 0;
+  }
+
+  async isInWishlist(userId: number, productId: number): Promise<boolean> {
+    const [item] = await db
+      .select({ id: wishlistItems.id })
+      .from(wishlistItems)
+      .where(
+        and(
+          eq(wishlistItems.userId, userId),
+          eq(wishlistItems.productId, productId)
+        )
+      )
+      .limit(1);
+
+    return !!item;
+  }
+
+  async getUserWishlistItems(userId: number): Promise<WishlistItemWithProduct[]> {
+    const items = await db
+      .select({
+        item: wishlistItems,
+        product: products,
+        wishlist: wishlists,
+      })
+      .from(wishlistItems)
+      .innerJoin(products, eq(wishlistItems.productId, products.id))
+      .innerJoin(wishlists, eq(wishlistItems.wishlistId, wishlists.id))
+      .where(eq(wishlistItems.userId, userId))
+      .orderBy(desc(wishlistItems.addedAt));
+
+    // For each item, get the offers to build ProductWithOffers
+    const result: WishlistItemWithProduct[] = [];
+    for (const { item, product, wishlist } of items) {
+      const offers = await this.getProductOffers(product.id);
+      const bestPrice = offers.length > 0
+        ? Math.min(...offers.map(o => parseFloat(o.price)))
+        : undefined;
+
+      result.push({
+        ...item,
+        product: {
+          ...product,
+          offers,
+          bestPrice,
+        },
+        wishlist,
+      });
+    }
+
+    return result;
+  }
+
+  // =====================================================
+  // PRODUCT SPECIFICATION METHODS
+  // =====================================================
+
+  async getProductSpecifications(productId: number): Promise<ProductSpecification[]> {
+    return db
+      .select()
+      .from(productSpecifications)
+      .where(eq(productSpecifications.productId, productId))
+      .orderBy(productSpecifications.specGroup, productSpecifications.sortOrder);
+  }
+
+  async getProductSpecificationsGrouped(productId: number): Promise<SpecificationGroup[]> {
+    const specs = await this.getProductSpecifications(productId);
+
+    const grouped = specs.reduce((acc, spec) => {
+      const groupName = spec.specGroup ?? 'General';
+      if (!acc[groupName]) {
+        acc[groupName] = [];
+      }
+      acc[groupName].push(spec);
+      return acc;
+    }, {} as Record<string, ProductSpecification[]>);
+
+    return Object.entries(grouped).map(([groupName, specs]) => ({
+      groupName,
+      specs,
+    }));
+  }
+
+  async createProductSpecification(spec: InsertProductSpecification): Promise<ProductSpecification> {
+    const [created] = await db
+      .insert(productSpecifications)
+      .values(spec)
+      .returning();
+
+    return created;
+  }
+
+  async createProductSpecificationsBatch(specs: InsertProductSpecification[]): Promise<ProductSpecification[]> {
+    if (specs.length === 0) return [];
+
+    return db
+      .insert(productSpecifications)
+      .values(specs)
+      .returning();
+  }
+
+  async updateProductSpecification(specId: number, updates: Partial<InsertProductSpecification>): Promise<ProductSpecification | null> {
+    const [spec] = await db
+      .update(productSpecifications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(productSpecifications.id, specId))
+      .returning();
+
+    return spec ?? null;
+  }
+
+  async deleteProductSpecification(specId: number): Promise<boolean> {
+    const result = await db
+      .delete(productSpecifications)
+      .where(eq(productSpecifications.id, specId))
+      .returning();
+
+    return result.length > 0;
+  }
+
+  async deleteProductSpecifications(productId: number): Promise<number> {
+    const result = await db
+      .delete(productSpecifications)
+      .where(eq(productSpecifications.productId, productId))
+      .returning();
+
+    return result.length;
+  }
+
+  async getProductFull(productId: number): Promise<ProductFull | null> {
+    const product = await this.getProductById(productId);
+    if (!product) return null;
+
+    const specGroups = await this.getProductSpecificationsGrouped(productId);
+    const specifications = await this.getProductSpecifications(productId);
+
+    return {
+      ...product,
+      specifications,
+      specGroups,
+    };
   }
 }
 

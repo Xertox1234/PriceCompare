@@ -1,16 +1,16 @@
 import type { Express, Request, Response } from "express";
-import { requireAuth } from './auth';
-import { enhancedForumStorage } from "./enhanced-forum-storage";
-import { storage } from "./storage";
-import { validateRequestBody } from "./validation";
-import { logger } from "./utils/logger";
+import { requireAuth } from '../auth';
+import { enhancedForumStorage } from "../enhanced-forum-storage";
+import { storage } from "../storage";
+import { validateRequestBody } from "../validation";
+import { logger } from "../utils/logger";
 import {
   insertForumTopicSchema, insertForumPostSchema, insertPrivateMessageSchema,
   insertNotificationSchema, insertTopicTagSchema, insertBadgeSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
-import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
+import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 
 export function registerEnhancedForumRoutes(app: Express) {
   // Enhanced user profile routes

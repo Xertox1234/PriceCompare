@@ -1,9 +1,9 @@
 import type { Express, Request, Response } from "express";
-import { logger } from "./utils/logger";
+import { logger } from "../utils/logger";
 import crypto from 'crypto';
-import type { User } from '../shared/schema';
-import { requireAuth } from './auth';
-import { getRequiredEnv } from './config/env-validation';
+import type { User } from '@shared/schema';
+import { requireAuth } from '../auth';
+import { getRequiredEnv } from '../config/env-validation';
 
 // SECURITY: Required for secure SSO HMAC signing - never use default values
 const DISCOURSE_SSO_SECRET = getRequiredEnv('DISCOURSE_SSO_SECRET');

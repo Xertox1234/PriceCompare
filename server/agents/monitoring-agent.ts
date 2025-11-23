@@ -151,7 +151,7 @@ export class PriceMonitoringAgent extends BaseAgent {
         });
 
         if (extractionResult.success && extractionResult.data.price) {
-          const newPrice = parseFloat(extractionResult.data.price);
+          const newPrice = extractionResult.data.price;
 
           // Update the offer with new data
           await db.update(productOffers)

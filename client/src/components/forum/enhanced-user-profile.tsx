@@ -70,18 +70,18 @@ export function EnhancedUserProfile({ userId, isOwnProfile = false }: EnhancedUs
   const [editData, setEditData] = useState<Partial<UserProfile>>({});
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ['user-profile', userId],
     queryFn: async (): Promise<UserProfile> => {
-      const response = await apiRequest(`/api/users/${userId}/profile`);
+      const response = await apiRequest<UserProfile>(`/api/users/${userId}/profile`);
       return response;
     },
   });
 
-  const { data: activity } = useQuery({
+  const { data: activity } = useQuery<UserActivity>({
     queryKey: ['user-activity', userId],
     queryFn: async (): Promise<UserActivity> => {
-      const response = await apiRequest(`/api/users/${userId}/activity`);
+      const response = await apiRequest<UserActivity>(`/api/users/${userId}/activity`);
       return response;
     },
     enabled: !!profile,

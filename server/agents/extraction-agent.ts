@@ -21,12 +21,23 @@ interface ExtractionTaskFailure {
   reason: string;
 }
 
+/** Extraction strategy for a retailer */
+interface ExtractionStrategy {
+  titleSelectors: string[];
+  priceSelectors: string[];
+  availabilitySelectors: string[];
+  imageSelectors: string[];
+  ratingSelectors?: string[];
+  descriptionSelectors?: string[];
+  brandSelectors?: string[];
+}
+
 /**
  * Data Extraction Agent - Extracts product information and pricing from retailer websites
  */
 export class DataExtractionAgent extends BaseAgent {
   private userAgents: string[];
-  private extractionStrategies: Map<string, unknown> = new Map();
+  private extractionStrategies: Map<string, ExtractionStrategy> = new Map();
 
   constructor() {
     super({
@@ -113,10 +124,10 @@ export class DataExtractionAgent extends BaseAgent {
       price: this.extractPrice($, strategy.priceSelectors),
       currency: 'USD', // Default to USD, could be enhanced to detect currency
       availability: this.extractAvailability($, strategy.availabilitySelectors),
-      description: this.extractText($, strategy.descriptionSelectors),
+      description: strategy.descriptionSelectors ? this.extractText($, strategy.descriptionSelectors) : undefined,
       imageUrl: this.extractImageUrl($, strategy.imageSelectors) || undefined,
-      rating: this.extractRating($, strategy.ratingSelectors),
-      brand: this.extractText($, strategy.brandSelectors)
+      rating: strategy.ratingSelectors ? this.extractRating($, strategy.ratingSelectors) : undefined,
+      brand: strategy.brandSelectors ? this.extractText($, strategy.brandSelectors) : undefined
     };
 
     // Clean and validate data
@@ -247,7 +258,7 @@ export class DataExtractionAgent extends BaseAgent {
       .substring(0, 1000); // Limit length
   }
 
-  private getGenericStrategy() {
+  private getGenericStrategy(): ExtractionStrategy {
     return {
       titleSelectors: ['h1', '.product-title', '.title', '[data-testid*="title"]'],
       priceSelectors: ['.price', '.cost', '[data-testid*="price"]', '[class*="price"]'],

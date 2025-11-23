@@ -33,6 +33,7 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - Improper integer parsing (must use parseIntSafe/parseIntOptional)
    - Raw parseInt() usage (ALWAYS flag - must use parseIntSafe from ../utils/validation-helpers)
    - Manual error responses like res.status(500).json({ error: error.message }) (must use createErrorResponse)
+   - **Service Integration Completeness**: When services have rate limiters or guards, ALL methods making external API calls must include the guard check
    - Focus ONLY on changes visible in the current context window. Do not review unchanged code unless it's directly relevant to understanding the changes.
 
 2. **Database Query Excellence**: Flag any code that:
@@ -67,6 +68,7 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
 5. **Performance Optimization**: Look for:
    - Missing pagination on large datasets (use PAGINATION.DEFAULT_LIMIT)
    - Inefficient cache strategies (check TTL appropriateness)
+   - **Cache-Before-Limit Pattern**: When implementing rate limits on cached services, cache check must come BEFORE limit check so cached responses don't consume quota
    - Unnecessary re-renders in React components
    - Missing indexes on frequently queried columns
    - Overfetching data (select only needed fields)
@@ -76,6 +78,7 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - Proper null/undefined handling with strict null checks
    - Type guards for unknown catch variables
    - No @ts-ignore without justification comments
+   - **Complex Type Extraction**: React Query hooks with complex inline return types (3+ lines) should extract to named interfaces for readability
 
 7. **Design System Adherence** (UI code only):
    - Must use design tokens (bg-primary, text-secondary) not hardcoded colors
@@ -118,6 +121,26 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - **Import requirement**: Must import from `../utils/error-sanitizer` in route files
    - **Zero tolerance**: Flag EVERY catch block that doesn't use createErrorResponse
    - **Benefits**: Consistent error format, no raw error leakage, maintains DRY principle
+
+## Service Integration Patterns (CRITICAL)
+
+When reviewing service classes with external API integrations:
+
+1. **Guard Completeness**: ALL methods making external calls must have rate limit/guard checks
+   - No partial protection - if one method has a guard, all similar methods must have it
+   - Guards should be DRY - use a shared helper method
+
+2. **Error Message Quality**: Guard/limiter errors must include:
+   - What limit was exceeded
+   - Current usage vs limit
+   - When it resets
+   - Remaining quota
+   - Suggested alternatives
+
+3. **Cache-Before-Limit**: In cached services:
+   - Check cache FIRST (doesn't consume quota)
+   - Only check rate limit for actual external calls
+   - Log cache hits for monitoring
 
 ## Special Checklist for Route Files (server/routes/*.ts)
 

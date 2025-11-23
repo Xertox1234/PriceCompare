@@ -147,9 +147,9 @@ export function RetailerManagement() {
   });
 
   // Test retailer connection mutation
-  const testConnectionMutation = useMutation({
-    mutationFn: async (retailerId: number) => {
-      return apiRequest(`/api/hybrid/test/${retailerId}`, {
+  const testConnectionMutation = useMutation<{ productCount?: number; responseTime?: number }, Error, number>({
+    mutationFn: async (retailerId: number): Promise<{ productCount?: number; responseTime?: number }> => {
+      return apiRequest<{ productCount?: number; responseTime?: number }>(`/api/hybrid/test/${retailerId}`, {
         method: 'POST',
         body: JSON.stringify({ query: 'test product' })
       });

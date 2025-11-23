@@ -223,6 +223,7 @@ All routes are consolidated in `server/routes/` and registered via `server/route
 - `forum-routes.ts` - Forum functionality
 - `health-routes.ts` - Health checks
 - `watchlist-routes.ts` - Watch list and product watch management
+- `helpers.ts` - Shared middleware: `withAuth`, `withAdmin`, `isAuthenticated`
 
 **Feature routes**:
 - `scraping-routes.ts` - AI-powered web scraping
@@ -236,6 +237,21 @@ All routes are consolidated in `server/routes/` and registered via `server/route
 - `enhanced-forum-routes.ts` - Enhanced forum capabilities
 - `advanced-search-routes.ts` - Advanced product search
 - `discourse-routes.ts` - Discourse SSO integration
+- `aggregation-metrics-routes.ts` - Price aggregation metrics
+- `admin-aggregation-routes.ts` - Admin aggregation endpoints
+- `cache-routes.ts` - Cache management
+
+**Route Import Paths** (CRITICAL for nested routes):
+Since routes are in `server/routes/`, imports must use `../` to reach parent directories:
+```typescript
+// ✅ CORRECT - from server/routes/*.ts
+import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
+import { withAuth } from "./helpers";
+
+// ❌ WRONG - these paths don't resolve from routes/ subdirectory
+import { logger } from "./utils/logger";
+```
 
 ### Middleware Pipeline Order (CRITICAL)
 
@@ -374,23 +390,25 @@ const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
 ### 3. Sanitize Errors in Production
 
 ```typescript
-import { createErrorResponse } from './utils/error-sanitizer';
+import { createErrorResponse } from '../utils/error-sanitizer';
 
-// ❌ WRONG - leaks implementation details
+// ❌ WRONG - leaks implementation details, verbose
 catch (error) {
+  logger.error('Operation failed:', { error: error instanceof Error ? error.message : String(error) });
+  if (error instanceof Error && error.message.includes('must be')) {
+    return res.status(400).json({ error: error.message });
+  }
   res.status(500).json({ error: error.message });
 }
 
-// ✅ CORRECT - sanitized error response
+// ✅ CORRECT - DRY pattern using createErrorResponse
 catch (error) {
-  console.error('Operation failed:', error);
-  const errorResponse = createErrorResponse(error, 'Operation');
-  res.status(errorResponse.status).json({
-    error: errorResponse.error,
-    details: errorResponse.details // Only in development
-  });
+  const errorResponse = createErrorResponse(error, 'OperationName');
+  res.status(errorResponse.status).json({ error: errorResponse.error });
 }
 ```
+
+**Note**: `createErrorResponse` handles logging, validation error detection (400 vs 500), and error sanitization automatically.
 
 ### 4. Input Validation with Zod
 
@@ -411,6 +429,31 @@ app.post('/api/products', csrfProtection, async (req, res) => {
       details: errorResponse.details
     });
   }
+});
+```
+
+### 5. Use Route Helpers for Auth
+
+Always use shared helpers from `server/routes/helpers.ts`:
+
+```typescript
+import { withAuth, withAdmin } from "./helpers";
+
+// ✅ CORRECT - Use shared helper
+app.get("/api/protected", withAuth(async (req, res) => {
+  const user = req.user!; // Auth guaranteed by withAuth
+  // ...
+}));
+
+// ✅ Admin-only route
+app.delete("/api/admin/users/:id", withAdmin(async (req, res) => {
+  // Admin access guaranteed
+}));
+
+// ❌ WRONG - Don't define inline auth middleware
+app.get("/api/data", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  // ...
 });
 ```
 
@@ -742,12 +785,14 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - **`docs/TYPESCRIPT_PATTERNS.md`** - Type safety, avoiding `any`, Zod integration (CRITICAL)
 - **`docs/ERROR_HANDLING_PATTERNS.md`** - Error sanitization, validation errors, recovery strategies
 - **`docs/API_PATTERNS.md`** - Route organization, middleware pipeline, caching, pagination
+- **`docs/SERVICE_INTEGRATION_PATTERNS.md`** - Guard completeness, cache-before-limit, type extraction (NEW)
 
 ### Additional Documentation
 - `ARCHITECTURE.md` - System overview, diagrams, data flows, ADRs, caching strategy
 - `.github/copilot-instructions.md` - Comprehensive development patterns (mirrors core patterns)
 - `docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
 - `docs/API_DOCUMENTATION.md` - Complete API endpoint reference
+- `docs/AFFILIATE_REQUIREMENTS.md` - Retailer affiliate program requirements and setup
 - `server/ai/README.md` - AI prompt system documentation
 
 ### Subagent Documentation (.claude/knowledge/)

@@ -3,14 +3,20 @@ import { db } from '../db';
 import { trendingProducts } from '../../shared/schema';
 import { eq, desc } from 'drizzle-orm';
 import type { InsertTrendingProduct } from '../../shared/schema';
-import type { TrendData, DiscoveryTaskData, TrendSource } from './types';
+import type { TrendData, DiscoveryTaskData } from './types';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
 import { safeTrendAnalysis, type AITrendAnalysis } from './ai-validation-schemas';
+import { agentQueryLimiter } from '../services/agent-query-limiter';
+
+// Local abstract base class for trend sources (distinct from the type in ./types)
+abstract class BaseTrendSource {
+  abstract getTrends(categories?: string[], limit?: number): Promise<TrendData[]>;
+}
 
 export class ProductDiscoveryAgent extends BaseAgent {
   private openai: OpenAI;
-  private trendSources: Map<string, TrendSource>;
+  private trendSources: Map<string, BaseTrendSource>;
 
   constructor() {
     const config: AgentConfig = {
@@ -186,6 +192,12 @@ export class ProductDiscoveryAgent extends BaseAgent {
         Now analyze the trending items listed above and return ONLY the JSON array.
       `;
 
+      // Check daily query limit before making OpenAI call
+      const limitResult = await agentQueryLimiter.checkAndIncrement('openai_completion');
+      if (!limitResult.allowed) {
+        throw new Error(`Daily agent query limit exceeded. ${limitResult.reason}`);
+      }
+
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -244,7 +256,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
 
         if (!validationResult.success) {
           logger.error('AI response validation failed', {
-            errors: validationResult.error.errors,
+            errors: validationResult.error.issues,
             rawResponse: rawResponse.substring(0, 500)
           });
           throw new Error('Invalid AI response format');
@@ -264,7 +276,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
       }
 
       // Merge AI analysis with original trend data
-      return trends.map(trend => {
+      const mappedTrends = trends.map(trend => {
         const analysis = aiAnalysis.find((a) => a.originalQuery === trend.query);
         if (analysis && analysis.isProduct && analysis.confidence > 60) {
           return {
@@ -279,7 +291,11 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
           };
         }
         return trend;
-      }).filter(trend => trend.metadata?.aiAnalysis?.isProduct);
+      });
+      return mappedTrends.filter((trend): trend is TrendData => {
+        const aiAnalysis = trend.metadata?.aiAnalysis;
+        return typeof aiAnalysis === 'object' && aiAnalysis !== null && 'isProduct' in aiAnalysis && Boolean(aiAnalysis.isProduct);
+      });
 
     } catch (error) {
       logger.error('AI analysis failed, returning original trends', {
@@ -323,13 +339,8 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
   }
 }
 
-// Abstract base class for trend sources
-abstract class TrendSource {
-  abstract getTrends(categories?: string[], limit?: number): Promise<TrendData[]>;
-}
-
 // Google Trends implementation
-class GoogleTrendsSource extends TrendSource {
+class GoogleTrendsSource extends BaseTrendSource {
   async getTrends(categories?: string[], limit = 20): Promise<TrendData[]> {
     // Note: This would require Google Trends API or web scraping
     // For now, returning simulated trending products
@@ -346,7 +357,7 @@ class GoogleTrendsSource extends TrendSource {
 }
 
 // Social Media trends implementation
-class SocialMediaSource extends TrendSource {
+class SocialMediaSource extends BaseTrendSource {
   async getTrends(categories?: string[], limit = 15): Promise<TrendData[]> {
     // This would integrate with Twitter API, Reddit API, etc.
     const socialTrends = [
@@ -360,7 +371,7 @@ class SocialMediaSource extends TrendSource {
 }
 
 // News source implementation
-class NewsSource extends TrendSource {
+class NewsSource extends BaseTrendSource {
   async getTrends(categories?: string[], limit = 10): Promise<TrendData[]> {
     // This would integrate with News API
     const newsTrends = [
@@ -373,7 +384,7 @@ class NewsSource extends TrendSource {
 }
 
 // Seasonal trends implementation
-class SeasonalSource extends TrendSource {
+class SeasonalSource extends BaseTrendSource {
   async getTrends(categories?: string[], limit = 10): Promise<TrendData[]> {
     const month = new Date().getMonth();
     const seasonalTrends = this.getSeasonalProducts(month);

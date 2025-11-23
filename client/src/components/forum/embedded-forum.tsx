@@ -23,24 +23,24 @@ export function EmbeddedForum({ productId, categoryId, title = "Community Discus
   const queryClient = useQueryClient();
 
   // Fetch topics
-  const { data: topics, isLoading: topicsLoading } = useQuery({
+  const { data: topics = [], isLoading: topicsLoading } = useQuery<ForumTopicWithDetails[]>({
     queryKey: ['forum-topics', { categoryId, productId }],
     queryFn: async (): Promise<ForumTopicWithDetails[]> => {
       const params = new URLSearchParams();
       if (categoryId) params.append('categoryId', categoryId.toString());
       if (productId) params.append('productId', productId.toString());
-      
-      const response = await apiRequest(`/api/forum/topics?${params}`);
+
+      const response = await apiRequest<ForumTopicWithDetails[]>(`/api/forum/topics?${params}`);
       return response || [];
     },
   });
 
   // Fetch posts for selected topic
-  const { data: posts, isLoading: postsLoading } = useQuery({
+  const { data: posts = [], isLoading: postsLoading } = useQuery<ForumPostWithAuthor[]>({
     queryKey: ['forum-posts', selectedTopic],
     queryFn: async (): Promise<ForumPostWithAuthor[]> => {
       if (!selectedTopic) return [];
-      const response = await apiRequest(`/api/forum/topics/${selectedTopic}/posts`);
+      const response = await apiRequest<ForumPostWithAuthor[]>(`/api/forum/topics/${selectedTopic}/posts`);
       return response || [];
     },
     enabled: !!selectedTopic,

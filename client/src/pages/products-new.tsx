@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLocation, useSearch } from 'wouter';
-import { ChevronRight, ChevronDown, Star, X, SlidersHorizontal, Grid3X3, LayoutList, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronDown, Star, X, SlidersHorizontal, Grid3X3, LayoutList, ChevronLeft, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
@@ -9,11 +9,9 @@ import { CartModal, MobileMenu, CompareModal, SearchModal, QuickviewModal } from
 import { CartSidebar } from '@/components/template/cart-sidebar';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { cn } from '@/lib/utils';
-import {
-  allProducts,
-  categories,
-  type TemplateProduct,
-} from '@/data/template-data';
+import { useProducts } from '@/hooks/use-products';
+import { useRetailers, transformProduct } from '@/hooks/use-home-data';
+import { categories } from '@/data/template-data';
 
 // Filter options
 const brands = [
@@ -34,30 +32,11 @@ const priceRanges = [
 
 const sortOptions = [
   { value: 'default', label: 'Default' },
-  { value: 'price_asc', label: 'Price: Low to High' },
-  { value: 'price_desc', label: 'Price: High to Low' },
+  { value: 'price_low', label: 'Price: Low to High' },
+  { value: 'price_high', label: 'Price: High to Low' },
   { value: 'rating', label: 'Customer Rating' },
-  { value: 'newest', label: 'Newest First' },
+  { value: 'popularity', label: 'Most Popular' },
 ];
-
-// Convert template products to ProductData
-function toProductData(products: TemplateProduct[]): ProductData[] {
-  return products.map((p) => ({
-    id: p.id,
-    name: p.title,
-    category: p.category,
-    price: p.price,
-    originalPrice: p.oldPrice,
-    image: p.imgSrc,
-    hoverImage: p.imgHover,
-    rating: p.rating,
-    reviewCount: p.reviewCount,
-    priceChange: p.salePercentage ? ('down' as const) : ('stable' as const),
-    priceChangePercent: p.salePercentage ? parseInt(p.salePercentage) : undefined,
-    retailer: p.brand,
-    discount: p.salePercentage ? parseInt(p.salePercentage) : undefined,
-  }));
-}
 
 interface Filters {
   category: string | null;
@@ -99,69 +78,37 @@ function ProductsContent() {
   const [customMinPrice, setCustomMinPrice] = useState('');
   const [customMaxPrice, setCustomMaxPrice] = useState('');
 
-  // Get all products
-  const allProductData = useMemo(() => toProductData(allProducts), []);
+  // Build API search filters
+  const apiFilters = useMemo(() => ({
+    query: initialSearch || undefined,
+    category: filters.category || undefined,
+    minPrice: filters.priceRange?.min,
+    maxPrice: filters.priceRange?.max === Infinity ? undefined : filters.priceRange?.max,
+    minRating: filters.rating || undefined,
+    sortBy: sortBy !== 'default' ? sortBy as 'price_low' | 'price_high' | 'rating' | 'popularity' : undefined,
+  }), [initialSearch, filters.category, filters.priceRange, filters.rating, sortBy]);
 
-  // Apply filters
+  // Fetch products from API
+  const { data: productsData, isLoading, error } = useProducts(apiFilters);
+
+  // Transform API products to ProductData format
   const filteredProducts = useMemo(() => {
-    let result = [...allProductData];
+    if (!productsData) return [];
 
-    // Search filter
-    if (initialSearch) {
-      const searchLower = initialSearch.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(searchLower) ||
-          p.category.toLowerCase().includes(searchLower) ||
-          (p.retailer && p.retailer.toLowerCase().includes(searchLower))
-      );
-    }
+    let result = productsData.map(transformProduct);
 
-    // Category filter
-    if (filters.category) {
-      result = result.filter((p) => p.category.toLowerCase() === filters.category!.toLowerCase());
-    }
-
-    // Brand filter
+    // Apply client-side brand filter (not available in API)
     if (filters.brands.length > 0) {
       result = result.filter((p) => p.retailer && filters.brands.includes(p.retailer));
     }
 
-    // Price filter
-    if (filters.priceRange) {
-      result = result.filter(
-        (p) => p.price >= filters.priceRange!.min && p.price <= filters.priceRange!.max
-      );
-    }
-
-    // Rating filter
-    if (filters.rating) {
-      result = result.filter((p) => p.rating && p.rating >= filters.rating!);
-    }
-
-    // Deals filter
+    // Apply deals filter client-side
     if (filters.deals === 'discounts') {
       result = result.filter((p) => p.originalPrice && p.originalPrice > p.price);
     }
 
-    // Sort
-    switch (sortBy) {
-      case 'price_asc':
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case 'price_desc':
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'newest':
-        result.reverse();
-        break;
-    }
-
     return result;
-  }, [allProductData, filters, sortBy, initialSearch]);
+  }, [productsData, filters.brands, filters.deals]);
 
   // Add watchlist status to products
   const products = filteredProducts.map((p) => ({
@@ -651,7 +598,17 @@ function ProductsContent() {
             )}
 
             {/* Products Grid */}
-            {products.length > 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Loading products...</span>
+              </div>
+            ) : error ? (
+              <div className="text-center py-16">
+                <p className="text-lg font-medium text-destructive mb-2">Error loading products</p>
+                <p className="text-muted-foreground">Please try again later</p>
+              </div>
+            ) : products.length > 0 ? (
               <div
                 className={cn(
                   "grid gap-4",

@@ -3,17 +3,30 @@ import { db } from '../db';
 import { searchQueries, trendingProducts } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import type { InsertSearchQuery, TrendingProduct } from '../../shared/schema';
-import type { SearchTaskData, SearchResult, RetailerConfig } from './types';
+import type { SearchTaskData, SearchResult, RetailerConfig as RetailerConfigType } from './types';
 import OpenAI from 'openai';
 import { googleSearchService } from '../services/google-search';
 import type { GoogleSearchResult } from '../services/google-search';
 import { logger } from '../utils/logger';
 import { safeSearchQueries, type AISearchQueries } from './ai-validation-schemas';
 import { queryCache } from '../services/redis-cache';
+import { agentQueryLimiter } from '../services/agent-query-limiter';
+
+// Local retailer config interface that matches the Map usage
+interface RetailerConfig {
+  name: string;
+  searchUrl: string;
+  selectors: {
+    productLinks: string;
+    prices: string;
+    titles: string;
+  };
+}
 
 export class SearchOrchestrationAgent extends BaseAgent {
   private openai: OpenAI;
   private retailers: Map<string, RetailerConfig>;
+  private queryGenerationCache: Map<string, string[]>;
 
   constructor() {
     const config: AgentConfig = {
@@ -174,6 +187,12 @@ export class SearchOrchestrationAgent extends BaseAgent {
         noise cancelling headphones wireless
       `;
 
+      // Check daily query limit before making OpenAI call
+      const limitResult = await agentQueryLimiter.checkAndIncrement('openai_completion');
+      if (!limitResult.allowed) {
+        throw new Error(`Daily agent query limit exceeded. ${limitResult.reason}`);
+      }
+
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -229,7 +248,7 @@ OUTPUT CONSTRAINTS:
 
         if (!validationResult.success) {
           logger.error('Search query validation failed', {
-            errors: validationResult.error.errors,
+            errors: validationResult.error.issues,
             rawQueries: queries,
             productName
           });
@@ -414,14 +433,4 @@ OUTPUT CONSTRAINTS:
 
     return this.generateSearchQueries(productName);
   }
-}
-
-interface RetailerConfig {
-  name: string;
-  searchUrl: string;
-  selectors: {
-    productLinks: string;
-    prices: string;
-    titles: string;
-  };
 }

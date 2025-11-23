@@ -24,10 +24,7 @@ if (dsn) {
     // Performance Monitoring
     integrations: [
       // Browser tracing for performance monitoring
-      Sentry.browserTracingIntegration({
-        // Trace navigation and user interactions
-        tracingOrigins: ["localhost", /^\//],
-      }),
+      Sentry.browserTracingIntegration(),
 
       // Session replay for debugging user sessions
       Sentry.replayIntegration({

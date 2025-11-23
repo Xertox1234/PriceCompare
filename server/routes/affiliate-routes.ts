@@ -1,16 +1,16 @@
 import { Express, Request, Response } from 'express';
-import { logger } from "./utils/logger";
-import { storage } from './storage';
-import { requireAuth, requireAdmin } from './auth';
-import { validateRequest } from './validation';
+import { logger } from "../utils/logger";
+import { storage } from '../storage';
+import { requireAuth, requireAdmin } from '../auth';
+import { validateRequest } from '../validation';
 import {
   affiliateConfigUpdateSchema,
   idParamSchema,
-} from './validation/admin-schemas';
+} from '../validation/admin-schemas';
 import { z } from 'zod';
-import { affiliateLinkService } from './services/affiliate-link-service';
-import { AffiliateLinkAgent } from './agents/affiliate-agent';
-import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
+import { affiliateLinkService } from '../services/affiliate-link-service';
+import { AffiliateLinkAgent } from '../agents/affiliate-agent';
+import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
 

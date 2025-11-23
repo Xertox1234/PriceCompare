@@ -1,9 +1,9 @@
 import { Express, Request, Response } from 'express';
-import { logger } from "./utils/logger";
-import { requireAuth, requireAdmin } from './auth';
-import { advancedSearchService } from './services/advanced-search';
+import { logger } from "../utils/logger";
+import { requireAuth, requireAdmin } from '../auth';
+import { advancedSearchService } from '../services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
-import { parseIntSafe, parseFloatSafe } from './utils/validation-helpers';
+import { parseIntSafe, parseFloatSafe } from '../utils/validation-helpers';
 
 export function registerAdvancedSearchRoutes(app: Express): void {
   

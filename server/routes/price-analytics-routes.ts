@@ -1,12 +1,12 @@
 import { Express, Request, Response } from 'express';
-import { logger } from "./utils/logger";
+import { logger } from "../utils/logger";
 import { z } from 'zod';
-import { db } from "./db";
-import { parseIntSafe } from './utils/validation-helpers';
+import { db } from "../db";
+import { parseIntSafe } from '../utils/validation-helpers';
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
-import { priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks } from "../shared/schema";
-import { trendAnalysisService } from './services/trend-analysis-service';
-import { priceAggregationService } from './services/price-aggregation-service';
+import { priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks } from "@shared/schema";
+import { trendAnalysisService } from '../services/trend-analysis-service';
+import { priceAggregationService } from '../services/price-aggregation-service';
 import type { AuthenticatedRequest } from '@shared/types';
 
 // Validation schemas

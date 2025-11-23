@@ -1,7 +1,7 @@
 import { Express, Request, Response } from 'express';
-import { logger } from "./utils/logger";
+import { logger } from "../utils/logger";
 import { z } from 'zod';
-import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
+import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 import {
   recordPriceChange,
   getPriceHistory,
@@ -10,7 +10,7 @@ import {
   getPriceSnapshots,
   detectSignificantPriceDrops,
   cleanupOldPriceHistory
-} from './services/price-history-service';
+} from '../services/price-history-service';
 import type { AuthenticatedRequest } from '@shared/types';
 
 // Validation schemas

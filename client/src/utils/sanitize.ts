@@ -54,7 +54,6 @@ export function sanitizeHtml(
           ALLOW_ARIA_ATTR: true,
           RETURN_DOM: false,
           RETURN_DOM_FRAGMENT: false,
-          RETURN_DOM_IMPORT: false,
           FORCE_BODY: true,
           SANITIZE_DOM: true,
           KEEP_CONTENT: true,
