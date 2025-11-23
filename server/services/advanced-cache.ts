@@ -94,6 +94,40 @@ class LRUCache<T> {
     this.cache.delete(key);
   }
 
+  /**
+   * Delete all cache entries matching a glob-style pattern
+   *
+   * Converts glob patterns (e.g., "product:123:*") to regex and deletes matching keys.
+   * This enables targeted invalidation instead of clearing the entire cache.
+   *
+   * @param pattern - Glob pattern where * matches any characters
+   * @returns Number of entries deleted
+   */
+  deletePattern(pattern: string): number {
+    // Convert glob pattern to regex: escape special chars, then convert * to .*
+    const escapedPattern = pattern
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape regex special chars (except *)
+      .replace(/\*/g, '.*'); // Convert glob * to regex .*
+    const regex = new RegExp(`^${escapedPattern}$`);
+
+    let deleted = 0;
+    const keys = Array.from(this.cache.keys());
+    for (const key of keys) {
+      if (regex.test(key)) {
+        this.cache.delete(key);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
+  /**
+   * Get all keys in the cache (for debugging/testing)
+   */
+  keys(): string[] {
+    return Array.from(this.cache.keys());
+  }
+
   clear(): void {
     this.cache.clear();
   }
@@ -163,6 +197,8 @@ interface CacheStats {
   l2Misses: number;
   sets: number;
   invalidations: number;
+  patternInvalidations: number; // Number of pattern-based invalidation operations
+  patternKeysDeleted: number;   // Total keys deleted via pattern matching
   errors: number;
 }
 
@@ -186,6 +222,8 @@ export class AdvancedCacheService {
       l2Misses: 0,
       sets: 0,
       invalidations: 0,
+      patternInvalidations: 0,
+      patternKeysDeleted: 0,
       errors: 0,
     };
 
@@ -403,6 +441,13 @@ export class AdvancedCacheService {
         invalidations: this.stats.invalidations,
         errors: this.stats.errors,
       },
+      patternInvalidation: {
+        operations: this.stats.patternInvalidations,
+        keysDeleted: this.stats.patternKeysDeleted,
+        avgKeysPerOperation: this.stats.patternInvalidations > 0
+          ? (this.stats.patternKeysDeleted / this.stats.patternInvalidations).toFixed(2)
+          : '0.00',
+      },
     };
   }
 
@@ -417,6 +462,8 @@ export class AdvancedCacheService {
       l2Misses: 0,
       sets: 0,
       invalidations: 0,
+      patternInvalidations: 0,
+      patternKeysDeleted: 0,
       errors: 0,
     };
   }
@@ -447,7 +494,7 @@ export class AdvancedCacheService {
 
     this.subscriber.subscribe(this.PUBSUB_CHANNEL, (err) => {
       if (err) {
-        logger.error('Failed to subscribe to cache invalidations:', err);
+        logger.error('Failed to subscribe to cache invalidations:', { error: err instanceof Error ? err.message : String(err) });
       } else {
         logger.info('Subscribed to cache invalidation channel');
       }
@@ -460,8 +507,14 @@ export class AdvancedCacheService {
 
           // Only invalidate L1 cache (L2 is already invalidated by publisher)
           if (isPattern) {
-            // For patterns, clear entire L1 cache to be safe
-            this.l1Cache.clear();
+            // Delete only matching keys instead of clearing entire cache
+            // This preserves unrelated hot data and improves L1 hit rate
+            const deleted = this.l1Cache.deletePattern(key);
+            this.stats.patternInvalidations++;
+            this.stats.patternKeysDeleted += deleted;
+            if (deleted > 0) {
+              logger.debug(`L1 cache pattern invalidation: ${key} deleted ${deleted} keys`);
+            }
           } else {
             this.l1Cache.delete(key);
           }
