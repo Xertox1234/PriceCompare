@@ -1,8 +1,9 @@
 import * as crypto from 'crypto';
-import { db } from '../db';
-import { passwordResetTokens, users } from '@shared/schema';
-import { eq, and, gt, lt } from 'drizzle-orm';
+import { storage } from '../storage';
 import type { PasswordResetToken } from '@shared/schema';
+import { db } from '../db';
+import { users } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * Password Reset Token Service
@@ -34,28 +35,9 @@ export async function createPasswordResetToken(
   const token = generateSecureToken();
   const expiresAt = new Date(Date.now() + TOKEN_EXPIRATION_TIME);
 
-  // SECURITY: Use transaction to ensure old token deletion and new token creation are atomic
-  // If token creation fails after deletion, user has no valid tokens (lockout scenario)
-  await db.transaction(async (tx) => {
-    // Invalidate any existing unused tokens for this user (optional security measure)
-    await tx
-      .delete(passwordResetTokens)
-      .where(
-        and(
-          eq(passwordResetTokens.userId, userId),
-          eq(passwordResetTokens.isUsed, false)
-        )
-      );
-
-    // Create the new token - must succeed or rollback deletion
-    await tx.insert(passwordResetTokens).values({
-      userId,
-      token,
-      expiresAt,
-      isUsed: false,
-      ipAddress: ipAddress?.substring(0, 45), // Ensure it fits in VARCHAR(45)
-      userAgent: userAgent?.substring(0, 500), // Ensure it fits in VARCHAR(500)
-    });
+  await storage.createPasswordResetToken(userId, token, expiresAt, {
+    ipAddress,
+    userAgent,
   });
 
   return token;
@@ -69,15 +51,7 @@ export async function createPasswordResetToken(
 export async function validatePasswordResetToken(
   token: string
 ): Promise<PasswordResetToken | null> {
-  const tokenRecord = await db.query.passwordResetTokens.findFirst({
-    where: and(
-      eq(passwordResetTokens.token, token),
-      eq(passwordResetTokens.isUsed, false),
-      gt(passwordResetTokens.expiresAt, new Date())
-    ),
-  });
-
-  return tokenRecord || null;
+  return storage.validatePasswordResetToken(token);
 }
 
 /**
@@ -85,13 +59,7 @@ export async function validatePasswordResetToken(
  * @param token - The token to mark as used
  */
 export async function markTokenAsUsed(token: string): Promise<void> {
-  await db
-    .update(passwordResetTokens)
-    .set({
-      isUsed: true,
-      usedAt: new Date(),
-    })
-    .where(eq(passwordResetTokens.token, token));
+  await storage.markPasswordResetTokenAsUsed(token);
 }
 
 /**
@@ -100,14 +68,29 @@ export async function markTokenAsUsed(token: string): Promise<void> {
  * @returns The user record if the token is valid, null otherwise
  */
 export async function getUserByResetToken(token: string) {
-  const tokenRecord = await validatePasswordResetToken(token);
+  const tokenRecord = await storage.validatePasswordResetToken(token);
 
   if (!tokenRecord) {
     return null;
   }
 
+  // TODO: This should use a storage method like storage.getUserByIdSafe()
+  // that returns SafeUser instead of exposing passwordHash.
+  // For now, using direct db query with explicit field selection for security.
   const user = await db.query.users.findFirst({
     where: eq(users.id, tokenRecord.userId),
+    columns: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      trustLevel: true,
+      isActive: true,
+      isSuspended: true,
+      createdAt: true,
+      updatedAt: true,
+      // SECURITY: NEVER expose passwordHash
+    },
   });
 
   return user || null;
@@ -118,13 +101,7 @@ export async function getUserByResetToken(token: string) {
  * Removes tokens that have expired or been used
  */
 export async function cleanupExpiredTokens(): Promise<number> {
-  const result = await db
-    .delete(passwordResetTokens)
-    .where(
-      lt(passwordResetTokens.expiresAt, new Date())
-    );
-
-  return result.rowCount || 0;
+  return storage.cleanupExpiredPasswordResetTokens();
 }
 
 /**
@@ -141,15 +118,8 @@ export async function isRateLimitExceeded(
   maxAttempts: number = 3
 ): Promise<boolean> {
   const since = new Date(Date.now() - windowMinutes * 60 * 1000);
-
-  const recentTokens = await db.query.passwordResetTokens.findMany({
-    where: and(
-      eq(passwordResetTokens.userId, userId),
-      gt(passwordResetTokens.createdAt, since)
-    ),
-  });
-
-  return recentTokens.length >= maxAttempts;
+  const count = await storage.getPasswordResetAttemptCount(userId, since);
+  return count >= maxAttempts;
 }
 
 /**
@@ -163,13 +133,5 @@ export async function getResetAttemptCount(
   windowMinutes: number = 15
 ): Promise<number> {
   const since = new Date(Date.now() - windowMinutes * 60 * 1000);
-
-  const recentTokens = await db.query.passwordResetTokens.findMany({
-    where: and(
-      eq(passwordResetTokens.userId, userId),
-      gt(passwordResetTokens.createdAt, since)
-    ),
-  });
-
-  return recentTokens.length;
+  return storage.getPasswordResetAttemptCount(userId, since);
 }
