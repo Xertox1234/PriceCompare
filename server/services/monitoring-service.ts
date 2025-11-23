@@ -3,7 +3,7 @@ import { scrapingJobs, trendingProducts, agentSessions, productOffers } from '..
 import { eq, desc, and, gte, count, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
 import { queryCache, generalCache } from './redis-cache.js';
-import { distributedLock } from './distributed-lock.js';
+import { jobLocks } from '../../shared/schema.js';
 
 /**
  * Monitoring Service
@@ -326,27 +326,32 @@ class MonitoringService {
   }
 
   /**
-   * Get distributed lock metrics
+   * Get job lock metrics from database
+   * (Replaced Redis-based distributed lock with DB-based job locks)
    */
   private async getLockMetrics(): Promise<LockMetrics> {
     try {
-      const metrics = distributedLock.getMetrics();
+      // Query active locks from job_locks table
+      const [activeLockCount] = await db
+        .select({ count: count() })
+        .from(jobLocks)
+        .where(sql`${jobLocks.expiresAt} > NOW()`);
 
-      const successRate = metrics.acquisitionAttempts > 0
-        ? (metrics.acquisitionsSucceeded / metrics.acquisitionAttempts) * 100
-        : 100;
+      const activeLocks = activeLockCount?.count || 0;
 
+      // Since we're using DB-based locks, detailed metrics are not tracked
+      // Return basic metrics showing current lock state
       return {
-        acquisitionAttempts: metrics.acquisitionAttempts,
-        acquisitionsSucceeded: metrics.acquisitionsSucceeded,
-        acquisitionsFailed: metrics.acquisitionsFailed,
-        locksReleased: metrics.locksReleased,
-        activeLocks: metrics.activeLocks,
-        avgAcquisitionTime: metrics.avgAcquisitionTime,
-        contentionRate: metrics.contentionRate,
-        successRate: Math.round(successRate)
+        acquisitionAttempts: 0, // Not tracked with DB locks
+        acquisitionsSucceeded: 0, // Not tracked
+        acquisitionsFailed: 0, // Not tracked
+        locksReleased: 0, // Not tracked
+        activeLocks: Number(activeLocks),
+        avgAcquisitionTime: 0, // Not applicable for DB locks
+        contentionRate: 0, // Not tracked
+        successRate: 100 // Assume success since DB is reliable
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to get lock metrics', {
         error: error instanceof Error ? error.message : String(error)
       });

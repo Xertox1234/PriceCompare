@@ -1,21 +1,25 @@
-import Redis from 'ioredis';
+import type { Redis } from 'ioredis';
 import { logger } from '../utils/logger.js';
+import { getRedisClient } from '../config/redis.js';
 
 /**
  * Redis Cache Service
  *
  * Provides a robust caching layer with:
- * - Automatic connection management
+ * - Uses shared Redis connection from server/config/redis.ts
  * - Graceful degradation if Redis is unavailable
  * - Cache hit/miss metrics
  * - TTL support
  * - Batch operations
+ *
+ * NOTE: This service now uses the shared Redis client to avoid
+ * duplicate connections. Initialize Redis via initializeRedis()
+ * before using this cache.
  */
 
 export interface CacheOptions {
   keyPrefix?: string;
   defaultTTL?: number; // in milliseconds
-  maxRetries?: number;
 }
 
 export interface CacheStats {
@@ -29,9 +33,7 @@ export interface CacheStats {
 }
 
 export class RedisCache {
-  private client: Redis | null = null;
-  private isConnected: boolean = false;
-  private options: Required<CacheOptions>;
+  private options: Required<Omit<CacheOptions, 'maxRetries'>>;
 
   // Metrics
   private stats = {
@@ -46,74 +48,23 @@ export class RedisCache {
     this.options = {
       keyPrefix: options.keyPrefix || 'cache:',
       defaultTTL: options.defaultTTL || 604800000, // 7 days
-      maxRetries: options.maxRetries || 3
     };
-
-    this.initialize();
   }
 
   /**
-   * Initialize Redis connection
+   * Get the shared Redis client
+   * Returns null if Redis is not available
    */
-  private initialize(): void {
-    try {
-      const redisConfig = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        password: process.env.REDIS_PASSWORD || undefined,
-        maxRetriesPerRequest: this.options.maxRetries,
-        retryStrategy: (times: number) => {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
-        },
-        // Graceful handling of connection issues
-        lazyConnect: true,
-        enableOfflineQueue: false
-      };
+  private getClient(): Redis | null {
+    return getRedisClient();
+  }
 
-      this.client = new Redis(redisConfig);
-
-      // Connection event handlers
-      this.client.on('connect', () => {
-        this.isConnected = true;
-        logger.info('Redis cache connected', {
-          host: redisConfig.host,
-          port: redisConfig.port
-        });
-      });
-
-      this.client.on('ready', () => {
-        logger.info('Redis cache ready');
-      });
-
-      this.client.on('error', (error) => {
-        this.isConnected = false;
-        this.stats.errors++;
-        logger.error('Redis cache error', {
-          error: error.message,
-          errorCount: this.stats.errors
-        });
-      });
-
-      this.client.on('close', () => {
-        this.isConnected = false;
-        logger.warn('Redis cache connection closed');
-      });
-
-      // Attempt to connect
-      this.client.connect().catch((error) => {
-        logger.error('Failed to connect to Redis', {
-          error: error.message,
-          host: redisConfig.host,
-          port: redisConfig.port
-        });
-      });
-
-    } catch (error) {
-      logger.error('Failed to initialize Redis cache', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
+  /**
+   * Check if Redis is connected
+   */
+  private get isConnected(): boolean {
+    const client = this.getClient();
+    return client !== null && client.status === 'ready';
   }
 
   /**
@@ -122,7 +73,8 @@ export class RedisCache {
    * @returns Cached value or null if not found
    */
   async get<T = unknown>(key: string): Promise<T | null> {
-    if (!this.isConnected || !this.client) {
+    const client = this.getClient();
+    if (!client) {
       logger.debug('Redis not connected, cache miss', { key });
       this.stats.misses++;
       return null;
@@ -130,7 +82,7 @@ export class RedisCache {
 
     try {
       const fullKey = this.options.keyPrefix + key;
-      const value = await this.client.get(fullKey);
+      const value = await client.get(fullKey);
 
       if (value === null) {
         this.stats.misses++;
@@ -161,7 +113,8 @@ export class RedisCache {
    * @param ttl - Time to live in milliseconds (optional)
    */
   async set(key: string, value: unknown, ttl?: number): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
+    const client = this.getClient();
+    if (!client) {
       logger.debug('Redis not connected, skipping cache set', { key });
       return false;
     }
@@ -171,7 +124,7 @@ export class RedisCache {
       const serialized = JSON.stringify(value);
       const ttlSeconds = Math.floor((ttl || this.options.defaultTTL) / 1000);
 
-      await this.client.setex(fullKey, ttlSeconds, serialized);
+      await client.setex(fullKey, ttlSeconds, serialized);
 
       this.stats.sets++;
       logger.debug('Cache set', { key, ttlSeconds });
@@ -193,13 +146,14 @@ export class RedisCache {
    * @param key - Cache key
    */
   async delete(key: string): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
+    const client = this.getClient();
+    if (!client) {
       return false;
     }
 
     try {
       const fullKey = this.options.keyPrefix + key;
-      await this.client.del(fullKey);
+      await client.del(fullKey);
 
       this.stats.deletes++;
       logger.debug('Cache delete', { key });
@@ -221,13 +175,14 @@ export class RedisCache {
    * @param key - Cache key
    */
   async exists(key: string): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
+    const client = this.getClient();
+    if (!client) {
       return false;
     }
 
     try {
       const fullKey = this.options.keyPrefix + key;
-      const result = await this.client.exists(fullKey);
+      const result = await client.exists(fullKey);
       return result === 1;
 
     } catch (error) {
@@ -247,14 +202,15 @@ export class RedisCache {
    */
   async getMany<T = unknown>(keys: string[]): Promise<Map<string, T>> {
     const result = new Map<string, T>();
+    const client = this.getClient();
 
-    if (!this.isConnected || !this.client || keys.length === 0) {
+    if (!client || keys.length === 0) {
       return result;
     }
 
     try {
       const fullKeys = keys.map(key => this.options.keyPrefix + key);
-      const values = await this.client.mget(...fullKeys);
+      const values = await client.mget(...fullKeys);
 
       keys.forEach((key, index) => {
         const value = values[index];
@@ -292,16 +248,17 @@ export class RedisCache {
    * Clear all keys with the configured prefix
    */
   async clear(): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
+    const client = this.getClient();
+    if (!client) {
       return false;
     }
 
     try {
       const pattern = this.options.keyPrefix + '*';
-      const keys = await this.client.keys(pattern);
+      const keys = await client.keys(pattern);
 
       if (keys.length > 0) {
-        await this.client.del(...keys);
+        await client.del(...keys);
         logger.info('Cache cleared', { keysDeleted: keys.length });
       }
 
@@ -348,30 +305,30 @@ export class RedisCache {
    * Check if Redis is connected and ready
    */
   isReady(): boolean {
-    return this.isConnected && this.client !== null;
+    return this.isConnected;
   }
 
   /**
    * Close Redis connection
+   * Note: With shared client, this is a no-op. Use closeRedis() from config/redis.ts
    */
   async close(): Promise<void> {
-    if (this.client) {
-      await this.client.quit();
-      this.isConnected = false;
-      logger.info('Redis cache connection closed');
-    }
+    // No-op: Connection is managed by shared client in config/redis.ts
+    // Call closeRedis() from config/redis.ts to close the shared connection
+    logger.debug('RedisCache.close() called - connection managed by shared client');
   }
 
   /**
    * Ping Redis to check connectivity
    */
   async ping(): Promise<boolean> {
-    if (!this.client) {
+    const client = this.getClient();
+    if (!client) {
       return false;
     }
 
     try {
-      const result = await this.client.ping();
+      const result = await client.ping();
       return result === 'PONG';
     } catch {
       return false;

@@ -374,14 +374,19 @@ export class ForumStorage {
       },
     ];
 
-    for (const category of defaultCategories) {
-      const existing = await db.select().from(forumCategories)
-        .where(eq(forumCategories.slug, category.slug))
-        .limit(1);
-      
-      if (!existing.length) {
-        await this.createCategory(category);
-      }
+    // Batch query for all existing slugs to avoid N+1 queries
+    const existingSlugs = await db
+      .select({ slug: forumCategories.slug })
+      .from(forumCategories)
+      .where(inArray(forumCategories.slug, defaultCategories.map(c => c.slug)));
+
+    const existingSet = new Set(existingSlugs.map(e => e.slug));
+
+    // Filter to only new categories and batch insert
+    const newCategories = defaultCategories.filter(c => !existingSet.has(c.slug));
+
+    if (newCategories.length > 0) {
+      await db.insert(forumCategories).values(newCategories);
     }
   }
 }

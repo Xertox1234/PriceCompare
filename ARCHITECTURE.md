@@ -177,7 +177,7 @@ server/services/
 | Technology | Purpose | Why Chosen |
 |------------|---------|-----------|
 | **OpenAI API** | AI analysis | Best-in-class LLM for content understanding |
-| **Puppeteer** | Web scraping | Headless Chrome, handles dynamic content |
+| **Playwright** | Web scraping | Headless Chromium, handles dynamic content |
 | **Cheerio** | HTML parsing | Fast, jQuery-like API |
 
 ---

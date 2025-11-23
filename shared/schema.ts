@@ -315,6 +315,7 @@ export const postLikes = pgTable("post_likes", {
 }, (table) => ({
   postIdIdx: index("post_likes_post_id_idx").on(table.postId),
   userIdIdx: index("post_likes_user_id_idx").on(table.userId),
+  uniquePostUserLike: unique("unique_post_user_like").on(table.postId, table.userId),
 }));
 
 // User notifications
@@ -377,6 +378,7 @@ export const topicTagRelations = pgTable("topic_tag_relations", {
 }, (table) => ({
   topicIdIdx: index("topic_tag_relations_topic_id_idx").on(table.topicId),
   tagIdIdx: index("topic_tag_relations_tag_id_idx").on(table.tagId),
+  uniqueTopicTag: unique("unique_topic_tag").on(table.topicId, table.tagId),
 }));
 
 // User mentions in posts
@@ -386,12 +388,14 @@ export const postMentions = pgTable("post_mentions", {
   mentionedUserId: integer("mentioned_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   mentioningUserId: integer("mentioning_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  uniquePostMention: unique("unique_post_mention").on(table.postId, table.mentionedUserId),
+}));
 
 // Private messages
 export const privateMessages = pgTable("private_messages", {
   id: serial("id").primaryKey(),
-  senderId: integer("sender_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  senderId: integer("sender_id").references(() => users.id, { onDelete: 'set null' }), // Nullable to allow SET NULL on user deletion
   recipientId: integer("recipient_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   subject: encryptedText("subject").notNull(), // GDPR Article 32: Private communication is PII
   content: encryptedText("content").notNull(), // GDPR Article 32: Private communication is PII
@@ -417,7 +421,9 @@ export const userBadges = pgTable("user_badges", {
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   badgeId: integer("badge_id").references(() => badges.id, { onDelete: 'cascade' }).notNull(),
   grantedAt: timestamp("granted_at").defaultNow(),
-});
+}, (table) => ({
+  uniqueUserBadge: unique("unique_user_badge").on(table.userId, table.badgeId),
+}));
 
 // Product watches - users watching products for price changes
 // Watch lists for organizing watched products

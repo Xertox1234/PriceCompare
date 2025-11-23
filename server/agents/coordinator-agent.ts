@@ -15,7 +15,7 @@ import type {
 } from '../../shared/schema.js';
 import type { CoordinatorTask, SystemStatus, TrendData } from './types.js';
 import { logger } from '../utils/logger.js';
-import { distributedLock } from '../services/distributed-lock.js';
+import { jobLockService } from '../services/job-lock-service.js';
 
 interface CoordinatorConfig {
   maxConcurrentJobs: number;
@@ -416,64 +416,69 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async processJob(job: ScrapingJob): Promise<void> {
-    // Acquire distributed lock to prevent duplicate processing across instances
-    const lockKey = `job:${job.id}`;
-    const lock = await distributedLock.acquire(lockKey, 60000, 2, 100); // 60s TTL, 2 retries
-
-    if (!lock) {
-      logger.debug(`Job ${job.id} is already being processed by another instance, skipping`, {
-        jobId: job.id,
-        jobType: job.jobType
-      });
-      return; // Another instance is processing this job
-    }
+    // Use jobLockService to prevent duplicate processing across instances
+    const lockKey = `scraping-job:${job.id}`;
 
     try {
-      // Update job status to running
-      await db.update(scrapingJobs)
-        .set({
-          status: 'running',
-          startedAt: new Date()
-        })
-        .where(eq(scrapingJobs.id, job.id));
+      const result = await jobLockService.withLock(
+        lockKey,
+        async () => {
+          // Update job status to running
+          await db.update(scrapingJobs)
+            .set({
+              status: 'running',
+              startedAt: new Date()
+            })
+            .where(eq(scrapingJobs.id, job.id));
 
-      let result: unknown;
-      const targetData = JSON.parse(job.targetData) as Record<string, unknown>;
+          let taskResult: unknown;
+          const targetData = JSON.parse(job.targetData) as Record<string, unknown>;
 
-      switch (job.jobType) {
-        case 'discovery':
-          result = await this.discoveryAgent.processTask(targetData);
-          break;
-        case 'search':
-          result = await this.searchAgent.processTask(targetData);
-          break;
-        default:
-          throw new Error(`Unknown job type: ${job.jobType}`);
+          switch (job.jobType) {
+            case 'discovery':
+              taskResult = await this.discoveryAgent.processTask(targetData);
+              break;
+            case 'search':
+              taskResult = await this.searchAgent.processTask(targetData);
+              break;
+            default:
+              throw new Error(`Unknown job type: ${job.jobType}`);
+          }
+
+          // Mark job as completed
+          await db.update(scrapingJobs)
+            .set({
+              status: 'completed',
+              completedAt: new Date(),
+              resultData: JSON.stringify(taskResult)
+            })
+            .where(eq(scrapingJobs.id, job.id));
+
+          logger.info(`Job ${job.id} completed successfully`, {
+            jobId: job.id,
+            jobType: job.jobType,
+            duration: Date.now() - (job.startedAt?.getTime() || Date.now())
+          });
+
+          return taskResult;
+        },
+        60 // 60 second TTL
+      );
+
+      if (result === null) {
+        logger.debug(`Job ${job.id} is already being processed by another instance, skipping`, {
+          jobId: job.id,
+          jobType: job.jobType
+        });
       }
-
-      // Mark job as completed
-      await db.update(scrapingJobs)
-        .set({
-          status: 'completed',
-          completedAt: new Date(),
-          resultData: JSON.stringify(result)
-        })
-        .where(eq(scrapingJobs.id, job.id));
-
-      logger.info(`Job ${job.id} completed successfully`, {
-        jobId: job.id,
-        jobType: job.jobType,
-        duration: Date.now() - (job.startedAt?.getTime() || Date.now())
-      });
-
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Job ${job.id} failed`, {
         error: error instanceof Error ? error.message : String(error),
         jobId: job.id,
         jobType: job.jobType
       });
 
-      // Handle job failure
+      // Handle job failure - record in database
       await db.update(scrapingJobs)
         .set({
           status: 'failed',
@@ -482,9 +487,6 @@ export class CoordinationAgent extends BaseAgent {
           retryCount: (job.retryCount || 0) + 1
         })
         .where(eq(scrapingJobs.id, job.id));
-    } finally {
-      // Always release the lock
-      await distributedLock.release(lockKey, lock.lockId);
     }
   }
 

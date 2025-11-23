@@ -224,11 +224,7 @@ export function registerAdminRoutes(app: Express): void {
       // SECURITY: Safe integer parsing with validation
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
-      // First delete related offers
-      await db.delete(schema.productOffers)
-        .where(eq(schema.productOffers.productId, productId));
-
-      // Then delete the product
+      // CASCADE rule on product_offers.product_id handles offer deletion automatically
       const [deletedProduct] = await db.delete(schema.products)
         .where(eq(schema.products.id, productId))
         .returning();
@@ -300,11 +296,7 @@ export function registerAdminRoutes(app: Express): void {
       // SECURITY: Safe integer parsing with validation
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
 
-      // First delete related offers
-      await db.delete(schema.productOffers)
-        .where(eq(schema.productOffers.retailerId, retailerId));
-
-      // Then delete the retailer
+      // CASCADE rule on product_offers.retailer_id handles offer deletion automatically
       const [deletedRetailer] = await db.delete(schema.retailers)
         .where(eq(schema.retailers.id, retailerId))
         .returning();
