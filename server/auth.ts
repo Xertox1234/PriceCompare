@@ -8,7 +8,11 @@ import { sharedUsers } from '../shared/auth-schema';
 import { eq, sql } from 'drizzle-orm';
 import type { User as DatabaseUser } from '../shared/schema';
 import type { SharedUser } from '../shared/auth-schema';
-import { recordFailedLogin, clearFailedLogins, isAccountLocked } from './middleware/account-lockout';
+import {
+  recordFailedLoginAsync,
+  clearFailedLoginsAsync,
+  isAccountLockedAsync,
+} from './middleware/account-lockout';
 import { logSecurityEvent, SecurityEventType } from './utils/security-logger';
 
 // Export the User type for use elsewhere
@@ -39,8 +43,8 @@ passport.use(new LocalStrategy(
   },
   async (email, password, done) => {
     try {
-      // Check if account is locked before attempting authentication
-      const lockStatus = isAccountLocked(email);
+      // Check if account is locked before attempting authentication (Redis-backed)
+      const lockStatus = await isAccountLockedAsync(email);
       if (lockStatus.locked) {
         // Note: Logging will happen in route handler where we have access to req
         return done(null, false, {
@@ -81,8 +85,8 @@ passport.use(new LocalStrategy(
         .limit(1);
 
       if (!userResult.length) {
-        // Record failed attempt (user not found)
-        recordFailedLogin(email);
+        // Record failed attempt (user not found) - Redis-backed
+        await recordFailedLoginAsync(email);
         // Note: Logging will happen in route handler where we have access to req
         return done(null, false, { message: 'Invalid email or password' });
       }
@@ -91,8 +95,8 @@ passport.use(new LocalStrategy(
       const isValid = await bcrypt.compare(password, user.passwordHash);
 
       if (!isValid) {
-        // Record failed attempt (wrong password)
-        const lockoutResult = recordFailedLogin(email);
+        // Record failed attempt (wrong password) - Redis-backed
+        const lockoutResult = await recordFailedLoginAsync(email);
         // Note: Logging will happen in route handler where we have access to req
         return done(null, false, {
           message: 'Invalid email or password',
@@ -101,8 +105,8 @@ passport.use(new LocalStrategy(
         } as ExtendedVerifyOptions);
       }
 
-      // Successful login - clear any failed attempts
-      clearFailedLogins(email);
+      // Successful login - clear any failed attempts (Redis-backed)
+      await clearFailedLoginsAsync(email);
       // Note: Success logging will happen in route handler where we have access to req
       return done(null, user);
     } catch (error) {

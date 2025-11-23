@@ -4,6 +4,8 @@ import { storage } from "../storage";
 import { withAuth } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
 import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
+import { csrfProtection } from "../middleware/security";
 
 /**
  * Forum Routes
@@ -17,20 +19,23 @@ export function registerForumRoutes(app: Express): void {
       const categories = await forumStorage.getCategories();
       res.json(categories);
     } catch (error: unknown) {
-      res.status(500).json({ error: "Failed to fetch categories" });
+      const errorResponse = createErrorResponse(error, 'GetForumCategories');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
-  // Get topics (optionally filtered by category or product)
+  // Get topics (optionally filtered by category or product) with pagination
   app.get("/api/forum/topics", async (req, res) => {
     try {
-      const { categoryId, productId } = req.query;
+      const { categoryId, productId, page, limit } = req.query;
       // SECURITY: Safe integer parsing with validation
-      const topics = await forumStorage.getTopics(
+      const result = await forumStorage.getTopics(
         parseIntOptional(categoryId as string, 'categoryId', { min: 1 }),
-        parseIntOptional(productId as string, 'productId', { min: 1 })
+        parseIntOptional(productId as string, 'productId', { min: 1 }),
+        parseIntOptional(page as string, 'page', { min: 1 }) ?? 1,
+        parseIntOptional(limit as string, 'limit', { min: 1, max: 100 }) ?? 50
       );
-      res.json(topics);
+      res.json(result);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to fetch topics";
       res.status(400).json({ error: message });
@@ -69,7 +74,7 @@ export function registerForumRoutes(app: Express): void {
   });
 
   // Create a new forum topic
-  app.post("/api/forum/topics", withAuth(async (req, res) => {
+  app.post("/api/forum/topics", csrfProtection, withAuth(async (req, res) => {
     try {
       // SECURITY: Removed request body logging (may contain user content)
 
@@ -95,13 +100,13 @@ export function registerForumRoutes(app: Express): void {
 
       res.json({ success: true, topic: result.topic });
     } catch (error: unknown) {
-      logger.error('Create topic error', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to create topic" });
+      const errorResponse = createErrorResponse(error, 'CreateForumTopic');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   // Create a new post in a topic
-  app.post("/api/forum/posts", withAuth(async (req, res) => {
+  app.post("/api/forum/posts", csrfProtection, withAuth(async (req, res) => {
     try {
       const { topicId, content } = req.body;
       const user = req.user;
@@ -115,8 +120,8 @@ export function registerForumRoutes(app: Express): void {
 
       res.json({ success: true, post: result.post });
     } catch (error: unknown) {
-      logger.error('Create post error', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to create post" });
+      const errorResponse = createErrorResponse(error, 'CreateForumPost');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 }

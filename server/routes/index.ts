@@ -11,8 +11,8 @@ import { registerRetailerRoutes } from "./retailer-routes";
 import { registerProductRoutes } from "./product-routes";
 import { registerAdminRoutes } from "./admin-routes";
 import { registerWatchListRoutes } from "./watchlist-routes";
-import aggregationMetricsRoutes from "./aggregation-metrics-routes";
-import adminAggregationRoutes from "./admin-aggregation-routes";
+import { registerAggregationMetricsRoutes } from "./aggregation-metrics-routes";
+import { registerAdminAggregationRoutes } from "./admin-aggregation-routes";
 
 // Feature routes (previously registered in server/index.ts)
 import { registerScrapingRoutes } from "./scraping-routes";
@@ -26,9 +26,9 @@ import { registerPriceAnalyticsRoutes } from "./price-analytics-routes";
 import { registerNotificationRoutes } from "./notification-routes";
 import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
 import { registerCommunityRoutes } from "./community-routes";
-import wishlistRoutes from "./wishlist-routes";
-import specificationRoutes from "./specification-routes";
-import agentLimitsRoutes from "./agent-limits-routes";
+import { registerWishlistRoutes } from "./wishlist-routes";
+import { registerSpecificationRoutes } from "./specification-routes";
+import { registerAgentLimitsRoutes } from "./agent-limits-routes";
 
 /**
  * Register all application routes
@@ -56,6 +56,11 @@ import agentLimitsRoutes from "./agent-limits-routes";
  * - notification-routes: User notifications
  * - smart-alerts-routes: Advanced price alerting
  * - community-routes: Community features
+ * - wishlist-routes: Simple "I want this" lists
+ * - specification-routes: Product specifications
+ * - agent-limits-routes: AI agent query limits
+ * - aggregation-metrics-routes: Price aggregation metrics
+ * - admin-aggregation-routes: Admin aggregation management
  */
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize forum categories (ensure defaults exist)
@@ -70,8 +75,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerRetailerRoutes(app);
   registerProductRoutes(app);
   registerAdminRoutes(app);
-  app.use('/api/aggregation-metrics', aggregationMetricsRoutes);
-  app.use('/api/admin/aggregation', adminAggregationRoutes);
+  registerAggregationMetricsRoutes(app);
+  registerAdminAggregationRoutes(app);
 
   // Register feature route modules
   registerScrapingRoutes(app);
@@ -87,13 +92,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCommunityRoutes(app);
 
   // Wishlist routes (simple "I want this" lists)
-  app.use('/api/wishlists', wishlistRoutes);
+  registerWishlistRoutes(app);
 
   // Product specification routes
-  app.use('/api', specificationRoutes);
+  registerSpecificationRoutes(app);
 
   // Agent query limits routes
-  app.use('/api/agent-limits', agentLimitsRoutes);
+  registerAgentLimitsRoutes(app);
 
   // Create HTTP server
   const httpServer = createServer(app);

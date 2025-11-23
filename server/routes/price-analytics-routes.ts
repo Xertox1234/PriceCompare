@@ -1,5 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
 import { z } from 'zod';
 import { db } from "../db";
 import { parseIntSafe } from '../utils/validation-helpers';
@@ -84,14 +85,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching weekly aggregates:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to fetch weekly aggregates' });
+      const errorResponse = createErrorResponse(error, 'GetWeeklyAggregates');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -132,14 +127,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching monthly aggregates:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to fetch monthly aggregates' });
+      const errorResponse = createErrorResponse(error, 'GetMonthlyAggregates');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -175,14 +164,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching weekly aggregates:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to fetch weekly aggregates' });
+      const errorResponse = createErrorResponse(error, 'GetRetailerWeeklyAggregates');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -218,14 +201,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching monthly aggregates:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to fetch monthly aggregates' });
+      const errorResponse = createErrorResponse(error, 'GetRetailerMonthlyAggregates');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -241,14 +218,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(trends);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching trends:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to fetch trends' });
+      const errorResponse = createErrorResponse(error, 'GetProductTrends');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -270,14 +241,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(trend);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching trend:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to fetch trend' });
+      const errorResponse = createErrorResponse(error, 'GetProductRetailerTrend');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -291,10 +256,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const count = await priceAggregationService.calculateWeeklyAggregates();
       res.json({ success: true, aggregatesCalculated: count });
     } catch (error) {
-      logger.error('Error calculating weekly aggregates:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to calculate weekly aggregates' });
+      const errorResponse = createErrorResponse(error, 'CalculateWeeklyAggregates');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -308,10 +271,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const count = await priceAggregationService.calculateMonthlyAggregates();
       res.json({ success: true, aggregatesCalculated: count });
     } catch (error) {
-      logger.error('Error calculating monthly aggregates:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to calculate monthly aggregates' });
+      const errorResponse = createErrorResponse(error, 'CalculateMonthlyAggregates');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -334,10 +295,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const count = await trendAnalysisService.analyzeTrendsForAllProducts(analysisPeriodDays);
       res.json({ success: true, trendsAnalyzed: count });
     } catch (error) {
-      logger.error('Error analyzing trends:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to analyze trends' });
+      const errorResponse = createErrorResponse(error, 'AnalyzeTrends');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -390,10 +349,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
         trendBreakdown: trendCounts
       });
     } catch (error) {
-      logger.error('Error fetching analytics overview:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({ error: 'Failed to fetch analytics overview' });
+      const errorResponse = createErrorResponse(error, 'GetAnalyticsOverview');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -460,12 +417,10 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
         })),
       });
     } catch (error) {
-      logger.error('Error fetching job lock health:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      res.status(500).json({
+      const errorResponse = createErrorResponse(error, 'GetJobLockHealth');
+      res.status(errorResponse.status).json({
         status: 'error',
-        error: 'Failed to fetch job lock health'
+        error: errorResponse.error
       });
     }
   });

@@ -3,6 +3,7 @@ import { forumStorage } from "../forum-storage";
 import { withAuth } from "./helpers";
 import { logger } from "../utils/logger";
 import { parseIntSafe } from "../utils/validation-helpers";
+import { csrfProtection } from "../middleware/security";
 
 /**
  * Price Alert Routes
@@ -11,7 +12,7 @@ import { parseIntSafe } from "../utils/validation-helpers";
  */
 export function registerAlertRoutes(app: Express): void {
   // Create a new price alert
-  app.post("/api/price-alerts", withAuth(async (req, res) => {
+  app.post("/api/price-alerts", csrfProtection, withAuth(async (req, res) => {
     try {
       const { productId, targetPrice, notifyForum } = req.body;
       const user = req.user;
@@ -43,7 +44,7 @@ export function registerAlertRoutes(app: Express): void {
   }));
 
   // Update a price alert (activate/deactivate)
-  app.patch("/api/price-alerts/:id", withAuth(async (req, res) => {
+  app.patch("/api/price-alerts/:id", csrfProtection, withAuth(async (req, res) => {
     try {
       const user = req.user;
       const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
@@ -64,7 +65,7 @@ export function registerAlertRoutes(app: Express): void {
   }));
 
   // Delete a price alert
-  app.delete("/api/price-alerts/:id", withAuth(async (req, res) => {
+  app.delete("/api/price-alerts/:id", csrfProtection, withAuth(async (req, res) => {
     try {
       const user = req.user;
       const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });

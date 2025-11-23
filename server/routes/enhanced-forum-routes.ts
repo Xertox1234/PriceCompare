@@ -11,6 +11,46 @@ import {
 import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
+import { createErrorResponse } from '../utils/error-sanitizer';
+import { csrfProtection } from "../middleware/security";
+
+// Validation schemas for enhanced forum routes
+const updateProfileSchema = z.object({
+  bio: z.string().max(1000, 'Bio must be 1000 characters or less').optional().nullable(),
+  location: z.string().max(100, 'Location must be 100 characters or less').optional().nullable(),
+  website: z.string().url('Website must be a valid URL').optional().nullable().or(z.literal('')),
+  avatarUrl: z.string().url('Avatar URL must be a valid URL').optional().nullable().or(z.literal('')),
+});
+
+const createEnhancedTopicSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title must be 200 characters or less').transform(s => s.trim()),
+  content: z.string().optional().default(''),
+  categoryId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]),
+  tags: z.array(z.string().max(50)).max(10, 'Maximum 10 tags allowed').optional().default([]),
+});
+
+const createEnhancedPostSchema = z.object({
+  topicId: z.number().int().positive(),
+  content: z.string().optional(),
+  rawContent: z.string().optional(),
+  mentions: z.array(z.string()).max(20, 'Maximum 20 mentions allowed').optional().default([]),
+});
+
+const markNotificationsReadSchema = z.object({
+  notificationIds: z.array(z.number().int().positive()).min(1, 'At least one notification ID required'),
+});
+
+const awardBadgeSchema = z.object({
+  badgeId: z.number().int().positive('Badge ID must be a positive integer'),
+});
+
+const updateTrustLevelSchema = z.object({
+  trustLevel: z.number().int().min(0, 'Trust level must be at least 0').max(4, 'Trust level must be at most 4'),
+});
+
+const suspendUserSchema = z.object({
+  reason: z.string().max(500, 'Reason must be 500 characters or less').optional(),
+});
 
 export function registerEnhancedForumRoutes(app: Express) {
   // Enhanced user profile routes
@@ -26,23 +66,28 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.json(userProfile);
     } catch (error: unknown) {
-      logger.error("Error fetching user profile", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
-      res.status(500).json({ error: "Failed to fetch user profile" });
+      const errorResponse = createErrorResponse(error, 'GetUserProfile');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
-  app.put("/api/users/profile", requireAuth, async (req: Request, res: Response) => {
+  app.put("/api/users/profile", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
-      const { bio, location, website, avatarUrl } = req.body;
+      const validatedData = updateProfileSchema.parse(req.body);
 
       // Update user profile via storage layer
-      await storage.updateUserProfile(req.user!.id, { bio, location, website, avatarUrl });
+      await storage.updateUserProfile(req.user!.id, {
+        bio: validatedData.bio ?? undefined,
+        location: validatedData.location ?? undefined,
+        website: validatedData.website || undefined,
+        avatarUrl: validatedData.avatarUrl || undefined,
+      });
 
       const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user!.id);
       res.json(updatedProfile);
     } catch (error: unknown) {
-      logger.error("Error updating user profile", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to update profile" });
+      const errorResponse = createErrorResponse(error, 'UpdateUserProfile');
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   });
 
@@ -57,47 +102,34 @@ export function registerEnhancedForumRoutes(app: Express) {
       const topics = await enhancedForumStorage.getTopicsWithDetails(categoryId, productId, userId);
       res.json(topics);
     } catch (error: unknown) {
-      logger.error("Error fetching enhanced topics", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to fetch topics" });
+      const errorResponse = createErrorResponse(error, 'GetEnhancedTopics');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
-  app.post("/api/forum/topics/enhanced", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/forum/topics/enhanced", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
-      // SECURITY: Removed request body logging (may contain user content)
-
-      // Basic validation - just check required fields manually
-      if (!req.body.title || req.body.title.trim() === '') {
-        return res.status(400).json({ error: ["Title is required"] });
-      }
-
-      if (!req.body.categoryId) {
-        return res.status(400).json({ error: ["Category ID is required"] });
-      }
-
-      const { tags = [], title, content, categoryId: categoryIdRaw } = req.body;
-
-      // SECURITY: Safe integer parsing with validation
-      const categoryId = parseIntSafe(categoryIdRaw, 'categoryId', { min: 1 });
+      // Validate request body with Zod schema
+      const validatedData = createEnhancedTopicSchema.parse(req.body);
 
       const topicData = {
-        title: title.trim(),
-        content: content || '',
-        categoryId
+        title: validatedData.title,
+        content: validatedData.content,
+        categoryId: validatedData.categoryId
       };
-      
+
       const topic = await enhancedForumStorage.createTopicWithTags(
         {
           ...topicData,
           authorId: req.user!.id
         },
-        tags
+        validatedData.tags
       );
 
       res.status(201).json(topic);
     } catch (error: unknown) {
-      logger.error("Error creating enhanced topic", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to create topic" });
+      const errorResponse = createErrorResponse(error, 'CreateEnhancedTopic');
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   });
 
@@ -111,19 +143,29 @@ export function registerEnhancedForumRoutes(app: Express) {
       const posts = await enhancedForumStorage.getPostsWithDetails(topicId, userId);
       res.json(posts);
     } catch (error: unknown) {
-      logger.error("Error fetching enhanced posts", { error: error instanceof Error ? error.message : String(error), topicId: req.params.id });
-      res.status(500).json({ error: "Failed to fetch posts" });
+      const errorResponse = createErrorResponse(error, 'GetEnhancedPosts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
-  app.post("/api/forum/posts/enhanced", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/forum/posts/enhanced", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
-      const validation = validateRequestBody(insertForumPostSchema, req.body);
-      if (!validation.success) {
-        return res.status(400).json({ error: validation.errors });
+      // Validate with both the shared schema and our enhanced schema for mentions
+      const baseValidation = validateRequestBody(insertForumPostSchema, req.body);
+      if (!baseValidation.success) {
+        return res.status(400).json({ error: baseValidation.errors });
       }
 
-      const { mentions = [], content, rawContent, ...postData } = req.body;
+      // Validate mentions array specifically
+      const enhancedValidation = createEnhancedPostSchema.safeParse(req.body);
+      if (!enhancedValidation.success) {
+        return res.status(400).json({
+          error: enhancedValidation.error.issues.map((e: { message: string }) => e.message),
+          details: enhancedValidation.error.issues,
+        });
+      }
+
+      const { mentions, content, rawContent, ...postData } = enhancedValidation.data;
 
       // SECURITY: Sanitize forum post content with DOMPurify
       const { sanitizeForumPost } = require('./utils/sanitization');
@@ -133,7 +175,7 @@ export function registerEnhancedForumRoutes(app: Express) {
         {
           ...postData,
           content: sanitizedContent, // Sanitized HTML
-          rawContent: rawContent || content, // Original for editing
+          rawContent: rawContent || content || '', // Original for editing
           authorId: req.user!.id
         },
         mentions
@@ -141,21 +183,21 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(post);
     } catch (error: unknown) {
-      logger.error("Error creating enhanced post", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to create post" });
+      const errorResponse = createErrorResponse(error, 'CreateEnhancedPost');
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   });
 
   // Post like system
-  app.post("/api/forum/posts/:id/like", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/forum/posts/:id/like", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const postId = parseIntSafe(req.params.id, 'postId', { min: 1 });
       const result = await enhancedForumStorage.togglePostLike(postId, req.user!.id);
       res.json(result);
     } catch (error: unknown) {
-      logger.error("Error toggling post like", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to toggle like" });
+      const errorResponse = createErrorResponse(error, 'TogglePostLike');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -166,19 +208,19 @@ export function registerEnhancedForumRoutes(app: Express) {
       const notifications = await enhancedForumStorage.getUserNotifications(req.user!.id, unreadOnly);
       res.json(notifications);
     } catch (error: unknown) {
-      logger.error("Error fetching notifications", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to fetch notifications" });
+      const errorResponse = createErrorResponse(error, 'GetNotifications');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
-  app.put("/api/notifications/mark-read", requireAuth, async (req: Request, res: Response) => {
+  app.put("/api/notifications/mark-read", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
-      const { notificationIds } = req.body;
-      await enhancedForumStorage.markNotificationsAsRead(req.user!.id, notificationIds);
+      const validatedData = markNotificationsReadSchema.parse(req.body);
+      await enhancedForumStorage.markNotificationsAsRead(req.user!.id, validatedData.notificationIds);
       res.json({ success: true });
     } catch (error: unknown) {
-      logger.error("Error marking notifications as read", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to mark notifications as read" });
+      const errorResponse = createErrorResponse(error, 'MarkNotificationsRead');
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   });
 
@@ -188,12 +230,12 @@ export function registerEnhancedForumRoutes(app: Express) {
       const messages = await enhancedForumStorage.getUserPrivateMessages(req.user!.id);
       res.json(messages);
     } catch (error: unknown) {
-      logger.error("Error fetching private messages", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to fetch messages" });
+      const errorResponse = createErrorResponse(error, 'GetPrivateMessages');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
-  app.post("/api/messages", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/messages", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       const validation = validateRequestBody(insertPrivateMessageSchema, req.body);
       if (!validation.success) {
@@ -207,8 +249,8 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(message);
     } catch (error: unknown) {
-      logger.error("Error creating private message", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
-      res.status(500).json({ error: "Failed to create message" });
+      const errorResponse = createErrorResponse(error, 'CreatePrivateMessage');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -220,8 +262,8 @@ export function registerEnhancedForumRoutes(app: Express) {
       const tags = await enhancedForumStorage.getPopularTags(limit);
       res.json(tags);
     } catch (error: unknown) {
-      logger.error("Error fetching tags", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to fetch tags" });
+      const errorResponse = createErrorResponse(error, 'GetPopularTags');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -235,13 +277,13 @@ export function registerEnhancedForumRoutes(app: Express) {
       const tags = await enhancedForumStorage.searchTags(query);
       res.json(tags);
     } catch (error: unknown) {
-      logger.error("Error searching tags", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to search tags" });
+      const errorResponse = createErrorResponse(error, 'SearchTags');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
   // Badge system
-  app.post("/api/users/:id/badges", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/users/:id/badges", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       // Only admins can award badges
       if (req.user!.role !== 'admin') {
@@ -250,13 +292,13 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       // SECURITY: Safe integer parsing with validation
       const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
-      const { badgeId } = req.body;
+      const validatedData = awardBadgeSchema.parse(req.body);
 
-      const userBadge = await enhancedForumStorage.awardBadge(userId, badgeId);
+      const userBadge = await enhancedForumStorage.awardBadge(userId, validatedData.badgeId);
       res.status(201).json(userBadge);
     } catch (error: unknown) {
-      logger.error("Error awarding badge", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to award badge" });
+      const errorResponse = createErrorResponse(error, 'AwardBadge');
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   });
 
@@ -274,8 +316,8 @@ export function registerEnhancedForumRoutes(app: Express) {
       const posts = await enhancedForumStorage.searchPosts(query, categoryId);
       res.json(posts);
     } catch (error: unknown) {
-      logger.error("Error searching posts", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to search posts" });
+      const errorResponse = createErrorResponse(error, 'SearchPosts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -290,13 +332,13 @@ export function registerEnhancedForumRoutes(app: Express) {
       // For now, return a simple response
       res.json({ message: "Leaderboard functionality coming soon" });
     } catch (error: unknown) {
-      logger.error("Error fetching leaderboard", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to fetch leaderboard" });
+      const errorResponse = createErrorResponse(error, 'GetLeaderboard');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
   // Trust level management (admin only)
-  app.put("/api/users/:id/trust-level", requireAuth, async (req: Request, res: Response) => {
+  app.put("/api/users/:id/trust-level", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user!.role !== 'admin') {
         return res.status(403).json({ error: "Admin access required" });
@@ -304,24 +346,20 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       // SECURITY: Safe integer parsing with validation
       const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
-      const { trustLevel } = req.body;
+      const validatedData = updateTrustLevelSchema.parse(req.body);
 
-      if (trustLevel < 0 || trustLevel > 4) {
-        return res.status(400).json({ error: "Trust level must be between 0 and 4" });
-      }
-
-      await storage.updateUserTrustLevel(userId, trustLevel);
+      await storage.updateUserTrustLevel(userId, validatedData.trustLevel);
       const updatedUser = await enhancedForumStorage.getUserWithProfile(userId);
 
       res.json(updatedUser);
     } catch (error: unknown) {
-      logger.error("Error updating trust level", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
-      res.status(500).json({ error: "Failed to update trust level" });
+      const errorResponse = createErrorResponse(error, 'UpdateTrustLevel');
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   });
 
   // User moderation (admin/moderator only)
-  app.put("/api/users/:id/suspend", requireAuth, async (req: Request, res: Response) => {
+  app.put("/api/users/:id/suspend", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (!['admin', 'moderator'].includes(req.user!.role ?? '')) {
         return res.status(403).json({ error: "Moderator access required" });
@@ -329,20 +367,20 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       // SECURITY: Safe integer parsing with validation
       const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
-      const { reason } = req.body;
+      const validatedData = suspendUserSchema.parse(req.body);
 
       // UX: Storage layer handles transaction for suspension + notification atomically
-      await storage.suspendUser(userId, reason || 'Your account has been suspended', req.user!.id);
+      await storage.suspendUser(userId, validatedData.reason || 'Your account has been suspended', req.user!.id);
 
       res.json({ success: true });
     } catch (error: unknown) {
-      logger.error("Error suspending user", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
-      res.status(500).json({ error: "Failed to suspend user" });
+      const errorResponse = createErrorResponse(error, 'SuspendUser');
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   });
 
   // Initialize default badges on startup
-  app.post("/api/admin/initialize-badges", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/admin/initialize-badges", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user!.role !== 'admin') {
         return res.status(403).json({ error: "Admin access required" });
@@ -351,8 +389,8 @@ export function registerEnhancedForumRoutes(app: Express) {
       await enhancedForumStorage.initializeDefaultBadges();
       res.json({ success: true, message: "Default badges initialized" });
     } catch (error: unknown) {
-      logger.error("Error initializing badges", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "Failed to initialize badges" });
+      const errorResponse = createErrorResponse(error, 'InitializeBadges');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 }

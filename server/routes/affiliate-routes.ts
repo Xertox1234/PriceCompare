@@ -11,12 +11,28 @@ import { z } from 'zod';
 import { affiliateLinkService } from '../services/affiliate-link-service';
 import { AffiliateLinkAgent } from '../agents/affiliate-agent';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
+import { createErrorResponse } from '../utils/error-sanitizer';
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
 
 // Validation schema for testing affiliate links
 const testAffiliateLinkSchema = z.object({
   testUrl: z.string().url('Test URL must be a valid URL'),
+});
+
+// Validation schema for updating retailer affiliate configuration
+const updateAffiliateConfigSchema = z.object({
+  affiliateId: z.string().max(100, 'Affiliate ID must be 100 characters or less').optional().nullable(),
+  affiliateProgram: z.string().max(50, 'Affiliate program must be 50 characters or less').optional().nullable(),
+  baseAffiliateUrl: z.string().url('Base affiliate URL must be a valid URL').optional().nullable().or(z.literal('')),
+  commissionRate: z.union([z.number().min(0).max(100), z.string().regex(/^\d+(\.\d+)?$/)]).optional().nullable(),
+  affiliateStatus: z.enum(['active', 'pending', 'inactive', 'disabled']).optional(),
+  affiliateConfig: z.record(z.string(), z.unknown()).optional().nullable(),
+});
+
+// Validation schema for generating affiliate links
+const generateAffiliateLinksSchema = z.object({
+  limit: z.union([z.number().int().positive().max(1000), z.string().regex(/^\d+$/).transform(Number)]).optional(),
 });
 
 export function registerAffiliateRoutes(app: Express): void {
@@ -36,8 +52,8 @@ export function registerAffiliateRoutes(app: Express): void {
       const retailersWithStats = await storage.getRetailersWithAffiliateStats();
       res.json(retailersWithStats);
     } catch (error: unknown) {
-      logger.error('Failed to get retailers:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to retrieve retailers' });
+      const errorResponse = createErrorResponse(error, 'GetRetailersWithAffiliateStats');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -46,22 +62,15 @@ export function registerAffiliateRoutes(app: Express): void {
     try {
       // SECURITY: Safe integer parsing with validation
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
-      const {
-        affiliateId,
-        affiliateProgram,
-        baseAffiliateUrl,
-        commissionRate,
-        affiliateStatus,
-        affiliateConfig
-      } = req.body;
+      const validatedData = updateAffiliateConfigSchema.parse(req.body);
 
       const updatedRetailer = await storage.updateRetailerAffiliateConfig(retailerId, {
-        affiliateId,
-        affiliateProgram,
-        baseAffiliateUrl,
-        commissionRate: commissionRate ? commissionRate.toString() : null,
-        affiliateStatus,
-        affiliateConfig
+        affiliateId: validatedData.affiliateId,
+        affiliateProgram: validatedData.affiliateProgram,
+        baseAffiliateUrl: validatedData.baseAffiliateUrl || null,
+        commissionRate: validatedData.commissionRate ? validatedData.commissionRate.toString() : null,
+        affiliateStatus: validatedData.affiliateStatus,
+        affiliateConfig: validatedData.affiliateConfig
       });
 
       if (!updatedRetailer) {
@@ -73,8 +82,8 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json(updatedRetailer);
     } catch (error: unknown) {
-      logger.error('Failed to update retailer affiliate config:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to update retailer affiliate configuration' });
+      const errorResponse = createErrorResponse(error, 'UpdateRetailerAffiliateConfig');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -110,8 +119,8 @@ export function registerAffiliateRoutes(app: Express): void {
         });
       }
     } catch (error: unknown) {
-      logger.error('Link test failed:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Link test failed' });
+      const errorResponse = createErrorResponse(error, 'TestAffiliateLink');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -121,7 +130,8 @@ export function registerAffiliateRoutes(app: Express): void {
       // SECURITY: Safe integer parsing with validation
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
       // SECURITY: Validate and cap limit to prevent excessive database queries
-      const limit = req.body.limit ? parseIntSafe(req.body.limit, 'limit', { min: 1, max: 1000 }) : 50;
+      const validatedData = generateAffiliateLinksSchema.parse(req.body);
+      const limit = validatedData.limit ?? 50;
 
       const agent = await initializeAffiliateAgent();
       
@@ -133,8 +143,8 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json(result);
     } catch (error: unknown) {
-      logger.error('Link generation failed:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Link generation failed' });
+      const errorResponse = createErrorResponse(error, 'GenerateAffiliateLinks');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -150,8 +160,8 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json(stats);
     } catch (error: unknown) {
-      logger.error('Failed to get affiliate stats:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to retrieve affiliate statistics' });
+      const errorResponse = createErrorResponse(error, 'GetAffiliateStats');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -165,8 +175,8 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: unknown) {
-      logger.error('Failed to track click:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to track click' });
+      const errorResponse = createErrorResponse(error, 'TrackAffiliateClick');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -182,8 +192,8 @@ export function registerAffiliateRoutes(app: Express): void {
         stats
       });
     } catch (error: unknown) {
-      logger.error('Failed to start affiliate agent:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to start affiliate agent' });
+      const errorResponse = createErrorResponse(error, 'StartAffiliateAgent');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 }

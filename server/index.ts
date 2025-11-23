@@ -33,6 +33,7 @@ import { RATE_LIMIT, SESSION } from "./utils/constants";
 import { cleanupManager } from "./utils/cleanup-manager";
 import { createLogger } from "./utils/logger";
 import { initializeWebSocket, shutdownWebSocket } from "./websocket/index";
+import { advancedCache } from "./services/advanced-cache";
 
 const serverLog = createLogger('Server');
 
@@ -339,7 +340,12 @@ async function gracefulShutdown(signal: string) {
     await shutdownWebSocket();
     log('WebSocket connections closed');
 
-    // Step 3: Close Redis connections (both ioredis and redis clients)
+    // Step 3: Close advanced cache (pub/sub subscriber)
+    log('Closing advanced cache service...');
+    await advancedCache.close();
+    log('Advanced cache service closed');
+
+    // Step 4: Close Redis connections (both ioredis and redis clients)
     log('Closing Redis connections...');
     await closeRedis();
     log('Redis connections closed');

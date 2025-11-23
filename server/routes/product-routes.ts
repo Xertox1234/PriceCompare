@@ -11,6 +11,7 @@ import {
 import { CACHE_DURATION } from "../utils/constants";
 import { logger } from "../utils/logger";
 import { createErrorResponse } from "../utils/error-sanitizer";
+import { csrfProtection } from "../middleware/security";
 
 // Price history cache middleware - using redis cache with 1 hour TTL
 const priceHistoryCacheMiddleware = redisCacheMiddleware({
@@ -401,7 +402,7 @@ export function registerProductRoutes(app: Express): void {
   });
 
   // Track product view (analytics for browser extension)
-  app.post("/api/analytics/product-view", async (req, res) => {
+  app.post("/api/analytics/product-view", csrfProtection, async (req, res) => {
     try {
       const { productId, source, retailer } = req.body;
 

@@ -5,6 +5,7 @@ import * as smartAlertsService from "../services/smart-alerts-service";
 import { parseIntSafe, parseFloatSafe } from "../utils/validation-helpers";
 import { createErrorResponse } from "../utils/error-sanitizer";
 import { withAuth } from "./helpers";
+import { csrfProtection } from "../middleware/security";
 
 /**
  * Smart Alerts Routes
@@ -110,7 +111,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    * POST /api/smart-alerts/create-suggested
    * Create a suggested alert based on smart recommendations
    */
-  app.post("/api/smart-alerts/create-suggested", withAuth(async (req, res): Promise<void> => {
+  app.post("/api/smart-alerts/create-suggested", csrfProtection, withAuth(async (req, res): Promise<void> => {
     try {
       const user = req.user!; // Auth verified by withAuth middleware
 

@@ -5,15 +5,13 @@
  * Requires admin authentication for all endpoints.
  */
 
-import { Router, Request, Response } from 'express';
+import type { Express, Request, Response } from 'express';
 import { z } from 'zod';
 import { priceAggregationService } from '../services/price-aggregation-service';
 import { logger } from '../utils/logger';
 import { createErrorResponse } from '../utils/error-sanitizer';
 import { withAdmin } from './helpers';
 import { productIdSchema } from '../services/aggregation-validation';
-
-const router = Router();
 
 /**
  * Zod schemas for request validation
@@ -47,195 +45,195 @@ const productIdRequestSchema = z.object({
   }),
 });
 
-// All routes require admin authentication
-router.use(withAdmin);
-
 /**
- * POST /api/admin/aggregation/force-daily
- *
- * Force re-aggregation for a specific date range
- *
- * Body:
- * {
- *   "startDate": "2025-01-01",
- *   "endDate": "2025-01-31"
- * }
- *
- * @returns { daysAggregated: number, message: string }
+ * Register admin aggregation routes
  */
-router.post('/force-daily', async (req: Request, res: Response) => {
-  try {
-    // Validate request body with Zod
-    const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
+export function registerAdminAggregationRoutes(app: Express): void {
+  /**
+   * POST /api/admin/aggregation/force-daily
+   *
+   * Force re-aggregation for a specific date range
+   *
+   * Body:
+   * {
+   *   "startDate": "2025-01-01",
+   *   "endDate": "2025-01-31"
+   * }
+   *
+   * @returns { daysAggregated: number, message: string }
+   */
+  app.post('/api/admin/aggregation/force-daily', withAdmin(async (req: Request, res: Response) => {
+    try {
+      // Validate request body with Zod
+      const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
 
-    logger.info('[AdminAggregation] Force re-aggregation requested', {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      adminUser: req.user?.username,
-    });
+      logger.info('[AdminAggregation] Force re-aggregation requested', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        adminUser: req.user?.username,
+      });
 
-    // Force re-aggregation (force=true parameter)
-    const daysAggregated = await priceAggregationService.aggregateToDaily(
-      startDate,
-      endDate,
-      true // force re-aggregation
-    );
+      // Force re-aggregation (force=true parameter)
+      const daysAggregated = await priceAggregationService.aggregateToDaily(
+        startDate,
+        endDate,
+        true // force re-aggregation
+      );
 
-    res.json({
-      daysAggregated,
-      message: `Successfully re-aggregated ${daysAggregated} days`,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-    });
-  } catch (error: unknown) {
-    logger.error('[AdminAggregation] Force aggregation failed:', {
-      error,
-      body: req.body,
-      adminUser: req.user?.username,
-    });
-    const errorResponse = createErrorResponse(error, 'ForceAggregation');
-    res.status(errorResponse.status).json({
-      error: errorResponse.error,
-      details: errorResponse.details,
-    });
-  }
-});
+      res.json({
+        daysAggregated,
+        message: `Successfully re-aggregated ${daysAggregated} days`,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+      });
+    } catch (error: unknown) {
+      logger.error('[AdminAggregation] Force aggregation failed:', {
+        error,
+        body: req.body,
+        adminUser: req.user?.username,
+      });
+      const errorResponse = createErrorResponse(error, 'ForceAggregation');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details,
+      });
+    }
+  }));
 
-/**
- * POST /api/admin/aggregation/detect-gaps
- *
- * Detect missing aggregates in a date range
- *
- * Body:
- * {
- *   "startDate": "2025-01-01",
- *   "endDate": "2025-01-31"
- * }
- *
- * @returns { gaps: string[], count: number }
- */
-router.post('/detect-gaps', async (req: Request, res: Response) => {
-  try {
-    // Validate request body with Zod
-    const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
+  /**
+   * POST /api/admin/aggregation/detect-gaps
+   *
+   * Detect missing aggregates in a date range
+   *
+   * Body:
+   * {
+   *   "startDate": "2025-01-01",
+   *   "endDate": "2025-01-31"
+   * }
+   *
+   * @returns { gaps: string[], count: number }
+   */
+  app.post('/api/admin/aggregation/detect-gaps', withAdmin(async (req: Request, res: Response) => {
+    try {
+      // Validate request body with Zod
+      const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
 
-    logger.info('[AdminAggregation] Gap detection requested', {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      adminUser: req.user?.username,
-    });
+      logger.info('[AdminAggregation] Gap detection requested', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        adminUser: req.user?.username,
+      });
 
-    const gaps = await priceAggregationService.detectGaps(startDate, endDate);
+      const gaps = await priceAggregationService.detectGaps(startDate, endDate);
 
-    res.json({
-      gaps,
-      count: gaps.length,
-      message: gaps.length === 0
-        ? 'No gaps found'
-        : `Found ${gaps.length} days with missing aggregates`,
-    });
-  } catch (error: unknown) {
-    logger.error('[AdminAggregation] Gap detection failed:', {
-      error,
-      body: req.body,
-      adminUser: req.user?.username,
-    });
-    const errorResponse = createErrorResponse(error, 'DetectGaps');
-    res.status(errorResponse.status).json({
-      error: errorResponse.error,
-      details: errorResponse.details,
-    });
-  }
-});
+      res.json({
+        gaps,
+        count: gaps.length,
+        message: gaps.length === 0
+          ? 'No gaps found'
+          : `Found ${gaps.length} days with missing aggregates`,
+      });
+    } catch (error: unknown) {
+      logger.error('[AdminAggregation] Gap detection failed:', {
+        error,
+        body: req.body,
+        adminUser: req.user?.username,
+      });
+      const errorResponse = createErrorResponse(error, 'DetectGaps');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details,
+      });
+    }
+  }));
 
-/**
- * POST /api/admin/aggregation/fill-gaps
- *
- * Detect and fill gaps in aggregated data
- *
- * Body:
- * {
- *   "startDate": "2025-01-01",
- *   "endDate": "2025-01-31"
- * }
- *
- * @returns { daysFilled: number, message: string }
- */
-router.post('/fill-gaps', async (req: Request, res: Response) => {
-  try {
-    // Validate request body with Zod
-    const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
+  /**
+   * POST /api/admin/aggregation/fill-gaps
+   *
+   * Detect and fill gaps in aggregated data
+   *
+   * Body:
+   * {
+   *   "startDate": "2025-01-01",
+   *   "endDate": "2025-01-31"
+   * }
+   *
+   * @returns { daysFilled: number, message: string }
+   */
+  app.post('/api/admin/aggregation/fill-gaps', withAdmin(async (req: Request, res: Response) => {
+    try {
+      // Validate request body with Zod
+      const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
 
-    logger.info('[AdminAggregation] Fill gaps requested', {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      adminUser: req.user?.username,
-    });
+      logger.info('[AdminAggregation] Fill gaps requested', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        adminUser: req.user?.username,
+      });
 
-    const daysFilled = await priceAggregationService.fillGaps(startDate, endDate);
+      const daysFilled = await priceAggregationService.fillGaps(startDate, endDate);
 
-    res.json({
-      daysFilled,
-      message: daysFilled === 0
-        ? 'No gaps found to fill'
-        : `Successfully filled ${daysFilled} gaps`,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-    });
-  } catch (error: unknown) {
-    logger.error('[AdminAggregation] Fill gaps failed:', {
-      error,
-      body: req.body,
-      adminUser: req.user?.username,
-    });
-    const errorResponse = createErrorResponse(error, 'FillGaps');
-    res.status(errorResponse.status).json({
-      error: errorResponse.error,
-      details: errorResponse.details,
-    });
-  }
-});
+      res.json({
+        daysFilled,
+        message: daysFilled === 0
+          ? 'No gaps found to fill'
+          : `Successfully filled ${daysFilled} gaps`,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+      });
+    } catch (error: unknown) {
+      logger.error('[AdminAggregation] Fill gaps failed:', {
+        error,
+        body: req.body,
+        adminUser: req.user?.username,
+      });
+      const errorResponse = createErrorResponse(error, 'FillGaps');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details,
+      });
+    }
+  }));
 
-/**
- * POST /api/admin/aggregation/single-product
- *
- * Re-aggregate a specific product's data
- *
- * Body:
- * {
- *   "productId": 123
- * }
- *
- * @returns { message: string }
- */
-router.post('/single-product', async (req: Request, res: Response) => {
-  try {
-    // Validate request body with Zod
-    const { productId } = productIdRequestSchema.parse(req.body);
+  /**
+   * POST /api/admin/aggregation/single-product
+   *
+   * Re-aggregate a specific product's data
+   *
+   * Body:
+   * {
+   *   "productId": 123
+   * }
+   *
+   * @returns { message: string }
+   */
+  app.post('/api/admin/aggregation/single-product', withAdmin(async (req: Request, res: Response) => {
+    try {
+      // Validate request body with Zod
+      const { productId } = productIdRequestSchema.parse(req.body);
 
-    logger.info('[AdminAggregation] Single product aggregation requested', {
-      productId,
-      adminUser: req.user?.username,
-    });
+      logger.info('[AdminAggregation] Single product aggregation requested', {
+        productId,
+        adminUser: req.user?.username,
+      });
 
-    await priceAggregationService.calculateProductAggregates(productId);
+      await priceAggregationService.calculateProductAggregates(productId);
 
-    res.json({
-      message: `Successfully re-aggregated product ${productId}`,
-      productId,
-    });
-  } catch (error: unknown) {
-    logger.error('[AdminAggregation] Single product aggregation failed:', {
-      error,
-      productId: req.body.productId,
-      adminUser: req.user?.username,
-    });
-    const errorResponse = createErrorResponse(error, 'SingleProductAggregation');
-    res.status(errorResponse.status).json({
-      error: errorResponse.error,
-      details: errorResponse.details,
-    });
-  }
-});
-
-export default router;
+      res.json({
+        message: `Successfully re-aggregated product ${productId}`,
+        productId,
+      });
+    } catch (error: unknown) {
+      logger.error('[AdminAggregation] Single product aggregation failed:', {
+        error,
+        productId: req.body.productId,
+        adminUser: req.user?.username,
+      });
+      const errorResponse = createErrorResponse(error, 'SingleProductAggregation');
+      res.status(errorResponse.status).json({
+        error: errorResponse.error,
+        details: errorResponse.details,
+      });
+    }
+  }));
+}

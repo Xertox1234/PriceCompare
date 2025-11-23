@@ -23,6 +23,24 @@ import { logger } from '../utils/logger';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { withAdmin } from './helpers';
 import { createErrorResponse } from '../utils/error-sanitizer';
+import { z } from 'zod';
+
+// Validation schema for cache warming options
+const cacheWarmingSchema = z.object({
+  topProductsCount: z.number().int().positive().max(10000, 'Top products count must be at most 10000').optional().default(100),
+  includeAnalytics: z.boolean().optional().default(true),
+  includeSearches: z.boolean().optional().default(true),
+});
+
+// Validation schema for clearing all caches
+const clearCachesSchema = z.object({
+  confirm: z.literal(true).refine(val => val === true, {
+    message: 'Confirmation required: set "confirm": true',
+  }),
+});
+
+// Validation schema for window query parameter
+const windowSchema = z.enum(['HOURLY', 'DAILY', 'WEEKLY']).optional().default('HOURLY');
 
 /**
  * Register cache management routes
@@ -51,7 +69,7 @@ export function registerCacheRoutes(app: Express): void {
       const limit = req.query.limit
         ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 1000 })
         : 100;
-      const window = (req.query.window as 'HOURLY' | 'DAILY' | 'WEEKLY') || 'HOURLY';
+      const window = windowSchema.parse(req.query.window);
 
       const topProducts = await popularityTracker.getTopProducts(limit, window);
 
@@ -124,22 +142,18 @@ export function registerCacheRoutes(app: Express): void {
    */
   app.post('/api/admin/cache/warm', withAdmin(async (req, res) => {
     try {
-      const options = {
-        topProductsCount: req.body.topProductsCount || 100,
-        includeAnalytics: req.body.includeAnalytics !== false,
-        includeSearches: req.body.includeSearches !== false,
-      };
+      const validatedOptions = cacheWarmingSchema.parse(req.body);
 
-      const count = await triggerCacheWarming(options);
+      const count = await triggerCacheWarming(validatedOptions);
 
       res.json({
         success: true,
         warmedProducts: count,
-        options,
+        options: validatedOptions,
       });
     } catch (error: unknown) {
       const errorResponse = createErrorResponse(error, 'TriggerCacheWarming');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   }));
 
@@ -224,14 +238,8 @@ export function registerCacheRoutes(app: Express): void {
    */
   app.post('/api/admin/cache/clear', withAdmin(async (req, res) => {
     try {
-      // Require confirmation
-      if (req.body.confirm !== true) {
-        res.status(400).json({
-          error: 'Confirmation required',
-          message: 'Set "confirm": true in request body to clear all caches',
-        });
-        return;
-      }
+      // Validate confirmation with Zod
+      clearCachesSchema.parse(req.body);
 
       await clearAllCaches();
 
@@ -241,7 +249,7 @@ export function registerCacheRoutes(app: Express): void {
       });
     } catch (error: unknown) {
       const errorResponse = createErrorResponse(error, 'ClearAllCaches');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
     }
   }));
 

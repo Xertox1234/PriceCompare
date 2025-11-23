@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
+import { createErrorResponse } from '../utils/error-sanitizer';
 import crypto from 'crypto';
 import type { User } from '@shared/schema';
 import { requireAuth } from '../auth';
@@ -136,8 +137,8 @@ export function registerDiscourseRoutes(app: Express): void {
       res.redirect(redirectUrl);
       
     } catch (error: unknown) {
-      logger.error('Discourse SSO error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'SSO authentication failed' });
+      const errorResponse = createErrorResponse(error, 'DiscourseSSOLogin');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -181,8 +182,8 @@ export function registerDiscourseRoutes(app: Express): void {
 
       res.json({ success: true, event_type });
     } catch (error: unknown) {
-      logger.error('Discourse webhook error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Webhook processing failed' });
+      const errorResponse = createErrorResponse(error, 'DiscourseWebhook');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -208,8 +209,8 @@ export function registerDiscourseRoutes(app: Express): void {
         discourse_url_configured: !!process.env.DISCOURSE_URL
       });
     } catch (error: unknown) {
-      logger.error('Discourse SSO test error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'SSO test failed' });
+      const errorResponse = createErrorResponse(error, 'DiscourseSSOTest');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -223,10 +224,10 @@ export function registerDiscourseRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
     } catch (error: unknown) {
-      logger.error('Discourse health check error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({
+      const errorResponse = createErrorResponse(error, 'DiscourseHealthCheck');
+      res.status(errorResponse.status).json({
         status: 'unhealthy',
-        error: 'Health check failed'
+        error: errorResponse.error
       });
     }
   });

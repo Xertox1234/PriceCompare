@@ -632,6 +632,9 @@ export type Product = typeof products.$inferSelect;
 export type ProductOffer = typeof productOffers.$inferSelect;
 export type PriceHistory = typeof priceHistory.$inferSelect;
 export type User = typeof users.$inferSelect;
+// Safe user type for API responses and request types
+// SECURITY: NEVER expose password hashes - SafeUser explicitly omits sensitive fields
+export type SafeUser = Omit<User, 'passwordHash'>; // SECURITY: Safe - Omit removes the field
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type ForumCategory = typeof forumCategories.$inferSelect;
 export type ForumTopic = typeof forumTopics.$inferSelect;

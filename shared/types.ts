@@ -1,10 +1,11 @@
 // Comprehensive type definitions for the application
 import type { Request } from 'express';
-import type { User } from './schema';
+import type { SafeUser } from './schema';
 
 // Express Request with authenticated user
+// SECURITY: NEVER expose passwordHash - uses SafeUser type which excludes it
 export interface AuthenticatedRequest extends Request {
-  user: User;
+  user: SafeUser;
 }
 
 // API Response types

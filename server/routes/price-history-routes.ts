@@ -1,5 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
 import { z } from 'zod';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 import {
@@ -107,12 +108,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: history.length
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching price history:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch price history' });
+      const errorResponse = createErrorResponse(error, 'GetPriceHistory');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -143,12 +140,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         data: stats
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching price stats:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch price statistics' });
+      const errorResponse = createErrorResponse(error, 'GetPriceStats');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -180,12 +173,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: snapshots.length
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error fetching price snapshots:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch price snapshots' });
+      const errorResponse = createErrorResponse(error, 'GetPriceSnapshots');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -218,8 +207,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         data: result
       });
     } catch (error) {
-      logger.error('Error recording price change:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to record price change' });
+      const errorResponse = createErrorResponse(error, 'RecordPriceChange');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -245,8 +234,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count
       });
     } catch (error) {
-      logger.error('Error generating snapshots:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to generate snapshots' });
+      const errorResponse = createErrorResponse(error, 'GenerateSnapshots');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -274,8 +263,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: drops.length
       });
     } catch (error) {
-      logger.error('Error detecting price drops:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to detect price drops' });
+      const errorResponse = createErrorResponse(error, 'DetectPriceDrops');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -297,12 +286,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         deletedCount
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      logger.error('Error cleaning up price history:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to clean up price history' });
+      const errorResponse = createErrorResponse(error, 'CleanupPriceHistory');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -333,8 +318,8 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: limitedDrops.length
       });
     } catch (error) {
-      logger.error('Error fetching recent price drops:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch recent price drops' });
+      const errorResponse = createErrorResponse(error, 'GetRecentPriceDrops');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 }

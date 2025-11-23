@@ -1,5 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
 import { requireAuth, requireAdmin } from '../auth';
 import { advancedSearchService } from '../services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
@@ -53,8 +54,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json(response);
       
     } catch (error: unknown) {
-      logger.error('Advanced search error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ message: "Advanced search failed" });
+      const errorResponse = createErrorResponse(error, 'AdvancedSearch');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -81,9 +82,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json({ suggestions });
       
     } catch (error: unknown) {
-      logger.error('Search suggestions error:', { error: error instanceof Error ? error.message : String(error) });
-      logger.error('Search error with stack', { stack: (error as Error).stack });
-      res.status(500).json({ message: "Failed to get search suggestions", error: (error as Error).message });
+      const errorResponse = createErrorResponse(error, 'GetSearchSuggestions');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -103,8 +103,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json(analysis);
       
     } catch (error: unknown) {
-      logger.error('Query analysis error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ message: "Failed to analyze query" });
+      const errorResponse = createErrorResponse(error, 'AnalyzeQueryIntent');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -165,8 +165,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       });
       
     } catch (error: unknown) {
-      logger.error('Intent-based search error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ message: "Intent-based search failed" });
+      const errorResponse = createErrorResponse(error, 'IntentBasedSearch');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -239,8 +239,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       });
       
     } catch (error: unknown) {
-      logger.error('Smart search error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ message: "Smart search failed" });
+      const errorResponse = createErrorResponse(error, 'SmartSearch');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -288,8 +288,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json({ facets });
       
     } catch (error: unknown) {
-      logger.error('Facets error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ message: "Failed to get search facets" });
+      const errorResponse = createErrorResponse(error, 'GetSearchFacets');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -308,8 +308,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       });
       
     } catch (error: unknown) {
-      logger.error('Search stats error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ message: "Failed to get search statistics" });
+      const errorResponse = createErrorResponse(error, 'GetSearchStats');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -325,8 +325,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json({ message: "Search caches cleared successfully" });
       
     } catch (error: unknown) {
-      logger.error('Clear cache error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ message: "Failed to clear search caches" });
+      const errorResponse = createErrorResponse(error, 'ClearSearchCaches');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 

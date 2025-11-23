@@ -20,6 +20,7 @@
  *   to use AdvancedCacheService for unified connection management
  */
 
+import type { Redis } from 'ioredis';
 import { getRedisClient, redisClient } from '../config/redis';
 import { logger } from '../utils/logger';
 
@@ -172,6 +173,8 @@ export class AdvancedCacheService {
   private l1Cache: LRUCache<unknown>;
   private stats: CacheStats;
   private readonly PUBSUB_CHANNEL = 'cache:invalidate';
+  /** Pub/sub subscriber client - stored for cleanup during graceful shutdown */
+  private subscriber: Redis | null = null;
 
   constructor() {
     // L1 cache: 1000 items, 60 second TTL
@@ -434,12 +437,15 @@ export class AdvancedCacheService {
 
   /**
    * Subscribe to cache invalidation events
+   *
+   * Creates a duplicate Redis client for pub/sub and stores it as a class property
+   * for proper cleanup during graceful shutdown.
    */
   private subscribeToInvalidations(): void {
-    // Create a separate Redis client for pub/sub
-    const subscriber = redisClient.duplicate();
+    // Create a separate Redis client for pub/sub and store for cleanup
+    this.subscriber = redisClient.duplicate();
 
-    subscriber.subscribe(this.PUBSUB_CHANNEL, (err) => {
+    this.subscriber.subscribe(this.PUBSUB_CHANNEL, (err) => {
       if (err) {
         logger.error('Failed to subscribe to cache invalidations:', err);
       } else {
@@ -447,7 +453,7 @@ export class AdvancedCacheService {
       }
     });
 
-    subscriber.on('message', (channel, message) => {
+    this.subscriber.on('message', (channel, message) => {
       if (channel === this.PUBSUB_CHANNEL) {
         try {
           const { key, isPattern } = JSON.parse(message);
@@ -464,6 +470,24 @@ export class AdvancedCacheService {
         }
       }
     });
+  }
+
+  /**
+   * Close the cache service and clean up resources
+   *
+   * This method properly closes the pub/sub subscriber connection to prevent
+   * memory leaks and orphaned Redis connections during graceful shutdown.
+   */
+  async close(): Promise<void> {
+    if (this.subscriber) {
+      try {
+        await this.subscriber.quit();
+        logger.info('Advanced cache pub/sub subscriber closed');
+      } catch (error) {
+        logger.error('Error closing advanced cache subscriber:', error);
+      }
+      this.subscriber = null;
+    }
   }
 
   /**

@@ -136,6 +136,9 @@ export class WebSocketClient {
   /**
    * Subscribe to a server event
    * Type-safe event handler with TypeScript generics
+   *
+   * Socket.io's typed socket already handles event typing through the
+   * ServerToClientEvents generic parameter, so we can use the native on() method.
    */
   on<E extends keyof ServerToClientEvents>(
     event: E,
@@ -146,12 +149,16 @@ export class WebSocketClient {
       return;
     }
 
-    this.socket.on(event, handler as any); // Socket.io typing requires 'as any'
+    // Socket.io typed sockets handle event typing through the generic parameter.
+    // The handler type matches ServerToClientEvents[E] which Socket.io expects.
+    this.socket.on(event, handler);
   }
 
   /**
    * Unsubscribe from a server event
    * If no handler provided, removes all handlers for that event
+   *
+   * Socket.io's typed socket handles event typing through the generic parameter.
    */
   off<E extends keyof ServerToClientEvents>(
     event: E,
@@ -162,7 +169,8 @@ export class WebSocketClient {
     }
 
     if (handler) {
-      this.socket.off(event, handler as any);
+      // Socket.io typed sockets handle event typing through the generic parameter.
+      this.socket.off(event, handler);
     } else {
       this.socket.off(event);
     }
@@ -171,6 +179,8 @@ export class WebSocketClient {
   /**
    * Emit an event to the server
    * Type-safe with client event types
+   *
+   * Socket.io's typed socket handles event typing through the generic parameter.
    */
   emit<E extends keyof ClientToServerEvents>(
     event: E,
@@ -181,7 +191,9 @@ export class WebSocketClient {
       return;
     }
 
-    (this.socket.emit as any)(event, ...args);
+    // Socket.io typed sockets handle emit typing through the ClientToServerEvents generic.
+    // Spread args to pass event data correctly to the emit method.
+    this.socket.emit(event, ...args);
   }
 
   /**

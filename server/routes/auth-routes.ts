@@ -17,11 +17,7 @@ import {
   isRateLimitExceeded
 } from "../services/password-reset-service";
 import { emailService } from "../services/email-service";
-
-// Type for authenticated request
-interface AuthenticatedRequest extends Request {
-  user?: User;
-}
+import { isAuthenticated } from "./helpers";
 
 /**
  * Authentication Routes
@@ -165,8 +161,8 @@ export function registerAuthRoutes(app: Express): void {
 
   // User logout
   app.post("/api/auth/logout", (req, res) => {
-    const authenticatedReq = req as AuthenticatedRequest;
-    const user = authenticatedReq.user;
+    // Capture user before logout (may or may not be authenticated)
+    const user = isAuthenticated(req) ? req.user : undefined;
 
     req.logout((err) => {
       if (err) {
@@ -415,30 +411,30 @@ export function registerAuthRoutes(app: Express): void {
 
   // Get current user
   app.get("/api/auth/user", async (req, res) => {
-    const authenticatedReq = req as AuthenticatedRequest;
-    if (authenticatedReq.user) {
-      // Refresh session with latest user data from database
-      const userId = authenticatedReq.user.id;
-      const updatedUser = await findUserById(userId);
-      if (updatedUser) {
-        authenticatedReq.user = updatedUser;
-      }
-
-      const user = authenticatedReq.user;
-      // SECURITY: Include CSRF token in response for client convenience
-      const csrfToken = generateCsrfToken(req);
-
-      res.json({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role || 'user',
-        reputation: user.reputation || 0,
-        isActive: user.isActive !== false,
-        csrfToken, // Provide token for use in subsequent requests
-      });
-    } else {
-      res.status(401).json({ error: 'Not authenticated' });
+    if (!isAuthenticated(req)) {
+      return res.status(401).json({ error: 'Not authenticated' });
     }
+
+    // req.user is now guaranteed to exist via type guard
+    // Refresh session with latest user data from database
+    const userId = req.user.id;
+    const updatedUser = await findUserById(userId);
+    if (updatedUser) {
+      req.user = updatedUser;
+    }
+
+    const user = req.user;
+    // SECURITY: Include CSRF token in response for client convenience
+    const csrfToken = generateCsrfToken(req);
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role || 'user',
+      reputation: user.reputation || 0,
+      isActive: user.isActive !== false,
+      csrfToken, // Provide token for use in subsequent requests
+    });
   });
 }

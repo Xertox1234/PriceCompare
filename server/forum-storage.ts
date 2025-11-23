@@ -9,6 +9,7 @@ import {
 } from '../shared/schema';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import { createLogger } from './utils/logger';
+import { PAGINATION } from './utils/constants';
 
 const log = createLogger('ForumStorage');
 import type {
@@ -25,6 +26,17 @@ import type {
   InsertPriceAlert
 } from '../shared/schema';
 import { getFirstResult } from './utils/db-helpers';
+
+/**
+ * Paginated result type for forum topics
+ */
+export interface PaginatedTopicsResult {
+  topics: ForumTopicWithDetails[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
 
 // Type definitions for raw query results before mapping
 // SECURITY: These types intentionally exclude passwordHash
@@ -98,7 +110,25 @@ export class ForumStorage {
   }
 
   // Topics
-  async getTopics(categoryId?: number, productId?: number): Promise<ForumTopicWithDetails[]> {
+  /**
+   * Get paginated forum topics with optional filtering
+   * @param categoryId - Filter by category ID
+   * @param productId - Filter by product ID
+   * @param page - Page number (1-indexed, defaults to 1)
+   * @param limit - Number of topics per page (defaults to 50, max 100)
+   * @returns Paginated topics with total count and page metadata
+   */
+  async getTopics(
+    categoryId?: number,
+    productId?: number,
+    page: number = PAGINATION.DEFAULT_PAGE,
+    limit: number = 50
+  ): Promise<PaginatedTopicsResult> {
+    // Validate and constrain pagination parameters
+    const validPage = Math.max(1, page);
+    const validLimit = Math.min(Math.max(1, limit), PAGINATION.MAX_LIMIT);
+    const offset = (validPage - 1) * validLimit;
+
     const conditions = [];
     if (categoryId) {
       conditions.push(eq(forumTopics.categoryId, categoryId));
@@ -107,6 +137,18 @@ export class ForumStorage {
       conditions.push(eq(forumTopics.productId, productId));
     }
 
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count first (single query for count)
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(forumTopics)
+      .where(whereClause);
+
+    const total = countResult?.count ?? 0;
+    const totalPages = Math.ceil(total / validLimit);
+
+    // Get paginated results
     const results = await db
       .select({
         id: forumTopics.id,
@@ -142,15 +184,25 @@ export class ForumStorage {
       .from(forumTopics)
       .leftJoin(users, eq(forumTopics.authorId, users.id))
       .leftJoin(forumCategories, eq(forumTopics.categoryId, forumCategories.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(whereClause)
       .orderBy(desc(forumTopics.isPinned), desc(forumTopics.lastPostAt))
+      .limit(validLimit)
+      .offset(offset)
       .execute() as unknown as TopicQueryResult[];
 
-    return results.map((result) => ({
+    const topics = results.map((result) => ({
       ...result,
       author: result.author!,
       category: result.category || undefined,
     })) as ForumTopicWithDetails[];
+
+    return {
+      topics,
+      total,
+      totalPages,
+      page: validPage,
+      limit: validLimit,
+    };
   }
 
   async getTopicById(id: number): Promise<ForumTopicWithDetails | null> {
