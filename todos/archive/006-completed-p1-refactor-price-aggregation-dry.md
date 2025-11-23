@@ -1,9 +1,10 @@
 ---
-status: pending
+status: completed
 priority: p1
 issue_id: "006"
 tags: [code-review, simplification, dry, refactoring]
 dependencies: []
+completed_date: "2025-11-22"
 ---
 
 # Refactor Price Aggregation Service - DRY Violation
@@ -11,6 +12,20 @@ dependencies: []
 ## Problem Statement
 
 The `price-aggregation-service.ts` file is 1,470 lines with near-identical code blocks repeated 6 times for daily/weekly/monthly aggregation. This violates DRY principle and creates a maintenance nightmare.
+
+## Resolution Summary
+
+Refactored the file by extracting shared helper methods and centralizing upsert logic. Reduced from 1,470 to 1,414 lines while significantly improving maintainability.
+
+### Changes Made:
+1. Added `calculatePeriodChange()` helper function for period-over-period calculations
+2. Added `fetchPriceData()` method for common price data queries
+3. Added `buildPreviousPeriodMap()` for O(1) lookup map creation
+4. Added `processAggregateData()` generic data processing method
+5. Added `upsertDailyAggregates()`, `upsertWeeklyAggregates()`, `upsertMonthlyAggregates()` shared upsert methods
+6. Added `formatDateStr()` helper for consistent date formatting
+7. Added `fetchProductPriceData()`, `buildRetailerMap()`, `processProductAggregateData()`, `processProductMonthlyData()` for single-product aggregation
+8. Simplified all 6 aggregation methods to use shared helpers
 
 ## Findings
 

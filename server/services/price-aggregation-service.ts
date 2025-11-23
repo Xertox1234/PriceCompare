@@ -75,7 +75,145 @@ function filterNullish<T>(array: (T | null | undefined)[]): T[] {
   return array.filter((item): item is T => item != null);
 }
 
+// ============================================================================
+// AGGREGATION TYPES AND HELPERS
+// ============================================================================
+
+type PeriodType = 'daily' | 'weekly' | 'monthly';
+
+interface PriceDataRow {
+  productId: number | null;
+  retailerId: number | null;
+  prices: string;
+  recordCount: number;
+}
+
+interface AggregateStats {
+  minPrice: number;
+  maxPrice: number;
+  avgPrice: number;
+  medianPrice: number;
+  volatilityScore: number;
+  count: number;
+}
+
+/**
+ * Calculate period-over-period change percentage
+ */
+function calculatePeriodChange(currentAvg: number, previousAvg: number | null): string | null {
+  if (previousAvg === null || previousAvg === 0) return null;
+  return ((currentAvg - previousAvg) / previousAvg * 100).toFixed(2);
+}
+
 export class PriceAggregationService {
+  // ============================================================================
+  // CORE AGGREGATION HELPERS (DRY)
+  // ============================================================================
+
+  /**
+   * Fetch aggregated price data for a date range
+   * Common query used by all aggregation methods
+   */
+  private async fetchPriceData(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    startDate: Date,
+    endDate: Date,
+    productId?: number
+  ): Promise<PriceDataRow[]> {
+    const conditions = [
+      gte(priceHistory.recordedAt, startDate),
+      lte(priceHistory.recordedAt, endDate)
+    ];
+
+    if (productId !== undefined) {
+      conditions.push(eq(priceHistory.productId, productId));
+    }
+
+    return await tx
+      .select({
+        productId: priceHistory.productId,
+        retailerId: priceHistory.retailerId,
+        prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
+        recordCount: sql<number>`count(*)::int`,
+      })
+      .from(priceHistory)
+      .where(and(...conditions))
+      .groupBy(priceHistory.productId, priceHistory.retailerId);
+  }
+
+  /**
+   * Build a lookup map from previous period data
+   * Provides O(1) lookup for period-over-period changes
+   */
+  private buildPreviousPeriodMap<T extends { productId: number; retailerId: number; avgPrice: string | null }>(
+    data: T[],
+    useRetailerOnly = false
+  ): Map<string | number, T> {
+    const map = new Map<string | number, T>();
+    for (const record of data) {
+      const key = useRetailerOnly ? record.retailerId : `${record.productId}-${record.retailerId}`;
+      map.set(key, record);
+    }
+    return map;
+  }
+
+  /**
+   * Process raw price data into aggregate values
+   * Common transformation used by all aggregation methods
+   */
+  private processAggregateData<T>(
+    priceData: PriceDataRow[],
+    previousMap: Map<string | number, { avgPrice: string | null }>,
+    buildValue: (
+      productId: number,
+      retailerId: number,
+      stats: AggregateStats,
+      recordCount: number,
+      periodChange: string | null
+    ) => T | null,
+    context: { aggregationType: string; periodLabel: string },
+    useRetailerKeyOnly = false
+  ): T[] {
+    const rawValues = priceData.map(data => {
+      try {
+        const { productId, retailerId } = validateProductRetailer(
+          data.productId,
+          data.retailerId,
+          { aggregationType: context.aggregationType }
+        );
+
+        const pricesArray = this.parsePostgresArray(data.prices);
+        const stats = this.calculatePriceStatistics(pricesArray, {
+          productId,
+          retailerId,
+          date: context.periodLabel,
+        });
+
+        const key = useRetailerKeyOnly ? retailerId : `${productId}-${retailerId}`;
+        const prevData = previousMap.get(key);
+        const periodChange = calculatePeriodChange(
+          stats.avgPrice,
+          prevData?.avgPrice ? parseFloat(prevData.avgPrice) : null
+        );
+
+        return buildValue(productId, retailerId, stats, data.recordCount, periodChange);
+      } catch (error) {
+        logger.error(`[PriceAggregation] Invalid data in ${context.aggregationType} aggregate:`, {
+          error: error instanceof Error ? error.message : String(error),
+          productId: data.productId,
+          retailerId: data.retailerId,
+        });
+        return null;
+      }
+    });
+
+    return filterNullish(rawValues);
+  }
+
+  // ============================================================================
+  // PUBLIC AGGREGATION METHODS
+  // ============================================================================
+
   /**
    * Calculate weekly price aggregates for all products
    * Should be run weekly (e.g., Sunday at 11 PM)
@@ -91,87 +229,37 @@ export class PriceAggregationService {
 
     logger.info(`[PriceAggregation] Calculating weekly aggregates for year ${year}, week ${week}`);
 
-    // Wrap with metrics collection, retry, and transaction
     return await measureAggregation(
       'weekly',
       async () => await retryWithBackoff(
-      async () => db.transaction(async (tx) => {
-      try {
-        // Get date range for the current week
-        const { startDate, endDate } = this.getWeekDateRange(year, week);
+        async () => db.transaction(async (tx) => {
+          const { startDate, endDate } = this.getWeekDateRange(year, week);
+          const priceData = await this.fetchPriceData(tx, startDate, endDate);
 
-        // OPTIMIZATION 1: Use database aggregation to group and calculate in a single query
-        const priceData = await tx
-          .select({
-            productId: priceHistory.productId,
-            retailerId: priceHistory.retailerId,
-            prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
-            recordCount: sql<number>`count(*)::int`,
-          })
-          .from(priceHistory)
-          .where(
-            and(
-              gte(priceHistory.recordedAt, startDate),
-              lte(priceHistory.recordedAt, endDate)
-            )
-          )
-          .groupBy(priceHistory.productId, priceHistory.retailerId);
+          if (priceData.length === 0) {
+            logger.info("[PriceAggregation] No price data found for this week");
+            return 0;
+          }
 
-        if (priceData.length === 0) {
-          logger.info("[PriceAggregation] No price data found for this week");
-          return 0;
-        }
+          logger.info(`[PriceAggregation] Found ${priceData.length} product-retailer combinations`);
 
-        logger.info(`[PriceAggregation] Found ${priceData.length} product-retailer combinations`);
-
-        // OPTIMIZATION 2: Batch fetch all previous week data in one query
-        const previousWeek = week === 1 ? 52 : week - 1;
-        const previousYear = week === 1 ? year - 1 : year;
-
-        const previousWeekMap = new Map<string, typeof priceAggregatesWeekly.$inferSelect>();
-        const previousWeekData = await tx
-          .select()
-          .from(priceAggregatesWeekly)
-          .where(
-            and(
+          // Fetch previous week data
+          const previousWeek = week === 1 ? 52 : week - 1;
+          const previousYear = week === 1 ? year - 1 : year;
+          const previousWeekData = await tx
+            .select()
+            .from(priceAggregatesWeekly)
+            .where(and(
               eq(priceAggregatesWeekly.year, previousYear),
               eq(priceAggregatesWeekly.week, previousWeek)
-            )
-          );
+            ));
+          const previousMap = this.buildPreviousPeriodMap(previousWeekData);
 
-        // Index by product-retailer for O(1) lookup
-        for (const record of previousWeekData) {
-          previousWeekMap.set(`${record.productId}-${record.retailerId}`, record);
-        }
-
-        // OPTIMIZATION 3: Prepare all values for batch insert
-        const rawValues = priceData.map(data => {
-          try {
-            // Validate product and retailer IDs
-            const { productId, retailerId } = validateProductRetailer(
-              data.productId,
-              data.retailerId,
-              { year, week, aggregationType: 'weekly' }
-            );
-
-            // Parse the PostgreSQL array string into numbers
-            const pricesArray = this.parsePostgresArray(data.prices);
-            const stats = this.calculatePriceStatistics(pricesArray, {
-              productId,
-              retailerId,
-              date: `${year}-W${week}`,
-            });
-
-            // Lookup previous week data from our Map (O(1))
-            const prevData = previousWeekMap.get(`${productId}-${retailerId}`);
-
-            let weekOverWeekChange = null;
-            if (prevData?.avgPrice) {
-              const prevAvg = parseFloat(prevData.avgPrice);
-              weekOverWeekChange = ((stats.avgPrice - prevAvg) / prevAvg * 100).toFixed(2);
-            }
-
-            return {
+          // Process data using shared helper
+          const values = this.processAggregateData(
+            priceData,
+            previousMap,
+            (productId, retailerId, stats, recordCount, weekOverWeekChange) => ({
               productId,
               retailerId,
               year,
@@ -181,69 +269,61 @@ export class PriceAggregationService {
               avgPrice: stats.avgPrice.toFixed(2),
               medianPrice: stats.medianPrice.toFixed(2),
               volatilityScore: stats.volatilityScore.toFixed(2),
-              recordCount: data.recordCount,
+              recordCount,
               weekOverWeekChange,
               updatedAt: new Date(),
-            };
-          } catch (error) {
-            logger.error('[PriceAggregation] Invalid data in weekly aggregate:', {
-              error: error instanceof Error ? error.message : String(error),
-              productId: data.productId,
-              retailerId: data.retailerId,
-              year,
-              week,
-            });
-            return null; // Skip invalid records
+            }),
+            { aggregationType: 'weekly', periodLabel: `${year}-W${week}` }
+          );
+
+          if (values.length === 0) {
+            logger.info("[PriceAggregation] No valid data to insert");
+            return 0;
           }
-        });
-        const values = filterNullish(rawValues);
 
-        if (values.length === 0) {
-          logger.info("[PriceAggregation] No valid data to insert");
-          return 0;
+          await this.upsertWeeklyAggregates(tx, values);
+          logger.info(`[PriceAggregation] Transaction committed: ${values.length} weekly aggregates`);
+          return values.length;
+        }),
+        {
+          maxAttempts: 3,
+          initialDelayMs: 1000,
+          isRetryable: isTransientDatabaseError,
+          context: { operation: 'calculateWeeklyAggregates', year, week },
         }
-
-        // OPTIMIZATION 4: Single batch insert/update operation (within transaction)
-        await tx
-          .insert(priceAggregatesWeekly)
-          .values(values)
-          .onConflictDoUpdate({
-            target: [
-              priceAggregatesWeekly.productId,
-              priceAggregatesWeekly.retailerId,
-              priceAggregatesWeekly.year,
-              priceAggregatesWeekly.week,
-            ],
-            set: {
-              minPrice: sql`excluded.min_price`,
-              maxPrice: sql`excluded.max_price`,
-              avgPrice: sql`excluded.avg_price`,
-              medianPrice: sql`excluded.median_price`,
-              volatilityScore: sql`excluded.volatility_score`,
-              recordCount: sql`excluded.record_count`,
-              weekOverWeekChange: sql`excluded.week_over_week_change`,
-              updatedAt: sql`excluded.updated_at`,
-            },
-          });
-
-        logger.info(`[PriceAggregation] Transaction committed: ${values.length} weekly aggregates`);
-        return values.length;
-      } catch (error) {
-        logger.error("[PriceAggregation] Transaction failed, rolling back:", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error; // Rollback happens automatically
-      }
-    }),
-    {
-      maxAttempts: 3,
-      initialDelayMs: 1000,
-      isRetryable: isTransientDatabaseError,
-      context: { operation: 'calculateWeeklyAggregates', year, week },
-    }
-    ),
-    { year, week }
+      ),
+      { year, week }
     );
+  }
+
+  /**
+   * Upsert weekly aggregates (shared by bulk and single-product methods)
+   */
+  private async upsertWeeklyAggregates(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    values: (typeof priceAggregatesWeekly.$inferInsert)[]
+  ): Promise<void> {
+    await tx
+      .insert(priceAggregatesWeekly)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          priceAggregatesWeekly.productId,
+          priceAggregatesWeekly.retailerId,
+          priceAggregatesWeekly.year,
+          priceAggregatesWeekly.week,
+        ],
+        set: {
+          minPrice: sql`excluded.min_price`,
+          maxPrice: sql`excluded.max_price`,
+          avgPrice: sql`excluded.avg_price`,
+          medianPrice: sql`excluded.median_price`,
+          volatilityScore: sql`excluded.volatility_score`,
+          recordCount: sql`excluded.record_count`,
+          weekOverWeekChange: sql`excluded.week_over_week_change`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
   }
 
   /**
@@ -256,191 +336,169 @@ export class PriceAggregationService {
   async calculateMonthlyAggregates(): Promise<number> {
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth() + 1; // 1-12
+    const month = now.getMonth() + 1;
 
     logger.info(`[PriceAggregation] Calculating monthly aggregates for year ${year}, month ${month}`);
 
-    // Wrap with metrics collection, retry, and transaction
     return await measureAggregation(
       'monthly',
       async () => await retryWithBackoff(
-      async () => db.transaction(async (tx) => {
-      try {
-        // Get date range for the current month
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0, 23, 59, 59);
+        async () => db.transaction(async (tx) => {
+          const startDate = new Date(year, month - 1, 1);
+          const endDate = new Date(year, month, 0, 23, 59, 59);
+          const priceData = await this.fetchPriceData(tx, startDate, endDate);
 
-        // OPTIMIZATION 1: Use database aggregation
-        const priceData = await tx
-          .select({
-            productId: priceHistory.productId,
-            retailerId: priceHistory.retailerId,
-            prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
-            recordCount: sql<number>`count(*)::int`,
-          })
-          .from(priceHistory)
-          .where(
-            and(
-              gte(priceHistory.recordedAt, startDate),
-              lte(priceHistory.recordedAt, endDate)
-            )
-          )
-          .groupBy(priceHistory.productId, priceHistory.retailerId);
-
-        if (priceData.length === 0) {
-          logger.info("[PriceAggregation] No price data found for this month");
-          return 0;
-        }
-
-        logger.info(`[PriceAggregation] Found ${priceData.length} product-retailer combinations`);
-
-        // OPTIMIZATION 2: Batch fetch previous month and year data in parallel
-        const previousMonth = month === 1 ? 12 : month - 1;
-        const previousMonthYear = month === 1 ? year - 1 : year;
-
-        const [previousMonthData, lastYearData] = await Promise.all([
-          tx
-            .select()
-            .from(priceAggregatesMonthly)
-            .where(
-              and(
-                eq(priceAggregatesMonthly.year, previousMonthYear),
-                eq(priceAggregatesMonthly.month, previousMonth)
-              )
-            ),
-          tx
-            .select()
-            .from(priceAggregatesMonthly)
-            .where(
-              and(
-                eq(priceAggregatesMonthly.year, year - 1),
-                eq(priceAggregatesMonthly.month, month)
-              )
-            ),
-        ]);
-
-        // Index by product-retailer for O(1) lookup
-        const previousMonthMap = new Map<string, typeof priceAggregatesMonthly.$inferSelect>();
-        const lastYearMap = new Map<string, typeof priceAggregatesMonthly.$inferSelect>();
-
-        for (const record of previousMonthData) {
-          previousMonthMap.set(`${record.productId}-${record.retailerId}`, record);
-        }
-
-        for (const record of lastYearData) {
-          lastYearMap.set(`${record.productId}-${record.retailerId}`, record);
-        }
-
-        // OPTIMIZATION 3: Prepare all values for batch insert
-        const rawValues = priceData.map(data => {
-          try {
-            // Validate product and retailer IDs
-            const { productId, retailerId } = validateProductRetailer(
-              data.productId,
-              data.retailerId,
-              { year, month, aggregationType: 'monthly' }
-            );
-
-            const pricesArray = this.parsePostgresArray(data.prices);
-            const stats = this.calculatePriceStatistics(pricesArray, {
-              productId,
-              retailerId,
-              date: `${year}-${String(month).padStart(2, '0')}`,
-            });
-
-            const key = `${productId}-${retailerId}`;
-
-            // Calculate month-over-month change
-            let monthOverMonthChange = null;
-            const prevMonthData = previousMonthMap.get(key);
-            if (prevMonthData?.avgPrice) {
-              const prevAvg = parseFloat(prevMonthData.avgPrice);
-              monthOverMonthChange = ((stats.avgPrice - prevAvg) / prevAvg * 100).toFixed(2);
-            }
-
-            // Calculate year-over-year change
-            let yearOverYearChange = null;
-            const prevYearData = lastYearMap.get(key);
-            if (prevYearData?.avgPrice) {
-              const prevYearAvg = parseFloat(prevYearData.avgPrice);
-              yearOverYearChange = ((stats.avgPrice - prevYearAvg) / prevYearAvg * 100).toFixed(2);
-            }
-
-            return {
-              productId,
-              retailerId,
-              year,
-              month,
-              minPrice: stats.minPrice.toFixed(2),
-              maxPrice: stats.maxPrice.toFixed(2),
-              avgPrice: stats.avgPrice.toFixed(2),
-              medianPrice: stats.medianPrice.toFixed(2),
-              volatilityScore: stats.volatilityScore.toFixed(2),
-              recordCount: data.recordCount,
-              monthOverMonthChange,
-              yearOverYearChange,
-              updatedAt: new Date(),
-            };
-          } catch (error) {
-            logger.error('[PriceAggregation] Invalid data in monthly aggregate:', {
-              error: error instanceof Error ? error.message : String(error),
-              productId: data.productId,
-              retailerId: data.retailerId,
-              year,
-              month,
-            });
-            return null; // Skip invalid records
+          if (priceData.length === 0) {
+            logger.info("[PriceAggregation] No price data found for this month");
+            return 0;
           }
-        });
-        const values = filterNullish(rawValues);
 
-        if (values.length === 0) {
-          logger.info("[PriceAggregation] No valid data to insert");
-          return 0;
+          logger.info(`[PriceAggregation] Found ${priceData.length} product-retailer combinations`);
+
+          // Fetch previous month and year-over-year data in parallel
+          const previousMonth = month === 1 ? 12 : month - 1;
+          const previousMonthYear = month === 1 ? year - 1 : year;
+
+          const [previousMonthData, lastYearData] = await Promise.all([
+            tx.select().from(priceAggregatesMonthly).where(and(
+              eq(priceAggregatesMonthly.year, previousMonthYear),
+              eq(priceAggregatesMonthly.month, previousMonth)
+            )),
+            tx.select().from(priceAggregatesMonthly).where(and(
+              eq(priceAggregatesMonthly.year, year - 1),
+              eq(priceAggregatesMonthly.month, month)
+            )),
+          ]);
+
+          const previousMonthMap = this.buildPreviousPeriodMap(previousMonthData);
+          const lastYearMap = this.buildPreviousPeriodMap(lastYearData);
+
+          // Process with year-over-year calculation
+          const values = this.processMonthlyAggregateData(
+            priceData,
+            previousMonthMap,
+            lastYearMap,
+            year,
+            month
+          );
+
+          if (values.length === 0) {
+            logger.info("[PriceAggregation] No valid data to insert");
+            return 0;
+          }
+
+          await this.upsertMonthlyAggregates(tx, values);
+          logger.info(`[PriceAggregation] Transaction committed: ${values.length} monthly aggregates`);
+          return values.length;
+        }),
+        {
+          maxAttempts: 3,
+          initialDelayMs: 1000,
+          isRetryable: isTransientDatabaseError,
+          context: { operation: 'calculateMonthlyAggregates', year, month },
         }
-
-        // OPTIMIZATION 4: Single batch insert/update (within transaction)
-        await tx
-          .insert(priceAggregatesMonthly)
-          .values(values)
-          .onConflictDoUpdate({
-            target: [
-              priceAggregatesMonthly.productId,
-              priceAggregatesMonthly.retailerId,
-              priceAggregatesMonthly.year,
-              priceAggregatesMonthly.month,
-            ],
-            set: {
-              minPrice: sql`excluded.min_price`,
-              maxPrice: sql`excluded.max_price`,
-              avgPrice: sql`excluded.avg_price`,
-              medianPrice: sql`excluded.median_price`,
-              volatilityScore: sql`excluded.volatility_score`,
-              recordCount: sql`excluded.record_count`,
-              monthOverMonthChange: sql`excluded.month_over_month_change`,
-              yearOverYearChange: sql`excluded.year_over_year_change`,
-              updatedAt: sql`excluded.updated_at`,
-            },
-          });
-
-        logger.info(`[PriceAggregation] Transaction committed: ${values.length} monthly aggregates`);
-        return values.length;
-      } catch (error) {
-        logger.error("[PriceAggregation] Transaction failed, rolling back:", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error; // Rollback happens automatically
-      }
-    }),
-    {
-      maxAttempts: 3,
-      initialDelayMs: 1000,
-      isRetryable: isTransientDatabaseError,
-      context: { operation: 'calculateMonthlyAggregates', year, month },
-    }
-    ),
-    { year, month }
+      ),
+      { year, month }
     );
+  }
+
+  /**
+   * Process monthly aggregate data with year-over-year calculation
+   */
+  private processMonthlyAggregateData(
+    priceData: PriceDataRow[],
+    previousMonthMap: Map<string | number, { avgPrice: string | null }>,
+    lastYearMap: Map<string | number, { avgPrice: string | null }>,
+    year: number,
+    month: number
+  ): (typeof priceAggregatesMonthly.$inferInsert)[] {
+    const rawValues = priceData.map(data => {
+      try {
+        const { productId, retailerId } = validateProductRetailer(
+          data.productId,
+          data.retailerId,
+          { year, month, aggregationType: 'monthly' }
+        );
+
+        const pricesArray = this.parsePostgresArray(data.prices);
+        const stats = this.calculatePriceStatistics(pricesArray, {
+          productId,
+          retailerId,
+          date: `${year}-${String(month).padStart(2, '0')}`,
+        });
+
+        const key = `${productId}-${retailerId}`;
+        const prevMonthData = previousMonthMap.get(key);
+        const prevYearData = lastYearMap.get(key);
+
+        const monthOverMonthChange = calculatePeriodChange(
+          stats.avgPrice,
+          prevMonthData?.avgPrice ? parseFloat(prevMonthData.avgPrice) : null
+        );
+        const yearOverYearChange = calculatePeriodChange(
+          stats.avgPrice,
+          prevYearData?.avgPrice ? parseFloat(prevYearData.avgPrice) : null
+        );
+
+        return {
+          productId,
+          retailerId,
+          year,
+          month,
+          minPrice: stats.minPrice.toFixed(2),
+          maxPrice: stats.maxPrice.toFixed(2),
+          avgPrice: stats.avgPrice.toFixed(2),
+          medianPrice: stats.medianPrice.toFixed(2),
+          volatilityScore: stats.volatilityScore.toFixed(2),
+          recordCount: data.recordCount,
+          monthOverMonthChange,
+          yearOverYearChange,
+          updatedAt: new Date(),
+        };
+      } catch (error) {
+        logger.error('[PriceAggregation] Invalid data in monthly aggregate:', {
+          error: error instanceof Error ? error.message : String(error),
+          productId: data.productId,
+          retailerId: data.retailerId,
+          year,
+          month,
+        });
+        return null;
+      }
+    });
+
+    return filterNullish(rawValues);
+  }
+
+  /**
+   * Upsert monthly aggregates (shared by bulk and single-product methods)
+   */
+  private async upsertMonthlyAggregates(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    values: (typeof priceAggregatesMonthly.$inferInsert)[]
+  ): Promise<void> {
+    await tx
+      .insert(priceAggregatesMonthly)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          priceAggregatesMonthly.productId,
+          priceAggregatesMonthly.retailerId,
+          priceAggregatesMonthly.year,
+          priceAggregatesMonthly.month,
+        ],
+        set: {
+          minPrice: sql`excluded.min_price`,
+          maxPrice: sql`excluded.max_price`,
+          avgPrice: sql`excluded.avg_price`,
+          medianPrice: sql`excluded.median_price`,
+          volatilityScore: sql`excluded.volatility_score`,
+          recordCount: sql`excluded.record_count`,
+          monthOverMonthChange: sql`excluded.month_over_month_change`,
+          yearOverYearChange: sql`excluded.year_over_year_change`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
   }
 
   /**
@@ -455,10 +513,6 @@ export class PriceAggregationService {
    * @returns Number of daily aggregates created
    * @throws Error if aggregation fails (transaction will rollback)
    *
-   * @example
-   * const count = await priceAggregationService.calculateDailyAggregates();
-   * console.log(`Created ${count} daily aggregates for yesterday`);
-   *
    * OPTIMIZED: Uses database-level aggregation and batch operations
    * TRANSACTIONAL: All-or-nothing updates for data consistency
    */
@@ -468,89 +522,44 @@ export class PriceAggregationService {
     const year = yesterday.getFullYear();
     const month = yesterday.getMonth() + 1;
     const day = yesterday.getDate();
+    const dateStr = this.formatDateStr(year, month, day);
 
-    logger.info(`[PriceAggregation] Calculating daily aggregates for ${year}-${month}-${day}`);
+    logger.info(`[PriceAggregation] Calculating daily aggregates for ${dateStr}`);
 
-    // Wrap with metrics collection, retry, and transaction
     return await measureAggregation(
       'daily',
       async () => await retryWithBackoff(
-      async () => db.transaction(async (tx) => {
-      try {
-        // Get date range for yesterday
-        const { startDate, endDate } = this.getDayDateRange(year, month, day);
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        async () => db.transaction(async (tx) => {
+          const { startDate, endDate } = this.getDayDateRange(year, month, day);
+          const priceData = await this.fetchPriceData(tx, startDate, endDate);
 
-        // OPTIMIZATION 1: Use database aggregation
-        const priceData = await tx
-          .select({
-            productId: priceHistory.productId,
-            retailerId: priceHistory.retailerId,
-            prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
-            recordCount: sql<number>`count(*)::int`,
-          })
-          .from(priceHistory)
-          .where(
-            and(
-              gte(priceHistory.recordedAt, startDate),
-              lte(priceHistory.recordedAt, endDate)
-            )
-          )
-          .groupBy(priceHistory.productId, priceHistory.retailerId);
+          if (priceData.length === 0) {
+            logger.info("[PriceAggregation] No price data found for yesterday");
+            return 0;
+          }
 
-        if (priceData.length === 0) {
-          logger.info("[PriceAggregation] No price data found for yesterday");
-          return 0;
-        }
+          logger.info(`[PriceAggregation] Found ${priceData.length} product-retailer combinations`);
 
-        logger.info(`[PriceAggregation] Found ${priceData.length} product-retailer combinations`);
+          // Fetch previous day data
+          const previousDay = new Date(yesterday);
+          previousDay.setDate(previousDay.getDate() - 1);
+          const prevDateStr = this.formatDateStr(
+            previousDay.getFullYear(),
+            previousDay.getMonth() + 1,
+            previousDay.getDate()
+          );
 
-        // OPTIMIZATION 2: Batch fetch previous day data in one query
-        const previousDay = new Date(yesterday);
-        previousDay.setDate(previousDay.getDate() - 1);
-        const prevYear = previousDay.getFullYear();
-        const prevMonth = previousDay.getMonth() + 1;
-        const prevDayNum = previousDay.getDate();
-        const prevDateStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevDayNum).padStart(2, '0')}`;
+          const previousDayData = await tx
+            .select()
+            .from(priceAggregatesDaily)
+            .where(eq(priceAggregatesDaily.date, prevDateStr));
+          const previousMap = this.buildPreviousPeriodMap(previousDayData);
 
-        const previousDayMap = new Map<string, typeof priceAggregatesDaily.$inferSelect>();
-        const previousDayData = await tx
-          .select()
-          .from(priceAggregatesDaily)
-          .where(eq(priceAggregatesDaily.date, prevDateStr));
-
-        // Index by product-retailer for O(1) lookup
-        for (const record of previousDayData) {
-          previousDayMap.set(`${record.productId}-${record.retailerId}`, record);
-        }
-
-        // OPTIMIZATION 3: Prepare all values for batch insert
-        const rawValues = priceData.map(data => {
-          try {
-            // Validate product and retailer IDs
-            const { productId, retailerId } = validateProductRetailer(
-              data.productId,
-              data.retailerId,
-              { date: dateStr, aggregationType: 'daily' }
-            );
-
-            const pricesArray = this.parsePostgresArray(data.prices);
-            const stats = this.calculatePriceStatistics(pricesArray, {
-              productId,
-              retailerId,
-              date: dateStr,
-            });
-
-            // Lookup previous day data from our Map (O(1))
-            const prevData = previousDayMap.get(`${productId}-${retailerId}`);
-
-            let dayOverDayChange = null;
-            if (prevData?.avgPrice) {
-              const prevAvg = parseFloat(prevData.avgPrice);
-              dayOverDayChange = ((stats.avgPrice - prevAvg) / prevAvg * 100).toFixed(2);
-            }
-
-            return {
+          // Process data using shared helper
+          const values = this.processAggregateData(
+            priceData,
+            previousMap,
+            (productId, retailerId, stats, recordCount, dayOverDayChange) => ({
               productId,
               retailerId,
               date: dateStr,
@@ -559,78 +568,77 @@ export class PriceAggregationService {
               avgPrice: stats.avgPrice.toFixed(2),
               medianPrice: stats.medianPrice.toFixed(2),
               volatilityScore: stats.volatilityScore.toFixed(2),
-              recordCount: data.recordCount,
+              recordCount,
               dayOverDayChange,
               updatedAt: new Date(),
-            };
-          } catch (error) {
-            logger.error('[PriceAggregation] Invalid data in daily aggregate:', {
-              error: error instanceof Error ? error.message : String(error),
-              productId: data.productId,
-              retailerId: data.retailerId,
-              date: dateStr,
-            });
-            return null; // Skip invalid records
-          }
-        });
-        const values = filterNullish(rawValues);
-
-        if (values.length === 0) {
-          logger.info("[PriceAggregation] No valid data to insert");
-          return 0;
-        }
-
-        // OPTIMIZATION 4: Single batch insert/update operation (within transaction)
-        await tx
-          .insert(priceAggregatesDaily)
-          .values(values)
-          .onConflictDoUpdate({
-            target: [
-              priceAggregatesDaily.productId,
-              priceAggregatesDaily.retailerId,
-              priceAggregatesDaily.date,
-            ],
-            set: {
-              minPrice: sql`excluded.min_price`,
-              maxPrice: sql`excluded.max_price`,
-              avgPrice: sql`excluded.avg_price`,
-              medianPrice: sql`excluded.median_price`,
-              volatilityScore: sql`excluded.volatility_score`,
-              recordCount: sql`excluded.record_count`,
-              dayOverDayChange: sql`excluded.day_over_day_change`,
-              updatedAt: sql`excluded.updated_at`,
-            },
-          });
-
-        // Mark price history records as aggregated
-        await tx
-          .update(priceHistory)
-          .set({ aggregatedAt: new Date() })
-          .where(
-            and(
-              gte(priceHistory.recordedAt, startDate),
-              lte(priceHistory.recordedAt, endDate)
-            )
+            }),
+            { aggregationType: 'daily', periodLabel: dateStr }
           );
 
-        logger.info(`[PriceAggregation] Transaction committed: ${values.length} daily aggregates`);
-        return values.length;
-      } catch (error) {
-        logger.error("[PriceAggregation] Transaction failed, rolling back:", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error; // Rollback happens automatically
-      }
-    }),
-    {
-      maxAttempts: 3,
-      initialDelayMs: 1000,
-      isRetryable: isTransientDatabaseError,
-      context: { operation: 'calculateDailyAggregates', date: `${year}-${month}-${day}` },
-    }
-    ),
-    { date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` }
+          if (values.length === 0) {
+            logger.info("[PriceAggregation] No valid data to insert");
+            return 0;
+          }
+
+          await this.upsertDailyAggregates(tx, values);
+
+          // Mark price history records as aggregated
+          await tx
+            .update(priceHistory)
+            .set({ aggregatedAt: new Date() })
+            .where(and(
+              gte(priceHistory.recordedAt, startDate),
+              lte(priceHistory.recordedAt, endDate)
+            ));
+
+          logger.info(`[PriceAggregation] Transaction committed: ${values.length} daily aggregates`);
+          return values.length;
+        }),
+        {
+          maxAttempts: 3,
+          initialDelayMs: 1000,
+          isRetryable: isTransientDatabaseError,
+          context: { operation: 'calculateDailyAggregates', date: dateStr },
+        }
+      ),
+      { date: dateStr }
     );
+  }
+
+  /**
+   * Format date string in YYYY-MM-DD format
+   */
+  private formatDateStr(year: number, month: number, day: number): string {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  /**
+   * Upsert daily aggregates (shared by bulk and single-product methods)
+   */
+  private async upsertDailyAggregates(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    values: (typeof priceAggregatesDaily.$inferInsert)[]
+  ): Promise<void> {
+    await tx
+      .insert(priceAggregatesDaily)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          priceAggregatesDaily.productId,
+          priceAggregatesDaily.retailerId,
+          priceAggregatesDaily.date,
+        ],
+        set: {
+          minPrice: sql`excluded.min_price`,
+          maxPrice: sql`excluded.max_price`,
+          avgPrice: sql`excluded.avg_price`,
+          medianPrice: sql`excluded.median_price`,
+          volatilityScore: sql`excluded.volatility_score`,
+          recordCount: sql`excluded.record_count`,
+          dayOverDayChange: sql`excluded.day_over_day_change`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
   }
 
   /**
@@ -1022,6 +1030,7 @@ export class PriceAggregationService {
 
   /**
    * Calculate daily aggregates for a specific product
+   * Uses shared helpers and upsert function for DRY compliance
    */
   private async calculateDailyAggregatesForProduct(
     productId: number,
@@ -1030,101 +1039,55 @@ export class PriceAggregationService {
     day: number
   ): Promise<void> {
     const { startDate, endDate } = this.getDayDateRange(year, month, day);
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dateStr = this.formatDateStr(year, month, day);
 
-    const priceData = await db
-      .select({
-        retailerId: priceHistory.retailerId,
-        prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
-        recordCount: sql<number>`count(*)::int`,
-      })
-      .from(priceHistory)
-      .where(
-        and(
-          eq(priceHistory.productId, productId),
-          gte(priceHistory.recordedAt, startDate),
-          lte(priceHistory.recordedAt, endDate)
-        )
-      )
-      .groupBy(priceHistory.retailerId);
-
+    const priceData = await this.fetchProductPriceData(productId, startDate, endDate);
     if (priceData.length === 0) return;
 
-    // Get previous day data for this product
+    // Get previous day data
     const previousDay = new Date(year, month - 1, day);
     previousDay.setDate(previousDay.getDate() - 1);
-    const prevDateStr = `${previousDay.getFullYear()}-${String(previousDay.getMonth() + 1).padStart(2, '0')}-${String(previousDay.getDate()).padStart(2, '0')}`;
+    const prevDateStr = this.formatDateStr(
+      previousDay.getFullYear(),
+      previousDay.getMonth() + 1,
+      previousDay.getDate()
+    );
 
     const previousDayData = await db
       .select()
       .from(priceAggregatesDaily)
-      .where(
-        and(
-          eq(priceAggregatesDaily.productId, productId),
-          eq(priceAggregatesDaily.date, prevDateStr)
-        )
-      );
+      .where(and(
+        eq(priceAggregatesDaily.productId, productId),
+        eq(priceAggregatesDaily.date, prevDateStr)
+      ));
 
-    const previousDayMap = new Map<number, typeof priceAggregatesDaily.$inferSelect>();
-    for (const record of previousDayData) {
-      previousDayMap.set(record.retailerId, record);
-    }
-
-    const rawValues = priceData.map(data => {
-      if (!data.retailerId) return null;
-
-      const pricesArray = this.parsePostgresArray(data.prices);
-      const stats = this.calculatePriceStatistics(pricesArray);
-
-      let dayOverDayChange = null;
-      const prevData = previousDayMap.get(data.retailerId);
-      if (prevData?.avgPrice) {
-        const prevAvg = parseFloat(prevData.avgPrice);
-        dayOverDayChange = ((stats.avgPrice - prevAvg) / prevAvg * 100).toFixed(2);
-      }
-
-      return {
+    const previousMap = this.buildRetailerMap(previousDayData);
+    const values = this.processProductAggregateData(
+      priceData,
+      previousMap,
+      (retailerId, stats, recordCount, dayOverDayChange) => ({
         productId,
-        retailerId: data.retailerId,
+        retailerId,
         date: dateStr,
         minPrice: stats.minPrice.toFixed(2),
         maxPrice: stats.maxPrice.toFixed(2),
         avgPrice: stats.avgPrice.toFixed(2),
         medianPrice: stats.medianPrice.toFixed(2),
         volatilityScore: stats.volatilityScore.toFixed(2),
-        recordCount: data.recordCount,
+        recordCount,
         dayOverDayChange,
         updatedAt: new Date(),
-      };
-    });
-        const values = filterNullish(rawValues);
+      })
+    );
 
     if (values.length > 0) {
-      await db
-        .insert(priceAggregatesDaily)
-        .values(values)
-        .onConflictDoUpdate({
-          target: [
-            priceAggregatesDaily.productId,
-            priceAggregatesDaily.retailerId,
-            priceAggregatesDaily.date,
-          ],
-          set: {
-            minPrice: sql`excluded.min_price`,
-            maxPrice: sql`excluded.max_price`,
-            avgPrice: sql`excluded.avg_price`,
-            medianPrice: sql`excluded.median_price`,
-            volatilityScore: sql`excluded.volatility_score`,
-            recordCount: sql`excluded.record_count`,
-            dayOverDayChange: sql`excluded.day_over_day_change`,
-            updatedAt: sql`excluded.updated_at`,
-          },
-        });
+      await this.upsertDailyAggregates(db as unknown as Parameters<Parameters<typeof db.transaction>[0]>[0], values);
     }
   }
 
   /**
    * Calculate weekly aggregates for a specific product
+   * Uses shared helpers and upsert function for DRY compliance
    */
   private async calculateWeeklyAggregatesForProduct(
     productId: number,
@@ -1133,60 +1096,29 @@ export class PriceAggregationService {
   ): Promise<void> {
     const { startDate, endDate } = this.getWeekDateRange(year, week);
 
-    const priceData = await db
-      .select({
-        retailerId: priceHistory.retailerId,
-        prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
-        recordCount: sql<number>`count(*)::int`,
-      })
-      .from(priceHistory)
-      .where(
-        and(
-          eq(priceHistory.productId, productId),
-          gte(priceHistory.recordedAt, startDate),
-          lte(priceHistory.recordedAt, endDate)
-        )
-      )
-      .groupBy(priceHistory.retailerId);
-
+    const priceData = await this.fetchProductPriceData(productId, startDate, endDate);
     if (priceData.length === 0) return;
 
-    // Get previous week data for this product
+    // Get previous week data
     const previousWeek = week === 1 ? 52 : week - 1;
     const previousYear = week === 1 ? year - 1 : year;
 
     const previousWeekData = await db
       .select()
       .from(priceAggregatesWeekly)
-      .where(
-        and(
-          eq(priceAggregatesWeekly.productId, productId),
-          eq(priceAggregatesWeekly.year, previousYear),
-          eq(priceAggregatesWeekly.week, previousWeek)
-        )
-      );
+      .where(and(
+        eq(priceAggregatesWeekly.productId, productId),
+        eq(priceAggregatesWeekly.year, previousYear),
+        eq(priceAggregatesWeekly.week, previousWeek)
+      ));
 
-    const previousWeekMap = new Map<number, typeof priceAggregatesWeekly.$inferSelect>();
-    for (const record of previousWeekData) {
-      previousWeekMap.set(record.retailerId, record);
-    }
-
-    const rawValues = priceData.map(data => {
-      if (!data.retailerId) return null;
-
-      const pricesArray = this.parsePostgresArray(data.prices);
-      const stats = this.calculatePriceStatistics(pricesArray);
-
-      let weekOverWeekChange = null;
-      const prevData = previousWeekMap.get(data.retailerId);
-      if (prevData?.avgPrice) {
-        const prevAvg = parseFloat(prevData.avgPrice);
-        weekOverWeekChange = ((stats.avgPrice - prevAvg) / prevAvg * 100).toFixed(2);
-      }
-
-      return {
+    const previousMap = this.buildRetailerMap(previousWeekData);
+    const values = this.processProductAggregateData(
+      priceData,
+      previousMap,
+      (retailerId, stats, recordCount, weekOverWeekChange) => ({
         productId,
-        retailerId: data.retailerId,
+        retailerId,
         year,
         week,
         minPrice: stats.minPrice.toFixed(2),
@@ -1194,40 +1126,20 @@ export class PriceAggregationService {
         avgPrice: stats.avgPrice.toFixed(2),
         medianPrice: stats.medianPrice.toFixed(2),
         volatilityScore: stats.volatilityScore.toFixed(2),
-        recordCount: data.recordCount,
+        recordCount,
         weekOverWeekChange,
         updatedAt: new Date(),
-      };
-    });
-        const values = filterNullish(rawValues);
+      })
+    );
 
     if (values.length > 0) {
-      await db
-        .insert(priceAggregatesWeekly)
-        .values(values)
-        .onConflictDoUpdate({
-          target: [
-            priceAggregatesWeekly.productId,
-            priceAggregatesWeekly.retailerId,
-            priceAggregatesWeekly.year,
-            priceAggregatesWeekly.week,
-          ],
-          set: {
-            minPrice: sql`excluded.min_price`,
-            maxPrice: sql`excluded.max_price`,
-            avgPrice: sql`excluded.avg_price`,
-            medianPrice: sql`excluded.median_price`,
-            volatilityScore: sql`excluded.volatility_score`,
-            recordCount: sql`excluded.record_count`,
-            weekOverWeekChange: sql`excluded.week_over_week_change`,
-            updatedAt: sql`excluded.updated_at`,
-          },
-        });
+      await this.upsertWeeklyAggregates(db as unknown as Parameters<Parameters<typeof db.transaction>[0]>[0], values);
     }
   }
 
   /**
    * Calculate monthly aggregates for a specific product
+   * Uses shared helpers and upsert function for DRY compliance
    */
   private async calculateMonthlyAggregatesForProduct(
     productId: number,
@@ -1237,80 +1149,137 @@ export class PriceAggregationService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
-    const priceData = await db
+    const priceData = await this.fetchProductPriceData(productId, startDate, endDate);
+    if (priceData.length === 0) return;
+
+    // Get previous month and year-over-year data
+    const previousMonth = month === 1 ? 12 : month - 1;
+    const previousMonthYear = month === 1 ? year - 1 : year;
+
+    const [previousMonthData, lastYearData] = await Promise.all([
+      db.select().from(priceAggregatesMonthly).where(and(
+        eq(priceAggregatesMonthly.productId, productId),
+        eq(priceAggregatesMonthly.year, previousMonthYear),
+        eq(priceAggregatesMonthly.month, previousMonth)
+      )),
+      db.select().from(priceAggregatesMonthly).where(and(
+        eq(priceAggregatesMonthly.productId, productId),
+        eq(priceAggregatesMonthly.year, year - 1),
+        eq(priceAggregatesMonthly.month, month)
+      )),
+    ]);
+
+    const previousMonthMap = this.buildRetailerMap(previousMonthData);
+    const lastYearMap = this.buildRetailerMap(lastYearData);
+
+    const values = this.processProductMonthlyData(
+      priceData,
+      previousMonthMap,
+      lastYearMap,
+      productId,
+      year,
+      month
+    );
+
+    if (values.length > 0) {
+      await this.upsertMonthlyAggregates(db as unknown as Parameters<Parameters<typeof db.transaction>[0]>[0], values);
+    }
+  }
+
+  // ============================================================================
+  // SINGLE-PRODUCT HELPERS (DRY)
+  // ============================================================================
+
+  /**
+   * Fetch price data for a specific product
+   */
+  private async fetchProductPriceData(
+    productId: number,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{ retailerId: number | null; prices: string; recordCount: number }[]> {
+    return await db
       .select({
         retailerId: priceHistory.retailerId,
         prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
         recordCount: sql<number>`count(*)::int`,
       })
       .from(priceHistory)
-      .where(
-        and(
-          eq(priceHistory.productId, productId),
-          gte(priceHistory.recordedAt, startDate),
-          lte(priceHistory.recordedAt, endDate)
-        )
-      )
+      .where(and(
+        eq(priceHistory.productId, productId),
+        gte(priceHistory.recordedAt, startDate),
+        lte(priceHistory.recordedAt, endDate)
+      ))
       .groupBy(priceHistory.retailerId);
+  }
 
-    if (priceData.length === 0) return;
-
-    const previousMonth = month === 1 ? 12 : month - 1;
-    const previousMonthYear = month === 1 ? year - 1 : year;
-
-    const [previousMonthData, lastYearData] = await Promise.all([
-      db
-        .select()
-        .from(priceAggregatesMonthly)
-        .where(
-          and(
-            eq(priceAggregatesMonthly.productId, productId),
-            eq(priceAggregatesMonthly.year, previousMonthYear),
-            eq(priceAggregatesMonthly.month, previousMonth)
-          )
-        ),
-      db
-        .select()
-        .from(priceAggregatesMonthly)
-        .where(
-          and(
-            eq(priceAggregatesMonthly.productId, productId),
-            eq(priceAggregatesMonthly.year, year - 1),
-            eq(priceAggregatesMonthly.month, month)
-          )
-        ),
-    ]);
-
-    const previousMonthMap = new Map<number, typeof priceAggregatesMonthly.$inferSelect>();
-    const lastYearMap = new Map<number, typeof priceAggregatesMonthly.$inferSelect>();
-
-    for (const record of previousMonthData) {
-      previousMonthMap.set(record.retailerId, record);
+  /**
+   * Build retailer-keyed map for single-product aggregation
+   */
+  private buildRetailerMap<T extends { retailerId: number; avgPrice: string | null }>(
+    data: T[]
+  ): Map<number, T> {
+    const map = new Map<number, T>();
+    for (const record of data) {
+      map.set(record.retailerId, record);
     }
+    return map;
+  }
 
-    for (const record of lastYearData) {
-      lastYearMap.set(record.retailerId, record);
-    }
-
+  /**
+   * Process single-product aggregate data
+   */
+  private processProductAggregateData<T>(
+    priceData: { retailerId: number | null; prices: string; recordCount: number }[],
+    previousMap: Map<number, { avgPrice: string | null }>,
+    buildValue: (retailerId: number, stats: AggregateStats, recordCount: number, periodChange: string | null) => T
+  ): T[] {
     const rawValues = priceData.map(data => {
       if (!data.retailerId) return null;
 
       const pricesArray = this.parsePostgresArray(data.prices);
       const stats = this.calculatePriceStatistics(pricesArray);
 
-      let monthOverMonthChange = null;
-      const prevMonthData = previousMonthMap.get(data.retailerId);
-      if (prevMonthData?.avgPrice) {
-        const prevAvg = parseFloat(prevMonthData.avgPrice);
-        monthOverMonthChange = ((stats.avgPrice - prevAvg) / prevAvg * 100).toFixed(2);
-      }
+      const prevData = previousMap.get(data.retailerId);
+      const periodChange = calculatePeriodChange(
+        stats.avgPrice,
+        prevData?.avgPrice ? parseFloat(prevData.avgPrice) : null
+      );
 
-      let yearOverYearChange = null;
+      return buildValue(data.retailerId, stats, data.recordCount, periodChange);
+    });
+
+    return filterNullish(rawValues);
+  }
+
+  /**
+   * Process single-product monthly data (with year-over-year)
+   */
+  private processProductMonthlyData(
+    priceData: { retailerId: number | null; prices: string; recordCount: number }[],
+    previousMonthMap: Map<number, { avgPrice: string | null }>,
+    lastYearMap: Map<number, { avgPrice: string | null }>,
+    productId: number,
+    year: number,
+    month: number
+  ): (typeof priceAggregatesMonthly.$inferInsert)[] {
+    const rawValues = priceData.map(data => {
+      if (!data.retailerId) return null;
+
+      const pricesArray = this.parsePostgresArray(data.prices);
+      const stats = this.calculatePriceStatistics(pricesArray);
+
+      const prevMonthData = previousMonthMap.get(data.retailerId);
       const prevYearData = lastYearMap.get(data.retailerId);
-      if (prevYearData?.avgPrice) {
-        const prevYearAvg = parseFloat(prevYearData.avgPrice);
-        yearOverYearChange = ((stats.avgPrice - prevYearAvg) / prevYearAvg * 100).toFixed(2);
-      }
+
+      const monthOverMonthChange = calculatePeriodChange(
+        stats.avgPrice,
+        prevMonthData?.avgPrice ? parseFloat(prevMonthData.avgPrice) : null
+      );
+      const yearOverYearChange = calculatePeriodChange(
+        stats.avgPrice,
+        prevYearData?.avgPrice ? parseFloat(prevYearData.avgPrice) : null
+      );
 
       return {
         productId,
@@ -1328,32 +1297,8 @@ export class PriceAggregationService {
         updatedAt: new Date(),
       };
     });
-        const values = filterNullish(rawValues);
 
-    if (values.length > 0) {
-      await db
-        .insert(priceAggregatesMonthly)
-        .values(values)
-        .onConflictDoUpdate({
-          target: [
-            priceAggregatesMonthly.productId,
-            priceAggregatesMonthly.retailerId,
-            priceAggregatesMonthly.year,
-            priceAggregatesMonthly.month,
-          ],
-          set: {
-            minPrice: sql`excluded.min_price`,
-            maxPrice: sql`excluded.max_price`,
-            avgPrice: sql`excluded.avg_price`,
-            medianPrice: sql`excluded.median_price`,
-            volatilityScore: sql`excluded.volatility_score`,
-            recordCount: sql`excluded.record_count`,
-            monthOverMonthChange: sql`excluded.month_over_month_change`,
-            yearOverYearChange: sql`excluded.year_over_year_change`,
-            updatedAt: sql`excluded.updated_at`,
-          },
-        });
-    }
+    return filterNullish(rawValues);
   }
 
   /**
