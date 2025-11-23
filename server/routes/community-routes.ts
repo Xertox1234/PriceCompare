@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from "express";
-import { logger } from "./utils/logger";
-import * as communityService from "./services/community-service";
-import { parseIntSafe, parseIntOptional } from "./utils/validation-helpers";
+import { logger } from "../utils/logger";
+import * as communityService from "../services/community-service";
+import { parseIntSafe, parseIntOptional } from "../utils/validation-helpers";
+import { createErrorResponse } from "../utils/error-sanitizer";
 
 /**
  * Community Routes
@@ -37,11 +38,8 @@ export function registerCommunityRoutes(app: Express) {
         data: watch,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error adding product watch:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to add watch" });
+      const errorResponse = createErrorResponse(error, 'AddProductWatch');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -62,11 +60,8 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error removing product watch:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to remove watch" });
+      const errorResponse = createErrorResponse(error, 'RemoveProductWatch');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -85,8 +80,8 @@ export function registerCommunityRoutes(app: Express) {
         count: productIds.length,
       });
     } catch (error: unknown) {
-      logger.error('Error fetching watches:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch watches" });
+      const errorResponse = createErrorResponse(error, 'FetchWatches');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -105,11 +100,8 @@ export function registerCommunityRoutes(app: Express) {
         count,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error fetching watch count:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to fetch watch count" });
+      const errorResponse = createErrorResponse(error, 'FetchWatchCount');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -129,11 +121,8 @@ export function registerCommunityRoutes(app: Express) {
         isWatching,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error checking watch status:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to check watch status" });
+      const errorResponse = createErrorResponse(error, 'CheckWatchStatus');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -152,11 +141,8 @@ export function registerCommunityRoutes(app: Express) {
         count: products.length,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error fetching most watched:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to fetch most watched products" });
+      const errorResponse = createErrorResponse(error, 'FetchMostWatched');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -174,8 +160,8 @@ export function registerCommunityRoutes(app: Express) {
         data: reputation,
       });
     } catch (error: unknown) {
-      logger.error('Error fetching reputation:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch reputation" });
+      const errorResponse = createErrorResponse(error, 'FetchReputation');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -194,11 +180,8 @@ export function registerCommunityRoutes(app: Express) {
         count: leaderboard.length,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error fetching leaderboard:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to fetch leaderboard" });
+      const errorResponse = createErrorResponse(error, 'FetchLeaderboard');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -217,11 +200,8 @@ export function registerCommunityRoutes(app: Express) {
         count: deals.length,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error fetching recent deals:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to fetch recent deals" });
+      const errorResponse = createErrorResponse(error, 'FetchRecentDeals');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -255,8 +235,8 @@ export function registerCommunityRoutes(app: Express) {
         data: watchList,
       });
     } catch (error: unknown) {
-      logger.error('Error creating watch list:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to create watch list" });
+      const errorResponse = createErrorResponse(error, 'CreateWatchList');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -275,8 +255,8 @@ export function registerCommunityRoutes(app: Express) {
         count: watchLists.length,
       });
     } catch (error: unknown) {
-      logger.error('Error fetching watch lists:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to fetch watch lists" });
+      const errorResponse = createErrorResponse(error, 'FetchWatchLists');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -300,11 +280,8 @@ export function registerCommunityRoutes(app: Express) {
         data: watchList,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error fetching watch list:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to fetch watch list" });
+      const errorResponse = createErrorResponse(error, 'FetchWatchList');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -343,11 +320,8 @@ export function registerCommunityRoutes(app: Express) {
         data: updated,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error updating watch list:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to update watch list" });
+      const errorResponse = createErrorResponse(error, 'UpdateWatchList');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -368,11 +342,8 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error deleting watch list:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to delete watch list" });
+      const errorResponse = createErrorResponse(error, 'DeleteWatchList');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -393,11 +364,8 @@ export function registerCommunityRoutes(app: Express) {
         count: products.length,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error fetching watch list products:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to fetch watch list products" });
+      const errorResponse = createErrorResponse(error, 'FetchWatchListProducts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -422,10 +390,7 @@ export function registerCommunityRoutes(app: Express) {
       if (category !== undefined) updates.category = category;
       if (notes !== undefined) updates.notes = notes;
       if (priority !== undefined) {
-        const priorityNum = parseInt(priority);
-        if (isNaN(priorityNum) || priorityNum < 1 || priorityNum > 5) {
-          return res.status(400).json({ error: "Priority must be between 1 and 5" });
-        }
+        const priorityNum = parseIntSafe(priority, 'priority', { min: 1, max: 5 });
         updates.priority = priorityNum;
       }
       if (targetPrice !== undefined) updates.targetPrice = targetPrice;
@@ -442,11 +407,8 @@ export function registerCommunityRoutes(app: Express) {
         data: updated,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
-      }
-      logger.error('Error updating product watch:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: (error as Error).message || "Failed to update product watch" });
+      const errorResponse = createErrorResponse(error, 'UpdateProductWatch');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -474,8 +436,8 @@ export function registerCommunityRoutes(app: Express) {
         movedCount,
       });
     } catch (error: unknown) {
-      logger.error('Error moving products:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to move products" });
+      const errorResponse = createErrorResponse(error, 'BulkMoveProducts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -502,8 +464,8 @@ export function registerCommunityRoutes(app: Express) {
         deletedCount,
       });
     } catch (error: unknown) {
-      logger.error('Error deleting products:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to delete products" });
+      const errorResponse = createErrorResponse(error, 'BulkDeleteProducts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -521,8 +483,8 @@ export function registerCommunityRoutes(app: Express) {
         data: exportData,
       });
     } catch (error: unknown) {
-      logger.error('Error exporting watch lists:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to export watch lists" });
+      const errorResponse = createErrorResponse(error, 'ExportWatchLists');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -546,8 +508,8 @@ export function registerCommunityRoutes(app: Express) {
         data: result,
       });
     } catch (error: unknown) {
-      logger.error('Error importing watch lists:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: error.message || "Failed to import watch lists" });
+      const errorResponse = createErrorResponse(error, 'ImportWatchLists');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 }
