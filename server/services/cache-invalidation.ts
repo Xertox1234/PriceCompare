@@ -14,6 +14,13 @@ import { logger } from '../utils/logger';
 import { getRedisClient } from '../config/redis';
 
 /**
+ * Extract error message for logging
+ */
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
  * Invalidation event types
  */
 export enum InvalidationEvent {
@@ -82,7 +89,7 @@ export class CacheInvalidationService {
 
       logger.info(`Cache invalidation completed for product ${productId}`);
     } catch (error) {
-      logger.error(`Error invalidating cache for product ${productId}:`, error);
+      logger.error(`Error invalidating cache for product ${productId}:`, { error: getErrorMessage(error) });
     }
   }
 
@@ -105,7 +112,7 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for product ${productId}:`, error);
+      logger.error(`Error invalidating cache for product ${productId}:`, { error: getErrorMessage(error) });
     }
   }
 
@@ -131,7 +138,7 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for deleted product ${productId}:`, error);
+      logger.error(`Error invalidating cache for deleted product ${productId}:`, { error: getErrorMessage(error) });
     }
   }
 
@@ -154,7 +161,7 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for product ${productId}:`, error);
+      logger.error(`Error invalidating cache for product ${productId}:`, { error: getErrorMessage(error) });
     }
   }
 
@@ -177,7 +184,7 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for retailer ${retailerId}:`, error);
+      logger.error(`Error invalidating cache for retailer ${retailerId}:`, { error: getErrorMessage(error) });
     }
   }
 
@@ -199,7 +206,7 @@ export class CacheInvalidationService {
 
       logger.info(`Batch invalidation completed for ${productIds.length} products`);
     } catch (error) {
-      logger.error('Error during batch invalidation:', error);
+      logger.error('Error during batch invalidation:', { error: getErrorMessage(error) });
     }
   }
 
@@ -217,7 +224,7 @@ export class CacheInvalidationService {
 
       logger.info('Search caches invalidated');
     } catch (error) {
-      logger.error('Error invalidating search caches:', error);
+      logger.error('Error invalidating search caches:', { error: getErrorMessage(error) });
     }
   }
 
@@ -237,7 +244,7 @@ export class CacheInvalidationService {
         JSON.stringify(payload)
       );
     } catch (error) {
-      logger.error('Error publishing invalidation event:', error);
+      logger.error('Error publishing invalidation event:', { error: getErrorMessage(error) });
     }
   }
 
@@ -254,7 +261,7 @@ export class CacheInvalidationService {
 
     subscriber.subscribe(this.INVALIDATION_CHANNEL, (err) => {
       if (err) {
-        logger.error('Failed to subscribe to invalidation events:', err);
+        logger.error('Failed to subscribe to invalidation events:', { error: err.message });
       } else {
         logger.info('Subscribed to cache invalidation events channel');
       }
@@ -264,12 +271,12 @@ export class CacheInvalidationService {
       if (channel === this.INVALIDATION_CHANNEL) {
         try {
           const payload: InvalidationPayload = JSON.parse(message);
-          logger.debug('Received invalidation event:', payload);
+          logger.debug('Received invalidation event:', { event: payload.event, productId: payload.productId });
 
           // Additional processing can be added here
           // For example, updating metrics, logging, etc.
         } catch (error) {
-          logger.error('Error processing invalidation event:', error);
+          logger.error('Error processing invalidation event:', { error: getErrorMessage(error) });
         }
       }
     });
@@ -301,10 +308,13 @@ export function withCacheInvalidation<T extends (...args: unknown[]) => Promise<
   return (async (...args: unknown[]) => {
     const result = await fn(...args);
 
-    // Extract productId from result or args
-    const productId = result?.productId || args[0]?.productId;
+    // Extract productId from result or args (safely handle unknown types)
+    const resultObj = result as Record<string, unknown> | null | undefined;
+    const firstArg = args[0] as Record<string, unknown> | null | undefined;
+    const rawProductId = resultObj?.productId || firstArg?.productId;
 
-    if (productId) {
+    if (rawProductId && typeof rawProductId === 'number') {
+      const productId: number = rawProductId;
       switch (eventType) {
         case InvalidationEvent.PRICE_UPDATE:
           await cacheInvalidation.onPriceUpdate(productId);

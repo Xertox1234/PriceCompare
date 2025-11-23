@@ -84,7 +84,9 @@ class LRUCache<T> {
     // Remove oldest if at capacity
     if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
       const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
     }
 
     this.cache.set(key, { value, timestamp: Date.now() });
@@ -232,6 +234,24 @@ export class AdvancedCacheService {
   }
 
   /**
+   * Get Redis client with null check
+   * Throws if Redis is not available (should not happen in production)
+   */
+  private getRedis(): NonNullable<typeof redisClient> {
+    if (!redisClient) {
+      throw new Error('Redis client not available');
+    }
+    return redisClient;
+  }
+
+  /**
+   * Extract error message for logging
+   */
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  /**
    * Get value from cache with L1 -> L2 fallback
    */
   async get<T>(key: string, useL1: boolean = true): Promise<T | null> {
@@ -247,7 +267,8 @@ export class AdvancedCacheService {
       }
 
       // Try L2 cache (Redis)
-      const l2Value = await redisClient.get(key);
+      const redis = this.getRedis();
+      const l2Value = await redis.get(key);
       if (l2Value) {
         this.stats.l2Hits++;
         const parsed = JSON.parse(l2Value) as T;
@@ -264,7 +285,7 @@ export class AdvancedCacheService {
       return null;
     } catch (error) {
       this.stats.errors++;
-      logger.error('Cache get error:', error);
+      logger.error('Cache get error:', { error: this.getErrorMessage(error) });
       return null;
     }
   }
@@ -282,7 +303,8 @@ export class AdvancedCacheService {
       const ttl = TIER_TTL[tier];
 
       // Set in L2 (Redis)
-      await redisClient.setex(key, ttl, JSON.stringify(value));
+      const redis = this.getRedis();
+      await redis.setex(key, ttl, JSON.stringify(value));
 
       // Set in L1 (in-memory)
       if (useL1) {
@@ -292,7 +314,7 @@ export class AdvancedCacheService {
       this.stats.sets++;
     } catch (error) {
       this.stats.errors++;
-      logger.error('Cache set error:', error);
+      logger.error('Cache set error:', { error: this.getErrorMessage(error) });
     }
   }
 
@@ -329,7 +351,8 @@ export class AdvancedCacheService {
       this.l1Cache.delete(key);
 
       // Remove from L2
-      await redisClient.del(key);
+      const redis = this.getRedis();
+      await redis.del(key);
 
       // Publish invalidation event to other instances
       await this.publishInvalidation(key);
@@ -337,7 +360,7 @@ export class AdvancedCacheService {
       this.stats.invalidations++;
     } catch (error) {
       this.stats.errors++;
-      logger.error('Cache invalidate error:', error);
+      logger.error('Cache invalidate error:', { error: this.getErrorMessage(error) });
     }
   }
 
@@ -350,12 +373,13 @@ export class AdvancedCacheService {
    */
   async invalidatePattern(pattern: string): Promise<number> {
     try {
+      const redis = this.getRedis();
       let cursor = '0';
       let deletedCount = 0;
 
       // Use SCAN to iterate through keys matching pattern (non-blocking)
       do {
-        const [nextCursor, keys] = await redisClient.scan(
+        const [nextCursor, keys] = await redis.scan(
           cursor,
           'MATCH',
           pattern,
@@ -369,7 +393,7 @@ export class AdvancedCacheService {
           keys.forEach(key => this.l1Cache.delete(key));
 
           // Remove from L2
-          await redisClient.del(...keys);
+          await redis.del(...keys);
           deletedCount += keys.length;
         }
       } while (cursor !== '0');
@@ -383,7 +407,7 @@ export class AdvancedCacheService {
       return deletedCount;
     } catch (error) {
       this.stats.errors++;
-      logger.error('Cache invalidate pattern error:', error);
+      logger.error('Cache invalidate pattern error:', { error: this.getErrorMessage(error) });
       return 0;
     }
   }
@@ -401,11 +425,12 @@ export class AdvancedCacheService {
   async clear(): Promise<void> {
     try {
       this.l1Cache.clear();
-      await redisClient.flushdb();
+      const redis = this.getRedis();
+      await redis.flushdb();
       logger.info('All caches cleared');
     } catch (error) {
       this.stats.errors++;
-      logger.error('Cache clear error:', error);
+      logger.error('Cache clear error:', { error: this.getErrorMessage(error) });
     }
   }
 
@@ -473,12 +498,13 @@ export class AdvancedCacheService {
    */
   private async publishInvalidation(key: string, isPattern: boolean = false): Promise<void> {
     try {
-      await redisClient.publish(
+      const redis = this.getRedis();
+      await redis.publish(
         this.PUBSUB_CHANNEL,
         JSON.stringify({ key, isPattern, timestamp: Date.now() })
       );
     } catch (error) {
-      logger.error('Failed to publish invalidation:', error);
+      logger.error('Failed to publish invalidation:', { error: this.getErrorMessage(error) });
     }
   }
 
@@ -490,7 +516,8 @@ export class AdvancedCacheService {
    */
   private subscribeToInvalidations(): void {
     // Create a separate Redis client for pub/sub and store for cleanup
-    this.subscriber = redisClient.duplicate();
+    const redis = this.getRedis();
+    this.subscriber = redis.duplicate();
 
     this.subscriber.subscribe(this.PUBSUB_CHANNEL, (err) => {
       if (err) {
@@ -519,7 +546,7 @@ export class AdvancedCacheService {
             this.l1Cache.delete(key);
           }
         } catch (error) {
-          logger.error('Error processing invalidation message:', error);
+          logger.error('Error processing invalidation message:', { error: this.getErrorMessage(error) });
         }
       }
     });
@@ -537,7 +564,7 @@ export class AdvancedCacheService {
         await this.subscriber.quit();
         logger.info('Advanced cache pub/sub subscriber closed');
       } catch (error) {
-        logger.error('Error closing advanced cache subscriber:', error);
+        logger.error('Error closing advanced cache subscriber:', { error: this.getErrorMessage(error) });
       }
       this.subscriber = null;
     }
