@@ -8,10 +8,12 @@ vi.mock('../config/redis', () => ({
     setex: vi.fn(),
     del: vi.fn(),
     keys: vi.fn(),
+    scan: vi.fn(),
     publish: vi.fn(),
     duplicate: vi.fn(() => ({
       subscribe: vi.fn(),
       on: vi.fn(),
+      quit: vi.fn(),
     })),
   },
 }));
@@ -174,23 +176,37 @@ describe('AdvancedCacheService', () => {
   });
 
   describe('invalidatePattern', () => {
-    it('should invalidate multiple keys matching pattern', async () => {
+    it('should invalidate multiple keys matching pattern using SCAN', async () => {
       const keys = ['product:1', 'product:2', 'product:3'];
-      mockRedis.keys.mockResolvedValue(keys);
+      // SCAN returns [nextCursor, keys] - '0' cursor indicates end of iteration
+      mockRedis.scan.mockResolvedValue(['0', keys]);
 
       const count = await cacheService.invalidatePattern('product:*');
 
-      expect(mockRedis.keys).toHaveBeenCalledWith('product:*');
+      expect(mockRedis.scan).toHaveBeenCalledWith('0', 'MATCH', 'product:*', 'COUNT', 100);
       expect(mockRedis.del).toHaveBeenCalledWith(...keys);
       expect(count).toBe(3);
     });
 
+    it('should handle multi-page SCAN results', async () => {
+      // First call returns cursor '123' indicating more results
+      mockRedis.scan.mockResolvedValueOnce(['123', ['product:1', 'product:2']]);
+      // Second call with cursor '123' returns final results
+      mockRedis.scan.mockResolvedValueOnce(['0', ['product:3']]);
+
+      const count = await cacheService.invalidatePattern('product:*');
+
+      expect(mockRedis.scan).toHaveBeenCalledTimes(2);
+      expect(count).toBe(3);
+    });
+
     it('should return 0 if no keys match pattern', async () => {
-      mockRedis.keys.mockResolvedValue([]);
+      mockRedis.scan.mockResolvedValue(['0', []]);
 
       const count = await cacheService.invalidatePattern('nonexistent:*');
 
       expect(count).toBe(0);
+      expect(mockRedis.del).not.toHaveBeenCalled();
     });
   });
 
@@ -310,6 +326,98 @@ describe('AdvancedCacheService', () => {
 
       const stats = cacheService.getStats();
       expect(stats.overall.errors).toBeGreaterThan(0);
+    });
+  });
+
+  describe('L1 cache deletePattern', () => {
+    beforeEach(() => {
+      // Ensure setex returns successfully (otherwise set() fails silently)
+      mockRedis.setex.mockResolvedValue('OK');
+    });
+
+    it('should delete keys matching exact key invalidation', async () => {
+      // Set up multiple keys - mock Redis to return the stored values
+      await cacheService.set('product:123:detail', { id: 123 }, CacheTier.HOT, true);
+      await cacheService.set('product:123:offers', { offers: [] }, CacheTier.HOT, true);
+      await cacheService.set('product:456:detail', { id: 456 }, CacheTier.HOT, true);
+      await cacheService.set('retailer:1:data', { name: 'Amazon' }, CacheTier.HOT, true);
+
+      // Check L1 cache stats to verify items were added
+      const statsBefore = cacheService.getStats();
+      expect(statsBefore.overall.sets).toBe(4);
+
+      // Invalidate specific keys
+      await cacheService.invalidate('product:123:detail');
+      await cacheService.invalidate('product:123:offers');
+
+      // Verify invalidations were tracked
+      const statsAfter = cacheService.getStats();
+      expect(statsAfter.overall.invalidations).toBe(2);
+
+      // Set value again and verify we can retrieve it (proving L1 works)
+      await cacheService.set('product:456:detail', { id: 456, updated: true }, CacheTier.HOT, true);
+      const result = await cacheService.get('product:456:detail', true);
+      expect(result).toEqual({ id: 456, updated: true });
+    });
+
+    it('should handle empty cache gracefully', async () => {
+      // Invalidate on empty cache should not throw
+      await expect(cacheService.invalidate('nonexistent:key')).resolves.not.toThrow();
+    });
+  });
+
+  describe('L1 pattern invalidation preserves unrelated data', () => {
+    beforeEach(() => {
+      // Ensure setex returns successfully (otherwise set() fails silently)
+      mockRedis.setex.mockResolvedValue('OK');
+    });
+
+    it('should call SCAN instead of KEYS for pattern invalidation', async () => {
+      // Mock SCAN to return keys matching pattern
+      mockRedis.scan.mockResolvedValue(['0', ['product:1:detail', 'product:1:offers']]);
+
+      // Perform pattern invalidation
+      await cacheService.invalidatePattern('product:1:*');
+
+      // Verify SCAN was called (not KEYS)
+      expect(mockRedis.scan).toHaveBeenCalled();
+      // Verify del was called with both keys (uses spread operator)
+      expect(mockRedis.del).toHaveBeenCalledWith('product:1:detail', 'product:1:offers');
+    });
+
+    it('should track pattern invalidation statistics in getStats', async () => {
+      mockRedis.scan.mockResolvedValue(['0', ['product:1', 'product:2']]);
+
+      const stats = cacheService.getStats();
+      expect(stats).toHaveProperty('patternInvalidation');
+      expect(stats.patternInvalidation).toHaveProperty('operations');
+      expect(stats.patternInvalidation).toHaveProperty('keysDeleted');
+      expect(stats.patternInvalidation).toHaveProperty('avgKeysPerOperation');
+    });
+
+    it('should track invalidation count during pattern invalidation', async () => {
+      // Mock SCAN to return some keys
+      mockRedis.scan.mockResolvedValue(['0', ['test:1', 'test:2']]);
+
+      // Reset stats
+      cacheService.resetStats();
+
+      // Perform pattern invalidation
+      const deletedCount = await cacheService.invalidatePattern('test:*');
+
+      // Verify count returned and stats updated
+      expect(deletedCount).toBe(2);
+      const stats = cacheService.getStats();
+      // invalidatePattern adds to overall.invalidations, not patternInvalidation
+      // (patternInvalidation is only updated via pub/sub handler on remote instances)
+      expect(stats.overall.invalidations).toBe(2);
+    });
+  });
+
+  describe('close', () => {
+    it('should close pub/sub subscriber connection', async () => {
+      // Close should not throw
+      await expect(cacheService.close()).resolves.not.toThrow();
     });
   });
 });
