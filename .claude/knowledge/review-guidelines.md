@@ -128,8 +128,29 @@ function processRecord(record: T): void {
 - Output sanitization after LLM responses
 - Rate limiting on API endpoints
 - Proper error messages (don't leak sensitive info)
+- **Integer parsing safety (ZERO TOLERANCE)**: NEVER use raw `parseInt()` or `Number()` without validation
+  - Use `parseIntSafe()` for required integers with validation
+  - Use `parseIntOptional()` for optional integers with defaults
+  - Import from `../utils/validation-helpers` in route files
+  - Flag patterns: `parseInt()`, `Number()`, `+value`, `parseInt() || default`
+- **Error response standardization (DRY PRINCIPLE)**: ALL catch blocks must use `createErrorResponse()`
+  - Never expose raw error.message to users
+  - Never manually construct error responses
+  - Import from `../utils/error-sanitizer` in route files
+  - Pattern: 2 lines only - `const errorResponse = createErrorResponse(error, 'OpName'); res.status(errorResponse.status).json(errorResponse);`
+  - Flag ANY manual error handling (5+ line catch blocks are a red flag)
+- **Route file imports (server/routes/)**: Must use '../' prefix for server utilities
+  - Common mistake: Files moved from server/ to server/routes/ need './' → '../' change
+  - Examples: `../utils/logger`, `../services/community-service`, `../storage`
 
 ## Code Quality Standards
+
+### DRY Principle (Don't Repeat Yourself)
+- **Flag repetitive patterns** that could use centralized utilities
+- **Error handling**: 20 identical catch blocks = use createErrorResponse utility
+- **Validation**: Repeated parsing logic = use validation helpers
+- **Common operations**: If you see it 3+ times, it needs abstraction
+- **Benefits of DRY**: Easier maintenance, consistent behavior, fewer bugs
 
 ### Naming
 - Clear, self-documenting variable and function names
