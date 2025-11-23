@@ -503,7 +503,7 @@ export class AdvancedCacheService {
     this.subscriber.on('message', (channel, message) => {
       if (channel === this.PUBSUB_CHANNEL) {
         try {
-          const { key, isPattern } = JSON.parse(message);
+          const { key, isPattern = false } = JSON.parse(message);
 
           // Only invalidate L1 cache (L2 is already invalidated by publisher)
           if (isPattern) {
