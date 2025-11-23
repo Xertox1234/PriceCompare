@@ -44,7 +44,7 @@ export function sanitizeHtml(
   if (typeof window !== 'undefined') {
     try {
       // DOMPurify is loaded via CDN or npm package
-      const DOMPurify = (window as any).DOMPurify;
+      const DOMPurify = window.DOMPurify;
 
       if (DOMPurify && DOMPurify.sanitize) {
         return DOMPurify.sanitize(dirty, {
@@ -121,12 +121,12 @@ export function sanitizeUrl(url: string): string {
  */
 export async function loadDOMPurify(): Promise<void> {
   if (typeof window === 'undefined') return;
-  if ((window as any).DOMPurify) return; // Already loaded
+  if (window.DOMPurify) return; // Already loaded
 
   try {
     // Try to import from npm package first
     const DOMPurify = await import('dompurify');
-    (window as any).DOMPurify = DOMPurify.default || DOMPurify;
+    window.DOMPurify = DOMPurify.default || DOMPurify;
   } catch (error) {
     // Fallback to CDN
     return new Promise((resolve, reject) => {

@@ -9,6 +9,8 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, count, gte, sql, inArray } from "drizzle-orm";
 import { getFirstResult } from "../utils/db-helpers";
+import { retryWithBackoff, isTransientDatabaseError } from "../utils/retry-with-backoff";
+import { logger } from "../utils/logger";
 
 /**
  * Notification Service
@@ -197,35 +199,52 @@ export async function createNotification(
 
   // RACE CONDITION: Use transaction with SERIALIZABLE isolation for limit check + creation
   // Without transaction, concurrent notifications could bypass daily limit
-  const created = await db.transaction(async (tx) => {
-    // Check daily limit within transaction
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
+  const created = await retryWithBackoff(
+    async () => db.transaction(async (tx) => {
+      // Check daily limit within transaction
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const todayCount = await tx
-      .select({ count: count() })
-      .from(notifications)
-      .where(
-        and(
-          eq(notifications.userId, notification.userId),
-          gte(notifications.createdAt, today)
-        )
-      );
+      const todayCount = await tx
+        .select({ count: count() })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.userId, notification.userId),
+            gte(notifications.createdAt, today)
+          )
+        );
 
-    if (prefs.maxDailyNotifications && todayCount[0].count >= prefs.maxDailyNotifications) {
-      throw new Error('Daily notification limit reached');
+      if (prefs.maxDailyNotifications && todayCount[0].count >= prefs.maxDailyNotifications) {
+        throw new Error('Daily notification limit reached');
+      }
+
+      // Create the notification - must be atomic with limit check
+      const result = await tx.insert(notifications).values(notification).returning();
+      const created = getFirstResult(result);
+      if (!created) {
+        throw new Error('Failed to create notification');
+      }
+      return created;
+    }, {
+      isolationLevel: 'serializable', // Prevent concurrent notification limit bypass
+    }),
+    {
+      maxAttempts: 3,
+      initialDelayMs: 100,
+      isRetryable: isTransientDatabaseError,
+      context: { operation: 'createNotification', userId: notification.userId, type: notification.type },
+      onRetry: (error, attempt, delayMs) => {
+        logger.warn('[NotificationService] Retrying createNotification after serialization error', {
+          error: error instanceof Error ? error.message : String(error),
+          attempt,
+          delayMs,
+          userId: notification.userId,
+        });
+      },
     }
-
-    // Create the notification - must be atomic with limit check
-    const result = await tx.insert(notifications).values(notification).returning();
-    const created = getFirstResult(result);
-    if (!created) {
-      throw new Error('Failed to create notification');
-    }
-    return created;
-  }, {
-    isolationLevel: 'serializable', // Prevent concurrent notification limit bypass
-  });
+  );
 
   // Emit WebSocket event after transaction commits
   try {
@@ -333,45 +352,62 @@ export async function updateUserPreferences(
 ): Promise<NotificationPreferences> {
   // RACE CONDITION: Use transaction with SERIALIZABLE isolation for check + create/update
   // Without transaction, concurrent updates could both try to create defaults (constraint violation)
-  return await db.transaction(async (tx) => {
-    // Check if preferences exist within transaction
-    const existing = await tx
-      .select()
-      .from(notificationPreferences)
-      .where(eq(notificationPreferences.userId, userId))
-      .limit(1);
+  // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
+  return await retryWithBackoff(
+    async () => db.transaction(async (tx) => {
+      // Check if preferences exist within transaction
+      const existing = await tx
+        .select()
+        .from(notificationPreferences)
+        .where(eq(notificationPreferences.userId, userId))
+        .limit(1);
 
-    if (existing.length === 0) {
-      // Create with updates - must be atomic with existence check
-      const defaultPrefs: InsertNotificationPreferences = {
-        userId,
-        inAppEnabled: true,
-        emailEnabled: false,
-        priceDropEnabled: true,
-        priceAlertEnabled: true,
-        forumMentionEnabled: true,
-        badgeEarnedEnabled: true,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-        maxDailyNotifications: 50,
-        ...updates, // Apply user updates
-      };
+      if (existing.length === 0) {
+        // Create with updates - must be atomic with existence check
+        const defaultPrefs: InsertNotificationPreferences = {
+          userId,
+          inAppEnabled: true,
+          emailEnabled: false,
+          priceDropEnabled: true,
+          priceAlertEnabled: true,
+          forumMentionEnabled: true,
+          badgeEarnedEnabled: true,
+          quietHoursStart: null,
+          quietHoursEnd: null,
+          maxDailyNotifications: 50,
+          ...updates, // Apply user updates
+        };
 
-      const result = await tx.insert(notificationPreferences).values(defaultPrefs).returning();
+        const result = await tx.insert(notificationPreferences).values(defaultPrefs).returning();
+        return result[0];
+      }
+
+      // Update existing
+      const result = await tx
+        .update(notificationPreferences)
+        .set(updates)
+        .where(eq(notificationPreferences.userId, userId))
+        .returning();
+
       return result[0];
+    }, {
+      isolationLevel: 'serializable', // Prevent concurrent preference creation race
+    }),
+    {
+      maxAttempts: 3,
+      initialDelayMs: 100,
+      isRetryable: isTransientDatabaseError,
+      context: { operation: 'updateUserPreferences', userId },
+      onRetry: (error, attempt, delayMs) => {
+        logger.warn('[NotificationService] Retrying updateUserPreferences after serialization error', {
+          error: error instanceof Error ? error.message : String(error),
+          attempt,
+          delayMs,
+          userId,
+        });
+      },
     }
-
-    // Update existing
-    const result = await tx
-      .update(notificationPreferences)
-      .set(updates)
-      .where(eq(notificationPreferences.userId, userId))
-      .returning();
-
-    return result[0];
-  }, {
-    isolationLevel: 'serializable', // Prevent concurrent preference creation race
-  });
+  );
 }
 
 /**

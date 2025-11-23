@@ -26,6 +26,7 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, count, sql, gte } from "drizzle-orm";
 import { createLogger } from "../utils/logger";
+import { retryWithBackoff, isTransientDatabaseError } from "../utils/retry-with-backoff";
 
 const log = createLogger('Community');
 
@@ -202,36 +203,63 @@ export async function getUserReputation(userId: number): Promise<UserReputation>
 
 /**
  * Award reputation points to a user
+ *
+ * Uses atomic SQL operations within a SERIALIZABLE transaction to prevent
+ * race conditions where concurrent awards could cause lost updates.
+ * (e.g., two +10 awards on 100 points both writing 110 instead of 120)
  */
 export async function awardReputation(
   userId: number,
   points: number,
   reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'
 ): Promise<UserReputation> {
-  const current = await getUserReputation(userId);
+  // Ensure user has a reputation record before updating
+  await getUserReputation(userId);
 
-  const updates: Partial<InsertUserReputation> = {
-    reputationPoints: (current.reputationPoints ?? 0) + points,
-  };
+  // DATA INTEGRITY: Use SERIALIZABLE isolation to prevent concurrent update race conditions
+  // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
+  const result = await retryWithBackoff(
+    async () => db.transaction(async (tx) => {
+      // Build atomic update with SQL arithmetic to prevent read-modify-write race condition
+      const updateResult = await tx
+        .update(userReputation)
+        .set({
+          reputationPoints: sql`${userReputation.reputationPoints} + ${points}`,
+          dealsSpotted: reason === 'deal_spotted'
+            ? sql`${userReputation.dealsSpotted} + 1`
+            : userReputation.dealsSpotted,
+          accuratePredictions: reason === 'accurate_prediction'
+            ? sql`${userReputation.accuratePredictions} + 1`
+            : userReputation.accuratePredictions,
+          communityContributions: reason === 'community_contribution'
+            ? sql`${userReputation.communityContributions} + 1`
+            : userReputation.communityContributions,
+        })
+        .where(eq(userReputation.userId, userId))
+        .returning();
 
-  if (reason === 'deal_spotted') {
-    updates.dealsSpotted = (current.dealsSpotted ?? 0) + 1;
-  } else if (reason === 'accurate_prediction') {
-    updates.accuratePredictions = (current.accuratePredictions ?? 0) + 1;
-  } else if (reason === 'community_contribution') {
-    updates.communityContributions = (current.communityContributions ?? 0) + 1;
-  }
+      return updateResult[0];
+    }, { isolationLevel: 'serializable' }),
+    {
+      maxAttempts: 3,
+      initialDelayMs: 100,
+      isRetryable: isTransientDatabaseError,
+      context: { operation: 'awardReputation', userId, reason },
+      onRetry: (error, attempt, delayMs) => {
+        log.warn('[Community] Retrying awardReputation after serialization error', {
+          error: error instanceof Error ? error.message : String(error),
+          attempt,
+          delayMs,
+          userId,
+        });
+      },
+    }
+  );
 
-  const result = await db
-    .update(userReputation)
-    .set(updates)
-    .where(eq(userReputation.userId, userId))
-    .returning();
+  // Check for badge achievements (outside transaction - has its own transaction)
+  await checkAndAwardBadges(userId, result);
 
-  // Check for badge achievements
-  await checkAndAwardBadges(userId, result[0]);
-
-  return result[0];
+  return result;
 }
 
 /**

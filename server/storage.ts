@@ -1,20 +1,29 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, passwordResetTokens, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, sql, desc, asc, isNull, or, like } from "drizzle-orm";
+import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
+import { logger } from "./utils/logger";
 
 export interface IStorage {
   // Retailers
   getRetailers(): Promise<Retailer[]>;
+  getAllRetailers(): Promise<Retailer[]>;
+  getRetailerById(id: number): Promise<Retailer | undefined>;
   createRetailer(retailer: InsertRetailer): Promise<Retailer>;
+  updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | undefined>;
+  deleteRetailer(id: number): Promise<Retailer | undefined>;
 
   // Products
   getProducts(): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: number): Promise<Product | undefined>;
   searchProducts(filters: SearchFilters): Promise<{
     products: ProductWithOffers[];
     pagination: { page: number; limit: number; total: number; totalPages: number };
   }>;
   getProductById(id: number): Promise<ProductWithOffers | undefined>;
+  getProductByIdRaw(id: number): Promise<Product | undefined>;
 
   // Product Offers
   getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]>;
@@ -43,6 +52,82 @@ export interface IStorage {
   removeProductFromWatchList(watchListId: number, productId: number, userId: number): Promise<ProductWatch>;
   getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductInfo[]>;
   getWatchListStats(userId: number): Promise<WatchListStats>;
+
+  // Users (Admin)
+  getAllUsers(): Promise<SafeUser[]>;
+  getUserCount(): Promise<number>;
+  updateUserProfile(userId: number, updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
+  updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
+  suspendUser(userId: number, reason: string, suspendedBy: number): Promise<void>;
+
+  // User Registration (with transaction) - SECURITY: passwordHash handled internally, NEVER exposed
+  registerUser(userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser>;
+
+  // Password Reset (with transaction) - SECURITY: passwordHash handled internally, NEVER exposed
+  resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void>;
+
+  // Admin Analytics
+  getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview>;
+  getUserGrowthData(): Promise<Array<{ date: string; count: number }>>;
+  getForumActivityData(): Promise<Array<{ date: string; count: number }>>;
+  getTopCategories(limit?: number): Promise<Array<{ categoryName: string; topicCount: number }>>;
+
+  // Health Check
+  checkDatabaseHealth(): Promise<boolean>;
+
+  // Trending Products (Scraping)
+  getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]>;
+
+  // Price Analytics
+  getWeeklyAggregates(productId: number, options?: { year?: number; week?: number; retailerId?: number; limit?: number }): Promise<WeeklyAggregate[]>;
+  getMonthlyAggregates(productId: number, options?: { year?: number; month?: number; retailerId?: number; limit?: number }): Promise<MonthlyAggregate[]>;
+  getAnalyticsOverview(): Promise<AnalyticsOverview>;
+  getJobLocks(): Promise<JobLock[]>;
+
+  // Forum Operations (with transactions)
+  createTopicWithFirstPost(topicData: {
+    title: string;
+    authorId: number;
+    categoryId?: number | null;
+    productId?: number | null;
+  }, content: string): Promise<ForumTopicResult>;
+
+  createForumPost(topicId: number, authorId: number, content: string, rawContent: string): Promise<ForumPostResult>;
+
+  // Admin Product/Retailer Management
+  getAdminProducts(): Promise<AdminProduct[]>;
+  getAdminProductById(id: number): Promise<AdminProductWithOffers | null>;
+  createAdminProduct(data: InsertProduct): Promise<Product>;
+  updateAdminProduct(id: number, data: Partial<InsertProduct>): Promise<Product | null>;
+  deleteAdminProduct(id: number): Promise<Product | null>;
+  getAdminRetailers(): Promise<Retailer[]>;
+  createAdminRetailer(data: InsertRetailer): Promise<Retailer>;
+  updateAdminRetailer(id: number, data: Partial<InsertRetailer>): Promise<Retailer | null>;
+  deleteAdminRetailer(id: number): Promise<Retailer | null>;
+
+  // Affiliate Management
+  getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]>;
+  updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null>;
+
+  // User Profile Management
+  updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
+  updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
+  suspendUser(userId: number, reason: string, moderatorId: number): Promise<void>;
+
+  // Admin Analytics
+  getAllUsers(): Promise<AdminUser[]>;
+  getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview>;
+  getUserGrowthData(): Promise<UserGrowthData[]>;
+  getForumActivityData(): Promise<ForumActivityData[]>;
+  getTopCategories(limit: number): Promise<TopCategory[]>;
+
+  // User Registration (transactional with first-admin logic)
+  // SECURITY: passwordHash handled internally, NEVER exposed in return value
+  createUserWithTransaction(
+    username: string,
+    email: string,
+    passwordHash: string
+  ): Promise<{ user: SafeUser; isFirstUser: boolean }>;
 }
 
 export class MemStorage implements IStorage {
@@ -505,6 +590,208 @@ export class MemStorage implements IStorage {
       },
     };
   }
+
+  // Additional stub implementations for MemStorage
+  async getAllRetailers(): Promise<Retailer[]> {
+    return Array.from(this.retailers.values());
+  }
+
+  async getRetailerById(id: number): Promise<Retailer | undefined> {
+    return this.retailers.get(id);
+  }
+
+  async updateRetailer(_id: number, _updates: Partial<InsertRetailer>): Promise<Retailer | undefined> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async deleteRetailer(_id: number): Promise<Retailer | undefined> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async updateProduct(_id: number, _updates: Partial<InsertProduct>): Promise<Product | undefined> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async deleteProduct(_id: number): Promise<Product | undefined> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getProductByIdRaw(id: number): Promise<Product | undefined> {
+    return this.products.get(id);
+  }
+
+  async getAllUsers(): Promise<SafeUser[]> {
+    return [];
+  }
+
+  async getUserCount(): Promise<number> {
+    return 0;
+  }
+
+  async updateUserProfile(_userId: number, _updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async updateUserTrustLevel(_userId: number, _trustLevel: number): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async suspendUser(_userId: number, _reason: string, _suspendedBy: number): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // SECURITY: passwordHash handled internally, NEVER exposed
+  async registerUser(_userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // SECURITY: passwordHash handled internally, NEVER exposed
+  async resetPassword(_userId: number, _newPasswordHash: string, _token: string): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
+    return { totalUsers: 0, totalTopics: 0, totalPosts: 0, totalCategories: 0 };
+  }
+
+  async getUserGrowthData(): Promise<Array<{ date: string; count: number }>> {
+    return [];
+  }
+
+  async getForumActivityData(): Promise<Array<{ date: string; count: number }>> {
+    return [];
+  }
+
+  async getTopCategories(_limit?: number): Promise<Array<{ categoryName: string; topicCount: number }>> {
+    return [];
+  }
+
+  async checkDatabaseHealth(): Promise<boolean> {
+    return true; // Memory storage is always "healthy"
+  }
+
+  async getTrendingProducts(_status: string, _limit: number): Promise<TrendingProduct[]> {
+    return [];
+  }
+
+  async getWeeklyAggregates(_productId: number, _options?: { year?: number; week?: number; retailerId?: number; limit?: number }): Promise<WeeklyAggregate[]> {
+    return [];
+  }
+
+  async getMonthlyAggregates(_productId: number, _options?: { year?: number; month?: number; retailerId?: number; limit?: number }): Promise<MonthlyAggregate[]> {
+    return [];
+  }
+
+  async getAnalyticsOverview(): Promise<AnalyticsOverview> {
+    return { weeklyAggregates: 0, monthlyAggregates: 0, totalTrends: 0, trendBreakdown: { uptrend: 0, downtrend: 0, stable: 0 } };
+  }
+
+  async getJobLocks(): Promise<JobLock[]> {
+    return [];
+  }
+
+  // Forum Operations (stub implementations)
+  async createTopicWithFirstPost(_topicData: {
+    title: string;
+    authorId: number;
+    categoryId?: number | null;
+    productId?: number | null;
+  }, _content: string): Promise<ForumTopicResult> {
+    throw new Error('Forum operations not supported in memory storage');
+  }
+
+  async createForumPost(_topicId: number, _authorId: number, _content: string, _rawContent: string): Promise<ForumPostResult> {
+    throw new Error('Forum operations not supported in memory storage');
+  }
+
+  // Admin Product/Retailer Management (stub implementations)
+  async getAdminProducts(): Promise<AdminProduct[]> {
+    return [];
+  }
+
+  async getAdminProductById(_id: number): Promise<AdminProductWithOffers | null> {
+    return null;
+  }
+
+  async createAdminProduct(_data: InsertProduct): Promise<Product> {
+    throw new Error('Admin product operations not supported in memory storage');
+  }
+
+  async updateAdminProduct(_id: number, _data: Partial<InsertProduct>): Promise<Product | null> {
+    throw new Error('Admin product operations not supported in memory storage');
+  }
+
+  async deleteAdminProduct(_id: number): Promise<Product | null> {
+    throw new Error('Admin product operations not supported in memory storage');
+  }
+
+  async getAdminRetailers(): Promise<Retailer[]> {
+    return Array.from(this.retailers.values());
+  }
+
+  async createAdminRetailer(_data: InsertRetailer): Promise<Retailer> {
+    throw new Error('Admin retailer operations not supported in memory storage');
+  }
+
+  async updateAdminRetailer(_id: number, _data: Partial<InsertRetailer>): Promise<Retailer | null> {
+    throw new Error('Admin retailer operations not supported in memory storage');
+  }
+
+  async deleteAdminRetailer(_id: number): Promise<Retailer | null> {
+    throw new Error('Admin retailer operations not supported in memory storage');
+  }
+
+  // Affiliate Management (stub implementations)
+  async getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]> {
+    return [];
+  }
+
+  async updateRetailerAffiliateConfig(_id: number, _config: AffiliateConfig): Promise<Retailer | null> {
+    throw new Error('Affiliate operations not supported in memory storage');
+  }
+
+  // User Profile Management (stub implementations)
+  async updateUserProfile(_userId: number, _data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
+    throw new Error('User profile operations not supported in memory storage');
+  }
+
+  async updateUserTrustLevel(_userId: number, _trustLevel: number): Promise<void> {
+    throw new Error('User profile operations not supported in memory storage');
+  }
+
+  async suspendUser(_userId: number, _reason: string, _moderatorId: number): Promise<void> {
+    throw new Error('User profile operations not supported in memory storage');
+  }
+
+  // Admin Analytics (stub implementations)
+  async getAllUsers(): Promise<AdminUser[]> {
+    return [];
+  }
+
+  async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
+    return { totalUsers: 0, totalTopics: 0, totalPosts: 0, totalCategories: 0 };
+  }
+
+  async getUserGrowthData(): Promise<UserGrowthData[]> {
+    return [];
+  }
+
+  async getForumActivityData(): Promise<ForumActivityData[]> {
+    return [];
+  }
+
+  async getTopCategories(_limit: number): Promise<TopCategory[]> {
+    return [];
+  }
+
+  // SECURITY: passwordHash handled internally, NEVER exposed
+  async createUserWithTransaction(
+    _username: string,
+    _email: string,
+    _passwordHash: string
+  ): Promise<{ user: SafeUser; isFirstUser: boolean }> {
+    throw new Error('User registration not supported in memory storage');
+  }
 }
 
 // Database Storage Implementation
@@ -644,34 +931,44 @@ export class DatabaseStorage implements IStorage {
           FILTER (WHERE ${productOffers.originalPrice} IS NOT NULL)
         `.as('avg_original_price'),
 
-        // Only fetch top 3 offers per product (not all offers!)
-        // This is the key memory optimization: 1000 offers → 60 offers = 94% reduction
+        // Only fetch top 3 offers per product at DATABASE LEVEL (not in post-processing!)
+        // Uses subquery with LIMIT to reduce network/memory: fetches only 3 offers per product
         topOffers: sql<string>`
-          json_agg(
-            json_build_object(
-              'id', ${productOffers.id},
-              'productId', ${productOffers.productId},
-              'retailerId', ${productOffers.retailerId},
-              'price', ${productOffers.price},
-              'originalPrice', ${productOffers.originalPrice},
-              'availability', ${productOffers.availability},
-              'rating', ${productOffers.rating},
-              'reviewCount', ${productOffers.reviewCount},
-              'productUrl', ${productOffers.productUrl},
-              'affiliateUrl', ${productOffers.affiliateUrl},
-              'shippingInfo', ${productOffers.shippingInfo},
-              'dealType', ${productOffers.dealType},
-              'lastUpdated', ${productOffers.lastUpdated},
-              'retailer', json_build_object(
-                'id', ${retailers.id},
-                'name', ${retailers.name},
-                'website', ${retailers.website},
-                'logo', ${retailers.logo},
-                'isActive', ${retailers.isActive}
-              )
-            )
-            ORDER BY CAST(${productOffers.price} AS DECIMAL) ASC
-          ) FILTER (WHERE ${productOffers.id} IS NOT NULL)
+          (
+            SELECT COALESCE(json_agg(offer_data), '[]'::json)
+            FROM (
+              SELECT json_build_object(
+                'id', po.id,
+                'productId', po.product_id,
+                'retailerId', po.retailer_id,
+                'price', po.price,
+                'originalPrice', po.original_price,
+                'availability', po.availability,
+                'rating', po.rating,
+                'reviewCount', po.review_count,
+                'productUrl', po.product_url,
+                'affiliateUrl', po.affiliate_url,
+                'shippingInfo', po.shipping_info,
+                'dealType', po.deal_type,
+                'lastUpdated', po.last_updated,
+                'retailer', (
+                  SELECT json_build_object(
+                    'id', r.id,
+                    'name', r.name,
+                    'website', r.website,
+                    'logo', r.logo,
+                    'isActive', r.is_active
+                  )
+                  FROM retailers r
+                  WHERE r.id = po.retailer_id
+                )
+              ) AS offer_data
+              FROM product_offers po
+              WHERE po.product_id = ${products.id}
+              ORDER BY CAST(po.price AS DECIMAL) ASC
+              LIMIT 3
+            ) AS limited_offers
+          )
         `.as('top_offers'),
       })
       .from(products)
@@ -728,7 +1025,7 @@ export class DatabaseStorage implements IStorage {
     const productsWithOffers: ProductWithOffers[] = results.map(row => {
       const offers = JSON.parse(row.topOffers || '[]');
 
-      // Limit to top 3 offers (should already be limited by query, but ensure it)
+      // Database subquery already limits to 3 offers; slice is defensive fallback only
       const top3Offers = offers.slice(0, 3);
 
       // Calculate savings from database aggregates
@@ -831,6 +1128,8 @@ export class DatabaseStorage implements IStorage {
     offer: ProductOffer;
     retailer: Retailer;
   } | null> {
+    // Escape LIKE special characters to prevent unintended pattern matching
+    const escapedUrl = productUrl.replace(/[%_]/g, '\\$&');
     const result = await db
       .select({
         offer: productOffers,
@@ -840,7 +1139,7 @@ export class DatabaseStorage implements IStorage {
       .from(productOffers)
       .innerJoin(products, eq(productOffers.productId, products.id))
       .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(like(productOffers.productUrl, `%${productUrl}%`))
+      .where(like(productOffers.productUrl, `%${escapedUrl}%`))
       .limit(1);
 
     if (result.length === 0) {
@@ -916,8 +1215,12 @@ export class DatabaseStorage implements IStorage {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    // Select only required columns for price calculations (performance optimization)
     const history = await db
-      .select()
+      .select({
+        price: priceHistory.price,
+        recordedAt: priceHistory.recordedAt,
+      })
       .from(priceHistory)
       .where(and(
         eq(priceHistory.productId, productId),
@@ -979,8 +1282,12 @@ export class DatabaseStorage implements IStorage {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
+    // Select only required columns for price calculations (performance optimization)
     const history = await db
-      .select()
+      .select({
+        price: priceHistory.price,
+        recordedAt: priceHistory.recordedAt,
+      })
       .from(priceHistory)
       .where(and(
         eq(priceHistory.productId, productId),
@@ -1349,86 +1656,104 @@ export class DatabaseStorage implements IStorage {
     productId: number,
     userId: number
   ): Promise<ProductWatch> {
-    const result = await db.transaction(async (tx) => {
-      // Verify watch list ownership
-      const [watchList] = await tx
-        .select({ id: watchLists.id })
-        .from(watchLists)
-        .where(and(
-          eq(watchLists.id, watchListId),
-          eq(watchLists.userId, userId)
-        ))
-        .limit(1);
+    // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
+    const result = await retryWithBackoff(
+      async () => db.transaction(async (tx) => {
+        // Verify watch list ownership
+        const [watchList] = await tx
+          .select({ id: watchLists.id })
+          .from(watchLists)
+          .where(and(
+            eq(watchLists.id, watchListId),
+            eq(watchLists.userId, userId)
+          ))
+          .limit(1);
 
-      if (!watchList) {
-        throw new Error('Watch list not found or unauthorized');
+        if (!watchList) {
+          throw new Error('Watch list not found or unauthorized');
+        }
+
+        // Check product exists and get details for WebSocket event
+        const [product] = await tx
+          .select({
+            id: products.id,
+            name: products.name,
+            image: products.image,
+          })
+          .from(products)
+          .where(eq(products.id, productId))
+          .limit(1);
+
+        if (!product) {
+          throw new Error('Product not found');
+        }
+
+        // Check if already in watch list
+        const [existing] = await tx
+          .select({ id: productWatches.id })
+          .from(productWatches)
+          .where(and(
+            eq(productWatches.watchListId, watchListId),
+            eq(productWatches.productId, productId)
+          ))
+          .limit(1);
+
+        if (existing) {
+          throw new Error('Product already in watch list');
+        }
+
+        // Check product limit per list (max 100 products)
+        const [countResult] = await tx
+          .select({
+            count: sql<number>`COUNT(*)::int`
+          })
+          .from(productWatches)
+          .where(eq(productWatches.watchListId, watchListId));
+
+        if (countResult.count >= 100) {
+          throw new Error('Watch list is full (max 100 products per list)');
+        }
+
+        // Add product to watch list
+        const [result] = await tx
+          .insert(productWatches)
+          .values({
+            userId,
+            productId,
+            watchListId,
+          })
+          .returning();
+
+        // Get current price for WebSocket event (optional - outside transaction critical path)
+        const offers = await tx
+          .select({ price: productOffers.price })
+          .from(productOffers)
+          .where(eq(productOffers.productId, productId))
+          .orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`))
+          .limit(1);
+
+        const currentPrice = offers.length > 0 ? parseFloat(offers[0].price) : null;
+
+        return { result, product, currentPrice };
+      }, {
+        isolationLevel: 'serializable' // Prevent race conditions on concurrent adds
+      }),
+      {
+        maxAttempts: 3,
+        initialDelayMs: 100,
+        isRetryable: isTransientDatabaseError,
+        context: { operation: 'addProductToWatchList', watchListId, productId, userId },
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn('[Storage] Retrying addProductToWatchList after serialization error', {
+            error: error instanceof Error ? error.message : String(error),
+            attempt,
+            delayMs,
+            watchListId,
+            productId,
+          });
+        },
       }
-
-      // Check product exists and get details for WebSocket event
-      const [product] = await tx
-        .select({
-          id: products.id,
-          name: products.name,
-          image: products.image,
-        })
-        .from(products)
-        .where(eq(products.id, productId))
-        .limit(1);
-
-      if (!product) {
-        throw new Error('Product not found');
-      }
-
-      // Check if already in watch list
-      const [existing] = await tx
-        .select({ id: productWatches.id })
-        .from(productWatches)
-        .where(and(
-          eq(productWatches.watchListId, watchListId),
-          eq(productWatches.productId, productId)
-        ))
-        .limit(1);
-
-      if (existing) {
-        throw new Error('Product already in watch list');
-      }
-
-      // Check product limit per list (max 100 products)
-      const [countResult] = await tx
-        .select({
-          count: sql<number>`COUNT(*)::int`
-        })
-        .from(productWatches)
-        .where(eq(productWatches.watchListId, watchListId));
-
-      if (countResult.count >= 100) {
-        throw new Error('Watch list is full (max 100 products per list)');
-      }
-
-      // Add product to watch list
-      const [result] = await tx
-        .insert(productWatches)
-        .values({
-          userId,
-          productId,
-          watchListId,
-        })
-        .returning();
-
-      // Get current price for WebSocket event (optional - outside transaction critical path)
-      const offers = await tx
-        .select({ price: productOffers.price })
-        .from(productOffers)
-        .where(eq(productOffers.productId, productId))
-        .orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`))
-        .limit(1);
-
-      const currentPrice = offers.length > 0 ? parseFloat(offers[0].price) : null;
-
-      return { result, product, currentPrice };
-    }, {
-      isolationLevel: 'serializable' // Prevent race conditions on concurrent adds
-    });
+    );
 
     // Emit WebSocket event after transaction commits
     try {
@@ -1788,6 +2113,420 @@ export class DatabaseStorage implements IStorage {
       },
     };
   }
+
+  // Forum Operations (with transactions)
+  async createTopicWithFirstPost(topicData: {
+    title: string;
+    authorId: number;
+    categoryId?: number | null;
+    productId?: number | null;
+  }, content: string): Promise<ForumTopicResult> {
+    let topic: ForumTopic;
+
+    await db.transaction(async (tx) => {
+      // Generate slug from title
+      let slug = topicData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+      // Check for existing slug and append random suffix if needed
+      const existing = await tx.select().from(forumTopics).where(eq(forumTopics.slug, slug)).limit(1);
+      if (existing.length > 0) {
+        const crypto = await import('crypto');
+        slug = `${slug}-${crypto.randomBytes(4).toString('hex')}`;
+      }
+
+      const topicResult = await tx.insert(forumTopics).values({
+        title: topicData.title,
+        authorId: topicData.authorId,
+        categoryId: topicData.categoryId || null,
+        productId: topicData.productId || null,
+        slug,
+      }).returning();
+      topic = topicResult[0];
+
+      // Create the first post
+      await tx.insert(forumPosts).values({
+        topicId: topic.id,
+        authorId: topicData.authorId,
+        content: content || '',
+        rawContent: content || '',
+        isFirstPost: true,
+        postNumber: 1,
+      });
+
+      // Update topic post count and last post time
+      await tx.update(forumTopics)
+        .set({
+          postCount: sql`${forumTopics.postCount} + 1`,
+          lastPostAt: new Date(),
+        })
+        .where(eq(forumTopics.id, topic.id));
+    });
+
+    return { topic: topic! };
+  }
+
+  async createForumPost(topicId: number, authorId: number, content: string, rawContent: string): Promise<ForumPostResult> {
+    let post: ForumPost;
+
+    await retryWithBackoff(
+      async () => db.transaction(async (tx) => {
+        // Get the next post number within transaction to prevent race conditions
+        const existingPosts = await tx
+          .select()
+          .from(forumPosts)
+          .where(eq(forumPosts.topicId, topicId));
+        const postNumber = existingPosts.length + 1;
+
+        // Create post with calculated postNumber
+        const result = await tx.insert(forumPosts).values({
+          topicId,
+          authorId,
+          content,
+          rawContent,
+          postNumber,
+          isFirstPost: false,
+        }).returning();
+        post = result[0];
+
+        // Update topic stats
+        await tx.update(forumTopics)
+          .set({
+            postCount: sql`${forumTopics.postCount} + 1`,
+            lastPostAt: new Date(),
+          })
+          .where(eq(forumTopics.id, topicId));
+      }, {
+        isolationLevel: 'serializable',
+      }),
+      {
+        maxAttempts: 3,
+        initialDelayMs: 100,
+        isRetryable: isTransientDatabaseError,
+        context: { operation: 'createForumPost', topicId, authorId },
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn('[Storage] Retrying post creation after serialization error', {
+            error: error instanceof Error ? error.message : String(error),
+            attempt,
+            delayMs,
+            topicId,
+          });
+        },
+      }
+    );
+
+    return { post: post! };
+  }
+
+  // Admin Product/Retailer Management
+  async getAdminProducts(): Promise<AdminProduct[]> {
+    return await db.select({
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      category: products.category,
+      brand: products.brand,
+      model: products.model,
+      image: products.image,
+      createdAt: products.createdAt
+    })
+    .from(products)
+    .orderBy(desc(products.createdAt));
+  }
+
+  async getAdminProductById(id: number): Promise<AdminProductWithOffers | null> {
+    const [product] = await db.select()
+      .from(products)
+      .where(eq(products.id, id));
+
+    if (!product) {
+      return null;
+    }
+
+    // Get product offers for this product
+    const offers = await db.select({
+      id: productOffers.id,
+      price: productOffers.price,
+      originalPrice: productOffers.originalPrice,
+      availability: productOffers.availability,
+      productUrl: productOffers.productUrl,
+      affiliateUrl: productOffers.affiliateUrl,
+      retailer: {
+        id: retailers.id,
+        name: retailers.name,
+        logo: retailers.logo
+      }
+    })
+    .from(productOffers)
+    .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
+    .where(eq(productOffers.productId, id));
+
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      brand: product.brand,
+      model: product.model,
+      image: product.image,
+      createdAt: product.createdAt,
+      offers
+    };
+  }
+
+  async createAdminProduct(data: InsertProduct): Promise<Product> {
+    const [newProduct] = await db.insert(products)
+      .values(data)
+      .returning();
+    return newProduct;
+  }
+
+  async updateAdminProduct(id: number, data: Partial<InsertProduct>): Promise<Product | null> {
+    const [updatedProduct] = await db.update(products)
+      .set(data)
+      .where(eq(products.id, id))
+      .returning();
+    return updatedProduct || null;
+  }
+
+  async deleteAdminProduct(id: number): Promise<Product | null> {
+    const [deletedProduct] = await db.delete(products)
+      .where(eq(products.id, id))
+      .returning();
+    return deletedProduct || null;
+  }
+
+  async getAdminRetailers(): Promise<Retailer[]> {
+    return await db.select()
+      .from(retailers)
+      .orderBy(asc(retailers.name));
+  }
+
+  async createAdminRetailer(data: InsertRetailer): Promise<Retailer> {
+    const [newRetailer] = await db.insert(retailers)
+      .values(data)
+      .returning();
+    return newRetailer;
+  }
+
+  async updateAdminRetailer(id: number, data: Partial<InsertRetailer>): Promise<Retailer | null> {
+    const [updatedRetailer] = await db.update(retailers)
+      .set(data)
+      .where(eq(retailers.id, id))
+      .returning();
+    return updatedRetailer || null;
+  }
+
+  async deleteAdminRetailer(id: number): Promise<Retailer | null> {
+    const [deletedRetailer] = await db.delete(retailers)
+      .where(eq(retailers.id, id))
+      .returning();
+    return deletedRetailer || null;
+  }
+
+  // Affiliate Management
+  async getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]> {
+    const allRetailers = await db.select().from(retailers);
+
+    return Promise.all(
+      allRetailers.map(async (retailer) => {
+        // Get affiliate stats for each retailer
+        const statsResult = await db.select({
+          totalOffers: sql<number>`count(*)::int`,
+          offersWithAffiliateLinks: sql<number>`count(case when ${productOffers.affiliateUrl} is not null then 1 end)::int`,
+          totalClicks: sql<number>`coalesce(sum(${productOffers.clickCount}), 0)::int`
+        })
+        .from(productOffers)
+        .where(eq(productOffers.retailerId, retailer.id));
+
+        const stats = statsResult[0] || { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 };
+
+        return {
+          ...retailer,
+          affiliateConfigParsed: retailer.affiliateConfig ? JSON.parse(retailer.affiliateConfig) : null,
+          stats
+        };
+      })
+    );
+  }
+
+  async updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null> {
+    const [updatedRetailer] = await db.update(retailers)
+      .set({
+        affiliateId: config.affiliateId,
+        affiliateProgram: config.affiliateProgram,
+        baseAffiliateUrl: config.baseAffiliateUrl,
+        commissionRate: config.commissionRate,
+        affiliateStatus: config.affiliateStatus as 'active' | 'inactive' | 'pending',
+        affiliateConfig: config.affiliateConfig ? JSON.stringify(config.affiliateConfig) : null
+      })
+      .where(eq(retailers.id, id))
+      .returning();
+    return updatedRetailer || null;
+  }
+
+  // User Profile Management
+  async updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
+    await db.update(users)
+      .set({
+        bio: data.bio,
+        location: data.location,
+        website: data.website,
+        avatarUrl: data.avatarUrl,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async updateUserTrustLevel(userId: number, trustLevel: number): Promise<void> {
+    await db.update(users)
+      .set({ trustLevel, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async suspendUser(userId: number, reason: string, moderatorId: number): Promise<void> {
+    // UX: Use transaction to ensure suspension and notification are atomic
+    await db.transaction(async (tx) => {
+      await tx.update(users)
+        .set({ isSuspended: true, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      // Create notification - must succeed or rollback suspension
+      await tx.insert(notifications).values({
+        userId,
+        type: 'moderation',
+        title: 'Account suspended',
+        content: reason || 'Your account has been suspended',
+        relatedUserId: moderatorId
+      });
+    });
+  }
+
+  // Admin Analytics
+  async getAllUsers(): Promise<AdminUser[]> {
+    // SECURITY: Never expose passwordHash - explicit field selection
+    return await db.select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      role: users.role,
+      isActive: users.isActive,
+      reputation: users.reputation,
+      createdAt: users.createdAt
+    }).from(users);
+  }
+
+  async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
+    const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
+      db.select({ count: sql`count(*)` }).from(users),
+      db.select({ count: sql`count(*)` }).from(forumTopics),
+      db.select({ count: sql`count(*)` }).from(forumPosts),
+      db.select({ count: sql`count(*)` }).from(forumCategories)
+    ]);
+
+    return {
+      totalUsers: Number(userCount[0]?.count || 0),
+      totalTopics: Number(topicCount[0]?.count || 0),
+      totalPosts: Number(postCount[0]?.count || 0),
+      totalCategories: Number(categoryCount[0]?.count || 0)
+    };
+  }
+
+  async getUserGrowthData(): Promise<UserGrowthData[]> {
+    const result = await db.select({
+      date: sql<string>`DATE(${users.createdAt})`.as('date'),
+      count: sql<number>`count(*)`.as('count')
+    })
+    .from(users)
+    .groupBy(sql`DATE(${users.createdAt})`)
+    .orderBy(sql`DATE(${users.createdAt})`);
+
+    return result.map(row => ({ date: String(row.date), count: Number(row.count) }));
+  }
+
+  async getForumActivityData(): Promise<ForumActivityData[]> {
+    const result = await db.select({
+      date: sql<string>`DATE(${forumPosts.createdAt})`.as('date'),
+      count: sql<number>`count(*)`.as('count')
+    })
+    .from(forumPosts)
+    .groupBy(sql`DATE(${forumPosts.createdAt})`)
+    .orderBy(sql`DATE(${forumPosts.createdAt})`);
+
+    return result.map(row => ({ date: String(row.date), count: Number(row.count) }));
+  }
+
+  async getTopCategories(limit: number): Promise<TopCategory[]> {
+    const result = await db.select({
+      categoryName: forumCategories.name,
+      topicCount: sql<number>`count(${forumTopics.id})`.as('topicCount')
+    })
+    .from(forumCategories)
+    .leftJoin(forumTopics, eq(forumCategories.id, forumTopics.categoryId))
+    .groupBy(forumCategories.id, forumCategories.name)
+    .orderBy(sql`count(${forumTopics.id}) DESC`)
+    .limit(limit);
+
+    return result.map(row => ({ categoryName: row.categoryName, topicCount: Number(row.topicCount) }));
+  }
+
+  // User Registration with transaction (first user becomes admin)
+  // SECURITY: passwordHash handled internally, NEVER exposed in return value
+  async createUserWithTransaction(
+    username: string,
+    email: string,
+    passwordHash: string
+  ): Promise<{ user: SafeUser; isFirstUser: boolean }> {
+    let user: SafeUser;
+    let isFirstUser: boolean = false;
+
+    await retryWithBackoff(
+      async () => db.transaction(async (tx) => {
+        // Check if this is the first user (make them admin)
+        const userCount = await tx.select({ count: sql`count(*)` }).from(users);
+        isFirstUser = parseInt(userCount[0].count as string) === 0;
+
+        // Create user - must be in same transaction as count check
+        // SECURITY: passwordHash stored securely, NEVER exposed in return value
+        const newUserResult = await tx.insert(users).values({
+          username,
+          email,
+          passwordHash, // SECURITY: NEVER expose - only used internally
+          role: isFirstUser ? 'admin' : 'user',
+        }).returning();
+
+        // SECURITY: Explicitly extract safe fields, never expose passwordHash
+        user = {
+          id: newUserResult[0].id,
+          username: newUserResult[0].username,
+          email: newUserResult[0].email,
+          role: newUserResult[0].role,
+          trustLevel: newUserResult[0].trustLevel,
+          isActive: newUserResult[0].isActive,
+          isSuspended: newUserResult[0].isSuspended,
+          createdAt: newUserResult[0].createdAt,
+          updatedAt: newUserResult[0].updatedAt,
+        };
+      }, {
+        isolationLevel: 'serializable', // Prevent concurrent first-user race condition
+      }),
+      {
+        maxAttempts: 3,
+        initialDelayMs: 100,
+        isRetryable: isTransientDatabaseError,
+        context: { operation: 'createUserWithTransaction', username, email },
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn('[Storage] Retrying user registration after serialization error', {
+            error: error instanceof Error ? error.message : String(error),
+            attempt,
+            delayMs,
+            username,
+          });
+        },
+      }
+    );
+
+    return { user: user!, isFirstUser };
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
@@ -1893,4 +2632,106 @@ export interface WatchListStats {
     newDeals: number;
     triggeredAlerts: number;
   };
+}
+
+// Forum Types
+export interface ForumTopicResult {
+  topic: ForumTopic;
+}
+
+export interface ForumPostResult {
+  post: ForumPost;
+}
+
+// Admin Types
+export interface AdminProduct {
+  id: number;
+  name: string;
+  description: string | null;
+  category: string | null;
+  brand: string | null;
+  model: string | null;
+  image: string | null;
+  createdAt: Date | null;
+}
+
+export interface AdminProductWithOffers extends AdminProduct {
+  offers: Array<{
+    id: number;
+    price: string;
+    originalPrice: string | null;
+    availability: string | null;
+    productUrl: string | null;
+    affiliateUrl: string | null;
+    retailer: {
+      id: number;
+      name: string;
+      logo: string | null;
+    } | null;
+  }>;
+}
+
+// Affiliate Types
+export interface RetailerWithAffiliateStats extends Retailer {
+  affiliateConfigParsed: Record<string, unknown> | null;
+  stats: {
+    totalOffers: number;
+    offersWithAffiliateLinks: number;
+    totalClicks: number;
+  };
+}
+
+export interface AffiliateConfig {
+  affiliateId?: string | null;
+  affiliateProgram?: string | null;
+  baseAffiliateUrl?: string | null;
+  commissionRate?: string | null;
+  affiliateStatus?: string | null;
+  affiliateConfig?: Record<string, unknown> | null;
+}
+
+// Admin User Types
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  role: string | null;
+  isActive: boolean | null;
+  reputation: number | null;
+  createdAt: Date | null;
+}
+
+export interface AdminAnalyticsOverview {
+  totalUsers: number;
+  totalTopics: number;
+  totalPosts: number;
+  totalCategories: number;
+}
+
+export interface UserGrowthData {
+  date: string;
+  count: number;
+}
+
+export interface ForumActivityData {
+  date: string;
+  count: number;
+}
+
+export interface TopCategory {
+  categoryName: string;
+  topicCount: number;
+}
+
+// Safe user type (excludes passwordHash for security)
+export interface SafeUser {
+  id: number;
+  username: string;
+  email: string;
+  role: string | null;
+  trustLevel: number | null;
+  isActive: boolean | null;
+  isSuspended: boolean | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }

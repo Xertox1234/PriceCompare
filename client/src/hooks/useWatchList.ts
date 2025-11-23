@@ -78,6 +78,7 @@ export function useWatchLists() {
       return apiRequest<WatchList[]>('/api/watchlists');
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -90,6 +91,7 @@ export function useWatchList(id: number | null) {
     },
     enabled: id !== null,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -100,6 +102,7 @@ export function useWatchListStats() {
       return apiRequest<WatchListStats>('/api/watchlists/stats');
     },
     staleTime: 2 * 60 * 1000, // 2 minutes (more frequently updated)
+    gcTime: 6 * 60 * 1000, // 6 minutes
   });
 }
 
@@ -115,7 +118,8 @@ export function useWatchedProducts(options?: {
       const response = await apiRequest<{ products: WatchedProduct[] }>(url);
       return response.products;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 

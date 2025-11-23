@@ -1,13 +1,12 @@
 import { Express } from "express";
-import { db } from "../db";
 import { forumStorage } from "../forum-storage";
+import { storage } from "../storage";
 import { withAdmin } from "./helpers";
 import { insertProductSchema, insertRetailerSchema } from "@shared/schema";
-import * as schema from "@shared/schema";
-import { eq, sql, desc, asc } from 'drizzle-orm';
 import { parseIntSafe } from "../utils/validation-helpers";
 import { getPerformanceStats, getSlowestEndpoints } from "../middleware/performance";
 import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
 
 /**
  * Admin Routes
@@ -21,7 +20,7 @@ export function registerAdminRoutes(app: Express): void {
     try {
       const categories = await forumStorage.getCategories();
       res.json(Array.isArray(categories) ? categories : []);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching categories', { error: error instanceof Error ? error.message : String(error) });
       res.json([]);
     }
@@ -30,17 +29,9 @@ export function registerAdminRoutes(app: Express): void {
   // Get all users
   app.get("/api/admin/users", withAdmin(async (req, res) => {
     try {
-      const usersData = await db.select({
-        id: schema.users.id,
-        username: schema.users.username,
-        email: schema.users.email,
-        role: schema.users.role,
-        isActive: schema.users.isActive,
-        reputation: schema.users.reputation,
-        createdAt: schema.users.createdAt
-      }).from(schema.users);
+      const usersData = await storage.getAllUsers();
       res.json(Array.isArray(usersData) ? usersData : []);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching users', { error: error instanceof Error ? error.message : String(error) });
       res.json([]);
     }
@@ -49,98 +40,57 @@ export function registerAdminRoutes(app: Express): void {
   // Admin analytics endpoints
   app.get("/api/admin/analytics/overview", withAdmin(async (req, res) => {
     try {
-      const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
-        db.select({ count: sql`count(*)` }).from(schema.users),
-        db.select({ count: sql`count(*)` }).from(schema.forumTopics),
-        db.select({ count: sql`count(*)` }).from(schema.forumPosts),
-        db.select({ count: sql`count(*)` }).from(schema.forumCategories)
-      ]);
-
-      res.json({
-        totalUsers: userCount[0]?.count || 0,
-        totalTopics: topicCount[0]?.count || 0,
-        totalPosts: postCount[0]?.count || 0,
-        totalCategories: categoryCount[0]?.count || 0
-      });
-    } catch (error) {
+      const overview = await storage.getAdminAnalyticsOverview();
+      res.json(overview);
+    } catch (error: unknown) {
       logger.error('Error fetching overview analytics', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch analytics' });
+      const errorResponse = createErrorResponse(error, 'FetchAnalyticsOverview');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   app.get("/api/admin/analytics/user-growth", withAdmin(async (req, res) => {
     try {
-      const userGrowth = await db.select({
-        date: sql`DATE(${schema.users.createdAt})`.as('date'),
-        count: sql`count(*)`.as('count')
-      })
-      .from(schema.users)
-      .groupBy(sql`DATE(${schema.users.createdAt})`)
-      .orderBy(sql`DATE(${schema.users.createdAt})`);
-
+      const userGrowth = await storage.getUserGrowthData();
       res.json(userGrowth);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching user growth', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch user growth data' });
+      const errorResponse = createErrorResponse(error, 'FetchUserGrowth');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   app.get("/api/admin/analytics/forum-activity", withAdmin(async (req, res) => {
     try {
-      const postActivity = await db.select({
-        date: sql`DATE(${schema.forumPosts.createdAt})`.as('date'),
-        count: sql`count(*)`.as('count')
-      })
-      .from(schema.forumPosts)
-      .groupBy(sql`DATE(${schema.forumPosts.createdAt})`)
-      .orderBy(sql`DATE(${schema.forumPosts.createdAt})`);
-
+      const postActivity = await storage.getForumActivityData();
       res.json(postActivity);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching forum activity', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch forum activity data' });
+      const errorResponse = createErrorResponse(error, 'FetchForumActivity');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   app.get("/api/admin/analytics/top-categories", withAdmin(async (req, res) => {
     try {
-      const topCategories = await db.select({
-        categoryName: schema.forumCategories.name,
-        topicCount: sql`count(${schema.forumTopics.id})`.as('topicCount')
-      })
-      .from(schema.forumCategories)
-      .leftJoin(schema.forumTopics, eq(schema.forumCategories.id, schema.forumTopics.categoryId))
-      .groupBy(schema.forumCategories.id, schema.forumCategories.name)
-      .orderBy(sql`count(${schema.forumTopics.id}) DESC`)
-      .limit(10);
-
+      const topCategories = await storage.getTopCategories(10);
       res.json(topCategories);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching top categories', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch top categories data' });
+      const errorResponse = createErrorResponse(error, 'FetchTopCategories');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   // Admin Product Management Endpoints
   app.get("/api/admin/products", withAdmin(async (req, res) => {
     try {
-      const products = await db.select({
-        id: schema.products.id,
-        name: schema.products.name,
-        description: schema.products.description,
-        category: schema.products.category,
-        brand: schema.products.brand,
-        model: schema.products.model,
-        image: schema.products.image,
-        createdAt: schema.products.createdAt
-      })
-      .from(schema.products)
-      .orderBy(desc(schema.products.createdAt));
-
+      const products = await storage.getAdminProducts();
       res.json(products);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching admin products', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch products' });
+      const errorResponse = createErrorResponse(error, 'FetchAdminProducts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -149,51 +99,29 @@ export function registerAdminRoutes(app: Express): void {
       // SECURITY: Safe integer parsing with validation
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
-      const [product] = await db.select()
-        .from(schema.products)
-        .where(eq(schema.products.id, productId));
+      const product = await storage.getAdminProductById(productId);
 
       if (!product) {
         return res.status(404).json({ error: 'Product not found' });
       }
 
-      // Get product offers for this product
-      const offers = await db.select({
-        id: schema.productOffers.id,
-        price: schema.productOffers.price,
-        originalPrice: schema.productOffers.originalPrice,
-        availability: schema.productOffers.availability,
-        productUrl: schema.productOffers.productUrl,
-        affiliateUrl: schema.productOffers.affiliateUrl,
-        retailer: {
-          id: schema.retailers.id,
-          name: schema.retailers.name,
-          logo: schema.retailers.logo
-        }
-      })
-      .from(schema.productOffers)
-      .leftJoin(schema.retailers, eq(schema.productOffers.retailerId, schema.retailers.id))
-      .where(eq(schema.productOffers.productId, productId));
-
-      res.json({ ...product, offers });
-    } catch (error) {
+      res.json(product);
+    } catch (error: unknown) {
       logger.error('Error fetching product details', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ error: 'Failed to fetch product details' });
+      const errorResponse = createErrorResponse(error, 'FetchProductDetails');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   app.post("/api/admin/products", withAdmin(async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
-
-      const [newProduct] = await db.insert(schema.products)
-        .values(productData)
-        .returning();
-
+      const newProduct = await storage.createAdminProduct(productData);
       res.status(201).json(newProduct);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error creating product', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to create product' });
+      const errorResponse = createErrorResponse(error, 'CreateProduct');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -203,19 +131,17 @@ export function registerAdminRoutes(app: Express): void {
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
       const updateData = insertProductSchema.partial().parse(req.body);
 
-      const [updatedProduct] = await db.update(schema.products)
-        .set(updateData)
-        .where(eq(schema.products.id, productId))
-        .returning();
+      const updatedProduct = await storage.updateAdminProduct(productId, updateData);
 
       if (!updatedProduct) {
         return res.status(404).json({ error: 'Product not found' });
       }
 
       res.json(updatedProduct);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error updating product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ error: 'Failed to update product' });
+      const errorResponse = createErrorResponse(error, 'UpdateProduct');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -225,47 +151,41 @@ export function registerAdminRoutes(app: Express): void {
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
       // CASCADE rule on product_offers.product_id handles offer deletion automatically
-      const [deletedProduct] = await db.delete(schema.products)
-        .where(eq(schema.products.id, productId))
-        .returning();
+      const deletedProduct = await storage.deleteAdminProduct(productId);
 
       if (!deletedProduct) {
         return res.status(404).json({ error: 'Product not found' });
       }
 
       res.json({ success: true, message: 'Product deleted successfully' });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error deleting product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ error: 'Failed to delete product' });
+      const errorResponse = createErrorResponse(error, 'DeleteProduct');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   // Admin Retailer Management Endpoints
   app.get("/api/admin/retailers", withAdmin(async (req, res) => {
     try {
-      const retailers = await db.select()
-        .from(schema.retailers)
-        .orderBy(asc(schema.retailers.name));
-
-      res.json(retailers);
-    } catch (error) {
+      const allRetailers = await storage.getAdminRetailers();
+      res.json(allRetailers);
+    } catch (error: unknown) {
       logger.error('Error fetching retailers', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to fetch retailers' });
+      const errorResponse = createErrorResponse(error, 'FetchRetailers');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
   app.post("/api/admin/retailers", withAdmin(async (req, res) => {
     try {
       const retailerData = insertRetailerSchema.parse(req.body);
-
-      const [newRetailer] = await db.insert(schema.retailers)
-        .values(retailerData)
-        .returning();
-
+      const newRetailer = await storage.createAdminRetailer(retailerData);
       res.status(201).json(newRetailer);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error creating retailer', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to create retailer' });
+      const errorResponse = createErrorResponse(error, 'CreateRetailer');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -275,19 +195,17 @@ export function registerAdminRoutes(app: Express): void {
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
       const updateData = insertRetailerSchema.partial().parse(req.body);
 
-      const [updatedRetailer] = await db.update(schema.retailers)
-        .set(updateData)
-        .where(eq(schema.retailers.id, retailerId))
-        .returning();
+      const updatedRetailer = await storage.updateAdminRetailer(retailerId, updateData);
 
       if (!updatedRetailer) {
         return res.status(404).json({ error: 'Retailer not found' });
       }
 
       res.json(updatedRetailer);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error updating retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
-      res.status(500).json({ error: 'Failed to update retailer' });
+      const errorResponse = createErrorResponse(error, 'UpdateRetailer');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -297,18 +215,17 @@ export function registerAdminRoutes(app: Express): void {
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
 
       // CASCADE rule on product_offers.retailer_id handles offer deletion automatically
-      const [deletedRetailer] = await db.delete(schema.retailers)
-        .where(eq(schema.retailers.id, retailerId))
-        .returning();
+      const deletedRetailer = await storage.deleteAdminRetailer(retailerId);
 
       if (!deletedRetailer) {
         return res.status(404).json({ error: 'Retailer not found' });
       }
 
       res.json({ success: true, message: 'Retailer deleted successfully' });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error deleting retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
-      res.status(500).json({ error: 'Failed to delete retailer' });
+      const errorResponse = createErrorResponse(error, 'DeleteRetailer');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -317,9 +234,10 @@ export function registerAdminRoutes(app: Express): void {
     try {
       const stats = getPerformanceStats();
       res.json(stats);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting performance stats', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to get performance stats' });
+      const errorResponse = createErrorResponse(error, 'GetPerformanceStats');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 
@@ -329,9 +247,10 @@ export function registerAdminRoutes(app: Express): void {
       const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 10;
       const slowest = getSlowestEndpoints(limit);
       res.json(slowest);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting slowest endpoints', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Failed to get slowest endpoints' });
+      const errorResponse = createErrorResponse(error, 'GetSlowestEndpoints');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   }));
 }

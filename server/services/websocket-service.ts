@@ -1,9 +1,9 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
-import { monitoringService, DashboardMetrics } from './monitoring-service.js';
-import { alertService } from './alert-service.js';
-import { logger } from '../utils/logger.js';
-import { cleanupManager } from '../utils/cleanup-manager.js';
+import { monitoringService, DashboardMetrics } from './monitoring-service';
+import { alertService } from './alert-service';
+import { logger } from '../utils/logger';
+import { cleanupManager } from '../utils/cleanup-manager';
 
 /**
  * WebSocket Service for Real-Time Dashboard Updates

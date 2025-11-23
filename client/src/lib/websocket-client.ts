@@ -14,7 +14,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
-import type { ServerToClientEvents, ClientToServerEvents } from '../../../server/websocket/types';
+import type { ServerToClientEvents, ClientToServerEvents } from '@shared/websocket-types';
 
 // Connection states
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -23,7 +23,7 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'rec
  * WebSocket Client Manager
  * Singleton pattern - only one instance per application
  */
-class WebSocketClient {
+export class WebSocketClient {
   private socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -308,5 +308,5 @@ export const websocketClient = new WebSocketClient();
  * Expose to window for debugging in development
  */
 if (import.meta.env.DEV && typeof window !== 'undefined') {
-  (window as any).websocketClient = websocketClient;
+  window.websocketClient = websocketClient;
 }

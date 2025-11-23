@@ -1,5 +1,5 @@
-import { db } from '../db.js';
-import { users } from '../../shared/schema.js';
+import { db } from '../db';
+import { users } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { createLogger } from '../utils/logger';
 

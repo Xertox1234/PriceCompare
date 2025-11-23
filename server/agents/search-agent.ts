@@ -1,15 +1,15 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent.js';
-import { db } from '../db.js';
-import { searchQueries, trendingProducts } from '../../shared/schema.js';
+import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { db } from '../db';
+import { searchQueries, trendingProducts } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
-import type { InsertSearchQuery, TrendingProduct } from '../../shared/schema.js';
-import type { SearchTaskData, SearchResult, RetailerConfig } from './types.js';
+import type { InsertSearchQuery, TrendingProduct } from '../../shared/schema';
+import type { SearchTaskData, SearchResult, RetailerConfig } from './types';
 import OpenAI from 'openai';
-import { googleSearchService } from '../services/google-search.js';
-import type { GoogleSearchResult } from '../services/google-search.js';
-import { logger } from '../utils/logger.js';
-import { safeSearchQueries, type AISearchQueries } from './ai-validation-schemas.js';
-import { queryCache } from '../services/redis-cache.js';
+import { googleSearchService } from '../services/google-search';
+import type { GoogleSearchResult } from '../services/google-search';
+import { logger } from '../utils/logger';
+import { safeSearchQueries, type AISearchQueries } from './ai-validation-schemas';
+import { queryCache } from '../services/redis-cache';
 
 export class SearchOrchestrationAgent extends BaseAgent {
   private openai: OpenAI;

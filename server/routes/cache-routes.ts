@@ -34,7 +34,7 @@ export function registerCacheRoutes(app: Express): void {
     try {
       const stats = await getCacheStatistics();
       res.json(stats);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting cache statistics:', error);
       res.status(500).json({
         error: 'Failed to retrieve cache statistics',
@@ -62,7 +62,7 @@ export function registerCacheRoutes(app: Express): void {
         count: topProducts.length,
         products: topProducts,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting top products:', error);
       res.status(500).json({
         error: 'Failed to retrieve top products',
@@ -88,7 +88,7 @@ export function registerCacheRoutes(app: Express): void {
         count: topSearches.length,
         queries: topSearches,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting top searches:', error);
       res.status(500).json({
         error: 'Failed to retrieve top searches',
@@ -119,7 +119,7 @@ export function registerCacheRoutes(app: Express): void {
           weekly: weeklyViews,
         },
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting product popularity:', error);
       res.status(500).json({
         error: 'Failed to retrieve product popularity',
@@ -147,7 +147,7 @@ export function registerCacheRoutes(app: Express): void {
         warmedProducts: count,
         options,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error triggering cache warming:', error);
       res.status(500).json({
         error: 'Failed to trigger cache warming',
@@ -171,7 +171,7 @@ export function registerCacheRoutes(app: Express): void {
         productId,
         message: 'Product cache invalidated',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error invalidating product cache:', error);
       res.status(500).json({
         error: 'Failed to invalidate product cache',
@@ -192,7 +192,7 @@ export function registerCacheRoutes(app: Express): void {
         success: true,
         message: 'Search caches invalidated',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error invalidating search caches:', error);
       res.status(500).json({
         error: 'Failed to invalidate search caches',
@@ -213,7 +213,7 @@ export function registerCacheRoutes(app: Express): void {
         success: true,
         message: 'Popularity data cleaned up',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error cleaning up popularity data:', error);
       res.status(500).json({
         error: 'Failed to clean up popularity data',
@@ -234,7 +234,7 @@ export function registerCacheRoutes(app: Express): void {
         success: true,
         message: 'Cache statistics reset',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error resetting cache statistics:', error);
       res.status(500).json({
         error: 'Failed to reset cache statistics',
@@ -263,7 +263,7 @@ export function registerCacheRoutes(app: Express): void {
         success: true,
         message: 'All caches cleared',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error clearing caches:', error);
       res.status(500).json({
         error: 'Failed to clear caches',
@@ -321,7 +321,7 @@ export function registerCacheRoutes(app: Express): void {
       health.status = allHealthy ? 'healthy' : 'degraded';
 
       res.json(health);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting cache health:', error);
       res.status(500).json({
         status: 'error',

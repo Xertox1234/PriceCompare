@@ -1,8 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "./utils/logger";
-import { db } from './db.js';
-import { retailers, productOffers } from '../shared/schema.js';
-import { eq } from 'drizzle-orm';
+import { storage } from './storage';
 import { requireAuth, requireAdmin } from './auth';
 import { validateRequest } from './validation';
 import {
@@ -10,8 +8,8 @@ import {
   idParamSchema,
 } from './validation/admin-schemas';
 import { z } from 'zod';
-import { affiliateLinkService } from './services/affiliate-link-service.js';
-import { AffiliateLinkAgent } from './agents/affiliate-agent.js';
+import { affiliateLinkService } from './services/affiliate-link-service';
+import { AffiliateLinkAgent } from './agents/affiliate-agent';
 import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
@@ -35,22 +33,9 @@ export function registerAffiliateRoutes(app: Express): void {
   // Get all retailers with affiliate status
   app.get("/api/admin/retailers/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const allRetailers = await db.select().from(retailers);
-      
-      // Get affiliate stats for each retailer
-      const retailersWithStats = await Promise.all(
-        allRetailers.map(async (retailer) => {
-          const stats = await affiliateLinkService.getAffiliateLinkStats(retailer.id);
-          return {
-            ...retailer,
-            affiliateConfig: retailer.affiliateConfig ? JSON.parse(retailer.affiliateConfig) : null,
-            stats
-          };
-        })
-      );
-
+      const retailersWithStats = await storage.getRetailersWithAffiliateStats();
       res.json(retailersWithStats);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to get retailers:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to retrieve retailers' });
     }
@@ -70,17 +55,14 @@ export function registerAffiliateRoutes(app: Express): void {
         affiliateConfig
       } = req.body;
 
-      const [updatedRetailer] = await db.update(retailers)
-        .set({
-          affiliateId,
-          affiliateProgram,
-          baseAffiliateUrl,
-          commissionRate: commissionRate ? commissionRate.toString() : null,
-          affiliateStatus,
-          affiliateConfig: affiliateConfig ? JSON.stringify(affiliateConfig) : null
-        })
-        .where(eq(retailers.id, retailerId))
-        .returning();
+      const updatedRetailer = await storage.updateRetailerAffiliateConfig(retailerId, {
+        affiliateId,
+        affiliateProgram,
+        baseAffiliateUrl,
+        commissionRate: commissionRate ? commissionRate.toString() : null,
+        affiliateStatus,
+        affiliateConfig
+      });
 
       if (!updatedRetailer) {
         return res.status(404).json({ error: 'Retailer not found' });
@@ -90,7 +72,7 @@ export function registerAffiliateRoutes(app: Express): void {
       affiliateLinkService.clearCache();
 
       res.json(updatedRetailer);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to update retailer affiliate config:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to update retailer affiliate configuration' });
     }
@@ -127,7 +109,7 @@ export function registerAffiliateRoutes(app: Express): void {
           error: result.error
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Link test failed:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Link test failed' });
     }
@@ -150,7 +132,7 @@ export function registerAffiliateRoutes(app: Express): void {
       });
 
       res.json(result);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Link generation failed:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Link generation failed' });
     }
@@ -167,7 +149,7 @@ export function registerAffiliateRoutes(app: Express): void {
       );
 
       res.json(stats);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to get affiliate stats:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to retrieve affiliate statistics' });
     }
@@ -182,7 +164,7 @@ export function registerAffiliateRoutes(app: Express): void {
       await affiliateLinkService.trackLinkClick(offerId);
 
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to track click:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to track click' });
     }
@@ -199,7 +181,7 @@ export function registerAffiliateRoutes(app: Express): void {
         message: 'Affiliate agent started',
         stats
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to start affiliate agent:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to start affiliate agent' });
     }

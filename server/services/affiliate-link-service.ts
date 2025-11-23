@@ -1,7 +1,7 @@
-import { db } from '../db.js';
-import { retailers, productOffers } from '../../shared/schema.js';
+import { db } from '../db';
+import { retailers, productOffers } from '../../shared/schema';
 import { eq, sql, count } from 'drizzle-orm';
-import type { Retailer } from '../../shared/schema.js';
+import type { Retailer } from '../../shared/schema';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('AffiliateLink');

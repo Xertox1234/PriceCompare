@@ -20,6 +20,8 @@ Migrations are numbered sequentially and executed in order:
 - `0012_encrypt_pii_data_at_rest.sql` - **PII encryption at rest** (security enhancement)
 - `0013_add_daily_price_aggregates.sql` - **Daily price aggregates** (aggregatedAt tracking, daily aggregation table)
 - `0014_add_aggregation_indexes.sql` - **Aggregation performance indexes** (optimizes time-range queries, 10-100x faster)
+- `0015_fix_set_null_constraints.sql` - **Fix SET NULL constraints** (allows user deletion with forum content)
+- `0016_fix_data_integrity_issues.sql` - **Fix data integrity issues** (unique constraints, nullable sender_id)
 
 ## How to Apply Migrations
 
@@ -111,15 +113,40 @@ Indexes:
     "idx_job_locks_name" btree (job_name)
 ```
 
-## Rolling Back a Migration
+## Rolling Back Migrations
 
-If you need to rollback the job locks migration:
+**See [ROLLBACK_GUIDE.md](./ROLLBACK_GUIDE.md)** for comprehensive rollback procedures for all migrations.
+
+### Quick Reference
+
+Each migration has a specific rollback procedure with risk levels:
+
+| Migration | Risk Level | Data Loss |
+|-----------|------------|-----------|
+| 0001 - pgvector | MEDIUM | Yes (embeddings) |
+| 0002 - Performance indexes | LOW | No |
+| 0003 - Password reset | HIGH | Yes (tokens) |
+| 0004 - Price history | HIGH | Yes (all history) |
+| 0005 - Notifications | MEDIUM | Yes (preferences) |
+| 0006 - Price alerts | MEDIUM | Yes (tracking data) |
+| 0007 - Community | HIGH | Yes (reputation, watches) |
+| 0008 - Watch lists | HIGH | Yes (list organization) |
+| 0009 - Price aggregation | HIGH | Yes (analytics) |
+| 0010 - Job locks | LOW | Minimal |
+| 0011 - Cascade rules | MEDIUM | No |
+| 0012 - PII encryption | **CRITICAL** | Requires key |
+| 0013 - Daily aggregates | MEDIUM | Yes |
+| 0014 - Aggregation indexes | LOW | No |
+| 0015 - SET NULL constraints | MEDIUM | No |
+| 0016 - Data integrity | MEDIUM | No |
+
+### Simple Rollback Example (Job Locks)
 
 ```sql
 DROP TABLE IF EXISTS job_locks CASCADE;
 ```
 
-**Warning**: This will remove all job locks. Jobs will be able to acquire new locks immediately.
+**Warning**: Always backup before rolling back. See ROLLBACK_GUIDE.md for complete procedures.
 
 ## Troubleshooting
 
@@ -159,6 +186,8 @@ When creating new migrations:
 
 ## Related Documentation
 
+- **Rollback Guide**: `migrations/ROLLBACK_GUIDE.md` - **Complete rollback procedures for all migrations**
 - **Audit Report**: `docs/AUDIT_2025-11-16.md` - Comprehensive audit of job locking system
 - **Patterns Guide**: `docs/PATTERNS.md` - Best practices for database queries and job locking
+- **Database Patterns**: `docs/DATABASE_PATTERNS.md` - N+1 prevention, transactions, query optimization
 - **Job Lock Service**: `server/services/job-lock-service.ts` - Implementation details

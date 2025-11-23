@@ -56,7 +56,7 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching notifications:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetNotifications');
       res.status(errorResponse.status).json({
@@ -79,7 +79,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: stats
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching notification stats:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetNotificationStats');
       res.status(errorResponse.status).json({
@@ -107,7 +107,7 @@ export function registerNotificationRoutes(app: Express) {
       }
 
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error marking notification as read:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'MarkNotificationRead');
       res.status(errorResponse.status).json({
@@ -131,7 +131,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         count
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error marking all as read:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'MarkAllNotificationsRead');
       res.status(errorResponse.status).json({
@@ -159,7 +159,7 @@ export function registerNotificationRoutes(app: Express) {
       }
 
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error deleting notification:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'DeleteNotification');
       res.status(errorResponse.status).json({
@@ -183,7 +183,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         count
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error deleting all notifications:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'DeleteAllNotifications');
       res.status(errorResponse.status).json({
@@ -206,7 +206,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: preferences
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching preferences:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetNotificationPreferences');
       res.status(errorResponse.status).json({
@@ -245,7 +245,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         data: preferences
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error updating preferences:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'UpdateNotificationPreferences');
       res.status(errorResponse.status).json({
@@ -273,7 +273,7 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching price drops:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetPriceDropNotifications');
       res.status(errorResponse.status).json({
@@ -301,7 +301,7 @@ export function registerNotificationRoutes(app: Express) {
         data: notifications,
         count: notifications.length
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching price alerts:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetPriceAlertNotifications');
       res.status(errorResponse.status).json({
@@ -357,7 +357,7 @@ export function registerNotificationRoutes(app: Express) {
         data: filteredNotifications,
         count: filteredNotifications.length
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching smart notifications:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'GetSmartNotifications');
       res.status(errorResponse.status).json({
@@ -418,7 +418,7 @@ export function registerNotificationRoutes(app: Express) {
         snoozedUntil: snoozeUntil.toISOString(),
         message: `Notification snoozed for ${duration / 3600} hours`
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error snoozing notification:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'SnoozeNotification');
       res.status(errorResponse.status).json({
@@ -463,7 +463,7 @@ export function registerNotificationRoutes(app: Express) {
         success: true,
         message: "Notification dismissed successfully"
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error dismissing notification:', { error: error instanceof Error ? error.message : String(error) });
       const errorResponse = createErrorResponse(error, 'DismissNotification');
       res.status(errorResponse.status).json({

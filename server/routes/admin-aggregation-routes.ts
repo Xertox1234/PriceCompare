@@ -87,7 +87,7 @@ router.post('/force-daily', async (req: Request, res: Response) => {
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
     });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AdminAggregation] Force aggregation failed:', {
       error,
       body: req.body,
@@ -134,7 +134,7 @@ router.post('/detect-gaps', async (req: Request, res: Response) => {
         ? 'No gaps found'
         : `Found ${gaps.length} days with missing aggregates`,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AdminAggregation] Gap detection failed:', {
       error,
       body: req.body,
@@ -182,7 +182,7 @@ router.post('/fill-gaps', async (req: Request, res: Response) => {
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
     });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AdminAggregation] Fill gaps failed:', {
       error,
       body: req.body,
@@ -224,7 +224,7 @@ router.post('/single-product', async (req: Request, res: Response) => {
       message: `Successfully re-aggregated product ${productId}`,
       productId,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AdminAggregation] Single product aggregation failed:', {
       error,
       productId: req.body.productId,

@@ -1,7 +1,6 @@
 import { Express } from "express";
 import express from 'express';
-import { db } from "../db";
-import { sql } from 'drizzle-orm';
+import { storage } from "../storage";
 import { getRedisClient, getRedisSessionClient } from '../config/redis';
 import { createLogger } from '../utils/logger';
 
@@ -29,9 +28,10 @@ export function registerHealthRoutes(app: Express): void {
 
     // Check database connection
     try {
-      await db.execute(sql`SELECT 1`);
-      checks.database = "ok";
-    } catch (error) {
+      const healthy = await storage.checkDatabaseHealth();
+      checks.database = healthy ? "ok" : "error";
+      if (!healthy) overallStatus = "degraded";
+    } catch (error: unknown) {
       checks.database = "error";
       overallStatus = "degraded";
     }
@@ -47,7 +47,7 @@ export function registerHealthRoutes(app: Express): void {
         // Redis is optional, so this is a warning not an error
         if (overallStatus === "ok") overallStatus = "degraded";
       }
-    } catch (error) {
+    } catch (error: unknown) {
       checks.redis_cache = "error";
       if (overallStatus === "ok") overallStatus = "degraded";
     }
@@ -67,7 +67,7 @@ export function registerHealthRoutes(app: Express): void {
           overallStatus = "degraded";
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       checks.redis_sessions = "error";
       if (process.env.NODE_ENV === 'production') {
         overallStatus = "error";

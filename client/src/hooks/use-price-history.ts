@@ -64,6 +64,7 @@ export function usePriceHistory(
     },
     enabled: !!productId && !!offerId,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes
   });
 }
@@ -96,6 +97,7 @@ export function usePriceStats(
     },
     enabled: !!productId && !!offerId,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)
   });
 }
 
@@ -141,6 +143,7 @@ export function usePriceSnapshots(
     },
     enabled: !!productId,
     staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes (3x staleTime)
   });
 }
 
@@ -173,6 +176,7 @@ export function useRecentPriceDrops(thresholdPercent: number = 10, hours: number
       }>;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)
     refetchInterval: 15 * 60 * 1000, // Refetch every 15 minutes
   });
 }

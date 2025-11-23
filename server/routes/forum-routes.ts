@@ -1,9 +1,6 @@
 import { Express } from "express";
-import { db } from "../db";
-import * as schema from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
-import type { ForumTopic, ForumPost } from "@shared/schema";
 import { forumStorage } from "../forum-storage";
+import { storage } from "../storage";
 import { withAuth } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
 import { logger } from "../utils/logger";
@@ -19,7 +16,7 @@ export function registerForumRoutes(app: Express): void {
     try {
       const categories = await forumStorage.getCategories();
       res.json(categories);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ error: "Failed to fetch categories" });
     }
   });
@@ -34,7 +31,7 @@ export function registerForumRoutes(app: Express): void {
         parseIntOptional(productId as string, 'productId', { min: 1 })
       );
       res.json(topics);
-    } catch (error) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to fetch topics";
       res.status(400).json({ error: message });
     }
@@ -50,7 +47,7 @@ export function registerForumRoutes(app: Express): void {
         return res.status(404).json({ error: "Topic not found" });
       }
       res.json(topic);
-    } catch (error) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to fetch topic";
       const status = message.includes('must be') ? 400 : 500;
       res.status(status).json({ error: message });
@@ -64,7 +61,7 @@ export function registerForumRoutes(app: Express): void {
       const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const posts = await forumStorage.getPostsByTopic(topicId);
       res.json(posts);
-    } catch (error) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to fetch posts";
       const status = message.includes('must be') ? 400 : 500;
       res.status(status).json({ error: message });
@@ -83,55 +80,21 @@ export function registerForumRoutes(app: Express): void {
         return res.status(400).json({ error: "Title is required" });
       }
 
-      // DATA INTEGRITY: Use transaction to ensure topic and first post are created atomically
-      // If first post creation fails, topic should not exist (violates business logic)
-      let topic: ForumTopic;
-      await db.transaction(async (tx) => {
-        // Create the topic (forumStorage.createTopic uses db directly, need to reimplement here)
-        // Generate slug from title
-        let slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-        // Check for existing slug and append random suffix if needed
-        const existing = await tx.select().from(schema.forumTopics).where(eq(schema.forumTopics.slug, slug)).limit(1);
-        if (existing.length > 0) {
-          const crypto = await import('crypto');
-          slug = `${slug}-${crypto.randomBytes(4).toString('hex')}`;
-        }
-
-        const topicResult = await tx.insert(schema.forumTopics).values({
+      // DATA INTEGRITY: Use storage layer which handles transaction atomically
+      const result = await storage.createTopicWithFirstPost(
+        {
           title,
           authorId: user.id,
           categoryId: categoryId || null,
           productId: productId || null,
-          slug,
-        }).returning();
-        topic = topicResult[0];
+        },
+        content || ''
+      );
 
-        logger.info("Topic created", { topicId: topic.id, title: topic.title });
+      logger.info("Topic created", { topicId: result.topic.id, title: result.topic.title });
 
-        // Create the first post - must succeed or rollback topic creation
-        await tx.insert(schema.forumPosts).values({
-          topicId: topic.id,
-          authorId: user.id,
-          content: content || '',
-          rawContent: content || '',
-          isFirstPost: true,
-          postNumber: 1,
-        });
-
-        // Update topic post count and last post time
-        await tx.update(schema.forumTopics)
-          .set({
-            postCount: sql`${schema.forumTopics.postCount} + 1`,
-            lastPostAt: new Date(),
-          })
-          .where(eq(schema.forumTopics.id, topic.id));
-
-        logger.info("First post created", { topicId: topic.id });
-      });
-
-      res.json({ success: true, topic: topic! });
-    } catch (error) {
+      res.json({ success: true, topic: result.topic });
+    } catch (error: unknown) {
       logger.error('Create topic error', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to create topic" });
     }
@@ -147,41 +110,11 @@ export function registerForumRoutes(app: Express): void {
       const { sanitizeForumPost } = require('../utils/sanitization');
       const { html: sanitizedContent } = sanitizeForumPost(content);
 
-      // RACE CONDITION: Use transaction with SERIALIZABLE isolation for postNumber calculation
-      // Without transaction, concurrent posts could get duplicate postNumbers
-      let post: ForumPost;
-      await db.transaction(async (tx) => {
-        // Get the next post number within transaction to prevent race conditions
-        const existingPosts = await tx
-          .select()
-          .from(schema.forumPosts)
-          .where(eq(schema.forumPosts.topicId, topicId));
-        const postNumber = existingPosts.length + 1;
+      // RACE CONDITION: Storage layer handles SERIALIZABLE transaction with retry
+      const result = await storage.createForumPost(topicId, user.id, sanitizedContent, content);
 
-        // Create post with calculated postNumber - must be atomic with calculation
-        const result = await tx.insert(schema.forumPosts).values({
-          topicId,
-          authorId: user.id,
-          content: sanitizedContent,
-          rawContent: content,
-          postNumber,
-          isFirstPost: false,
-        }).returning();
-        post = result[0];
-
-        // Update topic stats
-        await tx.update(schema.forumTopics)
-          .set({
-            postCount: sql`${schema.forumTopics.postCount} + 1`,
-            lastPostAt: new Date(),
-          })
-          .where(eq(schema.forumTopics.id, topicId));
-      }, {
-        isolationLevel: 'serializable', // Prevent concurrent postNumber race conditions
-      });
-
-      res.json({ success: true, post: post! });
-    } catch (error) {
+      res.json({ success: true, post: result.post });
+    } catch (error: unknown) {
       logger.error('Create post error', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to create post" });
     }

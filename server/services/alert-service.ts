@@ -1,6 +1,6 @@
-import { logger } from '../utils/logger.js';
-import { websocketService } from './websocket-service.js';
-import type { DashboardMetrics } from './monitoring-service.js';
+import { logger } from '../utils/logger';
+import { websocketService } from './websocket-service';
+import type { DashboardMetrics } from './monitoring-service';
 
 /**
  * Alert Service

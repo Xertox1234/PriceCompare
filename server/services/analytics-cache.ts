@@ -49,97 +49,6 @@ export class AnalyticsCacheService {
   }
 
   /**
-   * Cache price trend analysis
-   */
-  async cachePriceTrend<T>(productId: number, days: number, computeFn: () => Promise<T>): Promise<T> {
-    return this.getCachedAnalytics(
-      'trend',
-      { productId, days },
-      computeFn
-    );
-  }
-
-  /**
-   * Cache volatility analysis
-   */
-  async cacheVolatility<T>(productId: number, computeFn: () => Promise<T>): Promise<T> {
-    return this.getCachedAnalytics(
-      'volatility',
-      { productId },
-      computeFn
-    );
-  }
-
-  /**
-   * Cache seasonal patterns analysis
-   */
-  async cacheSeasonalPatterns<T>(productId: number, computeFn: () => Promise<T>): Promise<T> {
-    return this.getCachedAnalytics(
-      'seasonal',
-      { productId },
-      computeFn
-    );
-  }
-
-  /**
-   * Cache best time to buy prediction
-   */
-  async cacheBestTimeToBuy<T>(productId: number, computeFn: () => Promise<T>): Promise<T> {
-    return this.getCachedAnalytics(
-      'besttime',
-      { productId },
-      computeFn
-    );
-  }
-
-  /**
-   * Cache retailer reliability score
-   */
-  async cacheRetailerReliability<T>(
-    productId: number,
-    retailerId: number,
-    computeFn: () => Promise<T>
-  ): Promise<T> {
-    return this.getCachedAnalytics(
-      'reliability',
-      { productId, retailerId },
-      computeFn
-    );
-  }
-
-  /**
-   * Cache price predictions
-   */
-  async cachePricePredictions<T>(productId: number, computeFn: () => Promise<T>): Promise<T> {
-    return this.getCachedAnalytics(
-      'prediction',
-      { productId },
-      computeFn
-    );
-  }
-
-  /**
-   * Cache price history
-   */
-  async cachePriceHistory<T>(
-    productId: number,
-    days: number,
-    retailerId: number | undefined,
-    computeFn: () => Promise<T>
-  ): Promise<T> {
-    const params: AnalyticsParams = { productId, days };
-    if (retailerId !== undefined) {
-      params.retailerId = retailerId;
-    }
-
-    return this.getCachedAnalytics(
-      'history',
-      params,
-      computeFn
-    );
-  }
-
-  /**
    * Invalidate all analytics cache for a product
    */
   async invalidateProductAnalytics(productId: number): Promise<void> {
@@ -211,23 +120,23 @@ export class AnalyticsCacheService {
     const tasks: Promise<unknown>[] = [];
 
     if (computeFunctions.trend) {
-      tasks.push(this.cachePriceTrend(productId, 30, computeFunctions.trend));
+      tasks.push(this.getCachedAnalytics('trend', { productId, days: 30 }, computeFunctions.trend));
     }
 
     if (computeFunctions.volatility) {
-      tasks.push(this.cacheVolatility(productId, computeFunctions.volatility));
+      tasks.push(this.getCachedAnalytics('volatility', { productId }, computeFunctions.volatility));
     }
 
     if (computeFunctions.seasonal) {
-      tasks.push(this.cacheSeasonalPatterns(productId, computeFunctions.seasonal));
+      tasks.push(this.getCachedAnalytics('seasonal', { productId }, computeFunctions.seasonal));
     }
 
     if (computeFunctions.bestTime) {
-      tasks.push(this.cacheBestTimeToBuy(productId, computeFunctions.bestTime));
+      tasks.push(this.getCachedAnalytics('besttime', { productId }, computeFunctions.bestTime));
     }
 
     if (computeFunctions.predictions) {
-      tasks.push(this.cachePricePredictions(productId, computeFunctions.predictions));
+      tasks.push(this.getCachedAnalytics('prediction', { productId }, computeFunctions.predictions));
     }
 
     await Promise.all(tasks);
@@ -237,39 +146,3 @@ export class AnalyticsCacheService {
 
 // Export singleton instance
 export const analyticsCacheService = new AnalyticsCacheService();
-
-/**
- * Decorator function for automatic analytics caching
- *
- * Usage:
- * @cacheAnalytics('trend', 'productId', 'days')
- * async function calculatePriceTrend(productId: number, days: number) {
- *   // expensive calculation
- * }
- */
-export function cacheAnalytics(type: string, ...paramNames: string[]) {
-  return function (
-    target: unknown,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
-    const originalMethod = descriptor.value;
-
-    descriptor.value = async function (...args: unknown[]) {
-      // Build params object from argument names
-      const params: AnalyticsParams = {} as AnalyticsParams;
-      paramNames.forEach((name, index) => {
-        params[name] = args[index];
-      });
-
-      // Use analytics cache service
-      return analyticsCacheService.getCachedAnalytics(
-        type,
-        params,
-        () => originalMethod.apply(this, args)
-      );
-    };
-
-    return descriptor;
-  };
-}

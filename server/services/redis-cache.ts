@@ -1,6 +1,6 @@
 import type { Redis } from 'ioredis';
-import { logger } from '../utils/logger.js';
-import { getRedisClient } from '../config/redis.js';
+import { logger } from '../utils/logger';
+import { getRedisClient } from '../config/redis';
 
 /**
  * Redis Cache Service
@@ -245,7 +245,11 @@ export class RedisCache {
   }
 
   /**
-   * Clear all keys with the configured prefix
+   * Clear all keys with the configured prefix using SCAN (non-blocking)
+   *
+   * Uses SCAN instead of KEYS command to avoid blocking Redis.
+   * KEYS is O(n) on all keys and blocks the server, while SCAN
+   * iterates incrementally in batches.
    */
   async clear(): Promise<boolean> {
     const client = this.getClient();
@@ -255,11 +259,28 @@ export class RedisCache {
 
     try {
       const pattern = this.options.keyPrefix + '*';
-      const keys = await client.keys(pattern);
+      let cursor = '0';
+      let totalDeleted = 0;
 
-      if (keys.length > 0) {
-        await client.del(...keys);
-        logger.info('Cache cleared', { keysDeleted: keys.length });
+      // Use SCAN to iterate through keys matching pattern (non-blocking)
+      do {
+        const [nextCursor, keys] = await client.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100
+        );
+        cursor = nextCursor;
+
+        if (keys.length > 0) {
+          await client.del(...keys);
+          totalDeleted += keys.length;
+        }
+      } while (cursor !== '0');
+
+      if (totalDeleted > 0) {
+        logger.info('Cache cleared', { keysDeleted: totalDeleted });
       }
 
       return true;

@@ -1,9 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "./utils/logger";
 import crypto from 'crypto';
-import { db } from './db';
-import { users } from '../shared/schema';
-import { eq } from 'drizzle-orm';
 import type { User } from '../shared/schema';
 import { requireAuth } from './auth';
 import { getRequiredEnv } from './config/env-validation';
@@ -77,7 +74,7 @@ function verifyWebhookSignature(payload: string | Record<string, unknown>, signa
       Buffer.from(signatureValue),
       Buffer.from(computedSig)
     );
-  } catch (error) {
+  } catch (error: unknown) {
     logger.warn('Webhook verification failed: Invalid signature format');
     return false;
   }
@@ -138,7 +135,7 @@ export function registerDiscourseRoutes(app: Express): void {
       const redirectUrl = `${returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
       res.redirect(redirectUrl);
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Discourse SSO error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'SSO authentication failed' });
     }
@@ -183,7 +180,7 @@ export function registerDiscourseRoutes(app: Express): void {
       }
 
       res.json({ success: true, event_type });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Discourse webhook error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
@@ -210,7 +207,7 @@ export function registerDiscourseRoutes(app: Express): void {
         sso_secret_configured: !!process.env.DISCOURSE_SSO_SECRET,
         discourse_url_configured: !!process.env.DISCOURSE_URL
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Discourse SSO test error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'SSO test failed' });
     }
@@ -225,7 +222,7 @@ export function registerDiscourseRoutes(app: Express): void {
         status: 'healthy',
         timestamp: new Date().toISOString()
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Discourse health check error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         status: 'unhealthy',

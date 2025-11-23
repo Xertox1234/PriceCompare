@@ -1,12 +1,12 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent.js';
-import { db } from '../db.js';
-import { trendingProducts } from '../../shared/schema.js';
+import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { db } from '../db';
+import { trendingProducts } from '../../shared/schema';
 import { eq, desc } from 'drizzle-orm';
-import type { InsertTrendingProduct } from '../../shared/schema.js';
-import type { TrendData, DiscoveryTaskData, TrendSource } from './types.js';
+import type { InsertTrendingProduct } from '../../shared/schema';
+import type { TrendData, DiscoveryTaskData, TrendSource } from './types';
 import OpenAI from 'openai';
-import { logger } from '../utils/logger.js';
-import { safeTrendAnalysis, type AITrendAnalysis } from './ai-validation-schemas.js';
+import { logger } from '../utils/logger';
+import { safeTrendAnalysis, type AITrendAnalysis } from './ai-validation-schemas';
 
 export class ProductDiscoveryAgent extends BaseAgent {
   private openai: OpenAI;

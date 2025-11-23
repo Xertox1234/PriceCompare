@@ -30,18 +30,6 @@ export const CACHE_DURATION = {
 } as const;
 
 /**
- * Cache duration in milliseconds (for client-side)
- */
-export const CACHE_DURATION_MS = {
-  SHORT: 60 * 1000,           // 1 minute
-  MEDIUM: 3 * 60 * 1000,      // 3 minutes
-  LONG: 5 * 60 * 1000,        // 5 minutes
-  VERY_LONG: 10 * 60 * 1000,  // 10 minutes
-  HOUR: 60 * 60 * 1000,       // 1 hour
-  DAY: 24 * 60 * 60 * 1000,   // 24 hours
-} as const;
-
-/**
  * Pagination constants
  */
 export const PAGINATION = {
@@ -63,79 +51,15 @@ export const RATE_LIMIT = {
 
 /**
  * Rate limit tier definitions
- *
- * Defines different rate limit tiers based on user roles/authentication status.
- * Each tier has a multiplier applied to the base maxRequests value.
- *
- * Tier hierarchy (from most to least restrictive):
- * - anonymous/free: 0.5x (50 req/15min on base of 100)
- * - user: 1x (100 req/15min - baseline)
- * - premium: 5x (500 req/15min)
- * - moderator: 10x (1000 req/15min)
- * - admin: 100x (10000 req/15min)
- *
- * @example
- * // Anonymous user with base limit of 100
- * // Actual limit = 100 * 0.5 = 50 requests per window
- *
- * // Admin user with base limit of 100
- * // Actual limit = 100 * 100 = 10,000 requests per window
+ * Multiplier applied to base maxRequests value per user role.
  */
 export const RATE_LIMIT_TIERS = {
-  /**
-   * Anonymous/Guest users (not authenticated)
-   * Lowest tier to prevent abuse from unauthenticated requests
-   */
-  anonymous: {
-    multiplier: 0.5,
-    description: 'Anonymous/Guest users',
-    maxRequests: 50, // Based on base of 100
-  },
-  /**
-   * Free tier users (registered but no premium features)
-   * Same as anonymous to encourage upgrading
-   */
-  free: {
-    multiplier: 0.5,
-    description: 'Free registered users',
-    maxRequests: 50,
-  },
-  /**
-   * Standard authenticated users
-   * Baseline tier (1x multiplier)
-   */
-  user: {
-    multiplier: 1,
-    description: 'Standard authenticated users',
-    maxRequests: 100,
-  },
-  /**
-   * Premium/Paid subscribers
-   * Significantly higher limits for paying users
-   */
-  premium: {
-    multiplier: 5,
-    description: 'Premium/Paid subscribers',
-    maxRequests: 500,
-  },
-  /**
-   * Moderator users
-   * Higher limits for moderation activities
-   */
-  moderator: {
-    multiplier: 10,
-    description: 'Moderator users',
-    maxRequests: 1000,
-  },
-  /**
-   * Admin users
-   * Very high limits for administrative operations
-   */
-  admin: {
-    multiplier: 100,
-    description: 'Admin users',
-    maxRequests: 10000,
-  },
+  anonymous: { multiplier: 0.5, maxRequests: 50 },
+  free: { multiplier: 0.5, maxRequests: 50 },
+  user: { multiplier: 1, maxRequests: 100 },
+  premium: { multiplier: 5, maxRequests: 500 },
+  moderator: { multiplier: 10, maxRequests: 1000 },
+  admin: { multiplier: 100, maxRequests: 10000 },
 } as const;
 
 /**
@@ -225,23 +149,6 @@ export const SCRAPING = {
 } as const;
 
 /**
- * HTTP status codes (commonly used)
- */
-export const HTTP_STATUS = {
-  OK: 200,
-  CREATED: 201,
-  NO_CONTENT: 204,
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  CONFLICT: 409,
-  TOO_MANY_REQUESTS: 429,
-  INTERNAL_SERVER_ERROR: 500,
-  BAD_GATEWAY: 502,
-} as const;
-
-/**
  * Error messages
  */
 export const ERROR_MESSAGES = {
@@ -254,18 +161,4 @@ export const ERROR_MESSAGES = {
   RESOURCE_NOT_FOUND: 'Resource not found',
   INTERNAL_ERROR: 'Internal server error',
   DATABASE_ERROR: 'Database error occurred',
-} as const;
-
-/**
- * Success messages
- */
-export const SUCCESS_MESSAGES = {
-  REGISTRATION_SUCCESS: 'Account created successfully',
-  LOGIN_SUCCESS: 'Logged in successfully',
-  LOGOUT_SUCCESS: 'Logged out successfully',
-  PASSWORD_RESET_SENT: 'Password reset email sent',
-  PASSWORD_RESET_SUCCESS: 'Password reset successfully',
-  RESOURCE_CREATED: 'Resource created successfully',
-  RESOURCE_UPDATED: 'Resource updated successfully',
-  RESOURCE_DELETED: 'Resource deleted successfully',
 } as const;

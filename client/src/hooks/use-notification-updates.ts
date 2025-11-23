@@ -28,7 +28,9 @@ import type { NotificationEvent } from '../../../server/websocket/types';
 function playNotificationSound() {
   try {
     // Create a simple beep sound using Web Audio API
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioContext = new AudioContextClass();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 

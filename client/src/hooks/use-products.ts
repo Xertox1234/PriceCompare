@@ -4,7 +4,7 @@ import { useDebounce } from "./use-debounce";
 
 export function useProducts(filters: SearchFilters) {
   // Debounce search query to reduce API calls
-  const debouncedQuery = useDebounce(filters.query, 300);
+  const debouncedQuery = useDebounce(filters.query, 500);
   
   // Use debounced query for the actual filters
   const optimizedFilters = { ...filters, query: debouncedQuery };
@@ -36,6 +36,7 @@ export function useProducts(filters: SearchFilters) {
   return useQuery<ProductWithOffers[]>({
     queryKey: [endpoint],
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
     enabled: !!debouncedQuery || Object.keys(optimizedFilters).some(key => key !== 'query' && optimizedFilters[key as keyof SearchFilters]),
   });

@@ -181,9 +181,9 @@ await cacheInvalidation.batchInvalidateProducts([1, 2, 3, 4, 5]);
 import { analyticsCacheService } from './services/analytics-cache';
 
 // Cache analytics with automatic key generation
-const trend = await analyticsCacheService.cachePriceTrend(
-  productId,
-  30,
+const trend = await analyticsCacheService.getCachedAnalytics(
+  'trend',
+  { productId, days: 30 },
   () => calculatePriceTrend(productId, 30)
 );
 

@@ -24,7 +24,7 @@ import type {
   PriceAlert,
   InsertPriceAlert
 } from '../shared/schema';
-import { getFirstResult } from './utils/db-helpers.js';
+import { getFirstResult } from './utils/db-helpers';
 
 // Type definitions for raw query results before mapping
 // SECURITY: These types intentionally exclude passwordHash

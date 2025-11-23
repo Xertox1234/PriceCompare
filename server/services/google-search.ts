@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ScraperUtils, RateLimiter } from '../utils/scraper-utils.js';
+import { ScraperUtils, RateLimiter } from '../utils/scraper-utils';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('GoogleSearch');

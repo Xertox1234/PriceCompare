@@ -49,7 +49,8 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   } = useQuery<{ suggestions: SearchSuggestion[] }>({
     queryKey: ['/api/search/suggestions', debouncedQuery],
     enabled: debouncedQuery.length > 1,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)
     refetchOnWindowFocus: false,
   });
 
@@ -67,7 +68,8 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
       });
     },
     enabled: debouncedQuery.length > 2,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes (3x staleTime)
     refetchOnWindowFocus: false,
   });
 
@@ -79,7 +81,8 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
     queryKey: ['/api/search/auto', debouncedQuery, filters, mode],
     queryFn: () => performSearch(debouncedQuery, filters, mode),
     enabled: autoSearch && debouncedQuery.length > 2,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 6 * 60 * 1000, // 6 minutes (3x staleTime)
     refetchOnWindowFocus: false,
   });
 
@@ -192,7 +195,8 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   } = useQuery({
     queryKey: ['/api/search/facets', query],
     enabled: query.length > 2,
-    staleTime: 15 * 60 * 1000,
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 45 * 60 * 1000, // 45 minutes (3x staleTime)
     refetchOnWindowFocus: false,
   });
 
@@ -238,7 +242,8 @@ export function useSearchSuggestions(query: string, enabled = true) {
   return useQuery<{ suggestions: SearchSuggestion[] }>({
     queryKey: ['/api/search/suggestions', debouncedQuery],
     enabled: enabled && debouncedQuery.length > 1,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)
     refetchOnWindowFocus: false,
   });
 }
@@ -257,7 +262,8 @@ export function useQueryAnalysis(query: string, enabled = true) {
       });
     },
     enabled: enabled && debouncedQuery.length > 2,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes (3x staleTime)
     refetchOnWindowFocus: false,
   });
 }

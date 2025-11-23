@@ -7,12 +7,9 @@ import { logger } from "./utils/logger";
 import {
   insertForumTopicSchema, insertForumPostSchema, insertPrivateMessageSchema,
   insertNotificationSchema, insertTopicTagSchema, insertBadgeSchema,
-  users, notifications
 } from "@shared/schema";
 import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
-import { db } from "./db";
-import { eq } from "drizzle-orm";
 import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
 
 export function registerEnhancedForumRoutes(app: Express) {
@@ -28,7 +25,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       }
 
       res.json(userProfile);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error fetching user profile", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
       res.status(500).json({ error: "Failed to fetch user profile" });
     }
@@ -38,20 +35,12 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const { bio, location, website, avatarUrl } = req.body;
 
-      // Update user profile
-      await db.update(users)
-        .set({
-          bio,
-          location,
-          website,
-          avatarUrl,
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, req.user!.id)); // Auth verified by requireAuth
+      // Update user profile via storage layer
+      await storage.updateUserProfile(req.user!.id, { bio, location, website, avatarUrl });
 
       const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user!.id);
       res.json(updatedProfile);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error updating user profile", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to update profile" });
     }
@@ -67,7 +56,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       const topics = await enhancedForumStorage.getTopicsWithDetails(categoryId, productId, userId);
       res.json(topics);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error fetching enhanced topics", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to fetch topics" });
     }
@@ -106,7 +95,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       );
 
       res.status(201).json(topic);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error creating enhanced topic", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to create topic" });
     }
@@ -121,7 +110,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       const posts = await enhancedForumStorage.getPostsWithDetails(topicId, userId);
       res.json(posts);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error fetching enhanced posts", { error: error instanceof Error ? error.message : String(error), topicId: req.params.id });
       res.status(500).json({ error: "Failed to fetch posts" });
     }
@@ -151,7 +140,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       );
 
       res.status(201).json(post);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error creating enhanced post", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to create post" });
     }
@@ -164,7 +153,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const postId = parseIntSafe(req.params.id, 'postId', { min: 1 });
       const result = await enhancedForumStorage.togglePostLike(postId, req.user!.id);
       res.json(result);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error toggling post like", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to toggle like" });
     }
@@ -176,7 +165,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const unreadOnly = req.query.unreadOnly === 'true';
       const notifications = await enhancedForumStorage.getUserNotifications(req.user!.id, unreadOnly);
       res.json(notifications);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error fetching notifications", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
@@ -187,7 +176,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const { notificationIds } = req.body;
       await enhancedForumStorage.markNotificationsAsRead(req.user!.id, notificationIds);
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error marking notifications as read", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to mark notifications as read" });
     }
@@ -198,7 +187,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const messages = await enhancedForumStorage.getUserPrivateMessages(req.user!.id);
       res.json(messages);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error fetching private messages", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to fetch messages" });
     }
@@ -217,7 +206,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       });
 
       res.status(201).json(message);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error creating private message", { error: error instanceof Error ? error.message : String(error), userId: req.user!.id });
       res.status(500).json({ error: "Failed to create message" });
     }
@@ -230,7 +219,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 20;
       const tags = await enhancedForumStorage.getPopularTags(limit);
       res.json(tags);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error fetching tags", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to fetch tags" });
     }
@@ -245,7 +234,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       const tags = await enhancedForumStorage.searchTags(query);
       res.json(tags);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error searching tags", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to search tags" });
     }
@@ -265,7 +254,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       const userBadge = await enhancedForumStorage.awardBadge(userId, badgeId);
       res.status(201).json(userBadge);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error awarding badge", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to award badge" });
     }
@@ -284,7 +273,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       const posts = await enhancedForumStorage.searchPosts(query, categoryId);
       res.json(posts);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error searching posts", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to search posts" });
     }
@@ -300,7 +289,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       // This would require additional storage methods for leaderboard queries
       // For now, return a simple response
       res.json({ message: "Leaderboard functionality coming soon" });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error fetching leaderboard", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to fetch leaderboard" });
     }
@@ -321,13 +310,11 @@ export function registerEnhancedForumRoutes(app: Express) {
         return res.status(400).json({ error: "Trust level must be between 0 and 4" });
       }
 
-      await db.update(users)
-        .set({ trustLevel, updatedAt: new Date() })
-        .where(eq(users.id, userId));
+      await storage.updateUserTrustLevel(userId, trustLevel);
       const updatedUser = await enhancedForumStorage.getUserWithProfile(userId);
-      
+
       res.json(updatedUser);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error updating trust level", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
       res.status(500).json({ error: "Failed to update trust level" });
     }
@@ -344,25 +331,11 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
       const { reason } = req.body;
 
-      // UX: Use transaction to ensure suspension and notification are atomic
-      // If notification fails, user suspended but never informed (poor moderation UX)
-      await db.transaction(async (tx) => {
-        await tx.update(users)
-          .set({ isSuspended: true, updatedAt: new Date() })
-          .where(eq(users.id, userId));
-
-        // Create notification - must succeed or rollback suspension
-        await tx.insert(notifications).values({
-          userId,
-          type: 'moderation',
-          title: 'Account suspended',
-          content: reason || 'Your account has been suspended',
-          relatedUserId: req.user!.id
-        });
-      });
+      // UX: Storage layer handles transaction for suspension + notification atomically
+      await storage.suspendUser(userId, reason || 'Your account has been suspended', req.user!.id);
 
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error suspending user", { error: error instanceof Error ? error.message : String(error), userId: req.params.id });
       res.status(500).json({ error: "Failed to suspend user" });
     }
@@ -377,7 +350,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       await enhancedForumStorage.initializeDefaultBadges();
       res.json({ success: true, message: "Default badges initialized" });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error initializing badges", { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: "Failed to initialize badges" });
     }

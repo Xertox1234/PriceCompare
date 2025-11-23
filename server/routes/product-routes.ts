@@ -10,6 +10,7 @@ import {
 } from "../middleware/redis-cache";
 import { CACHE_DURATION } from "../utils/constants";
 import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
 
 // Price history cache middleware - using redis cache with 1 hour TTL
 const priceHistoryCacheMiddleware = redisCacheMiddleware({
@@ -92,8 +93,9 @@ export function registerProductRoutes(app: Express): void {
         results: productsWithDiscussions,
         metadata: pagination,
       });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to search products" });
+    } catch (error: unknown) {
+      const errorResponse = createErrorResponse(error, 'SearchProducts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -116,8 +118,9 @@ export function registerProductRoutes(app: Express): void {
       };
 
       res.json(productWithDiscussions);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch product" });
+    } catch (error: unknown) {
+      const errorResponse = createErrorResponse(error, 'FetchProduct');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -129,8 +132,9 @@ export function registerProductRoutes(app: Express): void {
       };
       const products = await storage.searchProducts(filters);
       res.json(products);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch products" });
+    } catch (error: unknown) {
+      const errorResponse = createErrorResponse(error, 'FetchProducts');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -161,9 +165,10 @@ export function registerProductRoutes(app: Express): void {
       }));
 
       res.json({ history: formattedHistory });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching price history', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to fetch price history" });
+      const errorResponse = createErrorResponse(error, 'FetchPriceHistory');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -187,9 +192,10 @@ export function registerProductRoutes(app: Express): void {
         prediction: trendData.trend === 'falling' ? 'might_drop' :
                    trendData.trend === 'rising' ? 'wait' : 'good_time'
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching price trend', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to fetch price trend" });
+      const errorResponse = createErrorResponse(error, 'FetchPriceTrend');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -199,9 +205,10 @@ export function registerProductRoutes(app: Express): void {
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
       const analysis = await storage.getBestTimeToBuy(id);
       res.json(analysis);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching best time to buy', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to fetch best time to buy analysis" });
+      const errorResponse = createErrorResponse(error, 'FetchBestTimeToBuy');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -223,9 +230,10 @@ export function registerProductRoutes(app: Express): void {
       const volatility = calculateVolatility(history);
 
       res.json(volatility);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error calculating volatility', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to calculate price volatility" });
+      const errorResponse = createErrorResponse(error, 'CalculateVolatility');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -247,9 +255,10 @@ export function registerProductRoutes(app: Express): void {
       const patterns = detectSeasonalPatterns(history);
 
       res.json(patterns);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error detecting seasonal patterns', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to detect seasonal patterns" });
+      const errorResponse = createErrorResponse(error, 'DetectSeasonalPatterns');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -295,9 +304,10 @@ export function registerProductRoutes(app: Express): void {
       const scores = calculateAllRetailerReliability(allRetailersData);
 
       res.json(scores);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error calculating retailer reliability', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to calculate retailer reliability" });
+      const errorResponse = createErrorResponse(error, 'CalculateRetailerReliability');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -325,9 +335,10 @@ export function registerProductRoutes(app: Express): void {
       }));
 
       res.json({ offers: formattedOffers });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching product offers', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to fetch product offers" });
+      const errorResponse = createErrorResponse(error, 'FetchProductOffers');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -382,9 +393,10 @@ export function registerProductRoutes(app: Express): void {
         basePrice: lastPrice,
         averageDailyChange: avgChange
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching price predictions', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      res.status(500).json({ message: "Failed to fetch price predictions" });
+      const errorResponse = createErrorResponse(error, 'FetchPricePredictions');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -409,9 +421,10 @@ export function registerProductRoutes(app: Express): void {
       // In the future, you could store this in a database table for analytics
       // For now, just acknowledge receipt
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error tracking product view', { error: error instanceof Error ? error.message : String(error), productId: req.body.productId });
-      res.status(500).json({ error: "Failed to track product view" });
+      const errorResponse = createErrorResponse(error, 'TrackProductView');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 }

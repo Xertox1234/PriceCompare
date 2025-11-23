@@ -1,9 +1,11 @@
 import { Express, Request } from "express";
-import { db } from "../db";
+import { storage } from "../storage";
 import { passport, createUser, findUserByEmail, findUserById, hashPassword, User, SafeUser } from "../auth";
 import { generateCsrfToken } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
 import { logger } from "../utils/logger";
+import { createErrorResponse } from "../utils/error-sanitizer";
+import { validatePassword } from "../utils/validation-helpers";
 import {
   createPasswordResetToken,
   validatePasswordResetToken,
@@ -12,8 +14,6 @@ import {
   isRateLimitExceeded
 } from "../services/password-reset-service";
 import { emailService } from "../services/email-service";
-import * as schema from "@shared/schema";
-import { eq, sql } from 'drizzle-orm';
 
 // Type for authenticated request
 interface AuthenticatedRequest extends Request {
@@ -47,28 +47,11 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
 
-      // Validate password strength
-      if (password.length < 8) {
+      // Validate password strength using shared validation
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
         return res.status(400).json({
-          error: "Password must be at least 8 characters long"
-        });
-      }
-
-      if (!/[a-z]/.test(password)) {
-        return res.status(400).json({
-          error: "Password must contain at least one lowercase letter"
-        });
-      }
-
-      if (!/[A-Z]/.test(password)) {
-        return res.status(400).json({
-          error: "Password must contain at least one uppercase letter"
-        });
-      }
-
-      if (!/[0-9]/.test(password)) {
-        return res.status(400).json({
-          error: "Password must contain at least one number"
+          error: passwordValidation.errors[0]
         });
       }
 
@@ -78,41 +61,12 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(400).json({ error: 'User already exists' });
       }
 
-      // SECURITY: Use SERIALIZABLE transaction to prevent race condition on first admin check
-      // Without SERIALIZABLE isolation, concurrent registrations could both see count=0 and become admins
-      let user: SafeUser;
-      let isFirstUser: boolean;
-      await db.transaction(async (tx) => {
-        // Check if this is the first user (make them admin)
-        const userCount = await tx.select({ count: sql`count(*)` }).from(schema.users);
-        isFirstUser = parseInt(userCount[0].count as string) === 0;
+      // Hash password
+      const passwordHash = await hashPassword(password); // SECURITY: NEVER expose passwordHash
 
-        // Hash password
-        const passwordHash = await hashPassword(password); // SECURITY: NEVER expose passwordHash
-
-        // Create user - must be in same transaction as count check
-        const newUserResult = await tx.insert(schema.users).values({
-          username,
-          email,
-          passwordHash, // SECURITY: NEVER expose - only used internally
-          role: isFirstUser ? 'admin' : 'user',
-        }).returning();
-
-        // SECURITY: Explicitly extract safe fields, never expose passwordHash
-        user = {
-          id: newUserResult[0].id,
-          username: newUserResult[0].username,
-          email: newUserResult[0].email,
-          role: newUserResult[0].role,
-          trustLevel: newUserResult[0].trustLevel,
-          isActive: newUserResult[0].isActive,
-          isSuspended: newUserResult[0].isSuspended,
-          createdAt: newUserResult[0].createdAt,
-          updatedAt: newUserResult[0].updatedAt,
-        };
-      }, {
-        isolationLevel: 'serializable', // Prevent concurrent first-user race condition
-      });
+      // SECURITY: Use storage layer which handles SERIALIZABLE transaction with retry
+      // to prevent race condition on first admin check
+      const { user, isFirstUser } = await storage.createUserWithTransaction(username, email, passwordHash);
 
       // SECURITY: Log successful registration
       logSecurityEvent(SecurityEventType.REGISTER, req, {
@@ -142,7 +96,7 @@ export function registerAuthRoutes(app: Express): void {
           }
         });
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Registration error', { error: error instanceof Error ? error.message : String(error) });
       res.status(400).json({ error: 'Registration failed' });
     }
@@ -322,7 +276,7 @@ export function registerAuthRoutes(app: Express): void {
         success: true,
         message: "If an account exists with this email, a password reset link has been sent.",
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Forgot password error", { error: error instanceof Error ? error.message : String(error) });
       // SECURITY: Don't reveal internal errors
       res.json({
@@ -364,9 +318,10 @@ export function registerAuthRoutes(app: Express): void {
         email: user.email,
         username: user.username,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Validate reset token error", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "An error occurred" });
+      const errorResponse = createErrorResponse(error, 'ValidateResetToken');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -381,28 +336,11 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
 
-      // Validate password strength
-      if (password.length < 8) {
+      // Validate password strength using shared validation
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
         return res.status(400).json({
-          error: "Password must be at least 8 characters long",
-        });
-      }
-
-      if (!/[a-z]/.test(password)) {
-        return res.status(400).json({
-          error: "Password must contain at least one lowercase letter",
-        });
-      }
-
-      if (!/[A-Z]/.test(password)) {
-        return res.status(400).json({
-          error: "Password must contain at least one uppercase letter",
-        });
-      }
-
-      if (!/[0-9]/.test(password)) {
-        return res.status(400).json({
-          error: "Password must contain at least one number",
+          error: passwordValidation.errors[0],
         });
       }
 
@@ -465,9 +403,10 @@ export function registerAuthRoutes(app: Express): void {
         success: true,
         message: "Password has been reset successfully. You can now log in with your new password.",
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Reset password error", { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: "An error occurred while resetting password" });
+      const errorResponse = createErrorResponse(error, 'ResetPassword');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 

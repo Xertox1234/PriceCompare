@@ -7,42 +7,73 @@ import { priceAggregationService } from "./price-aggregation-service";
 
 export class PriceSnapshotService {
   /**
+   * Default batch size for processing offers in chunks
+   * Can be overridden via parameter for testing or tuning
+   */
+  private static readonly DEFAULT_BATCH_SIZE = 500;
+
+  /**
    * Snapshot all current prices and store them in price history
    * This is called periodically (e.g., every 12 hours) by a scheduled job
+   *
+   * Uses batch processing to maintain stable memory usage regardless of offer count
+   *
+   * @param batchSize - Number of offers to process per batch (default: 500)
    */
-  async snapshotAllPrices(): Promise<number> {
+  async snapshotAllPrices(batchSize: number = PriceSnapshotService.DEFAULT_BATCH_SIZE): Promise<number> {
     try {
-      const allOffers = await db.select().from(productOffers);
+      let offset = 0;
+      let totalCount = 0;
+      const now = new Date();
 
-      if (allOffers.length === 0) {
-        logger.info("[PriceSnapshot] No product offers found to snapshot");
-        return 0;
+      logger.info(`[PriceSnapshot] Starting batch price snapshot with batch size ${batchSize}`);
+
+      while (true) {
+        // Fetch offers in batches to maintain stable memory usage
+        const batch = await db
+          .select()
+          .from(productOffers)
+          .limit(batchSize)
+          .offset(offset);
+
+        if (batch.length === 0) {
+          break;
+        }
+
+        const snapshots = batch.map((offer) => ({
+          productOfferId: offer.id,
+          productId: offer.productId,
+          retailerId: offer.retailerId,
+          price: offer.price,
+          originalPrice: offer.originalPrice,
+          availability: offer.availability,
+          rating: offer.rating,
+          reviewCount: offer.reviewCount,
+          source: 'snapshot' as const,
+          confidence: '1.00',
+          metadata: null,
+          recordedAt: now
+        }));
+
+        await db.insert(priceHistory).values(snapshots);
+
+        totalCount += batch.length;
+        offset += batchSize;
+
+        logger.info(
+          `[PriceSnapshot] Processed batch: ${batch.length} offers (total: ${totalCount})`
+        );
       }
 
-      const now = new Date();
-      const snapshots = allOffers.map((offer) => ({
-        productOfferId: offer.id,
-        productId: offer.productId,
-        retailerId: offer.retailerId,
-        price: offer.price,
-        originalPrice: offer.originalPrice,
-        availability: offer.availability,
-        rating: offer.rating,
-        reviewCount: offer.reviewCount,
-        source: 'snapshot' as const,
-        confidence: '1.00',
-        metadata: null,
-        recordedAt: now
-      }));
+      if (totalCount === 0) {
+        logger.info("[PriceSnapshot] No product offers found to snapshot");
+      } else {
+        logger.info(
+          `[PriceSnapshot] Successfully snapshotted ${totalCount} price records`
+        );
+      }
 
-      // Batch insert all snapshots
-      await db.insert(priceHistory).values(snapshots);
-
-      logger.info(
-        `[PriceSnapshot] Successfully snapshotted ${snapshots.length} price records`
-      );
-
-      return snapshots.length;
+      return totalCount;
     } catch (error) {
       logger.error("[PriceSnapshot] Error snapshotting prices:", { error: error instanceof Error ? error.message : String(error) });
       throw error;

@@ -138,6 +138,7 @@ export function useEnhancedProductsSearch({
     },
     enabled: autoSearch && debouncedQuery.length > 0,
     staleTime: 30 * 1000, // 30 seconds
+    gcTime: 2 * 60 * 1000, // 2 minutes
     refetchOnWindowFocus: false,
   });
 
@@ -161,6 +162,7 @@ export function useEnhancedProductsSearch({
     },
     enabled: !autoSearch || !debouncedQuery.trim(),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
   });
 

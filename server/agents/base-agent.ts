@@ -1,16 +1,16 @@
 import { EventEmitter } from 'events';
 import crypto from 'crypto';
-import { db } from '../db.js';
-import { agentSessions, scrapingJobs } from '../../shared/schema.js';
+import { db } from '../db';
+import { agentSessions, scrapingJobs } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import type {
   AgentSession,
   InsertAgentSession,
   ScrapingJob,
   InsertScrapingJob
-} from '../../shared/schema.js';
-import type { TaskResult, TaskMetrics } from './types.js';
-import { logger } from '../utils/logger.js';
+} from '../../shared/schema';
+import type { TaskResult, TaskMetrics } from './types';
+import { logger } from '../utils/logger';
 
 export interface AgentConfig {
   name: string;

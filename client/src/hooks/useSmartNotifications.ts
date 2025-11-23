@@ -66,6 +66,7 @@ export function useSmartNotifications(filters?: SmartNotificationFilters) {
     },
     refetchInterval: 30000, // Poll every 30 seconds
     staleTime: 10000, // Consider data stale after 10 seconds
+    gcTime: 30000, // Keep in cache for 30 seconds (3x staleTime)
   });
 }
 

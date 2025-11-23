@@ -86,7 +86,7 @@ router.get('/summary', (req: Request, res: Response) => {
   try {
     const summary = getMetricsSummary();
     res.type('text/plain').send(summary);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AggregationMetrics] Error fetching summary:', { error });
     const errorResponse = createErrorResponse(error, 'FetchMetricsSummary');
     res.status(errorResponse.status).json({
@@ -107,7 +107,7 @@ router.get('/stats', (req: Request, res: Response) => {
   try {
     const stats = metricsStore.getAllStats();
     res.json(stats);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AggregationMetrics] Error fetching stats:', { error });
     const errorResponse = createErrorResponse(error, 'FetchMetricsStats');
     res.status(errorResponse.status).json({
@@ -138,7 +138,7 @@ router.get('/stats/:operation', (req: Request, res: Response) => {
     }
 
     res.json(stats);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AggregationMetrics] Error fetching operation stats:', {
       error,
       operation: req.params.operation,
@@ -164,7 +164,7 @@ router.get('/prometheus', metricsAuth, (req: Request, res: Response) => {
   try {
     const prometheus = metricsStore.exportPrometheus();
     res.type('text/plain; version=0.0.4').send(prometheus);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AggregationMetrics] Error exporting Prometheus metrics:', { error });
     const errorResponse = createErrorResponse(error, 'ExportPrometheusMetrics');
     res.status(errorResponse.status).json({
@@ -232,7 +232,7 @@ router.get('/health', (req: Request, res: Response) => {
       message: 'All aggregation operations are healthy',
       stats: allStats,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('[AggregationMetrics] Error checking health:', { error });
     const errorResponse = createErrorResponse(error, 'CheckAggregationHealth');
     res.status(500).json({

@@ -4,8 +4,8 @@ import { db } from '../db';
 import { productOffers, priceAlerts, products, retailers } from '@shared/schema';
 import { eq, lt, and, desc, gte, isNotNull, sql, count } from 'drizzle-orm';
 import { ScraperUtils } from '../utils/scraper-utils';
-import type { MonitoringTask, MonitoringStats } from './types.js';
-import { logger } from '../utils/logger.js';
+import type { MonitoringTask, MonitoringStats } from './types';
+import { logger } from '../utils/logger';
 
 interface PriceChange {
   offerId: number;

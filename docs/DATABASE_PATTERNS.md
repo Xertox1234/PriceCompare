@@ -9,6 +9,7 @@ This document codifies database patterns and anti-patterns in the PriceCompare c
 - [Foreign Key Management](#foreign-key-management)
 - [Field Selection Security](#field-selection-security)
 - [Drizzle ORM Patterns](#drizzle-orm-patterns)
+- [Architecture Decisions](#architecture-decisions)
 
 ---
 
@@ -824,6 +825,111 @@ const results = await db.select()
 - [ ] **Type Safety**: No `any` types, use proper Drizzle inference
 - [ ] **Storage Layer**: Routes use storage.ts, not direct db access
 - [ ] **Error Handling**: Use createErrorResponse for all errors
+
+---
+
+## Architecture Decisions
+
+### Storage Monolith vs Domain Modules (ADR-001)
+
+**Status**: Deferred
+**Date**: 2025-11-23
+**Related TODO**: #034
+
+#### Context
+
+The `server/storage.ts` file (2714 lines) implements the `IStorage` interface with all database operations. A TODO suggested splitting it into domain modules:
+
+```
+server/storage/
+  - retailer-storage.ts
+  - product-storage.ts
+  - price-history-storage.ts
+  - watch-list-storage.ts
+  - index.ts (re-exports + combined IStorage)
+```
+
+#### Analysis
+
+**Current Structure (2714 lines):**
+- **IStorage interface**: ~123 lines (lines 7-130)
+- **MemStorage class**: ~660 lines (lines 132-791) - mostly stubs for testing
+- **DatabaseStorage class**: ~1760 lines (lines 794-2553) - production implementation
+- **Type definitions**: ~160 lines (lines 2554-2714)
+
+**Domain Coverage (13 domains):**
+1. Retailers (CRUD)
+2. Products (CRUD, search)
+3. Product Offers
+4. Price History (trend analysis)
+5. Watch Lists (CRUD, products, stats)
+6. Users (admin, registration, password reset)
+7. Admin Analytics
+8. Forum Operations (topics, posts)
+9. Admin Product/Retailer Management
+10. Affiliate Management
+11. Trending Products
+12. Price Analytics (weekly/monthly aggregates)
+13. Job Locks
+
+**Dependencies:**
+- 19 files import from `server/storage.ts`
+- All routes, websocket handlers, jobs, and cache services depend on it
+
+#### Decision: DEFER Split
+
+The refactor is deferred for these reasons:
+
+1. **High Coupling Risk**: Splitting would require updating 19+ import statements and ensuring the combined `IStorage` interface works correctly with split implementations.
+
+2. **MemStorage Maintenance Burden**: Each domain module would need both `DatabaseStorage` and `MemStorage` implementations, doubling the number of files and increasing test complexity.
+
+3. **Shared Patterns Work Well**: The current file uses consistent patterns (transactions, retries, security comments) that benefit from being co-located.
+
+4. **Marginal Benefit**: At 2714 lines, the file is large but navigable. Modern IDEs handle this size well with code folding and Go to Definition.
+
+5. **Risk vs Reward**: A large refactor risks introducing bugs across 19+ files for modest organizational benefit.
+
+#### Recommended Alternative Improvements
+
+Instead of a full split, these targeted improvements can reduce file size:
+
+**1. Extract Type Definitions (~160 lines saved)**
+```typescript
+// server/storage-types.ts
+export interface WatchListWithCount { ... }
+export interface PriceTrendAnalysis { ... }
+export interface AdminProduct { ... }
+// ... all types from lines 2554-2714
+```
+
+**2. Remove MemStorage Class (~660 lines saved)**
+If tests use database directly or mocks, the MemStorage stub class can be removed:
+```typescript
+// Before: export class MemStorage implements IStorage { ... }
+// After: Remove entirely, use DatabaseStorage + test mocks
+```
+
+**3. Extract Complex Queries to Helper Functions**
+Large methods like `searchProducts` (200+ lines) can have their SQL building extracted:
+```typescript
+// server/storage-helpers/search-query-builder.ts
+export function buildProductSearchQuery(filters: SearchFilters) {
+  // ... complex query building
+}
+```
+
+#### When to Revisit This Decision
+
+Consider splitting storage.ts if:
+- File exceeds **4000 lines**
+- A domain module needs **independent versioning** (separate package)
+- **Multiple teams** work on different domains simultaneously
+- **Circular dependency** issues emerge between domains
+
+#### References
+- [TODO #034 discussion]
+- [server/storage.ts](../server/storage.ts)
 
 ---
 

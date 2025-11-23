@@ -1,9 +1,9 @@
-import { db } from '../db.js';
-import { scrapingJobs, trendingProducts, agentSessions, productOffers } from '../../shared/schema.js';
+import { db } from '../db';
+import { scrapingJobs, trendingProducts, agentSessions, productOffers } from '../../shared/schema';
 import { eq, desc, and, gte, count, sql } from 'drizzle-orm';
-import { logger } from '../utils/logger.js';
-import { queryCache, generalCache } from './redis-cache.js';
-import { jobLocks } from '../../shared/schema.js';
+import { logger } from '../utils/logger';
+import { queryCache, generalCache } from './redis-cache';
+import { jobLocks } from '../../shared/schema';
 
 /**
  * Monitoring Service

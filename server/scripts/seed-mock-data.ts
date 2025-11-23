@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { db } from '../db.js';
-import { products, retailers, productOffers, priceHistory } from '../../shared/schema.js';
+import { db } from '../db';
+import { products, retailers, productOffers, priceHistory } from '../../shared/schema';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('SeedData');

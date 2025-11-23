@@ -52,7 +52,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
       res.json(response);
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Advanced search error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ message: "Advanced search failed" });
     }
@@ -80,7 +80,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=150');
       res.json({ suggestions });
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Search suggestions error:', { error: error instanceof Error ? error.message : String(error) });
       logger.error('Search error with stack', { stack: (error as Error).stack });
       res.status(500).json({ message: "Failed to get search suggestions", error: (error as Error).message });
@@ -102,7 +102,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       
       res.json(analysis);
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Query analysis error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ message: "Failed to analyze query" });
     }
@@ -164,7 +164,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         optimizations: `Optimized for ${intent}`
       });
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Intent-based search error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ message: "Intent-based search failed" });
     }
@@ -238,7 +238,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         }
       });
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Smart search error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ message: "Smart search failed" });
     }
@@ -287,7 +287,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.setHeader('Cache-Control', 'public, max-age=1800, stale-while-revalidate=900');
       res.json({ facets });
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Facets error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ message: "Failed to get search facets" });
     }
@@ -307,7 +307,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Search stats error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ message: "Failed to get search statistics" });
     }
@@ -324,7 +324,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       
       res.json({ message: "Search caches cleared successfully" });
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Clear cache error:', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ message: "Failed to clear search caches" });
     }

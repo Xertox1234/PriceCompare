@@ -41,15 +41,6 @@ describe('Rate Limit Tiers Constants', () => {
       expect(RATE_LIMIT_TIERS.moderator.maxRequests).toBe(1000);
       expect(RATE_LIMIT_TIERS.admin.maxRequests).toBe(10000);
     });
-
-    it('has descriptions for all tiers', () => {
-      expect(RATE_LIMIT_TIERS.anonymous.description).toBe('Anonymous/Guest users');
-      expect(RATE_LIMIT_TIERS.free.description).toBe('Free registered users');
-      expect(RATE_LIMIT_TIERS.user.description).toBe('Standard authenticated users');
-      expect(RATE_LIMIT_TIERS.premium.description).toBe('Premium/Paid subscribers');
-      expect(RATE_LIMIT_TIERS.moderator.description).toBe('Moderator users');
-      expect(RATE_LIMIT_TIERS.admin.description).toBe('Admin users');
-    });
   });
 
   describe('Tier hierarchy validation', () => {

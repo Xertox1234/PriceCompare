@@ -11,17 +11,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import session from "express-session";
 import { registerRoutes } from "./routes";
-import { registerScrapingRoutes } from "./scraping-routes";
-import { registerMonitoringRoutes } from "./monitoring-routes";
-import { registerAffiliateRoutes } from "./affiliate-routes";
-import { registerDiscourseRoutes } from "./discourse-routes";
-import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
-import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
-import { registerPriceHistoryRoutes } from "./price-history-routes";
-import { registerPriceAnalyticsRoutes } from "./price-analytics-routes";
-import { registerNotificationRoutes } from "./notification-routes";
-import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
-import { registerCommunityRoutes } from "./community-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { websocketService } from "./services/websocket-service";
 import { passport } from "./auth";
@@ -225,39 +214,6 @@ app.use(sanitizeInput);
     next();
   });
   const server = await registerRoutes(app);
-  
-  // Register AI scraping routes
-  registerScrapingRoutes(app);
-
-  // Register monitoring and dashboard routes
-  registerMonitoringRoutes(app);
-
-  // Register affiliate routes
-  registerAffiliateRoutes(app);
-
-  // Register Discourse SSO routes
-  registerDiscourseRoutes(app);
-  
-  // Register enhanced forum routes
-  registerEnhancedForumRoutes(app);
-  
-  // Register advanced search routes
-  registerAdvancedSearchRoutes(app);
-
-  // Register price history routes
-  registerPriceHistoryRoutes(app);
-
-  // Register price analytics routes (trends and aggregates)
-  registerPriceAnalyticsRoutes(app);
-
-  // Register notification routes
-  registerNotificationRoutes(app);
-
-  // Register smart alerts routes
-  registerSmartAlertsRoutes(app);
-
-  // Register community routes
-  registerCommunityRoutes(app);
 
   // Initialize advanced caching system
   const { initializeAdvancedCache, performInitialCacheWarming } = await import("./cache-initialization");

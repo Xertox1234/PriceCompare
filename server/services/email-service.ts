@@ -1,6 +1,6 @@
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
-import { log } from '../vite';
+import { logger } from '../utils/logger';
 import { z } from 'zod';
 
 /**
@@ -74,7 +74,7 @@ class EmailService {
     const smtpPass = process.env.SMTP_PASSWORD;
 
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      log('Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_PASSWORD environment variables.', 'info');
+      logger.info('Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_PASSWORD environment variables.');
       this.isConfigured = false;
       return;
     }
@@ -92,16 +92,16 @@ class EmailService {
     try {
       this.transporter = nodemailer.createTransport(config);
       this.isConfigured = true;
-      log('Email service initialized successfully', 'info');
+      logger.info('Email service initialized successfully');
     } catch (error) {
-      log(`Failed to initialize email service: ${error}`, 'error');
+      logger.error(`Failed to initialize email service: ${error}`);
       this.isConfigured = false;
     }
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     if (!this.isConfigured || !this.transporter) {
-      log('Email service is not configured. Cannot send email.', 'error');
+      logger.error('Email service is not configured. Cannot send email.');
       return false;
     }
 
@@ -114,10 +114,10 @@ class EmailService {
         html: options.html,
       });
 
-      log(`Email sent successfully to ${options.to}: ${info.messageId}`, 'info');
+      logger.info(`Email sent successfully to ${options.to}: ${info.messageId}`);
       return true;
     } catch (error) {
-      log(`Failed to send email to ${options.to}: ${error}`, 'error');
+      logger.error(`Failed to send email to ${options.to}: ${error}`);
       return false;
     }
   }

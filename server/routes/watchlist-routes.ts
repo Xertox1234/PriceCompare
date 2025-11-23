@@ -6,7 +6,7 @@ import { storage } from "../storage";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { createErrorResponse } from "../utils/error-sanitizer";
 import { csrfProtection } from "../middleware/security";
-import { log } from "../vite";
+import { logger } from "../utils/logger";
 
 /**
  * Watchlist Routes
@@ -77,12 +77,12 @@ export function registerWatchListRoutes(app: Express): void {
   app.get("/api/watchlists", withAuth(async (req, res) => {
     try {
       const userId = req.user.id;
-      log(`Fetching watch lists for user ${userId}`);
+      logger.info(`Fetching watch lists for user ${userId}`);
 
       const watchLists = await storage.getUserWatchLists(userId);
 
       res.json({ watchLists });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to get watch lists:', error);
       const errorResponse = createErrorResponse(error, 'GetWatchLists');
       res.status(errorResponse.status).json({
@@ -109,13 +109,13 @@ export function registerWatchListRoutes(app: Express): void {
       // Validate request body
       const data = createWatchListSchema.parse(req.body);
 
-      log(`Creating watch list "${data.name}" for user ${userId}`);
+      logger.info(`Creating watch list "${data.name}" for user ${userId}`);
 
       // Create watch list (storage validates max 20 lists per user)
       const watchList = await storage.createWatchList(userId, data);
 
       res.status(201).json(watchList);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to create watch list:', error);
       const errorResponse = createErrorResponse(error, 'CreateWatchList');
       res.status(errorResponse.status).json({
@@ -139,12 +139,12 @@ export function registerWatchListRoutes(app: Express): void {
       const userId = req.user.id;
       const sortBy = req.query.sortBy as 'priceDropPercent' | 'savings' | 'dateAdded' | undefined;
 
-      log(`Fetching watched products for user ${userId} (sortBy: ${sortBy || 'priceDropPercent'})`);
+      logger.info(`Fetching watched products for user ${userId} (sortBy: ${sortBy || 'priceDropPercent'})`);
 
       const products = await storage.getWatchedProducts(userId, { sortBy });
 
       res.json({ products });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to get watched products:', error);
       const errorResponse = createErrorResponse(error, 'GetWatchedProducts');
       res.status(errorResponse.status).json({
@@ -170,12 +170,12 @@ export function registerWatchListRoutes(app: Express): void {
   app.get("/api/watchlists/stats", withAuth(async (req, res) => {
     try {
       const userId = req.user.id;
-      log(`Fetching watch list stats for user ${userId}`);
+      logger.info(`Fetching watch list stats for user ${userId}`);
 
       const stats = await storage.getWatchListStats(userId);
 
       res.json(stats);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to get watch list stats:', error);
       const errorResponse = createErrorResponse(error, 'GetWatchListStats');
       res.status(errorResponse.status).json({
@@ -198,7 +198,7 @@ export function registerWatchListRoutes(app: Express): void {
       const userId = req.user.id;
       const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
 
-      log(`Fetching watch list ${watchListId} for user ${userId}`);
+      logger.info(`Fetching watch list ${watchListId} for user ${userId}`);
 
       const watchList = await storage.getWatchListById(watchListId, userId);
 
@@ -210,7 +210,7 @@ export function registerWatchListRoutes(app: Express): void {
       }
 
       res.json(watchList);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to get watch list:', error);
       const errorResponse = createErrorResponse(error, 'GetWatchList');
       res.status(errorResponse.status).json({
@@ -239,12 +239,12 @@ export function registerWatchListRoutes(app: Express): void {
       // Validate request body
       const updates = updateWatchListSchema.parse(req.body);
 
-      log(`Updating watch list ${watchListId} for user ${userId}`);
+      logger.info(`Updating watch list ${watchListId} for user ${userId}`);
 
       const watchList = await storage.updateWatchList(watchListId, userId, updates);
 
       res.json(watchList);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to update watch list:', error);
       const errorResponse = createErrorResponse(error, 'UpdateWatchList');
       res.status(errorResponse.status).json({
@@ -270,7 +270,7 @@ export function registerWatchListRoutes(app: Express): void {
       const userId = (req as AuthenticatedRequest).user.id;
       const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
 
-      log(`Deleting watch list ${watchListId} for user ${userId}`);
+      logger.info(`Deleting watch list ${watchListId} for user ${userId}`);
 
       const deletedWatchList = await storage.deleteWatchList(watchListId, userId);
 
@@ -278,7 +278,7 @@ export function registerWatchListRoutes(app: Express): void {
         success: true,
         deletedId: deletedWatchList.id
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to delete watch list:', error);
       const errorResponse = createErrorResponse(error, 'DeleteWatchList');
       res.status(errorResponse.status).json({
@@ -308,7 +308,7 @@ export function registerWatchListRoutes(app: Express): void {
       // Validate request body
       const { productId } = addProductSchema.parse(req.body);
 
-      log(`Adding product ${productId} to watch list ${watchListId} for user ${userId}`);
+      logger.info(`Adding product ${productId} to watch list ${watchListId} for user ${userId}`);
 
       const productWatch = await storage.addProductToWatchList(
         watchListId,
@@ -317,7 +317,7 @@ export function registerWatchListRoutes(app: Express): void {
       );
 
       res.status(201).json(productWatch);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to add product to watch list:', error);
 
       // Check if it's a validation error (duplicate, max limit, etc.)
@@ -354,12 +354,12 @@ export function registerWatchListRoutes(app: Express): void {
       const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
-      log(`Removing product ${productId} from watch list ${watchListId} for user ${userId}`);
+      logger.info(`Removing product ${productId} from watch list ${watchListId} for user ${userId}`);
 
       await storage.removeProductFromWatchList(watchListId, productId, userId);
 
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to remove product from watch list:', error);
       const errorResponse = createErrorResponse(error, 'RemoveProductFromWatchList');
       res.status(errorResponse.status).json({

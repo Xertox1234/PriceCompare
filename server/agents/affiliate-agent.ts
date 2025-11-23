@@ -1,12 +1,12 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent.js';
-import { affiliateLinkService } from '../services/affiliate-link-service.js';
-import { db } from '../db.js';
-import { productOffers, retailers } from '../../shared/schema.js';
+import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { affiliateLinkService } from '../services/affiliate-link-service';
+import { db } from '../db';
+import { productOffers, retailers } from '../../shared/schema';
 import { eq, and, isNull, lt } from 'drizzle-orm';
-import type { ProductOffer, Retailer } from '../../shared/schema.js';
-import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types.js';
-import { logger } from '../utils/logger.js';
-import { cleanupManager } from '../utils/cleanup-manager.js';
+import type { ProductOffer, Retailer } from '../../shared/schema';
+import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types';
+import { logger } from '../utils/logger';
+import { cleanupManager } from '../utils/cleanup-manager';
 
 /** Result of affiliate link generation batch */
 interface GenerateLinksResult {

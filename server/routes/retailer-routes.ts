@@ -16,7 +16,7 @@ export function registerRetailerRoutes(app: Express): void {
 
       const retailers = await storage.getRetailers();
       res.json(retailers);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch retailers" });
     }
   });

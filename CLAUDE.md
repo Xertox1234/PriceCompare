@@ -212,9 +212,9 @@ app.get('/api/products/:id', async (req, res) => {
 
 ### Route Organization
 
-Routes are modular and registered in `server/routes/index.ts`:
+All routes are consolidated in `server/routes/` and registered via `server/routes/index.ts`:
 
-**Core routes** (`server/routes/`):
+**Core routes**:
 - `auth-routes.ts` - Authentication (register, login, logout, password reset)
 - `product-routes.ts` - Product search, details, price history
 - `retailer-routes.ts` - Retailer management
@@ -222,8 +222,9 @@ Routes are modular and registered in `server/routes/index.ts`:
 - `admin-routes.ts` - Admin panel
 - `forum-routes.ts` - Forum functionality
 - `health-routes.ts` - Health checks
+- `watchlist-routes.ts` - Watch list and product watch management
 
-**Feature routes** (root `server/` directory):
+**Feature routes**:
 - `scraping-routes.ts` - AI-powered web scraping
 - `monitoring-routes.ts` - System monitoring dashboard
 - `affiliate-routes.ts` - Affiliate link generation
@@ -235,7 +236,6 @@ Routes are modular and registered in `server/routes/index.ts`:
 - `enhanced-forum-routes.ts` - Enhanced forum capabilities
 - `advanced-search-routes.ts` - Advanced product search
 - `discourse-routes.ts` - Discourse SSO integration
-- `hybrid-data-routes.ts` - Hybrid data collection
 
 ### Middleware Pipeline Order (CRITICAL)
 

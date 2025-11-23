@@ -1,10 +1,10 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent.js';
-import { ProductDiscoveryAgent } from './discovery-agent.js';
-import { SearchOrchestrationAgent } from './search-agent.js';
-import { DataExtractionAgent } from './extraction-agent.js';
-import { PriceMonitoringAgent } from './monitoring-agent.js';
-import { db } from '../db.js';
-import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema.js';
+import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { ProductDiscoveryAgent } from './discovery-agent';
+import { SearchOrchestrationAgent } from './search-agent';
+import { DataExtractionAgent } from './extraction-agent';
+import { PriceMonitoringAgent } from './monitoring-agent';
+import { db } from '../db';
+import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema';
 import { eq, and, lt } from 'drizzle-orm';
 import type {
   ScrapingJob,
@@ -12,10 +12,10 @@ import type {
   TrendingProduct,
   InsertProduct,
   InsertProductOffer
-} from '../../shared/schema.js';
-import type { CoordinatorTask, SystemStatus, TrendData } from './types.js';
-import { logger } from '../utils/logger.js';
-import { jobLockService } from '../services/job-lock-service.js';
+} from '../../shared/schema';
+import type { CoordinatorTask, SystemStatus, TrendData } from './types';
+import { logger } from '../utils/logger';
+import { jobLockService } from '../services/job-lock-service';
 
 interface CoordinatorConfig {
   maxConcurrentJobs: number;

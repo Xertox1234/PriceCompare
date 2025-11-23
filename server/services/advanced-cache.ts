@@ -25,6 +25,32 @@ import { logger } from '../utils/logger';
 
 /**
  * In-memory LRU cache for ultra-hot data
+ *
+ * Design Decision (TODO #039): Custom implementation retained over lru-cache npm package.
+ *
+ * Rationale:
+ * 1. Simplicity: This 57-line implementation is purpose-built for our specific use case
+ *    (1000 items, 60-second TTL L1 cache) without unnecessary complexity.
+ *
+ * 2. Minimal Dependencies: Avoiding additional npm dependencies reduces supply chain risk,
+ *    bundle size, and version management overhead.
+ *
+ * 3. Sufficient Features: Our use case doesn't require lru-cache's advanced features
+ *    (sizeCalculation, fetchMethod, dispose callbacks, ttlAutopurge, etc.).
+ *
+ * 4. Performance: For a small L1 cache (1000 items, 60s TTL), the performance difference
+ *    is negligible. The heavy lifting is done by L2 (Redis).
+ *
+ * 5. Behavior Parity: Both implementations use lazy TTL expiration (checking on access),
+ *    which is appropriate for our short-lived cache entries.
+ *
+ * When to reconsider:
+ * - If we need size-based eviction (memory limits instead of item count)
+ * - If we need proactive TTL purging (ttlAutopurge)
+ * - If we need dispose callbacks for cleanup
+ * - If the cache grows significantly larger (10k+ items)
+ *
+ * @see https://www.npmjs.com/package/lru-cache for the alternative package
  */
 class LRUCache<T> {
   private cache: Map<string, { value: T; timestamp: number }>;
@@ -275,27 +301,45 @@ export class AdvancedCacheService {
   }
 
   /**
-   * Invalidate multiple keys by pattern
+   * Invalidate multiple keys by pattern using SCAN (non-blocking)
+   *
+   * Uses SCAN instead of KEYS command to avoid blocking Redis.
+   * KEYS is O(n) on all keys and blocks the server, while SCAN
+   * iterates incrementally in batches.
    */
   async invalidatePattern(pattern: string): Promise<number> {
     try {
-      const keys = await redisClient.keys(pattern);
+      let cursor = '0';
+      let deletedCount = 0;
 
-      if (keys.length === 0) {
-        return 0;
-      }
+      // Use SCAN to iterate through keys matching pattern (non-blocking)
+      do {
+        const [nextCursor, keys] = await redisClient.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100
+        );
+        cursor = nextCursor;
 
-      // Remove from L1
-      keys.forEach(key => this.l1Cache.delete(key));
+        if (keys.length > 0) {
+          // Remove from L1
+          keys.forEach(key => this.l1Cache.delete(key));
 
-      // Remove from L2
-      await redisClient.del(...keys);
+          // Remove from L2
+          await redisClient.del(...keys);
+          deletedCount += keys.length;
+        }
+      } while (cursor !== '0');
 
       // Publish invalidation event
-      await this.publishInvalidation(pattern, true);
+      if (deletedCount > 0) {
+        await this.publishInvalidation(pattern, true);
+      }
 
-      this.stats.invalidations += keys.length;
-      return keys.length;
+      this.stats.invalidations += deletedCount;
+      return deletedCount;
     } catch (error) {
       this.stats.errors++;
       logger.error('Cache invalidate pattern error:', error);

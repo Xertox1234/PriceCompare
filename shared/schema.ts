@@ -252,6 +252,7 @@ export const forumTopics = pgTable("forum_topics", {
   authorIdIdx: index("forum_topics_author_id_idx").on(table.authorId),
   productIdIdx: index("forum_topics_product_id_idx").on(table.productId),
   createdAtIdx: index("forum_topics_created_at_idx").on(table.createdAt),
+  slugIdx: index("forum_topics_slug_idx").on(table.slug),
 }));
 
 // Forum posts with enhanced features
@@ -335,6 +336,7 @@ export const notifications = pgTable("notifications", {
   userIdIdx: index("notifications_user_id_idx").on(table.userId),
   userReadIdx: index("notifications_user_read_idx").on(table.userId, table.isRead),
   createdAtIdx: index("notifications_created_at_idx").on(table.createdAt),
+  userTypeIdx: index("notifications_user_type_idx").on(table.userId, table.type, table.isRead, table.createdAt),
 }));
 
 // Notification preferences for users

@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { db } from '../db.js';
-import { users } from '../../shared/schema.js';
+import { db } from '../db';
+import { users } from '../../shared/schema';
 import bcrypt from 'bcrypt';
 import { createLogger } from '../utils/logger';
 

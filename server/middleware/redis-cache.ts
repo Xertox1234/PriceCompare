@@ -38,9 +38,25 @@ class InMemoryCache {
     return deleted;
   }
 
-  async keys(pattern: string): Promise<string[]> {
+  /**
+   * SCAN-like iteration for in-memory cache (non-blocking equivalent)
+   *
+   * Returns [nextCursor, keys] tuple matching Redis SCAN semantics.
+   * For in-memory cache, we process in batches to maintain API compatibility.
+   */
+  async scan(
+    cursor: string,
+    _match: string,
+    pattern: string,
+    _count: string,
+    batchSize: number
+  ): Promise<[string, string[]]> {
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-    return Array.from(this.store.keys()).filter(key => regex.test(key));
+    const allKeys = Array.from(this.store.keys()).filter(key => regex.test(key));
+    const cursorNum = parseInt(cursor, 10);
+    const batch = allKeys.slice(cursorNum, cursorNum + batchSize);
+    const nextCursor = cursorNum + batchSize >= allKeys.length ? '0' : String(cursorNum + batchSize);
+    return [nextCursor, batch];
   }
 }
 
@@ -143,17 +159,37 @@ function defaultSkipCache(req: Request): boolean {
 }
 
 /**
- * Invalidate cache by pattern
+ * Invalidate cache by pattern using SCAN (non-blocking)
+ *
+ * Uses SCAN instead of KEYS command to avoid blocking Redis.
+ * KEYS is O(n) on all keys and blocks the server, while SCAN
+ * iterates incrementally in batches.
+ *
  * @param pattern - Redis key pattern (e.g., 'cache:/api/products/*')
  */
 export async function invalidateCache(pattern: string): Promise<number> {
   try {
     const cache = getCacheClient();
-    const keys = await cache.keys(pattern);
-    if (keys.length === 0) {
-      return 0;
-    }
-    return await cache.del(...keys);
+    let cursor = '0';
+    let deletedCount = 0;
+
+    // Use SCAN to iterate through keys matching pattern (non-blocking)
+    do {
+      const [nextCursor, keys] = await cache.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100
+      );
+      cursor = nextCursor;
+
+      if (keys.length > 0) {
+        deletedCount += await cache.del(...keys);
+      }
+    } while (cursor !== '0');
+
+    return deletedCount;
   } catch (error) {
     log.error('Failed to invalidate cache:', { error });
     return 0;

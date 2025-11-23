@@ -1,6 +1,8 @@
 import { Express } from "express";
 import { createServer, type Server } from "http";
 import { forumStorage } from "../forum-storage";
+
+// Core routes
 import { registerHealthRoutes } from "./health-routes";
 import { registerAuthRoutes } from "./auth-routes";
 import { registerForumRoutes } from "./forum-routes";
@@ -12,10 +14,23 @@ import { registerWatchListRoutes } from "./watchlist-routes";
 import aggregationMetricsRoutes from "./aggregation-metrics-routes";
 import adminAggregationRoutes from "./admin-aggregation-routes";
 
+// Feature routes (previously registered in server/index.ts)
+import { registerScrapingRoutes } from "./scraping-routes";
+import { registerMonitoringRoutes } from "./monitoring-routes";
+import { registerAffiliateRoutes } from "./affiliate-routes";
+import { registerDiscourseRoutes } from "./discourse-routes";
+import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
+import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
+import { registerPriceHistoryRoutes } from "./price-history-routes";
+import { registerPriceAnalyticsRoutes } from "./price-analytics-routes";
+import { registerNotificationRoutes } from "./notification-routes";
+import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
+import { registerCommunityRoutes } from "./community-routes";
+
 /**
  * Register all application routes
  *
- * This is the main entry point for route registration. It aggregates all domain-specific
+ * This is the single entry point for all route registration. It aggregates all
  * route modules and registers them with the Express app.
  *
  * Route organization:
@@ -27,12 +42,23 @@ import adminAggregationRoutes from "./admin-aggregation-routes";
  * - retailer-routes: Retailer data
  * - product-routes: Product search, details, price history, analytics
  * - admin-routes: Admin panel (analytics, product/retailer management, performance)
+ * - scraping-routes: AI-powered web scraping
+ * - monitoring-routes: System monitoring dashboard
+ * - affiliate-routes: Affiliate link generation
+ * - discourse-routes: Discourse SSO integration
+ * - enhanced-forum-routes: Enhanced forum capabilities
+ * - advanced-search-routes: Advanced product search
+ * - price-history-routes: Historical price data
+ * - price-analytics-routes: Price trends and aggregations
+ * - notification-routes: User notifications
+ * - smart-alerts-routes: Advanced price alerting
+ * - community-routes: Community features
  */
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize forum categories (ensure defaults exist)
   await forumStorage.initializeDefaultCategories();
 
-  // Register all route modules
+  // Register core route modules
   registerHealthRoutes(app);
   registerAuthRoutes(app);
   registerForumRoutes(app);
@@ -43,6 +69,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerAdminRoutes(app);
   app.use('/api/aggregation-metrics', aggregationMetricsRoutes);
   app.use('/api/admin/aggregation', adminAggregationRoutes);
+
+  // Register feature route modules
+  registerScrapingRoutes(app);
+  registerMonitoringRoutes(app);
+  registerAffiliateRoutes(app);
+  registerDiscourseRoutes(app);
+  registerEnhancedForumRoutes(app);
+  registerAdvancedSearchRoutes(app);
+  registerPriceHistoryRoutes(app);
+  registerPriceAnalyticsRoutes(app);
+  registerNotificationRoutes(app);
+  registerSmartAlertsRoutes(app);
+  registerCommunityRoutes(app);
 
   // Create HTTP server
   const httpServer = createServer(app);
