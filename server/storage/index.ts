@@ -33,6 +33,7 @@ export * from './types';
 // Re-export domain interfaces
 export type { IUserStorage } from './user-storage';
 export type { IProductStorage } from './product-storage';
+export type { IJobLockStorage } from './job-lock-storage';
 
 // Import the original IStorage interface and storage implementation
 // Phase 2: UserStorage is implemented but not yet integrated into facade

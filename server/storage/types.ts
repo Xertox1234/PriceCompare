@@ -68,6 +68,19 @@ export interface JobLock {
   metadata: string | null;
 }
 
+export interface InsertJobLock {
+  jobName: string;
+  lockedBy: string;
+  expiresAt: Date;
+  lockedAt?: Date;
+  metadata?: string | null;
+}
+
+export interface AcquireLockResult {
+  success: boolean;
+  id?: number;
+}
+
 // ============================================================================
 // Price History Types
 // ============================================================================
