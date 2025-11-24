@@ -30,8 +30,12 @@
 // Re-export all types for convenience
 export * from './types';
 
+// Re-export domain interfaces
+export type { IUserStorage } from './user-storage';
+
 // Import the original IStorage interface and storage implementation
-// During Phase 1, we're just creating the structure - actual migration happens in later phases
+// Phase 2: UserStorage is implemented but not yet integrated into facade
+// (IStorage has duplicate method signatures that need to be resolved first)
 import { storage as originalStorage, type IStorage } from '../storage';
 
 /**
@@ -99,8 +103,18 @@ export const storage: IStorage = originalStorage;
 // - Facade structure established in storage/index.ts
 // - All existing code continues to work unchanged
 //
-// Next Steps (Phase 2+):
-// 1. Create first domain repository (e.g., UserStorage)
-// 2. Update facade to delegate user methods to UserStorage
-// 3. Repeat for remaining domains
-// 4. Gradually replace all references to ../storage.ts with ./storage/
+// Phase 2 In Progress: UserStorage domain extracted
+// - ✅ IUserStorage interface created with 8 methods
+// - ✅ UserStorage class implemented extending BaseStorage
+// - ⏳ Integration into facade pending (IStorage has duplicate signatures)
+// - ⏳ Unit tests pending
+//
+// Note: The original IStorage has duplicate method signatures (getAllUsers
+// returns both SafeUser[] and AdminUser[]). This needs to be resolved before
+// integrating UserStorage into the facade.
+//
+// Next Steps (Phase 2 completion):
+// 1. Resolve duplicate method signatures in IStorage
+// 2. Integrate UserStorage into facade
+// 3. Add comprehensive unit tests for UserStorage
+// 4. Update routes to use new storage/index.ts path
