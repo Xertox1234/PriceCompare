@@ -147,7 +147,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Job name is required and must be a string');
       }
       if (jobName.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH) {
-        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} character`);
+        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} characters`);
       }
       if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
         throw new Error(`Job name cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters`);
@@ -157,7 +157,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Locked by identifier is required and must be a string');
       }
       if (lockedBy.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH) {
-        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} character`);
+        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} characters`);
       }
       if (lockedBy.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH) {
         throw new Error(`Locked by identifier cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH} characters`);
@@ -167,7 +167,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('TTL must be a positive integer');
       }
       if (ttlSeconds < JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS) {
-        throw new Error(`TTL must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS} second`);
+        throw new Error(`TTL must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS} seconds`);
       }
       if (ttlSeconds > JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS) {
         throw new Error(`TTL cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS} seconds (24 hours)`);
@@ -221,7 +221,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Job name is required and must be a string');
       }
       if (jobName.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH) {
-        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} character`);
+        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} characters`);
       }
       if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
         throw new Error(`Job name cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters`);
@@ -275,7 +275,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Job name is required and must be a string');
       }
       if (jobName.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH) {
-        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} character`);
+        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} characters`);
       }
       if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
         throw new Error(`Job name cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters`);
@@ -285,7 +285,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Locked by identifier is required and must be a string');
       }
       if (lockedBy.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH) {
-        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} character`);
+        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} characters`);
       }
       if (lockedBy.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH) {
         throw new Error(`Locked by identifier cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH} characters`);
@@ -352,7 +352,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Job name is required and must be a string');
       }
       if (jobName.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH) {
-        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} character`);
+        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} characters`);
       }
       if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
         throw new Error(`Job name cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters`);
@@ -362,7 +362,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Locked by identifier is required and must be a string');
       }
       if (lockedBy.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH) {
-        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} character`);
+        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} characters`);
       }
       if (lockedBy.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH) {
         throw new Error(`Locked by identifier cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH} characters`);
@@ -421,7 +421,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Job name is required and must be a string');
       }
       if (jobName.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH) {
-        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} character`);
+        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} characters`);
       }
       if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
         throw new Error(`Job name cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters`);
@@ -431,7 +431,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Locked by identifier is required and must be a string');
       }
       if (lockedBy.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH) {
-        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} character`);
+        throw new Error(`Locked by identifier must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_LOCKED_BY_LENGTH} characters`);
       }
       if (lockedBy.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH) {
         throw new Error(`Locked by identifier cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH} characters`);
@@ -441,7 +441,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Additional seconds must be a positive integer');
       }
       if (additionalSeconds < JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS) {
-        throw new Error(`Additional seconds must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS} second`);
+        throw new Error(`Additional seconds must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS} seconds`);
       }
       if (additionalSeconds > JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS) {
         throw new Error(`Additional seconds cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS} seconds (24 hours)`);
@@ -491,7 +491,7 @@ export class JobLockStorage extends BaseStorage implements IJobLockStorage {
         throw new Error('Job name is required and must be a string');
       }
       if (jobName.length < JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH) {
-        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} character`);
+        throw new Error(`Job name must be at least ${JOB_LOCK_CONSTANTS.VALIDATION.MIN_JOB_NAME_LENGTH} characters`);
       }
       if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
         throw new Error(`Job name cannot exceed ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters`);
