@@ -1,6 +1,6 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, or, like, count } from "drizzle-orm";
+import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
 import { logger } from "./utils/logger";
 
@@ -173,6 +173,40 @@ export interface IStorage {
   deleteProductSpecification(specId: number): Promise<boolean>;
   deleteProductSpecifications(productId: number): Promise<number>;
   getProductFull(productId: number): Promise<ProductFull | null>;
+
+  // ============================================================================
+  // Price Analytics Operations (Phase 3 Storage Migration)
+  // ============================================================================
+
+  // Price Aggregation Data Access
+  getPriceDataForAggregation(startDate: Date, endDate: Date, productId?: number): Promise<PriceAggregationData[]>;
+  getWeeklyAggregatesData(year: number, week: number): Promise<WeeklyAggregateRecord[]>;
+  getDailyAggregatesData(date: string): Promise<DailyAggregateRecord[]>;
+  getMonthlyAggregatesData(year: number, month: number): Promise<MonthlyAggregateRecord[]>;
+  upsertDailyAggregates(values: DailyAggregateInsert[]): Promise<void>;
+  upsertWeeklyAggregates(values: WeeklyAggregateInsert[]): Promise<void>;
+  upsertMonthlyAggregates(values: MonthlyAggregateInsert[]): Promise<void>;
+  markPriceHistoryAsAggregated(startDate: Date, endDate: Date): Promise<void>;
+  deleteOldAggregatedPriceHistory(cutoffDate: Date): Promise<number>;
+
+  // Price History Data Access
+  getProductOfferWithProduct(offerId: number): Promise<ProductOfferWithProduct | null>;
+  getLatestPriceForOffer(offerId: number): Promise<PriceHistory | null>;
+  insertPriceHistory(data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory>;
+  getPriceHistoryByQuery(query: PriceHistoryQueryParams): Promise<PriceHistory[]>;
+  getExistingSnapshotsForDate(date: Date): Promise<PriceSnapshotRecord[]>;
+  insertPriceSnapshots(snapshots: PriceSnapshotInsert[]): Promise<void>;
+  updatePriceSnapshot(id: number, data: Partial<PriceSnapshotInsert>): Promise<void>;
+
+  // Price Snapshot Data Access
+  getProductOffersForSnapshot(batchSize: number, offset: number): Promise<ProductOffer[]>;
+  getPriceHistoryForOffers(offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>>;
+
+  // Trend Analysis Data Access
+  getPriceDataGroupedForTrend(cutoffDate: Date): Promise<TrendPriceData[]>;
+  upsertPriceTrends(values: PriceTrendInsert[]): Promise<void>;
+  getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null>;
+  getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -900,40 +934,6 @@ export class MemStorage implements IStorage {
     throw new Error('Affiliate operations not supported in memory storage');
   }
 
-  // User Profile Management (stub implementations)
-  async updateUserProfile(_userId: number, _data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
-    throw new Error('User profile operations not supported in memory storage');
-  }
-
-  async updateUserTrustLevel(_userId: number, _trustLevel: number): Promise<void> {
-    throw new Error('User profile operations not supported in memory storage');
-  }
-
-  async suspendUser(_userId: number, _reason: string, _moderatorId: number): Promise<void> {
-    throw new Error('User profile operations not supported in memory storage');
-  }
-
-  // Admin Analytics (stub implementations)
-  async getAllUsers(): Promise<AdminUser[]> {
-    return [];
-  }
-
-  async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
-    return { totalUsers: 0, totalTopics: 0, totalPosts: 0, totalCategories: 0 };
-  }
-
-  async getUserGrowthData(): Promise<UserGrowthData[]> {
-    return [];
-  }
-
-  async getForumActivityData(): Promise<ForumActivityData[]> {
-    return [];
-  }
-
-  async getTopCategories(_limit: number): Promise<TopCategory[]> {
-    return [];
-  }
-
   // SECURITY: passwordHash handled internally, NEVER exposed
   async createUserWithTransaction(
     _username: string,
@@ -969,6 +969,42 @@ export class MemStorage implements IStorage {
   async deleteProductSpecification(_specId: number): Promise<boolean> { return false; }
   async deleteProductSpecifications(_productId: number): Promise<number> { return 0; }
   async getProductFull(_productId: number): Promise<ProductFull | null> { return null; }
+
+  // ============================================================================
+  // Price Analytics Operations (Phase 3 Storage Migration - Stub Implementations)
+  // ============================================================================
+
+  // Price Aggregation stubs
+  async getPriceDataForAggregation(_startDate: Date, _endDate: Date, _productId?: number): Promise<PriceAggregationData[]> { return []; }
+  async getWeeklyAggregatesData(_year: number, _week: number): Promise<WeeklyAggregateRecord[]> { return []; }
+  async getDailyAggregatesData(_date: string): Promise<DailyAggregateRecord[]> { return []; }
+  async getMonthlyAggregatesData(_year: number, _month: number): Promise<MonthlyAggregateRecord[]> { return []; }
+  async upsertDailyAggregates(_values: DailyAggregateInsert[]): Promise<void> { /* Not supported in memory storage */ }
+  async upsertWeeklyAggregates(_values: WeeklyAggregateInsert[]): Promise<void> { /* Not supported in memory storage */ }
+  async upsertMonthlyAggregates(_values: MonthlyAggregateInsert[]): Promise<void> { /* Not supported in memory storage */ }
+  async markPriceHistoryAsAggregated(_startDate: Date, _endDate: Date): Promise<void> { /* Not supported in memory storage */ }
+  async deleteOldAggregatedPriceHistory(_cutoffDate: Date): Promise<number> { return 0; }
+
+  // Price History stubs
+  async getProductOfferWithProduct(_offerId: number): Promise<ProductOfferWithProduct | null> { return null; }
+  async getLatestPriceForOffer(_offerId: number): Promise<PriceHistory | null> { return null; }
+  async insertPriceHistory(_data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory> {
+    throw new Error('Price history operations not supported in memory storage');
+  }
+  async getPriceHistoryByQuery(_query: PriceHistoryQueryParams): Promise<PriceHistory[]> { return []; }
+  async getExistingSnapshotsForDate(_date: Date): Promise<PriceSnapshotRecord[]> { return []; }
+  async insertPriceSnapshots(_snapshots: PriceSnapshotInsert[]): Promise<void> { /* Not supported in memory storage */ }
+  async updatePriceSnapshot(_id: number, _data: Partial<PriceSnapshotInsert>): Promise<void> { /* Not supported in memory storage */ }
+
+  // Price Snapshot stubs
+  async getProductOffersForSnapshot(_batchSize: number, _offset: number): Promise<ProductOffer[]> { return []; }
+  async getPriceHistoryForOffers(_offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>> { return []; }
+
+  // Trend Analysis stubs
+  async getPriceDataGroupedForTrend(_cutoffDate: Date): Promise<TrendPriceData[]> { return []; }
+  async upsertPriceTrends(_values: PriceTrendInsert[]): Promise<void> { /* Not supported in memory storage */ }
+  async getPriceTrendWithRetailer(_productId: number, _retailerId: number): Promise<PriceTrendWithRetailer | null> { return null; }
+  async getPriceTrendsForProduct(_productId: number): Promise<PriceTrendWithRetailer[]> { return []; }
 }
 
 // Database Storage Implementation
@@ -2595,7 +2631,8 @@ export class DatabaseStorage implements IStorage {
   async getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]> {
     const allRetailers = await db.select().from(retailers);
 
-    return Promise.all(
+    // Use Promise.allSettled for graceful error handling per retailer
+    const results = await Promise.allSettled(
       allRetailers.map(async (retailer) => {
         // Get affiliate stats for each retailer
         const statsResult = await db.select({
@@ -2615,6 +2652,23 @@ export class DatabaseStorage implements IStorage {
         };
       })
     );
+
+    // Handle failures gracefully - return retailer with empty stats on error
+    return results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      }
+      // Log error but don't fail entire operation
+      logger.error('Failed to fetch affiliate stats for retailer', {
+        retailerId: allRetailers[index].id,
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason)
+      });
+      return {
+        ...allRetailers[index],
+        affiliateConfigParsed: allRetailers[index].affiliateConfig ? JSON.parse(allRetailers[index].affiliateConfig) : null,
+        stats: { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 }
+      };
+    });
   }
 
   async updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null> {
@@ -2995,10 +3049,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(wishlistItems.userId, userId))
       .orderBy(desc(wishlistItems.addedAt));
 
-    // For each item, get the offers to build ProductWithOffers
+    if (items.length === 0) {
+      return [];
+    }
+
+    // BATCH QUERY: Fetch all offers in ONE query (fixes N+1 pattern)
+    const productIds = items.map(({ product }) => product.id);
+    const allOffers = await db
+      .select({
+        productId: productOffers.productId,
+        offer: productOffers,
+        retailer: retailers,
+      })
+      .from(productOffers)
+      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(inArray(productOffers.productId, productIds));
+
+    // Build map for O(1) lookup
+    const offersByProduct = new Map<number, Array<ProductOffer & { retailer: Retailer }>>();
+    for (const item of allOffers) {
+      if (!offersByProduct.has(item.productId)) {
+        offersByProduct.set(item.productId, []);
+      }
+      offersByProduct.get(item.productId)!.push({
+        ...item.offer,
+        retailer: item.retailer,
+      });
+    }
+
+    // Populate results using map lookup (O(1) per item, no additional queries)
     const result: WishlistItemWithProduct[] = [];
     for (const { item, product, wishlist } of items) {
-      const offers = await this.getProductOffers(product.id);
+      const offers = offersByProduct.get(product.id) || [];
       const bestPrice = offers.length > 0
         ? Math.min(...offers.map(o => parseFloat(o.price)))
         : undefined;
@@ -3279,6 +3361,396 @@ export class DatabaseStorage implements IStorage {
 
     return result?.count ?? 0;
   }
+
+  // ============================================================================
+  // Price Analytics Operations (Phase 3 Storage Migration - Database Implementations)
+  // ============================================================================
+
+  // Price Aggregation Data Access
+  async getPriceDataForAggregation(startDate: Date, endDate: Date, productId?: number): Promise<PriceAggregationData[]> {
+    const conditions = [
+      gte(priceHistory.recordedAt, startDate),
+      lte(priceHistory.recordedAt, endDate)
+    ];
+
+    if (productId !== undefined) {
+      conditions.push(eq(priceHistory.productId, productId));
+    }
+
+    const result = await db
+      .select({
+        productId: priceHistory.productId,
+        retailerId: priceHistory.retailerId,
+        prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
+        recordCount: sql<number>`count(*)::int`,
+      })
+      .from(priceHistory)
+      .where(and(...conditions))
+      .groupBy(priceHistory.productId, priceHistory.retailerId);
+
+    return result;
+  }
+
+  async getWeeklyAggregatesData(year: number, week: number): Promise<WeeklyAggregateRecord[]> {
+    const result = await db
+      .select()
+      .from(priceAggregatesWeekly)
+      .where(and(
+        eq(priceAggregatesWeekly.year, year),
+        eq(priceAggregatesWeekly.week, week)
+      ));
+    return result;
+  }
+
+  async getDailyAggregatesData(date: string): Promise<DailyAggregateRecord[]> {
+    const result = await db
+      .select()
+      .from(priceAggregatesDaily)
+      .where(eq(priceAggregatesDaily.date, date));
+    return result;
+  }
+
+  async getMonthlyAggregatesData(year: number, month: number): Promise<MonthlyAggregateRecord[]> {
+    const result = await db
+      .select()
+      .from(priceAggregatesMonthly)
+      .where(and(
+        eq(priceAggregatesMonthly.year, year),
+        eq(priceAggregatesMonthly.month, month)
+      ));
+    return result;
+  }
+
+  async upsertDailyAggregates(values: DailyAggregateInsert[]): Promise<void> {
+    if (values.length === 0) return;
+
+    await db
+      .insert(priceAggregatesDaily)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          priceAggregatesDaily.productId,
+          priceAggregatesDaily.retailerId,
+          priceAggregatesDaily.date,
+        ],
+        set: {
+          minPrice: sql`excluded.min_price`,
+          maxPrice: sql`excluded.max_price`,
+          avgPrice: sql`excluded.avg_price`,
+          medianPrice: sql`excluded.median_price`,
+          volatilityScore: sql`excluded.volatility_score`,
+          recordCount: sql`excluded.record_count`,
+          dayOverDayChange: sql`excluded.day_over_day_change`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+  }
+
+  async upsertWeeklyAggregates(values: WeeklyAggregateInsert[]): Promise<void> {
+    if (values.length === 0) return;
+
+    await db
+      .insert(priceAggregatesWeekly)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          priceAggregatesWeekly.productId,
+          priceAggregatesWeekly.retailerId,
+          priceAggregatesWeekly.year,
+          priceAggregatesWeekly.week,
+        ],
+        set: {
+          minPrice: sql`excluded.min_price`,
+          maxPrice: sql`excluded.max_price`,
+          avgPrice: sql`excluded.avg_price`,
+          medianPrice: sql`excluded.median_price`,
+          volatilityScore: sql`excluded.volatility_score`,
+          recordCount: sql`excluded.record_count`,
+          weekOverWeekChange: sql`excluded.week_over_week_change`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+  }
+
+  async upsertMonthlyAggregates(values: MonthlyAggregateInsert[]): Promise<void> {
+    if (values.length === 0) return;
+
+    await db
+      .insert(priceAggregatesMonthly)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          priceAggregatesMonthly.productId,
+          priceAggregatesMonthly.retailerId,
+          priceAggregatesMonthly.year,
+          priceAggregatesMonthly.month,
+        ],
+        set: {
+          minPrice: sql`excluded.min_price`,
+          maxPrice: sql`excluded.max_price`,
+          avgPrice: sql`excluded.avg_price`,
+          medianPrice: sql`excluded.median_price`,
+          volatilityScore: sql`excluded.volatility_score`,
+          recordCount: sql`excluded.record_count`,
+          monthOverMonthChange: sql`excluded.month_over_month_change`,
+          yearOverYearChange: sql`excluded.year_over_year_change`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+  }
+
+  async markPriceHistoryAsAggregated(startDate: Date, endDate: Date): Promise<void> {
+    await db
+      .update(priceHistory)
+      .set({ aggregatedAt: new Date() })
+      .where(and(
+        gte(priceHistory.recordedAt, startDate),
+        lte(priceHistory.recordedAt, endDate)
+      ));
+  }
+
+  async deleteOldAggregatedPriceHistory(cutoffDate: Date): Promise<number> {
+    const result = await db
+      .delete(priceHistory)
+      .where(and(
+        lte(priceHistory.recordedAt, cutoffDate),
+        isNotNull(priceHistory.aggregatedAt)
+      ));
+    return result.rowCount || 0;
+  }
+
+  // Price History Data Access
+  async getProductOfferWithProduct(offerId: number): Promise<ProductOfferWithProduct | null> {
+    const [result] = await db
+      .select({
+        offer: productOffers,
+        product: products,
+      })
+      .from(productOffers)
+      .innerJoin(products, eq(productOffers.productId, products.id))
+      .where(eq(productOffers.id, offerId))
+      .limit(1);
+
+    return result || null;
+  }
+
+  async getLatestPriceForOffer(offerId: number): Promise<PriceHistory | null> {
+    const [result] = await db
+      .select()
+      .from(priceHistory)
+      .where(eq(priceHistory.productOfferId, offerId))
+      .orderBy(desc(priceHistory.recordedAt))
+      .limit(1);
+
+    return result || null;
+  }
+
+  async insertPriceHistory(data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory> {
+    const [result] = await db
+      .insert(priceHistory)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getPriceHistoryByQuery(query: PriceHistoryQueryParams): Promise<PriceHistory[]> {
+    const conditions: ReturnType<typeof eq>[] = [];
+
+    if (query.productOfferId) {
+      conditions.push(eq(priceHistory.productOfferId, query.productOfferId));
+    }
+    if (query.productId) {
+      conditions.push(eq(priceHistory.productId, query.productId));
+    }
+    if (query.retailerId) {
+      conditions.push(eq(priceHistory.retailerId, query.retailerId));
+    }
+    if (query.startDate) {
+      conditions.push(gte(priceHistory.recordedAt, query.startDate));
+    }
+    if (query.endDate) {
+      conditions.push(lte(priceHistory.recordedAt, query.endDate));
+    }
+    if (query.source) {
+      conditions.push(eq(priceHistory.source, query.source));
+    }
+
+    // Build query with all conditions and limit applied at once to avoid type issues
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    if (whereClause && query.limit) {
+      return db
+        .select()
+        .from(priceHistory)
+        .where(whereClause)
+        .orderBy(desc(priceHistory.recordedAt))
+        .limit(query.limit);
+    } else if (whereClause) {
+      return db
+        .select()
+        .from(priceHistory)
+        .where(whereClause)
+        .orderBy(desc(priceHistory.recordedAt));
+    } else if (query.limit) {
+      return db
+        .select()
+        .from(priceHistory)
+        .orderBy(desc(priceHistory.recordedAt))
+        .limit(query.limit);
+    } else {
+      return db
+        .select()
+        .from(priceHistory)
+        .orderBy(desc(priceHistory.recordedAt));
+    }
+  }
+
+  async getExistingSnapshotsForDate(date: Date): Promise<PriceSnapshotRecord[]> {
+    const result = await db
+      .select()
+      .from(priceSnapshots)
+      .where(sql`DATE(${priceSnapshots.snapshotDate}) = DATE(${date})`);
+    return result;
+  }
+
+  async insertPriceSnapshots(snapshots: PriceSnapshotInsert[]): Promise<void> {
+    if (snapshots.length === 0) return;
+    await db.insert(priceSnapshots).values(snapshots);
+  }
+
+  async updatePriceSnapshot(id: number, data: Partial<PriceSnapshotInsert>): Promise<void> {
+    await db
+      .update(priceSnapshots)
+      .set(data)
+      .where(eq(priceSnapshots.id, id));
+  }
+
+  // Price Snapshot Data Access
+  async getProductOffersForSnapshot(batchSize: number, offset: number): Promise<ProductOffer[]> {
+    return await db
+      .select()
+      .from(productOffers)
+      .limit(batchSize)
+      .offset(offset);
+  }
+
+  async getPriceHistoryForOffers(offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>> {
+    if (offerIds.length === 0) return [];
+
+    return await db
+      .select({
+        productOfferId: priceHistory.productOfferId,
+        price: priceHistory.price,
+      })
+      .from(priceHistory)
+      .where(inArray(priceHistory.productOfferId, offerIds))
+      .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+  }
+
+  // Trend Analysis Data Access
+  async getPriceDataGroupedForTrend(cutoffDate: Date): Promise<TrendPriceData[]> {
+    const result = await db
+      .select({
+        productId: priceHistory.productId,
+        retailerId: priceHistory.retailerId,
+        prices: sql<Array<{price: number, timestamp: string}>>`
+          json_agg(
+            json_build_object(
+              'price', ${priceHistory.price}::numeric,
+              'timestamp', ${priceHistory.recordedAt}
+            ) ORDER BY ${priceHistory.recordedAt}
+          )`,
+        recordCount: sql<number>`count(*)::int`,
+      })
+      .from(priceHistory)
+      .where(gte(priceHistory.recordedAt, cutoffDate))
+      .groupBy(priceHistory.productId, priceHistory.retailerId)
+      .having(sql`count(*) >= 5`);
+
+    return result;
+  }
+
+  async upsertPriceTrends(values: PriceTrendInsert[]): Promise<void> {
+    if (values.length === 0) return;
+
+    // Split into smaller chunks if needed (PostgreSQL has param limits)
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < values.length; i += CHUNK_SIZE) {
+      const chunk = values.slice(i, i + CHUNK_SIZE);
+
+      await db
+        .insert(priceTrends)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [priceTrends.productId, priceTrends.retailerId],
+          set: {
+            trendDirection: sql`excluded.trend_direction`,
+            trendSlope: sql`excluded.trend_slope`,
+            trendStrength: sql`excluded.trend_strength`,
+            predictedNextPrice: sql`excluded.predicted_next_price`,
+            confidenceLevel: sql`excluded.confidence_level`,
+            analysisPeriodDays: sql`excluded.analysis_period_days`,
+            lastAnalyzedAt: sql`excluded.last_analyzed_at`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
+    }
+  }
+
+  async getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null> {
+    const [result] = await db
+      .select({
+        id: priceTrends.id,
+        productId: priceTrends.productId,
+        retailerId: priceTrends.retailerId,
+        retailerName: retailers.name,
+        retailerLogo: retailers.logo,
+        trendDirection: priceTrends.trendDirection,
+        trendSlope: priceTrends.trendSlope,
+        trendStrength: priceTrends.trendStrength,
+        predictedNextPrice: priceTrends.predictedNextPrice,
+        confidenceLevel: priceTrends.confidenceLevel,
+        analysisPeriodDays: priceTrends.analysisPeriodDays,
+        lastAnalyzedAt: priceTrends.lastAnalyzedAt,
+        createdAt: priceTrends.createdAt,
+        updatedAt: priceTrends.updatedAt,
+      })
+      .from(priceTrends)
+      .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
+      .where(
+        and(
+          eq(priceTrends.productId, productId),
+          eq(priceTrends.retailerId, retailerId)
+        )
+      )
+      .limit(1);
+
+    return result || null;
+  }
+
+  async getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]> {
+    return await db
+      .select({
+        id: priceTrends.id,
+        productId: priceTrends.productId,
+        retailerId: priceTrends.retailerId,
+        retailerName: retailers.name,
+        retailerLogo: retailers.logo,
+        trendDirection: priceTrends.trendDirection,
+        trendSlope: priceTrends.trendSlope,
+        trendStrength: priceTrends.trendStrength,
+        predictedNextPrice: priceTrends.predictedNextPrice,
+        confidenceLevel: priceTrends.confidenceLevel,
+        analysisPeriodDays: priceTrends.analysisPeriodDays,
+        lastAnalyzedAt: priceTrends.lastAnalyzedAt,
+        createdAt: priceTrends.createdAt,
+        updatedAt: priceTrends.updatedAt,
+      })
+      .from(priceTrends)
+      .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
+      .where(eq(priceTrends.productId, productId))
+      .orderBy(desc(priceTrends.lastAnalyzedAt));
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
@@ -3504,4 +3976,247 @@ export interface SafeUser {
   isSuspended: boolean | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+}
+
+// ============================================================================
+// Price Analytics Types (Phase 3 Storage Migration)
+// ============================================================================
+
+// Price Aggregation Types
+export interface PriceAggregationData {
+  productId: number | null;
+  retailerId: number | null;
+  prices: string;
+  recordCount: number;
+}
+
+export interface WeeklyAggregateRecord {
+  id: number;
+  productId: number;
+  retailerId: number;
+  year: number;
+  week: number;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string | null;
+  medianPrice: string | null;
+  volatilityScore: string | null;
+  recordCount: number;
+  weekOverWeekChange: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface DailyAggregateRecord {
+  id: number;
+  productId: number;
+  retailerId: number;
+  date: string;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string;
+  medianPrice: string | null;
+  volatilityScore: string | null;
+  recordCount: number;
+  dayOverDayChange: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface MonthlyAggregateRecord {
+  id: number;
+  productId: number;
+  retailerId: number;
+  year: number;
+  month: number;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string | null;
+  medianPrice: string | null;
+  volatilityScore: string | null;
+  recordCount: number;
+  monthOverMonthChange: string | null;
+  yearOverYearChange: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface DailyAggregateInsert {
+  productId: number;
+  retailerId: number;
+  date: string;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string;
+  medianPrice?: string;
+  volatilityScore?: string;
+  recordCount: number;
+  dayOverDayChange?: string | null;
+  updatedAt?: Date;
+}
+
+export interface WeeklyAggregateInsert {
+  productId: number;
+  retailerId: number;
+  year: number;
+  week: number;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string;
+  medianPrice?: string;
+  volatilityScore?: string;
+  recordCount: number;
+  weekOverWeekChange?: string | null;
+  updatedAt?: Date;
+}
+
+export interface MonthlyAggregateInsert {
+  productId: number;
+  retailerId: number;
+  year: number;
+  month: number;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string;
+  medianPrice?: string;
+  volatilityScore?: string;
+  recordCount: number;
+  monthOverMonthChange?: string | null;
+  yearOverYearChange?: string | null;
+  updatedAt?: Date;
+}
+
+// Price History Types
+export type InsertPriceHistoryWithRecordedAt = InsertPriceHistory & {
+  recordedAt: Date;
+};
+
+export interface ProductOfferWithProduct {
+  offer: ProductOffer;
+  product: Product;
+}
+
+export interface PriceHistoryQueryParams {
+  productOfferId?: number;
+  productId?: number;
+  retailerId?: number;
+  startDate?: Date;
+  endDate?: Date;
+  source?: string;
+  limit?: number;
+}
+
+export interface PriceSnapshotRecord {
+  id: number;
+  productId: number;
+  retailerId: number;
+  lowestPrice: string;
+  highestPrice: string;
+  averagePrice: string;
+  offerCount: number | null;
+  snapshotDate: Date;
+  createdAt: Date | null;
+}
+
+export interface PriceSnapshotInsert {
+  productId: number;
+  retailerId: number;
+  lowestPrice: string;
+  highestPrice: string;
+  averagePrice: string;
+  offerCount: number;
+  snapshotDate: Date;
+}
+
+// Trend Analysis Types
+export interface TrendPriceData {
+  productId: number | null;
+  retailerId: number | null;
+  prices: Array<{ price: number; timestamp: string }>;
+  recordCount: number;
+}
+
+export interface PriceTrendInsert {
+  productId: number;
+  retailerId: number;
+  trendDirection: string;
+  trendSlope: string;
+  trendStrength: string;
+  predictedNextPrice: string;
+  confidenceLevel: string;
+  analysisPeriodDays: number;
+  lastAnalyzedAt: Date;
+  updatedAt: Date;
+}
+
+export interface PriceTrendWithRetailer {
+  id: number;
+  productId: number;
+  retailerId: number;
+  retailerName: string | null;
+  retailerLogo: string | null;
+  trendDirection: string;
+  trendSlope: string | null;
+  trendStrength: string | null;
+  predictedNextPrice: string | null;
+  confidenceLevel: string | null;
+  analysisPeriodDays: number;
+  lastAnalyzedAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+// Existing Interface Types (for pre-existing IStorage methods)
+export interface TrendingProduct {
+  id: number;
+  name: string;
+  category: string | null;
+  status: string;
+  discoveredAt: Date | null;
+}
+
+export interface WeeklyAggregate {
+  id: number;
+  productId: number;
+  retailerId: number;
+  year: number;
+  week: number;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string | null;
+  medianPrice: string | null;
+  volatilityScore: string | null;
+  recordCount: number;
+  weekOverWeekChange: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface MonthlyAggregate {
+  id: number;
+  productId: number;
+  retailerId: number;
+  year: number;
+  month: number;
+  minPrice: string;
+  maxPrice: string;
+  avgPrice: string | null;
+  medianPrice: string | null;
+  volatilityScore: string | null;
+  recordCount: number;
+  monthOverMonthChange: string | null;
+  yearOverYearChange: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface AnalyticsOverview {
+  weeklyAggregates: number;
+  monthlyAggregates: number;
+  totalTrends: number;
+  trendBreakdown: {
+    uptrend: number;
+    downtrend: number;
+    stable: number;
+  };
 }

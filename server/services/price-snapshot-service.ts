@@ -1,16 +1,17 @@
+import { storage } from "../storage";
 import { db } from "../db";
 import { logger } from "../utils/logger";
-import { productOffers, priceHistory, products, retailers } from "../../shared/schema";
-import type { InsertPriceHistory } from "../../shared/schema";
-import { eq, and, lte, isNotNull, sql, inArray, desc } from "drizzle-orm";
+import { products, retailers, productOffers, priceHistory } from "../../shared/schema";
+import { eq, inArray, desc } from "drizzle-orm";
 import { priceAggregationService } from "./price-aggregation-service";
+import { BATCH_PROCESSING } from "../utils/constants";
 
 export class PriceSnapshotService {
   /**
    * Default batch size for processing offers in chunks
    * Can be overridden via parameter for testing or tuning
    */
-  private static readonly DEFAULT_BATCH_SIZE = 500;
+  private static readonly DEFAULT_BATCH_SIZE = BATCH_PROCESSING.PRICE_SNAPSHOT;
 
   /**
    * Snapshot all current prices and store them in price history
@@ -30,11 +31,7 @@ export class PriceSnapshotService {
 
       while (true) {
         // Fetch offers in batches to maintain stable memory usage
-        const batch = await db
-          .select()
-          .from(productOffers)
-          .limit(batchSize)
-          .offset(offset);
+        const batch = await storage.getProductOffersForSnapshot(batchSize, offset);
 
         if (batch.length === 0) {
           break;
@@ -55,7 +52,10 @@ export class PriceSnapshotService {
           recordedAt: now
         }));
 
-        await db.insert(priceHistory).values(snapshots);
+        // Insert price history records
+        for (const snapshot of snapshots) {
+          await storage.insertPriceHistory(snapshot);
+        }
 
         totalCount += batch.length;
         offset += batchSize;
@@ -98,14 +98,7 @@ export class PriceSnapshotService {
 
       // BATCH QUERY: Get previous prices to detect changes (fixes N+1)
       const offerIds = offers.map(o => o.id);
-      const allLastSnapshots = await db
-        .select({
-          productOfferId: priceHistory.productOfferId,
-          price: priceHistory.price,
-        })
-        .from(priceHistory)
-        .where(inArray(priceHistory.productOfferId, offerIds))
-        .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+      const allLastSnapshots = await storage.getPriceHistoryForOffers(offerIds);
 
       // Build map of offerId -> latest price (first entry per offerId due to ordering)
       const previousPrices = new Map<number, number>();
@@ -131,7 +124,10 @@ export class PriceSnapshotService {
         recordedAt: now
       }));
 
-      await db.insert(priceHistory).values(snapshots);
+      // Insert price history records
+      for (const snapshot of snapshots) {
+        await storage.insertPriceHistory(snapshot);
+      }
 
       logger.info(
         `[PriceSnapshot] Snapshotted ${snapshots.length} prices for product ${productId}`
@@ -152,7 +148,7 @@ export class PriceSnapshotService {
             .limit(1);
 
           // Batch fetch all retailers for the offers
-          const retailerIds = [...new Set(offers.map(o => o.retailerId))];
+          const retailerIds = Array.from(new Set(offers.map(o => o.retailerId)));
           const retailerData = await db
             .select({ id: retailers.id, name: retailers.name })
             .from(retailers)
@@ -461,14 +457,10 @@ export class PriceSnapshotService {
       const twoYearsAgo = new Date(now);
       twoYearsAgo.setFullYear(now.getFullYear() - 2);
 
-      const result = await db.delete(priceHistory)
-        .where(and(
-          lte(priceHistory.recordedAt, twoYearsAgo),
-          isNotNull(priceHistory.aggregatedAt)
-        ));
+      const deletedCount = await storage.deleteOldAggregatedPriceHistory(twoYearsAgo);
 
       logger.info(
-        `[PriceSnapshot] Deleted ${result.rowCount || 0} raw records older than 2 years (already aggregated)`
+        `[PriceSnapshot] Deleted ${deletedCount} raw records older than 2 years (already aggregated)`
       );
       logger.info('[PriceSnapshot] Cleanup complete');
     } catch (error) {

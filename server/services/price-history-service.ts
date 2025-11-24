@@ -1,3 +1,4 @@
+import { storage } from '../storage';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import {
@@ -11,7 +12,6 @@ import {
   priceAggregatesMonthly,
   type PriceHistory,
   type PriceSnapshot,
-  type InsertPriceHistory,
   type InsertPriceSnapshot
 } from '@shared/schema';
 import { eq, and, gte, desc, sql, lte, asc } from 'drizzle-orm';
@@ -74,25 +74,17 @@ export async function recordPriceChange(
 ): Promise<PriceChangeResult> {
   try {
     // Get the product offer to access productId and retailerId
-    const [offer] = await db
-      .select()
-      .from(productOffers)
-      .where(eq(productOffers.id, productOfferId))
-      .limit(1);
+    const offerWithProduct = await storage.getProductOfferWithProduct(productOfferId);
 
-    if (!offer) {
+    if (!offerWithProduct) {
       throw new Error(`Product offer ${productOfferId} not found`);
     }
 
-    // Get the most recent price for this offer
-    const latestPrice = await db
-      .select()
-      .from(priceHistory)
-      .where(eq(priceHistory.productOfferId, productOfferId))
-      .orderBy(desc(priceHistory.recordedAt))
-      .limit(1);
+    const offer = offerWithProduct.offer;
 
-    const previousPrice = latestPrice.length > 0 ? parseFloat(latestPrice[0].price) : null;
+    // Get the most recent price for this offer
+    const latestPriceRecord = await storage.getLatestPriceForOffer(productOfferId);
+    const previousPrice = latestPriceRecord ? parseFloat(latestPriceRecord.price) : null;
 
     // Deduplication: Don't record if price hasn't changed
     if (previousPrice !== null && Math.abs(previousPrice - price) < 0.01) {
@@ -115,10 +107,7 @@ export async function recordPriceChange(
       recordedAt: new Date()
     };
 
-    const [result] = await db
-      .insert(priceHistory)
-      .values(insertData)
-      .returning();
+    const result = await storage.insertPriceHistory(insertData);
 
     // Calculate price change
     const priceChange = previousPrice !== null ? price - previousPrice : 0;
@@ -147,40 +136,15 @@ export async function recordPriceChange(
  */
 export async function getPriceHistory(query: PriceHistoryQuery): Promise<PriceHistory[]> {
   try {
-    const conditions = [];
-
-    if (query.productOfferId) {
-      conditions.push(eq(priceHistory.productOfferId, query.productOfferId));
-    }
-
-    if (query.startDate) {
-      conditions.push(gte(priceHistory.recordedAt, query.startDate));
-    }
-
-    if (query.endDate) {
-      conditions.push(lte(priceHistory.recordedAt, query.endDate));
-    }
-
-    if (query.source) {
-      conditions.push(eq(priceHistory.source, query.source));
-    }
-
-    let queryBuilder = db
-      .select()
-      .from(priceHistory)
-      .orderBy(desc(priceHistory.recordedAt));
-
-    if (conditions.length > 0) {
-      // @ts-expect-error - Drizzle query builder type narrowing limitation
-      queryBuilder = queryBuilder.where(and(...conditions));
-    }
-
-    if (query.limit) {
-      // @ts-expect-error - Drizzle query builder type narrowing limitation
-      queryBuilder = queryBuilder.limit(query.limit);
-    }
-
-    return await queryBuilder;
+    return await storage.getPriceHistoryByQuery({
+      productOfferId: query.productOfferId,
+      productId: query.productId,
+      retailerId: query.retailerId,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      source: query.source,
+      limit: query.limit,
+    });
   } catch (error) {
     logger.error('Error getting price history:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
@@ -249,6 +213,20 @@ export async function getPriceHistoryOptimized(
   days: number = 30,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
+  // Input validation
+  if (!Number.isFinite(productId) || productId <= 0) {
+    throw new Error(`Invalid productId: ${productId}. Must be a positive integer.`);
+  }
+  if (!Number.isFinite(days) || days <= 0) {
+    throw new Error(`Invalid days: ${days}. Must be a positive number.`);
+  }
+  if (days > 3650) {
+    throw new Error(`Invalid days: ${days}. Maximum allowed is 3650 (10 years).`);
+  }
+  if (retailerId !== undefined && (!Number.isFinite(retailerId) || retailerId <= 0)) {
+    throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive integer.`);
+  }
+
   try {
     const now = new Date();
     const startDate = new Date(now);
