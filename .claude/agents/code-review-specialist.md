@@ -42,6 +42,8 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - Lacks proper indexing considerations
    - Doesn't use the storage.ts abstraction layer
    - Queries the database directly instead of through IStorage interface
+   - Uses Promise.all when Promise.allSettled would be more appropriate for batch operations
+   - Doesn't use Map for O(1) lookups in batch processing
 
 3. **Architecture Compliance**: Verify that code follows these mandatory patterns:
    - All database access goes through server/storage.ts
@@ -77,8 +79,9 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - No implicit any types
    - Proper null/undefined handling with strict null checks
    - Type guards for unknown catch variables
-   - No @ts-ignore without justification comments
+   - **@ts-expect-error/@ts-ignore ZERO TOLERANCE**: Must have detailed comment explaining WHY and WHEN it can be removed
    - **Complex Type Extraction**: React Query hooks with complex inline return types (3+ lines) should extract to named interfaces for readability
+   - **Dynamic Query Building**: Should not require type suppression - restructure code instead
 
 7. **Design System Adherence** (UI code only):
    - Must use design tokens (bg-primary, text-secondary) not hardcoded colors
@@ -121,6 +124,47 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - **Import requirement**: Must import from `../utils/error-sanitizer` in route files
    - **Zero tolerance**: Flag EVERY catch block that doesn't use createErrorResponse
    - **Benefits**: Consistent error format, no raw error leakage, maintains DRY principle
+
+## Input Validation Pattern (CRITICAL)
+
+**ALL public functions in storage layer and services MUST validate inputs:**
+
+```typescript
+// ❌ WRONG - No validation
+async getPriceHistory(productId: number, days: number) {
+  // Could be negative, zero, NaN, or unreasonably large
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  // ...
+}
+
+// ✅ CORRECT - Comprehensive validation
+async getPriceHistory(productId: number, days: number) {
+  if (!productId || productId <= 0) {
+    throw new Error(`Invalid productId: ${productId}. Must be positive.`);
+  }
+  if (!days || days <= 0 || days > 3650) {
+    throw new Error(`Invalid days: ${days}. Must be 1-3650.`);
+  }
+  // ...
+}
+```
+
+## Magic Number Centralization (CRITICAL)
+
+**ALL magic numbers MUST be in server/utils/constants.ts:**
+
+```typescript
+// ❌ WRONG - Hardcoded numbers
+const BATCH_SIZE = 100;
+if (items.length > 20) { ... }
+await sleep(500);
+
+// ✅ CORRECT - Use constants
+import { BATCH_PROCESSING, TIMING } from '../utils/constants';
+const batch = items.splice(0, BATCH_PROCESSING.DEFAULT_BATCH_SIZE);
+await sleep(TIMING.BATCH_DELAY_MS);
+```
 
 ## Service Integration Patterns (CRITICAL)
 
@@ -166,6 +210,65 @@ When reviewing files in `server/routes/` directory, **ALWAYS check these first**
    - Never: Direct `db` imports or queries
 
 5. **✓ CSRF Protection**: State-changing operations have csrfProtection middleware
+
+## N+1 Query and Batch Processing Patterns
+
+### N+1 Query Detection
+```typescript
+// ❌ CRITICAL ISSUE - N+1 Query
+async getUserWishlistItems(userId: number) {
+  const items = await db.select().from(wishlistItems)
+    .where(eq(wishlistItems.userId, userId));
+
+  for (const item of items) {
+    // This executes N additional queries!
+    const offers = await this.getProductOffers(item.productId);
+    item.offers = offers;
+  }
+}
+
+// ✅ CORRECT - Batch query with Map
+async getUserWishlistItems(userId: number) {
+  const items = await db.select().from(wishlistItems)
+    .where(eq(wishlistItems.userId, userId));
+
+  const productIds = items.map(item => item.productId);
+  const allOffers = await db.select()
+    .from(productOffers)
+    .where(inArray(productOffers.productId, productIds));
+
+  // Use Map for O(1) lookups
+  const offersByProduct = new Map();
+  allOffers.forEach(offer => {
+    if (!offersByProduct.has(offer.productId)) {
+      offersByProduct.set(offer.productId, []);
+    }
+    offersByProduct.get(offer.productId).push(offer);
+  });
+
+  return items.map(item => ({
+    ...item,
+    offers: offersByProduct.get(item.productId) || []
+  }));
+}
+```
+
+### Promise.all vs Promise.allSettled
+```typescript
+// ❌ WRONG - Fails entirely if one item fails
+const results = await Promise.all(
+  items.map(item => processItem(item))
+);
+
+// ✅ CORRECT - Graceful per-item error handling
+const results = await Promise.allSettled(
+  items.map(item => processItem(item))
+);
+
+const successfulResults = results
+  .filter(r => r.status === 'fulfilled')
+  .map(r => (r as PromiseFulfilledResult<any>).value);
+```
 
 ## Your Review Process
 

@@ -378,6 +378,101 @@ Mark passwordHash usage with `// SECURITY: NEVER expose` to pass pre-commit hook
 - Validate data with Zod before database insertion
 - Use `.returning()` when you need inserted/updated records
 
+## Critical Anti-Patterns to Avoid
+
+### N+1 Queries (NEVER DO THIS)
+```typescript
+// ❌ WRONG - Queries in loops create N+1 problem
+for (const item of items) {
+  const relatedData = await db.select()
+    .from(relatedTable)
+    .where(eq(relatedTable.itemId, item.id));
+}
+
+// ✅ CORRECT - Use batch query with Map
+const itemIds = items.map(i => i.id);
+const allRelated = await db.select()
+  .from(relatedTable)
+  .where(inArray(relatedTable.itemId, itemIds));
+
+const relatedByItemId = new Map();
+allRelated.forEach(r => {
+  if (!relatedByItemId.has(r.itemId)) {
+    relatedByItemId.set(r.itemId, []);
+  }
+  relatedByItemId.get(r.itemId).push(r);
+});
+```
+
+### Promise.all for Batch Operations
+```typescript
+// ❌ WRONG - Entire operation fails if one item fails
+const enrichedData = await Promise.all(
+  items.map(item => enrichItem(item))
+);
+
+// ✅ CORRECT - Use Promise.allSettled for resilience
+const results = await Promise.allSettled(
+  items.map(item => enrichItem(item))
+);
+
+const successful = results
+  .filter(r => r.status === 'fulfilled')
+  .map(r => (r as PromiseFulfilledResult<any>).value);
+
+// Log failures but continue with successful items
+results
+  .filter(r => r.status === 'rejected')
+  .forEach(r => log('Item enrichment failed:', r.reason));
+```
+
+### Type Suppression in Query Building
+```typescript
+// ❌ WRONG - Using @ts-expect-error to suppress types
+let query = db.select().from(products);
+if (filter) {
+  // @ts-expect-error
+  query = query.where(eq(products.category, filter));
+}
+
+// ✅ CORRECT - Restructure to maintain type safety
+const baseQuery = db.select().from(products);
+const query = filter
+  ? baseQuery.where(eq(products.category, filter))
+  : baseQuery;
+```
+
+### Missing Input Validation
+```typescript
+// ❌ WRONG - No validation on function parameters
+async getDataForDays(days: number) {
+  // days could be negative, zero, or unreasonably large
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+}
+
+// ✅ CORRECT - Validate inputs
+async getDataForDays(days: number) {
+  if (!days || days <= 0 || days > 3650) {
+    throw new Error(`Invalid days: ${days}. Must be 1-3650.`);
+  }
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+}
+```
+
+### Hardcoded Magic Numbers
+```typescript
+// ❌ WRONG - Magic numbers scattered in code
+const BATCH_SIZE = 100;
+if (count > 1000) { /* do something */ }
+
+// ✅ CORRECT - Use constants
+import { BATCH_PROCESSING, LIMITS } from '../utils/constants';
+const batchSize = BATCH_PROCESSING.DEFAULT_BATCH_SIZE;
+if (count > LIMITS.MAX_ITEMS) { /* do something */ }
+```
+
 ## Communication
 - Describe schema changes clearly
 - Mention migration steps required
