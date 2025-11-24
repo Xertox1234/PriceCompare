@@ -2,7 +2,7 @@
 
 **Purpose:** Codify patterns, standards, and lessons learned from the storage layer refactoring project to ensure consistent quality across all domain implementations.
 
-**Context:** Extracted from Phase 2 (UserStorage - 8 methods, 9.5/10) and Phase 3 (ProductStorage - 35 methods, 9.4/10) implementations.
+**Context:** Extracted from Phase 2 (UserStorage - 8 methods, 9.5/10), Phase 3 (ProductStorage - 35 methods, 9.4/10), and Phase 4 (JobLockStorage - 7 methods, 9.5/10) implementations.
 
 ---
 
@@ -385,7 +385,104 @@ async updateProduct(id: number, updates: Partial<InsertProduct>) {
 }
 ```
 
-### 10. Error Handling Patterns
+### 10. Atomic Operations Pattern
+
+**Pattern:** Use database-level atomic operations to prevent race conditions in distributed systems.
+
+**When to Use:**
+- Lock acquisition in distributed systems
+- Conflict prevention (unique constraints)
+- Version control (optimistic locking)
+- Idempotent operations
+
+**Example from JobLockStorage:**
+
+```typescript
+// ✅ ATOMIC - Uses database constraint for conflict detection
+async acquireJobLock(jobName: string, lockedBy: string, ttlSeconds: number) {
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+
+  const result = await this.db
+    .insert(jobLocks)
+    .values({
+      jobName,      // unique constraint on this column
+      lockedBy,
+      expiresAt,
+      lockedAt: new Date(),
+    })
+    .onConflictDoNothing()  // Atomic conflict detection
+    .returning({ id: jobLocks.id });
+
+  return result.length > 0
+    ? { success: true, id: result[0].id }
+    : { success: false };
+}
+```
+
+**Key Benefits:**
+1. **Race condition prevention** - Database enforces uniqueness
+2. **No application-level locking needed** - Database handles it
+3. **Idempotent** - Same operation can be retried safely
+4. **Performance** - Single query, indexed lookup
+
+**Pattern Guidelines:**
+- Use `onConflictDoNothing()` for try-and-acquire patterns
+- Use `onConflictDoUpdate()` for upsert patterns
+- Leverage unique constraints for natural locks
+- Return success/failure rather than throwing errors
+- Document the atomic guarantee in JSDoc
+
+**Common Use Cases:**
+- Job locks (prevent duplicate job execution)
+- Session management (one session per user)
+- Resource allocation (assign once)
+- Idempotent inserts (deduplicate)
+
+### 11. Validation Message Quality
+
+**Pattern:** Error messages should be grammatically correct and consistent.
+
+**Common Mistakes:**
+
+```typescript
+// ❌ WRONG - Singular when constant could be > 1
+throw new Error(`Value must be at least ${MIN} character`);
+
+// ✅ CORRECT - Always plural for consistency
+throw new Error(`Value must be at least ${MIN} characters`);
+```
+
+**Guidelines:**
+- Use plural form for length/count validations
+- Include actual value in error when helpful
+- Use consistent phrasing across methods
+- Specify units (seconds, characters, bytes)
+
+**Example from JobLockStorage:**
+
+```typescript
+// ✅ Consistent validation messages
+if (jobName.length < MIN_JOB_NAME_LENGTH) {
+  throw new Error(`Job name must be at least ${MIN_JOB_NAME_LENGTH} characters`);
+}
+if (jobName.length > MAX_JOB_NAME_LENGTH) {
+  throw new Error(`Job name cannot exceed ${MAX_JOB_NAME_LENGTH} characters`);
+}
+if (ttlSeconds < MIN_TTL_SECONDS) {
+  throw new Error(`TTL must be at least ${MIN_TTL_SECONDS} seconds`);
+}
+if (ttlSeconds > MAX_TTL_SECONDS) {
+  throw new Error(`TTL cannot exceed ${MAX_TTL_SECONDS} seconds (24 hours)`);
+}
+```
+
+**Benefits:**
+- Professional user experience
+- Clear debugging information
+- Consistent across codebase
+- Easy to understand constraints
+
+### 12. Error Handling Patterns
 
 **Consistent error handling through BaseStorage:**
 
@@ -462,13 +559,17 @@ Use this checklist for every storage domain implementation:
 - [ ] Empty array/string checks
 - [ ] Existence checks before updates
 - [ ] All methods wrapped in `handleError()`
+- [ ] Error messages use plural form for counts ("characters" not "character")
+- [ ] Error messages include units (seconds, bytes, etc.)
 
-### Transactions
+### Transactions & Atomic Operations
 - [ ] Batch operations use transactions
 - [ ] Related entity creation uses transactions
 - [ ] Check-then-act patterns use SERIALIZABLE isolation
 - [ ] No external API calls inside transactions
 - [ ] Transaction scope minimized
+- [ ] Atomic operations use database constraints (onConflictDoNothing, unique keys)
+- [ ] Race conditions prevented at database level where possible
 
 ### Security
 - [ ] Never expose `passwordHash` field
@@ -530,6 +631,34 @@ await db.transaction(async (tx) => {
   await tx.insert(users).values(userData);
   await sendEmail(userData.email); // External call in transaction!
 });
+```
+
+### 6. Inconsistent Error Messages
+```typescript
+// ❌ AVOID - Singular form, no units
+throw new Error(`Value must be at least ${MIN} character`);
+throw new Error(`TTL must be ${SECONDS}`);
+
+// ✅ CORRECT - Plural form, clear units
+throw new Error(`Value must be at least ${MIN} characters`);
+throw new Error(`TTL must be ${SECONDS} seconds`);
+```
+
+### 7. Manual Race Condition Handling
+```typescript
+// ❌ AVOID - Application-level locking (complex, error-prone)
+const existingLock = await getLock(jobName);
+if (existingLock) {
+  return { success: false };
+}
+await createLock(jobName); // Race condition here!
+
+// ✅ CORRECT - Database-level atomic operation
+const result = await db.insert(jobLocks)
+  .values({ jobName })
+  .onConflictDoNothing()  // Atomic
+  .returning();
+return result.length > 0 ? { success: true } : { success: false };
 ```
 
 ---
