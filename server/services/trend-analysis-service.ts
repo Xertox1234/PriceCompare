@@ -1,7 +1,5 @@
-import { db } from "../db";
+import { storage, type PriceTrendInsert } from "../storage";
 import { logger } from "../utils/logger";
-import { priceHistory, priceTrends, retailers } from "../../shared/schema";
-import { eq, and, gte, desc, sql } from "drizzle-orm";
 
 export class TrendAnalysisService {
   /**
@@ -19,23 +17,7 @@ export class TrendAnalysisService {
     cutoffDate.setDate(cutoffDate.getDate() - analysisPeriodDays);
 
     // Fetch all data first (outside transaction to minimize lock time)
-    const priceDataGrouped = await db
-      .select({
-        productId: priceHistory.productId,
-        retailerId: priceHistory.retailerId,
-        prices: sql<Array<{price: number, timestamp: string}>>`
-          json_agg(
-            json_build_object(
-              'price', ${priceHistory.price}::numeric,
-              'timestamp', ${priceHistory.recordedAt}
-            ) ORDER BY ${priceHistory.recordedAt}
-          )`,
-        recordCount: sql<number>`count(*)::int`,
-      })
-      .from(priceHistory)
-      .where(gte(priceHistory.recordedAt, cutoffDate))
-      .groupBy(priceHistory.productId, priceHistory.retailerId)
-      .having(sql`count(*) >= 5`); // Only include if at least 5 data points
+    const priceDataGrouped = await storage.getPriceDataGroupedForTrend(cutoffDate);
 
     if (priceDataGrouped.length === 0) {
       logger.info("[TrendAnalysis] No price data found for trend analysis");
@@ -47,18 +29,7 @@ export class TrendAnalysisService {
     try {
       // OPTIMIZATION 1: Process trends in parallel batches to avoid overwhelming the system
       const BATCH_SIZE = 20; // Process 20 at a time
-      const trendValues: Array<{
-        productId: number;
-        retailerId: number;
-        trendDirection: string;
-        trendSlope: string;
-        trendStrength: string;
-        predictedNextPrice: string;
-        confidenceLevel: string;
-        analysisPeriodDays: number;
-        lastAnalyzedAt: Date;
-        updatedAt: Date;
-      }> = [];
+      const trendValues: PriceTrendInsert[] = [];
       let analyzedCount = 0;
 
       for (let i = 0; i < priceDataGrouped.length; i += BATCH_SIZE) {
@@ -93,34 +64,10 @@ export class TrendAnalysisService {
         logger.info(`[TrendAnalysis] Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(priceDataGrouped.length / BATCH_SIZE)}`);
       }
 
-      // OPTIMIZATION 2: Batch insert/update all trends atomically within a transaction
+      // OPTIMIZATION 2: Batch insert/update all trends atomically
       if (trendValues.length > 0) {
-        await db.transaction(async (tx) => {
-          // Split into smaller chunks if needed (PostgreSQL has param limits)
-          const CHUNK_SIZE = 100;
-          for (let i = 0; i < trendValues.length; i += CHUNK_SIZE) {
-            const chunk = trendValues.slice(i, i + CHUNK_SIZE);
-
-            await tx
-              .insert(priceTrends)
-              .values(chunk)
-              .onConflictDoUpdate({
-                target: [priceTrends.productId, priceTrends.retailerId],
-                set: {
-                  trendDirection: sql`excluded.trend_direction`,
-                  trendSlope: sql`excluded.trend_slope`,
-                  trendStrength: sql`excluded.trend_strength`,
-                  predictedNextPrice: sql`excluded.predicted_next_price`,
-                  confidenceLevel: sql`excluded.confidence_level`,
-                  analysisPeriodDays: sql`excluded.analysis_period_days`,
-                  lastAnalyzedAt: sql`excluded.last_analyzed_at`,
-                  updatedAt: sql`excluded.updated_at`,
-                },
-              });
-          }
-
-          logger.info(`[TrendAnalysis] Transaction committed: ${trendValues.length} trends updated`);
-        });
+        await storage.upsertPriceTrends(trendValues);
+        logger.info(`[TrendAnalysis] Batch upsert completed: ${trendValues.length} trends updated`);
       }
 
       logger.info(`[TrendAnalysis] Completed trend analysis for ${analyzedCount} product-retailer combinations`);
@@ -210,34 +157,7 @@ export class TrendAnalysisService {
    */
   async getProductTrend(productId: number, retailerId: number) {
     try {
-      const trend = await db
-        .select({
-          id: priceTrends.id,
-          productId: priceTrends.productId,
-          retailerId: priceTrends.retailerId,
-          retailerName: retailers.name,
-          retailerLogo: retailers.logo,
-          trendDirection: priceTrends.trendDirection,
-          trendSlope: priceTrends.trendSlope,
-          trendStrength: priceTrends.trendStrength,
-          predictedNextPrice: priceTrends.predictedNextPrice,
-          confidenceLevel: priceTrends.confidenceLevel,
-          analysisPeriodDays: priceTrends.analysisPeriodDays,
-          lastAnalyzedAt: priceTrends.lastAnalyzedAt,
-          createdAt: priceTrends.createdAt,
-          updatedAt: priceTrends.updatedAt,
-        })
-        .from(priceTrends)
-        .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
-        .where(
-          and(
-            eq(priceTrends.productId, productId),
-            eq(priceTrends.retailerId, retailerId)
-          )
-        )
-        .limit(1);
-
-      return trend[0] || null;
+      return await storage.getPriceTrendWithRetailer(productId, retailerId);
     } catch (error) {
       logger.error(
         `[TrendAnalysis] Error getting trend for product ${productId}, retailer ${retailerId}:`,
@@ -332,29 +252,7 @@ export class TrendAnalysisService {
    */
   async getProductTrendSummary(productId: number) {
     try {
-      const trends = await db
-        .select({
-          id: priceTrends.id,
-          productId: priceTrends.productId,
-          retailerId: priceTrends.retailerId,
-          retailerName: retailers.name,
-          retailerLogo: retailers.logo,
-          trendDirection: priceTrends.trendDirection,
-          trendSlope: priceTrends.trendSlope,
-          trendStrength: priceTrends.trendStrength,
-          predictedNextPrice: priceTrends.predictedNextPrice,
-          confidenceLevel: priceTrends.confidenceLevel,
-          analysisPeriodDays: priceTrends.analysisPeriodDays,
-          lastAnalyzedAt: priceTrends.lastAnalyzedAt,
-          createdAt: priceTrends.createdAt,
-          updatedAt: priceTrends.updatedAt,
-        })
-        .from(priceTrends)
-        .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
-        .where(eq(priceTrends.productId, productId))
-        .orderBy(desc(priceTrends.lastAnalyzedAt));
-
-      return trends;
+      return await storage.getPriceTrendsForProduct(productId);
     } catch (error) {
       logger.error(
         `[TrendAnalysis] Error getting trend summary for product ${productId}:`,
