@@ -61,7 +61,7 @@ export interface IStorage {
   getWatchListStats(userId: number): Promise<WatchListStats>;
 
   // Users (Admin)
-  getAllUsers(): Promise<SafeUser[]>;
+  getAllUsers(): Promise<AdminUser[]>;
   getUserCount(): Promise<number>;
   getUserByIdSafe(id: number): Promise<SafeUser | null>;
   updateUserProfile(userId: number, updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
@@ -139,7 +139,6 @@ export interface IStorage {
   suspendUser(userId: number, reason: string, moderatorId: number): Promise<void>;
 
   // Admin Analytics
-  getAllUsers(): Promise<AdminUser[]>;
   getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview>;
   getUserGrowthData(): Promise<UserGrowthData[]>;
   getForumActivityData(): Promise<ForumActivityData[]>;
@@ -969,7 +968,7 @@ export class MemStorage implements IStorage {
     return this.products.get(id);
   }
 
-  async getAllUsers(): Promise<SafeUser[]> {
+  async getAllUsers(): Promise<AdminUser[]> {
     return [];
   }
 

@@ -21,9 +21,21 @@ import type {
   UserGrowthData,
 } from './types';
 import { users, notifications } from '@shared/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, gte } from 'drizzle-orm';
 import { retryWithBackoff, isTransientDatabaseError } from '../utils/retry-with-backoff';
 import { logger } from '../utils/logger';
+
+// User storage constants
+const USER_CONSTANTS = {
+  TRUST_LEVEL: {
+    MIN: 0,
+    MAX: 10,
+  },
+  GROWTH_DATA: {
+    DEFAULT_DAYS: 90,
+    MAX_DAYS: 365,
+  },
+} as const;
 
 /**
  * User Storage Interface
@@ -40,7 +52,7 @@ export interface IUserStorage {
     bio?: string;
     location?: string;
     website?: string;
-    avatarUrl?: string
+    avatarUrl?: string;
   }): Promise<void>;
 
   updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
@@ -56,7 +68,7 @@ export interface IUserStorage {
   ): Promise<{ user: SafeUser; isFirstUser: boolean }>;
 
   // Analytics
-  getUserGrowthData(): Promise<UserGrowthData[]>;
+  getUserGrowthData(days?: number): Promise<UserGrowthData[]>;
 }
 
 /**
@@ -122,6 +134,7 @@ export class UserStorage extends BaseStorage implements IUserStorage {
 
   /**
    * Update user profile information
+   * Only updates provided fields and sets updatedAt only if changes were made
    */
   async updateUserProfile(
     userId: number,
@@ -129,27 +142,46 @@ export class UserStorage extends BaseStorage implements IUserStorage {
       bio?: string;
       location?: string;
       website?: string;
-      avatarUrl?: string
+      avatarUrl?: string;
     }
   ): Promise<void> {
     return this.handleError('updateUserProfile', async () => {
+      // Build update object with only provided fields
+      const updates: Record<string, any> = {};
+      if (data.bio !== undefined) updates.bio = data.bio;
+      if (data.location !== undefined) updates.location = data.location;
+      if (data.website !== undefined) updates.website = data.website;
+      if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
+
+      // Only execute if something changed
+      if (Object.keys(updates).length === 0) {
+        this.logDebug('updateUserProfile', { userId, reason: 'No changes requested' });
+        return;
+      }
+
+      // Add updatedAt timestamp
+      updates.updatedAt = new Date();
+
       await this.db.update(users)
-        .set({
-          bio: data.bio,
-          location: data.location,
-          website: data.website,
-          avatarUrl: data.avatarUrl,
-          updatedAt: new Date()
-        })
+        .set(updates)
         .where(eq(users.id, userId));
     });
   }
 
   /**
-   * Update user's trust level
+   * Update user's trust level with bounds validation
+   * Trust levels range from 0 (untrusted) to 10 (maximum trust)
    */
   async updateUserTrustLevel(userId: number, trustLevel: number): Promise<void> {
     return this.handleError('updateUserTrustLevel', async () => {
+      // Validate trust level is within bounds
+      if (trustLevel < USER_CONSTANTS.TRUST_LEVEL.MIN ||
+          trustLevel > USER_CONSTANTS.TRUST_LEVEL.MAX) {
+        throw new Error(
+          `Trust level must be between ${USER_CONSTANTS.TRUST_LEVEL.MIN} and ${USER_CONSTANTS.TRUST_LEVEL.MAX}, got ${trustLevel}`
+        );
+      }
+
       await this.db.update(users)
         .set({ trustLevel, updatedAt: new Date() })
         .where(eq(users.id, userId));
@@ -159,11 +191,23 @@ export class UserStorage extends BaseStorage implements IUserStorage {
   /**
    * Suspend a user and create notification atomically
    * UX: Uses transaction to ensure suspension and notification are atomic
+   * Validates user exists before attempting suspension
    */
   async suspendUser(userId: number, reason: string, moderatorId: number): Promise<void> {
     return this.handleError('suspendUser', async () => {
       // UX: Use transaction to ensure suspension and notification are atomic
       await this.executeTransaction(async (tx) => {
+        // Verify user exists first
+        const [user] = await tx.select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+
+        if (!user) {
+          throw new Error(`User ${userId} not found`);
+        }
+
+        // Safe to suspend
         await tx.update(users)
           .set({ isSuspended: true, updatedAt: new Date() })
           .where(eq(users.id, userId));
@@ -253,21 +297,34 @@ export class UserStorage extends BaseStorage implements IUserStorage {
 
   /**
    * Get user growth data over time (for analytics)
-   * Returns daily user registration counts
+   * Returns daily user registration counts with pagination
+   *
+   * @param days - Number of days to retrieve (default: 90, max: 365)
+   * @returns Daily registration counts
    */
-  async getUserGrowthData(): Promise<UserGrowthData[]> {
+  async getUserGrowthData(days: number = USER_CONSTANTS.GROWTH_DATA.DEFAULT_DAYS): Promise<UserGrowthData[]> {
     return this.handleError('getUserGrowthData', async () => {
+      // Enforce max days to prevent runaway queries
+      const limitDays = Math.min(days, USER_CONSTANTS.GROWTH_DATA.MAX_DAYS);
+
+      // Calculate cutoff date
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - limitDays);
+
       const result = await this.db.select({
-        date: sql<string>`DATE(${users.createdAt})`.as('date'),
-        count: sql<number>`count(*)`.as('count')
+        date: sql<string>`DATE(${users.createdAt})`,
+        count: sql<number>`CAST(count(*) AS INTEGER)`
       })
       .from(users)
+      .where(gte(users.createdAt, cutoffDate))
       .groupBy(sql`DATE(${users.createdAt})`)
-      .orderBy(sql`DATE(${users.createdAt})`);
+      .orderBy(sql`DATE(${users.createdAt})`)
+      .limit(USER_CONSTANTS.GROWTH_DATA.MAX_DAYS); // Hard cap
 
+      // Types are already correct from SQL CAST, no need for coercion
       return result.map(row => ({
-        date: String(row.date),
-        count: Number(row.count)
+        date: row.date,
+        count: row.count
       }));
     });
   }
