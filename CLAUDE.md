@@ -150,7 +150,7 @@ Both clients are initialized in `server/config/redis.ts`. Always use `getRedisCl
 
 ### Database Layer Pattern
 
-**All database access flows through `server/storage.ts`** which implements the `IStorage` interface. Never query `db` directly from routes.
+**All database access flows through `server/storage.ts`** which implements the `IStorage` interface. Never query `db` directly from routes or services.
 
 **Schema**: Single source of truth in `shared/schema.ts` (shared by client and server)
 
@@ -164,6 +164,14 @@ app.get('/api/products/:id', async (req, res) => {
   res.json(product);
 });
 ```
+
+**Storage Layer Exception**: `price-aggregation-service.ts` is the ONLY service with direct `db` access (documented exception). It passes transaction contexts between private helper methods for complex atomic operations. All other services MUST use the storage layer.
+
+**Migration Status** (as of Phase 7 completion):
+- ✅ 14/15 services migrated to storage layer
+- ✅ All routes use storage layer
+- ⚠️ 1 documented exception: `price-aggregation-service.ts` (complex transaction context passing)
+- 📊 ~86 storage methods implemented
 
 ### Foreign Key Cascade Strategy
 
@@ -764,16 +772,20 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 ## Common Pitfalls to Avoid
 
 1. **N+1 QUERIES**: NEVER query in a loop - always use JOINs or `inArray()` batch queries
-2. **Redis MANDATORY in production**: Application will **FAIL TO START** if `REDIS_URL` not set in production
+2. **Direct DB access**: NEVER import `db` directly in routes or services (except `price-aggregation-service.ts`)
+   - Always use `storage` abstraction layer for database operations
+   - See storage layer migration (TODO 031) for complete migration guide
+   - Exception: `price-aggregation-service.ts` has documented justification
+3. **Redis MANDATORY in production**: Application will **FAIL TO START** if `REDIS_URL` not set in production
    - Validated at startup in `server/config/env-validation.ts` and `server/index.ts`
    - Development allows fallback with warnings, production exits with error
    - See `REDIS_PRODUCTION_REQUIREMENT.md` for testing guide
-3. **CSRF tokens**: Attached by middleware, client must include in requests
-4. **Type safety**: Enable strict mode, avoid `any` types
-5. **Pagination**: Always paginate large datasets using `PAGINATION.DEFAULT_LIMIT`
-6. **Input validation**: Every route input goes through Zod schema first
-7. **Account lockout**: Failed logins trigger temporary lockouts (`server/middleware/account-lockout.ts`)
-8. **Dual Redis clients**: Use correct client - `ioredis` for cache, `redis` package for sessions
+4. **CSRF tokens**: Attached by middleware, client must include in requests
+5. **Type safety**: Enable strict mode, avoid `any` types
+6. **Pagination**: Always paginate large datasets using `PAGINATION.DEFAULT_LIMIT`
+7. **Input validation**: Every route input goes through Zod schema first
+8. **Account lockout**: Failed logins trigger temporary lockouts (`server/middleware/account-lockout.ts`)
+9. **Dual Redis clients**: Use correct client - `ioredis` for cache, `redis` package for sessions
 
 ## Pattern Documentation (CRITICAL)
 
