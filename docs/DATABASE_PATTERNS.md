@@ -71,6 +71,43 @@ const offersByProduct = allOffers.reduce((acc, offer) => {
 }, {});
 ```
 
+#### ✅ BEST - Use Map for O(1) Lookups in Batch Processing
+```typescript
+// Optimal pattern for batch operations with related data
+async getUserWishlistItems(userId: number) {
+  const items = await db.select().from(wishlistItems)
+    .where(eq(wishlistItems.userId, userId));
+
+  if (items.length === 0) return [];
+
+  // Single query for all related data
+  const productIds = items.map(item => item.productId);
+  const allOffers = await db.select()
+    .from(productOffers)
+    .where(inArray(productOffers.productId, productIds));
+
+  // Use Map for O(1) lookups instead of nested loops
+  const offersByProduct = new Map<number, ProductOffer[]>();
+  allOffers.forEach(offer => {
+    if (!offersByProduct.has(offer.productId)) {
+      offersByProduct.set(offer.productId, []);
+    }
+    offersByProduct.get(offer.productId)!.push(offer);
+  });
+
+  // Attach offers to items efficiently
+  return items.map(item => ({
+    ...item,
+    offers: offersByProduct.get(item.productId) || []
+  }));
+}
+```
+
+**Performance comparison:**
+- N+1 queries: O(N) database roundtrips
+- Nested loops: O(N*M) time complexity
+- Map lookup: O(1) lookups, O(N+M) total time
+
 #### ✅ BEST - Use array_agg() for Grouped Data
 ```typescript
 // Single query returns nested data structure
@@ -154,6 +191,67 @@ async function verifyPassword(email: string, password: string) {
   return isValid ? { id: user.id } : null;
 }
 ```
+
+### 2. Promise.all vs Promise.allSettled for Batch Operations
+
+#### ❌ ANTI-PATTERN - Promise.all Fails Entire Operation
+```typescript
+// If one retailer stats query fails, entire operation fails
+async getRetailersWithStats() {
+  const retailers = await db.select().from(retailers);
+
+  // One failure = entire operation fails
+  const enriched = await Promise.all(
+    retailers.map(async (retailer) => {
+      const stats = await getComplexStats(retailer.id); // Could fail
+      return { ...retailer, stats };
+    })
+  );
+
+  return enriched;
+}
+```
+
+#### ✅ CORRECT - Promise.allSettled for Graceful Degradation
+```typescript
+async getRetailersWithStats() {
+  const retailers = await db.select().from(retailers);
+
+  const results = await Promise.allSettled(
+    retailers.map(async (retailer) => {
+      try {
+        const stats = await getComplexStats(retailer.id);
+        return { ...retailer, stats };
+      } catch (error) {
+        log(`Failed to get stats for retailer ${retailer.id}:`, error);
+        // Return retailer with fallback data
+        return {
+          ...retailer,
+          stats: { clicks: 0, conversions: 0, revenue: 0 }
+        };
+      }
+    })
+  );
+
+  // Process results - successful items continue, failures logged
+  const successful = results
+    .filter(result => result.status === 'fulfilled')
+    .map(result => (result as PromiseFulfilledResult<any>).value);
+
+  const failed = results.filter(r => r.status === 'rejected');
+  if (failed.length > 0) {
+    log(`${failed.length} retailers failed to enrich, continuing with ${successful.length} successful`);
+  }
+
+  return successful;
+}
+```
+
+**When to use Promise.allSettled:**
+- Processing lists where individual failures shouldn't stop the whole operation
+- Data enrichment where partial data is better than no data
+- Batch API calls where some might fail
+- Report generation that should continue despite partial failures
 
 ---
 
@@ -699,6 +797,211 @@ router.get('/api/users/:id', async (req, res) => {
 ```
 
 ---
+
+## Type Safety and Query Building Patterns
+
+### Avoiding @ts-expect-error in Dynamic Queries
+
+#### ❌ ANTI-PATTERN - Type Suppression
+```typescript
+// Using @ts-expect-error to hide type issues
+let query = db.select().from(products);
+
+if (categoryFilter) {
+  // @ts-expect-error - Drizzle types are complex
+  query = query.where(eq(products.category, categoryFilter));
+}
+
+if (priceFilter) {
+  // @ts-expect-error
+  query = query.where(lte(products.price, priceFilter));
+}
+
+const results = await query;
+```
+
+#### ✅ CORRECT - Type-Safe Query Building
+```typescript
+// Build complete query paths without reassignment
+const buildProductQuery = (filters: ProductFilters) => {
+  const conditions = [];
+
+  if (filters.category) {
+    conditions.push(eq(products.category, filters.category));
+  }
+
+  if (filters.maxPrice) {
+    conditions.push(lte(products.price, filters.maxPrice));
+  }
+
+  const baseQuery = db.select().from(products);
+
+  return conditions.length > 0
+    ? baseQuery.where(and(...conditions))
+    : baseQuery;
+};
+
+const results = await buildProductQuery(filters);
+```
+
+#### ✅ ALTERNATIVE - Conditional Chaining Pattern
+```typescript
+// Use const for immutable query building
+const baseQuery = db.select().from(products);
+
+const query = (() => {
+  let q = baseQuery;
+
+  if (filters.category) {
+    q = q.where(eq(products.category, filters.category));
+  }
+
+  if (filters.maxPrice) {
+    q = q.where(lte(products.price, filters.maxPrice));
+  }
+
+  return q;
+})();
+
+const results = await query;
+```
+
+**Key Principles:**
+- Never use @ts-expect-error without detailed justification
+- Build queries functionally rather than imperatively
+- Use array of conditions with `and()` for multiple filters
+- If type suppression is absolutely necessary, include ticket reference for tracking
+
+## Input Validation Patterns
+
+### Public Function Parameter Validation
+
+#### ❌ ANTI-PATTERN - No Input Validation
+```typescript
+async getPriceHistoryOptimized(productId: number, days: number, retailerId?: number) {
+  // No validation - could receive invalid inputs
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days); // days could be negative!
+
+  return await db.select()
+    .from(priceHistory)
+    .where(and(
+      eq(priceHistory.productId, productId), // productId could be 0 or negative
+      gte(priceHistory.recordedAt, startDate)
+    ));
+}
+```
+
+#### ✅ CORRECT - Comprehensive Input Validation
+```typescript
+async getPriceHistoryOptimized(productId: number, days: number, retailerId?: number) {
+  // Validate required parameters
+  if (!productId || productId <= 0 || !Number.isInteger(productId)) {
+    throw new Error(`Invalid productId: ${productId}. Must be a positive integer.`);
+  }
+
+  if (!days || days <= 0 || days > 3650 || !Number.isInteger(days)) {
+    throw new Error(`Invalid days: ${days}. Must be an integer between 1 and 3650.`);
+  }
+
+  // Validate optional parameters if provided
+  if (retailerId !== undefined) {
+    if (!retailerId || retailerId <= 0 || !Number.isInteger(retailerId)) {
+      throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive integer.`);
+    }
+  }
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  let query = db.select()
+    .from(priceHistory)
+    .where(and(
+      eq(priceHistory.productId, productId),
+      gte(priceHistory.recordedAt, startDate)
+    ));
+
+  if (retailerId) {
+    query = query.where(eq(priceHistory.retailerId, retailerId));
+  }
+
+  return await query;
+}
+```
+
+**Validation Checklist:**
+- ✓ Numeric IDs: Must be positive integers (> 0)
+- ✓ Date ranges: Must have reasonable bounds
+- ✓ Optional params: Validate only if provided
+- ✓ Arrays: Check length to prevent memory issues
+- ✓ Strings: Check for empty/null values
+
+## Magic Number Centralization
+
+#### ❌ ANTI-PATTERN - Hardcoded Values
+```typescript
+// Magic numbers scattered throughout services
+async processBatch(items: Item[]) {
+  const BATCH_SIZE = 20; // Local constant
+
+  while (items.length > 0) {
+    const batch = items.splice(0, 100); // Different batch size!
+    await this.processItems(batch);
+    await sleep(500); // Magic delay
+  }
+}
+
+async cleanupOldData() {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 30); // Magic retention period
+
+  await db.delete(oldRecords)
+    .where(lt(oldRecords.createdAt, cutoffDate));
+}
+```
+
+#### ✅ CORRECT - Centralized Constants
+```typescript
+// In server/utils/constants.ts
+export const BATCH_PROCESSING = {
+  DEFAULT_BATCH_SIZE: 100,
+  SMALL_BATCH_SIZE: 20,
+  LARGE_BATCH_SIZE: 500,
+  DELAY_MS: 500,
+  MAX_CONCURRENT: 5
+} as const;
+
+export const DATA_RETENTION = {
+  CLEANUP_DAYS: 30,
+  ARCHIVE_DAYS: 90,
+  PERMANENT_DELETE_DAYS: 365
+} as const;
+
+// In service files
+import { BATCH_PROCESSING, DATA_RETENTION } from '../utils/constants';
+
+async processBatch(items: Item[]) {
+  while (items.length > 0) {
+    const batch = items.splice(0, BATCH_PROCESSING.DEFAULT_BATCH_SIZE);
+    await this.processItems(batch);
+    await sleep(BATCH_PROCESSING.DELAY_MS);
+  }
+}
+
+async cleanupOldData() {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - DATA_RETENTION.CLEANUP_DAYS);
+
+  await db.delete(oldRecords)
+    .where(lt(oldRecords.createdAt, cutoffDate));
+}
+```
+
+**Benefits of Centralization:**
+- Single source of truth for configuration
+- Easy to adjust values globally
+- Self-documenting through constant names
+- Prevents inconsistencies across codebase
 
 ## Drizzle ORM Patterns
 

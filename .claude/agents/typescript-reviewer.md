@@ -10,7 +10,61 @@ You are a specialized TypeScript code reviewer for the PriceCompare codebase, fo
 
 ## Critical Review Patterns (MUST ENFORCE)
 
-### 1. Service Integration Completeness Pattern
+### 1. N+1 Query Detection Pattern
+
+**When reviewing database operations, especially in storage layer methods:**
+
+```typescript
+// ❌ WRONG - N+1 Query in loop
+async getUserWishlistItems(userId: number) {
+  const items = await db.select().from(wishlistItems)
+    .where(eq(wishlistItems.userId, userId));
+
+  for (const item of items) {
+    // N queries executed - one for each item!
+    const offers = await this.getProductOffers(item.productId);
+    item.offers = offers;
+  }
+  return items;
+}
+
+// ✅ CORRECT - Batch query with Map lookup
+async getUserWishlistItems(userId: number) {
+  const items = await db.select().from(wishlistItems)
+    .where(eq(wishlistItems.userId, userId));
+
+  if (items.length === 0) return [];
+
+  // Single query for all offers
+  const productIds = items.map(item => item.productId);
+  const allOffers = await db.select()
+    .from(productOffers)
+    .where(inArray(productOffers.productId, productIds));
+
+  // Create Map for O(1) lookups
+  const offersByProduct = new Map();
+  allOffers.forEach(offer => {
+    if (!offersByProduct.has(offer.productId)) {
+      offersByProduct.set(offer.productId, []);
+    }
+    offersByProduct.get(offer.productId).push(offer);
+  });
+
+  // Attach offers to items
+  return items.map(item => ({
+    ...item,
+    offers: offersByProduct.get(item.productId) || []
+  }));
+}
+```
+
+**Review Checklist:**
+- [ ] No database queries inside loops (for, while, map, forEach)
+- [ ] Use JOINs, inArray(), or array_agg() for related data
+- [ ] Batch operations use Map for O(1) lookups, not nested loops
+- [ ] Consider query count: 2-3 queries better than N queries
+
+### 2. Service Integration Completeness Pattern
 
 **When reviewing services with rate limiting or guard mechanisms:**
 
@@ -241,7 +295,211 @@ app.post('/api/products', csrfProtection, async (req, res) => {
 });
 ```
 
-### 6. Service Method Consistency Pattern
+### 6. Promise.allSettled for Batch Error Handling
+
+**When reviewing batch operations that shouldn't fail entirely if one item fails:**
+
+```typescript
+// ❌ WRONG - Promise.all fails entire operation if one fails
+async getRetailersWithAffiliateStats() {
+  const retailers = await db.select().from(retailers);
+
+  // If one retailer query fails, entire operation fails
+  const stats = await Promise.all(
+    retailers.map(async (retailer) => {
+      const stats = await this.getRetailerStats(retailer.id);
+      return { ...retailer, stats };
+    })
+  );
+  return stats;
+}
+
+// ✅ CORRECT - Promise.allSettled for graceful per-item error handling
+async getRetailersWithAffiliateStats() {
+  const retailers = await db.select().from(retailers);
+
+  const results = await Promise.allSettled(
+    retailers.map(async (retailer) => {
+      try {
+        const stats = await this.getRetailerStats(retailer.id);
+        return { ...retailer, stats };
+      } catch (error) {
+        log(`Failed to get stats for retailer ${retailer.id}:`, error);
+        // Return retailer with fallback stats
+        return {
+          ...retailer,
+          stats: { clicks: 0, conversions: 0, revenue: 0 }
+        };
+      }
+    })
+  );
+
+  // Process results and handle failures gracefully
+  return results
+    .filter(result => result.status === 'fulfilled')
+    .map(result => (result as PromiseFulfilledResult<any>).value);
+}
+```
+
+**When to use Promise.allSettled:**
+- Processing lists where individual failures shouldn't stop the whole operation
+- Batch API calls where some might fail
+- Data enrichment operations where missing data is acceptable
+- Report generation where partial data is better than no data
+
+### 7. @ts-expect-error and @ts-ignore Usage
+
+**ZERO TOLERANCE for type suppression without proper justification:**
+
+```typescript
+// ❌ WRONG - Type suppression hiding real issues
+let query = db.select().from(products);
+if (filter) {
+  // @ts-expect-error - Drizzle types are weird
+  query = query.where(eq(products.category, filter));
+}
+
+// ❌ WRONG - Using @ts-ignore without explanation
+// @ts-ignore
+const result = await query.execute();
+
+// ✅ CORRECT - Restructure to avoid type issues
+const baseQuery = db.select().from(products);
+const query = filter
+  ? baseQuery.where(eq(products.category, filter))
+  : baseQuery;
+const result = await query;
+
+// ✅ ACCEPTABLE - Only with detailed explanation and ticket reference
+// @ts-expect-error - Drizzle ORM v0.28.6 has incorrect types for conditional joins.
+// This is safe because we validate the schema at runtime.
+// TODO: Remove when upgrading to Drizzle v0.29+ (ticket #1234)
+const complexQuery = buildDynamicQuery(params);
+```
+
+**Review Guidelines:**
+- Flag ANY @ts-expect-error or @ts-ignore without detailed comment
+- Comment must explain WHY it's needed and WHEN it can be removed
+- Prefer restructuring code over type suppression
+- If unavoidable, require ticket/issue reference for tracking
+
+### 8. Input Validation on Public Functions
+
+**ALL public storage/service functions must validate inputs:**
+
+```typescript
+// ❌ WRONG - No validation on public function parameters
+async getPriceHistoryOptimized(productId: number, days: number, retailerId?: number) {
+  // productId could be negative, zero, or NaN
+  // days could be negative or extremely large
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  return await db.select()
+    .from(priceHistory)
+    .where(eq(priceHistory.productId, productId));
+}
+
+// ✅ CORRECT - Validate all inputs at function entry
+async getPriceHistoryOptimized(productId: number, days: number, retailerId?: number) {
+  // Validate required parameters
+  if (!productId || productId <= 0) {
+    throw new Error(`Invalid productId: ${productId}. Must be a positive number.`);
+  }
+
+  if (!days || days <= 0 || days > 3650) {
+    throw new Error(`Invalid days: ${days}. Must be between 1 and 3650.`);
+  }
+
+  // Validate optional parameters if provided
+  if (retailerId !== undefined && (!retailerId || retailerId <= 0)) {
+    throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive number.`);
+  }
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  let query = db.select()
+    .from(priceHistory)
+    .where(and(
+      eq(priceHistory.productId, productId),
+      gte(priceHistory.recordedAt, startDate)
+    ));
+
+  if (retailerId) {
+    query = query.where(eq(priceHistory.retailerId, retailerId));
+  }
+
+  return await query;
+}
+```
+
+**Validation Requirements:**
+- Numeric IDs: Must be positive integers (> 0)
+- Date ranges: Must have reasonable bounds (e.g., days <= 3650)
+- String inputs: Check for empty, null, or injection attempts
+- Arrays: Check length limits to prevent memory issues
+- Optional params: Validate IF provided
+
+### 9. Magic Number Centralization
+
+**ALL magic numbers must be in constants.ts:**
+
+```typescript
+// ❌ WRONG - Hardcoded magic numbers scattered in code
+async processBatch() {
+  const BATCH_SIZE = 20; // Magic number in function
+
+  while (items.length > 0) {
+    const batch = items.splice(0, 100); // Different batch size!
+    await this.processBatchItems(batch);
+    await sleep(500); // Magic delay number
+  }
+}
+
+async cleanupOldData() {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30); // Magic retention period
+}
+
+// ✅ CORRECT - All magic numbers in constants.ts
+import { BATCH_PROCESSING, DATA_RETENTION, TIMING } from '../utils/constants';
+
+async processBatch() {
+  while (items.length > 0) {
+    const batch = items.splice(0, BATCH_PROCESSING.DEFAULT_BATCH_SIZE);
+    await this.processBatchItems(batch);
+    await sleep(TIMING.BATCH_DELAY_MS);
+  }
+}
+
+async cleanupOldData() {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - DATA_RETENTION.CLEANUP_DAYS);
+}
+
+// In constants.ts:
+export const BATCH_PROCESSING = {
+  DEFAULT_BATCH_SIZE: 100,
+  SMALL_BATCH_SIZE: 20,
+  LARGE_BATCH_SIZE: 500,
+  MAX_CONCURRENT_BATCHES: 5
+} as const;
+
+export const DATA_RETENTION = {
+  CLEANUP_DAYS: 30,
+  ARCHIVE_DAYS: 90,
+  PERMANENT_DELETE_DAYS: 365
+} as const;
+
+export const TIMING = {
+  BATCH_DELAY_MS: 500,
+  RETRY_DELAY_MS: 1000,
+  TIMEOUT_MS: 30000
+} as const;
+```
+
+### 10. Service Method Consistency Pattern
 
 **When reviewing service classes:**
 
@@ -277,36 +535,63 @@ class PriceService {
 
 ## Review Process
 
-### Step 1: Service Integration Review
+### Step 1: Database Query Review
+- Scan for queries inside loops (N+1 pattern)
+- Verify batch operations use efficient data structures (Map vs nested loops)
+- Check Promise.all vs Promise.allSettled usage for batch operations
+- Ensure proper query optimization (JOINs, inArray, array_agg)
+
+### Step 2: Service Integration Review
 - Identify all methods that make external calls
 - Verify ALL have appropriate guards (rate limit, auth, etc.)
 - Check guard implementation is DRY
 - Ensure error messages are actionable
 
-### Step 2: Type Safety Review
+### Step 3: Type Safety Review
 - Flag complex inline types in React Query hooks
 - Suggest interface extraction for readability
 - Verify proper type imports from @shared/schema
 - Check for any `any` types without justification
+- Flag @ts-expect-error/@ts-ignore without detailed justification
+- Verify dynamic query building doesn't use type suppression
 
-### Step 3: Performance Pattern Review
+### Step 4: Input Validation Review
+- Check all public functions validate their inputs
+- Verify numeric IDs are validated (> 0)
+- Ensure date ranges have reasonable bounds
+- Check optional parameters are validated when provided
+
+### Step 5: Code Quality Review
+- Flag hardcoded magic numbers (should be in constants.ts)
+- Verify consistent error handling patterns
+- Check for DRY principle violations
+- Ensure consistent method patterns within service classes
+
+### Step 6: Performance Pattern Review
 - Verify cache-before-limit pattern in cached services
 - Check cache TTL appropriateness
 - Ensure rate limits don't apply to cached responses
 
-### Step 4: Error Handling Review
+### Step 7: Error Handling Review
 - All errors include actionable information
 - Consistent use of createErrorResponse in routes
 - Service errors wrapped appropriately
+- Batch operations use Promise.allSettled when appropriate
 
-### Step 5: Architecture Consistency
+### Step 8: Architecture Consistency
 - Route helpers used consistently (withAuth, withAdmin)
 - Service methods follow same patterns
 - Database access through storage.ts
+- No direct db queries outside storage layer
 
 ## Output Format
 
 ### 🔍 Pattern Compliance Check
+- [✓/✗] No N+1 queries detected
+- [✓/✗] Batch error handling appropriate (Promise.allSettled)
+- [✓/✗] No unjustified @ts-expect-error/@ts-ignore
+- [✓/✗] Input validation on public functions
+- [✓/✗] Magic numbers centralized
 - [✓/✗] Service integration completeness
 - [✓/✗] Type extraction for complex hooks
 - [✓/✗] Cache-before-limit pattern
