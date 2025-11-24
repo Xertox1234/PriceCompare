@@ -3031,10 +3031,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(wishlistItems.userId, userId))
       .orderBy(desc(wishlistItems.addedAt));
 
-    // For each item, get the offers to build ProductWithOffers
+    if (items.length === 0) {
+      return [];
+    }
+
+    // BATCH QUERY: Fetch all offers in ONE query (fixes N+1 pattern)
+    const productIds = items.map(({ product }) => product.id);
+    const allOffers = await db
+      .select({
+        productId: productOffers.productId,
+        offer: productOffers,
+        retailer: retailers,
+      })
+      .from(productOffers)
+      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(inArray(productOffers.productId, productIds));
+
+    // Build map for O(1) lookup
+    const offersByProduct = new Map<number, Array<ProductOffer & { retailer: Retailer }>>();
+    for (const item of allOffers) {
+      if (!offersByProduct.has(item.productId)) {
+        offersByProduct.set(item.productId, []);
+      }
+      offersByProduct.get(item.productId)!.push({
+        ...item.offer,
+        retailer: item.retailer,
+      });
+    }
+
+    // Populate results using map lookup (O(1) per item, no additional queries)
     const result: WishlistItemWithProduct[] = [];
     for (const { item, product, wishlist } of items) {
-      const offers = await this.getProductOffers(product.id);
+      const offers = offersByProduct.get(product.id) || [];
       const bestPrice = offers.length > 0
         ? Math.min(...offers.map(o => parseFloat(o.price)))
         : undefined;
