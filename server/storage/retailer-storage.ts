@@ -76,9 +76,70 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
   }
 
   /**
+   * Validate retailer name
+   *
+   * @param name - Name to validate
+   * @throws Error if name is invalid
+   * @private
+   */
+  private validateRetailerName(name: string): void {
+    if (!name || name.trim().length < RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
+      throw new Error(
+        `Retailer name must be at least ${RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`
+      );
+    }
+    if (name.length > RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
+      throw new Error(
+        `Retailer name cannot exceed ${RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH} characters`
+      );
+    }
+  }
+
+  /**
+   * Safely parse affiliate config JSON with error handling
+   *
+   * @param configJson - JSON string to parse
+   * @returns Parsed config object or null on error
+   * @private
+   */
+  private parseAffiliateConfig(configJson: string | null): Record<string, unknown> | null {
+    if (!configJson) return null;
+
+    try {
+      return JSON.parse(configJson);
+    } catch (error) {
+      logger.warn('Failed to parse affiliate config JSON', {
+        rawJson: configJson.substring(0, 100),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Check if retailer exists by ID (optimized existence check)
+   *
+   * @param id - Retailer ID to check
+   * @returns true if retailer exists, false otherwise
+   * @private
+   */
+  private async retailerExists(id: number): Promise<boolean> {
+    const result = await this.db
+      .select({ id: retailers.id })
+      .from(retailers)
+      .where(eq(retailers.id, id))
+      .limit(1);
+
+    return result.length > 0;
+  }
+
+  /**
    * Get all retailers (including inactive)
    *
-   * @returns All retailers in the database
+   * Used internally for admin/reporting where all retailers are needed.
+   * For public APIs, use getRetailers() to return only active retailers.
+   *
+   * @returns All retailers in the database (active and inactive)
    */
   async getAllRetailers(): Promise<Retailer[]> {
     return this.handleError('getAllRetailers', async () => {
@@ -144,13 +205,7 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
   async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
     return this.handleError('createRetailer', async () => {
       // Validation
-      if (!retailer.name || retailer.name.trim().length < RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
-        throw new Error(`Retailer name must be at least ${RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`);
-      }
-
-      if (retailer.name.length > RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
-        throw new Error(`Retailer name cannot exceed ${RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH} characters`);
-      }
+      this.validateRetailerName(retailer.name);
 
       const [created] = await this.db
         .insert(retailers)
@@ -187,17 +242,12 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
 
       // Validate name if being updated
       if (updates.name !== undefined) {
-        if (!updates.name || updates.name.trim().length < RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
-          throw new Error(`Retailer name must be at least ${RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`);
-        }
-        if (updates.name.length > RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
-          throw new Error(`Retailer name cannot exceed ${RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH} characters`);
-        }
+        this.validateRetailerName(updates.name);
       }
 
       // Check existence before update
-      const existing = await this.getRetailerById(id);
-      if (!existing) {
+      const exists = await this.retailerExists(id);
+      if (!exists) {
         this.logDebug('updateRetailer', { id, reason: 'Retailer not found' });
         return null;
       }
@@ -229,8 +279,8 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
       }
 
       // Check existence before delete
-      const existing = await this.getRetailerById(id);
-      if (!existing) {
+      const exists = await this.retailerExists(id);
+      if (!exists) {
         this.logDebug('deleteRetailer', { id, reason: 'Retailer not found' });
         return null;
       }
@@ -267,13 +317,7 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
   async createAdminRetailer(data: InsertRetailer): Promise<Retailer> {
     return this.handleError('createAdminRetailer', async () => {
       // Validation
-      if (!data.name || data.name.trim().length < RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
-        throw new Error(`Retailer name must be at least ${RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`);
-      }
-
-      if (data.name.length > RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
-        throw new Error(`Retailer name cannot exceed ${RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH} characters`);
-      }
+      this.validateRetailerName(data.name);
 
       const [created] = await this.db
         .insert(retailers)
@@ -305,17 +349,12 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
 
       // Validate name if being updated
       if (data.name !== undefined) {
-        if (!data.name || data.name.trim().length < RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
-          throw new Error(`Retailer name must be at least ${RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`);
-        }
-        if (data.name.length > RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
-          throw new Error(`Retailer name cannot exceed ${RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH} characters`);
-        }
+        this.validateRetailerName(data.name);
       }
 
       // Check existence before update
-      const existing = await this.getRetailerById(id);
-      if (!existing) {
+      const exists = await this.retailerExists(id);
+      if (!exists) {
         this.logDebug('updateAdminRetailer', { id, reason: 'Retailer not found' });
         return null;
       }
@@ -346,8 +385,8 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
       }
 
       // Check existence before delete
-      const existing = await this.getRetailerById(id);
-      if (!existing) {
+      const exists = await this.retailerExists(id);
+      if (!exists) {
         this.logDebug('deleteAdminRetailer', { id, reason: 'Retailer not found' });
         return null;
       }
@@ -401,9 +440,7 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
 
           return {
             ...retailer,
-            affiliateConfigParsed: retailer.affiliateConfig
-              ? JSON.parse(retailer.affiliateConfig)
-              : null,
+            affiliateConfigParsed: this.parseAffiliateConfig(retailer.affiliateConfig),
             stats,
           };
         })
@@ -423,9 +460,7 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
 
         return {
           ...allRetailers[index],
-          affiliateConfigParsed: allRetailers[index].affiliateConfig
-            ? JSON.parse(allRetailers[index].affiliateConfig)
-            : null,
+          affiliateConfigParsed: this.parseAffiliateConfig(allRetailers[index].affiliateConfig),
           stats: {
             totalOffers: 0,
             offersWithAffiliateLinks: 0,
@@ -465,8 +500,8 @@ export class RetailerStorage extends BaseStorage implements IRetailerStorage {
       }
 
       // Check existence before update
-      const existing = await this.getRetailerById(id);
-      if (!existing) {
+      const exists = await this.retailerExists(id);
+      if (!exists) {
         this.logDebug('updateRetailerAffiliateConfig', { id, reason: 'Retailer not found' });
         return null;
       }
