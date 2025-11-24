@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
@@ -207,6 +207,55 @@ export interface IStorage {
   upsertPriceTrends(values: PriceTrendInsert[]): Promise<void>;
   getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null>;
   getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]>;
+
+  // ============================================================================
+  // Community Service Operations (Phase 4 Storage Migration)
+  // ============================================================================
+
+  // Product Watch Operations
+  addProductWatchRecord(userId: number, productId: number): Promise<ProductWatch | null>;
+  removeProductWatchRecord(userId: number, productId: number): Promise<boolean>;
+  getUserProductWatchIds(userId: number): Promise<number[]>;
+  getProductWatchCountByProduct(productId: number): Promise<number>;
+  getMostWatchedProductStats(limit: number): Promise<CommunityWatchStats[]>;
+  isUserWatchingProductCheck(userId: number, productId: number): Promise<boolean>;
+
+  // Reputation Operations
+  getOrCreateUserReputation(userId: number): Promise<UserReputation>;
+  updateUserReputationAtomic(userId: number, points: number, reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'): Promise<UserReputation>;
+  getCommunityLeaderboard(limit: number): Promise<CommunityLeaderboardEntry[]>;
+
+  // Badge Operations
+  getBadgeByName(name: string): Promise<Badge | null>;
+  getBadgesByNames(names: string[]): Promise<Badge[]>; // Batch query for N+1 prevention
+  checkUserHasBadge(userId: number, badgeId: number): Promise<boolean>;
+  getUserBadgeIds(userId: number): Promise<number[]>; // Batch query for N+1 prevention
+  awardBadgeWithNotification(userId: number, badgeId: number, badgeName: string): Promise<void>;
+
+  // Deal Spotting Operations
+  createDealSpottingWithReputation(data: CreateDealSpottingData): Promise<DealSpotting>;
+  getRecentDealSpottingsData(limit: number): Promise<DealSpotting[]>;
+
+  // Watch List Operations
+  getNextWatchListSortOrder(userId: number): Promise<number>;
+  createWatchListRecord(data: CreateWatchListData): Promise<WatchList>;
+  getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]>;
+  getWatchListByIdWithStats(userId: number, listId: number): Promise<WatchListWithStats | null>;
+  updateWatchListRecord(userId: number, listId: number, updates: WatchListUpdates): Promise<WatchList | null>;
+  deleteWatchListRecord(userId: number, listId: number): Promise<boolean>;
+  getWatchListProductsWithDetails(userId: number, listId: number): Promise<WatchListProductWithDetails[]>;
+  updateProductWatchRecord(userId: number, watchId: number, updates: ProductWatchUpdates): Promise<ProductWatch | null>;
+  moveProductWatchesBulk(userId: number, watchIds: number[], targetListId: number | null): Promise<number>;
+  deleteProductWatchesBulk(userId: number, watchIds: number[]): Promise<number>;
+  getUserDefaultWatchListRecord(userId: number): Promise<WatchList | null>;
+  exportUserWatchListsData(userId: number): Promise<WatchListExportData>;
+  importWatchListsData(userId: number, data: WatchListImportData): Promise<{ created: number; skipped: number }>;
+
+  // Forum Auto-Post Operations
+  getRecentTopicForProduct(productId: number, daysAgo: number): Promise<ForumTopic | null>;
+  createPriceDropForumPostTransaction(data: PriceDropForumPostData): Promise<number | null>;
+  getWatchersForProduct(productId: number): Promise<number[]>;
+  notifyProductWatchers(productId: number, notification: WatcherNotificationData): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -1005,6 +1054,109 @@ export class MemStorage implements IStorage {
   async upsertPriceTrends(_values: PriceTrendInsert[]): Promise<void> { /* Not supported in memory storage */ }
   async getPriceTrendWithRetailer(_productId: number, _retailerId: number): Promise<PriceTrendWithRetailer | null> { return null; }
   async getPriceTrendsForProduct(_productId: number): Promise<PriceTrendWithRetailer[]> { return []; }
+
+  // ============================================================================
+  // Community Service Operations (Phase 4 Storage Migration) - STUBS
+  // ============================================================================
+  async addProductWatchRecord(_userId: number, _productId: number): Promise<ProductWatch | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async removeProductWatchRecord(_userId: number, _productId: number): Promise<boolean> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getUserProductWatchIds(_userId: number): Promise<number[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getProductWatchCountByProduct(_productId: number): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getMostWatchedProductStats(_limit: number): Promise<CommunityWatchStats[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async isUserWatchingProductCheck(_userId: number, _productId: number): Promise<boolean> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getOrCreateUserReputation(_userId: number): Promise<UserReputation> {
+    throw new Error('Not supported in memory storage');
+  }
+  async updateUserReputationAtomic(_userId: number, _points: number, _reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'): Promise<UserReputation> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getCommunityLeaderboard(_limit: number): Promise<CommunityLeaderboardEntry[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getBadgeByName(_name: string): Promise<Badge | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getBadgesByNames(_names: string[]): Promise<Badge[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async checkUserHasBadge(_userId: number, _badgeId: number): Promise<boolean> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getUserBadgeIds(_userId: number): Promise<number[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async awardBadgeWithNotification(_userId: number, _badgeId: number, _badgeName: string): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+  async createDealSpottingWithReputation(_data: CreateDealSpottingData): Promise<DealSpotting> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getRecentDealSpottingsData(_limit: number): Promise<DealSpotting[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getNextWatchListSortOrder(_userId: number): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+  async createWatchListRecord(_data: CreateWatchListData): Promise<WatchList> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getWatchListsWithStats(_userId: number): Promise<WatchListWithStats[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getWatchListByIdWithStats(_userId: number, _listId: number): Promise<WatchListWithStats | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async updateWatchListRecord(_userId: number, _listId: number, _updates: WatchListUpdates): Promise<WatchList | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async deleteWatchListRecord(_userId: number, _listId: number): Promise<boolean> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getWatchListProductsWithDetails(_userId: number, _listId: number): Promise<WatchListProductWithDetails[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async updateProductWatchRecord(_userId: number, _watchId: number, _updates: ProductWatchUpdates): Promise<ProductWatch | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async moveProductWatchesBulk(_userId: number, _watchIds: number[], _targetListId: number | null): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+  async deleteProductWatchesBulk(_userId: number, _watchIds: number[]): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getUserDefaultWatchListRecord(_userId: number): Promise<WatchList | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async exportUserWatchListsData(_userId: number): Promise<WatchListExportData> {
+    throw new Error('Not supported in memory storage');
+  }
+  async importWatchListsData(_userId: number, _data: WatchListImportData): Promise<{ created: number; skipped: number }> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getRecentTopicForProduct(_productId: number, _daysAgo: number): Promise<ForumTopic | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async createPriceDropForumPostTransaction(_data: PriceDropForumPostData): Promise<number | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getWatchersForProduct(_productId: number): Promise<number[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async notifyProductWatchers(_productId: number, _notification: WatcherNotificationData): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
 }
 
 // Database Storage Implementation
@@ -3751,6 +3903,1063 @@ export class DatabaseStorage implements IStorage {
       .where(eq(priceTrends.productId, productId))
       .orderBy(desc(priceTrends.lastAnalyzedAt));
   }
+
+  // ============================================================================
+  // Community Service Operations (Phase 4 Storage Migration)
+  // ============================================================================
+
+  /**
+   * Add a product to user's watch list
+   */
+  async addProductWatchRecord(userId: number, productId: number): Promise<ProductWatch | null> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!productId || productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+
+    const watch: InsertProductWatch = {
+      userId,
+      productId,
+    };
+
+    const result = await db
+      .insert(productWatches)
+      .values(watch)
+      .onConflictDoNothing()
+      .returning();
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Remove a product from user's watch list
+   */
+  async removeProductWatchRecord(userId: number, productId: number): Promise<boolean> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!productId || productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+
+    const result = await db
+      .delete(productWatches)
+      .where(
+        and(
+          eq(productWatches.userId, userId),
+          eq(productWatches.productId, productId)
+        )
+      )
+      .returning();
+
+    return result.length > 0;
+  }
+
+  /**
+   * Get user's watched product IDs
+   */
+  async getUserProductWatchIds(userId: number): Promise<number[]> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    const watches = await db
+      .select({ productId: productWatches.productId })
+      .from(productWatches)
+      .where(eq(productWatches.userId, userId));
+
+    return watches.map(w => w.productId);
+  }
+
+  /**
+   * Get watch count for a product
+   */
+  async getProductWatchCountByProduct(productId: number): Promise<number> {
+    if (!productId || productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+
+    const result = await db
+      .select({ count: count() })
+      .from(productWatches)
+      .where(eq(productWatches.productId, productId));
+
+    return result[0]?.count || 0;
+  }
+
+  /**
+   * Get most watched products
+   */
+  async getMostWatchedProductStats(limit: number = 10): Promise<CommunityWatchStats[]> {
+    if (limit <= 0 || limit > 100) {
+      throw new Error('limit must be between 1 and 100');
+    }
+
+    const result = await db
+      .select({
+        productId: productWatches.productId,
+        watchCount: sql<number>`count(*)::int`,
+      })
+      .from(productWatches)
+      .groupBy(productWatches.productId)
+      .orderBy(sql`count(*) DESC`)
+      .limit(limit);
+
+    return result.map((r, index) => ({
+      productId: r.productId,
+      watchCount: r.watchCount,
+      rank: index + 1,
+    }));
+  }
+
+  /**
+   * Check if user is watching a product
+   */
+  async isUserWatchingProductCheck(userId: number, productId: number): Promise<boolean> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!productId || productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+
+    const result = await db
+      .select()
+      .from(productWatches)
+      .where(
+        and(
+          eq(productWatches.userId, userId),
+          eq(productWatches.productId, productId)
+        )
+      )
+      .limit(1);
+
+    return result.length > 0;
+  }
+
+  /**
+   * Get or create user reputation record
+   */
+  async getOrCreateUserReputation(userId: number): Promise<UserReputation> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    const result = await db
+      .select()
+      .from(userReputation)
+      .where(eq(userReputation.userId, userId))
+      .limit(1);
+
+    if (result.length === 0) {
+      // Create default reputation
+      const newRep: InsertUserReputation = {
+        userId,
+        reputationPoints: 0,
+        dealsSpotted: 0,
+        accuratePredictions: 0,
+        communityContributions: 0,
+        level: 1,
+      };
+
+      const created = await db.insert(userReputation).values(newRep).returning();
+      return created[0];
+    }
+
+    return result[0];
+  }
+
+  /**
+   * Award reputation points atomically with SERIALIZABLE transaction
+   * Uses SQL arithmetic to prevent read-modify-write race conditions
+   */
+  async updateUserReputationAtomic(
+    userId: number,
+    points: number,
+    reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'
+  ): Promise<UserReputation> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    // Ensure user has a reputation record before updating
+    await this.getOrCreateUserReputation(userId);
+
+    // DATA INTEGRITY: Use SERIALIZABLE isolation to prevent concurrent update race conditions
+    // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
+    const result = await retryWithBackoff(
+      async () => db.transaction(async (tx) => {
+        // Build atomic update with SQL arithmetic to prevent read-modify-write race condition
+        const updateResult = await tx
+          .update(userReputation)
+          .set({
+            reputationPoints: sql`${userReputation.reputationPoints} + ${points}`,
+            dealsSpotted: reason === 'deal_spotted'
+              ? sql`${userReputation.dealsSpotted} + 1`
+              : userReputation.dealsSpotted,
+            accuratePredictions: reason === 'accurate_prediction'
+              ? sql`${userReputation.accuratePredictions} + 1`
+              : userReputation.accuratePredictions,
+            communityContributions: reason === 'community_contribution'
+              ? sql`${userReputation.communityContributions} + 1`
+              : userReputation.communityContributions,
+          })
+          .where(eq(userReputation.userId, userId))
+          .returning();
+
+        return updateResult[0];
+      }, { isolationLevel: 'serializable' }),
+      {
+        maxAttempts: 3,
+        initialDelayMs: 100,
+        isRetryable: isTransientDatabaseError,
+        context: { operation: 'updateUserReputationAtomic', userId, reason },
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn('[Storage] Retrying updateUserReputationAtomic after serialization error', {
+            error: error instanceof Error ? error.message : String(error),
+            attempt,
+            delayMs,
+            userId,
+          });
+        },
+      }
+    );
+
+    return result;
+  }
+
+  /**
+   * Get community leaderboard of top users
+   */
+  async getCommunityLeaderboard(limit: number = 10): Promise<CommunityLeaderboardEntry[]> {
+    if (limit <= 0 || limit > 100) {
+      throw new Error('limit must be between 1 and 100');
+    }
+
+    const result = await db
+      .select({
+        userId: userReputation.userId,
+        username: users.username,
+        reputationPoints: userReputation.reputationPoints,
+        dealsSpotted: userReputation.dealsSpotted,
+        level: userReputation.level,
+      })
+      .from(userReputation)
+      .innerJoin(users, eq(users.id, userReputation.userId))
+      .orderBy(desc(userReputation.reputationPoints))
+      .limit(limit);
+
+    return result.map((r, index) => ({
+      userId: r.userId,
+      username: r.username,
+      reputationPoints: r.reputationPoints ?? 0,
+      dealsSpotted: r.dealsSpotted ?? 0,
+      level: r.level ?? 0,
+      rank: index + 1,
+    }));
+  }
+
+  /**
+   * Get badge by name
+   */
+  async getBadgeByName(name: string): Promise<Badge | null> {
+    if (!name) {
+      throw new Error('name is required');
+    }
+
+    const result = await db
+      .select()
+      .from(badges)
+      .where(eq(badges.name, name))
+      .limit(1);
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Batch query for badges by names (N+1 prevention)
+   */
+  async getBadgesByNames(names: string[]): Promise<Badge[]> {
+    if (!names || names.length === 0) {
+      return [];
+    }
+
+    return await db
+      .select()
+      .from(badges)
+      .where(inArray(badges.name, names));
+  }
+
+  /**
+   * Check if user has a specific badge
+   */
+  async checkUserHasBadge(userId: number, badgeId: number): Promise<boolean> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!badgeId || badgeId <= 0) {
+      throw new Error('badgeId must be a positive number');
+    }
+
+    const result = await db
+      .select()
+      .from(userBadges)
+      .where(
+        and(
+          eq(userBadges.userId, userId),
+          eq(userBadges.badgeId, badgeId)
+        )
+      )
+      .limit(1);
+
+    return result.length > 0;
+  }
+
+  /**
+   * Get all badge IDs for a user (N+1 prevention)
+   */
+  async getUserBadgeIds(userId: number): Promise<number[]> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    const result = await db
+      .select({ badgeId: userBadges.badgeId })
+      .from(userBadges)
+      .where(eq(userBadges.userId, userId));
+
+    return result.map(r => r.badgeId);
+  }
+
+  /**
+   * Award badge to user with notification (transactional)
+   * UX: Transaction ensures badge award and notification are atomic
+   */
+  async awardBadgeWithNotification(userId: number, badgeId: number, badgeName: string): Promise<void> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!badgeId || badgeId <= 0) {
+      throw new Error('badgeId must be a positive number');
+    }
+    if (!badgeName) {
+      throw new Error('badgeName is required');
+    }
+
+    // UX: Use transaction to ensure badge award and notification are atomic
+    // If notification fails, user gets badge but never knows about it (poor UX)
+    await db.transaction(async (tx) => {
+      // Award badge
+      await tx.insert(userBadges).values({
+        userId,
+        badgeId,
+      });
+
+      // Send notification - must succeed or rollback badge award
+      await tx.insert(notifications).values({
+        userId,
+        type: 'badge_earned',
+        title: `Badge Earned: ${badgeName}!`,
+        content: `Congratulations! You've earned the "${badgeName}" badge!`,
+      });
+    });
+  }
+
+  /**
+   * Create deal spotting record with reputation entry (transactional)
+   * DATA INTEGRITY: Deal spotting and reputation must be recorded together
+   */
+  async createDealSpottingWithReputation(data: CreateDealSpottingData): Promise<DealSpotting> {
+    if (!data.userId || data.userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!data.productId || data.productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+
+    const spotting: InsertDealSpotting = {
+      userId: data.userId,
+      productId: data.productId,
+      priceDropPercent: data.priceDropPercent.toFixed(2),
+      priceDropAmount: data.priceDropAmount.toFixed(2),
+      forumPostId: data.forumPostId || null,
+      reputationAwarded: data.reputationAwarded,
+    };
+
+    // DATA INTEGRITY: Use transaction to ensure deal spotting and reputation award are atomic
+    // If reputation award fails, deal should not be recorded (inconsistent data)
+    let dealSpotting: DealSpotting;
+    await db.transaction(async (tx) => {
+      const result = await tx.insert(dealSpottings).values(spotting).returning();
+      dealSpotting = result[0];
+
+      // Award reputation - must succeed or rollback deal spotting
+      const reputationEntry: InsertUserReputation = {
+        userId: data.userId,
+        reputationChange: data.reputationAwarded,
+        reason: 'deal_spotted',
+        relatedEntityType: 'deal_spotting',
+        relatedEntityId: dealSpotting.id,
+      };
+
+      await tx.insert(userReputation).values(reputationEntry);
+    });
+
+    return dealSpotting!;
+  }
+
+  /**
+   * Get recent deal spottings
+   */
+  async getRecentDealSpottingsData(limit: number = 10): Promise<DealSpotting[]> {
+    if (limit <= 0 || limit > 100) {
+      throw new Error('limit must be between 1 and 100');
+    }
+
+    return await db
+      .select()
+      .from(dealSpottings)
+      .orderBy(desc(dealSpottings.createdAt))
+      .limit(limit);
+  }
+
+  /**
+   * Get next sort order for user's watch lists
+   */
+  async getNextWatchListSortOrder(userId: number): Promise<number> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    const maxOrderResult = await db
+      .select({ maxOrder: sql<number>`COALESCE(MAX(${watchLists.sortOrder}), 0)` })
+      .from(watchLists)
+      .where(eq(watchLists.userId, userId));
+
+    return (maxOrderResult[0]?.maxOrder ?? 0) + 1;
+  }
+
+  /**
+   * Create a new watch list for a user
+   */
+  async createWatchListRecord(data: CreateWatchListData): Promise<WatchList> {
+    if (!data.userId || data.userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!data.name) {
+      throw new Error('name is required');
+    }
+
+    const watchList: InsertWatchList = {
+      userId: data.userId,
+      name: data.name,
+      description: data.description || null,
+      color: data.color || null,
+      icon: data.icon || null,
+      isDefault: false,
+      sortOrder: data.sortOrder,
+    };
+
+    const result = await db.insert(watchLists).values(watchList).returning();
+    return result[0];
+  }
+
+  /**
+   * Get all watch lists for a user with stats
+   */
+  async getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    const result = await db
+      .select({
+        id: watchLists.id,
+        userId: watchLists.userId,
+        name: watchLists.name,
+        description: watchLists.description,
+        color: watchLists.color,
+        icon: watchLists.icon,
+        isDefault: watchLists.isDefault,
+        sortOrder: watchLists.sortOrder,
+        createdAt: watchLists.createdAt,
+        updatedAt: watchLists.updatedAt,
+        watchCount: sql<number>`COUNT(${productWatches.id})::int`,
+        highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
+      })
+      .from(watchLists)
+      .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
+      .where(eq(watchLists.userId, userId))
+      .groupBy(watchLists.id)
+      .orderBy(watchLists.sortOrder);
+
+    return result;
+  }
+
+  /**
+   * Get a specific watch list with stats
+   */
+  async getWatchListByIdWithStats(userId: number, listId: number): Promise<WatchListWithStats | null> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!listId || listId <= 0) {
+      throw new Error('listId must be a positive number');
+    }
+
+    const result = await db
+      .select({
+        id: watchLists.id,
+        userId: watchLists.userId,
+        name: watchLists.name,
+        description: watchLists.description,
+        color: watchLists.color,
+        icon: watchLists.icon,
+        isDefault: watchLists.isDefault,
+        sortOrder: watchLists.sortOrder,
+        createdAt: watchLists.createdAt,
+        updatedAt: watchLists.updatedAt,
+        watchCount: sql<number>`COUNT(${productWatches.id})::int`,
+        highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
+      })
+      .from(watchLists)
+      .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
+      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+      .groupBy(watchLists.id)
+      .limit(1);
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Update a watch list
+   */
+  async updateWatchListRecord(
+    userId: number,
+    listId: number,
+    updates: WatchListUpdates
+  ): Promise<WatchList | null> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!listId || listId <= 0) {
+      throw new Error('listId must be a positive number');
+    }
+
+    const result = await db
+      .update(watchLists)
+      .set(updates)
+      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+      .returning();
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Delete a watch list (prevents deletion of default list)
+   */
+  async deleteWatchListRecord(userId: number, listId: number): Promise<boolean> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!listId || listId <= 0) {
+      throw new Error('listId must be a positive number');
+    }
+
+    // Prevent deletion of default list
+    const list = await db
+      .select()
+      .from(watchLists)
+      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+      .limit(1);
+
+    if (list.length === 0) {
+      return false;
+    }
+
+    if (list[0].isDefault) {
+      throw new Error("Cannot delete default watch list");
+    }
+
+    const result = await db
+      .delete(watchLists)
+      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
+      .returning();
+
+    return result.length > 0;
+  }
+
+  /**
+   * Get products in a watch list with details
+   */
+  async getWatchListProductsWithDetails(
+    userId: number,
+    listId: number
+  ): Promise<WatchListProductWithDetails[]> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!listId || listId <= 0) {
+      throw new Error('listId must be a positive number');
+    }
+
+    const result = await db
+      .select({
+        id: productWatches.id,
+        userId: productWatches.userId,
+        productId: productWatches.productId,
+        watchListId: productWatches.watchListId,
+        category: productWatches.category,
+        notes: productWatches.notes,
+        priority: productWatches.priority,
+        targetPrice: productWatches.targetPrice,
+        createdAt: productWatches.createdAt,
+        updatedAt: productWatches.updatedAt,
+        productName: products.name,
+        productImage: products.image,
+      })
+      .from(productWatches)
+      .innerJoin(products, eq(products.id, productWatches.productId))
+      .where(
+        and(
+          eq(productWatches.userId, userId),
+          eq(productWatches.watchListId, listId)
+        )
+      )
+      .orderBy(desc(productWatches.priority), desc(productWatches.updatedAt));
+
+    return result;
+  }
+
+  /**
+   * Update product watch details
+   */
+  async updateProductWatchRecord(
+    userId: number,
+    watchId: number,
+    updates: ProductWatchUpdates
+  ): Promise<ProductWatch | null> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!watchId || watchId <= 0) {
+      throw new Error('watchId must be a positive number');
+    }
+
+    const result = await db
+      .update(productWatches)
+      .set(updates)
+      .where(and(eq(productWatches.id, watchId), eq(productWatches.userId, userId)))
+      .returning();
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Move products to a different watch list (bulk operation)
+   */
+  async moveProductWatchesBulk(
+    userId: number,
+    watchIds: number[],
+    targetListId: number | null
+  ): Promise<number> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!watchIds || watchIds.length === 0) {
+      throw new Error('watchIds array cannot be empty');
+    }
+
+    // Verify the target list belongs to the user if specified
+    if (targetListId !== null) {
+      if (targetListId <= 0) {
+        throw new Error('targetListId must be a positive number');
+      }
+
+      const targetList = await db
+        .select()
+        .from(watchLists)
+        .where(and(eq(watchLists.id, targetListId), eq(watchLists.userId, userId)))
+        .limit(1);
+
+      if (targetList.length === 0) {
+        throw new Error("Target watch list not found");
+      }
+    }
+
+    const result = await db
+      .update(productWatches)
+      .set({ watchListId: targetListId })
+      .where(
+        and(
+          inArray(productWatches.id, watchIds),
+          eq(productWatches.userId, userId)
+        )
+      )
+      .returning();
+
+    return result.length;
+  }
+
+  /**
+   * Remove multiple products from watch lists (bulk delete)
+   */
+  async deleteProductWatchesBulk(userId: number, watchIds: number[]): Promise<number> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!watchIds || watchIds.length === 0) {
+      throw new Error('watchIds array cannot be empty');
+    }
+
+    const result = await db
+      .delete(productWatches)
+      .where(
+        and(
+          inArray(productWatches.id, watchIds),
+          eq(productWatches.userId, userId)
+        )
+      )
+      .returning();
+
+    return result.length;
+  }
+
+  /**
+   * Get user's default watch list
+   */
+  async getUserDefaultWatchListRecord(userId: number): Promise<WatchList | null> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    const result = await db
+      .select()
+      .from(watchLists)
+      .where(and(eq(watchLists.userId, userId), eq(watchLists.isDefault, true)))
+      .limit(1);
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Export user's watch lists and products as JSON
+   * FIXED N+1: Batch query all products for all lists at once
+   */
+  async exportUserWatchListsData(userId: number): Promise<WatchListExportData> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+
+    // Step 1: Get all watch lists
+    const lists = await this.getWatchListsWithStats(userId);
+
+    // Step 2: Batch query ALL products for ALL lists at once (prevents N+1)
+    const listIds = lists.map(list => list.id);
+    const allProducts = listIds.length > 0
+      ? await db
+          .select({
+            watchListId: productWatches.watchListId,
+            productId: productWatches.productId,
+            productName: products.name,
+            category: productWatches.category,
+            notes: productWatches.notes,
+            priority: productWatches.priority,
+            targetPrice: productWatches.targetPrice,
+          })
+          .from(productWatches)
+          .innerJoin(products, eq(products.id, productWatches.productId))
+          .where(
+            and(
+              eq(productWatches.userId, userId),
+              inArray(productWatches.watchListId, listIds)
+            )
+          )
+      : [];
+
+    // Step 3: Group products by listId using Map for O(n) lookup
+    const productsByListId = new Map<number, typeof allProducts>();
+    for (const product of allProducts) {
+      if (!productsByListId.has(product.watchListId!)) {
+        productsByListId.set(product.watchListId!, []);
+      }
+      productsByListId.get(product.watchListId!)!.push(product);
+    }
+
+    // Step 4: Build export data
+    const exportData = lists.map(list => ({
+      name: list.name,
+      description: list.description,
+      color: list.color,
+      icon: list.icon,
+      products: (productsByListId.get(list.id) || []).map(p => ({
+        productId: p.productId,
+        productName: p.productName,
+        category: p.category,
+        notes: p.notes,
+        priority: p.priority,
+        targetPrice: p.targetPrice,
+      })),
+    }));
+
+    return {
+      exportDate: new Date().toISOString(),
+      userId,
+      watchLists: exportData,
+    };
+  }
+
+  /**
+   * Import watch lists from JSON export (transactional all-or-nothing)
+   */
+  async importWatchListsData(
+    userId: number,
+    data: WatchListImportData
+  ): Promise<{ created: number; skipped: number }> {
+    if (!userId || userId <= 0) {
+      throw new Error('userId must be a positive number');
+    }
+    if (!data.watchLists || !Array.isArray(data.watchLists)) {
+      throw new Error('watchLists must be an array');
+    }
+
+    // DATA INTEGRITY: Use transaction to ensure all-or-nothing import
+    // If mid-import failure occurs, rollback prevents partial data corruption
+    return await db.transaction(async (tx) => {
+      let created = 0;
+      let skipped = 0;
+
+      for (const listData of data.watchLists) {
+        try {
+          // Check if list with this name already exists
+          const existing = await tx
+            .select()
+            .from(watchLists)
+            .where(
+              and(
+                eq(watchLists.userId, userId),
+                eq(watchLists.name, listData.name)
+              )
+            )
+            .limit(1);
+
+          let listId: number;
+
+          if (existing.length > 0) {
+            listId = existing[0].id;
+            skipped++;
+          } else {
+            // Create new list within transaction
+            const newListResult = await tx.insert(watchLists).values({
+              userId,
+              name: listData.name,
+              description: listData.description || null,
+              color: listData.color || null,
+              icon: listData.icon || null,
+            }).returning();
+            listId = newListResult[0].id;
+            created++;
+          }
+
+          // Import products into the list
+          if (listData.products && Array.isArray(listData.products)) {
+            for (const productData of listData.products) {
+              try {
+                const watch: InsertProductWatch = {
+                  userId,
+                  productId: productData.productId,
+                  watchListId: listId,
+                  category: productData.category || null,
+                  notes: productData.notes || null,
+                  priority: productData.priority || 3,
+                  targetPrice: productData.targetPrice || null,
+                };
+
+                await tx
+                  .insert(productWatches)
+                  .values(watch)
+                  .onConflictDoNothing();
+              } catch (error) {
+                logger.error('[Storage] Error importing product watch', { error });
+                // Continue with next product
+              }
+            }
+          }
+        } catch (error) {
+          logger.error('[Storage] Error importing watch list', { error });
+          skipped++;
+        }
+      }
+
+      return { created, skipped };
+    });
+  }
+
+  /**
+   * Get recent forum topic for a product
+   */
+  async getRecentTopicForProduct(productId: number, daysAgo: number): Promise<ForumTopic | null> {
+    if (!productId || productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+    if (daysAgo <= 0) {
+      throw new Error('daysAgo must be a positive number');
+    }
+
+    const result = await db
+      .select()
+      .from(forumTopics)
+      .where(
+        and(
+          eq(forumTopics.productId, productId),
+          gte(forumTopics.createdAt, sql`NOW() - INTERVAL '${sql.raw(daysAgo.toString())} days'`)
+        )
+      )
+      .limit(1);
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Create price drop forum post with notification (transactional)
+   * DATA INTEGRITY: Topic, post, and notifications must all succeed or rollback
+   */
+  async createPriceDropForumPostTransaction(data: PriceDropForumPostData): Promise<number | null> {
+    const { dealPost, userId } = data;
+
+    let postId: number | null = null;
+
+    // DATA INTEGRITY: Use transaction for topic+post+notification creation
+    // If any step fails, rollback all changes (prevents orphaned topics/posts)
+    await db.transaction(async (tx) => {
+      // Check if there's already a recent topic for this product
+      const recentTopic = await tx
+        .select()
+        .from(forumTopics)
+        .where(
+          and(
+            eq(forumTopics.productId, dealPost.productId),
+            gte(forumTopics.createdAt, sql`NOW() - INTERVAL '7 days'`)
+          )
+        )
+        .limit(1);
+
+      let topicId: number;
+
+      if (recentTopic.length > 0) {
+        topicId = recentTopic[0].id;
+      } else {
+        // Create new topic
+        const topicTitle = `🔥 ${dealPost.dropPercent.toFixed(0)}% Price Drop: ${dealPost.productName}`;
+        const slug = topicTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+        const topicResult = await tx.insert(forumTopics).values({
+          categoryId: 1, // FORUM.DEALS_CATEGORY_ID
+          title: topicTitle,
+          slug,
+          authorId: userId || 1, // System user
+          productId: dealPost.productId,
+          isPinned: dealPost.dropPercent >= 50, // Pin massive drops
+        }).returning();
+
+        topicId = topicResult[0].id;
+      }
+
+      // Create post in the topic - must succeed or rollback topic
+      const postContent = `
+## Major Price Drop Alert! 🎉
+
+**Product:** ${dealPost.productName}
+**Retailer:** ${dealPost.retailer}
+
+**Price Change:**
+- Old Price: $${dealPost.oldPrice.toFixed(2)}
+- New Price: $${dealPost.newPrice.toFixed(2)}
+- **You Save: $${dealPost.dropAmount.toFixed(2)} (${dealPost.dropPercent.toFixed(1)}%)**
+
+${dealPost.dropPercent >= 50 ? '🔥 **MASSIVE DEAL!** This is an exceptional price drop!' : ''}
+${dealPost.dropPercent >= 30 && dealPost.dropPercent < 50 ? '💰 **Great Deal!** Significant savings on this product.' : ''}
+
+_This deal was automatically detected by our price tracking system._
+      `.trim();
+
+      const postResult = await tx.insert(forumPosts).values({
+        topicId,
+        authorId: userId || 1, // System user
+        content: postContent,
+        rawContent: postContent,
+        postNumber: 1,
+      }).returning();
+
+      postId = postResult[0].id;
+
+      // Notify all users watching this product - must succeed or rollback all
+      const watchers = await tx
+        .select({ userId: productWatches.userId })
+        .from(productWatches)
+        .where(eq(productWatches.productId, dealPost.productId));
+
+      if (watchers.length > 0) {
+        const notificationList = watchers.map(w => ({
+          userId: w.userId,
+          type: 'price_drop',
+          title: `${dealPost.dropPercent.toFixed(0)}% Price Drop on ${dealPost.productName}!`,
+          content: `The price dropped from $${dealPost.oldPrice.toFixed(2)} to $${dealPost.newPrice.toFixed(2)}`,
+          relatedPostId: postId!,
+        }));
+
+        await tx.insert(notifications).values(notificationList);
+      }
+    });
+
+    return postId;
+  }
+
+  /**
+   * Get users watching a product
+   */
+  async getWatchersForProduct(productId: number): Promise<number[]> {
+    if (!productId || productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+
+    const watchers = await db
+      .select({ userId: productWatches.userId })
+      .from(productWatches)
+      .where(eq(productWatches.productId, productId));
+
+    return watchers.map(w => w.userId);
+  }
+
+  /**
+   * Notify all product watchers
+   */
+  async notifyProductWatchers(productId: number, notification: WatcherNotificationData): Promise<void> {
+    if (!productId || productId <= 0) {
+      throw new Error('productId must be a positive number');
+    }
+    if (!notification.type || !notification.title || !notification.content) {
+      throw new Error('notification must have type, title, and content');
+    }
+
+    const watchers = await this.getWatchersForProduct(productId);
+
+    if (watchers.length > 0) {
+      const notificationList = watchers.map(userId => ({
+        userId,
+        type: notification.type,
+        title: notification.title,
+        content: notification.content,
+        relatedProductId: notification.relatedProductId || null,
+        relatedTopicId: notification.relatedTopicId || null,
+        relatedPostId: notification.relatedPostId || null,
+      }));
+
+      await db.insert(notifications).values(notificationList);
+    }
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
@@ -4219,4 +5428,124 @@ export interface AnalyticsOverview {
     downtrend: number;
     stable: number;
   };
+}
+
+// ============================================================================
+// Community Service Types (Phase 4 Storage Migration)
+// ============================================================================
+
+export interface CommunityWatchStats {
+  productId: number;
+  watchCount: number;
+  rank: number;
+}
+
+export interface CommunityLeaderboardEntry {
+  userId: number;
+  username: string;
+  reputationPoints: number;
+  dealsSpotted: number;
+  level: number;
+  rank: number;
+}
+
+export interface CreateDealSpottingData {
+  userId: number;
+  productId: number;
+  priceDropPercent: number;
+  priceDropAmount: number;
+  forumPostId?: number;
+  reputationAwarded: number;
+}
+
+export interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;
+}
+
+export interface CreateWatchListData {
+  userId: number;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  sortOrder: number;
+}
+
+export interface WatchListUpdates {
+  name?: string;
+  description?: string | null;
+  color?: string | null;
+  icon?: string | null;
+  sortOrder?: number;
+}
+
+export interface ProductWatchUpdates {
+  category?: string | null;
+  notes?: string | null;
+  priority?: number;
+  targetPrice?: string | null;
+  watchListId?: number | null;
+}
+
+export interface WatchListProductWithDetails extends ProductWatch {
+  productName?: string;
+  productImage?: string;
+}
+
+export interface WatchListExportData {
+  exportDate: string;
+  userId: number;
+  watchLists: Array<{
+    name: string;
+    description: string | null;
+    color: string | null;
+    icon: string | null;
+    products: Array<{
+      productId: number;
+      productName?: string;
+      category: string | null;
+      notes: string | null;
+      priority: number | null;
+      targetPrice: string | null;
+    }>;
+  }>;
+}
+
+export interface WatchListImportData {
+  watchLists: Array<{
+    name: string;
+    description?: string;
+    color?: string;
+    icon?: string;
+    products: Array<{
+      productId: number;
+      category?: string;
+      notes?: string;
+      priority?: number;
+      targetPrice?: string;
+    }>;
+  }>;
+}
+
+export interface PriceDropForumPostData {
+  dealPost: {
+    productId: number;
+    productName: string;
+    oldPrice: number;
+    newPrice: number;
+    dropPercent: number;
+    dropAmount: number;
+    retailer: string;
+  };
+  userId?: number;
+}
+
+export interface WatcherNotificationData {
+  type: string;
+  title: string;
+  content: string;
+  relatedProductId?: number;
+  relatedTopicId?: number;
+  relatedPostId?: number;
 }
