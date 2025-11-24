@@ -42,6 +42,9 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - Lacks proper indexing considerations
    - Doesn't use the storage.ts abstraction layer
    - Queries the database directly instead of through IStorage interface
+   - **Count Query Anti-Pattern**: Fetches all records just to count them
+     - ❌ WRONG: `const items = await db.select().from(table); return items.length;`
+     - ✅ CORRECT: `const [result] = await db.select({ count: sql<number>\`COUNT(*)::int\` }).from(table); return result?.count ?? 0;`
 
 3. **Architecture Compliance**: Verify that code follows these mandatory patterns:
    - All database access goes through server/storage.ts
@@ -50,6 +53,11 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - Design system colors (bg-primary, text-secondary) not hardcoded hex values
    - Path aliases: @/* for client, @shared/* for shared, relative paths for server
    - Middleware order in server/index.ts must follow the documented pipeline
+   - **Storage Layer Migration Completeness**: When migrating services from direct db access to storage layer:
+     - Must remove ALL `import { db }` statements
+     - Must remove ALL drizzle-orm imports (eq, and, sql, gt, lt, desc, etc.)
+     - Must add storage methods for ANY remaining database operations
+     - If a storage method doesn't exist, create it FIRST before migrating the service
    - **Route File Import Paths (CRITICAL)**: Files in server/routes/ MUST use '../' prefix for utilities and services:
      - ✅ CORRECT: `import { log } from '../utils/logger'`
      - ✅ CORRECT: `import { createErrorResponse } from '../utils/error-sanitizer'`
