@@ -2,7 +2,7 @@
 
 **Purpose:** Codify patterns, standards, and lessons learned from the storage layer refactoring project to ensure consistent quality across all domain implementations.
 
-**Context:** Extracted from Phase 2 (UserStorage - 8 methods, 9.5/10), Phase 3 (ProductStorage - 35 methods, 9.4/10), and Phase 4 (JobLockStorage - 7 methods, 9.5/10) implementations.
+**Context:** Extracted from Phase 2 (UserStorage - 8 methods, 9.5/10), Phase 3 (ProductStorage - 35 methods, 9.4/10), Phase 4 (JobLockStorage - 7 methods, 9.5/10), and Phase 5 (RetailerStorage - 12 methods, 9.5/10) implementations.
 
 ---
 
@@ -715,6 +715,257 @@ Memory usage targets:
 - Search with pagination: <5MB
 - Batch operations: <10MB
 - Never load full tables without pagination
+
+---
+
+## 13. Code Reuse Through Private Helpers (Phase 5 Pattern)
+
+**Pattern:** Extract repeated validation and utility logic into private helper methods.
+
+**Problem:** Code duplication across similar methods (CRUD + Admin CRUD).
+
+**Example from RetailerStorage (Phase 5):**
+
+```typescript
+export class RetailerStorage extends BaseStorage {
+  /**
+   * Validate retailer name (reusable helper)
+   * @private
+   */
+  private validateRetailerName(name: string): void {
+    if (!name || name.trim().length < RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
+      throw new Error(
+        `Retailer name must be at least ${RETAILER_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`
+      );
+    }
+    if (name.length > RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
+      throw new Error(
+        `Retailer name cannot exceed ${RETAILER_CONSTANTS.VALIDATION.MAX_NAME_LENGTH} characters`
+      );
+    }
+  }
+
+  /**
+   * Safely parse JSON with error handling (reusable helper)
+   * @private
+   */
+  private parseAffiliateConfig(configJson: string | null): Record<string, unknown> | null {
+    if (!configJson) return null;
+
+    try {
+      return JSON.parse(configJson);
+    } catch (error) {
+      logger.warn('Failed to parse affiliate config JSON', {
+        rawJson: configJson.substring(0, 100),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null; // Graceful fallback
+    }
+  }
+
+  /**
+   * Optimized existence check (SELECT id only, not full record)
+   * @private
+   */
+  private async retailerExists(id: number): Promise<boolean> {
+    const result = await this.db
+      .select({ id: retailers.id })
+      .from(retailers)
+      .where(eq(retailers.id, id))
+      .limit(1);
+
+    return result.length > 0;
+  }
+
+  // Public methods use helpers
+  async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
+    return this.handleError('createRetailer', async () => {
+      this.validateRetailerName(retailer.name); // ✅ Reuse validation
+      // ... rest of logic
+    });
+  }
+
+  async updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | null> {
+    return this.handleError('updateRetailer', async () => {
+      if (updates.name !== undefined) {
+        this.validateRetailerName(updates.name); // ✅ Reuse validation
+      }
+
+      const exists = await this.retailerExists(id); // ✅ Optimized check
+      if (!exists) return null;
+      // ... rest of logic
+    });
+  }
+}
+```
+
+**Benefits:**
+1. **DRY Principle:** Single source of truth for validation logic
+2. **Maintainability:** Update validation in one place
+3. **Type Safety:** Prevents JSON.parse() crashes with try-catch
+4. **Performance:** Optimized queries (SELECT id vs full record)
+5. **Testability:** Private methods can be tested independently
+
+**When to Extract Private Helpers:**
+- Validation logic used in 2+ methods (name, email, etc.)
+- JSON parsing/stringification operations
+- Existence checks before updates/deletes
+- Data transformation utilities
+- Complex condition checks
+
+**Quality Impact:**
+- Phase 5 RetailerStorage: 8.8/10 → 9.5/10 after extracting 3 helpers
+- Reduced duplicate code by ~60 lines
+- Eliminated crash risk from malformed JSON
+
+---
+
+## 14. Safe JSON Parsing Pattern (Phase 5 Pattern)
+
+**Pattern:** Always wrap JSON.parse() in try-catch with graceful fallback.
+
+**Problem:** Database may contain invalid JSON, causing production crashes.
+
+**Anti-Pattern:**
+```typescript
+// ❌ DANGEROUS - Will crash if JSON is malformed
+affiliateConfigParsed: retailer.affiliateConfig
+  ? JSON.parse(retailer.affiliateConfig)  // Can throw synchronously!
+  : null,
+```
+
+**Correct Pattern:**
+```typescript
+// ✅ SAFE - Graceful degradation with logging
+private parseAffiliateConfig(configJson: string | null): Record<string, unknown> | null {
+  if (!configJson) return null;
+
+  try {
+    return JSON.parse(configJson);
+  } catch (error) {
+    logger.warn('Failed to parse affiliate config JSON', {
+      rawJson: configJson.substring(0, 100),  // Truncate for logs
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;  // Graceful fallback - don't crash
+  }
+}
+
+// Usage
+affiliateConfigParsed: this.parseAffiliateConfig(retailer.affiliateConfig),
+```
+
+**Benefits:**
+- Prevents production crashes from data corruption
+- Provides debugging information via logs
+- Returns sensible default (null) on failure
+- Maintains operation continuity
+
+**When to Apply:**
+- Parsing JSON from database columns
+- Parsing user-provided JSON input
+- Parsing external API responses
+- Any untrusted JSON source
+
+---
+
+## 15. Optimized Existence Checks (Phase 5 Pattern)
+
+**Pattern:** Use lightweight SELECT id queries for existence checks instead of fetching full records.
+
+**Problem:** Fetching entire record when you only need to know if it exists wastes bandwidth and memory.
+
+**Anti-Pattern:**
+```typescript
+// ❌ INEFFICIENT - Fetches full record for existence check
+const existing = await this.getRetailerById(id);  // Returns full Retailer object
+if (!existing) {
+  return null;
+}
+// ... proceed with update
+```
+
+**Correct Pattern:**
+```typescript
+// ✅ OPTIMIZED - Only fetch primary key
+private async retailerExists(id: number): Promise<boolean> {
+  const result = await this.db
+    .select({ id: retailers.id })  // Only select what we need
+    .from(retailers)
+    .where(eq(retailers.id, id))
+    .limit(1);  // Stop after first match
+
+  return result.length > 0;
+}
+
+// Usage
+const exists = await this.retailerExists(id);
+if (!exists) {
+  this.logDebug('updateRetailer', { id, reason: 'Retailer not found' });
+  return null;
+}
+```
+
+**Performance Benefits:**
+- **Reduced Payload:** SELECT id vs SELECT * (10-100x smaller)
+- **Faster Query:** Database can use covering index
+- **Lower Memory:** Don't hydrate full object
+- **Network Efficiency:** Less data over the wire
+
+**When to Apply:**
+- Pre-update existence checks
+- Pre-delete existence checks
+- Validation operations
+- Authorization checks (user owns resource)
+
+**Exception:**
+Use full record fetch when you need the data immediately after:
+```typescript
+// ✅ OK - You need the full record anyway
+const existing = await this.getRetailerById(id);
+if (!existing) return null;
+
+// Compare old vs new values
+if (existing.name !== updates.name) {
+  // Log name change for audit
+}
+```
+
+---
+
+## 16. Admin Method Separation Pattern (Phase 5 Observation)
+
+**Pattern:** Separate public-facing and admin methods when business logic differs.
+
+**When Admin Methods Are Justified:**
+```typescript
+// Different sorting for admin
+async getRetailers(): Promise<Retailer[]> {
+  // Public: Filter active only
+  return await this.db.select().from(retailers)
+    .where(eq(retailers.isActive, true));
+}
+
+async getAdminRetailers(): Promise<Retailer[]> {
+  // Admin: All retailers, sorted alphabetically
+  return await this.db.select().from(retailers)
+    .orderBy(asc(retailers.name));
+}
+```
+
+**When Admin Methods Are Code Smell:**
+```typescript
+// ❌ CODE SMELL - Functionally identical
+async updateRetailer(id: number, updates: Partial<InsertRetailer>) { ... }
+async updateAdminRetailer(id: number, data: Partial<InsertRetailer>) { ... }
+// Solution: Use single method, enforce authorization in route middleware
+```
+
+**Best Practice:**
+- **Separate methods** when business logic differs (filtering, sorting, validation)
+- **Single method** when only authorization differs (handle in route layer)
+- Use route middleware (`withAuth`, `withAdmin`) for access control
+- Document the distinction in JSDoc
 
 ---
 
