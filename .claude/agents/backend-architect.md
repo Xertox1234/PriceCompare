@@ -360,8 +360,118 @@ cron.schedule('0 2 * * *', async () => {
 - Config: `server/config/*.ts`
 - Shared Types: `shared/schema.ts`
 
+## N+1 Query Prevention Patterns (CRITICAL)
+
+### Service Layer Pattern: Batch Query Implementation
+```typescript
+// ❌ WRONG - N+1 queries in service layer
+class CommunityService {
+  async checkAndAwardBadges(userId: number) {
+    const badges = this.getEligibleBadges();
+
+    for (const badge of badges) {
+      // N+1: Individual query per badge
+      const badgeRecord = await storage.getBadgeByName(badge.name);
+      // N+1: Another query per badge
+      const hasBadge = await storage.checkUserHasBadge(userId, badgeRecord.id);
+      if (!hasBadge) {
+        await storage.awardBadge(userId, badgeRecord.id);
+      }
+    }
+  }
+}
+
+// ✅ CORRECT - Batch queries with efficient lookups
+class CommunityService {
+  async checkAndAwardBadges(userId: number) {
+    // Step 1: Filter eligible items BEFORE querying
+    const badges = this.getEligibleBadges();
+    const badgeNames = badges.map(b => b.name);
+
+    // Step 2: Batch fetch all needed data
+    const [badgeRecords, userBadgeIds] = await Promise.all([
+      storage.getBadgesByNames(badgeNames),
+      storage.getUserBadgeIds(userId)
+    ]);
+
+    // Step 3: Create efficient lookup structures
+    const badgeMap = new Map(badgeRecords.map(b => [b.name, b]));
+    const userBadgeSet = new Set(userBadgeIds);
+
+    // Step 4: Process with in-memory lookups + error handling
+    for (const badge of badges) {
+      const badgeRecord = badgeMap.get(badge.name);
+      if (badgeRecord && !userBadgeSet.has(badgeRecord.id)) {
+        try {
+          await storage.awardBadgeWithNotification(userId, badgeRecord.id, badge.name);
+        } catch (error) {
+          log.error('Failed to award badge', {
+            userId,
+            badgeId: badgeRecord.id,
+            badgeName: badge.name,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          // Continue processing other badges
+        }
+      }
+    }
+  }
+}
+```
+
+### Type Cast Safety in Services
+```typescript
+// ❌ WRONG - Using 'as any' to bypass type checking
+async importData(userId: number, data: unknown) {
+  // Type safety bypassed!
+  return await storage.importWatchLists(userId, data as any);
+}
+
+// ✅ CORRECT - Cast to explicit interface type
+async importData(userId: number, data: unknown) {
+  // Storage layer expects WatchListImportData structure
+  // Cast is safe as storage layer validates structure
+  return await storage.importWatchLists(
+    userId,
+    data as import('../storage').WatchListImportData
+  );
+}
+```
+
+### Resilient Award/Assignment Patterns
+```typescript
+// ❌ WRONG - One failure stops all subsequent awards
+async awardMultipleBadges(userId: number, badgeIds: number[]) {
+  for (const badgeId of badgeIds) {
+    await storage.awardBadge(userId, badgeId); // Throws on error
+  }
+}
+
+// ✅ CORRECT - Resilient with detailed error tracking
+async awardMultipleBadges(userId: number, badgeIds: number[]) {
+  const results = { awarded: [], failed: [] };
+
+  for (const badgeId of badgeIds) {
+    try {
+      await storage.awardBadge(userId, badgeId);
+      results.awarded.push(badgeId);
+    } catch (error) {
+      results.failed.push({ badgeId, error: error.message });
+      log.error('Failed to award badge', {
+        userId,
+        badgeId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  return results;
+}
+```
+
 ## Communication
 - Be specific about what you implemented
 - Mention any integration points with frontend or database
 - Flag security concerns immediately
 - Suggest performance optimizations when relevant
+- Always check for N+1 query patterns in loops

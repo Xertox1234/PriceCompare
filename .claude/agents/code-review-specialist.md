@@ -82,6 +82,16 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - **@ts-expect-error/@ts-ignore ZERO TOLERANCE**: Must have detailed comment explaining WHY and WHEN it can be removed
    - **Complex Type Extraction**: React Query hooks with complex inline return types (3+ lines) should extract to named interfaces for readability
    - **Dynamic Query Building**: Should not require type suppression - restructure code instead
+   - **Type Cast Safety (CRITICAL)**: NEVER use `as any` to bypass type checking:
+     ```typescript
+     // ❌ WRONG - Bypasses all type safety
+     return await storage.importData(userId, data as any);
+
+     // ✅ CORRECT - Cast to explicit interface type
+     // Storage layer expects WatchListImportData structure
+     // Cast is safe as storage layer validates structure
+     return await storage.importData(userId, data as import('../storage').WatchListImportData);
+     ```
 
 7. **Design System Adherence** (UI code only):
    - Must use design tokens (bg-primary, text-secondary) not hardcoded colors
@@ -253,6 +263,73 @@ async getUserWishlistItems(userId: number) {
 }
 ```
 
+### Advanced N+1 Pattern: Badge/Permission Checking (Phase 5)
+```typescript
+// ❌ CRITICAL ISSUE - N+1 in eligibility checking (15 queries for 7 badges)
+async checkAndAwardBadges(userId: number) {
+  const eligibleBadges = badges.filter(b => b.isEligible());
+
+  for (const badge of eligibleBadges) {
+    // N+1: Individual query per badge
+    const badgeRecord = await storage.getBadgeByName(badge.name);
+    // N+1: Another query per badge
+    const hasBadge = await storage.checkUserHasBadge(userId, badgeRecord.id);
+    if (!hasBadge) {
+      await storage.awardBadge(userId, badgeRecord.id);
+    }
+  }
+}
+
+// ✅ CORRECT - Batch queries with Set for O(1) lookups (3 queries total)
+async checkAndAwardBadges(userId: number) {
+  // Step 1: Filter eligible items BEFORE querying
+  const eligibleBadges = badges.filter(b => b.isEligible());
+  const badgeNames = eligibleBadges.map(b => b.name);
+
+  // Step 2: Batch fetch all needed records
+  const badgeRecords = await storage.getBadgesByNames(badgeNames);
+  const badgeMap = new Map(badgeRecords.map(b => [b.name, b]));
+
+  // Step 3: Get all user's existing badges at once
+  const userBadgeIds = await storage.getUserBadgeIds(userId);
+  const userBadgeSet = new Set(userBadgeIds);
+
+  // Step 4: Loop with in-memory lookups only
+  for (const badge of eligibleBadges) {
+    const badgeRecord = badgeMap.get(badge.name);
+    if (badgeRecord && !userBadgeSet.has(badgeRecord.id)) {
+      // Include error handling for resilient award loops
+      try {
+        await storage.awardBadgeWithNotification(userId, badgeRecord.id, badge.name);
+      } catch (error) {
+        log.error('Failed to award badge', {
+          userId,
+          badgeId: badgeRecord.id,
+          badgeName: badge.name,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        // Continue to attempt other badges
+      }
+    }
+  }
+}
+```
+
+### Batch Method Naming Convention
+```typescript
+// ✅ CORRECT - Consistent naming for batch operations
+interface IStorage {
+  // Singular method - single item lookup
+  getBadgeByName(name: string): Promise<Badge | undefined>;
+
+  // Plural method - batch operation with comment
+  getBadgesByNames(names: string[]): Promise<Badge[]>; // Batch query for N+1 prevention
+
+  // User collection method
+  getUserBadgeIds(userId: number): Promise<number[]>; // Get all user badges at once
+}
+```
+
 ### Promise.all vs Promise.allSettled
 ```typescript
 // ❌ WRONG - Fails entirely if one item fails
@@ -268,6 +345,30 @@ const results = await Promise.allSettled(
 const successfulResults = results
   .filter(r => r.status === 'fulfilled')
   .map(r => (r as PromiseFulfilledResult<any>).value);
+```
+
+### Resilient Award/Assignment Loops
+```typescript
+// ❌ WRONG - No error handling, cascading failure
+for (const item of items) {
+  await awardItem(userId, item.id); // One failure stops all
+}
+
+// ✅ CORRECT - Resilient with detailed logging
+for (const item of items) {
+  try {
+    await awardItem(userId, item.id);
+  } catch (error) {
+    // Log with full context for debugging
+    log.error('Failed to award item', {
+      userId,
+      itemId: item.id,
+      itemName: item.name,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    // Continue processing remaining items
+  }
+}
 ```
 
 ## Your Review Process

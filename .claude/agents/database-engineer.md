@@ -404,6 +404,115 @@ allRelated.forEach(r => {
 });
 ```
 
+### Advanced N+1 Pattern: Eligibility/Permission Checking (Phase 5)
+```typescript
+// ❌ WRONG - Multiple queries per iteration
+async checkAndAwardBadges(userId: number) {
+  const eligibleBadges = badges.filter(b => b.condition);
+
+  // BAD: 1 + (N × 2) queries pattern
+  for (const badge of eligibleBadges) {
+    const badgeRecord = await db.select()
+      .from(badges)
+      .where(eq(badges.name, badge.name))
+      .limit(1); // Query #1 per badge
+
+    const userHasBadge = await db.select()
+      .from(userBadges)
+      .where(and(
+        eq(userBadges.userId, userId),
+        eq(userBadges.badgeId, badgeRecord[0].id)
+      )); // Query #2 per badge
+
+    if (!userHasBadge.length) {
+      await db.insert(userBadges).values({
+        userId,
+        badgeId: badgeRecord[0].id
+      });
+    }
+  }
+}
+
+// ✅ CORRECT - Batch queries with efficient data structures (3 queries total)
+async checkAndAwardBadges(userId: number) {
+  // Step 1: Filter eligible items BEFORE database queries
+  const eligibleBadges = badges.filter(b => b.condition);
+  const badgeNames = eligibleBadges.map(b => b.name);
+
+  // Step 2: Batch fetch all badge records at once
+  const badgeRecords = await db.select()
+    .from(badges)
+    .where(inArray(badges.name, badgeNames)); // Single query for all badges
+  const badgeMap = new Map(badgeRecords.map(b => [b.name, b]));
+
+  // Step 3: Get all user's existing badges at once
+  const userBadges = await db.select({ badgeId: userBadges.badgeId })
+    .from(userBadges)
+    .where(eq(userBadges.userId, userId)); // Single query for all user badges
+  const userBadgeSet = new Set(userBadges.map(ub => ub.badgeId));
+
+  // Step 4: Award missing badges using in-memory lookups
+  const badgesToAward = [];
+  for (const badge of eligibleBadges) {
+    const badgeRecord = badgeMap.get(badge.name);
+    if (badgeRecord && !userBadgeSet.has(badgeRecord.id)) {
+      badgesToAward.push({
+        userId,
+        badgeId: badgeRecord.id,
+        awardedAt: new Date()
+      });
+    }
+  }
+
+  // Step 5: Batch insert all new badges
+  if (badgesToAward.length > 0) {
+    await db.insert(userBadges).values(badgesToAward);
+  }
+}
+```
+
+### Batch Query Implementation Pattern
+When implementing batch queries in storage layer:
+
+```typescript
+// Storage Layer Methods (server/storage.ts)
+export class Storage implements IStorage {
+  // PATTERN: Singular method for single item lookup
+  async getBadgeByName(name: string): Promise<Badge | undefined> {
+    const result = await db.select()
+      .from(badges)
+      .where(eq(badges.name, name))
+      .limit(1);
+    return result[0];
+  }
+
+  // PATTERN: Plural method for batch operation
+  async getBadgesByNames(names: string[]): Promise<Badge[]> {
+    if (names.length === 0) return [];
+
+    // Batch query for N+1 prevention
+    return await db.select()
+      .from(badges)
+      .where(inArray(badges.name, names));
+  }
+
+  // PATTERN: User collection method
+  async getUserBadgeIds(userId: number): Promise<number[]> {
+    const result = await db.select({ badgeId: userBadges.badgeId })
+      .from(userBadges)
+      .where(eq(userBadges.userId, userId));
+    return result.map(r => r.badgeId);
+  }
+}
+```
+
+### Key Performance Principles:
+1. **Filter before querying**: Apply business logic filters in memory before database queries
+2. **Batch fetch all needed data**: Use `inArray()` for bulk lookups
+3. **Use efficient data structures**: Map for key-value lookups, Set for existence checks
+4. **Minimize round trips**: Combine related queries when possible
+5. **Consider batch inserts**: Use array values for multiple inserts
+
 ### Promise.all for Batch Operations
 ```typescript
 // ❌ WRONG - Entire operation fails if one item fails
