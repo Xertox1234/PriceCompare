@@ -2,10 +2,8 @@ import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
 import { createErrorResponse } from "../utils/error-sanitizer";
 import { z } from 'zod';
-import { db } from "../db";
+import { storage } from "../storage";
 import { parseIntSafe } from '../utils/validation-helpers';
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
-import { priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks } from "@shared/schema";
 import { trendAnalysisService } from '../services/trend-analysis-service';
 import { priceAggregationService } from '../services/price-aggregation-service';
 import type { AuthenticatedRequest } from '@shared/types';
@@ -65,23 +63,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       const { year, week, limit } = queryParams.data;
 
-      // Build query conditions
-      const conditions = [eq(priceAggregatesWeekly.productId, productId)];
-
-      if (year) {
-        conditions.push(eq(priceAggregatesWeekly.year, year));
-      }
-
-      if (week) {
-        conditions.push(eq(priceAggregatesWeekly.week, week));
-      }
-
-      const aggregates = await db
-        .select()
-        .from(priceAggregatesWeekly)
-        .where(and(...conditions))
-        .orderBy(desc(priceAggregatesWeekly.year), desc(priceAggregatesWeekly.week))
-        .limit(limit || 12);
+      const aggregates = await storage.getWeeklyAggregates(productId, { year, week, limit });
 
       res.json(aggregates);
     } catch (error) {
@@ -107,23 +89,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       const { year, month, limit } = queryParams.data;
 
-      // Build query conditions
-      const conditions = [eq(priceAggregatesMonthly.productId, productId)];
-
-      if (year) {
-        conditions.push(eq(priceAggregatesMonthly.year, year));
-      }
-
-      if (month) {
-        conditions.push(eq(priceAggregatesMonthly.month, month));
-      }
-
-      const aggregates = await db
-        .select()
-        .from(priceAggregatesMonthly)
-        .where(and(...conditions))
-        .orderBy(desc(priceAggregatesMonthly.year), desc(priceAggregatesMonthly.month))
-        .limit(limit || 12);
+      const aggregates = await storage.getMonthlyAggregates(productId, { year, month, limit });
 
       res.json(aggregates);
     } catch (error) {
@@ -150,17 +116,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       const { limit } = queryParams.data;
 
-      const aggregates = await db
-        .select()
-        .from(priceAggregatesWeekly)
-        .where(
-          and(
-            eq(priceAggregatesWeekly.productId, productId),
-            eq(priceAggregatesWeekly.retailerId, retailerId)
-          )
-        )
-        .orderBy(desc(priceAggregatesWeekly.year), desc(priceAggregatesWeekly.week))
-        .limit(limit || 12);
+      const aggregates = await storage.getWeeklyAggregates(productId, { retailerId, limit });
 
       res.json(aggregates);
     } catch (error) {
@@ -187,17 +143,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       const { limit } = queryParams.data;
 
-      const aggregates = await db
-        .select()
-        .from(priceAggregatesMonthly)
-        .where(
-          and(
-            eq(priceAggregatesMonthly.productId, productId),
-            eq(priceAggregatesMonthly.retailerId, retailerId)
-          )
-        )
-        .orderBy(desc(priceAggregatesMonthly.year), desc(priceAggregatesMonthly.month))
-        .limit(limit || 12);
+      const aggregates = await storage.getMonthlyAggregates(productId, { retailerId, limit });
 
       res.json(aggregates);
     } catch (error) {
@@ -309,45 +255,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    */
   app.get('/api/analytics/overview', async (req: Request, res: Response) => {
     try {
-      // OPTIMIZATION 1: Use SQL COUNT(*) instead of fetching all IDs
-      const weeklyCountResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(priceAggregatesWeekly);
-
-      const monthlyCountResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(priceAggregatesMonthly);
-
-      // OPTIMIZATION 2: Use GROUP BY to count trends by direction in a single query
-      const trendStatsResult = await db
-        .select({
-          direction: priceTrends.trendDirection,
-          count: sql<number>`count(*)::int`
-        })
-        .from(priceTrends)
-        .groupBy(priceTrends.trendDirection);
-
-      // Convert grouped results to breakdown object
-      const trendCounts = {
-        uptrend: 0,
-        downtrend: 0,
-        stable: 0
-      };
-
-      let totalTrends = 0;
-      for (const stat of trendStatsResult) {
-        totalTrends += stat.count;
-        if (stat.direction === 'uptrend') trendCounts.uptrend = stat.count;
-        else if (stat.direction === 'downtrend') trendCounts.downtrend = stat.count;
-        else if (stat.direction === 'stable') trendCounts.stable = stat.count;
-      }
-
-      res.json({
-        weeklyAggregates: weeklyCountResult[0]?.count || 0,
-        monthlyAggregates: monthlyCountResult[0]?.count || 0,
-        totalTrends,
-        trendBreakdown: trendCounts
-      });
+      const overview = await storage.getAnalyticsOverview();
+      res.json(overview);
     } catch (error) {
       const errorResponse = createErrorResponse(error, 'GetAnalyticsOverview');
       res.status(errorResponse.status).json({ error: errorResponse.error });
@@ -364,16 +273,8 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
     try {
       const now = new Date();
 
-      // Fetch all locks
-      const allLocks = await db
-        .select({
-          jobName: jobLocks.jobName,
-          lockedBy: jobLocks.lockedBy,
-          lockedAt: jobLocks.lockedAt,
-          expiresAt: jobLocks.expiresAt,
-        })
-        .from(jobLocks)
-        .orderBy(desc(jobLocks.lockedAt));
+      // Fetch all locks via storage layer
+      const allLocks = await storage.getJobLocks();
 
       // Categorize locks
       const activeLocks = allLocks.filter(lock => new Date(lock.expiresAt) > now);

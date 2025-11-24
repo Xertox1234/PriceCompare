@@ -2967,6 +2967,170 @@ export class DatabaseStorage implements IStorage {
     return result.map(row => ({ categoryName: row.categoryName, topicCount: Number(row.topicCount) }));
   }
 
+  async checkDatabaseHealth(): Promise<boolean> {
+    try {
+      await db.select({ count: sql`1` }).from(users).limit(1);
+      return true;
+    } catch (error) {
+      logger.error('Database health check failed:', error);
+      return false;
+    }
+  }
+
+  async getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]> {
+    const result = await db
+      .select()
+      .from(trendingProducts)
+      .where(eq(trendingProducts.status, status))
+      .orderBy(desc(trendingProducts.createdAt))
+      .limit(limit);
+
+    return result;
+  }
+
+  async getWeeklyAggregates(
+    productId: number,
+    options?: { year?: number; week?: number; retailerId?: number; limit?: number }
+  ): Promise<WeeklyAggregate[]> {
+    const { year, week, retailerId, limit = 12 } = options || {};
+
+    const conditions = [eq(priceAggregatesWeekly.productId, productId)];
+
+    if (year !== undefined) {
+      conditions.push(eq(priceAggregatesWeekly.year, year));
+    }
+
+    if (week !== undefined) {
+      conditions.push(eq(priceAggregatesWeekly.week, week));
+    }
+
+    if (retailerId !== undefined) {
+      conditions.push(eq(priceAggregatesWeekly.retailerId, retailerId));
+    }
+
+    const result = await db
+      .select()
+      .from(priceAggregatesWeekly)
+      .where(and(...conditions))
+      .orderBy(desc(priceAggregatesWeekly.year), desc(priceAggregatesWeekly.week))
+      .limit(limit);
+
+    return result.map(row => ({
+      id: row.id,
+      productId: row.productId,
+      retailerId: row.retailerId,
+      year: row.year,
+      week: row.week,
+      minPrice: row.minPrice,
+      maxPrice: row.maxPrice,
+      avgPrice: row.avgPrice,
+      medianPrice: row.medianPrice,
+      volatilityScore: row.volatilityScore,
+      recordCount: row.recordCount,
+      weekOverWeekChange: row.weekOverWeekChange,
+      updatedAt: row.updatedAt
+    }));
+  }
+
+  async getMonthlyAggregates(
+    productId: number,
+    options?: { year?: number; month?: number; retailerId?: number; limit?: number }
+  ): Promise<MonthlyAggregate[]> {
+    const { year, month, retailerId, limit = 12 } = options || {};
+
+    const conditions = [eq(priceAggregatesMonthly.productId, productId)];
+
+    if (year !== undefined) {
+      conditions.push(eq(priceAggregatesMonthly.year, year));
+    }
+
+    if (month !== undefined) {
+      conditions.push(eq(priceAggregatesMonthly.month, month));
+    }
+
+    if (retailerId !== undefined) {
+      conditions.push(eq(priceAggregatesMonthly.retailerId, retailerId));
+    }
+
+    const result = await db
+      .select()
+      .from(priceAggregatesMonthly)
+      .where(and(...conditions))
+      .orderBy(desc(priceAggregatesMonthly.year), desc(priceAggregatesMonthly.month))
+      .limit(limit);
+
+    return result.map(row => ({
+      id: row.id,
+      productId: row.productId,
+      retailerId: row.retailerId,
+      year: row.year,
+      month: row.month,
+      minPrice: row.minPrice,
+      maxPrice: row.maxPrice,
+      avgPrice: row.avgPrice,
+      medianPrice: row.medianPrice,
+      volatilityScore: row.volatilityScore,
+      recordCount: row.recordCount,
+      monthOverMonthChange: row.monthOverMonthChange,
+      yearOverYearChange: row.yearOverYearChange,
+      updatedAt: row.updatedAt
+    }));
+  }
+
+  async getAnalyticsOverview(): Promise<AnalyticsOverview> {
+    // OPTIMIZATION: Use SQL COUNT(*) and GROUP BY instead of fetching all records
+    const [weeklyCountResult, monthlyCountResult] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(priceAggregatesWeekly),
+      db.select({ count: sql<number>`count(*)::int` }).from(priceAggregatesMonthly)
+    ]);
+
+    // Use GROUP BY to count trends by direction in a single query
+    const trendStatsResult = await db
+      .select({
+        direction: priceTrends.trendDirection,
+        count: sql<number>`count(*)::int`
+      })
+      .from(priceTrends)
+      .groupBy(priceTrends.trendDirection);
+
+    // Convert grouped results to breakdown object
+    const trendCounts = {
+      uptrend: 0,
+      downtrend: 0,
+      stable: 0
+    };
+
+    let totalTrends = 0;
+    for (const stat of trendStatsResult) {
+      totalTrends += stat.count;
+      if (stat.direction === 'uptrend') trendCounts.uptrend = stat.count;
+      else if (stat.direction === 'downtrend') trendCounts.downtrend = stat.count;
+      else if (stat.direction === 'stable') trendCounts.stable = stat.count;
+    }
+
+    return {
+      weeklyAggregates: weeklyCountResult[0]?.count || 0,
+      monthlyAggregates: monthlyCountResult[0]?.count || 0,
+      totalTrends,
+      trendBreakdown: trendCounts
+    };
+  }
+
+  async getJobLocks(): Promise<JobLock[]> {
+    const result = await db
+      .select({
+        id: jobLocks.id,
+        jobName: jobLocks.jobName,
+        lockedBy: jobLocks.lockedBy,
+        lockedAt: jobLocks.lockedAt,
+        expiresAt: jobLocks.expiresAt,
+      })
+      .from(jobLocks)
+      .orderBy(desc(jobLocks.lockedAt));
+
+    return result;
+  }
+
   // User Registration with transaction (first user becomes admin)
   // SECURITY: passwordHash handled internally, NEVER exposed in return value
   async createUserWithTransaction(

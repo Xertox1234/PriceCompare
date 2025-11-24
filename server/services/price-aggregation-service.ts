@@ -37,6 +37,17 @@
  * ===================
  * Scheduled jobs use distributed locks (via Redis) to prevent duplicate
  * execution across multiple server instances.
+ *
+ * STORAGE LAYER EXCEPTION
+ * ========================
+ * This service retains direct `db` access as an exception to the storage layer pattern
+ * due to complex transaction context passing requirements. The service passes transaction
+ * contexts (`tx`) between private helper methods to maintain atomic multi-step operations.
+ * Abstracting this pattern would leak implementation details and reduce code clarity.
+ *
+ * All other services should use the storage layer. This exception is documented in:
+ * - todos/031-in-progress-p3-direct-db-in-services.md (Phase 7)
+ * - GitHub PR #120 (refactor/storage-layer-phase-7)
  */
 
 import { db } from "../db";
