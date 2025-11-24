@@ -71,7 +71,7 @@ Discovered during architecture audit on 2025-11-23.
 **Total: ~17 new storage methods added (Phase 2)**
 **Cumulative: 34 storage methods added**
 
-### Phase 3 - COMPLETED ✅ (PR #TBD)
+### Phase 3 - COMPLETED ✅ (PR #115)
 **Migrated 3 price analytics services:**
 - `price-history-service.ts` - 7 new storage methods
   - getProductOfferWithProduct, getLatestPriceForOffer, insertPriceHistory
@@ -141,7 +141,7 @@ fit well with the storage layer pattern. It remains with direct db access for no
 
 ### 2025-11-24 - Phase 3 Migration Completed
 **By:** Claude Code
-**PR:** #TBD (refactor/storage-layer-phase-3)
+**PR:** #115 (refactor/storage-layer-phase-3)
 **Changes:**
 - Migrated 3 price analytics services to storage layer
 - Added ~23 new storage methods to IStorage interface
