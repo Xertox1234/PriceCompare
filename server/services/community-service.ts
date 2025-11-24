@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { storage } from "../storage";
 import { getFirstResult } from "../utils/db-helpers";
 import {
   productWatches,
@@ -69,18 +70,7 @@ export async function addProductWatch(
   userId: number,
   productId: number
 ): Promise<ProductWatch> {
-  const watch: InsertProductWatch = {
-    userId,
-    productId,
-  };
-
-  const result = await db
-    .insert(productWatches)
-    .values(watch)
-    .onConflictDoNothing()
-    .returning();
-
-  const created = getFirstResult(result);
+  const created = await storage.addProductWatchRecord(userId, productId);
   if (!created) {
     throw new Error('Failed to create product watch');
   }
@@ -94,62 +84,28 @@ export async function removeProductWatch(
   userId: number,
   productId: number
 ): Promise<boolean> {
-  const result = await db
-    .delete(productWatches)
-    .where(
-      and(
-        eq(productWatches.userId, userId),
-        eq(productWatches.productId, productId)
-      )
-    )
-    .returning();
-
-  return result.length > 0;
+  return await storage.removeProductWatchRecord(userId, productId);
 }
 
 /**
  * Get user's watched products
  */
 export async function getUserWatchedProducts(userId: number): Promise<number[]> {
-  const watches = await db
-    .select({ productId: productWatches.productId })
-    .from(productWatches)
-    .where(eq(productWatches.userId, userId));
-
-  return watches.map(w => w.productId);
+  return await storage.getUserProductWatchIds(userId);
 }
 
 /**
  * Get watch count for a product
  */
 export async function getProductWatchCount(productId: number): Promise<number> {
-  const result = await db
-    .select({ count: count() })
-    .from(productWatches)
-    .where(eq(productWatches.productId, productId));
-
-  return result[0]?.count || 0;
+  return await storage.getProductWatchCountByProduct(productId);
 }
 
 /**
  * Get most watched products
  */
 export async function getMostWatchedProducts(limit: number = 10): Promise<WatchStats[]> {
-  const result = await db
-    .select({
-      productId: productWatches.productId,
-      watchCount: sql<number>`count(*)::int`,
-    })
-    .from(productWatches)
-    .groupBy(productWatches.productId)
-    .orderBy(sql`count(*) DESC`)
-    .limit(limit);
-
-  return result.map((r, index) => ({
-    productId: r.productId,
-    watchCount: r.watchCount,
-    rank: index + 1,
-  }));
+  return await storage.getMostWatchedProductStats(limit);
 }
 
 /**
@@ -159,46 +115,14 @@ export async function isUserWatchingProduct(
   userId: number,
   productId: number
 ): Promise<boolean> {
-  const result = await db
-    .select()
-    .from(productWatches)
-    .where(
-      and(
-        eq(productWatches.userId, userId),
-        eq(productWatches.productId, productId)
-      )
-    )
-    .limit(1);
-
-  return result.length > 0;
+  return await storage.isUserWatchingProductCheck(userId, productId);
 }
 
 /**
  * Get user's reputation
  */
 export async function getUserReputation(userId: number): Promise<UserReputation> {
-  const result = await db
-    .select()
-    .from(userReputation)
-    .where(eq(userReputation.userId, userId))
-    .limit(1);
-
-  if (result.length === 0) {
-    // Create default reputation
-    const newRep: InsertUserReputation = {
-      userId,
-      reputationPoints: 0,
-      dealsSpotted: 0,
-      accuratePredictions: 0,
-      communityContributions: 0,
-      level: 1,
-    };
-
-    const created = await db.insert(userReputation).values(newRep).returning();
-    return created[0];
-  }
-
-  return result[0];
+  return await storage.getOrCreateUserReputation(userId);
 }
 
 /**
@@ -402,27 +326,7 @@ export async function recordDealSpotting(
  * Get leaderboard of top users
  */
 export async function getLeaderboard(limit: number = 10): Promise<LeaderboardEntry[]> {
-  const result = await db
-    .select({
-      userId: userReputation.userId,
-      username: sql<string>`users.username`,
-      reputationPoints: userReputation.reputationPoints,
-      dealsSpotted: userReputation.dealsSpotted,
-      level: userReputation.level,
-    })
-    .from(userReputation)
-    .innerJoin(sql`users`, sql`users.id = ${userReputation.userId}`)
-    .orderBy(desc(userReputation.reputationPoints))
-    .limit(limit);
-
-  return result.map((r, index) => ({
-    userId: r.userId,
-    username: r.username,
-    reputationPoints: r.reputationPoints ?? 0,
-    dealsSpotted: r.dealsSpotted ?? 0,
-    level: r.level ?? 0,
-    rank: index + 1,
-  }));
+  return await storage.getCommunityLeaderboard(limit);
 }
 
 /**

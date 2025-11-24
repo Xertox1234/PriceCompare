@@ -90,9 +90,33 @@ Discovered during architecture audit on 2025-11-23.
 transaction context passing (`db.transaction(async (tx) => {...})`) which doesn't
 fit well with the storage layer pattern. It remains with direct db access for now.
 
-### Phase 4-6 - PENDING
-**Remaining 6+ services to migrate:**
-- Community: community-service
+### Phase 4 - COMPLETED ✅ (PR #116)
+**Migrated partial community service:**
+- `community-service.ts` - 8 core functions migrated (product watches, reputation, leaderboard)
+  - addProductWatch, removeProductWatch, getUserWatchedProducts, getProductWatchCount
+  - getMostWatchedProducts, isUserWatchingProduct, getUserReputation, getLeaderboard
+- Added 8 new storage methods to IStorage interface
+- Implemented methods in DatabaseStorage with:
+  - Input validation (positive integer checks)
+  - N+1 query prevention (GROUP BY, aggregation)
+  - Security comments (passwordHash exclusion)
+  - Proper type casting and null safety
+- Updated MemStorage with stub implementations
+- No TypeScript errors in migrated functions
+
+**Note:** community-service.ts still has complex transaction functions that remain with direct db access:
+- awardReputation (SERIALIZABLE transaction with retry)
+- checkAndAwardBadges (badge logic with transactions)
+- recordDealSpotting (multi-table transaction)
+- autoPostPriceDropToForum (forum integration)
+- Watch list management functions (transactions, bulk operations)
+
+**Total: ~8 new storage methods added (Phase 4)**
+**Cumulative: ~65 storage methods added**
+
+### Phase 5-6 - PENDING
+**Remaining services to migrate:**
+- Community: community-service (remaining watch list and badge functions)
 - Search/monitoring: advanced-search, monitoring-service, hybrid-data-collector
 - Routes: price-analytics-routes
 - Discovery: price-drop-detection, product-discovery-fallback
@@ -102,8 +126,9 @@ fit well with the storage layer pattern. It remains with direct db access for no
 - [x] Phase 1: Foundation services migrated (job-lock, password-reset, affiliate-link)
 - [x] Phase 2: Notification services migrated (notification, smart-notification, smart-alerts)
 - [x] Phase 3: Price analytics services migrated (price-history, price-snapshot, trend-analysis)
-- [ ] Phase 4: Community services migrated
-- [ ] Phase 5: Search & monitoring services migrated
+- [x] Phase 4: Core community functions migrated (product watches, reputation)
+- [ ] Phase 5: Remaining community functions migrated (watch lists, badges, deals)
+- [ ] Phase 6: Search & monitoring services migrated
 - [ ] All queries go through storage layer
 - [ ] Services import storage, not db
 - [ ] Tests updated to mock storage
@@ -155,12 +180,38 @@ fit well with the storage layer pattern. It remains with direct db access for no
 - No TypeScript errors in migrated files
 - price-aggregation-service.ts remains with db access (complex transaction context)
 
-## Next Steps (Phase 4+)
+### 2025-11-24 - Phase 4 Migration Completed (Partial)
+**By:** Claude Code
+**Branch:** refactor/storage-layer-phase-4
+**Changes:**
+- Migrated 8 core community-service.ts functions to storage layer
+- Added 8 new storage methods to IStorage interface:
+  - addProductWatchRecord, removeProductWatchRecord
+  - getUserProductWatchIds, getProductWatchCountByProduct
+  - getMostWatchedProductStats, isUserWatchingProductCheck
+  - getOrCreateUserReputation, getCommunityLeaderboard
+- Added 3 new type definitions (CommunityWatchStats, CommunityLeaderboardEntry, Badge)
+- Implemented methods in DatabaseStorage with:
+  - Input validation at function entry (positive integer checks)
+  - N+1 query prevention using GROUP BY and aggregation
+  - Security pattern compliance (passwordHash exclusion with comment)
+  - Proper type casting (count() → int) and null safety
+- Updated MemStorage with stub implementations
+- No TypeScript errors in migrated functions
+- Complex transaction functions remain in service layer:
+  - awardReputation (SERIALIZABLE + retry)
+  - Badge checking/awarding (transactions)
+  - Deal spotting (multi-table transactions)
+  - Forum auto-posting (complex transactions)
+  - Watch list management (bulk operations)
+
+## Next Steps (Phase 5+)
 
 When continuing this TODO:
-1. Work in a new branch: `git checkout -b refactor/storage-layer-phase-4`
-2. Focus on community-service.ts next
-3. Follow patterns established in Phases 1-3
+1. Work in a new branch: `git checkout -b refactor/storage-layer-phase-5`
+2. Focus on remaining community-service.ts functions (watch lists, badges, deals)
+3. Then migrate advanced-search, monitoring-service, hybrid-data-collector
+4. Follow patterns established in Phases 1-4
 
 ## Notes
 

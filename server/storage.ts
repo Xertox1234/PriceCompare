@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, badges, userBadges, dealSpottings, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type Badge } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
@@ -207,6 +207,22 @@ export interface IStorage {
   upsertPriceTrends(values: PriceTrendInsert[]): Promise<void>;
   getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null>;
   getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]>;
+
+  // ============================================================================
+  // Community Operations (Phase 4 Storage Migration)
+  // ============================================================================
+
+  // Product Watch Operations
+  addProductWatchRecord(userId: number, productId: number): Promise<ProductWatch | null>;
+  removeProductWatchRecord(userId: number, productId: number): Promise<boolean>;
+  getUserProductWatchIds(userId: number): Promise<number[]>;
+  getProductWatchCountByProduct(productId: number): Promise<number>;
+  getMostWatchedProductStats(limit: number): Promise<CommunityWatchStats[]>;
+  isUserWatchingProductCheck(userId: number, productId: number): Promise<boolean>;
+
+  // Reputation Operations
+  getOrCreateUserReputation(userId: number): Promise<UserReputation>;
+  getCommunityLeaderboard(limit: number): Promise<CommunityLeaderboardEntry[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -1005,6 +1021,42 @@ export class MemStorage implements IStorage {
   async upsertPriceTrends(_values: PriceTrendInsert[]): Promise<void> { /* Not supported in memory storage */ }
   async getPriceTrendWithRetailer(_productId: number, _retailerId: number): Promise<PriceTrendWithRetailer | null> { return null; }
   async getPriceTrendsForProduct(_productId: number): Promise<PriceTrendWithRetailer[]> { return []; }
+
+  // ============================================================================
+  // Community Operations (Phase 4 - Stubs)
+  // ============================================================================
+
+  async addProductWatchRecord(_userId: number, _productId: number): Promise<ProductWatch | null> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async removeProductWatchRecord(_userId: number, _productId: number): Promise<boolean> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getUserProductWatchIds(_userId: number): Promise<number[]> {
+    return [];
+  }
+
+  async getProductWatchCountByProduct(_productId: number): Promise<number> {
+    return 0;
+  }
+
+  async getMostWatchedProductStats(_limit: number): Promise<CommunityWatchStats[]> {
+    return [];
+  }
+
+  async isUserWatchingProductCheck(_userId: number, _productId: number): Promise<boolean> {
+    return false;
+  }
+
+  async getOrCreateUserReputation(_userId: number): Promise<UserReputation> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getCommunityLeaderboard(_limit: number): Promise<CommunityLeaderboardEntry[]> {
+    return [];
+  }
 }
 
 // Database Storage Implementation
@@ -3751,6 +3803,159 @@ export class DatabaseStorage implements IStorage {
       .where(eq(priceTrends.productId, productId))
       .orderBy(desc(priceTrends.lastAnalyzedAt));
   }
+
+  // ============================================================================
+  // Community Operations Implementation (Phase 4)
+  // ============================================================================
+
+  async addProductWatchRecord(userId: number, productId: number): Promise<ProductWatch | null> {
+    if (userId <= 0 || productId <= 0) {
+      throw new Error('userId and productId must be positive integers');
+    }
+
+    const result = await db
+      .insert(productWatches)
+      .values({ userId, productId })
+      .onConflictDoNothing()
+      .returning();
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  async removeProductWatchRecord(userId: number, productId: number): Promise<boolean> {
+    if (userId <= 0 || productId <= 0) {
+      throw new Error('userId and productId must be positive integers');
+    }
+
+    const result = await db
+      .delete(productWatches)
+      .where(and(eq(productWatches.userId, userId), eq(productWatches.productId, productId)))
+      .returning();
+
+    return result.length > 0;
+  }
+
+  async getUserProductWatchIds(userId: number): Promise<number[]> {
+    if (userId <= 0) {
+      throw new Error('userId must be a positive integer');
+    }
+
+    const watches = await db
+      .select({ productId: productWatches.productId })
+      .from(productWatches)
+      .where(eq(productWatches.userId, userId));
+
+    return watches.map(w => w.productId);
+  }
+
+  async getProductWatchCountByProduct(productId: number): Promise<number> {
+    if (productId <= 0) {
+      throw new Error('productId must be a positive integer');
+    }
+
+    const result = await db
+      .select({ count: count() })
+      .from(productWatches)
+      .where(eq(productWatches.productId, productId));
+
+    return result[0]?.count || 0;
+  }
+
+  async getMostWatchedProductStats(limit: number): Promise<CommunityWatchStats[]> {
+    if (limit <= 0) {
+      throw new Error('limit must be a positive integer');
+    }
+
+    const result = await db
+      .select({
+        productId: productWatches.productId,
+        watchCount: sql<number>`count(*)::int`,
+      })
+      .from(productWatches)
+      .groupBy(productWatches.productId)
+      .orderBy(sql`count(*) DESC`)
+      .limit(limit);
+
+    return result.map((r, index) => ({
+      productId: r.productId,
+      watchCount: r.watchCount,
+      rank: index + 1,
+    }));
+  }
+
+  async isUserWatchingProductCheck(userId: number, productId: number): Promise<boolean> {
+    if (userId <= 0 || productId <= 0) {
+      throw new Error('userId and productId must be positive integers');
+    }
+
+    const result = await db
+      .select()
+      .from(productWatches)
+      .where(and(eq(productWatches.userId, userId), eq(productWatches.productId, productId)))
+      .limit(1);
+
+    return result.length > 0;
+  }
+
+  async getOrCreateUserReputation(userId: number): Promise<UserReputation> {
+    if (userId <= 0) {
+      throw new Error('userId must be a positive integer');
+    }
+
+    const result = await db
+      .select()
+      .from(userReputation)
+      .where(eq(userReputation.userId, userId))
+      .limit(1);
+
+    if (result.length > 0) {
+      return result[0];
+    }
+
+    // Create default reputation
+    const newRep = await db
+      .insert(userReputation)
+      .values({
+        userId,
+        reputationPoints: 0,
+        dealsSpotted: 0,
+        accuratePredictions: 0,
+        communityContributions: 0,
+        level: 1,
+      })
+      .returning();
+
+    return newRep[0];
+  }
+
+  async getCommunityLeaderboard(limit: number): Promise<CommunityLeaderboardEntry[]> {
+    if (limit <= 0) {
+      throw new Error('limit must be a positive integer');
+    }
+
+    const result = await db
+      .select({
+        userId: userReputation.userId,
+        username: users.username,
+        reputationPoints: userReputation.reputationPoints,
+        dealsSpotted: userReputation.dealsSpotted,
+        level: userReputation.level,
+        // SECURITY: NEVER expose passwordHash
+      })
+      .from(userReputation)
+      .innerJoin(users, eq(users.id, userReputation.userId))
+      .orderBy(desc(userReputation.reputationPoints))
+      .limit(limit);
+
+    return result.map((r, index) => ({
+      userId: r.userId,
+      username: r.username,
+      reputationPoints: r.reputationPoints ?? 0,
+      dealsSpotted: r.dealsSpotted ?? 0,
+      level: r.level ?? 0,
+      rank: index + 1,
+    }));
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
@@ -4219,4 +4424,23 @@ export interface AnalyticsOverview {
     downtrend: number;
     stable: number;
   };
+}
+
+// ============================================================================
+// Community Service Types (Phase 4 Storage Migration)
+// ============================================================================
+
+export interface CommunityWatchStats {
+  productId: number;
+  watchCount: number;
+  rank: number;
+}
+
+export interface CommunityLeaderboardEntry {
+  userId: number;
+  username: string;
+  reputationPoints: number;
+  dealsSpotted: number;
+  level: number;
+  rank: number;
 }
