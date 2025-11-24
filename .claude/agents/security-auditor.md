@@ -123,9 +123,20 @@ Run through this checklist for each security review:
 // ❌ VULNERABLE (raw SQL)
 db.query(`SELECT * FROM products WHERE id = ${userId}`);
 
+// ❌ VULNERABLE (sql.raw() with user-controllable values)
+expiresAt: sql`${jobLocks.expiresAt} + INTERVAL '${sql.raw(additionalSeconds.toString())} seconds'`
+
 // ✅ SAFE (Drizzle ORM parameterized)
 db.query.products.findFirst({ where: eq(products.id, userId) });
+
+// ✅ SAFE (Parameterized multiplication for intervals)
+expiresAt: sql`${jobLocks.expiresAt} + (${additionalSeconds} * INTERVAL '1 second')`
 ```
+
+**CRITICAL: Never use `sql.raw()` with ANY user-controllable values**
+- Even if converted to string or validated as number
+- sql.raw() bypasses ALL parameterization
+- For SQL intervals, use parameterized multiplication pattern
 
 ### XSS
 ```typescript
@@ -153,6 +164,37 @@ const apiKey = 'sk-1234567890abcdef';
 // ✅ SAFE
 const apiKey = process.env.API_KEY;
 ```
+
+### Password Hash Exposure
+```typescript
+// ❌ VULNERABLE (exposes passwordHash)
+const user = await db.select().from(users).where(eq(users.id, id));
+
+// ✅ SAFE (explicit field selection)
+const user = await db.select({
+  id: users.id,
+  username: users.username,
+  email: users.email,
+  role: users.role,
+  // SECURITY: Never expose passwordHash
+}).from(users).where(eq(users.id, id));
+
+// ✅ BEST PRACTICE (dedicated safe method in storage layer)
+async getUserByIdSafe(id: number): Promise<SafeUser | null> {
+  // SECURITY: Never expose passwordHash - explicit field selection
+  const [user] = await db.select({
+    id: users.id,
+    username: users.username,
+    email: users.email,
+    role: users.role,
+    // ... other safe fields
+    // SECURITY: NEVER expose passwordHash
+  }).from(users).where(eq(users.id, id)).limit(1);
+  return user || null;
+}
+```
+
+**PATTERN: Always create `getUserByIdSafe()` method for retrieving user data without sensitive fields**
 
 ## Your Workflow
 1. Read relevant security-sensitive files:
