@@ -1,14 +1,13 @@
-import { db } from '../db';
-import { scrapingJobs, trendingProducts, agentSessions, productOffers } from '../../shared/schema';
-import { eq, desc, and, gte, count, sql } from 'drizzle-orm';
+import { storage } from '../storage';
 import { logger } from '../utils/logger';
 import { queryCache, generalCache } from './redis-cache';
-import { jobLocks } from '../../shared/schema';
 
 /**
  * Monitoring Service
  *
  * Provides real-time system metrics and health status for the dashboard
+ *
+ * Phase 6 Storage Layer Migration: All database queries now use storage.ts abstraction
  */
 
 export interface DashboardMetrics {
@@ -158,12 +157,7 @@ class MonitoringService {
   private async getAgentMetrics(): Promise<AgentMetrics> {
     try {
       // Get recent agent sessions (last 24 hours)
-      const recentSessions = await db
-        .select()
-        .from(agentSessions)
-        .where(gte(agentSessions.sessionStart, new Date(Date.now() - 24 * 60 * 60 * 1000)))
-        .orderBy(desc(agentSessions.sessionStart))
-        .limit(20);
+      const recentSessions = await storage.getRecentAgentSessions(24, 20);
 
       const activeSessions = recentSessions.filter(s => s.status === 'active');
 
@@ -203,18 +197,10 @@ class MonitoringService {
     try {
       const [allJobs, jobCounts] = await Promise.all([
         // Get recent jobs
-        db.select()
-          .from(scrapingJobs)
-          .orderBy(desc(scrapingJobs.createdAt))
-          .limit(50),
+        storage.getRecentScrapingJobs(50),
 
         // Get counts by status
-        db.select({
-          status: scrapingJobs.status,
-          count: count()
-        })
-          .from(scrapingJobs)
-          .groupBy(scrapingJobs.status)
+        storage.getScrapingJobStatusCounts()
       ]);
 
       const statusCounts = jobCounts.reduce((acc, row) => {
@@ -332,12 +318,7 @@ class MonitoringService {
   private async getLockMetrics(): Promise<LockMetrics> {
     try {
       // Query active locks from job_locks table
-      const [activeLockCount] = await db
-        .select({ count: count() })
-        .from(jobLocks)
-        .where(sql`${jobLocks.expiresAt} > NOW()`);
-
-      const activeLocks = activeLockCount?.count || 0;
+      const activeLocks = await storage.getActiveJobLocksCount();
 
       // Since we're using DB-based locks, detailed metrics are not tracked
       // Return basic metrics showing current lock state
@@ -346,7 +327,7 @@ class MonitoringService {
         acquisitionsSucceeded: 0, // Not tracked
         acquisitionsFailed: 0, // Not tracked
         locksReleased: 0, // Not tracked
-        activeLocks: Number(activeLocks),
+        activeLocks,
         avgAcquisitionTime: 0, // Not applicable for DB locks
         contentionRate: 0, // Not tracked
         successRate: 100 // Assume success since DB is reliable
@@ -373,15 +354,9 @@ class MonitoringService {
    */
   private async getProductMetrics(): Promise<ProductMetrics> {
     try {
-      const [productCount, offerCount, trendingCounts] = await Promise.all([
-        db.select({ count: count() }).from(agentSessions), // Using agentSessions as proxy
-        db.select({ count: count() }).from(productOffers),
-        db.select({
-          status: trendingProducts.status,
-          count: count()
-        })
-          .from(trendingProducts)
-          .groupBy(trendingProducts.status)
+      const [offerCount, trendingCounts] = await Promise.all([
+        storage.getProductOffersCount(),
+        storage.getTrendingProductsStatusCounts()
       ]);
 
       const trendingStatusCounts = trendingCounts.reduce((acc, row) => {
@@ -391,7 +366,7 @@ class MonitoringService {
 
       return {
         totalProducts: 0, // Would need products table count
-        totalOffers: Number(offerCount[0]?.count || 0),
+        totalOffers: offerCount,
         trendingDiscovered: trendingStatusCounts.discovered || 0,
         trendingProcessed: trendingStatusCounts.scraped || 0,
         trendingFailed: trendingStatusCounts.failed || 0
@@ -418,10 +393,11 @@ class MonitoringService {
     let healthyServices = 0;
     const totalServices = 3;
 
-    // Check database
+    // Check database - simple health check using storage layer
     let databaseHealthy = false;
     try {
-      await db.select().from(agentSessions).limit(1);
+      // Simple health ping to verify database connectivity
+      await storage.getActiveAgentSessionsCount(1);
       databaseHealthy = true;
       healthyServices++;
     } catch (error) {
@@ -439,14 +415,8 @@ class MonitoringService {
     // Check agents
     let agentsHealthy = false;
     try {
-      const activeSessions = await db
-        .select()
-        .from(agentSessions)
-        .where(and(
-          eq(agentSessions.status, 'active'),
-          gte(agentSessions.sessionStart, new Date(Date.now() - 10 * 60 * 1000)) // Last 10 minutes
-        ));
-      agentsHealthy = activeSessions.length > 0;
+      const activeSessionsCount = await storage.getActiveAgentSessionsCount(10);
+      agentsHealthy = activeSessionsCount > 0;
       if (agentsHealthy) {
         healthyServices++;
       } else {
