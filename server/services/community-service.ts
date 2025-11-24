@@ -188,8 +188,19 @@ async function checkAndAwardBadges(
   // Step 4: Award only badges user doesn't have yet
   for (const badgeRecord of eligibleBadges) {
     if (!userBadgeIdSet.has(badgeRecord.id)) {
-      // Award badge with notification (transactional in storage layer)
-      await storage.awardBadgeWithNotification(userId, badgeRecord.id, badgeRecord.name);
+      try {
+        // Award badge with notification (transactional in storage layer)
+        await storage.awardBadgeWithNotification(userId, badgeRecord.id, badgeRecord.name);
+      } catch (error) {
+        // Log error but continue with remaining badges
+        log.error('Failed to award badge', {
+          userId,
+          badgeId: badgeRecord.id,
+          badgeName: badgeRecord.name,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        // Continue to attempt other badges
+      }
     }
   }
 }
@@ -412,6 +423,7 @@ export async function importWatchLists(
   userId: number,
   importData: Record<string, unknown>
 ): Promise<{ created: number; skipped: number }> {
-  // Type cast - storage layer will validate
-  return await storage.importWatchListsData(userId, importData as any);
+  // Storage layer expects WatchListImportData structure
+  // Cast is safe as storage layer validates structure
+  return await storage.importWatchListsData(userId, importData as import('../storage').WatchListImportData);
 }
