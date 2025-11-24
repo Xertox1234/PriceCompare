@@ -1,18 +1,19 @@
-import { db } from "../db";
+import { storage } from "../storage";
 import {
-  priceHistory,
-  productOffers,
-  products,
-  retailers,
-  priceAlerts,
-  notifications,
   type PriceHistory,
   type InsertNotification
 } from "@shared/schema";
-import { eq, and, desc, gte, sql } from "drizzle-orm";
 
 /**
  * Price Drop Detection Service
+ *
+ * Phase 6 Storage Layer Migration:
+ * - Migrated from direct `db` queries to `storage` layer abstraction
+ * - Uses getPriceHistoryByOfferId, getProductOfferDetailsForAlert,
+ *   getTriggeredPriceAlerts, getUsersWithActiveAlertsForProduct
+ * - Preserves all business logic (drop detection, pattern analysis, confidence scoring)
+ * - Preserves WebSocket event emission for real-time price alerts
+ * - Notification creation uses direct db insert (Phase 2 pattern)
  *
  * Detects significant price drops and triggers notifications
  * based on configurable thresholds and patterns.
@@ -72,12 +73,7 @@ export async function detectPriceDrop(
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
   // Get recent price history
-  const recentHistory = await db
-    .select()
-    .from(priceHistory)
-    .where(eq(priceHistory.productOfferId, productOfferId))
-    .orderBy(desc(priceHistory.recordedAt))
-    .limit(100);
+  const recentHistory = await storage.getPriceHistoryByOfferId(productOfferId, 100);
 
   if (recentHistory.length === 0) {
     return {
@@ -197,35 +193,12 @@ export async function checkPriceAlertsForDrop(
   newPrice: number
 ): Promise<number> {
   // Get the product offer details
-  const offerResult = await db
-    .select({
-      productId: productOffers.productId,
-      productName: products.name,
-      retailerName: retailers.name,
-      productUrl: productOffers.productUrl,
-      price: productOffers.price,
-    })
-    .from(productOffers)
-    .leftJoin(products, eq(productOffers.productId, products.id))
-    .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
-    .where(eq(productOffers.id, productOfferId))
-    .limit(1);
+  const offer = await storage.getProductOfferDetailsForAlert(productOfferId);
 
-  if (offerResult.length === 0) return 0;
-
-  const offer = offerResult[0];
+  if (!offer) return 0;
 
   // Find all active alerts for this product where target price is met
-  const triggeredAlerts = await db
-    .select()
-    .from(priceAlerts)
-    .where(
-      and(
-        eq(priceAlerts.productId, offer.productId),
-        eq(priceAlerts.isActive, true),
-        sql`${priceAlerts.targetPrice}::numeric >= ${newPrice}`
-      )
-    );
+  const triggeredAlerts = await storage.getTriggeredPriceAlerts(offer.productId, newPrice);
 
   if (triggeredAlerts.length === 0) return 0;
 
@@ -234,11 +207,14 @@ export async function checkPriceAlertsForDrop(
     const notification: InsertNotification = {
       userId: alert.userId,
       type: 'price_alert',
-      title: `Price Alert: ${offer.productName}`,
+      title: `Price Alert: ${offer.productName || 'Product'}`,
       content: `The price dropped to $${newPrice.toFixed(2)}, meeting your target of $${parseFloat(alert.targetPrice).toFixed(2)}!`,
       relatedProductId: offer.productId,
     };
 
+    // Phase 2 pattern: notification creation uses direct db insert
+    const { db } = await import("../db");
+    const { notifications } = await import("@shared/schema");
     const [created] = await db.insert(notifications).values(notification).returning();
 
     // Emit WebSocket price alert event
@@ -295,6 +271,9 @@ export async function createPriceDropNotification(
     relatedProductId: notification.productId,
   };
 
+  // Phase 2 pattern: notification creation uses direct db insert
+  const { db } = await import("../db");
+  const { notifications } = await import("@shared/schema");
   await db.insert(notifications).values(notificationData);
 }
 
@@ -308,17 +287,9 @@ export async function getUsersToNotify(
 ): Promise<number[]> {
   // For now, get all users with active alerts for this product
   // In the future, this would also check user preferences
-  const alerts = await db
-    .select({ userId: priceAlerts.userId })
-    .from(priceAlerts)
-    .where(
-      and(
-        eq(priceAlerts.productId, productId),
-        eq(priceAlerts.isActive, true)
-      )
-    );
+  const userIds = await storage.getUsersWithActiveAlertsForProduct(productId);
 
-  return Array.from(new Set(alerts.map(a => a.userId)));
+  return Array.from(new Set(userIds));
 }
 
 /**
@@ -344,21 +315,9 @@ export async function processPriceChange(
     alertsTriggered = await checkPriceAlertsForDrop(productOfferId, newPrice);
 
     // Get product details for general notifications
-    const offerResult = await db
-      .select({
-        productId: productOffers.productId,
-        productName: products.name,
-        retailerName: retailers.name,
-        productUrl: productOffers.productUrl,
-      })
-      .from(productOffers)
-      .leftJoin(products, eq(productOffers.productId, products.id))
-      .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(eq(productOffers.id, productOfferId))
-      .limit(1);
+    const offer = await storage.getProductOfferDetailsForAlert(productOfferId);
 
-    if (offerResult.length > 0) {
-      const offer = offerResult[0];
+    if (offer) {
 
       // Get users interested in this product
       const userIds = await getUsersToNotify(offer.productId, detection.dropPercentage);

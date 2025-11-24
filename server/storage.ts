@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
@@ -256,6 +256,176 @@ export interface IStorage {
   createPriceDropForumPostTransaction(data: PriceDropForumPostData): Promise<number | null>;
   getWatchersForProduct(productId: number): Promise<number[]>;
   notifyProductWatchers(productId: number, notification: WatcherNotificationData): Promise<void>;
+
+  // ============================================================================
+  // Monitoring Service Operations (Phase 6 Storage Migration)
+  // ============================================================================
+
+  /**
+   * Get recent agent sessions within the specified time window
+   * @param hours - Number of hours to look back from now
+   * @param limit - Maximum number of sessions to return
+   * @returns Array of agent session data ordered by session start (newest first)
+   */
+  getRecentAgentSessions(hours: number, limit: number): Promise<AgentSessionData[]>;
+
+  /**
+   * Get recent scraping jobs ordered by creation date
+   * @param limit - Maximum number of jobs to return
+   * @returns Array of scraping job data ordered by createdAt (newest first)
+   */
+  getRecentScrapingJobs(limit: number): Promise<ScrapingJobData[]>;
+
+  /**
+   * Get count of scraping jobs grouped by status
+   * @returns Array of status counts (e.g., pending: 5, completed: 10, failed: 2)
+   */
+  getScrapingJobStatusCounts(): Promise<JobStatusCount[]>;
+
+  /**
+   * Get count of active (non-expired) job locks
+   * @returns Number of active locks where expiresAt > NOW()
+   */
+  getActiveJobLocksCount(): Promise<number>;
+
+  /**
+   * Get total count of product offers in the system
+   * @returns Total number of product offers
+   */
+  getProductOffersCount(): Promise<number>;
+
+  /**
+   * Get count of trending products grouped by status
+   * @returns Array of status counts (e.g., active: 15, pending: 5)
+   */
+  getTrendingProductsStatusCounts(): Promise<TrendingProductStatusCount[]>;
+
+  /**
+   * Get count of active agent sessions within the specified time window
+   * @param minutes - Number of minutes to look back from now
+   * @returns Count of active sessions started within the time window
+   */
+  getActiveAgentSessionsCount(minutes: number): Promise<number>;
+
+  // ============================================================================
+  // Price Drop Detection Operations (Phase 6 Storage Migration)
+  // ============================================================================
+
+  /**
+   * Get price history for a specific product offer (for drop detection)
+   * @param productOfferId - ID of the product offer
+   * @param limit - Maximum number of history records to return
+   * @returns Array of price history ordered by recordedAt (newest first)
+   */
+  getPriceHistoryByOfferId(productOfferId: number, limit: number): Promise<PriceHistory[]>;
+
+  /**
+   * Get product offer details with JOIN to products and retailers (for alerts)
+   * @param productOfferId - ID of the product offer
+   * @returns Offer details with product name, retailer name, URL, and price (or null if not found)
+   */
+  getProductOfferDetailsForAlert(productOfferId: number): Promise<ProductOfferForAlert | null>;
+
+  /**
+   * Get active price alerts triggered by a new price
+   * @param productId - ID of the product
+   * @param newPrice - New price to compare against target prices
+   * @returns Array of price alerts where targetPrice >= newPrice and isActive = true
+   */
+  getTriggeredPriceAlerts(productId: number, newPrice: number): Promise<TriggeredPriceAlert[]>;
+
+  /**
+   * Get user IDs who have active price alerts for a product
+   * @param productId - ID of the product
+   * @returns Array of unique user IDs with active alerts for the product
+   */
+  getUsersWithActiveAlertsForProduct(productId: number): Promise<number[]>;
+
+  // ============================================================================
+  // Product Discovery Fallback Operations (Phase 6 Storage Migration)
+  // ============================================================================
+
+  /**
+   * Search products by multiple search terms using LIKE queries
+   * @param searchTerms - Array of search terms to match against name/description/category/brand
+   * @param limit - Maximum number of products to return
+   * @returns Array of products with offers and retailers (nested structure via Drizzle query builder)
+   */
+  searchProductsByTerms(searchTerms: string[], limit: number): Promise<ProductWithOffers[]>;
+
+  /**
+   * Get trending product categories ranked by product count
+   * @param limit - Maximum number of categories to return
+   * @returns Array of categories with product counts, ordered by count (descending)
+   */
+  getTrendingProductCategories(limit: number): Promise<ProductCategoryCount[]>;
+
+  /**
+   * Get product search suggestions for autocomplete
+   * @param searchTerm - Search term to match against name/brand
+   * @param limit - Maximum number of suggestions to return (actual limit may be higher for deduplication)
+   * @returns Array of product name/brand/category suggestions
+   */
+  getProductSearchSuggestions(searchTerm: string, limit: number): Promise<ProductSuggestion[]>;
+
+  // ============================================================================
+  // Advanced Search Operations (Phase 6 Storage Migration)
+  // ============================================================================
+
+  /**
+   * Perform exact search using LOWER() and LIKE patterns on name/brand
+   * @param searchPattern - SQL LIKE pattern (e.g., '%iphone%')
+   * @param limit - Maximum number of products to return
+   * @returns Array of products with nested offers and retailers (via json_agg)
+   */
+  searchProductsExact(searchPattern: string, limit: number): Promise<ProductWithOffersAndRetailers[]>;
+
+  /**
+   * Perform fuzzy search using similarity function (requires pg_trgm extension)
+   * @param searchPattern - Search term for fuzzy matching
+   * @param threshold - Similarity threshold (0.0 to 1.0, typical: 0.3)
+   * @param limit - Maximum number of products to return
+   * @returns Array of products with nested offers and retailers, ordered by similarity
+   */
+  searchProductsFuzzy(searchPattern: string, threshold: number, limit: number): Promise<ProductWithOffersAndRetailers[]>;
+
+  /**
+   * Search products by synonym terms (batch OR query)
+   * @param searchTerms - Array of synonym terms to match against name/brand/description
+   * @param limit - Maximum number of products to return
+   * @returns Array of products with nested offers and retailers (via json_agg)
+   */
+  searchProductsBySynonyms(searchTerms: string[], limit: number): Promise<ProductWithOffersAndRetailers[]>;
+
+  /**
+   * Perform semantic search using pgvector embeddings
+   * @param embedding - Vector embedding to compare against product embeddings
+   * @param limit - Maximum number of products to return
+   * @returns Array of products with similarity scores and nested offers, ordered by similarity
+   */
+  searchProductsSemantic(embedding: number[], limit: number): Promise<ProductWithOffersAndRetailers[]>;
+
+  /**
+   * Get autocomplete suggestions for search input
+   * @param query - Partial search query
+   * @param limit - Maximum number of suggestions to return
+   * @returns Array of product name/brand/category suggestions
+   */
+  getProductAutocompleteSuggestions(query: string, limit: number): Promise<ProductSuggestion[]>;
+
+  /**
+   * Get product data for embedding generation (minimal fields)
+   * @param productId - ID of the product
+   * @returns Product data with id, name, description, category, brand (or null if not found)
+   */
+  getProductForEmbedding(productId: number): Promise<ProductForEmbedding | null>;
+
+  /**
+   * Update product embedding vector
+   * @param productId - ID of the product
+   * @param embedding - Vector embedding array to store
+   */
+  updateProductEmbedding(productId: number, embedding: number[]): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -1155,6 +1325,81 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
   async notifyProductWatchers(_productId: number, _notification: WatcherNotificationData): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // ============================================================================
+  // Phase 6: Monitoring, Price Drop, Search Methods
+  // ============================================================================
+
+  // Monitoring Service (7 methods)
+  async getRecentAgentSessions(_hours: number, _limit: number): Promise<AgentSessionData[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getRecentScrapingJobs(_limit: number): Promise<ScrapingJobData[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getScrapingJobStatusCounts(): Promise<JobStatusCount[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getActiveJobLocksCount(): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getProductOffersCount(): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getTrendingProductsStatusCounts(): Promise<TrendingProductStatusCount[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getActiveAgentSessionsCount(_minutes: number): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // Price Drop Detection (4 methods)
+  async getPriceHistoryByOfferId(_productOfferId: number, _limit: number): Promise<PriceHistory[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getProductOfferDetailsForAlert(_productOfferId: number): Promise<ProductOfferForAlert | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getTriggeredPriceAlerts(_productId: number, _newPrice: number): Promise<TriggeredPriceAlert[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getUsersWithActiveAlertsForProduct(_productId: number): Promise<number[]> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // Product Discovery (3 methods)
+  async searchProductsByTerms(_searchTerms: string[], _limit: number): Promise<ProductWithOffers[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getTrendingProductCategories(_limit: number): Promise<ProductCategoryCount[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getProductSearchSuggestions(_searchTerm: string, _limit: number): Promise<ProductSuggestion[]> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // Advanced Search (7 methods)
+  async searchProductsExact(_searchPattern: string, _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async searchProductsFuzzy(_searchPattern: string, _threshold: number, _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async searchProductsBySynonyms(_searchTerms: string[], _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async searchProductsSemantic(_embedding: number[], _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getProductAutocompleteSuggestions(_query: string, _limit: number): Promise<ProductSuggestion[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getProductForEmbedding(_productId: number): Promise<ProductForEmbedding | null> {
+    throw new Error('Not supported in memory storage');
+  }
+  async updateProductEmbedding(_productId: number, _embedding: number[]): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
 }
@@ -4960,6 +5205,581 @@ _This deal was automatically detected by our price tracking system._
       await db.insert(notifications).values(notificationList);
     }
   }
+
+  // ============================================================================
+  // Phase 6: Monitoring Service Methods
+  // ============================================================================
+
+  async getRecentAgentSessions(hours: number, limit: number): Promise<AgentSessionData[]> {
+    if (hours <= 0) {
+      throw new Error('hours must be greater than 0');
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    const timeThreshold = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+    const sessions = await db.select({
+      id: agentSessions.id,
+      agentType: agentSessions.agentType,
+      status: agentSessions.status,
+      sessionStart: agentSessions.sessionStart,
+      tasksCompleted: agentSessions.tasksCompleted,
+      successRate: agentSessions.successRate,
+      errorsEncountered: agentSessions.errorsEncountered,
+    })
+      .from(agentSessions)
+      .where(gte(agentSessions.sessionStart, timeThreshold))
+      .orderBy(desc(agentSessions.sessionStart))
+      .limit(limit);
+
+    // Type assertion: database schema guarantees non-null for required fields
+    return sessions as AgentSessionData[];
+  }
+
+  async getRecentScrapingJobs(limit: number): Promise<ScrapingJobData[]> {
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    const jobs = await db.select({
+      id: scrapingJobs.id,
+      jobType: scrapingJobs.jobType,
+      status: scrapingJobs.status,
+      createdAt: scrapingJobs.createdAt,
+      startedAt: scrapingJobs.startedAt,
+      completedAt: scrapingJobs.completedAt,
+      errorMessage: scrapingJobs.errorMessage,
+    })
+      .from(scrapingJobs)
+      .orderBy(desc(scrapingJobs.createdAt))
+      .limit(limit);
+
+    // Type assertion: database schema guarantees non-null for required fields
+    return jobs as ScrapingJobData[];
+  }
+
+  async getScrapingJobStatusCounts(): Promise<JobStatusCount[]> {
+    const statusCounts = await db.select({
+      status: scrapingJobs.status,
+      count: count(),
+    })
+      .from(scrapingJobs)
+      .groupBy(scrapingJobs.status);
+
+    // Type assertion: status is non-null in database schema
+    return statusCounts.map(row => ({
+      status: row.status as string,
+      count: Number(row.count),
+    }));
+  }
+
+  async getActiveJobLocksCount(): Promise<number> {
+    const result = await db.select({ count: count() })
+      .from(jobLocks)
+      .where(sql`${jobLocks.expiresAt} > NOW()`);
+
+    return Number(result[0]?.count ?? 0);
+  }
+
+  async getProductOffersCount(): Promise<number> {
+    const result = await db.select({ count: count() })
+      .from(productOffers);
+
+    return Number(result[0]?.count ?? 0);
+  }
+
+  async getTrendingProductsStatusCounts(): Promise<TrendingProductStatusCount[]> {
+    const statusCounts = await db.select({
+      status: trendingProducts.status,
+      count: count(),
+    })
+      .from(trendingProducts)
+      .groupBy(trendingProducts.status);
+
+    // Type assertion: status is non-null in database schema
+    return statusCounts.map(row => ({
+      status: row.status as string,
+      count: Number(row.count),
+    }));
+  }
+
+  async getActiveAgentSessionsCount(minutes: number): Promise<number> {
+    if (minutes <= 0) {
+      throw new Error('minutes must be greater than 0');
+    }
+
+    const timeThreshold = new Date(Date.now() - minutes * 60 * 1000);
+
+    const result = await db.select({ count: count() })
+      .from(agentSessions)
+      .where(and(
+        eq(agentSessions.status, 'active'),
+        gte(agentSessions.sessionStart, timeThreshold)
+      ));
+
+    return Number(result[0]?.count ?? 0);
+  }
+
+  // ============================================================================
+  // Phase 6: Price Drop Detection Methods
+  // ============================================================================
+
+  async getPriceHistoryByOfferId(productOfferId: number, limit: number): Promise<PriceHistory[]> {
+    if (productOfferId <= 0) {
+      throw new Error('productOfferId must be greater than 0');
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    const history = await db.select()
+      .from(priceHistory)
+      .where(eq(priceHistory.productOfferId, productOfferId))
+      .orderBy(desc(priceHistory.recordedAt))
+      .limit(limit);
+
+    return history;
+  }
+
+  async getProductOfferDetailsForAlert(productOfferId: number): Promise<ProductOfferForAlert | null> {
+    if (productOfferId <= 0) {
+      throw new Error('productOfferId must be greater than 0');
+    }
+
+    const result = await db.select({
+      productId: productOffers.productId,
+      productName: products.name,
+      retailerName: retailers.name,
+      productUrl: productOffers.productUrl,
+      price: productOffers.price,
+    })
+      .from(productOffers)
+      .leftJoin(products, eq(productOffers.productId, products.id))
+      .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(eq(productOffers.id, productOfferId))
+      .limit(1);
+
+    return result[0] || null;
+  }
+
+  async getTriggeredPriceAlerts(productId: number, newPrice: number): Promise<TriggeredPriceAlert[]> {
+    if (productId <= 0) {
+      throw new Error('productId must be greater than 0');
+    }
+    if (newPrice < 0) {
+      throw new Error('newPrice must be non-negative');
+    }
+
+    const alerts = await db.select({
+      id: priceAlerts.id,
+      userId: priceAlerts.userId,
+      productId: priceAlerts.productId,
+      targetPrice: priceAlerts.targetPrice,
+      isActive: priceAlerts.isActive,
+      createdAt: priceAlerts.createdAt,
+    })
+      .from(priceAlerts)
+      .where(and(
+        eq(priceAlerts.productId, productId),
+        eq(priceAlerts.isActive, true),
+        sql`${priceAlerts.targetPrice}::numeric >= ${newPrice}`
+      ));
+
+    // Type assertion: database schema guarantees non-null for required fields
+    return alerts as TriggeredPriceAlert[];
+  }
+
+  async getUsersWithActiveAlertsForProduct(productId: number): Promise<number[]> {
+    if (productId <= 0) {
+      throw new Error('productId must be greater than 0');
+    }
+
+    const result = await db.select({ userId: priceAlerts.userId })
+      .from(priceAlerts)
+      .where(and(
+        eq(priceAlerts.productId, productId),
+        eq(priceAlerts.isActive, true)
+      ));
+
+    return result.map(row => row.userId);
+  }
+
+  // ============================================================================
+  // Phase 6: Product Discovery Fallback Methods
+  // ============================================================================
+
+  async searchProductsByTerms(searchTerms: string[], limit: number): Promise<ProductWithOffers[]> {
+    if (!searchTerms || searchTerms.length === 0) {
+      return [];
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    // Use Drizzle query builder with nested relations
+    const productsResult = await db.query.products.findMany({
+      where: or(
+        ...searchTerms.map(term => or(
+          like(products.name, `%${term}%`),
+          like(products.description, `%${term}%`),
+          like(products.category, `%${term}%`),
+          like(products.brand, `%${term}%`)
+        ))
+      ),
+      with: {
+        offers: {
+          with: {
+            retailer: true
+          }
+        }
+      },
+      limit
+    });
+
+    return productsResult as ProductWithOffers[];
+  }
+
+  async getTrendingProductCategories(limit: number): Promise<ProductCategoryCount[]> {
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    const categoryCounts = await db.select({
+      category: products.category,
+      count: count(),
+    })
+      .from(products)
+      .where(isNotNull(products.category))
+      .groupBy(products.category)
+      .orderBy(desc(count()))
+      .limit(limit);
+
+    return categoryCounts.map(row => ({
+      category: row.category as string,
+      count: Number(row.count),
+    }));
+  }
+
+  async getProductSearchSuggestions(searchTerm: string, limit: number): Promise<ProductSuggestion[]> {
+    if (!searchTerm) {
+      return [];
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    // Use Drizzle query builder for simple column selection
+    const suggestions = await db.query.products.findMany({
+      where: or(
+        like(products.name, `%${searchTerm}%`),
+        like(products.brand, `%${searchTerm}%`),
+        like(products.category, `%${searchTerm}%`)
+      ),
+      columns: {
+        name: true,
+        brand: true,
+        category: true,
+      },
+      limit: limit * 2, // Fetch more for deduplication
+    });
+
+    return suggestions;
+  }
+
+  // ============================================================================
+  // Phase 6: Advanced Search Methods
+  // ============================================================================
+
+  async searchProductsExact(searchPattern: string, limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    if (!searchPattern) {
+      return [];
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    // Complex query with json_agg for nested offers+retailers structure
+    const results = await db.select({
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      category: products.category,
+      brand: products.brand,
+      image: products.image,
+      offers: sql<Array<{
+        id: number;
+        price: string;
+        availability: string | null;
+        productUrl: string | null;
+        retailer: {
+          id: number;
+          name: string;
+          websiteUrl: string | null;
+        } | null;
+      }>>`
+        json_agg(json_build_object(
+          'id', ${productOffers.id},
+          'price', ${productOffers.price}::text,
+          'availability', ${productOffers.availability},
+          'productUrl', ${productOffers.productUrl},
+          'retailer', json_build_object(
+            'id', ${retailers.id},
+            'name', ${retailers.name},
+            'websiteUrl', ${retailers.website}
+          )
+        )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
+      `
+    })
+      .from(products)
+      .leftJoin(productOffers, eq(products.id, productOffers.productId))
+      .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(or(
+        sql`LOWER(${products.name}) LIKE LOWER(${searchPattern})`,
+        sql`LOWER(${products.brand}) LIKE LOWER(${searchPattern})`
+      ))
+      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image)
+      .limit(limit);
+
+    return results.map(row => ({
+      ...row,
+      offers: row.offers || []
+    }));
+  }
+
+  async searchProductsFuzzy(searchPattern: string, threshold: number, limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    if (!searchPattern) {
+      return [];
+    }
+    if (threshold < 0 || threshold > 1) {
+      throw new Error('threshold must be between 0 and 1');
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    // Fuzzy search using similarity function (requires pg_trgm extension)
+    const results = await db.select({
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      category: products.category,
+      brand: products.brand,
+      image: products.image,
+      offers: sql<Array<{
+        id: number;
+        price: string;
+        availability: string | null;
+        productUrl: string | null;
+        retailer: {
+          id: number;
+          name: string;
+          websiteUrl: string | null;
+        } | null;
+      }>>`
+        json_agg(json_build_object(
+          'id', ${productOffers.id},
+          'price', ${productOffers.price}::text,
+          'availability', ${productOffers.availability},
+          'productUrl', ${productOffers.productUrl},
+          'retailer', json_build_object(
+            'id', ${retailers.id},
+            'name', ${retailers.name},
+            'websiteUrl', ${retailers.website}
+          )
+        )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
+      `
+    })
+      .from(products)
+      .leftJoin(productOffers, eq(products.id, productOffers.productId))
+      .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(sql`similarity(${products.name}, ${searchPattern}) > ${threshold}`)
+      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image)
+      .orderBy(sql`similarity(${products.name}, ${searchPattern}) DESC`)
+      .limit(limit);
+
+    return results.map(row => ({
+      ...row,
+      offers: row.offers || []
+    }));
+  }
+
+  async searchProductsBySynonyms(searchTerms: string[], limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    if (!searchTerms || searchTerms.length === 0) {
+      return [];
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    // Batch query with multiple OR conditions for synonym matching
+    const results = await db.select({
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      category: products.category,
+      brand: products.brand,
+      image: products.image,
+      offers: sql<Array<{
+        id: number;
+        price: string;
+        availability: string | null;
+        productUrl: string | null;
+        retailer: {
+          id: number;
+          name: string;
+          websiteUrl: string | null;
+        } | null;
+      }>>`
+        json_agg(json_build_object(
+          'id', ${productOffers.id},
+          'price', ${productOffers.price}::text,
+          'availability', ${productOffers.availability},
+          'productUrl', ${productOffers.productUrl},
+          'retailer', json_build_object(
+            'id', ${retailers.id},
+            'name', ${retailers.name},
+            'websiteUrl', ${retailers.website}
+          )
+        )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
+      `
+    })
+      .from(products)
+      .leftJoin(productOffers, eq(products.id, productOffers.productId))
+      .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(or(
+        ...searchTerms.map(term => or(
+          sql`LOWER(${products.name}) LIKE LOWER('%' || ${term} || '%')`,
+          sql`LOWER(${products.brand}) LIKE LOWER('%' || ${term} || '%')`,
+          sql`LOWER(${products.description}) LIKE LOWER('%' || ${term} || '%')`
+        ))
+      ))
+      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image)
+      .limit(limit);
+
+    return results.map(row => ({
+      ...row,
+      offers: row.offers || []
+    }));
+  }
+
+  async searchProductsSemantic(embedding: number[], limit: number): Promise<ProductWithOffersAndRetailers[]> {
+    if (!embedding || embedding.length === 0) {
+      throw new Error('embedding must be a non-empty array');
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    // Convert embedding array to PostgreSQL vector string format
+    const embeddingString = `[${embedding.join(',')}]`;
+
+    // Semantic search using pgvector cosine distance operator (<=>)
+    const results = await db.select({
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      category: products.category,
+      brand: products.brand,
+      image: products.image,
+      similarity: sql<number>`1 - (${products.embedding} <=> ${embeddingString}::vector)`,
+      offers: sql<Array<{
+        id: number;
+        price: string;
+        availability: string | null;
+        productUrl: string | null;
+        retailer: {
+          id: number;
+          name: string;
+          websiteUrl: string | null;
+        } | null;
+      }>>`
+        json_agg(json_build_object(
+          'id', ${productOffers.id},
+          'price', ${productOffers.price}::text,
+          'availability', ${productOffers.availability},
+          'productUrl', ${productOffers.productUrl},
+          'retailer', json_build_object(
+            'id', ${retailers.id},
+            'name', ${retailers.name},
+            'websiteUrl', ${retailers.website}
+          )
+        )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
+      `
+    })
+      .from(products)
+      .leftJoin(productOffers, eq(products.id, productOffers.productId))
+      .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(sql`${products.embedding} IS NOT NULL`)
+      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image, products.embedding)
+      .orderBy(sql`${products.embedding} <=> ${embeddingString}::vector`)
+      .limit(limit);
+
+    return results.map(row => ({
+      ...row,
+      offers: row.offers || []
+    }));
+  }
+
+  async getProductAutocompleteSuggestions(query: string, limit: number): Promise<ProductSuggestion[]> {
+    if (!query) {
+      return [];
+    }
+    if (limit <= 0) {
+      throw new Error('limit must be greater than 0');
+    }
+
+    const suggestions = await db.select({
+      name: products.name,
+      brand: products.brand,
+      category: products.category,
+    })
+      .from(products)
+      .where(or(
+        sql`LOWER(${products.name}) LIKE LOWER(${`%${query}%`})`,
+        sql`LOWER(${products.brand}) LIKE LOWER(${`%${query}%`})`,
+        sql`LOWER(${products.category}) LIKE LOWER(${`%${query}%`})`
+      ))
+      .limit(limit);
+
+    return suggestions;
+  }
+
+  async getProductForEmbedding(productId: number): Promise<ProductForEmbedding | null> {
+    if (productId <= 0) {
+      throw new Error('productId must be greater than 0');
+    }
+
+    const product = await db.query.products.findFirst({
+      where: eq(products.id, productId),
+      columns: {
+        id: true,
+        name: true,
+        description: true,
+        category: true,
+        brand: true,
+      }
+    });
+
+    return product || null;
+  }
+
+  async updateProductEmbedding(productId: number, embedding: number[]): Promise<void> {
+    if (productId <= 0) {
+      throw new Error('productId must be greater than 0');
+    }
+    if (!embedding || embedding.length === 0) {
+      throw new Error('embedding must be a non-empty array');
+    }
+
+    // Convert embedding array to PostgreSQL vector format
+    const embeddingString = `[${embedding.join(',')}]`;
+
+    await db.update(products)
+      .set({ embedding: sql`${embeddingString}::vector` })
+      .where(eq(products.id, productId));
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
@@ -5548,4 +6368,98 @@ export interface WatcherNotificationData {
   relatedProductId?: number;
   relatedTopicId?: number;
   relatedPostId?: number;
+}
+
+// ============================================================================
+// Phase 6 Storage Layer Types - Monitoring, Price Drops, Discovery, Advanced Search
+// ============================================================================
+
+// Monitoring Service Types
+export interface AgentSessionData {
+  id: number;
+  agentType: string;
+  status: string;
+  sessionStart: Date;
+  tasksCompleted: number | null;
+  successRate: string | null;
+  errorsEncountered: number | null;
+}
+
+export interface ScrapingJobData {
+  id: number;
+  jobType: string;
+  status: string;
+  createdAt: Date;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  errorMessage: string | null;
+}
+
+export interface JobStatusCount {
+  status: string;
+  count: number;
+}
+
+export interface TrendingProductStatusCount {
+  status: string;
+  count: number;
+}
+
+// Price Drop Detection Types
+export interface ProductOfferForAlert {
+  productId: number;
+  productName: string | null;
+  retailerName: string | null;
+  productUrl: string | null;
+  price: string;
+}
+
+export interface TriggeredPriceAlert {
+  id: number;
+  userId: number;
+  productId: number;
+  targetPrice: string;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+// Advanced Search Types
+export interface ProductWithOffersAndRetailers {
+  id: number;
+  name: string;
+  description: string | null;
+  category: string | null;
+  brand: string | null;
+  image: string | null;
+  similarity?: number; // For semantic search
+  offers: Array<{
+    id: number;
+    price: string;
+    availability: string | null;
+    productUrl: string | null;
+    retailer: {
+      id: number;
+      name: string;
+      websiteUrl: string | null;
+    } | null;
+  }>;
+}
+
+export interface ProductCategoryCount {
+  category: string;
+  count: number;
+}
+
+export interface ProductSuggestion {
+  name: string;
+  brand: string | null;
+  category: string | null;
+}
+
+export interface ProductForEmbedding {
+  id: number;
+  name: string;
+  description: string | null;
+  category: string | null;
+  brand: string | null;
 }

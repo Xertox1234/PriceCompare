@@ -1,7 +1,6 @@
-import { db } from '../db';
-import { products, productOffers, retailers } from '@shared/schema';
+import { storage } from '../storage';
+import type { ProductCategoryCount, ProductSuggestion } from '../storage';
 import type { Product, ProductOffer, Retailer } from '@shared/schema';
-import { eq, like, or, and, desc, isNotNull, sql, count } from 'drizzle-orm';
 
 /** Product with offers from query result */
 interface ProductWithOffers extends Product {
@@ -11,6 +10,8 @@ interface ProductWithOffers extends Product {
 /**
  * Fallback product discovery service for when external APIs are unavailable
  * Uses database and search patterns to find relevant products
+ *
+ * Phase 6 Storage Migration: All database queries replaced with storage layer abstraction
  */
 export class ProductDiscoveryFallback {
   
@@ -19,27 +20,9 @@ export class ProductDiscoveryFallback {
    */
   async searchExistingProducts(query: string, maxResults = 10) {
     const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
-    
-    const searchResults = await db.query.products.findMany({
-      where: or(
-        ...searchTerms.map(term =>
-          or(
-            like(products.name, `%${term}%`),
-            like(products.description, `%${term}%`),
-            like(products.category, `%${term}%`),
-            like(products.brand, `%${term}%`)
-          )
-        )
-      ),
-      with: {
-        offers: {
-          with: {
-            retailer: true
-          }
-        }
-      },
-      limit: maxResults
-    });
+
+    // Use storage layer for product search
+    const searchResults = await storage.searchProductsByTerms(searchTerms, maxResults);
 
     return searchResults.map((product) => {
       const typedProduct = product as ProductWithOffers;
@@ -79,21 +62,14 @@ export class ProductDiscoveryFallback {
    * Get trending categories from database activity
    */
   async getTrendingCategories(limit = 5) {
-    const categories = await db
-      .select({
-        category: products.category,
-        count: count()
-      })
-      .from(products)
-      .where(isNotNull(products.category))
-      .groupBy(products.category)
-      .orderBy(desc(count()))
-      .limit(limit);
+    // Use storage layer for trending categories
+    const categories = await storage.getTrendingProductCategories(limit);
 
+    // Map to match existing return format
     return categories.map(cat => ({
-      name: cat.category as string,
-      productCount: Number(cat.count),
-      searchUrl: `/products?category=${encodeURIComponent(cat.category as string)}`
+      name: cat.category,
+      productCount: cat.count,
+      searchUrl: `/products?category=${encodeURIComponent(cat.category)}`
     }));
   }
 
@@ -102,23 +78,13 @@ export class ProductDiscoveryFallback {
    */
   async getSearchSuggestions(query: string, limit = 5): Promise<string[]> {
     const searchTerm = query.toLowerCase();
-    
-    // Get similar product names from database
-    const similarProducts = await db.query.products.findMany({
-      where: or(
-        like(products.name, `%${searchTerm}%`),
-        like(products.brand, `%${searchTerm}%`)
-      ),
-      columns: {
-        name: true,
-        brand: true
-      },
-      limit: limit * 2
-    });
+
+    // Use storage layer for product suggestions
+    const similarProducts = await storage.getProductSearchSuggestions(searchTerm, limit * 2);
 
     // Extract meaningful suggestions
     const suggestions = new Set<string>();
-    
+
     similarProducts.forEach(product => {
       // Add product name variations
       const words = product.name.toLowerCase().split(' ');
@@ -127,7 +93,7 @@ export class ProductDiscoveryFallback {
           suggestions.add(word);
         }
       });
-      
+
       // Add brand if relevant
       if (product.brand && product.brand.toLowerCase().includes(searchTerm)) {
         suggestions.add(product.brand);
