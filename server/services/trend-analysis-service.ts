@@ -1,5 +1,6 @@
 import { storage, type PriceTrendInsert } from "../storage";
 import { logger } from "../utils/logger";
+import { BATCH_PROCESSING } from "../utils/constants";
 
 export class TrendAnalysisService {
   /**
@@ -28,12 +29,11 @@ export class TrendAnalysisService {
 
     try {
       // OPTIMIZATION 1: Process trends in parallel batches to avoid overwhelming the system
-      const BATCH_SIZE = 20; // Process 20 at a time
       const trendValues: PriceTrendInsert[] = [];
       let analyzedCount = 0;
 
-      for (let i = 0; i < priceDataGrouped.length; i += BATCH_SIZE) {
-        const batch = priceDataGrouped.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < priceDataGrouped.length; i += BATCH_PROCESSING.TREND_ANALYSIS) {
+        const batch = priceDataGrouped.slice(i, i + BATCH_PROCESSING.TREND_ANALYSIS);
 
         // Process batch in parallel
         const results = await Promise.allSettled(
@@ -61,7 +61,7 @@ export class TrendAnalysisService {
           }
         }
 
-        logger.info(`[TrendAnalysis] Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(priceDataGrouped.length / BATCH_SIZE)}`);
+        logger.info(`[TrendAnalysis] Processed batch ${Math.floor(i / BATCH_PROCESSING.TREND_ANALYSIS) + 1}/${Math.ceil(priceDataGrouped.length / BATCH_PROCESSING.TREND_ANALYSIS)}`);
       }
 
       // OPTIMIZATION 2: Batch insert/update all trends atomically

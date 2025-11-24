@@ -4,13 +4,14 @@ import { logger } from "../utils/logger";
 import { products, retailers, productOffers, priceHistory } from "../../shared/schema";
 import { eq, inArray, desc } from "drizzle-orm";
 import { priceAggregationService } from "./price-aggregation-service";
+import { BATCH_PROCESSING } from "../utils/constants";
 
 export class PriceSnapshotService {
   /**
    * Default batch size for processing offers in chunks
    * Can be overridden via parameter for testing or tuning
    */
-  private static readonly DEFAULT_BATCH_SIZE = 500;
+  private static readonly DEFAULT_BATCH_SIZE = BATCH_PROCESSING.PRICE_SNAPSHOT;
 
   /**
    * Snapshot all current prices and store them in price history

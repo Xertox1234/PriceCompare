@@ -213,6 +213,20 @@ export async function getPriceHistoryOptimized(
   days: number = 30,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
+  // Input validation
+  if (!Number.isFinite(productId) || productId <= 0) {
+    throw new Error(`Invalid productId: ${productId}. Must be a positive integer.`);
+  }
+  if (!Number.isFinite(days) || days <= 0) {
+    throw new Error(`Invalid days: ${days}. Must be a positive number.`);
+  }
+  if (days > 3650) {
+    throw new Error(`Invalid days: ${days}. Maximum allowed is 3650 (10 years).`);
+  }
+  if (retailerId !== undefined && (!Number.isFinite(retailerId) || retailerId <= 0)) {
+    throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive integer.`);
+  }
+
   try {
     const now = new Date();
     const startDate = new Date(now);

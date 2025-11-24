@@ -139,6 +139,20 @@ export const PRICE_HISTORY = {
 } as const;
 
 /**
+ * Batch processing constants for background jobs and data operations
+ */
+export const BATCH_PROCESSING = {
+  /** Trend analysis - parallel processing batch size */
+  TREND_ANALYSIS: 20,
+  /** Price snapshot - offers processed per batch */
+  PRICE_SNAPSHOT: 500,
+  /** Price trend upsert - records per database chunk */
+  PRICE_TREND_UPSERT: 100,
+  /** Maximum batch size for any operation */
+  MAX_BATCH_SIZE: 1000,
+} as const;
+
+/**
  * Scraping constants
  */
 export const SCRAPING = {

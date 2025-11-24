@@ -2631,7 +2631,8 @@ export class DatabaseStorage implements IStorage {
   async getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]> {
     const allRetailers = await db.select().from(retailers);
 
-    return Promise.all(
+    // Use Promise.allSettled for graceful error handling per retailer
+    const results = await Promise.allSettled(
       allRetailers.map(async (retailer) => {
         // Get affiliate stats for each retailer
         const statsResult = await db.select({
@@ -2651,6 +2652,23 @@ export class DatabaseStorage implements IStorage {
         };
       })
     );
+
+    // Handle failures gracefully - return retailer with empty stats on error
+    return results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      }
+      // Log error but don't fail entire operation
+      logger.error('Failed to fetch affiliate stats for retailer', {
+        retailerId: allRetailers[index].id,
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason)
+      });
+      return {
+        ...allRetailers[index],
+        affiliateConfigParsed: allRetailers[index].affiliateConfig ? JSON.parse(allRetailers[index].affiliateConfig) : null,
+        stats: { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 }
+      };
+    });
   }
 
   async updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null> {
@@ -3536,7 +3554,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPriceHistoryByQuery(query: PriceHistoryQueryParams): Promise<PriceHistory[]> {
-    const conditions = [];
+    const conditions: ReturnType<typeof eq>[] = [];
 
     if (query.productOfferId) {
       conditions.push(eq(priceHistory.productOfferId, query.productOfferId));
@@ -3557,22 +3575,34 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(priceHistory.source, query.source));
     }
 
-    let queryBuilder = db
-      .select()
-      .from(priceHistory)
-      .orderBy(desc(priceHistory.recordedAt));
+    // Build query with all conditions and limit applied at once to avoid type issues
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    if (conditions.length > 0) {
-      // @ts-expect-error - Drizzle query builder type narrowing limitation
-      queryBuilder = queryBuilder.where(and(...conditions));
+    if (whereClause && query.limit) {
+      return db
+        .select()
+        .from(priceHistory)
+        .where(whereClause)
+        .orderBy(desc(priceHistory.recordedAt))
+        .limit(query.limit);
+    } else if (whereClause) {
+      return db
+        .select()
+        .from(priceHistory)
+        .where(whereClause)
+        .orderBy(desc(priceHistory.recordedAt));
+    } else if (query.limit) {
+      return db
+        .select()
+        .from(priceHistory)
+        .orderBy(desc(priceHistory.recordedAt))
+        .limit(query.limit);
+    } else {
+      return db
+        .select()
+        .from(priceHistory)
+        .orderBy(desc(priceHistory.recordedAt));
     }
-
-    if (query.limit) {
-      // @ts-expect-error - Drizzle query builder type narrowing limitation
-      queryBuilder = queryBuilder.limit(query.limit);
-    }
-
-    return await queryBuilder;
   }
 
   async getExistingSnapshotsForDate(date: Date): Promise<PriceSnapshotRecord[]> {
