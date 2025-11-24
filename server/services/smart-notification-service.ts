@@ -1,6 +1,4 @@
-import { db } from "../db";
-import { notifications, products, productOffers, priceHistory } from "../../shared/schema";
-import { eq, and, gte, desc, sql } from "drizzle-orm";
+import { storage } from "../storage";
 import { getRedisClient } from "../config/redis";
 import { createNotification, getUserPreferences } from "./notification-service";
 import { websocketService } from "./websocket-service";
@@ -14,6 +12,9 @@ const log = createLogger("SmartNotification");
  *
  * Analyzes watched products for price drops, stock changes, and predictions,
  * then sends timely, prioritized alerts via WebSocket and email.
+ *
+ * NOTE: This service delegates to storage layer for database operations
+ * and handles business logic (trigger analysis, priority scoring, delivery)
  */
 
 export interface ProductData {
@@ -168,7 +169,7 @@ export async function shouldNotifyUser(
   }
 
   // Check daily limit (max 3 smart notifications per day)
-  const todayCount = await getSmartNotificationCount(userId, 'today');
+  const todayCount = await getSmartNotificationCount(userId);
   if (todayCount >= 3) {
     return { allowed: false, reason: 'Daily limit reached (3/day)' };
   }
@@ -208,23 +209,20 @@ function isInQuietHours(currentHour: number, start: number, end: number): boolea
 
 /**
  * Get count of smart notifications sent today
+ * Uses storage layer to query notifications
  */
-async function getSmartNotificationCount(userId: number, period: 'today'): Promise<number> {
+async function getSmartNotificationCount(userId: number): Promise<number> {
+  // Get smart_alert notifications from today using storage layer
+  const todayNotifications = await storage.getRecentNotificationsByType(userId, 'smart_alert', 1);
+
+  // Filter to only today's notifications
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(notifications)
-    .where(
-      and(
-        eq(notifications.userId, userId),
-        eq(notifications.type, 'smart_alert'),
-        gte(notifications.createdAt, today)
-      )
-    );
-
-  return Number(result[0]?.count || 0);
+  return todayNotifications.filter(n => {
+    const createdAt = n.createdAt ? new Date(n.createdAt) : new Date(0);
+    return createdAt >= today;
+  }).length;
 }
 
 /**
@@ -236,54 +234,31 @@ export async function createSmartNotification(
 ): Promise<void> {
   const redisClient = getRedisClient();
 
-  // Get product details
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(eq(products.id, trigger.metadata.productId))
-    .limit(1);
+  // Get product details via storage layer
+  const productWithOffers = await storage.getProductById(trigger.metadata.productId);
 
-  if (!product) {
+  if (!productWithOffers) {
     log.error('Product not found for notification', { productId: trigger.metadata.productId });
     return;
   }
+
+  // Extract product info (ProductWithOffers extends Product)
+  const product = productWithOffers;
 
   // Prepare notification content
   const title = `${trigger.urgency.toUpperCase()}: ${trigger.condition} - ${product.name}`;
   const content = trigger.reasoning.join('. ');
 
   try {
-    // Create notification record via notification-service
-    // Use transaction to ensure atomicity with metadata storage
-    const notification = await db.transaction(async (tx) => {
-      const notificationData = {
-        userId,
-        type: 'smart_alert' as const,
-        title,
-        content,
-        relatedProductId: trigger.metadata.productId,
-        isRead: false,
-        metadata: {
-          urgency: trigger.urgency,
-          savings: trigger.metadata.savings,
-          expiresAt: trigger.expiresAt.toISOString(),
-          confidence: trigger.metadata.confidence,
-          triggerType: trigger.type
-        }
-      };
-
-      // Note: createNotification already uses transaction, but we pass tx anyway
-      // This ensures our deduplication key is set atomically with notification creation
-      const created = await createNotification({
-        userId: notificationData.userId,
-        type: notificationData.type,
-        title: notificationData.title,
-        content: notificationData.content,
-        relatedProductId: notificationData.relatedProductId,
-        isRead: notificationData.isRead
-      });
-
-      return created;
+    // Create notification via notification-service (which uses storage layer)
+    // The notification-service handles preference checks, transactions, and WebSocket events
+    const notification = await createNotification({
+      userId,
+      type: 'smart_alert',
+      title,
+      content,
+      relatedProductId: trigger.metadata.productId,
+      isRead: false
     });
 
     // Set deduplication key in Redis (6-hour TTL)
@@ -310,14 +285,8 @@ export async function createSmartNotification(
     // Queue email delivery (if user enabled email notifications)
     const prefs = await getUserPreferences(userId);
     if (prefs.emailEnabled && emailService.isReady()) {
-      // Get user email
-      const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.id, userId),
-        columns: {
-          email: true,
-          username: true
-        }
-      });
+      // Get user email via storage layer
+      const user = await storage.getUserByIdSafe(userId);
 
       if (user?.email) {
         // Send email notification (async, don't block)
@@ -333,7 +302,7 @@ export async function createSmartNotification(
           `,
           text: `${title}\n\n${content}\n\nProduct: ${product.name}\nSavings: $${trigger.metadata.savings.toFixed(2)}`
         }).catch(error => {
-          log.error('Failed to send email notification', { error: error.message, userId });
+          log.error('Failed to send email notification', { error: error instanceof Error ? error.message : String(error), userId });
         });
       }
     }

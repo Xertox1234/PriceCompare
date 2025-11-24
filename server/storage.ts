@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, jobLocks, notifications, notificationPreferences, passwordResetTokens, wishlists, wishlistItems, productSpecifications, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
@@ -173,6 +173,28 @@ export interface IStorage {
   deleteProductSpecification(specId: number): Promise<boolean>;
   deleteProductSpecifications(productId: number): Promise<number>;
   getProductFull(productId: number): Promise<ProductFull | null>;
+
+  // Notification Operations
+  getUserNotifications(userId: number, filters?: NotificationFilters): Promise<Notification[]>;
+  getNotificationStats(userId: number): Promise<NotificationStats>;
+  markNotificationsAsRead(userId: number, notificationIds: number | number[]): Promise<number>;
+  markAllNotificationsAsRead(userId: number): Promise<number>;
+  deleteNotification(userId: number, notificationId: number): Promise<boolean>;
+  deleteAllNotifications(userId: number): Promise<number>;
+  createNotificationWithLimitCheck(notification: InsertNotification, maxDaily?: number): Promise<Notification>;
+  getUserNotificationPreferences(userId: number): Promise<NotificationPreferences>;
+  createDefaultNotificationPreferences(userId: number): Promise<NotificationPreferences>;
+  updateUserNotificationPreferences(userId: number, updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+  getRecentNotificationsByType(userId: number, type: string, days?: number): Promise<Notification[]>;
+
+  // Smart Alerts Operations
+  getProductOfferIdsByProductId(productId: number): Promise<Array<{ id: number }>>;
+  getPriceHistoryByOfferIds(offerIds: number[], limit?: number): Promise<PriceHistory[]>;
+  getUserActivePriceAlerts(userId: number): Promise<Array<{ productId: number; targetPrice: string; productName: string | null }>>;
+  getUserPriceAlerts(userId: number): Promise<PriceAlert[]>;
+  getUserPriceAlertsSortedByTriggers(userId: number): Promise<PriceAlert[]>;
+  createSuggestedPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert>;
+  getProductOffersWithPriceByProductIds(productIds: number[]): Promise<Array<{ productId: number; id: number; price: string }>>;
 }
 
 export class MemStorage implements IStorage {
@@ -969,6 +991,40 @@ export class MemStorage implements IStorage {
   async deleteProductSpecification(_specId: number): Promise<boolean> { return false; }
   async deleteProductSpecifications(_productId: number): Promise<number> { return 0; }
   async getProductFull(_productId: number): Promise<ProductFull | null> { return null; }
+
+  // Notification stubs for MemStorage
+  async getUserNotifications(_userId: number, _filters?: NotificationFilters): Promise<Notification[]> { return []; }
+  async getNotificationStats(_userId: number): Promise<NotificationStats> {
+    return { total: 0, unread: 0, byType: {} };
+  }
+  async markNotificationsAsRead(_userId: number, _notificationIds: number | number[]): Promise<number> { return 0; }
+  async markAllNotificationsAsRead(_userId: number): Promise<number> { return 0; }
+  async deleteNotification(_userId: number, _notificationId: number): Promise<boolean> { return false; }
+  async deleteAllNotifications(_userId: number): Promise<number> { return 0; }
+  async createNotificationWithLimitCheck(_notification: InsertNotification, _maxDaily?: number): Promise<Notification> {
+    throw new Error('Notifications not supported in memory storage');
+  }
+  async getUserNotificationPreferences(_userId: number): Promise<NotificationPreferences> {
+    throw new Error('Notification preferences not supported in memory storage');
+  }
+  async createDefaultNotificationPreferences(_userId: number): Promise<NotificationPreferences> {
+    throw new Error('Notification preferences not supported in memory storage');
+  }
+  async updateUserNotificationPreferences(_userId: number, _updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+    throw new Error('Notification preferences not supported in memory storage');
+  }
+  async getRecentNotificationsByType(_userId: number, _type: string, _days?: number): Promise<Notification[]> { return []; }
+
+  // Smart Alerts stubs for MemStorage
+  async getProductOfferIdsByProductId(_productId: number): Promise<Array<{ id: number }>> { return []; }
+  async getPriceHistoryByOfferIds(_offerIds: number[], _limit?: number): Promise<PriceHistory[]> { return []; }
+  async getUserActivePriceAlerts(_userId: number): Promise<Array<{ productId: number; targetPrice: string; productName: string | null }>> { return []; }
+  async getUserPriceAlerts(_userId: number): Promise<PriceAlert[]> { return []; }
+  async getUserPriceAlertsSortedByTriggers(_userId: number): Promise<PriceAlert[]> { return []; }
+  async createSuggestedPriceAlert(_alert: InsertPriceAlert): Promise<PriceAlert> {
+    throw new Error('Price alerts not supported in memory storage');
+  }
+  async getProductOffersWithPriceByProductIds(_productIds: number[]): Promise<Array<{ productId: number; id: number; price: string }>> { return []; }
 }
 
 // Database Storage Implementation
@@ -3279,6 +3335,444 @@ export class DatabaseStorage implements IStorage {
 
     return result?.count ?? 0;
   }
+
+  // ==================== NOTIFICATION OPERATIONS ====================
+
+  /**
+   * Get user's notifications with optional filters
+   */
+  async getUserNotifications(
+    userId: number,
+    filters: NotificationFilters = {}
+  ): Promise<Notification[]> {
+    const { isRead, type, limit = 50, offset = 0 } = filters;
+
+    const conditions = [eq(notifications.userId, userId)];
+
+    if (isRead !== undefined) {
+      conditions.push(eq(notifications.isRead, isRead));
+    }
+
+    if (type) {
+      conditions.push(eq(notifications.type, type));
+    }
+
+    const result = await db
+      .select()
+      .from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return result;
+  }
+
+  /**
+   * Get notification statistics for a user
+   * Uses database aggregation for optimal performance
+   */
+  async getNotificationStats(userId: number): Promise<NotificationStats> {
+    // Get total and unread counts in a single query
+    const [counts] = await db
+      .select({
+        total: count(),
+        unread: sql<number>`count(*) FILTER (WHERE ${notifications.isRead} = false)::int`,
+      })
+      .from(notifications)
+      .where(eq(notifications.userId, userId));
+
+    // Get counts by type using GROUP BY
+    const typeRows = await db
+      .select({
+        type: notifications.type,
+        count: count(),
+      })
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .groupBy(notifications.type);
+
+    // Build byType object from rows
+    const byType: Record<string, number> = {};
+    typeRows.forEach(row => {
+      byType[row.type] = Number(row.count);
+    });
+
+    return {
+      total: Number(counts?.total || 0),
+      unread: counts?.unread || 0,
+      byType,
+    };
+  }
+
+  /**
+   * Mark notification(s) as read
+   */
+  async markNotificationsAsRead(
+    userId: number,
+    notificationIds: number | number[]
+  ): Promise<number> {
+    const ids = Array.isArray(notificationIds) ? notificationIds : [notificationIds];
+
+    const result = await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          inArray(notifications.id, ids)
+        )
+      )
+      .returning();
+
+    return result.length;
+  }
+
+  /**
+   * Mark all notifications as read for a user
+   */
+  async markAllNotificationsAsRead(userId: number): Promise<number> {
+    const result = await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
+      .returning();
+
+    return result.length;
+  }
+
+  /**
+   * Delete a notification
+   */
+  async deleteNotification(
+    userId: number,
+    notificationId: number
+  ): Promise<boolean> {
+    const result = await db
+      .delete(notifications)
+      .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)))
+      .returning();
+
+    return result.length > 0;
+  }
+
+  /**
+   * Delete all notifications for a user
+   */
+  async deleteAllNotifications(userId: number): Promise<number> {
+    const result = await db
+      .delete(notifications)
+      .where(eq(notifications.userId, userId))
+      .returning();
+
+    return result.length;
+  }
+
+  /**
+   * Create a new notification with daily limit check
+   * Uses SERIALIZABLE transaction to prevent race conditions on limit checks
+   */
+  async createNotificationWithLimitCheck(
+    notification: InsertNotification,
+    maxDaily: number = 50
+  ): Promise<Notification> {
+    // RACE CONDITION: Use transaction with SERIALIZABLE isolation for limit check + creation
+    // Without transaction, concurrent notifications could bypass daily limit
+    // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
+    const created = await retryWithBackoff(
+      async () => db.transaction(async (tx) => {
+        // Check daily limit within transaction
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const [todayCount] = await tx
+          .select({ count: count() })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.userId, notification.userId),
+              gte(notifications.createdAt, today)
+            )
+          );
+
+        if (maxDaily && Number(todayCount.count) >= maxDaily) {
+          throw new Error('Daily notification limit reached');
+        }
+
+        // Create the notification - must be atomic with limit check
+        const result = await tx.insert(notifications).values(notification).returning();
+        if (!result[0]) {
+          throw new Error('Failed to create notification');
+        }
+        return result[0];
+      }, {
+        isolationLevel: 'serializable', // Prevent concurrent notification limit bypass
+      }),
+      {
+        maxAttempts: 3,
+        initialDelayMs: 100,
+        isRetryable: isTransientDatabaseError,
+        context: { operation: 'createNotificationWithLimitCheck', userId: notification.userId, type: notification.type },
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn('[Storage] Retrying createNotificationWithLimitCheck after serialization error', {
+            error: error instanceof Error ? error.message : String(error),
+            attempt,
+            delayMs,
+            userId: notification.userId,
+          });
+        },
+      }
+    );
+
+    return created;
+  }
+
+  /**
+   * Get user's notification preferences
+   */
+  async getUserNotificationPreferences(userId: number): Promise<NotificationPreferences> {
+    const result = await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId))
+      .limit(1);
+
+    if (result.length === 0) {
+      // Create default preferences if they don't exist
+      return await this.createDefaultNotificationPreferences(userId);
+    }
+
+    return result[0];
+  }
+
+  /**
+   * Create default notification preferences for a user
+   * Uses ON CONFLICT to handle race conditions when multiple requests
+   * try to create preferences simultaneously
+   */
+  async createDefaultNotificationPreferences(
+    userId: number
+  ): Promise<NotificationPreferences> {
+    const defaultPrefs: InsertNotificationPreferences = {
+      userId,
+      priceDropEnabled: true,
+      priceDropThresholdPercent: 10,
+      priceDropThresholdAmount: "5.00",
+      priceAlertEnabled: true,
+      emailEnabled: true,
+      inAppEnabled: true,
+      maxDailyNotifications: 10,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+    };
+
+    // Use ON CONFLICT to handle concurrent creation attempts
+    const result = await db
+      .insert(notificationPreferences)
+      .values(defaultPrefs)
+      .onConflictDoNothing({ target: notificationPreferences.userId })
+      .returning();
+
+    // If conflict occurred (result is empty), fetch the existing preference
+    if (result.length === 0) {
+      const existing = await db
+        .select()
+        .from(notificationPreferences)
+        .where(eq(notificationPreferences.userId, userId))
+        .limit(1);
+      return existing[0];
+    }
+
+    return result[0];
+  }
+
+  /**
+   * Update user's notification preferences
+   */
+  async updateUserNotificationPreferences(
+    userId: number,
+    updates: Partial<InsertNotificationPreferences>
+  ): Promise<NotificationPreferences> {
+    // RACE CONDITION: Use transaction with SERIALIZABLE isolation for check + create/update
+    // Without transaction, concurrent updates could both try to create defaults (constraint violation)
+    // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
+    return await retryWithBackoff(
+      async () => db.transaction(async (tx) => {
+        // Check if preferences exist within transaction
+        const existing = await tx
+          .select()
+          .from(notificationPreferences)
+          .where(eq(notificationPreferences.userId, userId))
+          .limit(1);
+
+        if (existing.length === 0) {
+          // Create with updates - must be atomic with existence check
+          const defaultPrefs: InsertNotificationPreferences = {
+            userId,
+            inAppEnabled: true,
+            emailEnabled: false,
+            priceDropEnabled: true,
+            priceAlertEnabled: true,
+            quietHoursStart: null,
+            quietHoursEnd: null,
+            maxDailyNotifications: 50,
+            ...updates, // Apply user updates
+          };
+
+          const result = await tx.insert(notificationPreferences).values(defaultPrefs).returning();
+          return result[0];
+        }
+
+        // Update existing
+        const result = await tx
+          .update(notificationPreferences)
+          .set(updates)
+          .where(eq(notificationPreferences.userId, userId))
+          .returning();
+
+        return result[0];
+      }, {
+        isolationLevel: 'serializable', // Prevent concurrent preference creation race
+      }),
+      {
+        maxAttempts: 3,
+        initialDelayMs: 100,
+        isRetryable: isTransientDatabaseError,
+        context: { operation: 'updateUserNotificationPreferences', userId },
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn('[Storage] Retrying updateUserNotificationPreferences after serialization error', {
+            error: error instanceof Error ? error.message : String(error),
+            attempt,
+            delayMs,
+            userId,
+          });
+        },
+      }
+    );
+  }
+
+  /**
+   * Get recent notifications by type for a user
+   */
+  async getRecentNotificationsByType(
+    userId: number,
+    type: string,
+    days: number = 7
+  ): Promise<Notification[]> {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    return await db
+      .select()
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.type, type),
+          gte(notifications.createdAt, since)
+        )
+      )
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  // ==================== SMART ALERTS OPERATIONS ====================
+
+  /**
+   * Get product offer IDs by product ID
+   * Used by smart alerts to fetch offers for price history analysis
+   */
+  async getProductOfferIdsByProductId(productId: number): Promise<Array<{ id: number }>> {
+    return await db
+      .select({ id: productOffers.id })
+      .from(productOffers)
+      .where(eq(productOffers.productId, productId));
+  }
+
+  /**
+   * Get price history by offer IDs
+   * Batched query for efficient price history retrieval
+   */
+  async getPriceHistoryByOfferIds(offerIds: number[], limit: number = 365): Promise<PriceHistory[]> {
+    if (offerIds.length === 0) return [];
+
+    return await db
+      .select()
+      .from(priceHistory)
+      .where(inArray(priceHistory.productOfferId, offerIds))
+      .orderBy(desc(priceHistory.recordedAt))
+      .limit(limit);
+  }
+
+  /**
+   * Get user's active price alerts with product info
+   */
+  async getUserActivePriceAlerts(userId: number): Promise<Array<{ productId: number; targetPrice: string; productName: string | null }>> {
+    return await db
+      .select({
+        productId: priceAlerts.productId,
+        targetPrice: priceAlerts.targetPrice,
+        productName: products.name,
+      })
+      .from(priceAlerts)
+      .innerJoin(products, eq(priceAlerts.productId, products.id))
+      .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.isActive, true)));
+  }
+
+  /**
+   * Get all price alerts for a user
+   */
+  async getUserPriceAlerts(userId: number): Promise<PriceAlert[]> {
+    return await db
+      .select()
+      .from(priceAlerts)
+      .where(eq(priceAlerts.userId, userId))
+      .orderBy(desc(priceAlerts.createdAt));
+  }
+
+  /**
+   * Create a system-suggested price alert
+   */
+  async createSuggestedPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert> {
+    const [result] = await db
+      .insert(priceAlerts)
+      .values({
+        ...alert,
+        suggestedBySystem: true,
+      })
+      .returning();
+
+    return result;
+  }
+
+  /**
+   * Get user price alerts sorted by times triggered (most effective first)
+   * Used for alert effectiveness analysis
+   */
+  async getUserPriceAlertsSortedByTriggers(userId: number): Promise<PriceAlert[]> {
+    return await db
+      .select()
+      .from(priceAlerts)
+      .where(eq(priceAlerts.userId, userId))
+      .orderBy(desc(priceAlerts.timesTriggered));
+  }
+
+  /**
+   * Batch query to get product offers with prices for multiple products
+   * Returns offers sorted by productId and price for easy grouping
+   */
+  async getProductOffersWithPriceByProductIds(productIds: number[]): Promise<Array<{ productId: number; id: number; price: string }>> {
+    if (productIds.length === 0) return [];
+
+    return await db
+      .select({
+        productId: productOffers.productId,
+        id: productOffers.id,
+        price: productOffers.price,
+      })
+      .from(productOffers)
+      .where(inArray(productOffers.productId, productIds))
+      .orderBy(productOffers.productId, productOffers.price);
+  }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
@@ -3504,4 +3998,18 @@ export interface SafeUser {
   isSuspended: boolean | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+}
+
+// Notification Types
+export interface NotificationFilters {
+  isRead?: boolean;
+  type?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface NotificationStats {
+  total: number;
+  unread: number;
+  byType: Record<string, number>;
 }

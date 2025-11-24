@@ -1,22 +1,17 @@
-import { db } from "../db";
+import { storage } from "../storage";
 import {
-  priceHistory,
-  priceAlerts,
-  products,
-  productOffers,
-  retailers,
-  notifications,
   type PriceAlert,
   type InsertPriceAlert,
-  type InsertNotification,
+  type PriceHistory,
 } from "@shared/schema";
-import { eq, and, desc, gte, sql, count, inArray } from "drizzle-orm";
 
 /**
  * Smart Alerts Service
  *
  * Provides intelligent alert suggestions, predictive alerts,
  * and analytics for price alert effectiveness.
+ *
+ * All database access is through the storage layer.
  */
 
 export interface SmartThresholdSuggestion {
@@ -70,23 +65,15 @@ export async function generateSmartThresholdSuggestions(
 ): Promise<SmartThresholdSuggestion[]> {
   const suggestions: SmartThresholdSuggestion[] = [];
 
-  // Get price history for analysis
-  const offers = await db
-    .select({ id: productOffers.id })
-    .from(productOffers)
-    .where(eq(productOffers.productId, productId));
+  // Get offer IDs for this product via storage layer
+  const offers = await storage.getProductOfferIdsByProductId(productId);
 
   if (offers.length === 0) return suggestions;
 
   const offerIds = offers.map(o => o.id);
 
-  // Get historical prices (last 365 days)
-  const history = await db
-    .select()
-    .from(priceHistory)
-    .where(sql`${priceHistory.productOfferId} = ANY(${offerIds})`)
-    .orderBy(desc(priceHistory.recordedAt))
-    .limit(365);
+  // Get historical prices (last 365 days) via storage layer
+  const history = await storage.getPriceHistoryByOfferIds(offerIds, 365);
 
   if (history.length < 5) return suggestions;
 
@@ -165,7 +152,7 @@ export async function generateSmartThresholdSuggestions(
 /**
  * Analyze seasonal patterns from price history
  */
-function analyzeSeasonalPatterns(history: Array<Record<string, unknown>>): Array<{ month: string; average: number; count: number }> {
+function analyzeSeasonalPatterns(history: PriceHistory[]): Array<{ month: string; average: number; count: number }> {
   const monthlyData: Record<string, number[]> = {};
 
   history.forEach(entry => {
@@ -193,35 +180,19 @@ function analyzeSeasonalPatterns(history: Array<Record<string, unknown>>): Array
 export async function generatePredictiveAlerts(userId: number): Promise<PredictiveAlert[]> {
   const alerts: PredictiveAlert[] = [];
 
-  // Get user's active price alerts
-  const userAlerts = await db
-    .select({
-      productId: priceAlerts.productId,
-      targetPrice: priceAlerts.targetPrice,
-      productName: products.name,
-    })
-    .from(priceAlerts)
-    .innerJoin(products, eq(priceAlerts.productId, products.id))
-    .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.isActive, true)));
+  // Get user's active price alerts with product info via storage layer
+  const userAlerts = await storage.getUserActivePriceAlerts(userId);
 
   if (userAlerts.length === 0) return alerts;
 
-  // BATCH QUERY 1: Get all product IDs and fetch lowest-priced offers for all products
+  // BATCH QUERY 1: Get all product IDs and fetch offers with prices for all products
   const productIds = userAlerts.map(a => a.productId);
-  const allOffers = await db
-    .select({
-      productId: productOffers.productId,
-      price: productOffers.price,
-      id: productOffers.id,
-    })
-    .from(productOffers)
-    .where(inArray(productOffers.productId, productIds))
-    .orderBy(productOffers.productId, productOffers.price);
+  const allOffers = await storage.getProductOffersWithPriceByProductIds(productIds);
 
   // Build a map of productId -> lowest priced offer
   const offersByProduct = new Map<number, { id: number; price: string }>();
   for (const offer of allOffers) {
-    // Only keep first (lowest price) offer per product
+    // Only keep first (lowest price) offer per product (already sorted by price)
     if (!offersByProduct.has(offer.productId)) {
       offersByProduct.set(offer.productId, { id: offer.id, price: offer.price });
     }
@@ -231,14 +202,12 @@ export async function generatePredictiveAlerts(userId: number): Promise<Predicti
   const offerIds = Array.from(offersByProduct.values()).map(o => o.id);
   if (offerIds.length === 0) return alerts;
 
-  const allHistory = await db
-    .select()
-    .from(priceHistory)
-    .where(inArray(priceHistory.productOfferId, offerIds))
-    .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+  // Get all history at once - we'll partition it later
+  // Using a higher limit since we're fetching for multiple offers
+  const allHistory = await storage.getPriceHistoryByOfferIds(offerIds, offerIds.length * 60);
 
   // Build a map of offerId -> history entries (limited to 60 per offer)
-  const historyByOffer = new Map<number, Array<typeof allHistory[0]>>();
+  const historyByOffer = new Map<number, PriceHistory[]>();
   for (const entry of allHistory) {
     const existing = historyByOffer.get(entry.productOfferId) || [];
     if (existing.length < 60) {
@@ -277,7 +246,7 @@ export async function generatePredictiveAlerts(userId: number): Promise<Predicti
  * Analyze probability of price dropping to target
  */
 function analyzePriceDropProbability(
-  history: Array<Record<string, unknown>>,
+  history: PriceHistory[],
   currentPrice: number,
   targetPrice: number
 ): Omit<PredictiveAlert, 'productId' | 'productName' | 'currentPrice'> | null {
@@ -345,7 +314,7 @@ function analyzePriceDropProbability(
 /**
  * Calculate average days between deals
  */
-function calculateAverageDaysBetweenDeals(history: Array<Record<string, unknown>>, targetPrice: number): number {
+function calculateAverageDaysBetweenDeals(history: PriceHistory[], targetPrice: number): number {
   const dealDates: Date[] = [];
 
   history.forEach(entry => {
@@ -368,7 +337,7 @@ function calculateAverageDaysBetweenDeals(history: Array<Record<string, unknown>
 /**
  * Calculate days since target price was last seen
  */
-function calculateDaysSincePrice(history: Array<Record<string, unknown>>, targetPrice: number): number {
+function calculateDaysSincePrice(history: PriceHistory[], targetPrice: number): number {
   for (const entry of history) {
     if (parseFloat(entry.price) <= targetPrice) {
       const date = new Date(entry.recordedAt || entry.createdAt);
@@ -382,26 +351,16 @@ function calculateDaysSincePrice(history: Array<Record<string, unknown>>, target
  * Get alert effectiveness metrics
  */
 export async function getAlertEffectiveness(userId: number): Promise<AlertEffectiveness[]> {
-  const alerts = await db
-    .select()
-    .from(priceAlerts)
-    .where(eq(priceAlerts.userId, userId))
-    .orderBy(desc(priceAlerts.timesTriggered));
+  // Get alerts sorted by times triggered via storage layer
+  const alerts = await storage.getUserPriceAlertsSortedByTriggers(userId);
 
   if (alerts.length === 0) return [];
 
   // BATCH QUERY: Get lowest prices for all products in user's alerts
   const productIds = alerts.map(a => a.productId);
-  const allOffers = await db
-    .select({
-      productId: productOffers.productId,
-      price: productOffers.price,
-    })
-    .from(productOffers)
-    .where(inArray(productOffers.productId, productIds))
-    .orderBy(productOffers.productId, productOffers.price);
+  const allOffers = await storage.getProductOffersWithPriceByProductIds(productIds);
 
-  // Build map of productId -> lowest price
+  // Build map of productId -> lowest price (already sorted by price)
   const lowestPriceByProduct = new Map<number, number>();
   for (const offer of allOffers) {
     if (!lowestPriceByProduct.has(offer.productId)) {
@@ -453,10 +412,8 @@ export async function getAlertEffectiveness(userId: number): Promise<AlertEffect
  * Get comprehensive alert analytics for a user
  */
 export async function getAlertAnalytics(userId: number): Promise<AlertAnalytics> {
-  const alerts = await db
-    .select()
-    .from(priceAlerts)
-    .where(eq(priceAlerts.userId, userId));
+  // Get all user alerts via storage layer
+  const alerts = await storage.getUserPriceAlerts(userId);
 
   const activeAlerts = alerts.filter(a => a.isActive);
   const triggeredAlerts = alerts.filter(a => a.timesTriggered && a.timesTriggered > 0);
@@ -517,6 +474,6 @@ export async function createSuggestedAlert(
     lastTriggeredAt: null,
   };
 
-  const result = await db.insert(priceAlerts).values(alert).returning();
-  return result[0];
+  // Use storage layer to create the alert
+  return await storage.createSuggestedPriceAlert(alert);
 }

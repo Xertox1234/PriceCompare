@@ -28,9 +28,9 @@ Discovered during architecture audit on 2025-11-23.
 3. `server/services/price-snapshot-service.ts`
 4. `server/services/trend-analysis-service.ts`
 5. `server/services/community-service.ts`
-6. `server/services/notification-service.ts`
-7. `server/services/smart-notification-service.ts`
-8. `server/services/smart-alerts-service.ts`
+6. ~~`server/services/notification-service.ts`~~ ✅ **MIGRATED (Phase 2)**
+7. ~~`server/services/smart-notification-service.ts`~~ ✅ **MIGRATED (Phase 2)**
+8. ~~`server/services/smart-alerts-service.ts`~~ ✅ **MIGRATED (Phase 2)**
 9. ~~`server/services/alert-service.ts`~~ (No db import - N/A)
 10. ~~`server/services/affiliate-link-service.ts`~~ ✅ **MIGRATED (Phase 1)**
 11. `server/services/advanced-search.ts`
@@ -54,13 +54,35 @@ Discovered during architecture audit on 2025-11-23.
 
 **Total: 17 new storage methods added**
 
-### Phase 2-6 - PENDING
-**Remaining 14 services to migrate (~80 new storage methods needed)**
+### Phase 2 - COMPLETED ✅ (2025-11-24)
+**Migrated 3 notification services:**
+- `notification-service.ts` - 11 new storage methods
+  - getUserNotifications, getNotificationStats, markNotificationsAsRead
+  - markAllNotificationsAsRead, deleteNotification, deleteAllNotifications
+  - createNotificationWithLimitCheck, getUserNotificationPreferences
+  - createDefaultNotificationPreferences, updateUserNotificationPreferences
+  - getRecentNotificationsByType
+- `smart-notification-service.ts` - Uses notification-service + storage.getProductById
+- `smart-alerts-service.ts` - 4 new storage methods
+  - getProductOfferIdsByProductId, getPriceHistoryByOfferIds
+  - getUserActivePriceAlerts, getUserPriceAlertsSortedByTriggers
+  - getProductOffersWithPriceByProductIds, createSuggestedPriceAlert
+
+**Total: ~17 new storage methods added (Phase 2)**
+**Cumulative: 34 storage methods added**
+
+### Phase 3-6 - PENDING
+**Remaining 9 services to migrate:**
+- Price analytics: price-aggregation-service, price-history-service, price-snapshot-service, trend-analysis-service
+- Community: community-service
+- Search/monitoring: advanced-search, monitoring-service, hybrid-data-collector
+- Routes: price-analytics-routes
+- Discovery: price-drop-detection, product-discovery-fallback
 
 ## Acceptance Criteria
 
 - [x] Phase 1: Foundation services migrated (job-lock, password-reset, affiliate-link)
-- [ ] Phase 2: Notification services migrated
+- [x] Phase 2: Notification services migrated (notification, smart-notification, smart-alerts)
 - [ ] Phase 3: Price analytics services migrated
 - [ ] Phase 4: Community services migrated
 - [ ] Phase 5: Search & monitoring services migrated
@@ -83,6 +105,21 @@ Discovered during architecture audit on 2025-11-23.
 - Added getUserByIdSafe() for secure user retrieval
 - Optimized getPasswordResetAttemptCount() query
 - Codified patterns into reviewer agents
+
+### 2025-11-24 - Phase 2 Migration Completed
+**By:** Claude Code
+**Branch:** refactor/storage-layer-phase-2
+**Changes:**
+- Migrated 3 notification services to storage layer
+- Added ~17 new storage methods to IStorage interface
+- Implemented methods in DatabaseStorage with:
+  - SERIALIZABLE transactions for race condition prevention
+  - Retry logic with retryWithBackoff for transient errors
+  - ON CONFLICT handling for concurrent operations
+  - Batch queries to avoid N+1 patterns
+- Updated MemStorage with stub implementations
+- Preserved all business logic in services (preference checks, quiet hours, WebSocket events)
+- No TypeScript errors in migrated files
 
 ## Notes
 
