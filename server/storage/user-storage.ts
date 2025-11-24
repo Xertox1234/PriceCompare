@@ -146,8 +146,16 @@ export class UserStorage extends BaseStorage implements IUserStorage {
     }
   ): Promise<void> {
     return this.handleError('updateUserProfile', async () => {
-      // Build update object with only provided fields
-      const updates: Record<string, any> = {};
+      // Build update object with only provided fields (typed to prevent any)
+      type ProfileUpdates = Partial<{
+        bio: string;
+        location: string;
+        website: string;
+        avatarUrl: string;
+        updatedAt: Date;
+      }>;
+
+      const updates: ProfileUpdates = {};
       if (data.bio !== undefined) updates.bio = data.bio;
       if (data.location !== undefined) updates.location = data.location;
       if (data.website !== undefined) updates.website = data.website;
@@ -157,6 +165,16 @@ export class UserStorage extends BaseStorage implements IUserStorage {
       if (Object.keys(updates).length === 0) {
         this.logDebug('updateUserProfile', { userId, reason: 'No changes requested' });
         return;
+      }
+
+      // Verify user exists before updating
+      const [existingUser] = await this.db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!existingUser) {
+        throw new Error(`User ${userId} not found`);
       }
 
       // Add updatedAt timestamp
@@ -182,9 +200,26 @@ export class UserStorage extends BaseStorage implements IUserStorage {
         );
       }
 
+      // Verify user exists before updating
+      const [user] = await this.db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        throw new Error(`User ${userId} not found`);
+      }
+
       await this.db.update(users)
         .set({ trustLevel, updatedAt: new Date() })
         .where(eq(users.id, userId));
+
+      // Audit log for security-sensitive trust level changes
+      this.logDebug('updateUserTrustLevel', {
+        userId,
+        newTrustLevel: trustLevel,
+        timestamp: new Date().toISOString()
+      });
     });
   }
 
