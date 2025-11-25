@@ -73,7 +73,7 @@
     "@types/bull": "^4.10.4",
     "@types/cheerio": "^1.0.0",
     "@types/compression": "^1.8.1",
-    "@types/dompurify": "^3.0.5",
+    "@types/dompurify": "^3.2.0",
     "@types/memoizee": "^0.4.12",
     "@types/nodemailer": "^7.0.4",
     "@types/user-agents": "^1.0.4",
