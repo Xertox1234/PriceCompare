@@ -24,8 +24,9 @@ if (dsn) {
     // Performance Monitoring
     integrations: [
       // Browser tracing for performance monitoring
-      // Note: Using standard browser tracing instead of React Router integration
-      // because we use Wouter (not React Router v6) for routing
+      // Note: Using browserTracingIntegration instead of reactRouterV6BrowserTracingIntegration
+      // because Wouter (lightweight router) doesn't provide React Router v6 hooks.
+      // This still captures page load, navigation timing, and user interactions.
       Sentry.browserTracingIntegration(),
 
       // Session replay for debugging user sessions
