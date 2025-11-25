@@ -771,3 +771,20 @@ export interface ProductForEmbedding {
   category: string | null;
   brand: string | null;
 }
+
+// ============================================================================
+// Notification Types
+// ============================================================================
+
+export interface NotificationFilters {
+  isRead?: boolean;
+  type?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface NotificationStats {
+  total: number;
+  unread: number;
+  byType: Record<string, number>;
+}

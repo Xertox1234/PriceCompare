@@ -39,6 +39,7 @@ export type { IAlertStorage } from './alert-storage';
 export type { IWatchlistStorage } from './watchlist-storage';
 export type { IPriceStorage } from './price-storage';
 export type { IForumStorage } from './forum-storage';
+export type { INotificationStorage } from './notification-storage';
 
 // Import the original IStorage interface and storage implementation
 // Phase 2: UserStorage is implemented but not yet integrated into facade
@@ -201,3 +202,4 @@ export { alertStorage } from './alert-storage';
 export { watchlistStorage } from './watchlist-storage';
 export { priceStorage } from './price-storage';
 export { forumStorage } from './forum-storage';
+export { notificationStorage } from './notification-storage';
