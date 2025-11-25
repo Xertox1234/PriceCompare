@@ -1,5 +1,6 @@
 import { Express, Request } from "express";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
 import * as schema from "@shared/schema";
@@ -19,6 +20,41 @@ import {
 import { emailService } from "../services/email-service";
 import { isAuthenticated } from "./helpers";
 
+// Zod schemas for request validation
+const registerSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters").max(50, "Username must be less than 50 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(100, "Password must be less than 100 characters"),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(100, "Password must be less than 100 characters"),
+});
+
+/**
+ * Helper function to log password reset attempts with consistent structure
+ */
+function logPasswordResetAttempt(
+  req: Request,
+  email: string,
+  user: SafeUser | null,
+  success: boolean,
+  message?: string
+): void {
+  logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
+    email: user?.email || email,
+    username: user?.username,
+    userId: user?.id,
+    success,
+    message,
+  });
+}
+
 /**
  * Authentication Routes
  *
@@ -33,19 +69,8 @@ export function registerAuthRoutes(app: Express): void {
         logger.debug('Registration request', { hasEmail: !!req.body.email });
       }
 
-      // Validate required fields manually first
-      const { username, email, password } = req.body;
-      if (!username || !email || !password) {
-        res.status(400).json({
-          error: "Missing required fields",
-          details: {
-            username: !username ? "Username is required" : null,
-            email: !email ? "Email is required" : null,
-            password: !password ? "Password is required" : null
-          }
-        });
-        return;
-      }
+      // Validate input with Zod schema
+      const { username, email, password } = registerSchema.parse(req.body);
 
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);
@@ -85,8 +110,9 @@ export function registerAuthRoutes(app: Express): void {
       // Log the user in after registration
       req.login(user as Express.User, (err): void => {
         if (err) {
-          logger.error('Login after registration failed', { error: err.message, userId: user.id });
-          res.status(500).json({ error: 'Registration successful but login failed' });
+          logger.error('Login after registration failed', { error: err instanceof Error ? err.message : String(err), userId: user.id });
+          const errorResponse = createErrorResponse(err, 'LoginAfterRegistration');
+          res.status(errorResponse.status).json({ error: errorResponse.error });
           return;
         }
         res.json({
@@ -100,8 +126,8 @@ export function registerAuthRoutes(app: Express): void {
         });
       });
     } catch (error: unknown) {
-      logger.error('Registration error', { error: error instanceof Error ? error.message : String(error) });
-      res.status(400).json({ error: 'Registration failed' });
+      const errorResponse = createErrorResponse(error, 'Register');
+      res.status(errorResponse.status).json({ error: errorResponse.error });
     }
   });
 
@@ -171,8 +197,9 @@ export function registerAuthRoutes(app: Express): void {
 
     req.logout((err): void => {
       if (err) {
-        logger.error('Logout error', { error: err.message, userId: user?.id });
-        res.status(500).json({ error: 'Logout failed' });
+        logger.error('Logout error', { error: err instanceof Error ? err.message : String(err), userId: user?.id });
+        const errorResponse = createErrorResponse(err, 'Logout');
+        res.status(errorResponse.status).json({ error: errorResponse.error });
         return;
       }
 
@@ -193,12 +220,8 @@ export function registerAuthRoutes(app: Express): void {
   // Password reset - Request token
   app.post("/api/auth/forgot-password", async (req, res): Promise<void> => {
     try {
-      const { email } = req.body;
-
-      if (!email) {
-        res.status(400).json({ error: "Email is required" });
-        return;
-      }
+      // Validate input with Zod schema
+      const { email } = forgotPasswordSchema.parse(req.body);
 
       // SECURITY: Always return success to prevent email enumeration
       // Even if the user doesn't exist, we return a success message
@@ -208,15 +231,8 @@ export function registerAuthRoutes(app: Express): void {
         // Check rate limiting to prevent abuse
         const rateLimitExceeded = await isRateLimitExceeded(user.id);
         if (rateLimitExceeded) {
-          // Log the rate limit event
-          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
-            email,
-            success: false,
-            message: "Rate limit exceeded",
-            metadata: {
-              rateLimitExceeded: true,
-            },
-          });
+          // Log the rate limit event using helper
+          logPasswordResetAttempt(req, email, user, false, "Rate limit exceeded");
 
           // SECURITY: Still return success to prevent email enumeration
           res.json({
@@ -228,11 +244,7 @@ export function registerAuthRoutes(app: Express): void {
 
         // Check if email service is configured
         if (!emailService.isReady()) {
-          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
-            email,
-            success: false,
-            message: "Email service not configured",
-          });
+          logPasswordResetAttempt(req, email, user, false, "Email service not configured");
 
           res.status(503).json({
             error: "Password reset is temporarily unavailable. Please contact support.",
@@ -254,29 +266,17 @@ export function registerAuthRoutes(app: Express): void {
           user.username
         );
 
-        if (emailSent) {
-          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
-            userId: user.id,
-            email: user.email,
-            username: user.username,
-            success: true,
-          });
-        } else {
-          logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
-            userId: user.id,
-            email: user.email,
-            username: user.username,
-            success: false,
-            message: "Failed to send email",
-          });
-        }
+        // Log the attempt with appropriate success status
+        logPasswordResetAttempt(
+          req,
+          email,
+          user,
+          emailSent,
+          emailSent ? undefined : "Failed to send email"
+        );
       } else {
         // User doesn't exist, but log this attempt
-        logSecurityEvent(SecurityEventType.PASSWORD_RESET_REQUESTED, req, {
-          email,
-          success: false,
-          message: "User not found",
-        });
+        logPasswordResetAttempt(req, email, null, false, "User not found");
       }
 
       // SECURITY: Always return the same response regardless of whether user exists
@@ -339,14 +339,8 @@ export function registerAuthRoutes(app: Express): void {
   // Password reset - Complete reset
   app.post("/api/auth/reset-password", async (req, res): Promise<void> => {
     try {
-      const { token, password } = req.body;
-
-      if (!token || !password) {
-        res.status(400).json({
-          error: "Token and password are required",
-        });
-        return;
-      }
+      // Validate input with Zod schema
+      const { token, password } = resetPasswordSchema.parse(req.body);
 
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);
