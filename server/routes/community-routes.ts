@@ -105,7 +105,8 @@ export function registerCommunityRoutes(app: Express) {
       const removed = await communityService.removeProductWatch(user.id, productId);
 
       if (!removed) {
-        return res.status(404).json({ error: "Watch not found" });
+        res.status(404).json({ error: "Watch not found" });
+        return;
       }
 
       res.json({ success: true });
@@ -318,7 +319,8 @@ export function registerCommunityRoutes(app: Express) {
       const watchList = await communityService.getWatchListById(user.id, listId);
 
       if (!watchList) {
-        return res.status(404).json({ error: "Watch list not found" });
+        res.status(404).json({ error: "Watch list not found" });
+        return;
       }
 
       res.json({
@@ -344,7 +346,8 @@ export function registerCommunityRoutes(app: Express) {
       const updated = await communityService.updateWatchList(user.id, listId, validatedData);
 
       if (!updated) {
-        return res.status(404).json({ error: "Watch list not found" });
+        res.status(404).json({ error: "Watch list not found" });
+        return;
       }
 
       res.json({
@@ -369,7 +372,8 @@ export function registerCommunityRoutes(app: Express) {
       const deleted = await communityService.deleteWatchList(user.id, listId);
 
       if (!deleted) {
-        return res.status(404).json({ error: "Watch list not found or cannot be deleted" });
+        res.status(404).json({ error: "Watch list not found or cannot be deleted" });
+        return;
       }
 
       res.json({ success: true });
@@ -414,7 +418,8 @@ export function registerCommunityRoutes(app: Express) {
       const updated = await communityService.updateProductWatch(user.id, watchId, validatedData);
 
       if (!updated) {
-        return res.status(404).json({ error: "Product watch not found" });
+        res.status(404).json({ error: "Product watch not found" });
+        return;
       }
 
       res.json({
