@@ -61,13 +61,9 @@ export interface IStorage {
   getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductInfo[]>;
   getWatchListStats(userId: number): Promise<WatchListStats>;
 
-  // Users (Admin)
-  getAllUsers(): Promise<SafeUser[]>;
+  // Users - Basic operations
   getUserCount(): Promise<number>;
   getUserByIdSafe(id: number): Promise<SafeUser | null>;
-  updateUserProfile(userId: number, updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
-  updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
-  suspendUser(userId: number, reason: string, suspendedBy: number): Promise<void>;
 
   // User Registration (with transaction) - SECURITY: passwordHash handled internally, NEVER exposed
   registerUser(userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser>;
@@ -75,7 +71,66 @@ export interface IStorage {
   // Password Reset (with transaction) - SECURITY: passwordHash handled internally, NEVER exposed
   resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void>;
 
+  // Health Check
+  checkDatabaseHealth(): Promise<boolean>;
+
+  // Trending Products (Scraping)
+  getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]>;
+
+  // Price Analytics
+  getWeeklyAggregates(productId: number, options?: { year?: number; week?: number; retailerId?: number; limit?: number }): Promise<WeeklyAggregate[]>;
+  getMonthlyAggregates(productId: number, options?: { year?: number; month?: number; retailerId?: number; limit?: number }): Promise<MonthlyAggregate[]>;
+  getAnalyticsOverview(): Promise<AnalyticsOverview>;
+  getJobLocks(): Promise<JobLock[]>;
+
+  // Job Lock Operations
+  acquireJobLock(jobName: string, lockedBy: string, ttlSeconds: number): Promise<{ success: boolean; id?: number }>;
+  getJobLockByName(jobName: string): Promise<JobLock | null>;
+  updateExpiredJobLock(jobName: string, lockedBy: string, newExpiresAt: Date): Promise<{ success: boolean; id?: number }>;
+  releaseJobLock(jobName: string, lockedBy: string): Promise<boolean>;
+  extendJobLock(jobName: string, lockedBy: string, additionalSeconds: number): Promise<boolean>;
+  isJobLocked(jobName: string): Promise<boolean>;
+  cleanupExpiredJobLocks(): Promise<number>;
+
+  // Password Reset Token Operations
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date, metadata?: { ipAddress?: string; userAgent?: string }): Promise<void>;
+  validatePasswordResetToken(token: string): Promise<PasswordResetToken | null>;
+  markPasswordResetTokenAsUsed(token: string): Promise<void>;
+  cleanupExpiredPasswordResetTokens(): Promise<number>;
+  getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number>;
+
+  // Forum Operations (with transactions)
+  createTopicWithFirstPost(topicData: {
+    title: string;
+    authorId: number;
+    categoryId?: number | null;
+    productId?: number | null;
+  }, content: string): Promise<ForumTopicResult>;
+
+  createForumPost(topicId: number, authorId: number, content: string, rawContent: string): Promise<ForumPostResult>;
+
+  // Admin Product/Retailer Management
+  getAdminProducts(): Promise<AdminProduct[]>;
+  getAdminProductById(id: number): Promise<AdminProductWithOffers | null>;
+  createAdminProduct(data: InsertProduct): Promise<Product>;
+  updateAdminProduct(id: number, data: Partial<InsertProduct>): Promise<Product | null>;
+  deleteAdminProduct(id: number): Promise<Product | null>;
+  getAdminRetailers(): Promise<Retailer[]>;
+  createAdminRetailer(data: InsertRetailer): Promise<Retailer>;
+  updateAdminRetailer(id: number, data: Partial<InsertRetailer>): Promise<Retailer | null>;
+  deleteAdminRetailer(id: number): Promise<Retailer | null>;
+
+  // Affiliate Management
+  getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]>;
+  updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null>;
+
+  // User Profile Management
+  updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
+  updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
+  suspendUser(userId: number, reason: string, moderatorId: number): Promise<void>;
+
   // Admin Analytics
+  getAllUsers(): Promise<AdminUser[]>;
   getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview>;
   getUserGrowthData(): Promise<Array<{ date: string; count: number }>>;
   getForumActivityData(): Promise<Array<{ date: string; count: number }>>;
@@ -970,7 +1025,7 @@ export class MemStorage implements IStorage {
     return this.products.get(id);
   }
 
-  async getAllUsers(): Promise<SafeUser[]> {
+  async getAllUsers(): Promise<AdminUser[]> {
     return [];
   }
 
@@ -1716,6 +1771,66 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  async updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | undefined> {
+    const [result] = await db
+      .update(products)
+      .set(updates)
+      .where(eq(products.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteProduct(id: number): Promise<Product | undefined> {
+    const [result] = await db
+      .delete(products)
+      .where(eq(products.id, id))
+      .returning();
+    return result;
+  }
+
+  async getProductByIdRaw(id: number): Promise<Product | undefined> {
+    const [result] = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1);
+    return result;
+  }
+
+  // SECURITY: passwordHash handled internally, NEVER exposed in SELECT queries
+  async registerUser(userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser> { // SECURITY: NEVER expose
+    const [user] = await db.insert(users).values(userData).returning({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      role: users.role,
+      trustLevel: users.trustLevel,
+      isActive: users.isActive,
+      isSuspended: users.isSuspended,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+      // SECURITY: Never expose passwordHash
+    });
+    return user;
+  }
+
+  // SECURITY: passwordHash handled internally, NEVER exposed in queries
+  async resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void> { // SECURITY: NEVER expose
+    await db.transaction(async (tx) => {
+      // Update password hash (write operation, not a query)
+      await tx
+        .update(users)
+        .set({ passwordHash: newPasswordHash }) // SECURITY: NEVER expose passwordHash in SELECT queries
+        .where(eq(users.id, userId));
+
+      // Mark token as used
+      await tx
+        .update(passwordResetTokens)
+        .set({ isUsed: true, usedAt: new Date() })
+        .where(eq(passwordResetTokens.token, token));
+    });
   }
 
   /**
@@ -3540,20 +3655,30 @@ export class DatabaseStorage implements IStorage {
       await db.select({ count: sql`1` }).from(users).limit(1);
       return true;
     } catch (error) {
-      logger.error('Database health check failed:', error);
+      logger.error('Database health check failed:', { error: error instanceof Error ? error.message : String(error) });
       return false;
     }
   }
 
   async getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]> {
     const result = await db
-      .select()
+      .select({
+        id: trendingProducts.id,
+        name: trendingProducts.name,
+        category: trendingProducts.category,
+        status: trendingProducts.status,
+        discoveredAt: trendingProducts.discoveryDate,
+      })
       .from(trendingProducts)
       .where(eq(trendingProducts.status, status))
       .orderBy(desc(trendingProducts.createdAt))
       .limit(limit);
 
-    return result;
+    // Map to ensure status is never null (filtered by WHERE clause above)
+    return result.map(row => ({
+      ...row,
+      status: row.status || 'unknown'
+    }));
   }
 
   async getWeeklyAggregates(
@@ -3596,6 +3721,7 @@ export class DatabaseStorage implements IStorage {
       volatilityScore: row.volatilityScore,
       recordCount: row.recordCount,
       weekOverWeekChange: row.weekOverWeekChange,
+      createdAt: row.createdAt,
       updatedAt: row.updatedAt
     }));
   }
@@ -3641,6 +3767,7 @@ export class DatabaseStorage implements IStorage {
       recordCount: row.recordCount,
       monthOverMonthChange: row.monthOverMonthChange,
       yearOverYearChange: row.yearOverYearChange,
+      createdAt: row.createdAt,
       updatedAt: row.updatedAt
     }));
   }
@@ -3692,6 +3819,7 @@ export class DatabaseStorage implements IStorage {
         lockedBy: jobLocks.lockedBy,
         lockedAt: jobLocks.lockedAt,
         expiresAt: jobLocks.expiresAt,
+        metadata: jobLocks.metadata,
       })
       .from(jobLocks)
       .orderBy(desc(jobLocks.lockedAt));
@@ -5028,15 +5156,22 @@ export class DatabaseStorage implements IStorage {
       dealSpotting = result[0];
 
       // Award reputation - must succeed or rollback deal spotting
-      const reputationEntry: InsertUserReputation = {
-        userId: data.userId,
-        reputationChange: data.reputationAwarded,
-        reason: 'deal_spotted',
-        relatedEntityType: 'deal_spotting',
-        relatedEntityId: dealSpotting.id,
-      };
-
-      await tx.insert(userReputation).values(reputationEntry);
+      // UPSERT: Create reputation record if it doesn't exist, or update existing one
+      await tx
+        .insert(userReputation)
+        .values({
+          userId: data.userId,
+          reputationPoints: data.reputationAwarded,
+          dealsSpotted: 1,
+        })
+        .onConflictDoUpdate({
+          target: userReputation.userId,
+          set: {
+            reputationPoints: sql`${userReputation.reputationPoints} + ${data.reputationAwarded}`,
+            dealsSpotted: sql`${userReputation.dealsSpotted} + 1`,
+            updatedAt: new Date(),
+          },
+        });
     });
 
     return dealSpotting!;
@@ -5262,7 +5397,11 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(productWatches.priority), desc(productWatches.updatedAt));
 
-    return result;
+    // Map null to undefined for productImage to match interface
+    return result.map(row => ({
+      ...row,
+      productImage: row.productImage ?? undefined
+    }));
   }
 
   /**
@@ -6351,7 +6490,7 @@ export interface WatchedProductsOptions {
 
 export interface WatchedProductInfo {
   productId: number;
-  watchListId: number;
+  watchListId: number | null;
   watchListName: string;
   productName: string;
   imageUrl: string;
