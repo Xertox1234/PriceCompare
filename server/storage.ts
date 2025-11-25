@@ -9,22 +9,22 @@ export interface IStorage {
   // Retailers
   getRetailers(): Promise<Retailer[]>;
   getAllRetailers(): Promise<Retailer[]>;
-  getRetailerById(id: number): Promise<Retailer | undefined>;
+  getRetailerById(id: number): Promise<Retailer | null>;
   createRetailer(retailer: InsertRetailer): Promise<Retailer>;
-  updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | undefined>;
-  deleteRetailer(id: number): Promise<Retailer | undefined>;
+  updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | null>;
+  deleteRetailer(id: number): Promise<Retailer | null>;
 
   // Products
   getProducts(): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | undefined>;
-  deleteProduct(id: number): Promise<Product | undefined>;
+  updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | null>;
+  deleteProduct(id: number): Promise<Product | null>;
   searchProducts(filters: SearchFilters): Promise<{
     products: ProductWithOffers[];
     pagination: { page: number; limit: number; total: number; totalPages: number };
   }>;
-  getProductById(id: number): Promise<ProductWithOffers | undefined>;
-  getProductByIdRaw(id: number): Promise<Product | undefined>;
+  getProductById(id: number): Promise<ProductWithOffers | null>;
+  getProductByIdRaw(id: number): Promise<Product | null>;
 
   // Product Offers
   getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]>;
@@ -577,6 +577,7 @@ export class MemStorage implements IStorage {
       brand: product.brand || null,
       description: product.description || null,
       model: product.model || null,
+      // Type assertion: Drizzle stores JSON field as unknown, cast to expected vector array format
       embedding: (product.embedding as number[] | null) || null,
       embeddingUpdatedAt: product.embeddingUpdatedAt || null,
       searchVector: null
@@ -662,6 +663,7 @@ export class MemStorage implements IStorage {
 
       const prices = offers.map(offer => parseFloat(offer.price));
       const bestPrice = Math.min(...prices);
+      // Type assertion: filter() removes nulls, TypeScript needs explicit cast to number[]
       const originalPrices = offers
         .map(offer => offer.originalPrice ? parseFloat(offer.originalPrice) : null)
         .filter(price => price !== null) as number[];
@@ -682,6 +684,7 @@ export class MemStorage implements IStorage {
     });
 
     // Filter out products with no matching offers
+    // Type assertion: filter() removes nulls, TypeScript needs explicit cast
     const validProducts = productsWithOffers.filter(product => product !== null) as ProductWithOffers[];
 
     // Apply sorting
@@ -1586,26 +1589,26 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getRetailerById(id: number): Promise<Retailer | undefined> {
+  async getRetailerById(id: number): Promise<Retailer | null> {
     const [result] = await db.select().from(retailers).where(eq(retailers.id, id)).limit(1);
-    return result;
+    return result || null;
   }
 
-  async updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | undefined> {
+  async updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | null> {
     const [result] = await db
       .update(retailers)
       .set(updates)
       .where(eq(retailers.id, id))
       .returning();
-    return result;
+    return result || null;
   }
 
-  async deleteRetailer(id: number): Promise<Retailer | undefined> {
+  async deleteRetailer(id: number): Promise<Retailer | null> {
     const [result] = await db
       .delete(retailers)
       .where(eq(retailers.id, id))
       .returning();
-    return result;
+    return result || null;
   }
 
   // ============================================================================
@@ -1701,6 +1704,7 @@ export class DatabaseStorage implements IStorage {
         brand: product.brand || null,
         description: product.description || null,
         model: product.model || null,
+        // Type assertion: Drizzle stores JSON field as unknown, cast to expected vector array format
         embedding: (product.embedding as number[] | null) || null,
         embeddingUpdatedAt: product.embeddingUpdatedAt || null
       })
@@ -1708,30 +1712,30 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | undefined> {
+  async updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | null> {
     const [result] = await db
       .update(products)
       .set(updates)
       .where(eq(products.id, id))
       .returning();
-    return result;
+    return result || null;
   }
 
-  async deleteProduct(id: number): Promise<Product | undefined> {
+  async deleteProduct(id: number): Promise<Product | null> {
     const [result] = await db
       .delete(products)
       .where(eq(products.id, id))
       .returning();
-    return result;
+    return result || null;
   }
 
-  async getProductByIdRaw(id: number): Promise<Product | undefined> {
+  async getProductByIdRaw(id: number): Promise<Product | null> {
     const [result] = await db
       .select()
       .from(products)
       .where(eq(products.id, id))
       .limit(1);
-    return result;
+    return result || null;
   }
 
   // SECURITY: passwordHash handled internally, NEVER exposed in SELECT queries
@@ -1974,6 +1978,7 @@ export class DatabaseStorage implements IStorage {
         category: row.category,
         brand: row.brand,
         model: row.model,
+        // Type assertion: JSON field from Drizzle query, cast to vector array type
         embedding: row.embedding as number[] | null,
         embeddingUpdatedAt: row.embeddingUpdatedAt,
         searchVector: row.searchVector,
@@ -1996,7 +2001,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getProductById(id: number): Promise<ProductWithOffers | undefined> {
+  async getProductById(id: number): Promise<ProductWithOffers | null> {
     // Validate input
     this.validateProductId(id);
 
@@ -2006,7 +2011,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(products.id, id))
       .limit(1);
 
-    if (productResult.length === 0) return undefined;
+    if (productResult.length === 0) return null;
 
     const product = productResult[0];
     const offers = await this.getProductOffers(id);
@@ -2933,6 +2938,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Sparkline data is already parsed by Drizzle (json_agg returns JSON object, not string)
+      // Double type assertion needed: Drizzle json_agg() returns unknown, cast through unknown to target type
       const last7Days = (r.last7Days as unknown as Array<{ date: string; price: number }>) || [];
 
       return {
@@ -3776,7 +3782,10 @@ export class DatabaseStorage implements IStorage {
       async () => db.transaction(async (tx) => {
         // Check if this is the first user (make them admin)
         const userCount = await tx.select({ count: sql`count(*)` }).from(users);
-        isFirstUser = parseInt(userCount[0].count as string) === 0;
+        // Safe integer conversion: SQL count() returns string|number, ensure valid integer
+        const count = userCount[0]?.count;
+        const userCountNum = typeof count === 'number' ? count : (count ? Number(count) : 0);
+        isFirstUser = userCountNum === 0;
 
         // Create user - must be in same transaction as count check
         // SECURITY: passwordHash stored securely, NEVER exposed in return value
