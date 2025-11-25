@@ -36,6 +36,7 @@ export type { IProductStorage } from './product-storage';
 export type { IJobLockStorage } from './job-lock-storage';
 export type { IRetailerStorage } from './retailer-storage';
 export type { IAlertStorage } from './alert-storage';
+export type { IWatchlistStorage } from './watchlist-storage';
 
 // Import the original IStorage interface and storage implementation
 // Phase 2: UserStorage is implemented but not yet integrated into facade
@@ -144,16 +145,28 @@ export const storage: IStorage = originalStorage;
 // - ✅ Exported in facade (available for direct import)
 // - ⏳ Integration into facade pending
 //
+// Phase 7 Complete: WatchlistStorage domain extracted
+// - ✅ IWatchlistStorage interface created with 9 methods
+// - ✅ WatchlistStorage class implemented extending BaseStorage
+// - ✅ Watch list CRUD operations with ownership verification
+// - ✅ Product watch management with SERIALIZABLE transactions
+// - ✅ Complex aggregations for sparkline data and statistics
+// - ✅ WebSocket integration for real-time updates
+// - ✅ Comprehensive JSDoc documentation
+// - ✅ Exported in facade (available for direct import)
+// - ⏳ Integration into facade pending
+//
 // Note: The original IStorage has duplicate method signatures (getAllUsers
 // returns both SafeUser[] and AdminUser[]). This needs to be resolved before
 // integrating domain storages into the facade.
 //
-// Next Steps (Phase 7+ completion):
+// Next Steps (Phase 8+ completion):
 // 1. Resolve duplicate method signatures in IStorage
 // 2. Integrate all domain storages into facade
 // 3. Add comprehensive unit tests
-// 4. Continue with remaining domains (Price, Forum, Watchlist, etc.)
+// 4. Continue with remaining domains (Price, Forum, Community, etc.)
 
 // Export domain storage instances for direct use
 // These can be used independently from the main storage facade
 export { alertStorage } from './alert-storage';
+export { watchlistStorage } from './watchlist-storage';
