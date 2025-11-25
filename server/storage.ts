@@ -1457,32 +1457,33 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   /**
-   * Validate product ID is positive
+   * Validate product ID is positive integer
+   * Used by: getProductById, getProductOffers, and related methods
    * @private
    */
   private validateProductId(productId: number): void {
-    if (!productId || productId < PRODUCT_CONSTANTS.VALIDATION.MIN_PRODUCT_ID) {
-      throw new Error('Product ID must be a positive number');
+    if (!productId || productId < PRODUCT_CONSTANTS.VALIDATION.MIN_PRODUCT_ID || !Number.isInteger(productId)) {
+      throw new Error(`Invalid productId: ${productId}. Must be a positive integer.`);
     }
   }
 
   /**
-   * Validate offer ID is positive
+   * Validate offer ID is positive integer
    * @private
    */
   private validateOfferId(offerId: number): void {
-    if (!offerId || offerId < 1) {
-      throw new Error('Offer ID must be a positive number');
+    if (!offerId || offerId < 1 || !Number.isInteger(offerId)) {
+      throw new Error(`Invalid offerId: ${offerId}. Must be a positive integer.`);
     }
   }
 
   /**
-   * Validate retailer ID is positive
+   * Validate retailer ID is positive integer
    * @private
    */
   private validateRetailerId(retailerId: number): void {
-    if (!retailerId || retailerId < PRODUCT_CONSTANTS.VALIDATION.MIN_RETAILER_ID) {
-      throw new Error('Retailer ID must be a positive number');
+    if (!retailerId || retailerId < PRODUCT_CONSTANTS.VALIDATION.MIN_RETAILER_ID || !Number.isInteger(retailerId)) {
+      throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive integer.`);
     }
   }
 
@@ -3172,12 +3173,13 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   /**
-   * Validate user ID is positive
+   * Validate user ID is positive integer
+   * Used by: getUserByIdSafe, updateUserProfile, updateUserTrustLevel, suspendUser
    * @private
    */
   private validateUserId(userId: number): void {
-    if (!userId || userId < 1) {
-      throw new Error('User ID must be a positive number');
+    if (!userId || userId < 1 || !Number.isInteger(userId)) {
+      throw new Error(`Invalid userId: ${userId}. Must be a positive integer.`);
     }
   }
 

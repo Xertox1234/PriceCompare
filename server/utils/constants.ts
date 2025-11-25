@@ -164,6 +164,7 @@ export const SCRAPING = {
 
 /**
  * User domain constants
+ * Used by DatabaseStorage user-related methods for validation and defaults
  */
 export const USER_CONSTANTS = {
   TRUST_LEVEL: {
@@ -184,6 +185,7 @@ export const USER_CONSTANTS = {
 
 /**
  * Product domain constants
+ * Used by DatabaseStorage product-related methods for validation and search defaults
  */
 export const PRODUCT_CONSTANTS = {
   VALIDATION: {
@@ -204,6 +206,7 @@ export const PRODUCT_CONSTANTS = {
 
 /**
  * Job Lock domain constants
+ * Used by DatabaseStorage job lock methods for distributed locking validation
  */
 export const JOB_LOCK_CONSTANTS = {
   VALIDATION: {
@@ -218,6 +221,7 @@ export const JOB_LOCK_CONSTANTS = {
 
 /**
  * Alert domain constants
+ * Used by DatabaseStorage price alert methods for validation
  */
 export const ALERT_CONSTANTS = {
   VALIDATION: {
