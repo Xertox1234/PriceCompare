@@ -144,6 +144,64 @@ function calculateDiscount(price: number, percentage: number) {
 }
 ```
 
+### Explicit Return Types for Complex Methods (MANDATORY)
+
+When a method returns complex data structures, ALWAYS add explicit return types:
+
+#### ❌ WRONG - Implicit complex return type
+```typescript
+// Return type is hard to understand, prone to breaking changes
+async getStats() {
+  const hourlyCount = await this.getHourlyCount();
+  const dailyCount = await this.getDailyCount();
+  const topProducts = await this.getTopProducts(10);
+  const topQueries = await this.getTopSearchQueries(10);
+
+  return {
+    trackedProducts: { hourly: hourlyCount, daily: dailyCount, weekly: 0 },
+    trackedSearchQueries: topQueries.length,
+    topProducts,
+    topSearchQueries: topQueries,
+  };
+}
+```
+
+#### ✅ CORRECT - Explicit complex return type
+```typescript
+// Clear contract, self-documenting, refactoring-safe
+async getStats(): Promise<{
+  trackedProducts: { hourly: number; daily: number; weekly: number };
+  trackedSearchQueries: number;
+  topProducts: number[];
+  topSearchQueries: Array<{ query: string; count: number }>;
+}> {
+  const hourlyCount = await this.getHourlyCount();
+  const dailyCount = await this.getDailyCount();
+  const topProducts = await this.getTopProducts(10);
+  const topQueries = await this.getTopSearchQueries(10);
+
+  return {
+    trackedProducts: { hourly: hourlyCount, daily: dailyCount, weekly: 0 },
+    trackedSearchQueries: topQueries.length,
+    topProducts,
+    topSearchQueries: topQueries,
+  };
+}
+```
+
+#### When to Add Explicit Return Types
+1. **Public API methods** - All exported functions
+2. **Complex return structures** - Objects with 3+ properties
+3. **Nested objects** - Objects containing objects or arrays
+4. **Generic or conditional returns** - Union types, generics
+5. **Service class methods** - All public methods on service classes
+
+#### Benefits
+- Self-documenting code
+- Catches accidental breaking changes at compile time
+- Better IDE autocomplete and hover documentation
+- Clearer contracts for consumers
+
 ---
 
 ## Zod Schema Patterns
@@ -423,15 +481,60 @@ try {
     console.error('Unknown error:', error);
   }
 }
+```
 
-// Helper function for error handling
-function getErrorMessage(error: unknown): string {
+### DRY Error Message Extraction (MANDATORY)
+
+#### ❌ WRONG - Repeating error extraction pattern
+```typescript
+// THIS PATTERN REPEATED EVERYWHERE - VIOLATES DRY!
+try {
+  await operation1();
+} catch (error) {
+  logger.error('Op1 failed:', {
+    error: error instanceof Error ? error.message : String(error)
+  });
+}
+
+try {
+  await operation2();
+} catch (error) {
+  logger.error('Op2 failed:', {
+    error: error instanceof Error ? error.message : String(error)
+  });
+}
+```
+
+#### ✅ CORRECT - Use Centralized Helper
+```typescript
+// Use the shared helper from server/utils/error-helpers.ts
+import { getErrorMessage } from '../utils/error-helpers';
+
+try {
+  await operation1();
+} catch (error) {
+  logger.error('Op1 failed:', { error: getErrorMessage(error) });
+}
+
+try {
+  await operation2();
+} catch (error) {
+  logger.error('Op2 failed:', { error: getErrorMessage(error) });
+}
+```
+
+#### Helper Implementation (server/utils/error-helpers.ts)
+```typescript
+/**
+ * Extract error message from unknown error type
+ *
+ * Handles Error objects, strings, and other values safely.
+ * Use in catch blocks to safely extract error messages for logging.
+ */
+export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
-  if (error && typeof error === 'object' && 'message' in error) {
-    return String(error.message);
-  }
-  return 'An unknown error occurred';
+  return String(error);
 }
 ```
 
@@ -486,6 +589,166 @@ try {
   }
 }
 ```
+
+---
+
+## Redis Client Null Safety Pattern
+
+### The Problem
+Services that use Redis must handle the case where the client may not be available (development mode, initialization failure, or disconnection).
+
+### ❌ WRONG - Direct Client Import
+```typescript
+// Direct import causes "possibly null" TypeScript errors
+import { redisClient } from '../config/redis';
+
+async function cacheData(key: string, value: string): Promise<void> {
+  // TypeScript error: Object is possibly 'null'
+  await redisClient.set(key, value);
+}
+```
+
+### ✅ CORRECT - Use Getter with Null Check
+```typescript
+import { getRedisClient } from '../config/redis';
+
+async function cacheData(key: string, value: string): Promise<void> {
+  const redisClient = getRedisClient();
+  if (!redisClient) {
+    logger.warn('Redis not available, skipping cache operation');
+    return;
+  }
+
+  await redisClient.set(key, value);
+}
+```
+
+### Pattern for Services with Multiple Redis Operations
+```typescript
+import { getRedisClient } from '../config/redis';
+import { createLogger } from '../utils/logger';
+import { getErrorMessage } from '../utils/error-helpers';
+
+const logger = createLogger('CacheService');
+
+export class CacheService {
+  async get(key: string): Promise<string | null> {
+    try {
+      const redisClient = getRedisClient();
+      if (!redisClient) {
+        logger.warn('Redis not available, returning null');
+        return null;
+      }
+      return await redisClient.get(key);
+    } catch (error) {
+      logger.error('Cache get failed:', {
+        key,
+        error: getErrorMessage(error)
+      });
+      return null;
+    }
+  }
+
+  async set(key: string, value: string, ttl?: number): Promise<void> {
+    try {
+      const redisClient = getRedisClient();
+      if (!redisClient) {
+        logger.warn('Redis not available, skipping cache set');
+        return;
+      }
+
+      if (ttl) {
+        await redisClient.setex(key, ttl, value);
+      } else {
+        await redisClient.set(key, value);
+      }
+    } catch (error) {
+      logger.error('Cache set failed:', {
+        key,
+        error: getErrorMessage(error)
+      });
+      // Don't throw - cache failures shouldn't break main operations
+    }
+  }
+}
+```
+
+### Key Guidelines
+1. **Always use `getRedisClient()`** - never import `redisClient` directly
+2. **Check for null before every operation** - Redis may become unavailable
+3. **Log warnings when Redis unavailable** - helps with debugging
+4. **Provide sensible fallbacks** - return null/empty array, don't throw
+5. **Include operation context in logs** - what key/operation failed
+6. **Use contextual loggers** - `createLogger('ServiceName')` for traceability
+
+---
+
+## Contextual Logging Pattern
+
+### The Problem
+Generic logging makes it hard to trace issues back to specific services or modules.
+
+### ❌ WRONG - Generic Logger
+```typescript
+import { logger } from '../utils/logger';
+
+// In CacheService
+logger.error('Failed to get data'); // Which service? Which operation?
+
+// In SearchService
+logger.error('Failed to get data'); // Same generic message!
+```
+
+### ✅ CORRECT - Contextual Logger
+```typescript
+import { createLogger } from '../utils/logger';
+
+// In CacheService
+const logger = createLogger('CacheService');
+logger.error('Failed to get data', { key: 'product:123' });
+// Output: [CacheService] Failed to get data { key: 'product:123' }
+
+// In SearchService
+const logger = createLogger('SearchService');
+logger.error('Failed to get data', { query: 'iphone' });
+// Output: [SearchService] Failed to get data { query: 'iphone' }
+```
+
+### Best Practices
+```typescript
+import { createLogger } from '../utils/logger';
+import { getErrorMessage } from '../utils/error-helpers';
+
+// Create logger at module level with service name
+const logger = createLogger('PopularityTracker');
+
+export class PopularityTracker {
+  async trackProductView(productId: number): Promise<void> {
+    try {
+      // ... operation
+    } catch (error) {
+      // Include relevant context in error logs
+      logger.error('Error tracking product view:', {
+        productId,
+        error: getErrorMessage(error)
+      });
+    }
+  }
+
+  async getStats(): Promise<Stats> {
+    // Use appropriate log level
+    logger.info('Fetching popularity stats');
+    logger.debug('Stats request details', { timestamp: Date.now() });
+    // ...
+  }
+}
+```
+
+### Logger Naming Conventions
+- **Services**: `createLogger('ServiceName')` - e.g., 'PopularityTracker', 'PriceHistory'
+- **Middleware**: `createLogger('Middleware:Name')` - e.g., 'Middleware:RateLimit'
+- **Jobs**: `createLogger('Job:Name')` - e.g., 'Job:PriceSnapshot'
+- **Routes**: Use route path as context - e.g., 'Routes:Products'
 
 ---
 
@@ -817,7 +1080,7 @@ interface User {
 
 - [ ] **No `any` types** - Use `unknown` or specific types
 - [ ] **No `@ts-ignore`** - Fix the actual issue
-- [ ] **Explicit return types** for public APIs
+- [ ] **Explicit return types** for public APIs and complex methods
 - [ ] **Zod schemas** for runtime validation
 - [ ] **Type guards** for unknown data
 - [ ] **Discriminated unions** for state machines
@@ -825,6 +1088,10 @@ interface User {
 - [ ] **Strict mode** enabled in tsconfig
 - [ ] **Error handling** with unknown type
 - [ ] **Complete interfaces** with all properties
+- [ ] **DRY error extraction** - Use `getErrorMessage()` helper, not inline type guards
+- [ ] **Redis null checks** - Use `getRedisClient()` with null guard in every method
+- [ ] **Contextual logging** - Use `createLogger('ServiceName')` for traceable logs
+- [ ] **Pipeline result validation** - Check if Redis pipeline.exec() returns null
 
 ---
 

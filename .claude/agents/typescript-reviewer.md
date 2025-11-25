@@ -533,6 +533,182 @@ class PriceService {
 }
 ```
 
+### 11. Redis Client Null Safety Pattern
+
+**When reviewing services that use Redis:**
+
+```typescript
+// ❌ WRONG - Direct import causes "possibly null" TypeScript errors
+import { redisClient } from '../config/redis';
+
+async function cacheData(key: string, value: string): Promise<void> {
+  // TypeScript error: Object is possibly 'null'
+  await redisClient.set(key, value);
+}
+
+// ❌ WRONG - Missing null check in some methods
+class CacheService {
+  async get(key: string): Promise<string | null> {
+    const redisClient = getRedisClient();
+    if (!redisClient) return null;  // Good - has check
+    return await redisClient.get(key);
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    const redisClient = getRedisClient();
+    // BAD - Missing null check!
+    await redisClient.set(key, value);
+  }
+}
+
+// ✅ CORRECT - Null check in EVERY method
+import { getRedisClient } from '../config/redis';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('CacheService');
+
+class CacheService {
+  async get(key: string): Promise<string | null> {
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+      logger.warn('Redis not available, returning null');
+      return null;
+    }
+    return await redisClient.get(key);
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+      logger.warn('Redis not available, skipping cache set');
+      return;
+    }
+    await redisClient.set(key, value);
+  }
+}
+```
+
+**Review Checklist:**
+- [ ] Uses `getRedisClient()` not direct `redisClient` import
+- [ ] Every method has null check before Redis operations
+- [ ] Logs warning when Redis not available
+- [ ] Provides sensible fallback (null, empty array, etc.)
+- [ ] Validates pipeline.exec() results for null
+
+### 12. DRY Error Message Extraction Pattern
+
+**When reviewing error handling in catch blocks:**
+
+```typescript
+// ❌ WRONG - Repeating error extraction pattern
+try {
+  await operation1();
+} catch (error) {
+  logger.error('Op1 failed:', {
+    error: error instanceof Error ? error.message : String(error)
+  });
+}
+
+try {
+  await operation2();
+} catch (error) {
+  logger.error('Op2 failed:', {
+    error: error instanceof Error ? error.message : String(error)
+  });
+}
+
+// ✅ CORRECT - Use shared helper
+import { getErrorMessage } from '../utils/error-helpers';
+
+try {
+  await operation1();
+} catch (error) {
+  logger.error('Op1 failed:', { error: getErrorMessage(error) });
+}
+
+try {
+  await operation2();
+} catch (error) {
+  logger.error('Op2 failed:', { error: getErrorMessage(error) });
+}
+```
+
+**Review Checklist:**
+- [ ] No inline `error instanceof Error ? error.message : String(error)` patterns
+- [ ] Uses `getErrorMessage()` from `../utils/error-helpers`
+- [ ] Includes operation context in error logs (productId, key, etc.)
+
+### 13. Contextual Logging Pattern
+
+**When reviewing logging in services:**
+
+```typescript
+// ❌ WRONG - Generic logger, no context
+import { logger } from '../utils/logger';
+
+logger.error('Failed to get data');  // Which service? Which operation?
+
+// ✅ CORRECT - Contextual logger with service name
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('PopularityTracker');
+
+logger.error('Error tracking product view:', {
+  productId,
+  error: getErrorMessage(error)
+});
+// Output: [PopularityTracker] Error tracking product view: { productId: 123, error: '...' }
+```
+
+**Logger Naming Conventions:**
+- Services: `createLogger('ServiceName')` - e.g., 'PopularityTracker', 'PriceHistory'
+- Middleware: `createLogger('Middleware:Name')` - e.g., 'Middleware:RateLimit'
+- Jobs: `createLogger('Job:Name')` - e.g., 'Job:PriceSnapshot'
+- Routes: `createLogger('Routes:Name')` - e.g., 'Routes:Products'
+
+**Review Checklist:**
+- [ ] Uses `createLogger('ServiceName')` at module level
+- [ ] Logger name matches service/module name
+- [ ] Error logs include relevant operation context
+- [ ] Uses appropriate log levels (error, warn, info, debug)
+
+### 14. Explicit Return Types for Complex Methods
+
+**When reviewing service methods:**
+
+```typescript
+// ❌ WRONG - Implicit complex return type
+async getStats() {
+  return {
+    trackedProducts: { hourly: 0, daily: 0, weekly: 0 },
+    trackedSearchQueries: 0,
+    topProducts: [],
+    topSearchQueries: [],
+  };
+}
+
+// ✅ CORRECT - Explicit return type for clarity
+async getStats(): Promise<{
+  trackedProducts: { hourly: number; daily: number; weekly: number };
+  trackedSearchQueries: number;
+  topProducts: number[];
+  topSearchQueries: Array<{ query: string; count: number }>;
+}> {
+  return {
+    trackedProducts: { hourly: 0, daily: 0, weekly: 0 },
+    trackedSearchQueries: 0,
+    topProducts: [],
+    topSearchQueries: [],
+  };
+}
+```
+
+**Review Guidelines:**
+- Add explicit return types when object has 3+ properties
+- Add explicit return types for nested objects/arrays
+- Add explicit return types for all public service methods
+- Catches breaking changes at compile time
+
 ## Review Process
 
 ### Step 1: Database Query Review
@@ -597,6 +773,10 @@ class PriceService {
 - [✓/✗] Cache-before-limit pattern
 - [✓/✗] Error message quality
 - [✓/✗] Route helper usage
+- [✓/✗] Redis null safety (getRedisClient + null check in every method)
+- [✓/✗] DRY error extraction (getErrorMessage helper usage)
+- [✓/✗] Contextual logging (createLogger with service name)
+- [✓/✗] Explicit return types on complex methods
 
 ### 🚨 Critical Issues
 [Pattern violations that break established conventions]

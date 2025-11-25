@@ -775,6 +775,97 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
 
 ## Logging Patterns
 
+### DRY Error Message Extraction (MANDATORY)
+
+Every catch block that logs errors should use the shared helper:
+
+#### ❌ WRONG - Repeating error extraction pattern
+```typescript
+// This pattern repeated everywhere violates DRY!
+try {
+  await operation1();
+} catch (error) {
+  logger.error('Op1 failed:', {
+    error: error instanceof Error ? error.message : String(error)
+  });
+}
+
+try {
+  await operation2();
+} catch (error) {
+  logger.error('Op2 failed:', {
+    error: error instanceof Error ? error.message : String(error)
+  });
+}
+```
+
+#### ✅ CORRECT - Use Centralized Helper
+```typescript
+// Import the shared helper
+import { getErrorMessage } from '../utils/error-helpers';
+
+try {
+  await operation1();
+} catch (error) {
+  logger.error('Op1 failed:', { error: getErrorMessage(error) });
+}
+
+try {
+  await operation2();
+} catch (error) {
+  logger.error('Op2 failed:', { error: getErrorMessage(error) });
+}
+```
+
+#### Helper Implementation (server/utils/error-helpers.ts)
+```typescript
+/**
+ * Extract error message from unknown error type
+ *
+ * Handles Error objects, strings, and other values safely.
+ * Use in catch blocks to safely extract error messages for logging.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+}
+```
+
+### Contextual Logging
+
+Use contextual loggers for better traceability:
+
+#### ❌ WRONG - Generic logger
+```typescript
+import { logger } from '../utils/logger';
+
+// In CacheService
+logger.error('Failed to get data'); // Which service?
+
+// In SearchService
+logger.error('Failed to get data'); // Same generic message!
+```
+
+#### ✅ CORRECT - Contextual logger with service name
+```typescript
+import { createLogger } from '../utils/logger';
+import { getErrorMessage } from '../utils/error-helpers';
+
+// Create at module level with descriptive name
+const logger = createLogger('PopularityTracker');
+
+try {
+  await trackView(productId);
+} catch (error) {
+  // Logs: [PopularityTracker] Error tracking product view: { productId: 123, error: '...' }
+  logger.error('Error tracking product view:', {
+    productId,
+    error: getErrorMessage(error)
+  });
+}
+```
+
 ### Structured Logging
 
 #### ✅ CORRECT - Consistent Log Format
@@ -1022,6 +1113,9 @@ async function scrapePrices(url: string) {
 - [ ] **User-friendly messages** - Technical → human translation
 - [ ] **Retry logic** - Exponential backoff for transient failures
 - [ ] **Circuit breakers** - Prevent cascading failures
+- [ ] **DRY error extraction** - Use `getErrorMessage()` helper, not inline type guards
+- [ ] **Contextual logging** - Use `createLogger('ServiceName')` for traceable logs
+- [ ] **Error context** - Include relevant operation context (productId, key, etc.)
 
 ---
 

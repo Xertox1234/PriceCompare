@@ -66,6 +66,12 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - ioredis (redisClient) for caching, rate limiting, distributed locks
    - redis package (redisSessionClient) for session storage only
    - Always use getRedisClient() and getRedisSessionClient() helpers
+   - **CRITICAL**: Every method using Redis MUST:
+     - Use `getRedisClient()` not direct `redisClient` import
+     - Check for null before any Redis operation
+     - Log warning when Redis unavailable
+     - Provide sensible fallback (null, empty array, etc.)
+     - Validate `pipeline.exec()` results for null
 
 5. **Performance Optimization**: Look for:
    - Missing pagination on large datasets (use PAGINATION.DEFAULT_LIMIT)
@@ -82,6 +88,9 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - **@ts-expect-error/@ts-ignore ZERO TOLERANCE**: Must have detailed comment explaining WHY and WHEN it can be removed
    - **Complex Type Extraction**: React Query hooks with complex inline return types (3+ lines) should extract to named interfaces for readability
    - **Dynamic Query Building**: Should not require type suppression - restructure code instead
+   - **DRY Error Message Extraction**: Use `getErrorMessage()` from `../utils/error-helpers`, not inline type guards
+   - **Explicit Return Types**: Complex methods (3+ property objects) must have explicit return types
+   - **Contextual Logging**: Services must use `createLogger('ServiceName')` not generic logger
 
 7. **Design System Adherence** (UI code only):
    - Must use design tokens (bg-primary, text-secondary) not hardcoded colors
@@ -321,6 +330,26 @@ const successfulResults = results
 - Verify meaningful variable and function names
 - Assess readability and maintainability
 - Look for proper error handling and edge cases
+- **DRY Error Extraction Check**: Flag any `error instanceof Error ? error.message : String(error)` pattern:
+  ```typescript
+  // ❌ WRONG - Repeated inline pattern
+  logger.error('Failed:', { error: error instanceof Error ? error.message : String(error) });
+
+  // ✅ CORRECT - Use shared helper
+  import { getErrorMessage } from '../utils/error-helpers';
+  logger.error('Failed:', { error: getErrorMessage(error) });
+  ```
+- **Contextual Logging Check**: Services should use `createLogger('ServiceName')`:
+  ```typescript
+  // ❌ WRONG - Generic logger
+  import { logger } from '../utils/logger';
+  logger.error('Operation failed'); // Which service?
+
+  // ✅ CORRECT - Contextual logger
+  import { createLogger } from '../utils/logger';
+  const logger = createLogger('PopularityTracker');
+  logger.error('Operation failed', { productId }); // Clear source
+  ```
 
 **Step 6: Type Safety Verification**
 - Confirm no any types or type assertions without justification
@@ -382,6 +411,59 @@ Provide your review in this structured format:
 
    // ✅ After
    const limit = parseIntOptional(req.query.limit, { min: 1, max: 100, default: 10 });
+   ```
+
+4. **Redis Null Safety:**
+   ```typescript
+   // ❌ Before - Direct import, no null check
+   import { redisClient } from '../config/redis';
+   await redisClient.set(key, value);
+
+   // ✅ After - Getter with null check
+   import { getRedisClient } from '../config/redis';
+   const redisClient = getRedisClient();
+   if (!redisClient) {
+     logger.warn('Redis not available, skipping operation');
+     return;
+   }
+   await redisClient.set(key, value);
+   ```
+
+5. **DRY Error Message Extraction:**
+   ```typescript
+   // ❌ Before - Inline type guard
+   logger.error('Failed:', {
+     error: error instanceof Error ? error.message : String(error)
+   });
+
+   // ✅ After - Use helper
+   import { getErrorMessage } from '../utils/error-helpers';
+   logger.error('Failed:', { error: getErrorMessage(error) });
+   ```
+
+6. **Contextual Logging:**
+   ```typescript
+   // ❌ Before - Generic logger
+   import { logger } from '../utils/logger';
+   logger.error('Operation failed');
+
+   // ✅ After - Contextual logger
+   import { createLogger } from '../utils/logger';
+   const logger = createLogger('PopularityTracker');
+   logger.error('Operation failed', { productId });
+   ```
+
+7. **Explicit Return Types:**
+   ```typescript
+   // ❌ Before - Implicit complex return
+   async getStats() {
+     return { hourly: 0, daily: 0, weekly: 0 };
+   }
+
+   // ✅ After - Explicit return type
+   async getStats(): Promise<{ hourly: number; daily: number; weekly: number }> {
+     return { hourly: 0, daily: 0, weekly: 0 };
+   }
    ```
 
 ## Your Guiding Principles
