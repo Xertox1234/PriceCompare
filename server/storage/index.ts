@@ -37,6 +37,7 @@ export type { IJobLockStorage } from './job-lock-storage';
 export type { IRetailerStorage } from './retailer-storage';
 export type { IAlertStorage } from './alert-storage';
 export type { IWatchlistStorage } from './watchlist-storage';
+export type { IPriceStorage } from './price-storage';
 
 // Import the original IStorage interface and storage implementation
 // Phase 2: UserStorage is implemented but not yet integrated into facade
@@ -156,17 +157,32 @@ export const storage: IStorage = originalStorage;
 // - ✅ Exported in facade (available for direct import)
 // - ⏳ Integration into facade pending
 //
+// Phase 8 Complete: PriceStorage domain extracted
+// - ✅ IPriceStorage interface created with 25 methods
+// - ✅ PriceStorage class implemented extending BaseStorage
+// - ✅ Price History operations (7 methods)
+// - ✅ Price Snapshot operations (4 methods)
+// - ✅ Price Aggregation operations (6 methods)
+// - ✅ Price Analytics operations (4 methods)
+// - ✅ Price Trend operations (4 methods)
+// - ✅ Private validation helpers (DRY principle)
+// - ✅ Comprehensive JSDoc documentation
+// - ✅ Caching strategy documentation
+// - ✅ Exported in facade (available for direct import)
+// - ⏳ Integration into facade pending
+//
 // Note: The original IStorage has duplicate method signatures (getAllUsers
 // returns both SafeUser[] and AdminUser[]). This needs to be resolved before
 // integrating domain storages into the facade.
 //
-// Next Steps (Phase 8+ completion):
+// Next Steps (Phase 9+ completion):
 // 1. Resolve duplicate method signatures in IStorage
 // 2. Integrate all domain storages into facade
 // 3. Add comprehensive unit tests
-// 4. Continue with remaining domains (Price, Forum, Community, etc.)
+// 4. Continue with remaining domains (Forum, Community, etc.)
 
 // Export domain storage instances for direct use
 // These can be used independently from the main storage facade
 export { alertStorage } from './alert-storage';
 export { watchlistStorage } from './watchlist-storage';
+export { priceStorage } from './price-storage';

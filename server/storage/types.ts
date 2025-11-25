@@ -98,7 +98,8 @@ export interface PriceTrendAnalysis {
   highestPrice: number;
   trend: 'rising' | 'falling' | 'stable';
   changePercentage: number;
-  daysAnalyzed: number;
+  daysAnalyzed?: number; // Optional for backward compatibility
+  lowestPrice90Days?: number; // Optional 90-day lowest price
 }
 
 export interface BestTimeAnalysis {
