@@ -11,7 +11,8 @@ import type {
   InsertScrapingJob,
   TrendingProduct,
   InsertProduct,
-  InsertProductOffer
+  InsertProductOffer,
+  Product
 } from '../../shared/schema';
 import type { CoordinatorTask, SystemStatus, TrendData } from './types';
 import { logger } from '../utils/logger';
@@ -98,7 +99,7 @@ export class CoordinationAgent extends BaseAgent {
       taskId,
       () => this.coordinateWorkflow(taskData),
       {
-        jobType: 'coordination',
+        jobType: 'coordination' as const,
         targetData: JSON.stringify(taskData)
       }
     );
@@ -130,16 +131,20 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async discoverTrends(params: Record<string, unknown>): Promise<void> {
-    const sources = params.sources || ['google_trends', 'seasonal'];
-    const categories = params.categories;
-    const limit = params.limit || 20;
+    const sources = (params.sources as string[]) || ['google_trends', 'seasonal'];
+    const categories = params.categories as string[] | undefined;
+    const limit = (params.limit as number) || 20;
 
     try {
-      const trends = await this.discoveryAgent.processTask({
+      const result = await this.discoveryAgent.processTask({
+        action: 'discover_products',
         sources,
         categories,
         limit
       });
+
+      // The result should be an array of TrendData
+      const trends = (result as TrendData[]) || [];
 
       logger.info(`Discovered ${trends.length} trending products`);
 
@@ -189,12 +194,16 @@ export class CoordinationAgent extends BaseAgent {
         .where(eq(trendingProducts.id, product.id));
 
       // Generate search queries and find product URLs
-      const searchResults = await this.searchAgent.processTask({
+      const result = await this.searchAgent.processTask({
+        action: 'search_products',
         productName: product.name,
         category: product.category || undefined,
         retailers: ['amazon', 'walmart', 'target'],
         trendingProductId: product.id
       });
+
+      // The result should be an array of search results
+      const searchResults = (result as unknown[]) || [];
 
       if (searchResults.length > 0) {
         // Create product record
@@ -203,9 +212,9 @@ export class CoordinationAgent extends BaseAgent {
         if (createdProduct) {
           // Link trending product to created product
           await db.update(trendingProducts)
-            .set({ 
+            .set({
               productId: createdProduct.id,
-              status: 'scraped'
+              status: 'scraped' as const
             })
             .where(eq(trendingProducts.id, product.id));
 
@@ -213,7 +222,7 @@ export class CoordinationAgent extends BaseAgent {
         }
       } else {
         await db.update(trendingProducts)
-          .set({ status: 'failed' })
+          .set({ status: 'failed' as const })
           .where(eq(trendingProducts.id, product.id));
       }
 
@@ -223,12 +232,12 @@ export class CoordinationAgent extends BaseAgent {
         productName: product.name
       });
       await db.update(trendingProducts)
-        .set({ status: 'failed' })
+        .set({ status: 'failed' as const })
         .where(eq(trendingProducts.id, product.id));
     }
   }
 
-  private async createProductFromTrending(trendingProduct: TrendingProduct): Promise<InsertProduct | null> {
+  private async createProductFromTrending(trendingProduct: TrendingProduct): Promise<Product | null> {
     try {
       const productData: InsertProduct = {
         name: trendingProduct.name,
@@ -267,8 +276,8 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async queueSearchJobs(trends: TrendData[]): Promise<void> {
-    const jobsToCreate: InsertScrapingJob[] = trends.map(trend => ({
-      jobType: 'search',
+    const jobsToCreate = trends.map(trend => ({
+      jobType: 'search' as const,
       priority: this.coordinatorConfig.jobPriorities.search,
       targetData: JSON.stringify({
         productName: trend.query,
@@ -297,8 +306,8 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async queuePriceUpdateJob(offerId: number): Promise<void> {
-    const jobData: InsertScrapingJob = {
-      jobType: 'price_update',
+    const jobData = {
+      jobType: 'price_update' as const,
       priority: this.coordinatorConfig.jobPriorities.price_update,
       targetData: JSON.stringify({ offerId }),
       scheduledAt: new Date()
@@ -426,7 +435,7 @@ export class CoordinationAgent extends BaseAgent {
           // Update job status to running
           await db.update(scrapingJobs)
             .set({
-              status: 'running',
+              status: 'running' as const,
               startedAt: new Date()
             })
             .where(eq(scrapingJobs.id, job.id));
@@ -436,10 +445,10 @@ export class CoordinationAgent extends BaseAgent {
 
           switch (job.jobType) {
             case 'discovery':
-              taskResult = await this.discoveryAgent.processTask(targetData);
+              taskResult = await this.discoveryAgent.processTask(targetData as { action: 'discover_products'; sources: string[]; categories?: string[]; limit?: number });
               break;
             case 'search':
-              taskResult = await this.searchAgent.processTask(targetData);
+              taskResult = await this.searchAgent.processTask(targetData as { action: 'search_products'; productName: string; category?: string; retailers: string[]; trendingProductId?: number });
               break;
             default:
               throw new Error(`Unknown job type: ${job.jobType}`);
@@ -448,7 +457,7 @@ export class CoordinationAgent extends BaseAgent {
           // Mark job as completed
           await db.update(scrapingJobs)
             .set({
-              status: 'completed',
+              status: 'completed' as const,
               completedAt: new Date(),
               resultData: JSON.stringify(taskResult)
             })
@@ -481,7 +490,7 @@ export class CoordinationAgent extends BaseAgent {
       // Handle job failure - record in database
       await db.update(scrapingJobs)
         .set({
-          status: 'failed',
+          status: 'failed' as const,
           completedAt: new Date(),
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           retryCount: (job.retryCount || 0) + 1
@@ -498,7 +507,8 @@ export class CoordinationAgent extends BaseAgent {
       completedJobs,
       failedJobs,
       discoveredProducts,
-      processedProducts
+      processedProducts,
+      totalProducts
     ] = await Promise.all([
       db.select().from(scrapingJobs),
       db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'pending')),
@@ -506,8 +516,13 @@ export class CoordinationAgent extends BaseAgent {
       db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'completed')),
       db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'failed')),
       db.select().from(trendingProducts).where(eq(trendingProducts.status, 'discovered')),
-      db.select().from(trendingProducts).where(eq(trendingProducts.status, 'scraped'))
+      db.select().from(trendingProducts).where(eq(trendingProducts.status, 'scraped')),
+      db.select().from(trendingProducts)
     ]);
+
+    // Count active and idle agents
+    const activeAgents = [this.isRunning, this.discoveryAgent.getStatus().isRunning, this.searchAgent.getStatus().isRunning].filter(Boolean).length;
+    const idleAgents = 3 - activeAgents;
 
     return {
       jobs: {
@@ -519,13 +534,15 @@ export class CoordinationAgent extends BaseAgent {
       },
       products: {
         discovered: discoveredProducts.length,
-        processed: processedProducts.length
+        processed: processedProducts.length,
+        total: totalProducts.length
       },
       agents: {
-        coordinator: this.getStatus(),
-        discovery: this.discoveryAgent.getStatus(),
-        search: this.searchAgent.getStatus()
-      }
+        active: activeAgents,
+        idle: idleAgents
+      },
+      uptime: Date.now() - this.startTime.getTime(),
+      timestamp: new Date().toISOString()
     };
   }
 }

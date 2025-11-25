@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { db } from '../db';
 import { agentSessions, scrapingJobs } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
@@ -44,10 +44,10 @@ export abstract class BaseAgent extends EventEmitter {
 
   async initialize(): Promise<void> {
     try {
-      const sessionData: InsertAgentSession = {
+      const sessionData = {
         agentType: this.config.type,
         sessionId: this.sessionId,
-        status: 'active'
+        status: 'active' as const
       };
 
       const [session] = await db.insert(agentSessions).values(sessionData).returning();
@@ -132,7 +132,7 @@ export abstract class BaseAgent extends EventEmitter {
 
     if (jobData && this.dbSessionId) {
       try {
-        const job: InsertScrapingJob = {
+        const job = {
           jobType: jobData.jobType || 'unknown',
           targetData: jobData.targetData || JSON.stringify({ taskId }),
           agentSessionId: this.dbSessionId,
