@@ -1,6 +1,5 @@
 import { Express } from "express";
-import { forumStorage } from "../forum-storage";
-import { storage } from "../storage";
+import { storage, forumStorage } from "../storage";
 import { withAuth } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
 import { logger } from "../utils/logger";
@@ -116,7 +115,6 @@ export function registerForumRoutes(app: Express): void {
       const { html: sanitizedContent } = sanitizeForumPost(content);
 
       // RACE CONDITION: Storage layer handles SERIALIZABLE transaction with retry
-      const { forumStorage } = await import('../storage');
       const result = await forumStorage.createForumPost(topicId, user.id, sanitizedContent, content);
 
       res.json({ success: true, post: result.post });

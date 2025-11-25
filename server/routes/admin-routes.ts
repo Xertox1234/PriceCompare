@@ -1,6 +1,5 @@
 import { Express } from "express";
-import { forumStorage } from "../forum-storage";
-import { storage } from "../storage";
+import { storage, forumStorage } from "../storage";
 import { withAdmin } from "./helpers";
 import { insertProductSchema, insertRetailerSchema } from "@shared/schema";
 import { parseIntSafe } from "../utils/validation-helpers";
@@ -62,7 +61,6 @@ export function registerAdminRoutes(app: Express): void {
 
   app.get("/api/admin/analytics/forum-activity", withAdmin(async (req, res) => {
     try {
-      const { forumStorage } = await import('../storage');
       const postActivity = await forumStorage.getForumActivityData();
       res.json(postActivity);
     } catch (error: unknown) {
@@ -74,7 +72,6 @@ export function registerAdminRoutes(app: Express): void {
 
   app.get("/api/admin/analytics/top-categories", withAdmin(async (req, res) => {
     try {
-      const { forumStorage } = await import('../storage');
       const topCategories = await forumStorage.getTopCategories(10);
       res.json(topCategories);
     } catch (error: unknown) {
