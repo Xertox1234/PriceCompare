@@ -179,8 +179,8 @@ export function validateOutput(
         }
 
         // Additional string constraints
-        if (schema.items === 'string' && (schema as Record<string, unknown>).itemConstraints) {
-          const constraints = (schema as Record<string, unknown>).itemConstraints;
+        if (schema.items === 'string' && (schema as ArraySchema).itemConstraints) {
+          const constraints = (schema as ArraySchema).itemConstraints as ItemConstraints;
           if (constraints.minLength && item.length < constraints.minLength) {
             errors.push({
               field: `[${index}]`,
@@ -280,7 +280,7 @@ function validateObject(
       }
 
       // String validation
-      if (propSchema.type === 'string') {
+      if (propSchema.type === 'string' && typeof value === 'string') {
         if (propSchema.minLength && value.length < propSchema.minLength) {
           errors.push({
             field: fieldPath,
@@ -306,7 +306,7 @@ function validateObject(
       }
 
       // Number validation
-      if (propSchema.type === 'number') {
+      if (propSchema.type === 'number' && typeof value === 'number') {
         if (propSchema.min !== undefined && value < propSchema.min) {
           errors.push({
             field: fieldPath,
