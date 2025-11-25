@@ -3,6 +3,7 @@ import { ProductDiscoveryAgent } from './discovery-agent';
 import { SearchOrchestrationAgent } from './search-agent';
 import { DataExtractionAgent } from './extraction-agent';
 import { PriceMonitoringAgent } from './monitoring-agent';
+// TODO: Migrate to storage layer - direct db access violates architecture pattern (see CLAUDE.md)
 import { db } from '../db';
 import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema';
 import { eq, and, lt } from 'drizzle-orm';
@@ -280,6 +281,7 @@ export class CoordinationAgent extends BaseAgent {
       jobType: 'search' as const,
       priority: this.coordinatorConfig.jobPriorities.search,
       targetData: JSON.stringify({
+        action: 'search_products',
         productName: trend.query,
         category: trend.category,
         retailers: ['amazon', 'walmart', 'target']
@@ -309,7 +311,10 @@ export class CoordinationAgent extends BaseAgent {
     const jobData = {
       jobType: 'price_update' as const,
       priority: this.coordinatorConfig.jobPriorities.price_update,
-      targetData: JSON.stringify({ offerId }),
+      targetData: JSON.stringify({
+        action: 'refresh_offers',
+        productOfferId: offerId
+      }),
       scheduledAt: new Date()
     };
 

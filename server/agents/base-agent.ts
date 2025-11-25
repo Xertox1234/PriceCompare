@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import * as crypto from 'crypto';
+// TODO: Migrate to storage layer - direct db access violates architecture pattern (see CLAUDE.md)
 import { db } from '../db';
 import { agentSessions, scrapingJobs } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
