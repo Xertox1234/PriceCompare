@@ -8,7 +8,10 @@
  */
 
 import { getRedisClient } from '../config/redis';
-import { logger } from '../utils/logger';
+import { createLogger } from '../utils/logger';
+import { getErrorMessage } from '../utils/error-helpers';
+
+const logger = createLogger('PopularityTracker');
 
 /**
  * Time windows for popularity tracking
@@ -73,9 +76,15 @@ export class PopularityTracker {
       // Update global top products list
       pipeline.zincrby(POPULARITY_KEYS.TOP_PRODUCTS, 1, productId.toString());
 
-      await pipeline.exec();
+      const results = await pipeline.exec();
+      if (!results) {
+        logger.warn('Pipeline execution returned null', { productId });
+      }
     } catch (error) {
-      logger.error('Error tracking product view:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error tracking product view:', {
+        productId,
+        error: getErrorMessage(error)
+      });
     }
   }
 
@@ -98,7 +107,10 @@ export class PopularityTracker {
         await redisClient.zpopmin(POPULARITY_KEYS.SEARCH_QUERIES, 1000);
       }
     } catch (error) {
-      logger.error('Error tracking search query:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error tracking search query:', {
+        query: query.substring(0, 50),
+        error: getErrorMessage(error)
+      });
     }
   }
 
@@ -134,7 +146,11 @@ export class PopularityTracker {
       const score = await redisClient.zscore(key, productId.toString());
       return score ? parseInt(score) : 0;
     } catch (error) {
-      logger.error('Error getting product view count:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting product view count:', {
+        productId,
+        window,
+        error: getErrorMessage(error)
+      });
       return 0;
     }
   }
@@ -186,7 +202,11 @@ export class PopularityTracker {
       const results = await redisClient.zrevrange(key, 0, limit - 1);
       return results.map(id => parseInt(id));
     } catch (error) {
-      logger.error('Error getting top products:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting top products:', {
+        limit,
+        window,
+        error: getErrorMessage(error)
+      });
       return [];
     }
   }
@@ -218,7 +238,10 @@ export class PopularityTracker {
 
       return queries;
     } catch (error) {
-      logger.error('Error getting top search queries:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting top search queries:', {
+        limit,
+        error: getErrorMessage(error)
+      });
       return [];
     }
   }
@@ -226,7 +249,12 @@ export class PopularityTracker {
   /**
    * Get popularity statistics
    */
-  async getStats() {
+  async getStats(): Promise<{
+    trackedProducts: { hourly: number; daily: number; weekly: number };
+    trackedSearchQueries: number;
+    topProducts: number[];
+    topSearchQueries: Array<{ query: string; count: number }>;
+  }> {
     try {
       const redisClient = getRedisClient();
       if (!redisClient) {
@@ -270,7 +298,9 @@ export class PopularityTracker {
         topSearchQueries: topQueries,
       };
     } catch (error) {
-      logger.error('Error getting popularity stats:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting popularity stats:', {
+        error: getErrorMessage(error)
+      });
       return {
         trackedProducts: { hourly: 0, daily: 0, weekly: 0 },
         trackedSearchQueries: 0,
@@ -299,7 +329,9 @@ export class PopularityTracker {
 
       logger.info('Popularity data cleanup completed');
     } catch (error) {
-      logger.error('Error during popularity cleanup:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error during popularity cleanup:', {
+        error: getErrorMessage(error)
+      });
     }
   }
 }
