@@ -95,9 +95,16 @@ const value = object.nonExistentProperty;
 // Fix the actual type issue
 const result = someFunction(correctType);
 
-// If suppression is absolutely necessary, document why
+// If suppression is absolutely necessary, document WHY, WHAT, and WHEN
 // @ts-expect-error - Third-party library has incorrect types, see issue #123
 const value = externalLib.actuallyExistsProperty;
+
+// ✅ BEST - Comprehensive documentation
+// @ts-expect-error - Union type complexity from validating heterogeneous schemas
+// The data parameter contains validated output but TypeScript cannot narrow the type precisely.
+// This is safe because: (1) we validate structure above, (2) errors.length check ensures validity.
+// TODO: Can be removed once TypeScript improves union type inference in conditional paths.
+data: errors.length === 0 ? data : undefined
 ```
 
 ---
@@ -646,6 +653,228 @@ function reducer(state: State, action: Action): State {
       // TypeScript knows action.payload is string
       return { ...state, error: action.payload };
   }
+}
+```
+
+### Validation Code Type Guards
+
+When writing validation or schema-based code, runtime type guards are **MANDATORY** for accessing properties on `unknown` values.
+
+#### ❌ WRONG - Schema Type Doesn't Narrow TypeScript Types
+```typescript
+// TypeScript ERROR: 'value' is of type 'unknown'
+function validateProperty(value: unknown, schema: { type: string; minLength?: number }) {
+  if (schema.type === 'string') {
+    // Even though schema says type is 'string', TypeScript doesn't know value is a string!
+    if (value.length < schema.minLength) {  // ❌ ERROR: Property 'length' does not exist
+      return false;
+    }
+  }
+}
+```
+
+#### ✅ CORRECT - Runtime Type Guard BEFORE Property Access
+```typescript
+function validateProperty(value: unknown, schema: { type: string; minLength?: number }) {
+  // Add runtime type guard alongside schema check
+  if (schema.type === 'string' && typeof value === 'string') {
+    // Now TypeScript knows value is a string
+    if (schema.minLength && value.length < schema.minLength) {
+      return false;
+    }
+  }
+  return true;
+}
+```
+
+#### Key Principle
+**Schema declarations (`schema.type === 'string'`) are runtime checks, not TypeScript type narrowing.**
+
+You must add explicit `typeof` guards to enable TypeScript's type inference.
+
+#### ✅ CORRECT - All Validation Type Guards
+```typescript
+// String validation
+if (propSchema.type === 'string' && typeof value === 'string') {
+  if (propSchema.minLength && value.length < propSchema.minLength) {
+    errors.push({ message: 'String too short' });
+  }
+  if (propSchema.maxLength && value.length > propSchema.maxLength) {
+    errors.push({ message: 'String too long' });
+  }
+}
+
+// Number validation
+if (propSchema.type === 'number' && typeof value === 'number') {
+  if (propSchema.min !== undefined && value < propSchema.min) {
+    errors.push({ message: 'Number too small' });
+  }
+  if (propSchema.max !== undefined && value > propSchema.max) {
+    errors.push({ message: 'Number too large' });
+  }
+}
+
+// Boolean validation
+if (propSchema.type === 'boolean' && typeof value === 'boolean') {
+  // Type-safe boolean handling
+}
+
+// Array validation
+if (propSchema.type === 'array' && Array.isArray(value)) {
+  value.forEach((item, index) => {
+    // Validate each item
+  });
+}
+
+// Object validation
+if (propSchema.type === 'object' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+  // Validate object properties
+}
+```
+
+### Type Assertions for Schema Properties
+
+When accessing schema properties, TypeScript may not know their shape. Define interfaces and use type assertions.
+
+#### ❌ WRONG - Schema Property is Unknown
+```typescript
+interface ArraySchema {
+  type: 'array';
+  items: string;
+  itemConstraints?: unknown;  // TypeScript doesn't know the shape
+}
+
+if (schema.items === 'string' && schema.itemConstraints) {
+  const constraints = schema.itemConstraints;  // Type: unknown
+  if (constraints.minLength) {  // ❌ ERROR: Property 'minLength' does not exist
+    // ...
+  }
+}
+```
+
+#### ✅ CORRECT - Define Interface and Assert Type
+```typescript
+// Define the constraints interface
+interface ItemConstraints {
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+}
+
+interface ArraySchema {
+  type: 'array';
+  items: string | ObjectItemSchema;
+  minItems?: number;
+  maxItems?: number;
+  itemConstraints?: ItemConstraints;  // Now properly typed
+}
+
+// Use type assertion after validating context
+if (schema.items === 'string' && (schema as ArraySchema).itemConstraints) {
+  const constraints = (schema as ArraySchema).itemConstraints as ItemConstraints;
+
+  // Now TypeScript knows the shape
+  if (constraints.minLength && item.length < constraints.minLength) {
+    errors.push({ message: 'Too short' });
+  }
+
+  if (constraints.pattern && !constraints.pattern.test(item)) {
+    errors.push({ message: 'Pattern mismatch' });
+  }
+}
+```
+
+### Centralized Validation Messages
+
+Extract all validation error messages into a constant object for consistency and maintainability.
+
+#### ❌ WRONG - Scattered String Literals
+```typescript
+// In one file
+errors.push({ message: 'String must be at least ' + min + ' characters' });
+
+// In another file
+errors.push({ message: 'String must be at least ' + minLength + ' chars' });  // Inconsistent!
+
+// Later
+errors.push({ message: 'String length must be >= ' + minChars });  // Different wording!
+```
+
+#### ✅ CORRECT - Centralized Message Constants
+```typescript
+// Define all messages in one place
+const VALIDATION_MESSAGES = {
+  // Simple messages
+  EXPECTED_ARRAY: 'Expected array',
+  EXPECTED_OBJECT: 'Expected object',
+  TYPE_MISMATCH: 'Type mismatch',
+  PATTERN_MISMATCH: 'String does not match required pattern',
+  VALUE_NOT_IN_LIST: 'Value not in allowed list',
+
+  // Parameterized messages (factory functions)
+  ARRAY_MIN_ITEMS: (min: number) => `Array must have at least ${min} items`,
+  ARRAY_MAX_ITEMS: (max: number) => `Array must have at most ${max} items`,
+  STRING_MIN_LENGTH: (min: number) => `String must be at least ${min} characters`,
+  STRING_MAX_LENGTH: (max: number) => `String must be at most ${max} characters`,
+  NUMBER_TOO_SMALL: (min: number) => `Number too small (min ${min})`,
+  NUMBER_TOO_LARGE: (max: number) => `Number too large (max ${max})`,
+  REQUIRED_FIELD_MISSING: (field: string) => `Required field missing: ${field}`,
+  UNKNOWN_SCHEMA: (name: string) => `Unknown schema: ${name}`,
+} as const;
+
+// Usage - consistent everywhere
+errors.push({
+  field: '[0]',
+  message: VALIDATION_MESSAGES.STRING_MIN_LENGTH(constraints.minLength),
+});
+
+errors.push({
+  field: 'root',
+  message: VALIDATION_MESSAGES.EXPECTED_ARRAY,
+});
+```
+
+**Benefits:**
+- Consistent error messages across entire codebase
+- Easy to update all messages in one place
+- Type-safe with `as const`
+- Enables future i18n/localization
+- Self-documenting - all error messages in one place
+
+### Input Validation at Function Entry
+
+Always validate inputs early, even when TypeScript types provide some safety.
+
+#### ❌ WRONG - No Runtime Validation
+```typescript
+export function validateOutput(
+  schemaName: keyof typeof outputSchemas,
+  data: unknown
+): ValidationResult {
+  const schema = outputSchemas[schemaName];  // Could still be undefined in edge cases
+  // Proceeds without checking...
+}
+```
+
+#### ✅ CORRECT - Defense in Depth
+```typescript
+export function validateOutput(
+  schemaName: keyof typeof outputSchemas,
+  data: unknown
+): ValidationResult {
+  // Validate schema name exists (runtime check for defense in depth)
+  if (!(schemaName in outputSchemas)) {
+    return {
+      valid: false,
+      errors: [{
+        field: 'schema',
+        message: VALIDATION_MESSAGES.UNKNOWN_SCHEMA(schemaName)
+      }]
+    };
+  }
+
+  const schema = outputSchemas[schemaName];
+  // Now safe to proceed with validation...
 }
 ```
 

@@ -83,6 +83,28 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - **@ts-expect-error/@ts-ignore ZERO TOLERANCE**: Must have detailed comment explaining WHY and WHEN it can be removed
    - **Complex Type Extraction**: React Query hooks with complex inline return types (3+ lines) should extract to named interfaces for readability
    - **Dynamic Query Building**: Should not require type suppression - restructure code instead
+   - **Validation Code Type Safety (CRITICAL)**:
+     ```typescript
+     // ❌ WRONG - Schema check doesn't narrow TypeScript type
+     if (schema.type === 'string') {
+       if (value.length < min) {  // ERROR: 'value' is type 'unknown'
+         // ...
+       }
+     }
+
+     // ✅ CORRECT - Runtime type guard required
+     if (schema.type === 'string' && typeof value === 'string') {
+       if (value.length < min) {  // Now TypeScript knows value is string
+         // ...
+       }
+     }
+     ```
+   - **Validation Code Requirements**:
+     - All `unknown` values MUST have runtime type guards before property access
+     - Schema type checks (`schema.type === 'string'`) do NOT narrow TypeScript types
+     - Must pair schema checks with `typeof` / `Array.isArray()` guards
+     - Error messages must use centralized `VALIDATION_MESSAGES` constants
+     - Complex schema properties need interface definitions + type assertions
 
 7. **Design System Adherence** (UI code only):
    - Must use design tokens (bg-primary, text-secondary) not hardcoded colors
