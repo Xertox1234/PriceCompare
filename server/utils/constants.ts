@@ -163,6 +163,74 @@ export const SCRAPING = {
 } as const;
 
 /**
+ * User domain constants
+ * Used by DatabaseStorage user-related methods for validation and defaults
+ */
+export const USER_CONSTANTS = {
+  TRUST_LEVEL: {
+    MIN: 0,
+    MAX: 4,
+  },
+  PROFILE: {
+    MAX_BIO_LENGTH: 500,
+    MAX_LOCATION_LENGTH: 100,
+    MAX_WEBSITE_LENGTH: 255,
+    MAX_AVATAR_URL_LENGTH: 500,
+  },
+  GROWTH_DATA: {
+    DEFAULT_DAYS: 30,
+    MAX_DAYS: 365,
+  },
+} as const;
+
+/**
+ * Product domain constants
+ * Used by DatabaseStorage product-related methods for validation and search defaults
+ */
+export const PRODUCT_CONSTANTS = {
+  VALIDATION: {
+    MIN_PRODUCT_ID: 1,
+    MIN_RETAILER_ID: 1,
+    MAX_NAME_LENGTH: 255,
+  },
+  SEARCH: {
+    DEFAULT_LIMIT: 20,
+    MAX_LIMIT: 100,
+  },
+  FUZZY_SEARCH: {
+    MIN_THRESHOLD: 0.0,
+    MAX_THRESHOLD: 1.0,
+    DEFAULT_THRESHOLD: 0.6,
+  },
+} as const;
+
+/**
+ * Job Lock domain constants
+ * Used by DatabaseStorage job lock methods for distributed locking validation
+ */
+export const JOB_LOCK_CONSTANTS = {
+  VALIDATION: {
+    MIN_JOB_NAME_LENGTH: 1,
+    MAX_JOB_NAME_LENGTH: 255,
+    MIN_LOCKED_BY_LENGTH: 1,
+    MAX_LOCKED_BY_LENGTH: 255,
+    MIN_TTL_SECONDS: 1,
+    MAX_TTL_SECONDS: 86400, // 24 hours
+  },
+} as const;
+
+/**
+ * Alert domain constants
+ * Used by DatabaseStorage price alert methods for validation
+ */
+export const ALERT_CONSTANTS = {
+  VALIDATION: {
+    MIN_ID: 1,
+    MIN_PRICE: 0,
+  },
+} as const;
+
+/**
  * Error messages
  */
 export const ERROR_MESSAGES = {
