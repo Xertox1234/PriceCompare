@@ -776,11 +776,29 @@ export interface ProductForEmbedding {
 // Notification Types
 // ============================================================================
 
+/**
+ * Notification query filters
+ *
+ * Future expansion possibilities:
+ * - sortBy?: 'date' | 'type' | 'priority' (custom sort order)
+ * - priority?: 'low' | 'medium' | 'high' (filter by priority)
+ * - dateFrom?: Date (notifications after date)
+ * - dateTo?: Date (notifications before date)
+ * - relatedProductId?: number (product-specific notifications)
+ * - relatedTopicId?: number (forum topic notifications)
+ */
 export interface NotificationFilters {
   isRead?: boolean;
   type?: string;
   limit?: number;
   offset?: number;
+  // Future expansion fields reserved (uncomment when needed):
+  // sortBy?: 'date' | 'type' | 'priority';
+  // priority?: 'low' | 'medium' | 'high';
+  // dateFrom?: Date;
+  // dateTo?: Date;
+  // relatedProductId?: number;
+  // relatedTopicId?: number;
 }
 
 export interface NotificationStats {

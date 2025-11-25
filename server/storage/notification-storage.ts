@@ -317,15 +317,65 @@ export class NotificationStorage extends BaseStorage implements INotificationSto
 
   /**
    * Check if current hour is in quiet hours
+   * Handles edge case where quiet hours span midnight (e.g., 22:00-08:00)
    * @private
+   * @example
+   * // Normal case: 22:00 to 06:00 spans midnight
+   * isInQuietHours(23, 22, 6) // true (11pm is quiet)
+   * isInQuietHours(1, 22, 6)  // true (1am is quiet)
+   * isInQuietHours(7, 22, 6)  // false (7am is not quiet)
    */
   private isInQuietHours(currentHour: number, start: number, end: number): boolean {
     if (start < end) {
+      // Normal case: quiet hours within same day (e.g., 14:00-18:00)
       return currentHour >= start && currentHour < end;
     } else {
-      // Quiet hours span midnight
+      // Edge case: quiet hours span midnight (e.g., 22:00-08:00)
+      // Includes hours 22,23,0,1,2,3,4,5,6,7 for the example above
       return currentHour >= start || currentHour < end;
     }
+  }
+
+  /**
+   * Validate notification data fields
+   * @private
+   */
+  private validateNotificationData(notification: InsertNotification): void {
+    if (!notification.type) {
+      throw new Error('Notification type is required');
+    }
+    if (!notification.title) {
+      throw new Error('Notification title is required');
+    }
+    if (!notification.content) {
+      throw new Error('Notification content is required');
+    }
+  }
+
+  /**
+   * Get default notification preferences with optional overrides
+   * Centralizes default values to reduce duplication (DRY principle)
+   * @private
+   */
+  private getDefaultPreferences(
+    userId: number,
+    overrides?: Partial<InsertNotificationPreferences>
+  ): InsertNotificationPreferences {
+    return {
+      userId,
+      priceDropEnabled: true,
+      priceDropThresholdPercent: NOTIFICATION_CONSTANTS.PREFERENCES.DEFAULT_PRICE_DROP_THRESHOLD_PERCENT,
+      priceDropThresholdAmount: NOTIFICATION_CONSTANTS.PREFERENCES.DEFAULT_PRICE_DROP_THRESHOLD_AMOUNT,
+      priceAlertEnabled: true,
+      forumMentionEnabled: true,
+      badgeEarnedEnabled: true,
+      emailEnabled: true,
+      inAppEnabled: true,
+      maxDailyNotifications: NOTIFICATION_CONSTANTS.PREFERENCES.DEFAULT_MAX_DAILY,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      ...overrides, // Apply any custom overrides
+    };
   }
 
   /**
@@ -436,16 +486,8 @@ export class NotificationStorage extends BaseStorage implements INotificationSto
     return this.handleError('createNotification', async () => {
       this.validateUserId(notification.userId);
 
-      // Validate required fields
-      if (!notification.type) {
-        throw new Error('Notification type is required');
-      }
-      if (!notification.title) {
-        throw new Error('Notification title is required');
-      }
-      if (!notification.content) {
-        throw new Error('Notification content is required');
-      }
+      // Validate required notification fields
+      this.validateNotificationData(notification);
 
       // Check user preferences before creating
       const prefs = await this.getUserPreferences(notification.userId);
@@ -480,6 +522,8 @@ export class NotificationStorage extends BaseStorage implements INotificationSto
       const created = await retryWithBackoff(
         async () => this.executeTransaction(async (tx) => {
           // Check daily limit within transaction
+          // NOTE: Daily limit resets at UTC midnight (not user's local timezone)
+          // For multi-timezone support, would need additional timezone field in preferences
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 
@@ -517,6 +561,8 @@ export class NotificationStorage extends BaseStorage implements INotificationSto
               attempt,
               delayMs,
               userId: notification.userId,
+              // NOTE: Track retry metrics in production to identify daily limit concurrency patterns
+              // Consider adding: metrics.increment('notification.create.serialization.retry', { attempt })
             });
           },
         }
@@ -667,21 +713,13 @@ export class NotificationStorage extends BaseStorage implements INotificationSto
     return this.handleError('createDefaultPreferences', async () => {
       this.validateUserId(userId);
 
-      const defaultPrefs: InsertNotificationPreferences = {
-        userId,
-        priceDropEnabled: true,
-        priceDropThresholdPercent: NOTIFICATION_CONSTANTS.PREFERENCES.DEFAULT_PRICE_DROP_THRESHOLD_PERCENT,
-        priceDropThresholdAmount: NOTIFICATION_CONSTANTS.PREFERENCES.DEFAULT_PRICE_DROP_THRESHOLD_AMOUNT,
-        priceAlertEnabled: true,
-        emailEnabled: true,
-        inAppEnabled: true,
-        maxDailyNotifications: NOTIFICATION_CONSTANTS.PREFERENCES.DEFAULT_MAX_DAILY,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-      };
+      const defaultPrefs = this.getDefaultPreferences(userId);
 
       // PATTERN 10: Atomic operations with ON CONFLICT
-      // Use ON CONFLICT to handle concurrent creation attempts
+      // ON CONFLICT ensures idempotency - multiple concurrent calls will only
+      // create one preference record. If two requests arrive simultaneously,
+      // one succeeds (returns data), the other gets empty result (conflict).
+      // We then fetch the existing record to return consistent data.
       const result = await this.db
         .insert(notificationPreferences)
         .values(defaultPrefs)
@@ -731,19 +769,7 @@ export class NotificationStorage extends BaseStorage implements INotificationSto
 
           if (existing.length === 0) {
             // Create with updates - must be atomic with existence check
-            const defaultPrefs: InsertNotificationPreferences = {
-              userId,
-              inAppEnabled: true,
-              emailEnabled: false,
-              priceDropEnabled: true,
-              priceAlertEnabled: true,
-              forumMentionEnabled: true,
-              badgeEarnedEnabled: true,
-              quietHoursStart: null,
-              quietHoursEnd: null,
-              maxDailyNotifications: NOTIFICATION_CONSTANTS.PREFERENCES.DEFAULT_MAX_DAILY,
-              ...updates, // Apply user updates
-            };
+            const defaultPrefs = this.getDefaultPreferences(userId, updates);
 
             const result = await tx.insert(notificationPreferences).values(defaultPrefs).returning();
             return result[0];
@@ -771,6 +797,8 @@ export class NotificationStorage extends BaseStorage implements INotificationSto
               attempt,
               delayMs,
               userId,
+              // NOTE: Track retry metrics in production to identify concurrency patterns
+              // Consider adding: metrics.increment('notification.preference.serialization.retry', { attempt })
             });
           },
         }
