@@ -26,7 +26,7 @@ import { isAuthenticated } from "./helpers";
  */
 export function registerAuthRoutes(app: Express): void {
   // User registration
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", async (req, res): Promise<void> => {
     try {
       // SECURITY: Do not log request bodies in production (may contain sensitive data)
       if (process.env.NODE_ENV === 'development') {
@@ -36,7 +36,7 @@ export function registerAuthRoutes(app: Express): void {
       // Validate required fields manually first
       const { username, email, password } = req.body;
       if (!username || !email || !password) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Missing required fields",
           details: {
             username: !username ? "Username is required" : null,
@@ -44,20 +44,23 @@ export function registerAuthRoutes(app: Express): void {
             password: !password ? "Password is required" : null
           }
         });
+        return;
       }
 
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);
       if (!passwordValidation.valid) {
-        return res.status(400).json({
+        res.status(400).json({
           error: passwordValidation.errors[0]
         });
+        return;
       }
 
       // Check if user already exists
       const existingUser = await findUserByEmail(email);
       if (existingUser) {
-        return res.status(400).json({ error: 'User already exists' });
+        res.status(400).json({ error: 'User already exists' });
+        return;
       }
 
       // Hash password
@@ -80,10 +83,11 @@ export function registerAuthRoutes(app: Express): void {
       });
 
       // Log the user in after registration
-      req.login(user, (err) => {
+      req.login(user as Express.User, (err): void => {
         if (err) {
           logger.error('Login after registration failed', { error: err.message, userId: user.id });
-          return res.status(500).json({ error: 'Registration successful but login failed' });
+          res.status(500).json({ error: 'Registration successful but login failed' });
+          return;
         }
         res.json({
           success: true,
@@ -132,10 +136,11 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       // Log in the user
-      req.login(user, (err) => {
+      req.login(user, (err): void => {
         if (err) {
           logger.error('Session creation error', { error: err.message, userId: user.id });
-          return next(err);
+          next(err);
+          return;
         }
 
         // SECURITY: Log successful login
@@ -160,14 +165,15 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User logout
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", (req, res): void => {
     // Capture user before logout (may or may not be authenticated)
     const user = isAuthenticated(req) ? req.user : undefined;
 
-    req.logout((err) => {
+    req.logout((err): void => {
       if (err) {
         logger.error('Logout error', { error: err.message, userId: user?.id });
-        return res.status(500).json({ error: 'Logout failed' });
+        res.status(500).json({ error: 'Logout failed' });
+        return;
       }
 
       // SECURITY: Log successful logout
@@ -185,12 +191,13 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Password reset - Request token
-  app.post("/api/auth/forgot-password", async (req, res) => {
+  app.post("/api/auth/forgot-password", async (req, res): Promise<void> => {
     try {
       const { email } = req.body;
 
       if (!email) {
-        return res.status(400).json({ error: "Email is required" });
+        res.status(400).json({ error: "Email is required" });
+        return;
       }
 
       // SECURITY: Always return success to prevent email enumeration
@@ -212,10 +219,11 @@ export function registerAuthRoutes(app: Express): void {
           });
 
           // SECURITY: Still return success to prevent email enumeration
-          return res.json({
+          res.json({
             success: true,
             message: "If an account exists with this email, a password reset link has been sent.",
           });
+          return;
         }
 
         // Check if email service is configured
@@ -226,9 +234,10 @@ export function registerAuthRoutes(app: Express): void {
             message: "Email service not configured",
           });
 
-          return res.status(503).json({
+          res.status(503).json({
             error: "Password reset is temporarily unavailable. Please contact support.",
           });
+          return;
         }
 
         // Create a password reset token
@@ -286,30 +295,33 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Password reset - Validate token
-  app.get("/api/auth/reset-password/:token", async (req, res) => {
+  app.get("/api/auth/reset-password/:token", async (req, res): Promise<void> => {
     try {
       const { token } = req.params;
 
       if (!token) {
-        return res.status(400).json({ error: "Token is required" });
+        res.status(400).json({ error: "Token is required" });
+        return;
       }
 
       const tokenRecord = await validatePasswordResetToken(token);
 
       if (!tokenRecord) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Invalid or expired password reset token",
           expired: true,
         });
+        return;
       }
 
       // Get user info (without sensitive data)
       const user = await getUserByResetToken(token);
 
       if (!user) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Invalid password reset token",
         });
+        return;
       }
 
       res.json({
@@ -325,22 +337,24 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Password reset - Complete reset
-  app.post("/api/auth/reset-password", async (req, res) => {
+  app.post("/api/auth/reset-password", async (req, res): Promise<void> => {
     try {
       const { token, password } = req.body;
 
       if (!token || !password) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Token and password are required",
         });
+        return;
       }
 
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);
       if (!passwordValidation.valid) {
-        return res.status(400).json({
+        res.status(400).json({
           error: passwordValidation.errors[0],
         });
+        return;
       }
 
       // Validate the token
@@ -352,9 +366,10 @@ export function registerAuthRoutes(app: Express): void {
           message: "Invalid or expired token",
         });
 
-        return res.status(400).json({
+        res.status(400).json({
           error: "Invalid or expired password reset token",
         });
+        return;
       }
 
       // Hash the new password
@@ -410,9 +425,10 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Get current user
-  app.get("/api/auth/user", async (req, res) => {
+  app.get("/api/auth/user", async (req, res): Promise<void> => {
     if (!isAuthenticated(req)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
     // req.user is now guaranteed to exist via type guard
