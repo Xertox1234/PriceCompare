@@ -35,6 +35,7 @@ export type { IUserStorage } from './user-storage';
 export type { IProductStorage } from './product-storage';
 export type { IJobLockStorage } from './job-lock-storage';
 export type { IRetailerStorage } from './retailer-storage';
+export type { IAlertStorage } from './alert-storage';
 
 // Import the original IStorage interface and storage implementation
 // Phase 2: UserStorage is implemented but not yet integrated into facade
@@ -134,12 +135,25 @@ export const storage: IStorage = originalStorage;
 // - ✅ Comprehensive JSDoc documentation
 // - ⏳ Integration into facade pending
 //
+// Phase 6 Complete: AlertStorage domain extracted
+// - ✅ IAlertStorage interface created with 7 methods
+// - ✅ AlertStorage class implemented extending BaseStorage
+// - ✅ Price alert CRUD operations
+// - ✅ Alert triggering logic for price drop detection
+// - ✅ Comprehensive JSDoc documentation
+// - ✅ Exported in facade (available for direct import)
+// - ⏳ Integration into facade pending
+//
 // Note: The original IStorage has duplicate method signatures (getAllUsers
 // returns both SafeUser[] and AdminUser[]). This needs to be resolved before
 // integrating domain storages into the facade.
 //
-// Next Steps (Phase 6+ completion):
+// Next Steps (Phase 7+ completion):
 // 1. Resolve duplicate method signatures in IStorage
 // 2. Integrate all domain storages into facade
 // 3. Add comprehensive unit tests
-// 4. Continue with remaining domains (Alert, Price, Forum, etc.)
+// 4. Continue with remaining domains (Price, Forum, Watchlist, etc.)
+
+// Export domain storage instances for direct use
+// These can be used independently from the main storage facade
+export { alertStorage } from './alert-storage';

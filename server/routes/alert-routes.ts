@@ -1,5 +1,5 @@
 import { Express } from "express";
-import { forumStorage } from "../forum-storage";
+import { alertStorage } from "../storage";
 import { withAuth } from "./helpers";
 import { logger } from "../utils/logger";
 import { parseIntSafe } from "../utils/validation-helpers";
@@ -17,7 +17,7 @@ export function registerAlertRoutes(app: Express): void {
       const { productId, targetPrice, notifyForum } = req.body;
       const user = req.user;
 
-      const alert = await forumStorage.createPriceAlert({
+      const alert = await alertStorage.createPriceAlert({
         userId: user.id,
         productId,
         targetPrice,
@@ -35,7 +35,7 @@ export function registerAlertRoutes(app: Express): void {
   app.get("/api/price-alerts", withAuth(async (req, res) => {
     try {
       const user = req.user;
-      const alerts = await forumStorage.getUserPriceAlerts(user.id);
+      const alerts = await alertStorage.getUserPriceAlerts(user.id);
       res.json(alerts);
     } catch (error) {
       logger.error('Get price alerts error', { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
@@ -50,7 +50,7 @@ export function registerAlertRoutes(app: Express): void {
       const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
       const updates = req.body;
 
-      const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
+      const updatedAlert = await alertStorage.updatePriceAlert(alertId, user.id, updates);
       if (!updatedAlert) {
         return res.status(404).json({ error: "Alert not found or unauthorized" });
       }
@@ -70,7 +70,7 @@ export function registerAlertRoutes(app: Express): void {
       const user = req.user;
       const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
 
-      const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
+      const deleted = await alertStorage.deletePriceAlert(alertId, user.id);
       if (!deleted) {
         return res.status(404).json({ error: "Alert not found or unauthorized" });
       }
