@@ -1405,7 +1405,173 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Database Storage Implementation
+/**
+ * Database Storage Implementation
+ *
+ * Main storage layer implementation using PostgreSQL via Drizzle ORM.
+ * All database access should flow through this class to maintain consistency.
+ *
+ * **Caching Strategy:**
+ *
+ * This storage layer is designed to work with Redis caching at the middleware/service layer.
+ * Below are recommended caching strategies for high-traffic read operations:
+ *
+ * ## Retailer Storage
+ *
+ * **1. `getAllRetailers()`:**
+ *    - **Cache key**: `retailer:all`
+ *    - **TTL**: 60 minutes (1 hour)
+ *    - **Invalidate on**: createRetailer, updateRetailer, deleteRetailer
+ *    - **Rationale**: Retailer list changes infrequently, long TTL reduces database load
+ *
+ * **2. `getRetailerById(id)`:**
+ *    - **Cache key**: `retailer:id:${id}`
+ *    - **TTL**: 60 minutes (1 hour)
+ *    - **Invalidate on**: updateRetailer, deleteRetailer for specific retailer
+ *    - **Rationale**: Individual retailer data rarely changes, safe for long caching
+ *
+ * ## Product Storage
+ *
+ * **3. `getProductById(id)`:**
+ *    - **Cache key**: `product:full:${id}`
+ *    - **TTL**: 5 minutes
+ *    - **Invalidate on**: updateProduct, deleteProduct, createProductOffer
+ *    - **Rationale**: Prices change frequently, shorter TTL balances freshness vs performance
+ *
+ * **4. `searchProducts(filters)`:**
+ *    - **Cache key**: `product:search:${JSON.stringify(filters)}`
+ *    - **TTL**: 1-2 minutes
+ *    - **Invalidate on**: Product updates (can use pattern-based invalidation)
+ *    - **Rationale**: Search results change with new products/prices, short TTL ensures relevance
+ *
+ * ## User Storage
+ *
+ * **5. `getUserByIdSafe(id)`:**
+ *    - **Cache key**: `user:safe:${id}`
+ *    - **TTL**: 5 minutes
+ *    - **Invalidate on**: updateUserProfile, updateUserTrustLevel, suspendUser
+ *    - **Rationale**: User profiles change occasionally, moderate TTL balances consistency
+ *
+ * **6. `getAllUsers()`:**
+ *    - **Cache key**: `user:all`
+ *    - **TTL**: 2 minutes
+ *    - **Invalidate on**: registerUser, suspendUser (impacts admin panel list)
+ *    - **Rationale**: Admin panel usage, shorter TTL for moderation responsiveness
+ *
+ * ## Alert Storage
+ *
+ * **7. `getUserPriceAlerts(userId)`:**
+ *    - **Cache key**: `alert:user:${userId}`
+ *    - **TTL**: 2 minutes
+ *    - **Invalidate on**: createPriceAlert, deletePriceAlert for user
+ *    - **Rationale**: Users check alerts frequently, moderate TTL reduces redundant queries
+ *
+ * **8. `getTriggeredPriceAlerts()`:**
+ *    - **Cache key**: `alert:triggered`
+ *    - **TTL**: 30 seconds
+ *    - **Invalidate on**: Alert processing (marks as triggered)
+ *    - **Rationale**: Critical for notifications, very short TTL ensures timely delivery
+ *
+ * ## Job Lock Storage
+ *
+ * **9. `getJobLockByName(jobName)`:**
+ *    - **Cache key**: `joblock:name:${jobName}`
+ *    - **TTL**: 30 seconds
+ *    - **Invalidate on**: acquireJobLock, releaseJobLock
+ *    - **Rationale**: Job coordination requires near-real-time data, very short TTL
+ *
+ * **10. `isJobLocked(jobName)`:**
+ *    - **Cache key**: `joblock:status:${jobName}`
+ *    - **TTL**: 30 seconds
+ *    - **Invalidate on**: Job lock state changes
+ *    - **Rationale**: Distributed locking needs fresh status, short TTL prevents stale locks
+ *
+ * ## WatchList Storage
+ *
+ * **11. `getUserWatchLists(userId)`:**
+ *    - **Cache key**: `watchlist:user:${userId}`
+ *    - **TTL**: 3 minutes
+ *    - **Invalidate on**: createWatchList, deleteWatchList, updateWatchList
+ *    - **Rationale**: Users view lists frequently, moderate TTL improves UX
+ *
+ * **12. `getWatchListById(watchListId, userId)`:**
+ *    - **Cache key**: `watchlist:detail:${watchListId}`
+ *    - **TTL**: 2 minutes
+ *    - **Invalidate on**: addProductToWatchList, removeProductFromWatchList
+ *    - **Rationale**: Products added/removed frequently, shorter TTL ensures accuracy
+ *
+ * ---
+ *
+ * **Example Cache Implementation Pattern:**
+ *
+ * ```typescript
+ * import { getRedisClient } from '../config/redis';
+ *
+ * // Wrapper function for cached storage access
+ * async function getProductByIdCached(productId: number): Promise<ProductWithOffers | undefined> {
+ *   const redisClient = getRedisClient();
+ *   if (!redisClient) {
+ *     // Redis unavailable - fallback to direct storage
+ *     return await storage.getProductById(productId);
+ *   }
+ *
+ *   const cacheKey = `product:full:${productId}`;
+ *
+ *   // Try cache first
+ *   const cached = await redisClient.get(cacheKey);
+ *   if (cached) {
+ *     return JSON.parse(cached);
+ *   }
+ *
+ *   // Cache miss - fetch from storage
+ *   const result = await storage.getProductById(productId);
+ *   if (result) {
+ *     // Cache for 5 minutes (300 seconds)
+ *     await redisClient.set(cacheKey, JSON.stringify(result), 'EX', 300);
+ *   }
+ *
+ *   return result;
+ * }
+ * ```
+ *
+ * **Cache Invalidation Pattern:**
+ *
+ * ```typescript
+ * // After update operations
+ * async function updateProductWithInvalidation(id: number, updates: Partial<InsertProduct>) {
+ *   const result = await storage.updateProduct(id, updates);
+ *
+ *   // Invalidate caches
+ *   const redisClient = getRedisClient();
+ *   if (redisClient && result) {
+ *     await redisClient.del(`product:full:${id}`);
+ *     // Also invalidate search results (pattern-based)
+ *     const keys = await redisClient.keys('product:search:*');
+ *     if (keys.length > 0) {
+ *       await redisClient.del(...keys);
+ *     }
+ *   }
+ *
+ *   return result;
+ * }
+ * ```
+ *
+ * **When NOT to Cache:**
+ * - Write operations (creates, updates, deletes) - always go to database
+ * - Security-sensitive operations (password resets, token validation)
+ * - Real-time data requiring absolute freshness (websocket events)
+ * - Low-traffic endpoints where cache overhead exceeds benefit
+ * - Data with complex invalidation requirements
+ *
+ * **Cache Performance Notes:**
+ * - Redis latency: 1-2ms typical (vs 10-50ms for database queries)
+ * - Serialization overhead: JSON.stringify/parse adds ~0.1-0.5ms
+ * - Cache hit rates >80% indicate good TTL selection
+ * - Monitor cache memory usage - evict old keys if memory constrained
+ * - Use Redis pipelining for bulk operations
+ *
+ * See `docs/storage-layer/CACHING_STRATEGY_GUIDE.md` for complete implementation guide.
+ */
 export class DatabaseStorage implements IStorage {
   async getRetailers(): Promise<Retailer[]> {
     const result = await db.select().from(retailers).where(eq(retailers.isActive, true));
