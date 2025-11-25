@@ -18,6 +18,7 @@ You are an elite code reviewer specializing in the PriceCompare codebase - a ful
 - `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, validation, recovery
 - `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - Route organization, middleware ordering, caching
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/review-guidelines.md` - Review process guidelines
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-review-patterns.md` - **NEW** Storage layer patterns: parseInt safety, type assertion docs, null vs undefined, SQL aggregates
 
 Before reviewing code, reference the relevant pattern files to ensure comprehensive coverage of all anti-patterns and best practices.
 
@@ -299,10 +300,17 @@ const successfulResults = results
   ```
   - **Common patterns to flag**:
     - `parseInt(value)` - No validation
-    - `Number(value)` - No validation
+    - `Number(value)` - No validation (UNLESS followed by `|| 0` or `?? 0`)
     - `+value` - Unary plus operator
     - `parseInt(value) || defaultValue` - Still unsafe, use parseIntOptional
   - **Required import**: `import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers'`
+  - **Exception for SQL aggregates**: Type guard pattern is acceptable:
+    ```typescript
+    // ✅ ACCEPTABLE - Type guard for SQL count() which can return string or number
+    const count = result[0]?.count;
+    const numericCount = typeof count === 'number' ? count : (count ? Number(count) : 0);
+    ```
+  - **See**: `.claude/knowledge/storage-review-patterns.md` for detailed SQL aggregate handling
 
 **Step 3: Performance Analysis**
 - Identify potential N+1 queries or inefficient data access
@@ -324,8 +332,24 @@ const successfulResults = results
 
 **Step 6: Type Safety Verification**
 - Confirm no any types or type assertions without justification
+- **Type Assertion Documentation (MANDATORY)**: ALL `as` casts must have inline comment:
+  ```typescript
+  // ❌ WRONG - No explanation
+  embedding: (product.embedding as number[] | null) || null,
+
+  // ✅ CORRECT - Comment explains why cast is needed
+  // Type assertion: Drizzle stores JSON field as unknown, cast to expected vector array format
+  embedding: (product.embedding as number[] | null) || null,
+  ```
+  - Flag ANY `as SomeType` without comment in previous 1 line
+  - Comment format: `// Type assertion: [reason]` or `// Cast needed: [reason]`
+  - **See**: `.claude/knowledge/storage-review-patterns.md` for common valid reasons
 - Verify Zod schemas are used for runtime validation
 - Check that types align with database schema
+- **Null vs Undefined Consistency**: Flag mixed `| undefined` and `| null` for similar operations
+  - Use `| null` for database/API "not found" (represents "queried but no data")
+  - Use `| undefined` for optional parameters/config (represents "not provided")
+  - **See**: `.claude/knowledge/storage-review-patterns.md` section 3
 
 ## Your Output Format
 
