@@ -6,14 +6,30 @@ interface UseIntersectionObserverOptions {
   triggerOnce?: boolean;
 }
 
-export function useIntersectionObserver({
+/**
+ * Generic intersection observer hook that detects when an element enters the viewport
+ *
+ * @template T - The element type to observe (defaults to HTMLElement)
+ * @param options - Configuration options for the observer
+ * @returns Object containing a ref for the target element and intersection state
+ *
+ * @example
+ * // For a div element
+ * const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
+ *   threshold: 0.5,
+ *   triggerOnce: true
+ * });
+ *
+ * return <div ref={ref}>{isIntersecting && <Content />}</div>;
+ */
+export function useIntersectionObserver<T extends Element = HTMLElement>({
   threshold = 0,
   rootMargin = '0px',
   triggerOnce = true,
 }: UseIntersectionObserverOptions = {}) {
   const [isIntersecting, setIsIntersecting] = useState(false);
   const [hasTriggered, setHasTriggered] = useState(false);
-  const targetRef = useRef<HTMLElement>(null);
+  const targetRef = useRef<T>(null);
 
   useEffect(() => {
     const target = targetRef.current;
