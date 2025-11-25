@@ -62,7 +62,8 @@ export function registerAdminRoutes(app: Express): void {
 
   app.get("/api/admin/analytics/forum-activity", withAdmin(async (req, res) => {
     try {
-      const postActivity = await storage.getForumActivityData();
+      const { forumStorage } = await import('../storage');
+      const postActivity = await forumStorage.getForumActivityData();
       res.json(postActivity);
     } catch (error: unknown) {
       logger.error('Error fetching forum activity', { error: error instanceof Error ? error.message : String(error) });
@@ -73,7 +74,8 @@ export function registerAdminRoutes(app: Express): void {
 
   app.get("/api/admin/analytics/top-categories", withAdmin(async (req, res) => {
     try {
-      const topCategories = await storage.getTopCategories(10);
+      const { forumStorage } = await import('../storage');
+      const topCategories = await forumStorage.getTopCategories(10);
       res.json(topCategories);
     } catch (error: unknown) {
       logger.error('Error fetching top categories', { error: error instanceof Error ? error.message : String(error) });

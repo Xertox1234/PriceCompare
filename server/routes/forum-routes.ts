@@ -116,7 +116,8 @@ export function registerForumRoutes(app: Express): void {
       const { html: sanitizedContent } = sanitizeForumPost(content);
 
       // RACE CONDITION: Storage layer handles SERIALIZABLE transaction with retry
-      const result = await storage.createForumPost(topicId, user.id, sanitizedContent, content);
+      const { forumStorage } = await import('../storage');
+      const result = await forumStorage.createForumPost(topicId, user.id, sanitizedContent, content);
 
       res.json({ success: true, post: result.post });
     } catch (error: unknown) {

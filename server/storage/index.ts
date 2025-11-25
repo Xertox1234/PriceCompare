@@ -38,6 +38,7 @@ export type { IRetailerStorage } from './retailer-storage';
 export type { IAlertStorage } from './alert-storage';
 export type { IWatchlistStorage } from './watchlist-storage';
 export type { IPriceStorage } from './price-storage';
+export type { IForumStorage } from './forum-storage';
 
 // Import the original IStorage interface and storage implementation
 // Phase 2: UserStorage is implemented but not yet integrated into facade
@@ -171,18 +172,32 @@ export const storage: IStorage = originalStorage;
 // - ✅ Exported in facade (available for direct import)
 // - ⏳ Integration into facade pending
 //
+// Phase 9 Complete: ForumStorage domain extracted
+// - ✅ IForumStorage interface created with 6 methods
+// - ✅ ForumStorage class implemented extending BaseStorage
+// - ✅ Topic creation with atomic first post and slug generation
+// - ✅ Post creation with SERIALIZABLE transactions and retry logic
+// - ✅ Forum analytics (activity data, top categories)
+// - ✅ Product-related operations (recent topic, price drop posts)
+// - ✅ Private validation helpers (DRY principle)
+// - ✅ Comprehensive JSDoc documentation with parameter docs
+// - ✅ Caching strategy documentation with implementation examples
+// - ✅ Exported in facade (available for direct import)
+// - ⏳ Integration into facade pending
+//
 // Note: The original IStorage has duplicate method signatures (getAllUsers
 // returns both SafeUser[] and AdminUser[]). This needs to be resolved before
 // integrating domain storages into the facade.
 //
-// Next Steps (Phase 9+ completion):
+// Next Steps (Phase 10+ completion):
 // 1. Resolve duplicate method signatures in IStorage
 // 2. Integrate all domain storages into facade
 // 3. Add comprehensive unit tests
-// 4. Continue with remaining domains (Forum, Community, etc.)
+// 4. Continue with remaining domains (Community, Notification)
 
 // Export domain storage instances for direct use
 // These can be used independently from the main storage facade
 export { alertStorage } from './alert-storage';
 export { watchlistStorage } from './watchlist-storage';
 export { priceStorage } from './price-storage';
+export { forumStorage } from './forum-storage';
