@@ -3,6 +3,7 @@ import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
 import { logger } from "./utils/logger";
+import { USER_CONSTANTS, PRODUCT_CONSTANTS, JOB_LOCK_CONSTANTS, ALERT_CONSTANTS } from "./utils/constants";
 
 export interface IStorage {
   // Retailers
@@ -1451,6 +1452,83 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  // ============================================================================
+  // Private Product Validation Helpers
+  // ============================================================================
+
+  /**
+   * Validate product ID is positive
+   * @private
+   */
+  private validateProductId(productId: number): void {
+    if (!productId || productId < PRODUCT_CONSTANTS.VALIDATION.MIN_PRODUCT_ID) {
+      throw new Error('Product ID must be a positive number');
+    }
+  }
+
+  /**
+   * Validate offer ID is positive
+   * @private
+   */
+  private validateOfferId(offerId: number): void {
+    if (!offerId || offerId < 1) {
+      throw new Error('Offer ID must be a positive number');
+    }
+  }
+
+  /**
+   * Validate retailer ID is positive
+   * @private
+   */
+  private validateRetailerId(retailerId: number): void {
+    if (!retailerId || retailerId < PRODUCT_CONSTANTS.VALIDATION.MIN_RETAILER_ID) {
+      throw new Error('Retailer ID must be a positive number');
+    }
+  }
+
+  /**
+   * Validate and normalize limit parameter
+   * @private
+   */
+  private validateSearchLimit(limit: number | undefined): number {
+    const actualLimit = limit ?? PRODUCT_CONSTANTS.SEARCH.DEFAULT_LIMIT;
+    if (actualLimit < 1 || actualLimit > PRODUCT_CONSTANTS.SEARCH.MAX_LIMIT) {
+      throw new Error(
+        `Limit must be between 1 and ${PRODUCT_CONSTANTS.SEARCH.MAX_LIMIT}`
+      );
+    }
+    return actualLimit;
+  }
+
+  /**
+   * Validate days parameter
+   * @private
+   */
+  private validateProductDays(days: number | undefined): number {
+    const actualDays = days ?? 30;
+    if (actualDays < 1 || actualDays > 365) {
+      throw new Error('Days must be between 1 and 365');
+    }
+    return actualDays;
+  }
+
+  /**
+   * Validate fuzzy search threshold
+   * @private
+   */
+  private validateFuzzyThreshold(threshold: number): void {
+    if (threshold < PRODUCT_CONSTANTS.FUZZY_SEARCH.MIN_THRESHOLD ||
+        threshold > PRODUCT_CONSTANTS.FUZZY_SEARCH.MAX_THRESHOLD) {
+      throw new Error(
+        `Fuzzy threshold must be between ${PRODUCT_CONSTANTS.FUZZY_SEARCH.MIN_THRESHOLD} and ${PRODUCT_CONSTANTS.FUZZY_SEARCH.MAX_THRESHOLD}`
+      );
+    }
+  }
+
+  // ============================================================================
+  // Product Methods
+  // ============================================================================
+
   async getProducts(): Promise<Product[]> {
     const result = await db.select().from(products);
     return result;
@@ -1702,6 +1780,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProductById(id: number): Promise<ProductWithOffers | undefined> {
+    // Validate input
+    this.validateProductId(id);
+
     const productResult = await db
       .select()
       .from(products)
@@ -1712,7 +1793,7 @@ export class DatabaseStorage implements IStorage {
 
     const product = productResult[0];
     const offers = await this.getProductOffers(id);
-    
+
     const prices = offers.map(offer => parseFloat(offer.price));
     const bestPrice = prices.length > 0 ? Math.min(...prices) : undefined;
 
@@ -1724,6 +1805,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]> {
+    // Validate input
+    this.validateProductId(productId);
+
     const result = await db
       .select({
         offer: productOffers,
@@ -3083,8 +3167,68 @@ export class DatabaseStorage implements IStorage {
     return updatedRetailer || null;
   }
 
+  // ============================================================================
+  // Private User Validation Helpers
+  // ============================================================================
+
+  /**
+   * Validate user ID is positive
+   * @private
+   */
+  private validateUserId(userId: number): void {
+    if (!userId || userId < 1) {
+      throw new Error('User ID must be a positive number');
+    }
+  }
+
+  /**
+   * Validate trust level is within allowed range
+   * @private
+   */
+  private validateTrustLevel(level: number): void {
+    if (level < USER_CONSTANTS.TRUST_LEVEL.MIN || level > USER_CONSTANTS.TRUST_LEVEL.MAX) {
+      throw new Error(
+        `Trust level must be between ${USER_CONSTANTS.TRUST_LEVEL.MIN} and ${USER_CONSTANTS.TRUST_LEVEL.MAX}`
+      );
+    }
+  }
+
+  /**
+   * Validate profile field length
+   * @private
+   */
+  private validateProfileField(value: string | undefined, fieldName: string, maxLength: number): void {
+    if (value && value.length > maxLength) {
+      throw new Error(`${fieldName} cannot exceed ${maxLength} characters`);
+    }
+  }
+
+  /**
+   * Validate days parameter for analytics
+   * @private
+   */
+  private validateDays(days: number | undefined): number {
+    const actualDays = days ?? USER_CONSTANTS.GROWTH_DATA.DEFAULT_DAYS;
+    if (actualDays < 1 || actualDays > USER_CONSTANTS.GROWTH_DATA.MAX_DAYS) {
+      throw new Error(
+        `Days must be between 1 and ${USER_CONSTANTS.GROWTH_DATA.MAX_DAYS}`
+      );
+    }
+    return actualDays;
+  }
+
+  // ============================================================================
   // User Profile Management
+  // ============================================================================
+
   async updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
+    // Validate inputs
+    this.validateUserId(userId);
+    this.validateProfileField(data.bio, 'Bio', USER_CONSTANTS.PROFILE.MAX_BIO_LENGTH);
+    this.validateProfileField(data.location, 'Location', USER_CONSTANTS.PROFILE.MAX_LOCATION_LENGTH);
+    this.validateProfileField(data.website, 'Website', USER_CONSTANTS.PROFILE.MAX_WEBSITE_LENGTH);
+    this.validateProfileField(data.avatarUrl, 'Avatar URL', USER_CONSTANTS.PROFILE.MAX_AVATAR_URL_LENGTH);
+
     await db.update(users)
       .set({
         bio: data.bio,
@@ -3097,12 +3241,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserTrustLevel(userId: number, trustLevel: number): Promise<void> {
+    // Validate inputs
+    this.validateUserId(userId);
+    this.validateTrustLevel(trustLevel);
+
     await db.update(users)
       .set({ trustLevel, updatedAt: new Date() })
       .where(eq(users.id, userId));
   }
 
   async suspendUser(userId: number, reason: string, moderatorId: number): Promise<void> {
+    // Validate inputs
+    this.validateUserId(userId);
+    this.validateUserId(moderatorId);
+
     // UX: Use transaction to ensure suspension and notification are atomic
     await db.transaction(async (tx) => {
       await tx.update(users)
@@ -3135,6 +3287,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByIdSafe(id: number): Promise<SafeUser | null> {
+    // Validate inputs
+    this.validateUserId(id);
+
     // SECURITY: Never expose passwordHash - explicit field selection
     const [user] = await db.select({
       id: users.id,
