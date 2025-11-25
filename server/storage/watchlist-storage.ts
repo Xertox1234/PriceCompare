@@ -40,11 +40,64 @@ import { logger } from "../utils/logger";
  * - getWatchListStats: CTE-based aggregations for dashboard stats
  * - addProductToWatchList: SERIALIZABLE transaction with retry logic
  *
+ * Caching Strategy:
+ * - getWatchListStats() is a good candidate for Redis caching (low frequency, heavy computation)
+ * - Cache key pattern: `watchlist:stats:${userId}`
+ * - Suggested TTL: 5 minutes (balance between freshness and performance)
+ * - Invalidate on: product watch add/remove, price alert trigger
+ *
  * Database Schema Requirements:
  * - watchLists.userId indexed for performance
  * - productWatches has CASCADE delete on watchListId
  * - Unique constraint on (watchListId, productId) prevents duplicates
  */
+
+/**
+ * Sparkline data point for 7-day price history
+ */
+interface SparklineDataPoint {
+  date: string;
+  price: number;
+}
+
+/**
+ * Database result type for getWatchedProducts query
+ * @internal
+ */
+interface WatchedProductsQueryResult {
+  productId: number;
+  watchListId: number;
+  watchListName: string;
+  productName: string;
+  imageUrl: string | null;
+  addedAt: Date | null;
+  currentPrice: number | null;
+  lowestPrice: number | null;
+  averagePrice: number | null;
+  last7Days: string; // JSON string from database
+  hasActiveAlert: boolean;
+  hasTriggeredAlert: boolean;
+}
+
+/**
+ * Database result row type for getWatchListStats query
+ * @internal
+ */
+interface WatchListStatsQueryRow {
+  total_watch_lists: number;
+  total_products: number;
+  total_potential_savings: string; // numeric as string
+  active_alerts: number;
+  triggered_alerts: number;
+  best_deals: Array<{
+    productId: number;
+    productName: string;
+    currentPrice: string;
+    lowestPrice: string;
+    discountPercent: number;
+  }> | null;
+  weekly_new_deals: number;
+}
 
 /**
  * Constants for watchlist operations
@@ -65,6 +118,10 @@ const WATCHLIST_CONSTANTS = {
     LOWEST_PRICE_DAYS: 90,
     AVERAGE_PRICE_DAYS: 30,
     WEEKLY_STATS_DAYS: 7,
+  },
+  CALCULATIONS: {
+    PERCENTAGE_MULTIPLIER: 100,
+    DECIMAL_PLACES: 2,
   },
   WEBSOCKET: {
     EVENTS: {
@@ -147,6 +204,16 @@ export interface IWatchlistStorage {
  */
 export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   /**
+   * Validate that an ID is a positive number
+   * @private
+   */
+  private validatePositiveId(id: number, fieldName: string): void {
+    if (!id || id <= 0) {
+      throw new Error(`${fieldName} must be a positive number`);
+    }
+  }
+
+  /**
    * Get all watch lists for a user with product counts
    *
    * Performance characteristics:
@@ -164,9 +231,7 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   async getUserWatchLists(userId: number): Promise<WatchListWithCount[]> {
     return this.handleError('getUserWatchLists', async () => {
       // Validation
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(userId, 'User ID');
 
       const results = await this.db
         .select({
@@ -219,12 +284,8 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   ): Promise<WatchListWithProducts | null> {
     return this.handleError('getWatchListById', async () => {
       // Validation
-      if (!watchListId || watchListId <= 0) {
-        throw new Error('Watch list ID must be a positive number');
-      }
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(watchListId, 'Watch list ID');
+      this.validatePositiveId(userId, 'User ID');
 
       // First verify ownership and get watch list
       const [watchList] = await this.db
@@ -289,7 +350,7 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
         const currentPrice = p.currentPrice || 0;
         const lowestPrice = p.lowestHistoricalPrice || currentPrice;
         const priceDropPercent = lowestPrice > 0
-          ? Math.round(((currentPrice - lowestPrice) / lowestPrice) * 100)
+          ? Math.round(((currentPrice - lowestPrice) / lowestPrice) * WATCHLIST_CONSTANTS.CALCULATIONS.PERCENTAGE_MULTIPLIER)
           : 0;
 
         return {
@@ -342,9 +403,7 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   ): Promise<WatchList> {
     return this.handleError('createWatchList', async () => {
       // Validation: userId
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(userId, 'User ID');
 
       // Validation: name required
       if (!data.name || data.name.trim().length === 0) {
@@ -432,12 +491,8 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   ): Promise<WatchList> {
     return this.handleError('updateWatchList', async () => {
       // Validation: IDs
-      if (!watchListId || watchListId <= 0) {
-        throw new Error('Watch list ID must be a positive number');
-      }
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(watchListId, 'Watch list ID');
+      this.validatePositiveId(userId, 'User ID');
 
       // Validation: name if provided
       if (updates.name !== undefined) {
@@ -520,12 +575,8 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   async deleteWatchList(watchListId: number, userId: number): Promise<WatchList> {
     return this.handleError('deleteWatchList', async () => {
       // Validation
-      if (!watchListId || watchListId <= 0) {
-        throw new Error('Watch list ID must be a positive number');
-      }
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(watchListId, 'Watch list ID');
+      this.validatePositiveId(userId, 'User ID');
 
       const [result] = await this.db
         .delete(watchLists)
@@ -595,15 +646,9 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   ): Promise<ProductWatch> {
     return this.handleError('addProductToWatchList', async () => {
       // Validation
-      if (!watchListId || watchListId <= 0) {
-        throw new Error('Watch list ID must be a positive number');
-      }
-      if (!productId || productId <= 0) {
-        throw new Error('Product ID must be a positive number');
-      }
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(watchListId, 'Watch list ID');
+      this.validatePositiveId(productId, 'Product ID');
+      this.validatePositiveId(userId, 'User ID');
 
       // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
       const result = await retryWithBackoff(
@@ -750,15 +795,9 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   ): Promise<ProductWatch> {
     return this.handleError('removeProductFromWatchList', async () => {
       // Validation
-      if (!watchListId || watchListId <= 0) {
-        throw new Error('Watch list ID must be a positive number');
-      }
-      if (!productId || productId <= 0) {
-        throw new Error('Product ID must be a positive number');
-      }
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(watchListId, 'Watch list ID');
+      this.validatePositiveId(productId, 'Product ID');
+      this.validatePositiveId(userId, 'User ID');
 
       const [result] = await this.db
         .delete(productWatches)
@@ -819,9 +858,7 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   ): Promise<WatchedProductInfo[]> {
     return this.handleError('getWatchedProducts', async () => {
       // Validation
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(userId, 'User ID');
 
       const sortBy = options?.sortBy || 'priceDropPercent';
       const limit = Math.min(
@@ -922,7 +959,7 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
         const lowestPrice = r.lowestPrice || currentPrice;
         const averagePrice = r.averagePrice || currentPrice;
         const priceDropPercent = lowestPrice > 0
-          ? ((currentPrice - lowestPrice) / lowestPrice) * 100
+          ? ((currentPrice - lowestPrice) / lowestPrice) * WATCHLIST_CONSTANTS.CALCULATIONS.PERCENTAGE_MULTIPLIER
           : 0;
         const savingsPotential = currentPrice > lowestPrice ? currentPrice - lowestPrice : 0;
 
@@ -998,9 +1035,7 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
   async getWatchListStats(userId: number): Promise<WatchListStats> {
     return this.handleError('getWatchListStats', async () => {
       // Validation
-      if (!userId || userId <= 0) {
-        throw new Error('User ID must be a positive number');
-      }
+      this.validatePositiveId(userId, 'User ID');
 
       // Get one week ago for weekly stats
       const oneWeekAgo = new Date();
@@ -1039,7 +1074,7 @@ export class WatchlistStorage extends BaseStorage implements IWatchlistStorage {
             lowest_price,
             CASE
               WHEN lowest_price > 0 AND current_price IS NOT NULL
-              THEN ((current_price - lowest_price) / lowest_price * 100)
+              THEN ((current_price - lowest_price) / lowest_price * ${WATCHLIST_CONSTANTS.CALCULATIONS.PERCENTAGE_MULTIPLIER})
               ELSE 0
             END AS discount_percent
           FROM price_data
