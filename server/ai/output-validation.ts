@@ -9,6 +9,27 @@
  */
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
+
+/** Validation error message constants for consistency and maintainability */
+const VALIDATION_MESSAGES = {
+  EXPECTED_ARRAY: 'Expected array',
+  ARRAY_MIN_ITEMS: (min: number) => `Array must have at least ${min} items`,
+  ARRAY_MAX_ITEMS: (max: number) => `Array must have at most ${max} items`,
+  ITEM_TYPE_MISMATCH: (expected: string) => `Item must be of type ${expected}`,
+  STRING_MIN_LENGTH: (min: number) => `String must be at least ${min} characters`,
+  STRING_MAX_LENGTH: (max: number) => `String must be at most ${max} characters`,
+  PATTERN_MISMATCH: 'String does not match required pattern',
+  EXPECTED_OBJECT: 'Expected object',
+  REQUIRED_FIELD_MISSING: (field: string) => `Required field missing: ${field}`,
+  TYPE_MISMATCH: 'Type mismatch',
+  STRING_TOO_SHORT: (min: number) => `String too short (min ${min})`,
+  STRING_TOO_LONG: (max: number) => `String too long (max ${max})`,
+  VALUE_NOT_IN_LIST: 'Value not in allowed list',
+  NUMBER_TOO_SMALL: (min: number) => `Number too small (min ${min})`,
+  NUMBER_TOO_LARGE: (max: number) => `Number too large (max ${max})`,
+  JSON_PARSE_ERROR: (msg: string) => `Failed to parse JSON: ${msg}`,
+  UNKNOWN_SCHEMA: (name: string) => `Unknown schema: ${name}`,
+} as const;
 interface JsonObject {
   [key: string]: JsonValue;
 }
@@ -59,6 +80,17 @@ export interface ValidationError {
 
 /**
  * Schema definitions for AI outputs
+ *
+ * Each schema can be validated against AI output using validateOutput()
+ * or parseAndValidateJSON() for raw string input.
+ *
+ * @example
+ * ```typescript
+ * const result = validateOutput('search-queries', ['laptop', 'gaming laptop']);
+ * if (!result.valid) {
+ *   console.error(result.errors);
+ * }
+ * ```
  */
 export const outputSchemas = {
   'search-queries': {
@@ -118,18 +150,53 @@ export const outputSchemas = {
 
 /**
  * Validate AI output against a schema
+ *
+ * @param schemaName - The name of the schema to validate against
+ * @param data - The data to validate
+ * @returns ValidationResult with validation status and any errors
+ *
+ * @example
+ * ```typescript
+ * // Validate search queries
+ * const result = validateOutput('search-queries', [
+ *   'laptop',
+ *   'gaming laptop',
+ *   'ultrabook'
+ * ]);
+ *
+ * if (result.valid) {
+ *   console.log('Valid data:', result.data);
+ * } else {
+ *   console.error('Validation errors:', result.errors);
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Validate trend analysis
+ * const result = validateOutput('trend-analysis', [{
+ *   originalQuery: 'laptop',
+ *   normalizedName: 'Gaming Laptop',
+ *   category: 'Electronics',
+ *   confidence: 95,
+ *   isProduct: true,
+ *   reason: 'Clear product intent'
+ * }]);
+ * ```
  */
 export function validateOutput(
   schemaName: keyof typeof outputSchemas,
   data: unknown
 ): ValidationResult {
-  const schema = outputSchemas[schemaName];
-  if (!schema) {
+  // Validate schema name exists
+  if (!(schemaName in outputSchemas)) {
     return {
       valid: false,
-      errors: [{ field: 'schema', message: `Unknown schema: ${schemaName}` }]
+      errors: [{ field: 'schema', message: VALIDATION_MESSAGES.UNKNOWN_SCHEMA(schemaName) }]
     };
   }
+
+  const schema = outputSchemas[schemaName];
 
   const errors: ValidationError[] = [];
 
@@ -138,7 +205,7 @@ export function validateOutput(
     if (!Array.isArray(data)) {
       errors.push({
         field: 'root',
-        message: 'Expected array',
+        message: VALIDATION_MESSAGES.EXPECTED_ARRAY,
         expected: 'array',
         received: typeof data
       });
@@ -150,7 +217,7 @@ export function validateOutput(
     if (arraySchema.minItems !== undefined && data.length < arraySchema.minItems) {
       errors.push({
         field: 'array',
-        message: `Array must have at least ${arraySchema.minItems} items`,
+        message: VALIDATION_MESSAGES.ARRAY_MIN_ITEMS(arraySchema.minItems),
         expected: `>= ${arraySchema.minItems}`,
         received: data.length
       });
@@ -159,7 +226,7 @@ export function validateOutput(
     if (arraySchema.maxItems !== undefined && data.length > arraySchema.maxItems) {
       errors.push({
         field: 'array',
-        message: `Array must have at most ${arraySchema.maxItems} items`,
+        message: VALIDATION_MESSAGES.ARRAY_MAX_ITEMS(arraySchema.maxItems),
         expected: `<= ${arraySchema.maxItems}`,
         received: data.length
       });
@@ -172,7 +239,7 @@ export function validateOutput(
         if (typeof item !== schema.items) {
           errors.push({
             field: `[${index}]`,
-            message: `Item must be of type ${schema.items}`,
+            message: VALIDATION_MESSAGES.ITEM_TYPE_MISMATCH(schema.items as string),
             expected: schema.items as string,
             received: typeof item
           });
@@ -184,21 +251,21 @@ export function validateOutput(
           if (constraints.minLength && item.length < constraints.minLength) {
             errors.push({
               field: `[${index}]`,
-              message: `String must be at least ${constraints.minLength} characters`,
+              message: VALIDATION_MESSAGES.STRING_MIN_LENGTH(constraints.minLength),
               received: item.length
             });
           }
           if (constraints.maxLength && item.length > constraints.maxLength) {
             errors.push({
               field: `[${index}]`,
-              message: `String must be at most ${constraints.maxLength} characters`,
+              message: VALIDATION_MESSAGES.STRING_MAX_LENGTH(constraints.maxLength),
               received: item.length
             });
           }
           if (constraints.pattern && !constraints.pattern.test(item)) {
             errors.push({
               field: `[${index}]`,
-              message: `String does not match required pattern`,
+              message: VALIDATION_MESSAGES.PATTERN_MISMATCH,
               received: item
             });
           }
@@ -216,7 +283,10 @@ export function validateOutput(
   return {
     valid: errors.length === 0,
     errors,
-    // @ts-ignore - Union type complexity
+    // @ts-expect-error - Union type complexity from validating heterogeneous schemas
+    // The data parameter contains validated output but TypeScript cannot narrow the type precisely.
+    // This is safe because: (1) we validate structure above, (2) errors.length check ensures validity.
+    // TODO: Can be removed once TypeScript improves union type inference in conditional paths.
     data: errors.length === 0 ? data : undefined
   };
 }
@@ -234,7 +304,7 @@ function validateObject(
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
     errors.push({
       field: path,
-      message: 'Expected object',
+      message: VALIDATION_MESSAGES.EXPECTED_OBJECT,
       expected: 'object',
       received: Array.isArray(obj) ? 'array' : typeof obj
     });
@@ -247,7 +317,7 @@ function validateObject(
       if (!(field in obj)) {
         errors.push({
           field: `${path}.${field}`,
-          message: `Required field missing: ${field}`,
+          message: VALIDATION_MESSAGES.REQUIRED_FIELD_MISSING(field),
           expected: 'present',
           received: 'missing'
         });
@@ -271,7 +341,7 @@ function validateObject(
         if (actualType !== propSchema.type) {
           errors.push({
             field: fieldPath,
-            message: `Type mismatch`,
+            message: VALIDATION_MESSAGES.TYPE_MISMATCH,
             expected: propSchema.type as string,
             received: actualType
           });
@@ -284,21 +354,21 @@ function validateObject(
         if (propSchema.minLength && value.length < propSchema.minLength) {
           errors.push({
             field: fieldPath,
-            message: `String too short (min ${propSchema.minLength})`,
+            message: VALIDATION_MESSAGES.STRING_TOO_SHORT(propSchema.minLength),
             received: value.length
           });
         }
         if (propSchema.maxLength && value.length > propSchema.maxLength) {
           errors.push({
             field: fieldPath,
-            message: `String too long (max ${propSchema.maxLength})`,
+            message: VALIDATION_MESSAGES.STRING_TOO_LONG(propSchema.maxLength),
             received: value.length
           });
         }
         if (propSchema.enum && Array.isArray(propSchema.enum) && !propSchema.enum.includes(value)) {
           errors.push({
             field: fieldPath,
-            message: `Value not in allowed list`,
+            message: VALIDATION_MESSAGES.VALUE_NOT_IN_LIST,
             expected: propSchema.enum.join(', '),
             received: value
           });
@@ -310,14 +380,14 @@ function validateObject(
         if (propSchema.min !== undefined && value < propSchema.min) {
           errors.push({
             field: fieldPath,
-            message: `Number too small (min ${propSchema.min})`,
+            message: VALIDATION_MESSAGES.NUMBER_TOO_SMALL(propSchema.min),
             received: value
           });
         }
         if (propSchema.max !== undefined && value > propSchema.max) {
           errors.push({
             field: fieldPath,
-            message: `Number too large (max ${propSchema.max})`,
+            message: VALIDATION_MESSAGES.NUMBER_TOO_LARGE(propSchema.max),
             received: value
           });
         }
@@ -330,6 +400,26 @@ function validateObject(
 
 /**
  * Sanitize AI output to remove potentially harmful content
+ *
+ * Removes markdown code blocks and trims whitespace from strings.
+ * Recursively processes arrays and objects.
+ *
+ * @param data - The data to sanitize
+ * @returns Sanitized data with code blocks removed
+ *
+ * @example
+ * ```typescript
+ * const dirty = '```json\n{"key": "value"}\n```';
+ * const clean = sanitizeOutput(dirty);
+ * // Returns: '{"key": "value"}'
+ * ```
+ *
+ * @example
+ * ```typescript
+ * const arr = ['`code`', 'normal text', '```block```'];
+ * const clean = sanitizeOutput(arr);
+ * // Returns: ['', 'normal text', '']
+ * ```
  */
 export function sanitizeOutput(data: unknown): JsonValue {
   if (typeof data === 'string') {
@@ -361,6 +451,48 @@ export function sanitizeOutput(data: unknown): JsonValue {
 
 /**
  * Attempt to parse and validate JSON from AI output
+ *
+ * Handles markdown code blocks and sanitization before parsing.
+ * Extracts JSON from markdown code blocks if present, otherwise sanitizes input.
+ *
+ * @param rawOutput - Raw string output from AI (may contain markdown)
+ * @param schemaName - The schema to validate against
+ * @returns ValidationResult with parsed and validated data
+ *
+ * @example
+ * ```typescript
+ * // Parse from markdown code block
+ * const result = parseAndValidateJSON(
+ *   '```json\n["query1", "query2", "query3"]\n```',
+ *   'search-queries'
+ * );
+ *
+ * if (result.valid) {
+ *   console.log('Parsed queries:', result.data);
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Parse plain JSON
+ * const result = parseAndValidateJSON(
+ *   '["laptop", "gaming laptop", "ultrabook"]',
+ *   'search-queries'
+ * );
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Handle parsing errors
+ * const result = parseAndValidateJSON(
+ *   'invalid json',
+ *   'search-queries'
+ * );
+ *
+ * if (!result.valid) {
+ *   console.error('Parse error:', result.errors[0].message);
+ * }
+ * ```
  */
 export function parseAndValidateJSON(
   rawOutput: string,
@@ -390,7 +522,7 @@ export function parseAndValidateJSON(
       errors: [
         {
           field: 'json',
-          message: `Failed to parse JSON: ${(error as Error).message}`,
+          message: VALIDATION_MESSAGES.JSON_PARSE_ERROR((error as Error).message),
           received: rawOutput.substring(0, 100)
         }
       ]
@@ -400,6 +532,23 @@ export function parseAndValidateJSON(
 
 /**
  * Format validation errors for logging
+ *
+ * Converts an array of validation errors into a formatted multi-line string
+ * suitable for logging or display.
+ *
+ * @param errors - Array of validation errors to format
+ * @returns Formatted string with one error per line
+ *
+ * @example
+ * ```typescript
+ * const result = validateOutput('search-queries', ['ab']); // Too short
+ * if (!result.valid) {
+ *   const formatted = formatValidationErrors(result.errors);
+ *   console.error('Validation failed:\n' + formatted);
+ *   // Output:
+ *   //   - [0]: String must be at least 2 characters (expected: >= 2, got: 2)
+ * }
+ * ```
  */
 export function formatValidationErrors(errors: ValidationError[]): string {
   return errors
