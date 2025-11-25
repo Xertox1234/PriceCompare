@@ -32,6 +32,39 @@ vi.mock('../use-user', () => ({
   })),
 }));
 
+// Helper to create a full React Query result mock
+function createUseUserMock(user: unknown, isLoading = false) {
+  return {
+    user,
+    data: user,
+    isLoading,
+    isError: false as const,
+    error: null,
+    isPending: isLoading,
+    isLoadingError: false as const,
+    isRefetchError: false as const,
+    isSuccess: !isLoading,
+    isPlaceholderData: false as const,
+    status: isLoading ? ('pending' as const) : ('success' as const),
+    dataUpdatedAt: Date.now(),
+    errorUpdatedAt: 0,
+    failureCount: 0,
+    failureReason: null,
+    errorUpdateCount: 0,
+    isFetched: true,
+    isFetchedAfterMount: true,
+    isFetching: false as const,
+    isRefetching: false as const,
+    isStale: false as const,
+    isInitialLoading: isLoading,
+    isPaused: false as const,
+    isEnabled: true,
+    fetchStatus: 'idle' as const,
+    refetch: vi.fn(),
+    promise: Promise.resolve(user),
+  };
+}
+
 describe('useWebSocket', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,10 +85,9 @@ describe('useWebSocket', () => {
     const { useUser } = await import('../use-user');
 
     // Mock authenticated user
-    vi.mocked(useUser).mockReturnValue({
-      user: { id: 1, username: 'testuser', email: 'test@example.com', role: 'user' } as any,
-      isLoading: false,
-    });
+    vi.mocked(useUser).mockReturnValue(
+      createUseUserMock({ id: 1, username: 'testuser', email: 'test@example.com', role: 'user' })
+    );
 
     renderHook(() => useWebSocket());
 
@@ -69,10 +101,9 @@ describe('useWebSocket', () => {
 
     // Start with authenticated user
     const mockUseUser = vi.mocked(useUser);
-    mockUseUser.mockReturnValue({
-      user: { id: 1, username: 'testuser', email: 'test@example.com', role: 'user' } as any,
-      isLoading: false,
-    });
+    mockUseUser.mockReturnValue(
+      createUseUserMock({ id: 1, username: 'testuser', email: 'test@example.com', role: 'user' })
+    );
 
     const { rerender } = renderHook(() => useWebSocket());
 
@@ -81,10 +112,7 @@ describe('useWebSocket', () => {
     });
 
     // Simulate logout
-    mockUseUser.mockReturnValue({
-      user: null,
-      isLoading: false,
-    });
+    mockUseUser.mockReturnValue(createUseUserMock(null));
 
     rerender();
 
@@ -114,9 +142,7 @@ describe('useWebSocket', () => {
     expect(result.current.isConnected).toBe(false);
 
     // Simulate state change to connected
-    if (stateCallback) {
-      stateCallback('connected');
-    }
+    stateCallback!('connected');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('connected');
@@ -136,9 +162,7 @@ describe('useWebSocket', () => {
     const { result } = renderHook(() => useWebSocket());
 
     // Simulate reconnecting
-    if (stateCallback) {
-      stateCallback('reconnecting');
-    }
+    stateCallback!('reconnecting');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('reconnecting');
@@ -146,9 +170,7 @@ describe('useWebSocket', () => {
     });
 
     // Then connected
-    if (stateCallback) {
-      stateCallback('connected');
-    }
+    stateCallback!('connected');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('connected');
@@ -187,10 +209,9 @@ describe('useWebSocket', () => {
     const mockUseUser = vi.mocked(useUser);
 
     // Start with user A
-    mockUseUser.mockReturnValue({
-      user: { id: 1, username: 'user1', email: 'user1@example.com', role: 'user' } as any,
-      isLoading: false,
-    });
+    mockUseUser.mockReturnValue(
+      createUseUserMock({ id: 1, username: 'user1', email: 'user1@example.com', role: 'user' })
+    );
 
     const { rerender } = renderHook(() => useWebSocket());
 
@@ -199,10 +220,9 @@ describe('useWebSocket', () => {
     });
 
     // Change to user B (both are truthy, so it just connects again)
-    mockUseUser.mockReturnValue({
-      user: { id: 2, username: 'user2', email: 'user2@example.com', role: 'user' } as any,
-      isLoading: false,
-    });
+    mockUseUser.mockReturnValue(
+      createUseUserMock({ id: 2, username: 'user2', email: 'user2@example.com', role: 'user' })
+    );
 
     rerender();
 
@@ -216,10 +236,7 @@ describe('useWebSocket', () => {
   it('should handle loading state during authentication', async () => {
     const { useUser } = await import('../use-user');
 
-    vi.mocked(useUser).mockReturnValue({
-      user: null,
-      isLoading: true,
-    });
+    vi.mocked(useUser).mockReturnValue(createUseUserMock(null, true));
 
     renderHook(() => useWebSocket());
 
@@ -240,9 +257,7 @@ describe('useWebSocket', () => {
     const { result } = renderHook(() => useWebSocket());
 
     for (const state of states) {
-      if (stateCallback) {
-        stateCallback(state);
-      }
+      stateCallback!(state);
 
       await waitFor(() => {
         expect(result.current.connectionState).toBe(state);
@@ -251,9 +266,7 @@ describe('useWebSocket', () => {
     }
 
     // Only 'connected' should be true
-    if (stateCallback) {
-      stateCallback('connected');
-    }
+    stateCallback!('connected');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('connected');

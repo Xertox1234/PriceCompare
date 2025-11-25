@@ -139,7 +139,11 @@ describe('useNotificationUpdates', () => {
   it('should show toast for high priority notifications', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
@@ -177,7 +181,11 @@ describe('useNotificationUpdates', () => {
   it('should not show toast for low priority notifications', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
@@ -211,7 +219,11 @@ describe('useNotificationUpdates', () => {
   it('should show custom toast for price alerts', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
@@ -397,7 +409,11 @@ describe('useNotificationUpdates', () => {
   it('should handle concurrent notifications', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {

@@ -113,7 +113,11 @@ describe('useWatchListUpdates', () => {
   it('should show toast on watch list created', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     let updateHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
@@ -145,7 +149,11 @@ describe('useWatchListUpdates', () => {
   it('should show toast on watch list updated', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     let updateHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
@@ -177,7 +185,11 @@ describe('useWatchListUpdates', () => {
   it('should show destructive toast on watch list deleted', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     let updateHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
@@ -209,7 +221,11 @@ describe('useWatchListUpdates', () => {
   it('should handle product added event', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
@@ -248,7 +264,11 @@ describe('useWatchListUpdates', () => {
   it('should handle product removed event without toast', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
@@ -322,7 +342,11 @@ describe('useWatchListUpdates', () => {
   it('should handle multiple events in sequence', async () => {
     const { useToast } = await import('../use-toast');
     const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast });
+    vi.mocked(useToast).mockReturnValue({
+      toast: mockToast,
+      dismiss: vi.fn(),
+      toasts: []
+    });
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
