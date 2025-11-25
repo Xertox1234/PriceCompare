@@ -6,14 +6,14 @@ interface UseIntersectionObserverOptions {
   triggerOnce?: boolean;
 }
 
-export function useIntersectionObserver({
+export function useIntersectionObserver<T extends Element = HTMLElement>({
   threshold = 0,
   rootMargin = '0px',
   triggerOnce = true,
 }: UseIntersectionObserverOptions = {}) {
   const [isIntersecting, setIsIntersecting] = useState(false);
   const [hasTriggered, setHasTriggered] = useState(false);
-  const targetRef = useRef<HTMLElement>(null);
+  const targetRef = useRef<T>(null);
 
   useEffect(() => {
     const target = targetRef.current;

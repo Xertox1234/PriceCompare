@@ -24,6 +24,8 @@ if (dsn) {
     // Performance Monitoring
     integrations: [
       // Browser tracing for performance monitoring
+      // Note: Using standard browser tracing instead of React Router integration
+      // because we use Wouter (not React Router v6) for routing
       Sentry.browserTracingIntegration(),
 
       // Session replay for debugging user sessions
@@ -31,11 +33,6 @@ if (dsn) {
         maskAllText: false, // Show actual text in replays
         blockAllMedia: false, // Show images/videos in replays
       }),
-
-      // React-specific integration
-      Sentry.reactRouterV6BrowserTracingIntegration({
-        useEffect: React.useEffect,
-      } as any), // Wouter doesn't have official integration, but works with v6 API
     ],
 
     // Tracing - adjust sample rate based on environment

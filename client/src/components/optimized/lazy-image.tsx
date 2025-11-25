@@ -10,16 +10,16 @@ interface LazyImageProps {
   placeholder?: React.ReactNode;
 }
 
-export function LazyImage({ 
-  src, 
-  alt, 
-  className = '', 
+export function LazyImage({
+  src,
+  alt,
+  className = '',
   fallback = '/api/placeholder/300/200',
-  placeholder 
+  placeholder
 }: LazyImageProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const { ref, isIntersecting } = useIntersectionObserver({
+  const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
     triggerOnce: true,
     rootMargin: '50px',
   });
@@ -37,7 +37,7 @@ export function LazyImage({
   const imageSrc = imageError ? fallback : src;
 
   return (
-    <div ref={ref as any} className={`relative overflow-hidden ${className}`}>
+    <div ref={ref} className={`relative overflow-hidden ${className}`}>
       {shouldLoad ? (
         <>
           <img
