@@ -40,6 +40,50 @@ This document codifies the patterns, strategies, and best practices for incremen
 
 **Statistics**: 15/86 methods extracted (~17% progress), 2 files changed, 506 insertions(+), 235 deletions(-)
 
+## Phase 3A Results Summary
+
+**PR**: #139 - Product Domain Extraction
+**Extracted**:
+- `server/storage/domains/product-storage.ts` - 812 lines (20 methods)
+
+**Methods Extracted**:
+- Basic: getProductById, getProductByName, createProduct, updateProduct, deleteProduct
+- Offers: getProductOffers, getProductOffersWithRetailers, getProductWithLowestPrice
+- Search: searchProducts, searchProductsByCategory, getProductsByBrand, getProductCategories
+- Advanced: getProductsWithOffers, bulkCreateProducts, getProductSuggestions, getProductsForEmbedding
+- Related: getRelatedProducts, getProductsNeedingEmbedding
+- Discovery: getTrendingProducts, updateTrendingProductStatus
+
+**Key Learnings**:
+1. **Avoid Optional Chaining**: Use explicit null checks for better type safety
+2. **Import Organization**: Organize imports by source (Drizzle, Schema, BaseStorage, Types)
+3. **Method Grouping**: Organize methods into logical sections with comments
+4. **CI/CD Compatibility**: Add `--legacy-peer-deps` to all npm install commands in GitHub Actions
+
+**Statistics**: 20/86 methods extracted (~40% cumulative), 2 files changed, 840 insertions(+), 290 deletions(-)
+
+## Phase 3B Results Summary
+
+**PR**: #142 - Price Domain Extraction
+**Extracted**:
+- `server/storage/domains/price-storage.ts` - 1,146 lines (28 methods - largest domain to date)
+
+**Methods Extracted** (5 sections):
+1. **Price History** (4): getPriceHistory, getRetailerPriceHistory, getPriceHistoryByOfferId, getLatestPriceForOffer
+2. **Trend Analysis** (2): analyzePriceTrend, getBestTimeToBuy
+3. **Analytics & Aggregation** (9): getWeeklyAggregates, getMonthlyAggregates, getDailyAggregates, insertPriceHistory, upsert operations
+4. **Snapshots** (8): createPriceSnapshot, getPriceSnapshots, queryPriceHistory, bulk operations, data cleanup
+5. **Trends** (5): upsertPriceTrends, getPriceTrends, getAnalyticsOverview, trend data retrieval
+
+**Key Learnings**:
+1. **Type Safety with External Services**: Always import proper types from dynamically imported services (NormalizedPricePoint)
+2. **Pre-commit Hook Enforcement**: `any` types are blockers - fix with proper types, never bypass
+3. **Import Path Hierarchy**: From `server/storage/domains/`, use `../../services/` not `../services/`
+4. **Batch Operation Chunking**: Use consistent chunk sizes (500 for inserts, 100 for upserts) to avoid PostgreSQL parameter limits
+5. **Database Aggregation**: Leverage PostgreSQL's `array_agg()`, `json_agg()`, and aggregate functions for performance
+
+**Statistics**: 28/86 methods extracted (~73% cumulative), 2 files changed, 1,177 insertions(+), 598 deletions(-)
+
 ---
 
 ## 1. Facade Pattern for Incremental Migration
@@ -598,6 +642,405 @@ Phase 2 identified that `getTopCategories(limit?: number)` should be `getTopCate
 
 ---
 
+## 11. Batch Operations and Chunking (Phase 3B Pattern)
+
+### Pattern Description
+When inserting or updating large datasets, chunk operations to avoid PostgreSQL parameter limits and improve transaction performance.
+
+### Implementation
+
+```typescript
+// Pattern 1: Bulk Insert with Chunking (500 records per chunk)
+async insertBulkPriceHistory(records: InsertPriceHistoryWithRecordedAt[]): Promise<PriceHistory[]> {
+  try {
+    const CHUNK_SIZE = 500; // PostgreSQL has ~65,535 parameter limit
+    const results: PriceHistory[] = [];
+
+    for (let i = 0; i < records.length; i += CHUNK_SIZE) {
+      const chunk = records.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await this.db
+        .insert(priceHistory)
+        .values(chunk)
+        .returning();
+      results.push(...chunkResults);
+    }
+
+    return results;
+  } catch (error) {
+    this.handleError(error, 'insertBulkPriceHistory');
+  }
+}
+
+// Pattern 2: Batch Upsert with Chunking (100 records per chunk)
+async upsertPriceTrends(trends: PriceTrendInsert[]): Promise<void> {
+  try {
+    const BATCH_SIZE = 100;
+
+    for (let i = 0; i < trends.length; i += BATCH_SIZE) {
+      const batch = trends.slice(i, i + BATCH_SIZE);
+
+      for (const trend of batch) {
+        await this.db
+          .insert(priceTrends)
+          .values(trend)
+          .onConflictDoUpdate({
+            target: [priceTrends.productId, priceTrends.retailerId],
+            set: {
+              trendDirection: trend.trendDirection,
+              trendSlope: trend.trendSlope,
+              // ... other fields
+              updatedAt: new Date()
+            }
+          });
+      }
+    }
+  } catch (error) {
+    this.handleError(error, 'upsertPriceTrends');
+  }
+}
+```
+
+### Chunk Size Guidelines
+
+| Operation Type | Recommended Chunk Size | Reason |
+|---------------|----------------------|---------|
+| Bulk INSERT | 500 records | Balance between transaction size and parameter count |
+| Bulk UPSERT | 100 records | Upsert operations are more expensive than inserts |
+| SELECT with IN clause | 1000 IDs | Most databases handle large IN clauses well |
+| Batch UPDATE | 100 records | Similar to upsert complexity |
+
+### Why This Works
+- **Prevents Parameter Limit Errors**: PostgreSQL has ~65,535 parameter limit. A record with 10 fields × 500 records = 5,000 parameters (well below limit)
+- **Better Transaction Performance**: Smaller transactions commit faster and hold locks for less time
+- **Progress Tracking**: Can report progress between chunks for long operations
+- **Partial Success**: If operation fails mid-way, some chunks may have succeeded
+
+### Anti-Pattern
+```typescript
+// WRONG - No chunking, can exceed parameter limits
+async insertBulkPriceHistory(records: InsertPriceHistoryWithRecordedAt[]): Promise<PriceHistory[]> {
+  // This will fail with 10,000+ records!
+  return await this.db.insert(priceHistory).values(records).returning();
+}
+```
+
+---
+
+## 12. Type Safety with External Services (Phase 3B Pattern)
+
+### Pattern Description
+When using dynamically imported services, always import and use proper types instead of `any` to maintain type safety.
+
+### Problem: Pre-commit Hook Blocker
+
+**Scenario**: Dynamic import from `price-history-service.ts` returns `NormalizedPricePoint[]`, but using `any` type triggers pre-commit hook:
+
+```typescript
+// ❌ WRONG - Triggers pre-commit blocker
+const { getPriceHistoryOptimized } = await import('../../services/price-history-service');
+const optimizedData = await getPriceHistoryOptimized(productId, days || 30);
+
+return optimizedData.map((point: any) => ({  // BLOCKER: 'any' type detected!
+  price: point.price.toFixed(2),
+  retailerId: point.retailerId,
+  // ...
+}));
+```
+
+**Error from Pre-commit Hook**:
+```
+✗ BLOCKER 3: 'any' types detected in new code
+  RISK: Defeats TypeScript type safety and hides bugs
+  FIX: Use proper TypeScript types
+```
+
+### Solution: Import Proper Types
+
+```typescript
+// ✅ CORRECT - Import and use proper type
+import type { NormalizedPricePoint } from "../../services/price-history-service";
+
+async getPriceHistory(productId: number, days?: number): Promise<PriceHistoryWithDetails[]> {
+  const { getPriceHistoryOptimized } = await import('../../services/price-history-service');
+  const optimizedData = await getPriceHistoryOptimized(productId, days || 30);
+
+  // Type-safe mapping with proper type
+  return optimizedData.map((point: NormalizedPricePoint) => ({
+    id: 0,
+    productOfferId: 0,
+    productId,
+    retailerId: point.retailerId,
+    price: point.price.toFixed(2),  // IDE autocomplete works!
+    availability: point.availability || null,
+    source: point.source,
+    recordedAt: point.date,
+    retailerName: point.retailerName || '',
+    // ... TypeScript validates all fields
+  }));
+}
+```
+
+### Benefits
+1. **IDE Autocomplete**: Full IntelliSense support for `point.` fields
+2. **Type Checking**: TypeScript validates all property access
+3. **Refactoring Safety**: Renaming fields in source type updates all usages
+4. **Pre-commit Compliance**: No `any` types to trigger blockers
+5. **Self-Documenting**: Type signature shows what data structure is expected
+
+### Finding the Right Type
+1. Check the service file for exported types
+2. Look at the function signature's return type
+3. Use TypeScript's "Go to Definition" in IDE
+4. Check service file's import/export statements
+
+### Anti-Pattern
+```typescript
+// ❌ WRONG - Using 'any' as quick fix
+const data: any = await someService.getData();  // Pre-commit blocker!
+
+// ❌ WRONG - Type assertion without import
+const data = await someService.getData() as unknown as SomeType;  // Unsafe!
+
+// ✅ CORRECT - Import and use proper type
+import type { SomeType } from './some-service';
+const data: SomeType = await someService.getData();
+```
+
+---
+
+## 13. Database-Level Aggregation (Phase 3B Pattern)
+
+### Pattern Description
+Use PostgreSQL's native aggregation functions (`array_agg()`, `json_agg()`, `COUNT()`, `AVG()`, etc.) to process data in the database rather than in application code.
+
+### Implementation
+
+```typescript
+// Pattern 1: Using json_agg() for nested data
+async getAggregationData(productId: number, startDate: Date, endDate: Date): Promise<PriceAggregationData[]> {
+  const result = await this.db
+    .select({
+      productId: priceHistory.productId,
+      retailerId: priceHistory.retailerId,
+      // JSON array of price points, ordered by date
+      prices: sql<string>`
+        json_agg(
+          json_build_object(
+            'price', ${priceHistory.price},
+            'recordedAt', ${priceHistory.recordedAt}
+          )
+          ORDER BY ${priceHistory.recordedAt}
+        )::text
+      `,
+      recordCount: sql<number>`count(*)::int`,
+    })
+    .from(priceHistory)
+    .where(and(
+      eq(priceHistory.productId, productId),
+      gte(priceHistory.recordedAt, startDate),
+      lte(priceHistory.recordedAt, endDate)
+    ))
+    .groupBy(priceHistory.productId, priceHistory.retailerId);
+
+  return result;
+}
+
+// Pattern 2: Statistical aggregations
+async analyzePriceTrend(productId: number, days: number = 30): Promise<PriceTrendAnalysis> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+
+  const [result] = await this.db
+    .select({
+      productId: priceHistory.productId,
+      currentPrice: sql<number>`
+        (SELECT ${priceHistory.price}::numeric
+         FROM ${priceHistory}
+         WHERE ${priceHistory.productId} = ${productId}
+         ORDER BY ${priceHistory.recordedAt} DESC
+         LIMIT 1)
+      `,
+      averagePrice: sql<number>`AVG(${priceHistory.price}::numeric)`,
+      lowestPrice: sql<number>`MIN(${priceHistory.price}::numeric)`,
+      highestPrice: sql<number>`MAX(${priceHistory.price}::numeric)`,
+      recordCount: sql<number>`COUNT(*)::int`,
+    })
+    .from(priceHistory)
+    .where(and(
+      eq(priceHistory.productId, productId),
+      gte(priceHistory.recordedAt, cutoffDate)
+    ))
+    .groupBy(priceHistory.productId);
+
+  // Calculate trend direction in application code
+  const trend = result.currentPrice > result.averagePrice ? 'rising' : 'falling';
+  const changePercentage = ((result.currentPrice - result.averagePrice) / result.averagePrice) * 100;
+
+  return {
+    ...result,
+    trend,
+    changePercentage,
+    daysAnalyzed: days
+  };
+}
+```
+
+### Benefits
+1. **Performance**: Database processes data faster than application code
+2. **Memory Usage**: Large datasets never loaded into application memory
+3. **Network Overhead**: Only aggregated results transferred over network
+4. **Scalability**: Database can parallelize aggregation operations
+5. **Correctness**: Database handles NULL values, type coercion consistently
+
+### When to Use Database Aggregation
+- ✅ Statistical calculations (AVG, MIN, MAX, COUNT, SUM)
+- ✅ Grouping related records (GROUP BY with aggregates)
+- ✅ Nested data structures (json_agg, array_agg)
+- ✅ Filtering aggregated data (HAVING clauses)
+- ✅ Time-series data (date grouping, window functions)
+
+### When to Use Application Code
+- ❌ Complex business logic not expressible in SQL
+- ❌ External API calls needed during calculation
+- ❌ Need to apply machine learning models
+- ❌ Custom formatting/presentation logic
+- ❌ Operations requiring external services
+
+### Anti-Pattern
+```typescript
+// ❌ WRONG - Loading all data into memory for aggregation
+async analyzePriceTrend(productId: number): Promise<PriceTrendAnalysis> {
+  // Loads potentially 100,000+ records into memory!
+  const allPrices = await this.db
+    .select()
+    .from(priceHistory)
+    .where(eq(priceHistory.productId, productId));
+
+  // Calculate averages in application code
+  const prices = allPrices.map(p => parseFloat(p.price));
+  const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+  const lowestPrice = Math.min(...prices);
+  const highestPrice = Math.max(...prices);
+
+  // Inefficient and uses excessive memory!
+}
+
+// ✅ CORRECT - Let database do the work
+async analyzePriceTrend(productId: number): Promise<PriceTrendAnalysis> {
+  const [result] = await this.db
+    .select({
+      averagePrice: sql<number>`AVG(${priceHistory.price}::numeric)`,
+      lowestPrice: sql<number>`MIN(${priceHistory.price}::numeric)`,
+      highestPrice: sql<number>`MAX(${priceHistory.price}::numeric)`,
+    })
+    .from(priceHistory)
+    .where(eq(priceHistory.productId, productId));
+
+  return result; // Only aggregated results transferred!
+}
+```
+
+---
+
+## 14. Import Path Hierarchy for Nested Directories (Phase 3B Pattern)
+
+### Pattern Description
+When working in nested directories like `server/storage/domains/`, be explicit about relative import paths to avoid module resolution errors.
+
+### Problem: Module Not Found Errors
+
+```
+TS2307: Cannot find module '../services/price-history-service'
+```
+
+**Root Cause**: From `server/storage/domains/price-storage.ts`, `../services/` resolves to `server/storage/services/` (doesn't exist). Need `../../services/` to reach `server/services/`.
+
+### Directory Structure
+```
+server/
+├── services/
+│   ├── price-history-service.ts    ← Target file
+│   └── ...
+├── storage/
+│   ├── domains/
+│   │   ├── price-storage.ts         ← Current file
+│   │   ├── user-storage.ts
+│   │   └── product-storage.ts
+│   ├── base-storage.ts
+│   ├── types.ts
+│   └── index.ts
+└── ...
+```
+
+### Solution: Correct Import Paths
+
+```typescript
+// From: server/storage/domains/price-storage.ts
+
+// ❌ WRONG - Resolves to server/storage/services/ (doesn't exist)
+const { getPriceHistoryOptimized } = await import('../services/price-history-service');
+
+// ✅ CORRECT - Resolves to server/services/
+const { getPriceHistoryOptimized } = await import('../../services/price-history-service');
+
+// ✅ CORRECT - Sibling storage files (one level up)
+import { BaseStorage } from "../base-storage";
+import type { PriceHistoryWithDetails } from "../types";
+
+// ✅ CORRECT - Database (two levels up)
+import { db } from "../../db";
+
+// ✅ CORRECT - Shared schema (three levels up to shared/)
+import { priceHistory, retailers } from "@shared/schema";
+```
+
+### Path Reference Chart
+
+| From | To | Correct Path |
+|------|-----|-------------|
+| `server/storage/domains/` | `server/storage/` | `../` |
+| `server/storage/domains/` | `server/services/` | `../../services/` |
+| `server/storage/domains/` | `server/` | `../../` |
+| `server/storage/domains/` | `shared/` | Use `@shared/` alias |
+| `server/storage/` | `server/services/` | `../services/` |
+| `server/routes/` | `server/utils/` | `../utils/` |
+
+### Quick Check Formula
+Count how many directories "up" you need to go:
+1. Current: `server/storage/domains/price-storage.ts` (depth: 3)
+2. Target: `server/services/price-history-service.ts` (depth: 2)
+3. Go up to common parent: `server/` (need 2 `../`)
+4. Then down to target: `services/price-history-service`
+5. Result: `../../services/price-history-service`
+
+### Testing Import Paths
+```bash
+# Run TypeScript compiler to check all imports
+npm run check
+
+# Look for TS2307 errors (module not found)
+npx tsc --noEmit 2>&1 | grep "TS2307"
+```
+
+### Anti-Pattern
+```typescript
+// ❌ WRONG - Guessing paths without verification
+import { something } from '../../../somewhere/something';  // Hope and pray
+
+// ❌ WRONG - Mixing absolute and relative paths inconsistently
+import { db } from "../../db";  // Relative
+import { logger } from "server/utils/logger";  // Absolute (doesn't work!)
+
+// ✅ CORRECT - Consistent relative paths OR use path aliases
+import { db } from "../../db";
+import { logger } from "../../utils/logger";
+
+// ✅ ALSO CORRECT - Use TypeScript path aliases when available
+import { schema } from "@shared/schema";  // Configured in tsconfig.json
+```
+
+---
+
 ## Related Documentation
 
 - **CLAUDE.md** - Project conventions and security requirements
@@ -605,6 +1048,7 @@ Phase 2 identified that `getTopCategories(limit?: number)` should be `getTopCate
 - **SECURITY_PATTERNS.md** - Password hash handling, input validation
 - **TYPESCRIPT_PATTERNS.md** - Type safety, avoiding `any`, type assertions
 - **storage-review-patterns.md** - Code review checklist for storage layer
+- **PHASE_3B_COMPLETION_SUMMARY.md** - Detailed Phase 3B retrospective and lessons
 
 ---
 
