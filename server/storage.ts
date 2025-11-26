@@ -10,6 +10,7 @@ import { PriceStorage } from "./storage/domains/price-storage";
 import { WatchListStorage } from "./storage/domains/watchlist-storage";
 import { ForumStorage } from "./storage/domains/forum-storage";
 import { RetailerStorage } from "./storage/domains/retailer-storage";
+import { JobLockStorage } from "./storage/domains/job-lock-storage";
 
 export interface IStorage {
   // Retailers
@@ -1578,6 +1579,7 @@ export class DatabaseStorage implements IStorage {
   private watchListStorage: WatchListStorage;
   private forumStorage: ForumStorage;
   private retailerStorage: RetailerStorage;
+  private jobLockStorage: JobLockStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
@@ -1586,6 +1588,7 @@ export class DatabaseStorage implements IStorage {
     this.watchListStorage = new WatchListStorage(db);
     this.forumStorage = new ForumStorage(db);
     this.retailerStorage = new RetailerStorage(db);
+    this.jobLockStorage = new JobLockStorage(db);
   }
 
   // ============================================================================
@@ -2176,19 +2179,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJobLocks(): Promise<JobLock[]> {
-    const result = await db
-      .select({
-        id: jobLocks.id,
-        jobName: jobLocks.jobName,
-        lockedBy: jobLocks.lockedBy,
-        lockedAt: jobLocks.lockedAt,
-        expiresAt: jobLocks.expiresAt,
-        metadata: jobLocks.metadata,
-      })
-      .from(jobLocks)
-      .orderBy(desc(jobLocks.lockedAt));
-
-    return result;
+    return this.jobLockStorage.getJobLocks();
   }
 
   // User Registration with transaction (first user becomes admin)
@@ -2518,102 +2509,31 @@ export class DatabaseStorage implements IStorage {
 
   // Job Lock Operations
   async acquireJobLock(jobName: string, lockedBy: string, ttlSeconds: number): Promise<{ success: boolean; id?: number }> {
-    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
-    const result = await db
-      .insert(jobLocks)
-      .values({
-        jobName,
-        lockedBy,
-        expiresAt,
-        lockedAt: new Date(),
-      })
-      .onConflictDoNothing()
-      .returning({ id: jobLocks.id });
-
-    return result.length > 0 ? { success: true, id: result[0].id } : { success: false };
+    return this.jobLockStorage.acquireJobLock(jobName, lockedBy, ttlSeconds);
   }
 
   async getJobLockByName(jobName: string): Promise<JobLock | null> {
-    const [lock] = await db
-      .select()
-      .from(jobLocks)
-      .where(eq(jobLocks.jobName, jobName))
-      .limit(1);
-    return lock ?? null;
+    return this.jobLockStorage.getJobLockByName(jobName);
   }
 
   async updateExpiredJobLock(jobName: string, lockedBy: string, newExpiresAt: Date): Promise<{ success: boolean; id?: number }> {
-    const result = await db
-      .update(jobLocks)
-      .set({
-        lockedBy,
-        lockedAt: new Date(),
-        expiresAt: newExpiresAt,
-      })
-      .where(
-        and(
-          eq(jobLocks.jobName, jobName),
-          lte(jobLocks.expiresAt, new Date())
-        )
-      )
-      .returning({ id: jobLocks.id });
-
-    return result.length > 0 ? { success: true, id: result[0].id } : { success: false };
+    return this.jobLockStorage.updateExpiredJobLock(jobName, lockedBy, newExpiresAt);
   }
 
   async releaseJobLock(jobName: string, lockedBy: string): Promise<boolean> {
-    const result = await db
-      .delete(jobLocks)
-      .where(
-        and(
-          eq(jobLocks.jobName, jobName),
-          eq(jobLocks.lockedBy, lockedBy)
-        )
-      )
-      .returning({ id: jobLocks.id });
-
-    return result.length > 0;
+    return this.jobLockStorage.releaseJobLock(jobName, lockedBy);
   }
 
   async extendJobLock(jobName: string, lockedBy: string, additionalSeconds: number): Promise<boolean> {
-    const result = await db
-      .update(jobLocks)
-      .set({
-        expiresAt: sql`${jobLocks.expiresAt} + (${additionalSeconds} * INTERVAL '1 second')`,
-      })
-      .where(
-        and(
-          eq(jobLocks.jobName, jobName),
-          eq(jobLocks.lockedBy, lockedBy)
-        )
-      )
-      .returning({ id: jobLocks.id });
-
-    return result.length > 0;
+    return this.jobLockStorage.extendJobLock(jobName, lockedBy, additionalSeconds);
   }
 
   async isJobLocked(jobName: string): Promise<boolean> {
-    const locks = await db
-      .select({ id: jobLocks.id })
-      .from(jobLocks)
-      .where(
-        and(
-          eq(jobLocks.jobName, jobName),
-          sql`${jobLocks.expiresAt} > NOW()`
-        )
-      )
-      .limit(1);
-
-    return locks.length > 0;
+    return this.jobLockStorage.isJobLocked(jobName);
   }
 
   async cleanupExpiredJobLocks(): Promise<number> {
-    const result = await db
-      .delete(jobLocks)
-      .where(lte(jobLocks.expiresAt, new Date()))
-      .returning({ id: jobLocks.id });
-
-    return result.length;
+    return this.jobLockStorage.cleanupExpiredJobLocks();
   }
 
   // Password Reset Token Operations
@@ -3343,11 +3263,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getActiveJobLocksCount(): Promise<number> {
-    const result = await db.select({ count: count() })
-      .from(jobLocks)
-      .where(sql`${jobLocks.expiresAt} > NOW()`);
-
-    return Number(result[0]?.count ?? 0);
+    return this.jobLockStorage.getActiveJobLocksCount();
   }
 
   async getProductOffersCount(): Promise<number> {
