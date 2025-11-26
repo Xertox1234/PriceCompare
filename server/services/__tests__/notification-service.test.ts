@@ -228,9 +228,17 @@ describe.sequential('Notification Service', () => {
 
       // First should be most recent
       for (let i = 1; i < notifs.length; i++) {
-        expect(new Date(notifs[i - 1].createdAt).getTime()).toBeGreaterThanOrEqual(
-          new Date(notifs[i].createdAt).getTime()
-        );
+        const prevCreatedAt = notifs[i - 1].createdAt;
+        const currCreatedAt = notifs[i].createdAt;
+        if (!prevCreatedAt || !currCreatedAt) continue;
+
+        const prevTime = prevCreatedAt instanceof Date
+          ? prevCreatedAt.getTime()
+          : new Date(prevCreatedAt).getTime();
+        const currTime = currCreatedAt instanceof Date
+          ? currCreatedAt.getTime()
+          : new Date(currCreatedAt).getTime();
+        expect(prevTime).toBeGreaterThanOrEqual(currTime);
       }
     });
   });

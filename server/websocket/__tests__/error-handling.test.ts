@@ -25,9 +25,11 @@ import {
 import { getSocketIO } from '../index';
 import { handleSocketError } from '../middleware/error-handler';
 import type { AuthenticatedSocket } from '../types';
+import type { MockRedisClient } from './mock-types';
+import { createMockSocket } from './mock-types';
 
 // Mock dependencies
-let mockRedisClient: any = null;
+let mockRedisClient: MockRedisClient | null = null;
 
 vi.mock('../../config/redis', () => ({
   getRedisClient: vi.fn(() => mockRedisClient),
@@ -138,11 +140,7 @@ describe('WebSocket Error Handling Tests', () => {
 
         // Mock an error by sending invalid data
         // Note: This tests the error handling middleware
-        const mockSocket = {
-          id: 'test-socket',
-          emit: vi.fn(),
-          userId: 1001,
-        } as unknown as AuthenticatedSocket;
+        const mockSocket = createMockSocket(1001, 'test-socket');
 
         const testError = new Error('Watch list not found or unauthorized');
         handleSocketError(mockSocket, testError, {
@@ -166,11 +164,7 @@ describe('WebSocket Error Handling Tests', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
 
-      const mockSocket = {
-        id: 'test-socket',
-        emit: vi.fn(),
-        userId: 1002,
-      } as unknown as AuthenticatedSocket;
+      const mockSocket = createMockSocket(1002, 'test-socket');
 
       const internalError = new Error('Database connection pool exhausted');
       handleSocketError(mockSocket, internalError, {
@@ -187,7 +181,8 @@ describe('WebSocket Error Handling Tests', () => {
       );
 
       // Should not include internal details
-      const errorCall = mockSocket.emit.mock.calls[0][1];
+      const emitMock = mockSocket.emit as ReturnType<typeof vi.fn>;
+      const errorCall = emitMock.mock.calls[0][1];
       expect(errorCall.details).toBeUndefined();
       expect(errorCall.stack).toBeUndefined();
 
@@ -198,11 +193,7 @@ describe('WebSocket Error Handling Tests', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'development';
 
-      const mockSocket = {
-        id: 'test-socket',
-        emit: vi.fn(),
-        userId: 1003,
-      } as unknown as AuthenticatedSocket;
+      const mockSocket = createMockSocket(1003, 'test-socket');
 
       const specificError = new Error('Product ID 999 not found in database');
       handleSocketError(mockSocket, specificError, {
@@ -226,11 +217,7 @@ describe('WebSocket Error Handling Tests', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
 
-      const mockSocket = {
-        id: 'test-socket',
-        emit: vi.fn(),
-        userId: 1004,
-      } as unknown as AuthenticatedSocket;
+      const mockSocket = createMockSocket(1004, 'test-socket');
 
       const knownErrors = [
         {
@@ -463,11 +450,7 @@ describe('WebSocket Error Handling Tests', () => {
         await waitForEvent(client, 'connect');
 
         // Simulate an unhandled error scenario
-        const mockSocket = {
-          id: 'test-socket',
-          emit: vi.fn(),
-          userId: 5001,
-        } as unknown as AuthenticatedSocket;
+        const mockSocket = createMockSocket(5001, 'test-socket');
 
         const unexpectedError = new Error('Unexpected null pointer');
         handleSocketError(mockSocket, unexpectedError, {

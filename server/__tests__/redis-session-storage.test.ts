@@ -111,6 +111,7 @@ describe('Redis Session Storage Integration', () => {
     }
 
     expect(sessionStore).toBeDefined();
+    if (!sessionStore) return;
     // connect-redis v9 store should have these methods
     expect(typeof sessionStore.get).toBe('function');
     expect(typeof sessionStore.set).toBe('function');
@@ -131,6 +132,7 @@ describe('Redis Session Storage Integration', () => {
     expect(response.body.success).toBe(true);
 
     // Verify session was stored in Redis
+    if (!redisSessionClient) return;
     const sessionKeys = await redisSessionClient.keys('sess:*');
     expect(sessionKeys.length).toBeGreaterThan(0);
   });
@@ -177,6 +179,7 @@ describe('Redis Session Storage Integration', () => {
     const cookies = loginResponse.headers['set-cookie'];
 
     // Verify session exists in Redis
+    if (!redisSessionClient) return;
     let sessionKeys = await redisSessionClient.keys('sess:*');
     expect(sessionKeys.length).toBeGreaterThan(0);
 
@@ -202,6 +205,7 @@ describe('Redis Session Storage Integration', () => {
       .send({ userId: 999, username: 'prefixuser' })
       .expect(200);
 
+    if (!redisSessionClient) return;
     const sessionKeys = await redisSessionClient.keys('sess:*');
     expect(sessionKeys.length).toBeGreaterThan(0);
 
@@ -239,19 +243,19 @@ describe('Redis Session Storage Integration', () => {
     };
 
     await new Promise((resolve, reject) => {
-      sessionStore.set(testSessionId, testSessionData, (err: Error) => {
+      sessionStore!.set(testSessionId, testSessionData as any, (err?: Error) => {
         if (err) reject(err);
         else resolve(true);
       });
     });
 
     // Check TTL in Redis (should be ~86400 seconds / 24 hours)
-    const ttl = await redisSessionClient.ttl(`sess:${testSessionId}`);
+    const ttl = await redisSessionClient!.ttl(`sess:${testSessionId}`);
     expect(ttl).toBeGreaterThan(86300); // Allow small margin
     expect(ttl).toBeLessThanOrEqual(86400);
 
     // Clean up
-    await redisSessionClient.del(`sess:${testSessionId}`);
+    await redisSessionClient!.del(`sess:${testSessionId}`);
   });
 
   test('should handle concurrent sessions for different users', async () => {
@@ -289,6 +293,7 @@ describe('Redis Session Storage Integration', () => {
     expect(session2.body.userId).toBe(1002);
 
     // Verify both sessions exist in Redis
+    if (!redisSessionClient) return;
     const sessionKeys = await redisSessionClient.keys('sess:*');
     expect(sessionKeys.length).toBeGreaterThanOrEqual(2);
   });

@@ -62,7 +62,7 @@ describe('WebSocket Server', () => {
     });
   });
 
-  it('should reject connection without valid session', (done) => {
+  it('should reject connection without valid session', async () => {
     // Attempt to connect without session cookie
     clientSocket = ioClient(`http://localhost:${TEST_PORT}`, {
       path: '/ws',
@@ -70,17 +70,19 @@ describe('WebSocket Server', () => {
       reconnection: false,
     });
 
-    clientSocket.on('connect_error', (error) => {
-      // Socket.io client may wrap error message, so just verify connection was rejected
-      expect(error).toBeDefined();
-      expect(error.message).toBeTruthy();
-      clientSocket.close();
-      done();
-    });
+    await new Promise<void>((resolve, reject) => {
+      clientSocket.on('connect_error', (error) => {
+        // Socket.io client may wrap error message, so just verify connection was rejected
+        expect(error).toBeDefined();
+        expect(error.message).toBeTruthy();
+        clientSocket.close();
+        resolve();
+      });
 
-    // Should not successfully connect
-    clientSocket.on('connect', () => {
-      done(new Error('Should not connect without authentication'));
+      // Should not successfully connect
+      clientSocket.on('connect', () => {
+        reject(new Error('Should not connect without authentication'));
+      });
     });
   });
 
