@@ -1,6 +1,5 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 import { z } from 'zod';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 import {
@@ -13,6 +12,7 @@ import {
   cleanupOldPriceHistory
 } from '../services/price-history-service';
 import type { AuthenticatedRequest } from '@shared/types';
+import { handleRouteError, notFound } from "./helpers";
 
 // Validation schemas
 const recordPriceSchema = z.object({
@@ -108,8 +108,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: history.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetPriceHistory');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetPriceHistory');
     }
   });
 
@@ -131,7 +130,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const stats = await getPriceStats(productOfferId, queryParams.data.days);
 
       if (!stats) {
-        res.status(404).json({ error: 'Product offer not found' });
+        notFound(res, 'Product offer');
         return;
       }
 
@@ -140,8 +139,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         data: stats
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetPriceStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetPriceStats');
     }
   });
 
@@ -173,8 +171,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: snapshots.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetPriceSnapshots');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetPriceSnapshots');
     }
   });
 
@@ -207,8 +204,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         data: result
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'RecordPriceChange');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'RecordPriceChange');
     }
   }));
 
@@ -234,8 +230,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GenerateSnapshots');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GenerateSnapshots');
     }
   }));
 
@@ -263,8 +258,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: drops.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'DetectPriceDrops');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DetectPriceDrops');
     }
   }));
 
@@ -286,8 +280,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         deletedCount
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CleanupPriceHistory');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CleanupPriceHistory');
     }
   }));
 
@@ -318,8 +311,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
         count: limitedDrops.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetRecentPriceDrops');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetRecentPriceDrops');
     }
   });
 }

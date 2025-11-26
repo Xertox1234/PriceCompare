@@ -1,12 +1,11 @@
 import { Express } from "express";
 import { forumStorage } from "../forum-storage";
 import { storage } from "../storage";
-import { withAdmin } from "./helpers";
+import { withAdmin, handleRouteError, notFound } from "./helpers";
 import { insertProductSchema, insertRetailerSchema } from "@shared/schema";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { getPerformanceStats, getSlowestEndpoints } from "../middleware/performance";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 
 /**
  * Admin Routes
@@ -43,9 +42,7 @@ export function registerAdminRoutes(app: Express): void {
       const overview = await storage.getAdminAnalyticsOverview();
       res.json(overview);
     } catch (error: unknown) {
-      logger.error('Error fetching overview analytics', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchAnalyticsOverview');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchAnalyticsOverview');
     }
   }));
 
@@ -54,9 +51,7 @@ export function registerAdminRoutes(app: Express): void {
       const userGrowth = await storage.getUserGrowthData();
       res.json(userGrowth);
     } catch (error: unknown) {
-      logger.error('Error fetching user growth', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchUserGrowth');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchUserGrowth');
     }
   }));
 
@@ -65,9 +60,7 @@ export function registerAdminRoutes(app: Express): void {
       const postActivity = await storage.getForumActivityData();
       res.json(postActivity);
     } catch (error: unknown) {
-      logger.error('Error fetching forum activity', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchForumActivity');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchForumActivity');
     }
   }));
 
@@ -76,9 +69,7 @@ export function registerAdminRoutes(app: Express): void {
       const topCategories = await storage.getTopCategories(10);
       res.json(topCategories);
     } catch (error: unknown) {
-      logger.error('Error fetching top categories', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchTopCategories');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchTopCategories');
     }
   }));
 
@@ -88,9 +79,7 @@ export function registerAdminRoutes(app: Express): void {
       const products = await storage.getAdminProducts();
       res.json(products);
     } catch (error: unknown) {
-      logger.error('Error fetching admin products', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchAdminProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchAdminProducts');
     }
   }));
 
@@ -102,15 +91,13 @@ export function registerAdminRoutes(app: Express): void {
       const product = await storage.getAdminProductById(productId);
 
       if (!product) {
-        res.status(404).json({ error: 'Product not found' });
+        notFound(res, 'Product');
         return;
       }
 
       res.json(product);
     } catch (error: unknown) {
-      logger.error('Error fetching product details', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'FetchProductDetails');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchProductDetails');
     }
   }));
 
@@ -120,9 +107,7 @@ export function registerAdminRoutes(app: Express): void {
       const newProduct = await storage.createAdminProduct(productData);
       res.status(201).json(newProduct);
     } catch (error: unknown) {
-      logger.error('Error creating product', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'CreateProduct');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreateProduct');
     }
   }));
 
@@ -135,15 +120,13 @@ export function registerAdminRoutes(app: Express): void {
       const updatedProduct = await storage.updateAdminProduct(productId, updateData);
 
       if (!updatedProduct) {
-        res.status(404).json({ error: 'Product not found' });
+        notFound(res, 'Product');
         return;
       }
 
       res.json(updatedProduct);
     } catch (error: unknown) {
-      logger.error('Error updating product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'UpdateProduct');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'UpdateProduct');
     }
   }));
 
@@ -156,15 +139,13 @@ export function registerAdminRoutes(app: Express): void {
       const deletedProduct = await storage.deleteAdminProduct(productId);
 
       if (!deletedProduct) {
-        res.status(404).json({ error: 'Product not found' });
+        notFound(res, 'Product');
         return;
       }
 
       res.json({ success: true, message: 'Product deleted successfully' });
     } catch (error: unknown) {
-      logger.error('Error deleting product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'DeleteProduct');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DeleteProduct');
     }
   }));
 
@@ -174,9 +155,7 @@ export function registerAdminRoutes(app: Express): void {
       const allRetailers = await storage.getAdminRetailers();
       res.json(allRetailers);
     } catch (error: unknown) {
-      logger.error('Error fetching retailers', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchRetailers');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchRetailers');
     }
   }));
 
@@ -186,9 +165,7 @@ export function registerAdminRoutes(app: Express): void {
       const newRetailer = await storage.createAdminRetailer(retailerData);
       res.status(201).json(newRetailer);
     } catch (error: unknown) {
-      logger.error('Error creating retailer', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'CreateRetailer');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreateRetailer');
     }
   }));
 
@@ -201,15 +178,13 @@ export function registerAdminRoutes(app: Express): void {
       const updatedRetailer = await storage.updateAdminRetailer(retailerId, updateData);
 
       if (!updatedRetailer) {
-        res.status(404).json({ error: 'Retailer not found' });
+        notFound(res, 'Retailer');
         return;
       }
 
       res.json(updatedRetailer);
     } catch (error: unknown) {
-      logger.error('Error updating retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'UpdateRetailer');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'UpdateRetailer');
     }
   }));
 
@@ -222,15 +197,13 @@ export function registerAdminRoutes(app: Express): void {
       const deletedRetailer = await storage.deleteAdminRetailer(retailerId);
 
       if (!deletedRetailer) {
-        res.status(404).json({ error: 'Retailer not found' });
+        notFound(res, 'Retailer');
         return;
       }
 
       res.json({ success: true, message: 'Retailer deleted successfully' });
     } catch (error: unknown) {
-      logger.error('Error deleting retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'DeleteRetailer');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DeleteRetailer');
     }
   }));
 
@@ -240,9 +213,7 @@ export function registerAdminRoutes(app: Express): void {
       const stats = getPerformanceStats();
       res.json(stats);
     } catch (error: unknown) {
-      logger.error('Error getting performance stats', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetPerformanceStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetPerformanceStats');
     }
   }));
 
@@ -253,9 +224,7 @@ export function registerAdminRoutes(app: Express): void {
       const slowest = getSlowestEndpoints(limit);
       res.json(slowest);
     } catch (error: unknown) {
-      logger.error('Error getting slowest endpoints', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetSlowestEndpoints');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetSlowestEndpoints');
     }
   }));
 }

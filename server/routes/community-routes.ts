@@ -2,8 +2,7 @@ import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
 import * as communityService from "../services/community-service";
 import { parseIntSafe, parseIntOptional } from "../utils/validation-helpers";
-import { createErrorResponse } from "../utils/error-sanitizer";
-import { withAuth } from "./helpers";
+import { withAuth, handleRouteError, notFound } from "./helpers";
 import { csrfProtection } from "../middleware/security";
 import { z } from "zod";
 
@@ -85,11 +84,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json(watch);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AddProductWatch');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'AddProductWatch');
     }
   }));
 
@@ -105,17 +100,13 @@ export function registerCommunityRoutes(app: Express) {
       const removed = await communityService.removeProductWatch(user.id, productId);
 
       if (!removed) {
-        res.status(404).json({ error: "Watch not found" });
+        notFound(res, 'Watch');
         return;
       }
 
       res.status(204).send();
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'RemoveProductWatch');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'RemoveProductWatch');
     }
   }));
 
@@ -133,11 +124,7 @@ export function registerCommunityRoutes(app: Express) {
         count: productIds.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatches');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchWatches');
     }
   }));
 
@@ -153,11 +140,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ count });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchCount');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchWatchCount');
     }
   });
 
@@ -174,11 +157,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ isWatching });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CheckWatchStatus');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'CheckWatchStatus');
     }
   }));
 
@@ -196,11 +175,7 @@ export function registerCommunityRoutes(app: Express) {
         count: products.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchMostWatched');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchMostWatched');
     }
   });
 
@@ -215,11 +190,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json(reputation);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchReputation');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchReputation');
     }
   }));
 
@@ -237,11 +208,7 @@ export function registerCommunityRoutes(app: Express) {
         count: leaderboard.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchLeaderboard');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchLeaderboard');
     }
   });
 
@@ -259,11 +226,7 @@ export function registerCommunityRoutes(app: Express) {
         count: deals.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchRecentDeals');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchRecentDeals');
     }
   });
 
@@ -290,8 +253,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.status(201).json(watchList);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateWatchList');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'CreateWatchList');
     }
   }));
 
@@ -309,11 +271,7 @@ export function registerCommunityRoutes(app: Express) {
         count: watchLists.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchLists');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchWatchLists');
     }
   }));
 
@@ -329,17 +287,13 @@ export function registerCommunityRoutes(app: Express) {
       const watchList = await communityService.getWatchListById(user.id, listId);
 
       if (!watchList) {
-        res.status(404).json({ error: "Watch list not found" });
+        notFound(res, 'Watch list');
         return;
       }
 
       res.json(watchList);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchWatchList');
     }
   }));
 
@@ -356,14 +310,13 @@ export function registerCommunityRoutes(app: Express) {
       const updated = await communityService.updateWatchList(user.id, listId, validatedData);
 
       if (!updated) {
-        res.status(404).json({ error: "Watch list not found" });
+        notFound(res, 'Watch list');
         return;
       }
 
       res.json(updated);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateWatchList');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'UpdateWatchList');
     }
   }));
 
@@ -379,17 +332,13 @@ export function registerCommunityRoutes(app: Express) {
       const deleted = await communityService.deleteWatchList(user.id, listId);
 
       if (!deleted) {
-        res.status(404).json({ error: "Watch list not found or cannot be deleted" });
+        notFound(res, 'Watch list');
         return;
       }
 
       res.status(204).send();
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DeleteWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'DeleteWatchList');
     }
   }));
 
@@ -409,11 +358,7 @@ export function registerCommunityRoutes(app: Express) {
         count: products.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchListProducts');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'FetchWatchListProducts');
     }
   }));
 
@@ -430,14 +375,13 @@ export function registerCommunityRoutes(app: Express) {
       const updated = await communityService.updateProductWatch(user.id, watchId, validatedData);
 
       if (!updated) {
-        res.status(404).json({ error: "Product watch not found" });
+        notFound(res, 'Product watch');
         return;
       }
 
       res.json(updated);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateProductWatch');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'UpdateProductWatch');
     }
   }));
 
@@ -458,8 +402,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ movedCount });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'BulkMoveProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'BulkMoveProducts');
     }
   }));
 
@@ -479,8 +422,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json({ deletedCount });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'BulkDeleteProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'BulkDeleteProducts');
     }
   }));
 
@@ -495,11 +437,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json(exportData);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ExportWatchLists');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      handleRouteError(res, error, 'ExportWatchLists');
     }
   }));
 
@@ -516,8 +454,7 @@ export function registerCommunityRoutes(app: Express) {
 
       res.json(result);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ImportWatchLists');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'ImportWatchLists');
     }
   }));
 }

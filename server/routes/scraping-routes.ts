@@ -1,7 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
 import { sendErrorResponse, ErrorMessages } from '../utils/error-handler';
-import { createErrorResponse } from '../utils/error-sanitizer';
 import { requireAuth, requireAdmin } from '../auth';
 import { validateRequest } from '../validation';
 import {
@@ -15,6 +14,7 @@ import {
 import { agentService } from '../services/agent-service';
 import { googleSearchService } from '../services/google-search';
 import { storage } from '../storage';
+import { handleRouteError, notFound } from "./helpers";
 
 // Allowed retailer domains for SSRF protection
 const ALLOWED_RETAILER_DOMAINS = [
@@ -151,9 +151,7 @@ export function registerScrapingRoutes(app: Express): void {
           result
         });
       } catch (error: unknown) {
-        logger.error('Trend discovery failed:', { error: error instanceof Error ? error.message : String(error) });
-        const errorResponse = createErrorResponse(error, 'TrendDiscovery');
-        res.status(errorResponse.status).json({ error: errorResponse.error });
+        handleRouteError(res, error, 'TrendDiscovery');
       }
     }
   );
@@ -178,9 +176,7 @@ export function registerScrapingRoutes(app: Express): void {
         count: products.length
       });
     } catch (error: unknown) {
-      logger.error('Failed to get trending products:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchTrendingProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchTrendingProducts');
     }
   });
 
@@ -198,9 +194,7 @@ export function registerScrapingRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
     } catch (error: unknown) {
-      logger.error('Failed to get system status:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchSystemStatus');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'FetchSystemStatus');
     }
   });
 
@@ -229,9 +223,7 @@ export function registerScrapingRoutes(app: Express): void {
           count: searchResults.length
         });
       } catch (error: unknown) {
-        logger.error('Product search failed:', { error: error instanceof Error ? error.message : String(error) });
-        const errorResponse = createErrorResponse(error, 'ProductSearch');
-        res.status(errorResponse.status).json({ error: errorResponse.error });
+        handleRouteError(res, error, 'ProductSearch');
       }
     });
 
@@ -253,9 +245,7 @@ export function registerScrapingRoutes(app: Express): void {
         message: "Full scraping cycle initiated in background"
       });
     } catch (error: unknown) {
-      logger.error('Failed to start full cycle:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'StartFullCycle');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'StartFullCycle');
     }
   });
 
@@ -270,8 +260,7 @@ export function registerScrapingRoutes(app: Express): void {
         usage: googleSearchService.getUsageStats()
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TestGoogleSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'TestGoogleSearch');
     }
   });
 
@@ -320,9 +309,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Google Custom Search failed:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GoogleCustomSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GoogleCustomSearch');
     }
   });
 
@@ -342,8 +329,7 @@ export function registerScrapingRoutes(app: Express): void {
           : 'Google Custom Search API requires configuration'
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetGoogleSearchStatus');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetGoogleSearchStatus');
     }
   });
 
@@ -381,9 +367,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Product extraction failed:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ProductExtraction');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'ProductExtraction');
     }
   });
 
@@ -410,9 +394,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to start monitoring:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'StartMonitoring');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'StartMonitoring');
     }
   });
 
@@ -430,9 +412,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to get monitoring stats:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetMonitoringStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetMonitoringStats');
     }
   });
 
@@ -502,9 +482,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Complete workflow failed:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'CompleteWorkflow');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CompleteWorkflow');
     }
   });
 
@@ -544,9 +522,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to get cache stats:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetCacheStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetCacheStats');
     }
   });
 
@@ -577,9 +553,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to clear cache:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ClearCache');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'ClearCache');
     }
   });
 }

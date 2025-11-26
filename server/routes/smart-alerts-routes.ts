@@ -3,8 +3,7 @@ import { logger } from "../utils/logger";
 import { z } from "zod";
 import * as smartAlertsService from "../services/smart-alerts-service";
 import { parseIntSafe, parseFloatSafe } from "../utils/validation-helpers";
-import { createErrorResponse } from "../utils/error-sanitizer";
-import { withAuth } from "./helpers";
+import { withAuth, handleRouteError } from "./helpers";
 import { csrfProtection } from "../middleware/security";
 
 /**
@@ -43,8 +42,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: suggestions.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GenerateSmartSuggestions');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GenerateSmartSuggestions');
     }
   });
 
@@ -63,8 +61,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: alerts.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GeneratePredictiveAlerts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GeneratePredictiveAlerts');
     }
   }));
 
@@ -83,8 +80,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         count: effectiveness.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetAlertEffectiveness');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetAlertEffectiveness');
     }
   }));
 
@@ -102,8 +98,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         data: analytics,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetAlertAnalytics');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetAlertAnalytics');
     }
   }));
 
@@ -148,11 +143,10 @@ export function registerSmartAlertsRoutes(app: Express) {
       });
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Invalid data", details: error.issues });
+        handleRouteError(res, error, 'CreateSuggestedAlert', 400);
         return;
       }
-      const errorResponse = createErrorResponse(error, 'CreateSuggestedAlert');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreateSuggestedAlert');
     }
   }));
 }

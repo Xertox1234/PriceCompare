@@ -4,7 +4,7 @@ import { monitoringService } from '../services/monitoring-service';
 import { alertService } from '../services/alert-service';
 import { logger } from '../utils/logger';
 import { parseIntOptional } from '../utils/validation-helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { handleRouteError } from './helpers';
 
 /**
  * Monitoring and Dashboard Routes
@@ -26,8 +26,7 @@ export function registerMonitoringRoutes(app: Express): void {
         data: metrics
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetDashboardMetrics');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      handleRouteError(res, error, 'GetDashboardMetrics');
     }
   });
 
@@ -48,8 +47,7 @@ export function registerMonitoringRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetRecentErrors');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      handleRouteError(res, error, 'GetRecentErrors');
     }
   });
 
@@ -66,8 +64,7 @@ export function registerMonitoringRoutes(app: Express): void {
         message: 'Error logs cleared successfully'
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'ClearErrors');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      handleRouteError(res, error, 'ClearErrors');
     }
   });
 
@@ -111,8 +108,7 @@ export function registerMonitoringRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetAlertHistory');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      handleRouteError(res, error, 'GetAlertHistory');
     }
   });
 
@@ -134,8 +130,7 @@ export function registerMonitoringRoutes(app: Express): void {
         message: 'Test alert sent successfully'
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'SendTestAlert');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      handleRouteError(res, error, 'SendTestAlert');
     }
   });
 }

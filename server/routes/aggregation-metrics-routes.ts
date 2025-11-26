@@ -10,8 +10,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { metricsStore, getMetricsSummary } from '../services/aggregation-metrics';
 import { logger } from '../utils/logger';
-import { createErrorResponse } from '../utils/error-sanitizer';
-
+import { handleRouteError, notFound } from "./helpers";
 /**
  * Middleware to authenticate metrics API requests
  *
@@ -90,11 +89,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       res.type('text/plain').send(summary);
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error fetching summary:', { error });
-      const errorResponse = createErrorResponse(error, 'FetchMetricsSummary');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'FetchMetricsSummary');
     }
   });
 
@@ -111,11 +106,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       res.json(stats);
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error fetching stats:', { error });
-      const errorResponse = createErrorResponse(error, 'FetchMetricsStats');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'FetchMetricsStats');
     }
   });
 
@@ -146,11 +137,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
         error,
         operation: req.params.operation,
       });
-      const errorResponse = createErrorResponse(error, 'FetchOperationStats');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'FetchOperationStats');
     }
   });
 
@@ -169,11 +156,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       res.type('text/plain; version=0.0.4').send(prometheus);
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error exporting Prometheus metrics:', { error });
-      const errorResponse = createErrorResponse(error, 'ExportPrometheusMetrics');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'ExportPrometheusMetrics');
     }
   });
 
@@ -238,13 +221,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
         stats: allStats,
       });
     } catch (error: unknown) {
-      logger.error('[AggregationMetrics] Error checking health:', { error });
-      const errorResponse = createErrorResponse(error, 'CheckAggregationHealth');
-      res.status(500).json({
-        status: 'error',
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'CheckAggregationHealth', 500);
     }
   });
 }

@@ -4,8 +4,7 @@ import { z } from "zod";
 import * as notificationService from "../services/notification-service";
 import { csrfProtection } from "../middleware/security";
 import { parseIntSafe } from "../utils/validation-helpers";
-import { createErrorResponse } from "../utils/error-sanitizer";
-import { withAuth } from "./helpers";
+import { withAuth, handleRouteError, notFound } from "./helpers";
 
 /**
  * Notification Routes
@@ -49,11 +48,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error fetching notifications:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'GetNotifications');
     }
   }));
 
@@ -72,11 +67,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error fetching notification stats:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetNotificationStats');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'GetNotificationStats');
     }
   }));
 
@@ -93,18 +84,14 @@ export function registerNotificationRoutes(app: Express) {
       const count = await notificationService.markAsRead(user.id, notificationId);
 
       if (count === 0) {
-        res.status(404).json({ error: "Notification not found" });
+        notFound(res, 'Notification');
         return;
       }
 
       res.json({ success: true });
     } catch (error: unknown) {
       logger.error('Error marking notification as read:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'MarkNotificationRead');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'MarkNotificationRead');
     }
   });
 
@@ -124,11 +111,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error marking all as read:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'MarkAllNotificationsRead');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'MarkAllNotificationsRead');
     }
   });
 
@@ -145,18 +128,14 @@ export function registerNotificationRoutes(app: Express) {
       const deleted = await notificationService.deleteNotification(user.id, notificationId);
 
       if (!deleted) {
-        res.status(404).json({ error: "Notification not found" });
+        notFound(res, 'Notification');
         return;
       }
 
       res.json({ success: true });
     } catch (error: unknown) {
       logger.error('Error deleting notification:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'DeleteNotification');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'DeleteNotification');
     }
   });
 
@@ -176,11 +155,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error deleting all notifications:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'DeleteAllNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'DeleteAllNotifications');
     }
   });
 
@@ -199,11 +174,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error fetching preferences:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetNotificationPreferences');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'GetNotificationPreferences');
     }
   }));
 
@@ -238,11 +209,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error updating preferences:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'UpdateNotificationPreferences');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'UpdateNotificationPreferences');
     }
   });
 
@@ -266,11 +233,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error fetching price drops:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetPriceDropNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'GetPriceDropNotifications');
     }
   }));
 
@@ -294,11 +257,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error fetching price alerts:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetPriceAlertNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'GetPriceAlertNotifications');
     }
   }));
 
@@ -350,11 +309,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error fetching smart notifications:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetSmartNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'GetSmartNotifications');
     }
   }));
 
@@ -383,12 +338,12 @@ export function registerNotificationRoutes(app: Express) {
       const notification = notifications.find(n => n.id === notificationId);
 
       if (!notification) {
-        res.status(404).json({ error: "Notification not found" });
+        notFound(res, 'Notification');
         return;
       }
 
       if (notification.type !== 'smart_alert') {
-        res.status(400).json({ error: "Can only snooze smart notifications" });
+        handleRouteError(res, new Error("Can only snooze smart notifications"), 'SnoozeNotification', 400);
         return;
       }
 
@@ -411,11 +366,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error snoozing notification:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'SnoozeNotification');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'SnoozeNotification');
     }
   });
 
@@ -438,12 +389,12 @@ export function registerNotificationRoutes(app: Express) {
       const notification = notifications.find(n => n.id === notificationId);
 
       if (!notification) {
-        res.status(404).json({ error: "Notification not found" });
+        notFound(res, 'Notification');
         return;
       }
 
       if (notification.type !== 'smart_alert') {
-        res.status(400).json({ error: "Can only dismiss smart notifications" });
+        handleRouteError(res, new Error("Can only dismiss smart notifications"), 'DismissNotification', 400);
         return;
       }
 
@@ -456,11 +407,7 @@ export function registerNotificationRoutes(app: Express) {
       });
     } catch (error: unknown) {
       logger.error('Error dismissing notification:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'DismissNotification');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      handleRouteError(res, error, 'DismissNotification');
     }
   });
 }

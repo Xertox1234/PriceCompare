@@ -11,8 +11,7 @@ import { z } from 'zod';
 import { affiliateLinkService } from '../services/affiliate-link-service';
 import { AffiliateLinkAgent } from '../agents/affiliate-agent';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
-
+import { handleRouteError, notFound } from "./helpers";
 let affiliateAgent: AffiliateLinkAgent | null = null;
 
 // Validation schema for testing affiliate links
@@ -52,8 +51,7 @@ export function registerAffiliateRoutes(app: Express): void {
       const retailersWithStats = await storage.getRetailersWithAffiliateStats();
       res.json(retailersWithStats);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetRetailersWithAffiliateStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetRetailersWithAffiliateStats');
     }
   });
 
@@ -74,7 +72,7 @@ export function registerAffiliateRoutes(app: Express): void {
       });
 
       if (!updatedRetailer) {
-        res.status(404).json({ error: 'Retailer not found' });
+        notFound(res, 'Retailer');
         return;
       }
 
@@ -83,8 +81,7 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json(updatedRetailer);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateRetailerAffiliateConfig');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'UpdateRetailerAffiliateConfig');
     }
   });
 
@@ -120,8 +117,7 @@ export function registerAffiliateRoutes(app: Express): void {
         });
       }
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TestAffiliateLink');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'TestAffiliateLink');
     }
   });
 
@@ -144,8 +140,7 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json(result);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GenerateAffiliateLinks');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GenerateAffiliateLinks');
     }
   });
 
@@ -161,8 +156,7 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json(stats);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetAffiliateStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetAffiliateStats');
     }
   });
 
@@ -176,8 +170,7 @@ export function registerAffiliateRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TrackAffiliateClick');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'TrackAffiliateClick');
     }
   });
 
@@ -193,8 +186,7 @@ export function registerAffiliateRoutes(app: Express): void {
         stats
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'StartAffiliateAgent');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'StartAffiliateAgent');
     }
   });
 }

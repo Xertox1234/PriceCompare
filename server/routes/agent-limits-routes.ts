@@ -6,8 +6,7 @@
  */
 import type { Express } from 'express';
 import { agentQueryLimiter } from '../services/agent-query-limiter';
-import { withAuth, withAdmin } from './helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { withAuth, withAdmin, handleRouteError } from './helpers';
 import { logger } from '../utils/logger';
 
 /**
@@ -32,8 +31,7 @@ export function registerAgentLimitsRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetAgentLimitStatus');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetAgentLimitStatus');
     }
   }));
 
@@ -56,8 +54,7 @@ export function registerAgentLimitsRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetRemainingQueries');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetRemainingQueries');
     }
   }));
 
@@ -80,8 +77,7 @@ export function registerAgentLimitsRoutes(app: Express): void {
         message: 'Daily agent query limit has been reset'
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'ResetAgentLimit');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'ResetAgentLimit');
     }
   }));
 
@@ -105,8 +101,7 @@ export function registerAgentLimitsRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetAgentLimitConfig');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetAgentLimitConfig');
     }
   }));
 }

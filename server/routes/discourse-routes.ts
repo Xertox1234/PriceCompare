@@ -1,10 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from '../utils/error-sanitizer';
 import crypto from 'crypto';
 import type { User } from '@shared/schema';
 import { requireAuth } from '../auth';
 import { getRequiredEnv } from '../config/env-validation';
+import { handleRouteError, notFound } from "./helpers";
 
 // SECURITY: Required for secure SSO HMAC signing - never use default values
 const DISCOURSE_SSO_SECRET = getRequiredEnv('DISCOURSE_SSO_SECRET');
@@ -141,8 +141,7 @@ export function registerDiscourseRoutes(app: Express): void {
       res.redirect(redirectUrl);
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseSSOLogin');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DiscourseSSOLogin');
     }
   });
 
@@ -188,8 +187,7 @@ export function registerDiscourseRoutes(app: Express): void {
 
       res.json({ success: true, event_type });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseWebhook');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DiscourseWebhook');
     }
   });
 
@@ -216,8 +214,7 @@ export function registerDiscourseRoutes(app: Express): void {
         discourse_url_configured: !!process.env.DISCOURSE_URL
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseSSOTest');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DiscourseSSOTest');
     }
   });
 
@@ -231,11 +228,7 @@ export function registerDiscourseRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseHealthCheck');
-      res.status(errorResponse.status).json({
-        status: 'unhealthy',
-        error: errorResponse.error
-      });
+      handleRouteError(res, error, 'DiscourseHealthCheck');
     }
   });
 }

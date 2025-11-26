@@ -1,12 +1,12 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 import { z } from 'zod';
 import { storage } from "../storage";
 import { parseIntSafe } from '../utils/validation-helpers';
 import { trendAnalysisService } from '../services/trend-analysis-service';
 import { priceAggregationService } from '../services/price-aggregation-service';
 import type { AuthenticatedRequest } from '@shared/types';
+import { handleRouteError, notFound } from "./helpers";
 
 // Validation schemas
 const weeklyAggregatesQuerySchema = z.object({
@@ -67,8 +67,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetWeeklyAggregates');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetWeeklyAggregates');
     }
   });
 
@@ -93,8 +92,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetMonthlyAggregates');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetMonthlyAggregates');
     }
   });
 
@@ -120,8 +118,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetRetailerWeeklyAggregates');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetRetailerWeeklyAggregates');
     }
   });
 
@@ -147,8 +144,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(aggregates);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetRetailerMonthlyAggregates');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetRetailerMonthlyAggregates');
     }
   });
 
@@ -164,8 +160,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
 
       res.json(trends);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductTrends');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetProductTrends');
     }
   });
 
@@ -181,14 +176,13 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const trend = await trendAnalysisService.getProductTrend(productId, retailerId);
 
       if (!trend) {
-        res.status(404).json({ error: 'Trend data not found' });
+        notFound(res, 'Trend data');
         return;
       }
 
       res.json(trend);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductRetailerTrend');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetProductRetailerTrend');
     }
   });
 
@@ -202,8 +196,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const count = await priceAggregationService.calculateWeeklyAggregates();
       res.json({ success: true, aggregatesCalculated: count });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CalculateWeeklyAggregates');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CalculateWeeklyAggregates');
     }
   }));
 
@@ -217,8 +210,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const count = await priceAggregationService.calculateMonthlyAggregates();
       res.json({ success: true, aggregatesCalculated: count });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CalculateMonthlyAggregates');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CalculateMonthlyAggregates');
     }
   }));
 
@@ -241,8 +233,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const count = await trendAnalysisService.analyzeTrendsForAllProducts(analysisPeriodDays);
       res.json({ success: true, trendsAnalyzed: count });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'AnalyzeTrends');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'AnalyzeTrends');
     }
   }));
 
@@ -258,8 +249,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const overview = await storage.getAnalyticsOverview();
       res.json(overview);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetAnalyticsOverview');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetAnalyticsOverview');
     }
   });
 
@@ -318,11 +308,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
         })),
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetJobLockHealth');
-      res.status(errorResponse.status).json({
-        status: 'error',
-        error: errorResponse.error
-      });
+      handleRouteError(res, error, 'GetJobLockHealth');
     }
   });
 

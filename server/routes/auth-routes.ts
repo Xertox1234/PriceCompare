@@ -8,7 +8,6 @@ import { passport, createUser, findUserByEmail, findUserById, hashPassword, User
 import { generateCsrfToken } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 import { validatePassword } from "../utils/validation-helpers";
 import {
   createPasswordResetToken,
@@ -18,7 +17,7 @@ import {
   isRateLimitExceeded
 } from "../services/password-reset-service";
 import { emailService } from "../services/email-service";
-import { isAuthenticated } from "./helpers";
+import { isAuthenticated, handleRouteError } from "./helpers";
 
 // Zod schemas for request validation
 const registerSchema = z.object({
@@ -110,9 +109,7 @@ export function registerAuthRoutes(app: Express): void {
       // Log the user in after registration
       req.login(user as Express.User, (err): void => {
         if (err) {
-          logger.error('Login after registration failed', { error: err instanceof Error ? err.message : String(err), userId: user.id });
-          const errorResponse = createErrorResponse(err, 'LoginAfterRegistration');
-          res.status(errorResponse.status).json({ error: errorResponse.error });
+          handleRouteError(res, err, 'LoginAfterRegistration');
           return;
         }
         res.json({
@@ -126,8 +123,7 @@ export function registerAuthRoutes(app: Express): void {
         });
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'Register');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'Register');
     }
   });
 
@@ -197,9 +193,7 @@ export function registerAuthRoutes(app: Express): void {
 
     req.logout((err): void => {
       if (err) {
-        logger.error('Logout error', { error: err instanceof Error ? err.message : String(err), userId: user?.id });
-        const errorResponse = createErrorResponse(err, 'Logout');
-        res.status(errorResponse.status).json({ error: errorResponse.error });
+        handleRouteError(res, err, 'Logout');
         return;
       }
 
@@ -330,9 +324,7 @@ export function registerAuthRoutes(app: Express): void {
         username: user.username,
       });
     } catch (error: unknown) {
-      logger.error("Validate reset token error", { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ValidateResetToken');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'ValidateResetToken');
     }
   });
 
@@ -412,9 +404,7 @@ export function registerAuthRoutes(app: Express): void {
         message: "Password has been reset successfully. You can now log in with your new password.",
       });
     } catch (error: unknown) {
-      logger.error("Reset password error", { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ResetPassword');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'ResetPassword');
     }
   });
 

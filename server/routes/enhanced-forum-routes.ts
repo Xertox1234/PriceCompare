@@ -11,8 +11,8 @@ import {
 import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
 import { csrfProtection } from "../middleware/security";
+import { handleRouteError, notFound } from "./helpers";
 
 // Validation schemas for enhanced forum routes
 const updateProfileSchema = z.object({
@@ -61,14 +61,13 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userProfile = await enhancedForumStorage.getUserWithProfile(userId);
       
       if (!userProfile) {
-        res.status(404).json({ error: "User not found" });
+        notFound(res, 'User');
         return;
       }
 
       res.json(userProfile);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetUserProfile');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetUserProfile');
     }
   });
 
@@ -87,8 +86,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user!.id);
       res.json(updatedProfile);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateUserProfile');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'UpdateUserProfile');
     }
   });
 
@@ -103,8 +101,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const topics = await enhancedForumStorage.getTopicsWithDetails(categoryId, productId, userId);
       res.json(topics);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetEnhancedTopics');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetEnhancedTopics');
     }
   });
 
@@ -129,8 +126,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(topic);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateEnhancedTopic');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'CreateEnhancedTopic');
     }
   });
 
@@ -144,8 +140,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const posts = await enhancedForumStorage.getPostsWithDetails(topicId, userId);
       res.json(posts);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetEnhancedPosts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetEnhancedPosts');
     }
   });
 
@@ -186,8 +181,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(post);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateEnhancedPost');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'CreateEnhancedPost');
     }
   });
 
@@ -199,8 +193,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const result = await enhancedForumStorage.togglePostLike(postId, req.user!.id);
       res.json(result);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TogglePostLike');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'TogglePostLike');
     }
   });
 
@@ -211,8 +204,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const notifications = await enhancedForumStorage.getUserNotifications(req.user!.id, unreadOnly);
       res.json(notifications);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetNotifications');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetNotifications');
     }
   });
 
@@ -222,8 +214,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       await enhancedForumStorage.markNotificationsAsRead(req.user!.id, validatedData.notificationIds);
       res.json({ success: true });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'MarkNotificationsRead');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'MarkNotificationsRead');
     }
   });
 
@@ -233,8 +224,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const messages = await enhancedForumStorage.getUserPrivateMessages(req.user!.id);
       res.json(messages);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetPrivateMessages');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetPrivateMessages');
     }
   });
 
@@ -253,8 +243,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.status(201).json(message);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreatePrivateMessage');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreatePrivateMessage');
     }
   });
 
@@ -266,8 +255,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const tags = await enhancedForumStorage.getPopularTags(limit);
       res.json(tags);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetPopularTags');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetPopularTags');
     }
   });
 
@@ -282,8 +270,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const tags = await enhancedForumStorage.searchTags(query);
       res.json(tags);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SearchTags');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'SearchTags');
     }
   });
 
@@ -303,8 +290,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userBadge = await enhancedForumStorage.awardBadge(userId, validatedData.badgeId);
       res.status(201).json(userBadge);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AwardBadge');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'AwardBadge');
     }
   });
 
@@ -323,8 +309,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       const posts = await enhancedForumStorage.searchPosts(query, categoryId);
       res.json(posts);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SearchPosts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'SearchPosts');
     }
   });
 
@@ -339,8 +324,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       // For now, return a simple response
       res.json({ message: "Leaderboard functionality coming soon" });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetLeaderboard');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetLeaderboard');
     }
   });
 
@@ -361,8 +345,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.json(updatedUser);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateTrustLevel');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'UpdateTrustLevel');
     }
   });
 
@@ -383,8 +366,7 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SuspendUser');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'SuspendUser');
     }
   });
 
@@ -399,8 +381,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       await enhancedForumStorage.initializeDefaultBadges();
       res.json({ success: true, message: "Default badges initialized" });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'InitializeBadges');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'InitializeBadges');
     }
   });
 }

@@ -1,10 +1,10 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 import { requireAuth, requireAdmin } from '../auth';
 import { advancedSearchService } from '../services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
 import { parseIntSafe, parseFloatSafe } from '../utils/validation-helpers';
+import { handleRouteError, notFound } from "./helpers";
 
 export function registerAdvancedSearchRoutes(app: Express): void {
   
@@ -54,8 +54,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json(response);
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AdvancedSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'AdvancedSearch');
     }
   });
 
@@ -83,8 +82,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json({ suggestions });
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetSearchSuggestions');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetSearchSuggestions');
     }
   });
 
@@ -105,8 +103,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json(analysis);
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AnalyzeQueryIntent');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'AnalyzeQueryIntent');
     }
   });
 
@@ -168,8 +165,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       });
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'IntentBasedSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'IntentBasedSearch');
     }
   });
 
@@ -243,8 +239,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       });
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SmartSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'SmartSearch');
     }
   });
 
@@ -292,8 +287,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json({ facets });
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetSearchFacets');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetSearchFacets');
     }
   });
 
@@ -312,8 +306,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       });
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetSearchStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetSearchStats');
     }
   });
 
@@ -329,8 +322,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       res.json({ message: "Search caches cleared successfully" });
       
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ClearSearchCaches');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'ClearSearchCaches');
     }
   });
 

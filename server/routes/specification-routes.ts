@@ -7,8 +7,7 @@
 import type { Express } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
-import { withAuth, withAdmin } from './helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { withAuth, withAdmin, handleRouteError, notFound } from "./helpers";
 import { parseIntSafe } from '../utils/validation-helpers';
 import { logger } from '../utils/logger';
 
@@ -57,8 +56,7 @@ export function registerSpecificationRoutes(app: Express): void {
       const specs = await storage.getProductSpecifications(productId);
       res.json({ success: true, data: specs, count: specs.length });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductSpecifications');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetProductSpecifications');
     }
   });
 
@@ -69,8 +67,7 @@ export function registerSpecificationRoutes(app: Express): void {
       const groups = await storage.getProductSpecificationsGrouped(productId);
       res.json({ success: true, data: groups, count: groups.length });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductSpecificationsGrouped');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetProductSpecificationsGrouped');
     }
   });
 
@@ -81,14 +78,13 @@ export function registerSpecificationRoutes(app: Express): void {
       const product = await storage.getProductFull(productId);
 
       if (!product) {
-        res.status(404).json({ error: 'Product not found' });
+        notFound(res, 'Product');
         return;
       }
 
       res.json({ success: true, data: product });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductFull');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetProductFull');
     }
   });
 
@@ -116,8 +112,7 @@ export function registerSpecificationRoutes(app: Express): void {
 
       res.status(201).json({ success: true, data: spec });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CreateSpecification');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreateSpecification');
     }
   }));
 
@@ -146,8 +141,7 @@ export function registerSpecificationRoutes(app: Express): void {
 
       res.status(201).json({ success: true, data: specs, count: specs.length });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CreateSpecificationsBatch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreateSpecificationsBatch');
     }
   }));
 
@@ -159,14 +153,13 @@ export function registerSpecificationRoutes(app: Express): void {
 
       const spec = await storage.updateProductSpecification(specId, updates);
       if (!spec) {
-        res.status(404).json({ error: 'Specification not found' });
+        notFound(res, 'Specification');
         return;
       }
 
       res.json({ success: true, data: spec });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'UpdateSpecification');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'UpdateSpecification');
     }
   }));
 
@@ -177,15 +170,14 @@ export function registerSpecificationRoutes(app: Express): void {
 
       const deleted = await storage.deleteProductSpecification(specId);
       if (!deleted) {
-        res.status(404).json({ error: 'Specification not found' });
+        notFound(res, 'Specification');
         return;
       }
 
       logger.info('Product specification deleted', { specId });
       res.json({ success: true });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'DeleteSpecification');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DeleteSpecification');
     }
   }));
 
@@ -199,8 +191,7 @@ export function registerSpecificationRoutes(app: Express): void {
       logger.info('Product specifications cleared', { productId, count });
       res.json({ success: true, deletedCount: count });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'DeleteProductSpecifications');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'DeleteProductSpecifications');
     }
   }));
 }

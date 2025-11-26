@@ -9,8 +9,7 @@ import type { Express, Request, Response } from 'express';
 import { z } from 'zod';
 import { priceAggregationService } from '../services/price-aggregation-service';
 import { logger } from '../utils/logger';
-import { createErrorResponse } from '../utils/error-sanitizer';
-import { withAdmin } from './helpers';
+import { withAdmin, handleRouteError, notFound } from "./helpers";
 import { productIdSchema } from '../services/aggregation-validation';
 
 /**
@@ -92,11 +91,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         body: req.body,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'ForceAggregation');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'ForceAggregation');
     }
   }));
 
@@ -139,11 +134,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         body: req.body,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'DetectGaps');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'DetectGaps');
     }
   }));
 
@@ -187,11 +178,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         body: req.body,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'FillGaps');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'FillGaps');
     }
   }));
 
@@ -229,11 +216,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         productId: req.body.productId,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'SingleProductAggregation');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      handleRouteError(res, error, 'SingleProductAggregation');
     }
   }));
 }

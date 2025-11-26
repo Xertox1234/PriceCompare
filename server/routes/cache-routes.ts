@@ -21,8 +21,7 @@ import {
 } from '../jobs/cache-maintenance-jobs';
 import { logger } from '../utils/logger';
 import { parseIntSafe } from '../utils/validation-helpers';
-import { withAdmin } from './helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { withAdmin, handleRouteError, notFound } from "./helpers";
 import { z } from 'zod';
 
 // Validation schema for cache warming options
@@ -55,8 +54,7 @@ export function registerCacheRoutes(app: Express): void {
       const stats = await getCacheStatistics();
       res.json(stats);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetCacheStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetCacheStats');
     }
   }));
 
@@ -80,8 +78,7 @@ export function registerCacheRoutes(app: Express): void {
         products: topProducts,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetTopProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetTopProducts');
     }
   }));
 
@@ -103,8 +100,7 @@ export function registerCacheRoutes(app: Express): void {
         queries: topSearches,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetTopSearches');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetTopSearches');
     }
   }));
 
@@ -131,8 +127,7 @@ export function registerCacheRoutes(app: Express): void {
         },
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetProductPopularity');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetProductPopularity');
     }
   }));
 
@@ -152,8 +147,7 @@ export function registerCacheRoutes(app: Express): void {
         options: validatedOptions,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TriggerCacheWarming');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'TriggerCacheWarming');
     }
   }));
 
@@ -173,8 +167,7 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Product cache invalidated',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'InvalidateProductCache');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'InvalidateProductCache');
     }
   }));
 
@@ -191,8 +184,7 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Search caches invalidated',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'InvalidateSearchCaches');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'InvalidateSearchCaches');
     }
   }));
 
@@ -209,8 +201,7 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Popularity data cleaned up',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TriggerPopularityCleanup');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'TriggerPopularityCleanup');
     }
   }));
 
@@ -227,8 +218,7 @@ export function registerCacheRoutes(app: Express): void {
         message: 'Cache statistics reset',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ResetCacheStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'ResetCacheStats');
     }
   }));
 
@@ -248,8 +238,7 @@ export function registerCacheRoutes(app: Express): void {
         message: 'All caches cleared',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ClearAllCaches');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      handleRouteError(res, error, 'ClearAllCaches');
     }
   }));
 
@@ -303,11 +292,7 @@ export function registerCacheRoutes(app: Express): void {
 
       res.json(health);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetCacheHealth');
-      res.status(500).json({
-        status: 'error',
-        error: errorResponse.error,
-      });
+      handleRouteError(res, error, 'GetCacheHealth', 500);
     }
   }));
 
