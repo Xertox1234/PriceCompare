@@ -4,6 +4,12 @@
  * This file contains all shared type definitions used across the storage layer.
  * Types are organized by domain for clarity.
  *
+ * IMPORTANT NOTES:
+ * - **Price fields are strings**: Matches schema.ts Decimal type mapping (PostgreSQL numeric → string)
+ * - **SafeUser type**: Intentionally excludes passwordHash (SECURITY: NEVER expose) for security
+ * - **Input validation**: All storage methods should validate numeric inputs (see CLAUDE.md)
+ * - **Null handling**: Explicit `| null` matches database schema nullable columns
+ *
  * Phase 1: Foundation - Extracted from monolithic storage.ts
  */
 

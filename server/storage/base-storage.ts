@@ -5,6 +5,16 @@
  * This foundation class ensures consistent logging, error handling, and database access
  * across all repository implementations.
  *
+ * IMPLEMENTATION GUIDANCE FOR PHASE 2+ DOMAIN REPOSITORIES:
+ *
+ * 1. **Input Validation**: Validate all numeric IDs are positive (use parseIntSafe for request params)
+ * 2. **N+1 Prevention**: Use explicit field selection and JOINs, never query in loops
+ * 3. **Security**: NEVER expose passwordHash (SECURITY: NEVER expose) - always use SafeUser type
+ * 4. **Error Handling**: Use handleError() for storage errors; routes must use createErrorResponse()
+ * 5. **Transactions**: Wrap multi-step operations in db.transaction() for atomicity
+ * 6. **Retry Logic**: Handle transient DB errors with retryWithBackoff utility
+ * 7. **Logging**: Use logSuccess() for completed operations to maintain consistency
+ *
  * Phase 1: Foundation - Extracted from monolithic storage.ts
  */
 
@@ -19,7 +29,7 @@ type Database = typeof db;
  *
  * Responsibilities:
  * - Provides protected database connection access
- * - Implements standardized error handling
+ * - Implements standardized error handling (internal use only - routes use createErrorResponse)
  * - Ensures consistent logging across all repositories
  * - Foundation for domain-specific implementations
  */

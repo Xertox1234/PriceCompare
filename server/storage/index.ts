@@ -28,7 +28,53 @@ export { BaseStorage } from "./base-storage";
 export { storage } from "../storage";
 
 /**
- * Future Phase 2+ Structure (Planned):
+ * Phase 2+ Domain Extraction Roadmap (11 Domain Repositories):
+ *
+ * 1. **UserStorage** (~15 methods)
+ *    - User CRUD, password operations, authentication
+ *    - Methods: getUserById, registerUser, resetPassword, updateUserProfile, suspendUser
+ *
+ * 2. **ProductStorage** (~20 methods)
+ *    - Product/offer management, search, specifications
+ *    - Methods: getProducts, searchProducts, getProductById, createProduct, getProductOffers
+ *
+ * 3. **PriceStorage** (~25 methods)
+ *    - Price history, aggregates, snapshots, trends
+ *    - Methods: getPriceHistory, insertPriceHistory, upsertDailyAggregates, getPriceTrend
+ *
+ * 4. **WatchListStorage** (~15 methods)
+ *    - Watch lists, product watches, import/export
+ *    - Methods: getUserWatchLists, createWatchList, addProductToWatchList, exportWatchLists
+ *
+ * 5. **AlertStorage** (~8 methods)
+ *    - Price alerts, alert management, triggering
+ *    - Methods: createPriceAlert, getTriggeredAlerts, getUserAlertsForProduct
+ *
+ * 6. **ForumStorage** (~10 methods)
+ *    - Topics, posts, categories, auto-posting
+ *    - Methods: createTopicWithFirstPost, createForumPost, getRecentTopicForProduct
+ *
+ * 7. **CommunityStorage** (~12 methods)
+ *    - Community watches, reputation, badges, deal spotting
+ *    - Methods: addProductWatch, updateUserReputation, awardBadge, createDealSpotting
+ *
+ * 8. **AffiliateStorage** (~10 methods)
+ *    - Affiliate links, stats, retailer configuration
+ *    - Methods: updateAffiliateLink, getAffiliateLinkStats, getRetailersWithStats
+ *
+ * 9. **JobStorage** (~8 methods)
+ *    - Job locks, background job coordination
+ *    - Methods: acquireJobLock, releaseJobLock, extendJobLock, cleanupExpiredLocks
+ *
+ * 10. **NotificationStorage** (~6 methods)
+ *     - User notifications, watcher notifications
+ *     - Methods: createNotification, notifyProductWatchers, markAsRead
+ *
+ * 11. **AnalyticsStorage** (~15 methods)
+ *     - Analytics overview, trends, monitoring, admin stats
+ *     - Methods: getAnalyticsOverview, getAgentSessions, getUserGrowthData
+ *
+ * Future Phase 2+ Structure (Implementation Pattern):
  *
  * import { db } from "../db";
  * import { UserStorage } from "./domains/user-storage";
