@@ -40,7 +40,8 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 /**
- * Measure memory usage in MB
+ * Measure heap memory usage in megabytes
+ * @returns Heap used memory in MB
  */
 function getMemoryUsageMB(): number {
   const usage = process.memoryUsage();
@@ -48,7 +49,9 @@ function getMemoryUsageMB(): number {
 }
 
 /**
- * Measure latency for an operation
+ * Measure latency for an async operation
+ * @param operation - Async function to measure
+ * @returns Execution time in milliseconds
  */
 async function measureLatency(operation: () => Promise<void>): Promise<number> {
   const start = Date.now();
