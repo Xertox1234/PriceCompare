@@ -4,6 +4,7 @@ import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, 
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
 import { logger } from "./utils/logger";
 import { USER_CONSTANTS, PRODUCT_CONSTANTS, JOB_LOCK_CONSTANTS, ALERT_CONSTANTS } from "./utils/constants";
+import { UserStorage } from "./storage/domains/user-storage";
 
 export interface IStorage {
   // Retailers
@@ -132,9 +133,9 @@ export interface IStorage {
   // Admin Analytics
   getAllUsers(): Promise<AdminUser[]>;
   getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview>;
-  getUserGrowthData(): Promise<Array<{ date: string; count: number }>>;
-  getForumActivityData(): Promise<Array<{ date: string; count: number }>>;
-  getTopCategories(limit?: number): Promise<Array<{ categoryName: string; topicCount: number }>>;
+  getUserGrowthData(): Promise<UserGrowthData[]>;
+  getForumActivityData(): Promise<ForumActivityData[]>;
+  getTopCategories(limit: number): Promise<TopCategory[]>;
 
   // User Registration (transactional with first-admin logic)
   // SECURITY: passwordHash handled internally, NEVER exposed in return value
@@ -1001,15 +1002,15 @@ export class MemStorage implements IStorage {
     return { totalUsers: 0, totalTopics: 0, totalPosts: 0, totalCategories: 0 };
   }
 
-  async getUserGrowthData(): Promise<Array<{ date: string; count: number }>> {
+  async getUserGrowthData(): Promise<UserGrowthData[]> {
     return [];
   }
 
-  async getForumActivityData(): Promise<Array<{ date: string; count: number }>> {
+  async getForumActivityData(): Promise<ForumActivityData[]> {
     return [];
   }
 
-  async getTopCategories(_limit?: number): Promise<Array<{ categoryName: string; topicCount: number }>> {
+  async getTopCategories(_limit: number): Promise<TopCategory[]> {
     return [];
   }
 
@@ -1566,6 +1567,12 @@ export class MemStorage implements IStorage {
  * See `docs/storage-layer/CACHING_STRATEGY_GUIDE.md` for complete implementation guide.
  */
 export class DatabaseStorage implements IStorage {
+  private userStorage: UserStorage;
+
+  constructor() {
+    this.userStorage = new UserStorage(db);
+  }
+
   async getRetailers(): Promise<Retailer[]> {
     const result = await db.select().from(retailers).where(eq(retailers.isActive, true));
     return result;
@@ -1740,36 +1747,12 @@ export class DatabaseStorage implements IStorage {
 
   // SECURITY: passwordHash handled internally, NEVER exposed in SELECT queries
   async registerUser(userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser> { // SECURITY: NEVER expose
-    const [user] = await db.insert(users).values(userData).returning({
-      id: users.id,
-      username: users.username,
-      email: users.email,
-      role: users.role,
-      trustLevel: users.trustLevel,
-      isActive: users.isActive,
-      isSuspended: users.isSuspended,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-      // SECURITY: Never expose passwordHash
-    });
-    return user;
+    return this.userStorage.registerUser(userData); // SECURITY: NEVER expose
   }
 
   // SECURITY: passwordHash handled internally, NEVER exposed in queries
   async resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void> { // SECURITY: NEVER expose
-    await db.transaction(async (tx) => {
-      // Update password hash (write operation, not a query)
-      await tx
-        .update(users)
-        .set({ passwordHash: newPasswordHash }) // SECURITY: NEVER expose passwordHash in SELECT queries
-        .where(eq(users.id, userId));
-
-      // Mark token as used
-      await tx
-        .update(passwordResetTokens)
-        .set({ isUsed: true, usedAt: new Date() })
-        .where(eq(passwordResetTokens.token, token));
-    });
+    return this.userStorage.resetPassword(userId, newPasswordHash, token); // SECURITY: NEVER expose
   }
 
   /**
@@ -3391,41 +3374,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ============================================================================
-  // Private User Validation Helpers
+  // Private User Validation Helpers (Migrated to UserStorage)
   // ============================================================================
-
-  /**
-   * Validate user ID is positive integer
-   * Used by: getUserByIdSafe, updateUserProfile, updateUserTrustLevel, suspendUser
-   * @private
-   */
-  private validateUserId(userId: number): void {
-    if (!userId || userId < 1 || !Number.isInteger(userId)) {
-      throw new Error(`Invalid userId: ${userId}. Must be a positive integer.`);
-    }
-  }
-
-  /**
-   * Validate trust level is within allowed range
-   * @private
-   */
-  private validateTrustLevel(level: number): void {
-    if (level < USER_CONSTANTS.TRUST_LEVEL.MIN || level > USER_CONSTANTS.TRUST_LEVEL.MAX) {
-      throw new Error(
-        `Trust level must be between ${USER_CONSTANTS.TRUST_LEVEL.MIN} and ${USER_CONSTANTS.TRUST_LEVEL.MAX}`
-      );
-    }
-  }
-
-  /**
-   * Validate profile field length
-   * @private
-   */
-  private validateProfileField(value: string | undefined, fieldName: string, maxLength: number): void {
-    if (value && value.length > maxLength) {
-      throw new Error(`${fieldName} cannot exceed ${maxLength} characters`);
-    }
-  }
+  // User validation methods (validateUserId, validateTrustLevel, validateProfileField)
+  // have been migrated to server/storage/domains/user-storage.ts
 
   /**
    * Validate days parameter for analytics
@@ -3446,149 +3398,44 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   async updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
-    // Validate inputs
-    this.validateUserId(userId);
-    this.validateProfileField(data.bio, 'Bio', USER_CONSTANTS.PROFILE.MAX_BIO_LENGTH);
-    this.validateProfileField(data.location, 'Location', USER_CONSTANTS.PROFILE.MAX_LOCATION_LENGTH);
-    this.validateProfileField(data.website, 'Website', USER_CONSTANTS.PROFILE.MAX_WEBSITE_LENGTH);
-    this.validateProfileField(data.avatarUrl, 'Avatar URL', USER_CONSTANTS.PROFILE.MAX_AVATAR_URL_LENGTH);
-
-    await db.update(users)
-      .set({
-        bio: data.bio,
-        location: data.location,
-        website: data.website,
-        avatarUrl: data.avatarUrl,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId));
+    return this.userStorage.updateUserProfile(userId, data);
   }
 
   async updateUserTrustLevel(userId: number, trustLevel: number): Promise<void> {
-    // Validate inputs
-    this.validateUserId(userId);
-    this.validateTrustLevel(trustLevel);
-
-    await db.update(users)
-      .set({ trustLevel, updatedAt: new Date() })
-      .where(eq(users.id, userId));
+    return this.userStorage.updateUserTrustLevel(userId, trustLevel);
   }
 
   async suspendUser(userId: number, reason: string, moderatorId: number): Promise<void> {
-    // Validate inputs
-    this.validateUserId(userId);
-    this.validateUserId(moderatorId);
-
-    // UX: Use transaction to ensure suspension and notification are atomic
-    await db.transaction(async (tx) => {
-      await tx.update(users)
-        .set({ isSuspended: true, updatedAt: new Date() })
-        .where(eq(users.id, userId));
-
-      // Create notification - must succeed or rollback suspension
-      await tx.insert(notifications).values({
-        userId,
-        type: 'moderation',
-        title: 'Account suspended',
-        content: reason || 'Your account has been suspended',
-        relatedUserId: moderatorId
-      });
-    });
+    return this.userStorage.suspendUser(userId, reason, moderatorId);
   }
 
   // Admin Analytics
   async getAllUsers(): Promise<AdminUser[]> {
-    // SECURITY: Never expose passwordHash - explicit field selection
-    return await db.select({
-      id: users.id,
-      username: users.username,
-      email: users.email,
-      role: users.role,
-      isActive: users.isActive,
-      reputation: users.reputation,
-      createdAt: users.createdAt
-    }).from(users);
+    return this.userStorage.getAllUsers();
   }
 
   async getUserByIdSafe(id: number): Promise<SafeUser | null> {
-    // Validate inputs
-    this.validateUserId(id);
-
-    // SECURITY: Never expose passwordHash - explicit field selection
-    const [user] = await db.select({
-      id: users.id,
-      username: users.username,
-      email: users.email,
-      role: users.role,
-      trustLevel: users.trustLevel,
-      isActive: users.isActive,
-      isSuspended: users.isSuspended,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt
-    }).from(users)
-      .where(eq(users.id, id))
-      .limit(1);
-
-    return user || null;
+    return this.userStorage.getUserByIdSafe(id);
   }
 
   async getUserCount(): Promise<number> {
-    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
-    return result?.count ?? 0;
+    return this.userStorage.getUserCount();
   }
 
   async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
-    const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
-      db.select({ count: sql`count(*)` }).from(users),
-      db.select({ count: sql`count(*)` }).from(forumTopics),
-      db.select({ count: sql`count(*)` }).from(forumPosts),
-      db.select({ count: sql`count(*)` }).from(forumCategories)
-    ]);
-
-    return {
-      totalUsers: Number(userCount[0]?.count || 0),
-      totalTopics: Number(topicCount[0]?.count || 0),
-      totalPosts: Number(postCount[0]?.count || 0),
-      totalCategories: Number(categoryCount[0]?.count || 0)
-    };
+    return this.userStorage.getAdminAnalyticsOverview();
   }
 
   async getUserGrowthData(): Promise<UserGrowthData[]> {
-    const result = await db.select({
-      date: sql<string>`DATE(${users.createdAt})`.as('date'),
-      count: sql<number>`count(*)`.as('count')
-    })
-    .from(users)
-    .groupBy(sql`DATE(${users.createdAt})`)
-    .orderBy(sql`DATE(${users.createdAt})`);
-
-    return result.map(row => ({ date: String(row.date), count: Number(row.count) }));
+    return this.userStorage.getUserGrowthData();
   }
 
   async getForumActivityData(): Promise<ForumActivityData[]> {
-    const result = await db.select({
-      date: sql<string>`DATE(${forumPosts.createdAt})`.as('date'),
-      count: sql<number>`count(*)`.as('count')
-    })
-    .from(forumPosts)
-    .groupBy(sql`DATE(${forumPosts.createdAt})`)
-    .orderBy(sql`DATE(${forumPosts.createdAt})`);
-
-    return result.map(row => ({ date: String(row.date), count: Number(row.count) }));
+    return this.userStorage.getForumActivityData();
   }
 
   async getTopCategories(limit: number): Promise<TopCategory[]> {
-    const result = await db.select({
-      categoryName: forumCategories.name,
-      topicCount: sql<number>`count(${forumTopics.id})`.as('topicCount')
-    })
-    .from(forumCategories)
-    .leftJoin(forumTopics, eq(forumCategories.id, forumTopics.categoryId))
-    .groupBy(forumCategories.id, forumCategories.name)
-    .orderBy(sql`count(${forumTopics.id}) DESC`)
-    .limit(limit);
-
-    return result.map(row => ({ categoryName: row.categoryName, topicCount: Number(row.topicCount) }));
+    return this.userStorage.getTopCategories(limit);
   }
 
   async checkDatabaseHealth(): Promise<boolean> {
@@ -3773,61 +3620,9 @@ export class DatabaseStorage implements IStorage {
   async createUserWithTransaction(
     username: string,
     email: string,
-    passwordHash: string
+    passwordHash: string // SECURITY: NEVER expose
   ): Promise<{ user: SafeUser; isFirstUser: boolean }> {
-    let user: SafeUser;
-    let isFirstUser: boolean = false;
-
-    await retryWithBackoff(
-      async () => db.transaction(async (tx) => {
-        // Check if this is the first user (make them admin)
-        const userCount = await tx.select({ count: sql`count(*)` }).from(users);
-        // Safe integer conversion: SQL count() returns string|number, ensure valid integer
-        const count = userCount[0]?.count;
-        const userCountNum = typeof count === 'number' ? count : (count ? Number(count) : 0);
-        isFirstUser = userCountNum === 0;
-
-        // Create user - must be in same transaction as count check
-        // SECURITY: passwordHash stored securely, NEVER exposed in return value
-        const newUserResult = await tx.insert(users).values({
-          username,
-          email,
-          passwordHash, // SECURITY: NEVER expose - only used internally
-          role: isFirstUser ? 'admin' : 'user',
-        }).returning();
-
-        // SECURITY: Explicitly extract safe fields, never expose passwordHash
-        user = {
-          id: newUserResult[0].id,
-          username: newUserResult[0].username,
-          email: newUserResult[0].email,
-          role: newUserResult[0].role,
-          trustLevel: newUserResult[0].trustLevel,
-          isActive: newUserResult[0].isActive,
-          isSuspended: newUserResult[0].isSuspended,
-          createdAt: newUserResult[0].createdAt,
-          updatedAt: newUserResult[0].updatedAt,
-        };
-      }, {
-        isolationLevel: 'serializable', // Prevent concurrent first-user race condition
-      }),
-      {
-        maxAttempts: 3,
-        initialDelayMs: 100,
-        isRetryable: isTransientDatabaseError,
-        context: { operation: 'createUserWithTransaction', username, email },
-        onRetry: (error, attempt, delayMs) => {
-          logger.warn('[Storage] Retrying user registration after serialization error', {
-            error: error instanceof Error ? error.message : String(error),
-            attempt,
-            delayMs,
-            username,
-          });
-        },
-      }
-    );
-
-    return { user: user!, isFirstUser };
+    return this.userStorage.createUserWithTransaction(username, email, passwordHash); // SECURITY: NEVER expose
   }
 
   // =====================================================
