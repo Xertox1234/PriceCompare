@@ -9,6 +9,7 @@ import { ProductStorage } from "./storage/domains/product-storage";
 import { PriceStorage } from "./storage/domains/price-storage";
 import { WatchListStorage } from "./storage/domains/watchlist-storage";
 import { ForumStorage } from "./storage/domains/forum-storage";
+import { RetailerStorage } from "./storage/domains/retailer-storage";
 
 export interface IStorage {
   // Retailers
@@ -1576,6 +1577,7 @@ export class DatabaseStorage implements IStorage {
   private priceStorage: PriceStorage;
   private watchListStorage: WatchListStorage;
   private forumStorage: ForumStorage;
+  private retailerStorage: RetailerStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
@@ -1583,66 +1585,40 @@ export class DatabaseStorage implements IStorage {
     this.priceStorage = new PriceStorage(db);
     this.watchListStorage = new WatchListStorage(db);
     this.forumStorage = new ForumStorage(db);
+    this.retailerStorage = new RetailerStorage(db);
   }
+
+  // ============================================================================
+  // Retailer Methods (delegated to RetailerStorage)
+  // ============================================================================
 
   async getRetailers(): Promise<Retailer[]> {
-    const result = await db.select().from(retailers).where(eq(retailers.isActive, true));
-    return result;
-  }
-
-  async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
-    const [result] = await db
-      .insert(retailers)
-      .values({
-        ...retailer,
-        logo: retailer.logo || null,
-        website: retailer.website || null,
-        isActive: retailer.isActive ?? true
-      })
-      .returning();
-    return result;
+    return this.retailerStorage.getRetailers();
   }
 
   async getAllRetailers(): Promise<Retailer[]> {
-    const result = await db.select().from(retailers);
-    return result;
+    return this.retailerStorage.getAllRetailers();
   }
 
   async getRetailerById(id: number): Promise<Retailer | null> {
-    const [result] = await db.select().from(retailers).where(eq(retailers.id, id)).limit(1);
-    return result || null;
+    return this.retailerStorage.getRetailerById(id);
+  }
+
+  async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
+    return this.retailerStorage.createRetailer(retailer);
   }
 
   async updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | null> {
-    const [result] = await db
-      .update(retailers)
-      .set(updates)
-      .where(eq(retailers.id, id))
-      .returning();
-    return result || null;
+    return this.retailerStorage.updateRetailer(id, updates);
   }
 
   async deleteRetailer(id: number): Promise<Retailer | null> {
-    const [result] = await db
-      .delete(retailers)
-      .where(eq(retailers.id, id))
-      .returning();
-    return result || null;
+    return this.retailerStorage.deleteRetailer(id);
   }
 
   // ============================================================================
-  // Private Non-Product Validation Helpers (Product validation moved to ProductStorage)
+  // Private Non-Product Validation Helpers (Retailer validation moved to RetailerStorage)
   // ============================================================================
-
-  /**
-   * Validate retailer ID is positive integer
-   * @private
-   */
-  private validateRetailerId(retailerId: number): void {
-    if (!retailerId || retailerId < PRODUCT_CONSTANTS.VALIDATION.MIN_RETAILER_ID || !Number.isInteger(retailerId)) {
-      throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive integer.`);
-    }
-  }
 
   /**
    * Validate and normalize limit parameter
@@ -2018,91 +1994,36 @@ export class DatabaseStorage implements IStorage {
     return deletedProduct || null;
   }
 
+  // ============================================================================
+  // Admin Retailer Methods (delegated to RetailerStorage)
+  // ============================================================================
+
   async getAdminRetailers(): Promise<Retailer[]> {
-    return await db.select()
-      .from(retailers)
-      .orderBy(asc(retailers.name));
+    return this.retailerStorage.getAdminRetailers();
   }
 
   async createAdminRetailer(data: InsertRetailer): Promise<Retailer> {
-    const [newRetailer] = await db.insert(retailers)
-      .values(data)
-      .returning();
-    return newRetailer;
+    return this.retailerStorage.createAdminRetailer(data);
   }
 
   async updateAdminRetailer(id: number, data: Partial<InsertRetailer>): Promise<Retailer | null> {
-    const [updatedRetailer] = await db.update(retailers)
-      .set(data)
-      .where(eq(retailers.id, id))
-      .returning();
-    return updatedRetailer || null;
+    return this.retailerStorage.updateAdminRetailer(id, data);
   }
 
   async deleteAdminRetailer(id: number): Promise<Retailer | null> {
-    const [deletedRetailer] = await db.delete(retailers)
-      .where(eq(retailers.id, id))
-      .returning();
-    return deletedRetailer || null;
+    return this.retailerStorage.deleteAdminRetailer(id);
   }
 
-  // Affiliate Management
+  // ============================================================================
+  // Affiliate Management Methods (delegated to RetailerStorage)
+  // ============================================================================
+
   async getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]> {
-    const allRetailers = await db.select().from(retailers);
-
-    // Use Promise.allSettled for graceful error handling per retailer
-    const results = await Promise.allSettled(
-      allRetailers.map(async (retailer) => {
-        // Get affiliate stats for each retailer
-        const statsResult = await db.select({
-          totalOffers: sql<number>`count(*)::int`,
-          offersWithAffiliateLinks: sql<number>`count(case when ${productOffers.affiliateUrl} is not null then 1 end)::int`,
-          totalClicks: sql<number>`coalesce(sum(${productOffers.clickCount}), 0)::int`
-        })
-        .from(productOffers)
-        .where(eq(productOffers.retailerId, retailer.id));
-
-        const stats = statsResult[0] || { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 };
-
-        return {
-          ...retailer,
-          affiliateConfigParsed: retailer.affiliateConfig ? JSON.parse(retailer.affiliateConfig) : null,
-          stats
-        };
-      })
-    );
-
-    // Handle failures gracefully - return retailer with empty stats on error
-    return results.map((result, index) => {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      }
-      // Log error but don't fail entire operation
-      logger.error('Failed to fetch affiliate stats for retailer', {
-        retailerId: allRetailers[index].id,
-        error: result.reason instanceof Error ? result.reason.message : String(result.reason)
-      });
-      return {
-        ...allRetailers[index],
-        affiliateConfigParsed: allRetailers[index].affiliateConfig ? JSON.parse(allRetailers[index].affiliateConfig) : null,
-        stats: { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 }
-      };
-    });
+    return this.retailerStorage.getRetailersWithAffiliateStats();
   }
 
   async updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null> {
-    const [updatedRetailer] = await db.update(retailers)
-      .set({
-        affiliateId: config.affiliateId,
-        affiliateProgram: config.affiliateProgram,
-        baseAffiliateUrl: config.baseAffiliateUrl,
-        commissionRate: config.commissionRate,
-        affiliateStatus: config.affiliateStatus as 'active' | 'inactive' | 'pending',
-        affiliateConfig: config.affiliateConfig ? JSON.stringify(config.affiliateConfig) : null
-      })
-      .where(eq(retailers.id, id))
-      .returning();
-    return updatedRetailer || null;
+    return this.retailerStorage.updateRetailerAffiliateConfig(id, config);
   }
 
   // ============================================================================
