@@ -7,6 +7,7 @@ import { USER_CONSTANTS, PRODUCT_CONSTANTS, JOB_LOCK_CONSTANTS, ALERT_CONSTANTS 
 import { UserStorage } from "./storage/domains/user-storage";
 import { ProductStorage } from "./storage/domains/product-storage";
 import { PriceStorage } from "./storage/domains/price-storage";
+import { WatchListStorage } from "./storage/domains/watchlist-storage";
 
 export interface IStorage {
   // Retailers
@@ -1572,11 +1573,13 @@ export class DatabaseStorage implements IStorage {
   private userStorage: UserStorage;
   private productStorage: ProductStorage;
   private priceStorage: PriceStorage;
+  private watchListStorage: WatchListStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
     this.productStorage = new ProductStorage(db);
     this.priceStorage = new PriceStorage(db);
+    this.watchListStorage = new WatchListStorage(db);
   }
 
   async getRetailers(): Promise<Retailer[]> {
@@ -1835,27 +1838,7 @@ export class DatabaseStorage implements IStorage {
    * PERFORMANCE: Single query with LEFT JOIN and GROUP BY to count products
    */
   async getUserWatchLists(userId: number): Promise<WatchListWithCount[]> {
-    const results = await db
-      .select({
-        id: watchLists.id,
-        userId: watchLists.userId,
-        name: watchLists.name,
-        description: watchLists.description,
-        color: watchLists.color,
-        icon: watchLists.icon,
-        isDefault: watchLists.isDefault,
-        sortOrder: watchLists.sortOrder,
-        createdAt: watchLists.createdAt,
-        updatedAt: watchLists.updatedAt,
-        productCount: sql<number>`COUNT(${productWatches.id})::int`.as('product_count'),
-      })
-      .from(watchLists)
-      .leftJoin(productWatches, eq(watchLists.id, productWatches.watchListId))
-      .where(eq(watchLists.userId, userId))
-      .groupBy(watchLists.id)
-      .orderBy(asc(watchLists.sortOrder), asc(watchLists.createdAt));
-
-    return results;
+    return this.watchListStorage.getUserWatchLists(userId);
   }
 
   /**
@@ -1864,86 +1847,7 @@ export class DatabaseStorage implements IStorage {
    * SECURITY: Verifies userId ownership before returning data
    */
   async getWatchListById(watchListId: number, userId: number): Promise<WatchListWithProducts | null> {
-    // First verify ownership and get watch list
-    const [watchList] = await db
-      .select({
-        id: watchLists.id,
-        name: watchLists.name,
-        description: watchLists.description,
-        color: watchLists.color,
-        icon: watchLists.icon,
-        isDefault: watchLists.isDefault,
-        sortOrder: watchLists.sortOrder,
-        createdAt: watchLists.createdAt,
-        updatedAt: watchLists.updatedAt,
-      })
-      .from(watchLists)
-      .where(and(
-        eq(watchLists.id, watchListId),
-        eq(watchLists.userId, userId) // Ownership verification
-      ))
-      .limit(1);
-
-    if (!watchList) {
-      return null;
-    }
-
-    // Get products with enriched data
-    // PERFORMANCE: Single query with aggregations for current/historical prices
-    const productResults = await db
-      .select({
-        id: products.id,
-        name: products.name,
-        image: products.image,
-        addedAt: productWatches.createdAt,
-        // Current price from lowest active offer
-        currentPrice: sql<number | null>`
-          MIN(CAST(${productOffers.price} AS DECIMAL))
-        `.as('current_price'),
-        // Lowest historical price from price history (last 90 days)
-        lowestHistoricalPrice: sql<number | null>`
-          (
-            SELECT MIN(CAST(price AS DECIMAL))
-            FROM ${priceHistory}
-            WHERE ${priceHistory.productId} = ${products.id}
-              AND ${priceHistory.recordedAt} >= NOW() - INTERVAL '90 days'
-          )
-        `.as('lowest_historical_price'),
-      })
-      .from(productWatches)
-      .innerJoin(products, eq(productWatches.productId, products.id))
-      .leftJoin(productOffers, eq(products.id, productOffers.productId))
-      .where(eq(productWatches.watchListId, watchListId))
-      .groupBy(products.id, productWatches.createdAt)
-      .orderBy(desc(productWatches.createdAt));
-
-    // Calculate price drop percentage
-    const productsWithCalcs = productResults.map(p => {
-      const currentPrice = p.currentPrice || 0;
-      const lowestPrice = p.lowestHistoricalPrice || currentPrice;
-      const priceDropPercent = lowestPrice > 0
-        ? Math.round(((currentPrice - lowestPrice) / lowestPrice) * 100)
-        : 0;
-
-      return {
-        id: p.id,
-        name: p.name,
-        imageUrl: p.image || '',
-        addedAt: p.addedAt || new Date(),
-        currentPrice,
-        lowestHistoricalPrice: lowestPrice,
-        priceDropPercent,
-      };
-    });
-
-    return {
-      id: watchList.id,
-      name: watchList.name,
-      description: watchList.description,
-      color: watchList.color,
-      icon: watchList.icon,
-      products: productsWithCalcs,
-    };
+    return this.watchListStorage.getWatchListById(watchListId, userId);
   }
 
   /**
@@ -1951,54 +1855,7 @@ export class DatabaseStorage implements IStorage {
    * VALIDATION: Enforces max 20 lists per user
    */
   async createWatchList(userId: number, data: { name: string; description?: string }): Promise<WatchList> {
-    // Check user limit (max 20 lists)
-    const [countResult] = await db
-      .select({
-        count: sql<number>`COUNT(*)::int`
-      })
-      .from(watchLists)
-      .where(eq(watchLists.userId, userId));
-
-    if (countResult.count >= 20) {
-      throw new Error('Maximum watch list limit reached (20 lists per user)');
-    }
-
-    // Validate name length
-    if (!data.name || data.name.trim().length === 0) {
-      throw new Error('Watch list name is required');
-    }
-    if (data.name.length > 100) {
-      throw new Error('Watch list name must be 100 characters or less');
-    }
-
-    const [result] = await db
-      .insert(watchLists)
-      .values({
-        userId,
-        name: data.name.trim(),
-        description: data.description?.trim() || null,
-      })
-      .returning();
-
-    // Emit WebSocket event for real-time updates
-    try {
-      const { getSocketIO } = await import('./websocket');
-      const { emitWatchListUpdate } = await import('./websocket/handlers/watch-list-handler');
-      const io = getSocketIO();
-      if (io) {
-        emitWatchListUpdate(io, userId, 'created', {
-          id: result.id,
-          name: result.name,
-          description: result.description,
-          productCount: 0,
-        });
-      }
-    } catch (error) {
-      // Don't fail the operation if WebSocket emit fails
-      console.error('Failed to emit watch list created event:', error);
-    }
-
-    return result;
+    return this.watchListStorage.createWatchList(userId, data);
   }
 
   /**
@@ -2010,60 +1867,7 @@ export class DatabaseStorage implements IStorage {
     userId: number,
     updates: { name?: string; description?: string }
   ): Promise<WatchList> {
-    // Validate updates
-    if (updates.name !== undefined) {
-      if (updates.name.trim().length === 0) {
-        throw new Error('Watch list name cannot be empty');
-      }
-      if (updates.name.length > 100) {
-        throw new Error('Watch list name must be 100 characters or less');
-      }
-    }
-
-    // Build update object with only provided fields
-    const updateData: Partial<typeof watchLists.$inferInsert> = {
-      updatedAt: new Date(),
-    };
-
-    if (updates.name !== undefined) {
-      updateData.name = updates.name.trim();
-    }
-
-    if (updates.description !== undefined) {
-      updateData.description = updates.description.trim() || null;
-    }
-
-    const [result] = await db
-      .update(watchLists)
-      .set(updateData)
-      .where(and(
-        eq(watchLists.id, watchListId),
-        eq(watchLists.userId, userId) // Ownership verification
-      ))
-      .returning();
-
-    if (!result) {
-      throw new Error('Watch list not found or unauthorized');
-    }
-
-    // Emit WebSocket event for real-time updates
-    try {
-      const { getSocketIO } = await import('./websocket');
-      const { emitWatchListUpdate } = await import('./websocket/handlers/watch-list-handler');
-      const io = getSocketIO();
-      if (io) {
-        emitWatchListUpdate(io, userId, 'updated', {
-          id: result.id,
-          name: result.name,
-          description: result.description,
-        });
-      }
-    } catch (error) {
-      // Don't fail the operation if WebSocket emit fails
-      console.error('Failed to emit watch list updated event:', error);
-    }
-
-    return result;
+    return this.watchListStorage.updateWatchList(watchListId, userId, updates);
   }
 
   /**
@@ -2072,36 +1876,7 @@ export class DatabaseStorage implements IStorage {
    * CASCADE: productWatches entries deleted automatically by FK constraint
    */
   async deleteWatchList(watchListId: number, userId: number): Promise<WatchList> {
-    const [result] = await db
-      .delete(watchLists)
-      .where(and(
-        eq(watchLists.id, watchListId),
-        eq(watchLists.userId, userId) // Ownership verification
-      ))
-      .returning();
-
-    if (!result) {
-      throw new Error('Watch list not found or unauthorized');
-    }
-
-    // Emit WebSocket event for real-time updates
-    try {
-      const { getSocketIO } = await import('./websocket');
-      const { emitWatchListUpdate } = await import('./websocket/handlers/watch-list-handler');
-      const io = getSocketIO();
-      if (io) {
-        emitWatchListUpdate(io, userId, 'deleted', {
-          id: result.id,
-          name: result.name,
-          description: result.description,
-        });
-      }
-    } catch (error) {
-      // Don't fail the operation if WebSocket emit fails
-      console.error('Failed to emit watch list deleted event:', error);
-    }
-
-    return result;
+    return this.watchListStorage.deleteWatchList(watchListId, userId);
   }
 
   /**
@@ -2114,124 +1889,7 @@ export class DatabaseStorage implements IStorage {
     productId: number,
     userId: number
   ): Promise<ProductWatch> {
-    // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
-    const result = await retryWithBackoff(
-      async () => db.transaction(async (tx) => {
-        // Verify watch list ownership
-        const [watchList] = await tx
-          .select({ id: watchLists.id })
-          .from(watchLists)
-          .where(and(
-            eq(watchLists.id, watchListId),
-            eq(watchLists.userId, userId)
-          ))
-          .limit(1);
-
-        if (!watchList) {
-          throw new Error('Watch list not found or unauthorized');
-        }
-
-        // Check product exists and get details for WebSocket event
-        const [product] = await tx
-          .select({
-            id: products.id,
-            name: products.name,
-            image: products.image,
-          })
-          .from(products)
-          .where(eq(products.id, productId))
-          .limit(1);
-
-        if (!product) {
-          throw new Error('Product not found');
-        }
-
-        // Check if already in watch list
-        const [existing] = await tx
-          .select({ id: productWatches.id })
-          .from(productWatches)
-          .where(and(
-            eq(productWatches.watchListId, watchListId),
-            eq(productWatches.productId, productId)
-          ))
-          .limit(1);
-
-        if (existing) {
-          throw new Error('Product already in watch list');
-        }
-
-        // Check product limit per list (max 100 products)
-        const [countResult] = await tx
-          .select({
-            count: sql<number>`COUNT(*)::int`
-          })
-          .from(productWatches)
-          .where(eq(productWatches.watchListId, watchListId));
-
-        if (countResult.count >= 100) {
-          throw new Error('Watch list is full (max 100 products per list)');
-        }
-
-        // Add product to watch list
-        const [result] = await tx
-          .insert(productWatches)
-          .values({
-            userId,
-            productId,
-            watchListId,
-          })
-          .returning();
-
-        // Get current price for WebSocket event (optional - outside transaction critical path)
-        const offers = await tx
-          .select({ price: productOffers.price })
-          .from(productOffers)
-          .where(eq(productOffers.productId, productId))
-          .orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`))
-          .limit(1);
-
-        const currentPrice = offers.length > 0 ? parseFloat(offers[0].price) : null;
-
-        return { result, product, currentPrice };
-      }, {
-        isolationLevel: 'serializable' // Prevent race conditions on concurrent adds
-      }),
-      {
-        maxAttempts: 3,
-        initialDelayMs: 100,
-        isRetryable: isTransientDatabaseError,
-        context: { operation: 'addProductToWatchList', watchListId, productId, userId },
-        onRetry: (error, attempt, delayMs) => {
-          logger.warn('[Storage] Retrying addProductToWatchList after serialization error', {
-            error: error instanceof Error ? error.message : String(error),
-            attempt,
-            delayMs,
-            watchListId,
-            productId,
-          });
-        },
-      }
-    );
-
-    // Emit WebSocket event after transaction commits
-    try {
-      const { getSocketIO } = await import('./websocket');
-      const { emitProductAdded } = await import('./websocket/handlers/watch-list-handler');
-      const io = getSocketIO();
-      if (io) {
-        emitProductAdded(io, userId, watchListId, {
-          id: result.product.id,
-          name: result.product.name,
-          image: result.product.image,
-          currentPrice: result.currentPrice,
-        });
-      }
-    } catch (error) {
-      // Don't fail the operation if WebSocket emit fails
-      console.error('Failed to emit product added event:', error);
-    }
-
-    return result.result;
+    return this.watchListStorage.addProductToWatchList(watchListId, productId, userId);
   }
 
   /**
@@ -2243,33 +1901,7 @@ export class DatabaseStorage implements IStorage {
     productId: number,
     userId: number
   ): Promise<ProductWatch> {
-    const [result] = await db
-      .delete(productWatches)
-      .where(and(
-        eq(productWatches.watchListId, watchListId),
-        eq(productWatches.productId, productId),
-        eq(productWatches.userId, userId) // Ownership verification
-      ))
-      .returning();
-
-    if (!result) {
-      throw new Error('Product watch not found or unauthorized');
-    }
-
-    // Emit WebSocket event for real-time updates
-    try {
-      const { getSocketIO } = await import('./websocket');
-      const { emitProductRemoved } = await import('./websocket/handlers/watch-list-handler');
-      const io = getSocketIO();
-      if (io) {
-        emitProductRemoved(io, userId, watchListId, productId);
-      }
-    } catch (error) {
-      // Don't fail the operation if WebSocket emit fails
-      console.error('Failed to emit product removed event:', error);
-    }
-
-    return result;
+    return this.watchListStorage.removeProductFromWatchList(watchListId, productId, userId);
   }
 
   /**
@@ -2280,150 +1912,7 @@ export class DatabaseStorage implements IStorage {
     userId: number,
     options?: WatchedProductsOptions
   ): Promise<WatchedProductInfo[]> {
-    const sortBy = options?.sortBy || 'priceDropPercent';
-    const limit = Math.min(options?.limit || 50, 100);
-
-    // Get 7 days ago for sparkline data
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    // Build complex query with price aggregations
-    const results = await db
-      .select({
-        productId: productWatches.productId,
-        watchListId: productWatches.watchListId,
-        watchListName: watchLists.name,
-        productName: products.name,
-        imageUrl: products.image,
-        addedAt: productWatches.createdAt,
-        // Current price (lowest active offer)
-        currentPrice: sql<number | null>`
-          (
-            SELECT MIN(CAST(price AS DECIMAL))
-            FROM ${productOffers}
-            WHERE ${productOffers.productId} = ${products.id}
-          )
-        `.as('current_price'),
-        // Lowest price in last 90 days
-        lowestPrice: sql<number | null>`
-          (
-            SELECT MIN(CAST(price AS DECIMAL))
-            FROM ${priceHistory}
-            WHERE ${priceHistory.productId} = ${products.id}
-              AND ${priceHistory.recordedAt} >= NOW() - INTERVAL '90 days'
-          )
-        `.as('lowest_price'),
-        // Average price in last 30 days
-        averagePrice: sql<number | null>`
-          (
-            SELECT AVG(CAST(price AS DECIMAL))
-            FROM ${priceHistory}
-            WHERE ${priceHistory.productId} = ${products.id}
-              AND ${priceHistory.recordedAt} >= NOW() - INTERVAL '30 days'
-          )
-        `.as('average_price'),
-        // Last 7 days price history for sparkline
-        last7Days: sql<string>`
-          COALESCE(
-            (
-              SELECT json_agg(
-                json_build_object(
-                  'date', DATE(recorded_at),
-                  'price', CAST(price AS DECIMAL)
-                )
-                ORDER BY recorded_at
-              )
-              FROM (
-                SELECT DISTINCT ON (DATE(recorded_at))
-                  recorded_at,
-                  price
-                FROM ${priceHistory}
-                WHERE ${priceHistory.productId} = ${products.id}
-                  AND ${priceHistory.recordedAt} >= ${sevenDaysAgo}
-                ORDER BY DATE(recorded_at), recorded_at DESC
-              ) AS daily_prices
-            ),
-            '[]'::json
-          )
-        `.as('last_7_days'),
-        // Alert status
-        hasActiveAlert: sql<boolean>`
-          EXISTS(
-            SELECT 1 FROM ${priceAlerts}
-            WHERE ${priceAlerts.productId} = ${products.id}
-              AND ${priceAlerts.userId} = ${userId}
-              AND ${priceAlerts.isActive} = true
-          )
-        `.as('has_active_alert'),
-        hasTriggeredAlert: sql<boolean>`
-          EXISTS(
-            SELECT 1 FROM ${priceAlerts}
-            WHERE ${priceAlerts.productId} = ${products.id}
-              AND ${priceAlerts.userId} = ${userId}
-              AND ${priceAlerts.lastTriggeredAt} >= NOW() - INTERVAL '7 days'
-          )
-        `.as('has_triggered_alert'),
-      })
-      .from(productWatches)
-      .innerJoin(products, eq(productWatches.productId, products.id))
-      .innerJoin(watchLists, eq(productWatches.watchListId, watchLists.id))
-      .where(eq(productWatches.userId, userId))
-      .limit(limit);
-
-    // Post-process to calculate derived values and sort
-    const enrichedResults = results.map(r => {
-      const currentPrice = r.currentPrice || 0;
-      const lowestPrice = r.lowestPrice || currentPrice;
-      const averagePrice = r.averagePrice || currentPrice;
-      const priceDropPercent = lowestPrice > 0
-        ? ((currentPrice - lowestPrice) / lowestPrice) * 100
-        : 0;
-      const savingsPotential = currentPrice > lowestPrice ? currentPrice - lowestPrice : 0;
-
-      // Determine alert status
-      let alertStatus: 'active' | 'triggered' | 'none' = 'none';
-      if (r.hasTriggeredAlert) {
-        alertStatus = 'triggered';
-      } else if (r.hasActiveAlert) {
-        alertStatus = 'active';
-      }
-
-      // Sparkline data is already parsed by Drizzle (json_agg returns JSON object, not string)
-      // Double type assertion needed: Drizzle json_agg() returns unknown, cast through unknown to target type
-      const last7Days = (r.last7Days as unknown as Array<{ date: string; price: number }>) || [];
-
-      return {
-        productId: r.productId,
-        watchListId: r.watchListId,
-        watchListName: r.watchListName,
-        productName: r.productName,
-        imageUrl: r.imageUrl || '',
-        addedAt: r.addedAt || new Date(),
-        currentPrice,
-        lowestPrice,
-        averagePrice,
-        priceDropPercent,
-        savingsPotential,
-        last7Days,
-        alertStatus,
-      };
-    });
-
-    // Sort based on sortBy option
-    enrichedResults.sort((a, b) => {
-      switch (sortBy) {
-        case 'priceDropPercent':
-          return b.priceDropPercent - a.priceDropPercent; // Descending
-        case 'savings':
-          return b.savingsPotential - a.savingsPotential; // Descending
-        case 'dateAdded':
-          return b.addedAt.getTime() - a.addedAt.getTime(); // Most recent first
-        default:
-          return 0;
-      }
-    });
-
-    return enrichedResults;
+    return this.watchListStorage.getWatchedProducts(userId, options);
   }
 
   /**
@@ -2431,146 +1920,7 @@ export class DatabaseStorage implements IStorage {
    * PERFORMANCE: Uses CTEs and database aggregations for efficiency
    */
   async getWatchListStats(userId: number): Promise<WatchListStats> {
-    // Get one week ago for weekly stats
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    // Complex query with multiple aggregations
-    const stats = await db.execute(sql`
-      WITH user_products AS (
-        SELECT DISTINCT pw.product_id
-        FROM ${productWatches} pw
-        WHERE pw.user_id = ${userId}
-      ),
-      price_data AS (
-        SELECT
-          up.product_id,
-          p.name AS product_name,
-          (
-            SELECT MIN(CAST(price AS DECIMAL))
-            FROM ${productOffers}
-            WHERE product_id = up.product_id
-          ) AS current_price,
-          (
-            SELECT MIN(CAST(price AS DECIMAL))
-            FROM ${priceHistory}
-            WHERE product_id = up.product_id
-              AND recorded_at >= NOW() - INTERVAL '90 days'
-          ) AS lowest_price
-        FROM user_products up
-        INNER JOIN ${products} p ON up.product_id = p.id
-      ),
-      best_deals_data AS (
-        SELECT
-          product_id,
-          product_name,
-          current_price,
-          lowest_price,
-          CASE
-            WHEN lowest_price > 0 AND current_price IS NOT NULL
-            THEN ((current_price - lowest_price) / lowest_price * 100)
-            ELSE 0
-          END AS discount_percent
-        FROM price_data
-        WHERE current_price IS NOT NULL
-          AND lowest_price IS NOT NULL
-          AND lowest_price > 0
-        ORDER BY discount_percent DESC
-        LIMIT 5
-      ),
-      weekly_deals AS (
-        SELECT COUNT(DISTINCT ph.product_id) AS new_deals
-        FROM ${priceHistory} ph
-        INNER JOIN user_products up ON ph.product_id = up.product_id
-        WHERE ph.recorded_at >= ${oneWeekAgo}
-          AND CAST(ph.price AS DECIMAL) < (
-            SELECT AVG(CAST(price AS DECIMAL))
-            FROM ${priceHistory} ph2
-            WHERE ph2.product_id = ph.product_id
-              AND ph2.recorded_at >= NOW() - INTERVAL '30 days'
-          )
-      )
-      SELECT
-        (SELECT COUNT(*) FROM ${watchLists} WHERE user_id = ${userId})::int AS total_watch_lists,
-        (SELECT COUNT(*) FROM user_products)::int AS total_products,
-        (
-          SELECT COALESCE(SUM(
-            CASE WHEN current_price > lowest_price
-            THEN current_price - lowest_price
-            ELSE 0 END
-          ), 0)
-          FROM price_data
-        )::numeric AS total_potential_savings,
-        (
-          SELECT COUNT(*)
-          FROM ${priceAlerts}
-          WHERE user_id = ${userId}
-            AND is_active = true
-        )::int AS active_alerts,
-        (
-          SELECT COUNT(*)
-          FROM ${priceAlerts}
-          WHERE user_id = ${userId}
-            AND last_triggered_at >= ${oneWeekAgo}
-        )::int AS triggered_alerts,
-        (
-          SELECT json_agg(
-            json_build_object(
-              'productId', product_id,
-              'productName', product_name,
-              'currentPrice', current_price,
-              'lowestPrice', lowest_price,
-              'discountPercent', ROUND(discount_percent::numeric, 2)
-            )
-          )
-          FROM best_deals_data
-        ) AS best_deals,
-        (SELECT COALESCE(new_deals, 0) FROM weekly_deals)::int AS weekly_new_deals
-    `);
-
-    const row = stats.rows[0] as {
-      total_watch_lists: number;
-      total_products: number;
-      total_potential_savings: string;
-      active_alerts: number;
-      triggered_alerts: number;
-      best_deals: Array<{
-        productId: number;
-        productName: string;
-        currentPrice: string;
-        lowestPrice: string;
-        discountPercent: number;
-      }> | null;
-      weekly_new_deals: number;
-    };
-
-    // NOTE: db.execute() with json_agg returns already-parsed JSON objects, not strings
-    const bestDeals = row.best_deals || [];
-
-    return {
-      totalWatchLists: row.total_watch_lists,
-      totalProducts: row.total_products,
-      totalPotentialSavings: parseFloat(row.total_potential_savings),
-      activeAlerts: row.active_alerts,
-      triggeredAlerts: row.triggered_alerts,
-      bestDeals: bestDeals.map((deal: {
-        productId: number;
-        productName: string;
-        currentPrice: string;
-        lowestPrice: string;
-        discountPercent: number;
-      }) => ({
-        productId: deal.productId,
-        productName: deal.productName,
-        currentPrice: parseFloat(deal.currentPrice),
-        lowestPrice: parseFloat(deal.lowestPrice),
-        discountPercent: deal.discountPercent,
-      })),
-      weeklyStats: {
-        newDeals: row.weekly_new_deals,
-        triggeredAlerts: row.triggered_alerts,
-      },
-    };
+    return this.watchListStorage.getWatchListStats(userId);
   }
 
   // Forum Operations (with transactions)
@@ -3618,131 +2968,42 @@ export class DatabaseStorage implements IStorage {
    * Add a product to user's watch list
    */
   async addProductWatchRecord(userId: number, productId: number): Promise<ProductWatch | null> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!productId || productId <= 0) {
-      throw new Error('productId must be a positive number');
-    }
-
-    const watch: InsertProductWatch = {
-      userId,
-      productId,
-    };
-
-    const result = await db
-      .insert(productWatches)
-      .values(watch)
-      .onConflictDoNothing()
-      .returning();
-
-    return result.length > 0 ? result[0] : null;
+    return this.watchListStorage.addProductWatchRecord(userId, productId);
   }
 
   /**
    * Remove a product from user's watch list
    */
   async removeProductWatchRecord(userId: number, productId: number): Promise<boolean> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!productId || productId <= 0) {
-      throw new Error('productId must be a positive number');
-    }
-
-    const result = await db
-      .delete(productWatches)
-      .where(
-        and(
-          eq(productWatches.userId, userId),
-          eq(productWatches.productId, productId)
-        )
-      )
-      .returning();
-
-    return result.length > 0;
+    return this.watchListStorage.removeProductWatchRecord(userId, productId);
   }
 
   /**
    * Get user's watched product IDs
    */
   async getUserProductWatchIds(userId: number): Promise<number[]> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-
-    const watches = await db
-      .select({ productId: productWatches.productId })
-      .from(productWatches)
-      .where(eq(productWatches.userId, userId));
-
-    return watches.map(w => w.productId);
+    return this.watchListStorage.getUserProductWatchIds(userId);
   }
 
   /**
    * Get watch count for a product
    */
   async getProductWatchCountByProduct(productId: number): Promise<number> {
-    if (!productId || productId <= 0) {
-      throw new Error('productId must be a positive number');
-    }
-
-    const result = await db
-      .select({ count: count() })
-      .from(productWatches)
-      .where(eq(productWatches.productId, productId));
-
-    return result[0]?.count || 0;
+    return this.watchListStorage.getProductWatchCountByProduct(productId);
   }
 
   /**
    * Get most watched products
    */
   async getMostWatchedProductStats(limit: number = 10): Promise<CommunityWatchStats[]> {
-    if (limit <= 0 || limit > 100) {
-      throw new Error('limit must be between 1 and 100');
-    }
-
-    const result = await db
-      .select({
-        productId: productWatches.productId,
-        watchCount: sql<number>`count(*)::int`,
-      })
-      .from(productWatches)
-      .groupBy(productWatches.productId)
-      .orderBy(sql`count(*) DESC`)
-      .limit(limit);
-
-    return result.map((r, index) => ({
-      productId: r.productId,
-      watchCount: r.watchCount,
-      rank: index + 1,
-    }));
+    return this.watchListStorage.getMostWatchedProductStats(limit);
   }
 
   /**
    * Check if user is watching a product
    */
   async isUserWatchingProductCheck(userId: number, productId: number): Promise<boolean> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!productId || productId <= 0) {
-      throw new Error('productId must be a positive number');
-    }
-
-    const result = await db
-      .select()
-      .from(productWatches)
-      .where(
-        and(
-          eq(productWatches.userId, userId),
-          eq(productWatches.productId, productId)
-        )
-      )
-      .limit(1);
-
-    return result.length > 0;
+    return this.watchListStorage.isUserWatchingProductCheck(userId, productId);
   }
 
   /**
@@ -4042,108 +3303,28 @@ export class DatabaseStorage implements IStorage {
    * Get next sort order for user's watch lists
    */
   async getNextWatchListSortOrder(userId: number): Promise<number> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-
-    const maxOrderResult = await db
-      .select({ maxOrder: sql<number>`COALESCE(MAX(${watchLists.sortOrder}), 0)` })
-      .from(watchLists)
-      .where(eq(watchLists.userId, userId));
-
-    return (maxOrderResult[0]?.maxOrder ?? 0) + 1;
+    return this.watchListStorage.getNextWatchListSortOrder(userId);
   }
 
   /**
    * Create a new watch list for a user
    */
   async createWatchListRecord(data: CreateWatchListData): Promise<WatchList> {
-    if (!data.userId || data.userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!data.name) {
-      throw new Error('name is required');
-    }
-
-    const watchList: InsertWatchList = {
-      userId: data.userId,
-      name: data.name,
-      description: data.description || null,
-      color: data.color || null,
-      icon: data.icon || null,
-      isDefault: false,
-      sortOrder: data.sortOrder,
-    };
-
-    const result = await db.insert(watchLists).values(watchList).returning();
-    return result[0];
+    return this.watchListStorage.createWatchListRecord(data);
   }
 
   /**
    * Get all watch lists for a user with stats
    */
   async getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-
-    const result = await db
-      .select({
-        id: watchLists.id,
-        userId: watchLists.userId,
-        name: watchLists.name,
-        description: watchLists.description,
-        color: watchLists.color,
-        icon: watchLists.icon,
-        isDefault: watchLists.isDefault,
-        sortOrder: watchLists.sortOrder,
-        createdAt: watchLists.createdAt,
-        updatedAt: watchLists.updatedAt,
-        watchCount: sql<number>`COUNT(${productWatches.id})::int`,
-        highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
-      })
-      .from(watchLists)
-      .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
-      .where(eq(watchLists.userId, userId))
-      .groupBy(watchLists.id)
-      .orderBy(watchLists.sortOrder);
-
-    return result;
+    return this.watchListStorage.getWatchListsWithStats(userId);
   }
 
   /**
    * Get a specific watch list with stats
    */
   async getWatchListByIdWithStats(userId: number, listId: number): Promise<WatchListWithStats | null> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!listId || listId <= 0) {
-      throw new Error('listId must be a positive number');
-    }
-
-    const result = await db
-      .select({
-        id: watchLists.id,
-        userId: watchLists.userId,
-        name: watchLists.name,
-        description: watchLists.description,
-        color: watchLists.color,
-        icon: watchLists.icon,
-        isDefault: watchLists.isDefault,
-        sortOrder: watchLists.sortOrder,
-        createdAt: watchLists.createdAt,
-        updatedAt: watchLists.updatedAt,
-        watchCount: sql<number>`COUNT(${productWatches.id})::int`,
-        highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
-      })
-      .from(watchLists)
-      .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
-      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
-      .groupBy(watchLists.id)
-      .limit(1);
-
-    return result.length > 0 ? result[0] : null;
+    return this.watchListStorage.getWatchListByIdWithStats(userId, listId);
   }
 
   /**
@@ -4154,54 +3335,14 @@ export class DatabaseStorage implements IStorage {
     listId: number,
     updates: WatchListUpdates
   ): Promise<WatchList | null> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!listId || listId <= 0) {
-      throw new Error('listId must be a positive number');
-    }
-
-    const result = await db
-      .update(watchLists)
-      .set(updates)
-      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
-      .returning();
-
-    return result.length > 0 ? result[0] : null;
+    return this.watchListStorage.updateWatchListRecord(userId, listId, updates);
   }
 
   /**
    * Delete a watch list (prevents deletion of default list)
    */
   async deleteWatchListRecord(userId: number, listId: number): Promise<boolean> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!listId || listId <= 0) {
-      throw new Error('listId must be a positive number');
-    }
-
-    // Prevent deletion of default list
-    const list = await db
-      .select()
-      .from(watchLists)
-      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
-      .limit(1);
-
-    if (list.length === 0) {
-      return false;
-    }
-
-    if (list[0].isDefault) {
-      throw new Error("Cannot delete default watch list");
-    }
-
-    const result = await db
-      .delete(watchLists)
-      .where(and(eq(watchLists.id, listId), eq(watchLists.userId, userId)))
-      .returning();
-
-    return result.length > 0;
+    return this.watchListStorage.deleteWatchListRecord(userId, listId);
   }
 
   /**
@@ -4211,43 +3352,7 @@ export class DatabaseStorage implements IStorage {
     userId: number,
     listId: number
   ): Promise<WatchListProductWithDetails[]> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!listId || listId <= 0) {
-      throw new Error('listId must be a positive number');
-    }
-
-    const result = await db
-      .select({
-        id: productWatches.id,
-        userId: productWatches.userId,
-        productId: productWatches.productId,
-        watchListId: productWatches.watchListId,
-        category: productWatches.category,
-        notes: productWatches.notes,
-        priority: productWatches.priority,
-        targetPrice: productWatches.targetPrice,
-        createdAt: productWatches.createdAt,
-        updatedAt: productWatches.updatedAt,
-        productName: products.name,
-        productImage: products.image,
-      })
-      .from(productWatches)
-      .innerJoin(products, eq(products.id, productWatches.productId))
-      .where(
-        and(
-          eq(productWatches.userId, userId),
-          eq(productWatches.watchListId, listId)
-        )
-      )
-      .orderBy(desc(productWatches.priority), desc(productWatches.updatedAt));
-
-    // Map null to undefined for productImage to match interface
-    return result.map(row => ({
-      ...row,
-      productImage: row.productImage ?? undefined
-    }));
+    return this.watchListStorage.getWatchListProductsWithDetails(userId, listId);
   }
 
   /**
@@ -4258,20 +3363,7 @@ export class DatabaseStorage implements IStorage {
     watchId: number,
     updates: ProductWatchUpdates
   ): Promise<ProductWatch | null> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!watchId || watchId <= 0) {
-      throw new Error('watchId must be a positive number');
-    }
-
-    const result = await db
-      .update(productWatches)
-      .set(updates)
-      .where(and(eq(productWatches.id, watchId), eq(productWatches.userId, userId)))
-      .returning();
-
-    return result.length > 0 ? result[0] : null;
+    return this.watchListStorage.updateProductWatchRecord(userId, watchId, updates);
   }
 
   /**
@@ -4282,83 +3374,21 @@ export class DatabaseStorage implements IStorage {
     watchIds: number[],
     targetListId: number | null
   ): Promise<number> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!watchIds || watchIds.length === 0) {
-      throw new Error('watchIds array cannot be empty');
-    }
-
-    // Verify the target list belongs to the user if specified
-    if (targetListId !== null) {
-      if (targetListId <= 0) {
-        throw new Error('targetListId must be a positive number');
-      }
-
-      const targetList = await db
-        .select()
-        .from(watchLists)
-        .where(and(eq(watchLists.id, targetListId), eq(watchLists.userId, userId)))
-        .limit(1);
-
-      if (targetList.length === 0) {
-        throw new Error("Target watch list not found");
-      }
-    }
-
-    const result = await db
-      .update(productWatches)
-      .set({ watchListId: targetListId })
-      .where(
-        and(
-          inArray(productWatches.id, watchIds),
-          eq(productWatches.userId, userId)
-        )
-      )
-      .returning();
-
-    return result.length;
+    return this.watchListStorage.moveProductWatchesBulk(userId, watchIds, targetListId);
   }
 
   /**
    * Remove multiple products from watch lists (bulk delete)
    */
   async deleteProductWatchesBulk(userId: number, watchIds: number[]): Promise<number> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!watchIds || watchIds.length === 0) {
-      throw new Error('watchIds array cannot be empty');
-    }
-
-    const result = await db
-      .delete(productWatches)
-      .where(
-        and(
-          inArray(productWatches.id, watchIds),
-          eq(productWatches.userId, userId)
-        )
-      )
-      .returning();
-
-    return result.length;
+    return this.watchListStorage.deleteProductWatchesBulk(userId, watchIds);
   }
 
   /**
    * Get user's default watch list
    */
   async getUserDefaultWatchListRecord(userId: number): Promise<WatchList | null> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-
-    const result = await db
-      .select()
-      .from(watchLists)
-      .where(and(eq(watchLists.userId, userId), eq(watchLists.isDefault, true)))
-      .limit(1);
-
-    return result.length > 0 ? result[0] : null;
+    return this.watchListStorage.getUserDefaultWatchListRecord(userId);
   }
 
   /**
@@ -4366,66 +3396,7 @@ export class DatabaseStorage implements IStorage {
    * FIXED N+1: Batch query all products for all lists at once
    */
   async exportUserWatchListsData(userId: number): Promise<WatchListExportData> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-
-    // Step 1: Get all watch lists
-    const lists = await this.getWatchListsWithStats(userId);
-
-    // Step 2: Batch query ALL products for ALL lists at once (prevents N+1)
-    const listIds = lists.map(list => list.id);
-    const allProducts = listIds.length > 0
-      ? await db
-          .select({
-            watchListId: productWatches.watchListId,
-            productId: productWatches.productId,
-            productName: products.name,
-            category: productWatches.category,
-            notes: productWatches.notes,
-            priority: productWatches.priority,
-            targetPrice: productWatches.targetPrice,
-          })
-          .from(productWatches)
-          .innerJoin(products, eq(products.id, productWatches.productId))
-          .where(
-            and(
-              eq(productWatches.userId, userId),
-              inArray(productWatches.watchListId, listIds)
-            )
-          )
-      : [];
-
-    // Step 3: Group products by listId using Map for O(n) lookup
-    const productsByListId = new Map<number, typeof allProducts>();
-    for (const product of allProducts) {
-      if (!productsByListId.has(product.watchListId!)) {
-        productsByListId.set(product.watchListId!, []);
-      }
-      productsByListId.get(product.watchListId!)!.push(product);
-    }
-
-    // Step 4: Build export data
-    const exportData = lists.map(list => ({
-      name: list.name,
-      description: list.description,
-      color: list.color,
-      icon: list.icon,
-      products: (productsByListId.get(list.id) || []).map(p => ({
-        productId: p.productId,
-        productName: p.productName,
-        category: p.category,
-        notes: p.notes,
-        priority: p.priority,
-        targetPrice: p.targetPrice,
-      })),
-    }));
-
-    return {
-      exportDate: new Date().toISOString(),
-      userId,
-      watchLists: exportData,
-    };
+    return this.watchListStorage.exportUserWatchListsData(userId);
   }
 
   /**
@@ -4435,83 +3406,7 @@ export class DatabaseStorage implements IStorage {
     userId: number,
     data: WatchListImportData
   ): Promise<{ created: number; skipped: number }> {
-    if (!userId || userId <= 0) {
-      throw new Error('userId must be a positive number');
-    }
-    if (!data.watchLists || !Array.isArray(data.watchLists)) {
-      throw new Error('watchLists must be an array');
-    }
-
-    // DATA INTEGRITY: Use transaction to ensure all-or-nothing import
-    // If mid-import failure occurs, rollback prevents partial data corruption
-    return await db.transaction(async (tx) => {
-      let created = 0;
-      let skipped = 0;
-
-      for (const listData of data.watchLists) {
-        try {
-          // Check if list with this name already exists
-          const existing = await tx
-            .select()
-            .from(watchLists)
-            .where(
-              and(
-                eq(watchLists.userId, userId),
-                eq(watchLists.name, listData.name)
-              )
-            )
-            .limit(1);
-
-          let listId: number;
-
-          if (existing.length > 0) {
-            listId = existing[0].id;
-            skipped++;
-          } else {
-            // Create new list within transaction
-            const newListResult = await tx.insert(watchLists).values({
-              userId,
-              name: listData.name,
-              description: listData.description || null,
-              color: listData.color || null,
-              icon: listData.icon || null,
-            }).returning();
-            listId = newListResult[0].id;
-            created++;
-          }
-
-          // Import products into the list
-          if (listData.products && Array.isArray(listData.products)) {
-            for (const productData of listData.products) {
-              try {
-                const watch: InsertProductWatch = {
-                  userId,
-                  productId: productData.productId,
-                  watchListId: listId,
-                  category: productData.category || null,
-                  notes: productData.notes || null,
-                  priority: productData.priority || 3,
-                  targetPrice: productData.targetPrice || null,
-                };
-
-                await tx
-                  .insert(productWatches)
-                  .values(watch)
-                  .onConflictDoNothing();
-              } catch (error) {
-                logger.error('[Storage] Error importing product watch', { error });
-                // Continue with next product
-              }
-            }
-          }
-        } catch (error) {
-          logger.error('[Storage] Error importing watch list', { error });
-          skipped++;
-        }
-      }
-
-      return { created, skipped };
-    });
+    return this.watchListStorage.importWatchListsData(userId, data);
   }
 
   /**
@@ -4638,44 +3533,14 @@ _This deal was automatically detected by our price tracking system._
    * Get users watching a product
    */
   async getWatchersForProduct(productId: number): Promise<number[]> {
-    if (!productId || productId <= 0) {
-      throw new Error('productId must be a positive number');
-    }
-
-    const watchers = await db
-      .select({ userId: productWatches.userId })
-      .from(productWatches)
-      .where(eq(productWatches.productId, productId));
-
-    return watchers.map(w => w.userId);
+    return this.watchListStorage.getWatchersForProduct(productId);
   }
 
   /**
    * Notify all product watchers
    */
   async notifyProductWatchers(productId: number, notification: WatcherNotificationData): Promise<void> {
-    if (!productId || productId <= 0) {
-      throw new Error('productId must be a positive number');
-    }
-    if (!notification.type || !notification.title || !notification.content) {
-      throw new Error('notification must have type, title, and content');
-    }
-
-    const watchers = await this.getWatchersForProduct(productId);
-
-    if (watchers.length > 0) {
-      const notificationList = watchers.map(userId => ({
-        userId,
-        type: notification.type,
-        title: notification.title,
-        content: notification.content,
-        relatedProductId: notification.relatedProductId || null,
-        relatedTopicId: notification.relatedTopicId || null,
-        relatedPostId: notification.relatedPostId || null,
-      }));
-
-      await db.insert(notifications).values(notificationList);
-    }
+    return this.watchListStorage.notifyProductWatchers(productId, notification);
   }
 
   // ============================================================================
