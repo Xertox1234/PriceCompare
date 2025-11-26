@@ -5,6 +5,7 @@ import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-b
 import { logger } from "./utils/logger";
 import { USER_CONSTANTS, PRODUCT_CONSTANTS, JOB_LOCK_CONSTANTS, ALERT_CONSTANTS } from "./utils/constants";
 import { UserStorage } from "./storage/domains/user-storage";
+import { ProductStorage } from "./storage/domains/product-storage";
 
 export interface IStorage {
   // Retailers
@@ -1568,9 +1569,11 @@ export class MemStorage implements IStorage {
  */
 export class DatabaseStorage implements IStorage {
   private userStorage: UserStorage;
+  private productStorage: ProductStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
+    this.productStorage = new ProductStorage(db);
   }
 
   async getRetailers(): Promise<Retailer[]> {
@@ -1619,29 +1622,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ============================================================================
-  // Private Product Validation Helpers
+  // Private Non-Product Validation Helpers (Product validation moved to ProductStorage)
   // ============================================================================
-
-  /**
-   * Validate product ID is positive integer
-   * Used by: getProductById, getProductOffers, and related methods
-   * @private
-   */
-  private validateProductId(productId: number): void {
-    if (!productId || productId < PRODUCT_CONSTANTS.VALIDATION.MIN_PRODUCT_ID || !Number.isInteger(productId)) {
-      throw new Error(`Invalid productId: ${productId}. Must be a positive integer.`);
-    }
-  }
-
-  /**
-   * Validate offer ID is positive integer
-   * @private
-   */
-  private validateOfferId(offerId: number): void {
-    if (!offerId || offerId < 1 || !Number.isInteger(offerId)) {
-      throw new Error(`Invalid offerId: ${offerId}. Must be a positive integer.`);
-    }
-  }
 
   /**
    * Validate retailer ID is positive integer
@@ -1693,56 +1675,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ============================================================================
-  // Product Methods
+  // Product Methods (delegated to ProductStorage)
   // ============================================================================
 
   async getProducts(): Promise<Product[]> {
-    const result = await db.select().from(products);
-    return result;
+    return this.productStorage.getProducts();
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
-    const [result] = await db
-      .insert(products)
-      .values({
-        name: product.name,
-        image: product.image || null,
-        category: product.category || null,
-        brand: product.brand || null,
-        description: product.description || null,
-        model: product.model || null,
-        // Type assertion: Drizzle stores JSON field as unknown, cast to expected vector array format
-        embedding: (product.embedding as number[] | null) || null,
-        embeddingUpdatedAt: product.embeddingUpdatedAt || null
-      })
-      .returning();
-    return result;
+    return this.productStorage.createProduct(product);
   }
 
   async updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | null> {
-    const [result] = await db
-      .update(products)
-      .set(updates)
-      .where(eq(products.id, id))
-      .returning();
-    return result || null;
+    return this.productStorage.updateProduct(id, updates);
   }
 
   async deleteProduct(id: number): Promise<Product | null> {
-    const [result] = await db
-      .delete(products)
-      .where(eq(products.id, id))
-      .returning();
-    return result || null;
+    return this.productStorage.deleteProduct(id);
   }
 
   async getProductByIdRaw(id: number): Promise<Product | null> {
-    const [result] = await db
-      .select()
-      .from(products)
-      .where(eq(products.id, id))
-      .limit(1);
-    return result || null;
+    return this.productStorage.getProductByIdRaw(id);
   }
 
   // SECURITY: passwordHash handled internally, NEVER exposed in SELECT queries
@@ -1775,314 +1728,41 @@ export class DatabaseStorage implements IStorage {
    */
   async searchProducts(filters: SearchFilters): Promise<{
     products: ProductWithOffers[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
+    pagination: { page: number; limit: number; total: number; totalPages: number };
   }> {
-    const page = filters.page || 1;
-    const limit = Math.min(filters.limit || 20, 100); // Cap at 100 items per page
-    const offset = (page - 1) * limit;
-
-    // Build WHERE conditions for both products and offers
-    const whereConditions = [eq(retailers.isActive, true)];
-
-    // Product-level filters
-    if (filters.query) {
-      const searchQuery = filters.query.trim();
-      whereConditions.push(
-        sql`${products}.search_vector @@ plainto_tsquery('english', ${searchQuery})`
-      );
-    }
-
-    if (filters.category) {
-      whereConditions.push(eq(products.category, filters.category));
-    }
-
-    // Offer-level filters (applied in WHERE, not in-memory)
-    if (filters.minPrice) {
-      whereConditions.push(gte(sql`CAST(${productOffers.price} AS DECIMAL)`, filters.minPrice));
-    }
-
-    if (filters.maxPrice) {
-      whereConditions.push(lte(sql`CAST(${productOffers.price} AS DECIMAL)`, filters.maxPrice));
-    }
-
-    if (filters.retailers && filters.retailers.length > 0) {
-      whereConditions.push(inArray(productOffers.retailerId, filters.retailers));
-    }
-
-    if (filters.minRating) {
-      whereConditions.push(gte(sql`CAST(${productOffers.rating} AS DECIMAL)`, filters.minRating));
-    }
-
-    if (filters.availability && filters.availability.length > 0) {
-      whereConditions.push(inArray(productOffers.availability, filters.availability));
-    }
-
-    // Build aggregation query with database-level calculations
-    // This reduces memory usage by aggregating in PostgreSQL instead of JavaScript
-    const baseQuery = db
-      .select({
-        // Product fields
-        id: products.id,
-        name: products.name,
-        description: products.description,
-        image: products.image,
-        category: products.category,
-        brand: products.brand,
-        model: products.model,
-        embedding: products.embedding,
-        embeddingUpdatedAt: products.embeddingUpdatedAt,
-        searchVector: products.searchVector,
-        createdAt: products.createdAt,
-
-        // Database-level aggregations (not calculated in JavaScript!)
-        bestPrice: sql<number>`MIN(CAST(${productOffers.price} AS DECIMAL))`.as('best_price'),
-        avgPrice: sql<number>`AVG(CAST(${productOffers.price} AS DECIMAL))`.as('avg_price'),
-        offerCount: sql<number>`COUNT(${productOffers.id})`.as('offer_count'),
-
-        // Aggregate original prices for savings calculation
-        avgOriginalPrice: sql<number | null>`
-          AVG(CAST(${productOffers.originalPrice} AS DECIMAL))
-          FILTER (WHERE ${productOffers.originalPrice} IS NOT NULL)
-        `.as('avg_original_price'),
-
-        // Only fetch top 3 offers per product at DATABASE LEVEL (not in post-processing!)
-        // Uses subquery with LIMIT to reduce network/memory: fetches only 3 offers per product
-        topOffers: sql<string>`
-          (
-            SELECT COALESCE(json_agg(offer_data), '[]'::json)
-            FROM (
-              SELECT json_build_object(
-                'id', po.id,
-                'productId', po.product_id,
-                'retailerId', po.retailer_id,
-                'price', po.price,
-                'originalPrice', po.original_price,
-                'availability', po.availability,
-                'rating', po.rating,
-                'reviewCount', po.review_count,
-                'productUrl', po.product_url,
-                'affiliateUrl', po.affiliate_url,
-                'shippingInfo', po.shipping_info,
-                'dealType', po.deal_type,
-                'lastUpdated', po.last_updated,
-                'retailer', (
-                  SELECT json_build_object(
-                    'id', r.id,
-                    'name', r.name,
-                    'website', r.website,
-                    'logo', r.logo,
-                    'isActive', r.is_active
-                  )
-                  FROM retailers r
-                  WHERE r.id = po.retailer_id
-                )
-              ) AS offer_data
-              FROM product_offers po
-              WHERE po.product_id = ${products.id}
-              ORDER BY CAST(po.price AS DECIMAL) ASC
-              LIMIT 3
-            ) AS limited_offers
-          )
-        `.as('top_offers'),
-      })
-      .from(products)
-      .innerJoin(productOffers, eq(products.id, productOffers.productId))
-      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(and(...whereConditions))
-      .groupBy(products.id);
-
-    // Get total count for pagination (before LIMIT/OFFSET)
-    const countQuery = db
-      .select({
-        count: sql<number>`COUNT(DISTINCT ${products.id})`.as('count')
-      })
-      .from(products)
-      .innerJoin(productOffers, eq(products.id, productOffers.productId))
-      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(and(...whereConditions));
-
-    // Apply sorting in database (not in JavaScript!)
-    // Build final query with ordering and pagination
-    let finalQuery;
-    if (filters.sortBy) {
-      switch (filters.sortBy) {
-        case "price_low":
-          finalQuery = baseQuery.orderBy(asc(sql`best_price`)).limit(limit).offset(offset);
-          break;
-        case "price_high":
-          finalQuery = baseQuery.orderBy(desc(sql`best_price`)).limit(limit).offset(offset);
-          break;
-        case "rating":
-          finalQuery = baseQuery.orderBy(desc(sql`AVG(CAST(${productOffers.rating} AS DECIMAL))`)).limit(limit).offset(offset);
-          break;
-        case "popularity":
-          finalQuery = baseQuery.orderBy(desc(sql`SUM(${productOffers.reviewCount})`)).limit(limit).offset(offset);
-          break;
-        default:
-          finalQuery = baseQuery.limit(limit).offset(offset);
-      }
-    } else {
-      finalQuery = baseQuery.limit(limit).offset(offset);
-    }
-
-    // Execute both queries in parallel
-    const [results, countResult] = await Promise.all([
-      finalQuery,
-      countQuery
-    ]);
-
-    const total = Number(countResult[0]?.count || 0);
-    const totalPages = Math.ceil(total / limit);
-
-    // Minimal post-processing: just parse JSON and format
-    // No filtering, no aggregation, no sorting - all done in database!
-    const productsWithOffers: ProductWithOffers[] = results.map(row => {
-      const offers = JSON.parse(row.topOffers || '[]');
-
-      // Database subquery already limits to 3 offers; slice is defensive fallback only
-      const top3Offers = offers.slice(0, 3);
-
-      // Calculate savings from database aggregates
-      const avgOriginal = row.avgOriginalPrice;
-      const savings = avgOriginal ? avgOriginal - row.bestPrice : null;
-      const savingsPercentage = savings && avgOriginal ?
-        Math.round((savings / avgOriginal) * 100) : null;
-
-      return {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        image: row.image,
-        category: row.category,
-        brand: row.brand,
-        model: row.model,
-        // Type assertion: JSON field from Drizzle query, cast to vector array type
-        embedding: row.embedding as number[] | null,
-        embeddingUpdatedAt: row.embeddingUpdatedAt,
-        searchVector: row.searchVector,
-        createdAt: row.createdAt,
-        bestPrice: row.bestPrice,
-        savings: savings || undefined,
-        savingsPercentage: savingsPercentage || undefined,
-        offers: top3Offers,
-      };
-    });
-
-    return {
-      products: productsWithOffers,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-      },
-    };
+    return this.productStorage.searchProducts(filters);
   }
 
   async getProductById(id: number): Promise<ProductWithOffers | null> {
-    // Validate input
-    this.validateProductId(id);
-
-    const productResult = await db
-      .select()
-      .from(products)
-      .where(eq(products.id, id))
-      .limit(1);
-
-    if (productResult.length === 0) return null;
-
-    const product = productResult[0];
-    const offers = await this.getProductOffers(id);
-
-    const prices = offers.map(offer => parseFloat(offer.price));
-    const bestPrice = prices.length > 0 ? Math.min(...prices) : undefined;
-
-    return {
-      ...product,
-      offers,
-      bestPrice,
-    };
+    return this.productStorage.getProductById(id);
   }
 
   async getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]> {
-    // Validate input
-    this.validateProductId(productId);
-
-    const result = await db
-      .select({
-        offer: productOffers,
-        retailer: retailers
-      })
-      .from(productOffers)
-      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(eq(productOffers.productId, productId));
-
-    return result.map(row => ({
-      ...row.offer,
-      retailer: row.retailer
-    }));
+    return this.productStorage.getProductOffers(productId);
   }
 
   async createProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
-    const [result] = await db
-      .insert(productOffers)
-      .values({
-        ...offer,
-        availability: offer.availability || null,
-        rating: offer.rating || null,
-        originalPrice: offer.originalPrice || null,
-        reviewCount: offer.reviewCount || null,
-        shippingInfo: offer.shippingInfo || null,
-        dealType: offer.dealType || null,
-        productUrl: offer.productUrl || null
-      })
-      .returning();
-    return result;
+    return this.productStorage.createProductOffer(offer);
   }
 
   // Affiliate Link Operations
   async getProductOfferById(offerId: number): Promise<ProductOffer | null> {
-    const [offer] = await db
-      .select()
-      .from(productOffers)
-      .where(eq(productOffers.id, offerId))
-      .limit(1);
-    return offer ?? null;
+    return this.productStorage.getProductOfferById(offerId);
   }
 
   async updateProductOfferAffiliateLink(
     offerId: number,
     data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }
   ): Promise<void> {
-    await db
-      .update(productOffers)
-      .set({
-        affiliateUrl: data.affiliateUrl,
-        linkHealthStatus: data.linkHealthStatus,
-        lastLinkCheck: data.lastLinkCheck,
-      })
-      .where(eq(productOffers.id, offerId));
+    return this.productStorage.updateProductOfferAffiliateLink(offerId, data);
   }
 
   async incrementProductOfferClickCount(offerId: number): Promise<void> {
-    await db
-      .update(productOffers)
-      .set({
-        clickCount: sql`COALESCE(${productOffers.clickCount}, 0) + 1`,
-      })
-      .where(eq(productOffers.id, offerId));
+    return this.productStorage.incrementProductOfferClickCount(offerId);
   }
 
   async getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]> {
-    return db
-      .select()
-      .from(productOffers)
-      .where(eq(productOffers.retailerId, retailerId));
+    return this.productStorage.getProductOffersByRetailerId(retailerId);
   }
 
   async getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats> {
@@ -2118,26 +1798,7 @@ export class DatabaseStorage implements IStorage {
     offer: ProductOffer;
     retailer: Retailer;
   } | null> {
-    // Escape LIKE special characters to prevent unintended pattern matching
-    const escapedUrl = productUrl.replace(/[%_]/g, '\\$&');
-    const result = await db
-      .select({
-        offer: productOffers,
-        product: products,
-        retailer: retailers
-      })
-      .from(productOffers)
-      .innerJoin(products, eq(productOffers.productId, products.id))
-      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(like(productOffers.productUrl, `%${escapedUrl}%`))
-      .limit(1);
-
-    if (result.length === 0) {
-      return null;
-    }
-
-    const { product, offer, retailer } = result[0];
-    return { product, offer, retailer };
+    return this.productStorage.getProductByUrl(productUrl);
   }
 
   // Price History Methods
