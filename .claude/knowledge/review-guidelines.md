@@ -152,6 +152,32 @@ function processRecord(record: T): void {
 - **Common operations**: If you see it 3+ times, it needs abstraction
 - **Benefits of DRY**: Easier maintenance, consistent behavior, fewer bugs
 
+### Large File Refactoring (God Object Decomposition)
+When reviewing refactoring PRs for large files (1000+ lines):
+
+**Required Documentation:**
+- [ ] Types file has IMPORTANT NOTES section explaining design decisions
+- [ ] Base class includes numbered implementation guidance (7+ points)
+- [ ] Facade includes domain roadmap with method counts per domain
+- [ ] Phase markers present in all new files (`Phase N: Description`)
+
+**Backward Compatibility:**
+- [ ] Existing imports continue to work (facade re-exports)
+- [ ] No breaking changes to IStorage interface
+- [ ] TypeScript compilation passes without changes to consumers
+
+**Security Markers:**
+- [ ] Pre-commit-hook compatible markers: `SECURITY: NEVER expose`
+- [ ] SafeUser type explicitly documents passwordHash exclusion
+- [ ] Security-sensitive operations documented inline
+
+**Domain Organization:**
+- [ ] Types grouped by domain with `// ====` separators
+- [ ] Domain boundaries clear (methods grouped by primary table)
+- [ ] Roadmap shows all planned domains with responsibilities
+
+**Reference:** See `.claude/knowledge/storage-refactoring-patterns.md` for complete patterns
+
 ### Naming
 - Clear, self-documenting variable and function names
 - Avoid abbreviations unless universally known

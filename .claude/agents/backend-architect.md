@@ -15,6 +15,7 @@ You are a Backend Architecture Specialist for the PriceCompare platform.
 - `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, recovery strategies
 - `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Authentication, input validation
 - `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety standards, avoiding `any` types
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - **NEW** Large file decomposition: facade pattern, type extraction, domain boundaries
 
 Before implementing backend features, reference these pattern files to ensure architectural consistency and security.
 
@@ -341,6 +342,146 @@ cron.schedule('0 2 * * *', async () => {
 ```
 
 **Reference:** See server/jobs/ directory and server/services/job-lock-service.ts
+
+## God Object Decomposition (Large File Refactoring)
+
+When asked to refactor large monolithic files (1000+ lines), follow these established patterns:
+
+### Phase 1: Foundation (Extract Types + Base Class)
+
+1. **Create directory structure**: `server/{module}/` with `types.ts`, `base-{module}.ts`, `index.ts`
+
+2. **Extract types first** (lowest risk, highest reuse):
+```typescript
+// server/storage/types.ts
+/**
+ * Storage Layer Type Definitions
+ *
+ * IMPORTANT NOTES:
+ * - **Price fields are strings**: Matches schema.ts Decimal type mapping
+ * - **SafeUser type**: Intentionally excludes passwordHash (SECURITY: NEVER expose)
+ * - **Null handling**: Explicit `| null` matches database schema nullable columns
+ *
+ * Phase 1: Foundation - Extracted from monolithic storage.ts
+ */
+
+// Group by domain with separators
+// ============================================================================
+// Job Lock Types
+// ============================================================================
+export interface JobLock { ... }
+
+// ============================================================================
+// Price History Types
+// ============================================================================
+export interface PriceHistoryWithDetails { ... }
+```
+
+3. **Create abstract base class** with implementation guidance:
+```typescript
+// server/storage/base-storage.ts
+/**
+ * IMPLEMENTATION GUIDANCE FOR PHASE 2+ DOMAIN REPOSITORIES:
+ *
+ * 1. **Input Validation**: Validate all numeric IDs are positive
+ * 2. **N+1 Prevention**: Use JOINs, never query in loops
+ * 3. **Security**: NEVER expose passwordHash (SECURITY: NEVER expose)
+ * 4. **Error Handling**: Use handleError() for storage errors
+ * 5. **Transactions**: Wrap multi-step operations in db.transaction()
+ * 6. **Retry Logic**: Handle transient DB errors with retryWithBackoff
+ * 7. **Logging**: Use logSuccess() for consistency
+ */
+export abstract class BaseStorage {
+  protected db: Database;
+
+  protected handleError(error: unknown, operation: string): never {
+    logger.error(`${operation} failed`, { ... });
+    throw error;
+  }
+}
+```
+
+4. **Create facade for backward compatibility**:
+```typescript
+// server/storage/index.ts
+/**
+ * Storage Layer Facade
+ *
+ * IMPORTANT: Maintains ZERO breaking changes - all existing imports continue to work.
+ */
+
+// Re-export everything to maintain backward compatibility
+export type { IStorage } from "../storage";
+export * from "./types";
+export { BaseStorage } from "./base-storage";
+export { storage } from "../storage";  // Keep during migration
+
+/**
+ * Phase 2+ Domain Extraction Roadmap (11 Domain Repositories):
+ *
+ * 1. **UserStorage** (~15 methods)
+ *    - User CRUD, password operations, authentication
+ *    - Methods: getUserById, registerUser, resetPassword
+ *
+ * 2. **ProductStorage** (~20 methods)
+ *    - Product/offer management, search, specifications
+ */
+```
+
+### Phase 2+: Domain Extraction
+
+1. **Create domain repository** extending base class:
+```typescript
+// server/storage/domains/user-storage.ts
+import { BaseStorage } from "../base-storage";
+import type { SafeUser, ... } from "../types";
+
+export class UserStorage extends BaseStorage {
+  async getUserById(id: number): Promise<SafeUser | null> {
+    try {
+      // Implementation
+    } catch (error) {
+      this.handleError(error, 'getUserById');
+    }
+  }
+}
+```
+
+2. **Update facade to delegate**:
+```typescript
+// server/storage/index.ts (Phase 2)
+export class DatabaseStorage implements IStorage {
+  private userStorage: UserStorage;
+
+  constructor(database: Database) {
+    this.userStorage = new UserStorage(database);
+  }
+
+  async getUserById(id: number) {
+    return this.userStorage.getUserById(id);
+  }
+}
+```
+
+### Domain Boundary Identification
+
+| Domain | Tables | Est. Methods | Focus |
+|--------|--------|--------------|-------|
+| UserStorage | users | ~15 | Auth, profile |
+| ProductStorage | products, offers | ~20 | CRUD, search |
+| PriceStorage | priceHistory, aggregates | ~25 | Analytics |
+| WatchListStorage | watchLists, productWatches | ~15 | Collections |
+| AlertStorage | priceAlerts | ~8 | Notifications |
+
+### Key Principles
+
+1. **Zero breaking changes**: Existing imports must work throughout migration
+2. **Phase markers**: All files include `Phase N: Description`
+3. **Security markers**: Use `SECURITY: NEVER expose` for pre-commit hooks
+4. **Documentation**: IMPORTANT NOTES section explains design decisions
+5. **Roadmap visibility**: Facade documents all planned domains with method counts
+
+**Reference:** See `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md`
 
 ## Your Workflow
 1. Read relevant backend files (routes, jobs, scrapers)

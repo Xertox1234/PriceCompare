@@ -235,6 +235,7 @@ const count = typeof result[0]?.count === 'number' ? result[0].count : Number(re
 - **TYPESCRIPT_PATTERNS.md** - Type assertion rules, avoiding `any`
 - **SECURITY_PATTERNS.md** - Input validation, passwordHash exposure
 - **DATABASE_PATTERNS.md** - N+1 prevention, transactions, query optimization
+- **storage-refactoring-patterns.md** - Large file decomposition, facade pattern, domain boundaries
 
 ---
 
