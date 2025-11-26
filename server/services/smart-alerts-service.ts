@@ -169,13 +169,15 @@ function analyzeSeasonalPatterns(history: Array<Record<string, unknown>>): Array
   const monthlyData: Record<string, number[]> = {};
 
   history.forEach(entry => {
-    const date = new Date(entry.recordedAt || entry.createdAt);
+    const recordedAt = entry.recordedAt as string | Date | undefined;
+    const createdAt = entry.createdAt as string | Date | undefined;
+    const date = new Date(recordedAt || createdAt || new Date());
     const month = date.toLocaleString('default', { month: 'short' });
 
     if (!monthlyData[month]) {
       monthlyData[month] = [];
     }
-    monthlyData[month].push(parseFloat(entry.price));
+    monthlyData[month].push(parseFloat(entry.price as string));
   });
 
   return Object.entries(monthlyData)
@@ -281,7 +283,7 @@ function analyzePriceDropProbability(
   currentPrice: number,
   targetPrice: number
 ): Omit<PredictiveAlert, 'productId' | 'productName' | 'currentPrice'> | null {
-  const prices = history.map(h => parseFloat(h.price));
+  const prices = history.map(h => parseFloat(h.price as string));
 
   // Calculate trend
   const recentPrices = prices.slice(0, 14);
@@ -349,8 +351,10 @@ function calculateAverageDaysBetweenDeals(history: Array<Record<string, unknown>
   const dealDates: Date[] = [];
 
   history.forEach(entry => {
-    if (parseFloat(entry.price) <= targetPrice) {
-      dealDates.push(new Date(entry.recordedAt || entry.createdAt));
+    if (parseFloat(entry.price as string) <= targetPrice) {
+      const recordedAt = entry.recordedAt as string | Date | undefined;
+      const createdAt = entry.createdAt as string | Date | undefined;
+      dealDates.push(new Date(recordedAt || createdAt || new Date()));
     }
   });
 
@@ -370,8 +374,10 @@ function calculateAverageDaysBetweenDeals(history: Array<Record<string, unknown>
  */
 function calculateDaysSincePrice(history: Array<Record<string, unknown>>, targetPrice: number): number {
   for (const entry of history) {
-    if (parseFloat(entry.price) <= targetPrice) {
-      const date = new Date(entry.recordedAt || entry.createdAt);
+    if (parseFloat(entry.price as string) <= targetPrice) {
+      const recordedAt = entry.recordedAt as string | Date | undefined;
+      const createdAt = entry.createdAt as string | Date | undefined;
+      const date = new Date(recordedAt || createdAt || new Date());
       return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
     }
   }

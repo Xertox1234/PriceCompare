@@ -161,7 +161,7 @@ class AlertService {
     await this.sendSlackAlert(alert);
 
     // Broadcast to WebSocket clients
-    websocketService.broadcast('alert:triggered', alert);
+    websocketService.broadcast('alert:triggered', alert as unknown as Record<string, unknown>);
   }
 
   /**
@@ -261,7 +261,7 @@ class AlertService {
     await this.sendSlackAlert(alert);
 
     // Broadcast to WebSocket clients
-    websocketService.broadcast('alert:triggered', alert);
+    websocketService.broadcast('alert:triggered', alert as unknown as Record<string, unknown>);
   }
 
   /**

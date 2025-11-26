@@ -259,9 +259,9 @@ export async function createNotification(
         id: created.id,
         type: created.type,
         title: created.title,
-        content: created.content,
-        priority: created.priority,
-        metadata: created.metadata,
+        content: created.content ?? '',
+        priority: 'normal', // Default priority since not stored in DB
+        metadata: null, // No metadata stored in DB currently
       }, stats.unread);
     }
   } catch (error) {
@@ -370,8 +370,6 @@ export async function updateUserPreferences(
           emailEnabled: false,
           priceDropEnabled: true,
           priceAlertEnabled: true,
-          forumMentionEnabled: true,
-          badgeEarnedEnabled: true,
           quietHoursStart: null,
           quietHoursEnd: null,
           maxDailyNotifications: 50,

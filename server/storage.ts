@@ -729,9 +729,9 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async getProductById(id: number): Promise<ProductWithOffers | undefined> {
+  async getProductById(id: number): Promise<ProductWithOffers | null> {
     const product = this.products.get(id);
-    if (!product) return undefined;
+    if (!product) return null;
 
     const offers = await this.getProductOffers(id);
     const prices = offers.map(offer => parseFloat(offer.price));
@@ -939,28 +939,28 @@ export class MemStorage implements IStorage {
     return Array.from(this.retailers.values());
   }
 
-  async getRetailerById(id: number): Promise<Retailer | undefined> {
-    return this.retailers.get(id);
+  async getRetailerById(id: number): Promise<Retailer | null> {
+    return this.retailers.get(id) ?? null;
   }
 
-  async updateRetailer(_id: number, _updates: Partial<InsertRetailer>): Promise<Retailer | undefined> {
+  async updateRetailer(_id: number, _updates: Partial<InsertRetailer>): Promise<Retailer | null> {
     throw new Error('Not supported in memory storage');
   }
 
-  async deleteRetailer(_id: number): Promise<Retailer | undefined> {
+  async deleteRetailer(_id: number): Promise<Retailer | null> {
     throw new Error('Not supported in memory storage');
   }
 
-  async updateProduct(_id: number, _updates: Partial<InsertProduct>): Promise<Product | undefined> {
+  async updateProduct(_id: number, _updates: Partial<InsertProduct>): Promise<Product | null> {
     throw new Error('Not supported in memory storage');
   }
 
-  async deleteProduct(_id: number): Promise<Product | undefined> {
+  async deleteProduct(_id: number): Promise<Product | null> {
     throw new Error('Not supported in memory storage');
   }
 
-  async getProductByIdRaw(id: number): Promise<Product | undefined> {
-    return this.products.get(id);
+  async getProductByIdRaw(id: number): Promise<Product | null> {
+    return this.products.get(id) ?? null;
   }
 
   async getAllUsers(): Promise<AdminUser[]> {

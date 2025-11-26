@@ -412,7 +412,7 @@ export async function getUserDefaultWatchList(userId: number): Promise<WatchList
 /**
  * Export user's watch lists and products as JSON
  */
-export async function exportWatchLists(userId: number): Promise<Record<string, unknown>> {
+export async function exportWatchLists(userId: number): Promise<import('../storage').WatchListExportData> {
   return await storage.exportUserWatchListsData(userId);
 }
 
@@ -421,9 +421,7 @@ export async function exportWatchLists(userId: number): Promise<Record<string, u
  */
 export async function importWatchLists(
   userId: number,
-  importData: Record<string, unknown>
+  importData: import('../storage').WatchListImportData
 ): Promise<{ created: number; skipped: number }> {
-  // Storage layer expects WatchListImportData structure
-  // Cast is safe as storage layer validates structure
-  return await storage.importWatchListsData(userId, importData as import('../storage').WatchListImportData);
+  return await storage.importWatchListsData(userId, importData);
 }

@@ -74,8 +74,11 @@ const encryptedText = customType<{ data: string; driverData: string }>({
       throw new Error('encryptedText type can only be used on the server side');
     }
 
-    const { encrypt } = getEncryptionModule();
-    return encrypt(value);
+    const module = getEncryptionModule();
+    if (!module) {
+      throw new Error('Encryption module not initialized');
+    }
+    return module.encrypt(value);
   },
   fromDriver(value: string): string {
     // Lazy-load decryption functions
@@ -83,8 +86,11 @@ const encryptedText = customType<{ data: string; driverData: string }>({
       throw new Error('encryptedText type can only be used on the server side');
     }
 
-    const { decrypt } = getEncryptionModule();
-    return decrypt(value);
+    const module = getEncryptionModule();
+    if (!module) {
+      throw new Error('Encryption module not initialized');
+    }
+    return module.decrypt(value);
   },
 });
 

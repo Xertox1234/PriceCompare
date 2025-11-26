@@ -69,8 +69,8 @@ export class AnalyticsCacheService {
       );
 
       logger.info(`Invalidated analytics cache for product ${productId}`);
-    } catch (error) {
-      logger.error(`Error invalidating analytics cache for product ${productId}:`, error);
+    } catch (error: unknown) {
+      logger.error(`Error invalidating analytics cache for product ${productId}:`, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -82,8 +82,8 @@ export class AnalyticsCacheService {
       const pattern = `${CachePrefix.ANALYTICS}:${type}:${productId}:*`;
       await advancedCache.invalidatePattern(pattern);
       logger.info(`Invalidated ${type} analytics cache for product ${productId}`);
-    } catch (error) {
-      logger.error(`Error invalidating ${type} analytics cache:`, error);
+    } catch (error: unknown) {
+      logger.error(`Error invalidating ${type} analytics cache:`, error instanceof Error ? error.message : String(error));
     }
   }
 
