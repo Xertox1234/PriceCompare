@@ -1,10 +1,9 @@
 import { Express } from "express";
 import { forumStorage } from "../forum-storage";
 import { storage } from "../storage";
-import { withAuth } from "./helpers";
+import { withAuth, handleRouteError, notFound } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 import { csrfProtection } from "../middleware/security";
 
 /**
@@ -19,8 +18,7 @@ export function registerForumRoutes(app: Express): void {
       const categories = await forumStorage.getCategories();
       res.json(categories);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetForumCategories');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'GetForumCategories');
     }
   });
 
@@ -37,8 +35,7 @@ export function registerForumRoutes(app: Express): void {
       );
       res.json(result);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to fetch topics";
-      res.status(400).json({ error: message });
+      handleRouteError(res, error, 'GetForumTopics');
     }
   });
 
@@ -49,14 +46,12 @@ export function registerForumRoutes(app: Express): void {
       const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const topic = await forumStorage.getTopicById(topicId);
       if (!topic) {
-        res.status(404).json({ error: "Topic not found" });
+        notFound(res, 'Topic');
         return;
       }
       res.json(topic);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to fetch topic";
-      const status = message.includes('must be') ? 400 : 500;
-      res.status(status).json({ error: message });
+      handleRouteError(res, error, 'GetForumTopic');
     }
   });
 
@@ -68,9 +63,7 @@ export function registerForumRoutes(app: Express): void {
       const posts = await forumStorage.getPostsByTopic(topicId);
       res.json(posts);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to fetch posts";
-      const status = message.includes('must be') ? 400 : 500;
-      res.status(status).json({ error: message });
+      handleRouteError(res, error, 'GetTopicPosts');
     }
   });
 
@@ -102,8 +95,7 @@ export function registerForumRoutes(app: Express): void {
 
       res.json({ success: true, topic: result.topic });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateForumTopic');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreateForumTopic');
     }
   }));
 
@@ -122,8 +114,7 @@ export function registerForumRoutes(app: Express): void {
 
       res.json({ success: true, post: result.post });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateForumPost');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      handleRouteError(res, error, 'CreateForumPost');
     }
   }));
 }

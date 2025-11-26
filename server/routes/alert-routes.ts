@@ -1,7 +1,6 @@
 import { Express } from "express";
 import { forumStorage } from "../forum-storage";
-import { withAuth } from "./helpers";
-import { logger } from "../utils/logger";
+import { withAuth, handleRouteError, notFound } from "./helpers";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { csrfProtection } from "../middleware/security";
 
@@ -25,9 +24,8 @@ export function registerAlertRoutes(app: Express): void {
       });
 
       res.json({ success: true, alert });
-    } catch (error) {
-      logger.error('Create price alert error', { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
-      res.status(500).json({ error: "Failed to create price alert" });
+    } catch (error: unknown) {
+      handleRouteError(res, error, 'CreatePriceAlert');
     }
   }));
 
@@ -37,9 +35,8 @@ export function registerAlertRoutes(app: Express): void {
       const user = req.user;
       const alerts = await forumStorage.getUserPriceAlerts(user.id);
       res.json(alerts);
-    } catch (error) {
-      logger.error('Get price alerts error', { error: error instanceof Error ? error.message : String(error), userId: req.user.id });
-      res.status(500).json({ error: "Failed to fetch price alerts" });
+    } catch (error: unknown) {
+      handleRouteError(res, error, 'GetPriceAlerts');
     }
   }));
 
@@ -52,17 +49,13 @@ export function registerAlertRoutes(app: Express): void {
 
       const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
       if (!updatedAlert) {
-        res.status(404).json({ error: "Alert not found or unauthorized" });
+        notFound(res, 'Alert');
         return;
       }
 
       res.json(updatedAlert);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      res.status(500).json({ error: "Failed to update price alert" });
+    } catch (error: unknown) {
+      handleRouteError(res, error, 'UpdatePriceAlert');
     }
   }));
 
@@ -74,17 +67,13 @@ export function registerAlertRoutes(app: Express): void {
 
       const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
       if (!deleted) {
-        res.status(404).json({ error: "Alert not found or unauthorized" });
+        notFound(res, 'Alert');
         return;
       }
 
       res.json({ success: true });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('must be')) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      res.status(500).json({ error: "Failed to delete price alert" });
+    } catch (error: unknown) {
+      handleRouteError(res, error, 'DeletePriceAlert');
     }
   }));
 }

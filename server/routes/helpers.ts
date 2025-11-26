@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import type { AuthenticatedRequest } from "@shared/types";
+import { createErrorResponse } from "../utils/error-sanitizer";
 
 // SECURITY: Express.User type is properly defined in server/auth.ts as SafeUser
 // This ensures passwordHash is never exposed in req.user throughout the application
@@ -42,4 +43,27 @@ export function withAdmin(handler: (req: AuthenticatedRequest, res: Response) =>
     // req is now typed as AuthenticatedRequest with admin role
     await handler(req, res);
   };
+}
+
+/**
+ * Standardized error response handler for routes
+ * Uses createErrorResponse to sanitize errors and provide consistent format
+ */
+export function handleRouteError(
+  res: Response,
+  error: unknown,
+  operationName: string,
+  statusCode?: number
+): void {
+  const errorResponse = createErrorResponse(error, operationName);
+  res.status(statusCode || errorResponse.status).json({
+    error: errorResponse.error
+  });
+}
+
+/**
+ * Standardized 404 not found response
+ */
+export function notFound(res: Response, resource: string): void {
+  res.status(404).json({ error: `${resource} not found` });
 }
