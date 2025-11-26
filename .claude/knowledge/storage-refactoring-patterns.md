@@ -17,6 +17,29 @@ This document codifies the patterns, strategies, and best practices for incremen
 
 **Achievement**: Zero breaking changes, TypeScript compilation passes, pre-commit security checks pass.
 
+## Phase 2 Results Summary
+
+**PR**: #138 - User Domain Extraction
+**Extracted**:
+- `server/storage/domains/user-storage.ts` - 476 lines (15 methods)
+
+**Methods Extracted**:
+- Basic: getUserCount, getUserByIdSafe, registerUser
+- Auth: resetPassword, createUserWithTransaction
+- Profile: updateUserProfile, updateUserTrustLevel, suspendUser
+- Admin: getAllUsers, getAdminAnalyticsOverview, getUserGrowthData, getForumActivityData, getTopCategories
+
+**Files Modified**:
+- `server/storage.ts` - Reduced from 7,035 to ~6,535 lines (delegation pattern)
+
+**Key Learnings**:
+1. **Type Consistency Critical**: IStorage interface must use specialized types, not inline types
+2. **Parameter Required-ness**: Fix optional parameters when they should be required (getTopCategories limit)
+3. **Security Markers Everywhere**: All passwordHash references need `// SECURITY: NEVER expose` markers
+4. **Code Review Catches Issues**: Type mismatches found during review phase, not compilation
+
+**Statistics**: 15/86 methods extracted (~17% progress), 2 files changed, 506 insertions(+), 235 deletions(-)
+
 ---
 
 ## 1. Facade Pattern for Incremental Migration
@@ -409,12 +432,17 @@ Use consistent phase markers throughout refactored code to track migration progr
 
 ### Phase 2+ (Domain Extraction) Checklist
 - [ ] Domain repository extends BaseStorage
-- [ ] Methods delegated through facade
+- [ ] Methods delegated through DatabaseStorage (delegation pattern)
+- [ ] IStorage interface uses specialized types (not inline types)
+- [ ] Domain repository return types match IStorage exactly
+- [ ] MemStorage stubs updated with matching types
+- [ ] Optional parameters reviewed (should they be required?)
 - [ ] Existing tests continue to pass
-- [ ] Domain interface extracted from IStorage
 - [ ] Transaction boundaries respected
 - [ ] N+1 queries prevented (no loops with queries)
 - [ ] Input validation on all public methods
+- [ ] Security markers on all passwordHash references
+- [ ] TypeScript compilation passes with zero NEW errors
 
 ---
 
@@ -480,6 +508,93 @@ export interface JobLock {
  * 5. **Transactions**: Wrap multi-step operations in db.transaction()
  */
 ```
+
+---
+
+## 11. Type Consistency Pattern (Phase 2 Learning)
+
+### Pattern Description
+When extracting domain repositories, ensure IStorage interface, domain repository, and delegation layer all use the same specialized types. Avoid inline type definitions that create impedance mismatches.
+
+### Problem Identified in Phase 2
+```typescript
+// WRONG - IStorage interface uses inline types
+export interface IStorage {
+  getUserGrowthData(): Promise<Array<{ date: string; count: number }>>;
+  getForumActivityData(): Promise<Array<{ date: string; count: number }>>;
+  getTopCategories(limit?: number): Promise<Array<{ categoryName: string; topicCount: number }>>;
+}
+
+// Domain repository uses specialized types
+export class UserStorage extends BaseStorage {
+  async getUserGrowthData(): Promise<UserGrowthData[]> { ... }
+  async getForumActivityData(): Promise<ForumActivityData[]> { ... }
+  async getTopCategories(limit: number): Promise<TopCategory[]> { ... }
+}
+
+// Result: Type mismatch! TypeScript compiler doesn't catch this during development
+// because inline types structurally match specialized types, but creates
+// maintenance issues and potential runtime errors.
+```
+
+### Correct Pattern
+```typescript
+// Step 1: Define specialized types in types.ts
+export interface UserGrowthData {
+  date: string;
+  count: number;
+}
+
+export interface ForumActivityData {
+  date: string;
+  count: number;
+}
+
+export interface TopCategory {
+  categoryName: string;
+  topicCount: number;
+}
+
+// Step 2: Use specialized types in IStorage interface
+export interface IStorage {
+  getUserGrowthData(): Promise<UserGrowthData[]>;
+  getForumActivityData(): Promise<ForumActivityData[]>;
+  getTopCategories(limit: number): Promise<TopCategory[]>;  // Note: limit is required
+}
+
+// Step 3: Domain repository uses same types
+export class UserStorage extends BaseStorage {
+  async getUserGrowthData(): Promise<UserGrowthData[]> { ... }
+  async getForumActivityData(): Promise<ForumActivityData[]> { ... }
+  async getTopCategories(limit: number): Promise<TopCategory[]> { ... }
+}
+
+// Step 4: DatabaseStorage delegation uses same types
+async getUserGrowthData(): Promise<UserGrowthData[]> {
+  return this.userStorage.getUserGrowthData();
+}
+```
+
+### Why This Matters
+1. **Type Safety**: Specialized types provide better IDE autocomplete and type checking
+2. **Maintainability**: Changes to return types only need updating in one place (types.ts)
+3. **Documentation**: Named types are self-documenting (UserGrowthData vs anonymous object)
+4. **Refactoring**: Easier to find all usages of a type with "Find All References"
+5. **Consistency**: Prevents drift between interface and implementation
+
+### Checklist for Type Consistency
+- [ ] All return types use specialized types from types.ts
+- [ ] No inline type definitions in IStorage interface
+- [ ] Domain repository return types match IStorage exactly
+- [ ] DatabaseStorage delegation preserves types
+- [ ] MemStorage stubs use same types
+- [ ] Optional parameters reviewed (should they be required?)
+
+### Optional vs Required Parameters
+Phase 2 identified that `getTopCategories(limit?: number)` should be `getTopCategories(limit: number)`:
+- **Optional is wrong** when the parameter has no sensible default
+- **Required is correct** when omitting the parameter would return unbounded results
+- **Review all optional parameters** during extraction to ensure they're intentional
 
 ---
 

@@ -331,6 +331,114 @@ All files in a refactoring PR should include phase context:
 - [ ] TypeScript compilation passes
 - [ ] Existing tests still pass
 
+### 7. Type Consistency in Domain Extraction (Phase 2+)
+
+**CRITICAL**: When reviewing domain repository extractions, verify type consistency across all layers.
+
+#### Common Type Mismatch Pattern (CRITICAL ISSUE)
+```typescript
+// ❌ WRONG - IStorage interface uses inline types
+export interface IStorage {
+  getUserGrowthData(): Promise<Array<{ date: string; count: number }>>;
+  getForumActivityData(): Promise<Array<{ date: string; count: number }>>;
+  getTopCategories(limit?: number): Promise<Array<{ categoryName: string; topicCount: number }>>;
+}
+
+// Domain repository uses specialized types
+export class UserStorage extends BaseStorage {
+  async getUserGrowthData(): Promise<UserGrowthData[]> { ... }
+  async getForumActivityData(): Promise<ForumActivityData[]> { ... }
+  async getTopCategories(limit: number): Promise<TopCategory[]> { ... }
+}
+
+// ⚠️ TYPE MISMATCH DETECTED!
+// The inline types structurally match specialized types, so TypeScript
+// doesn't flag this as an error, but it creates maintenance issues:
+// - Changes require updating types in multiple places
+// - IDE autocomplete shows anonymous objects instead of named types
+// - "Find All References" doesn't work on inline types
+```
+
+#### Correct Type Consistency Pattern
+```typescript
+// Step 1: Define specialized types in storage/types.ts
+export interface UserGrowthData {
+  date: string;
+  count: number;
+}
+
+export interface ForumActivityData {
+  date: string;
+  count: number;
+}
+
+export interface TopCategory {
+  categoryName: string;
+  topicCount: number;
+}
+
+// Step 2: IStorage interface uses specialized types
+export interface IStorage {
+  getUserGrowthData(): Promise<UserGrowthData[]>;
+  getForumActivityData(): Promise<ForumActivityData[]>;
+  getTopCategories(limit: number): Promise<TopCategory[]>;  // Required parameter
+}
+
+// Step 3: Domain repository uses same types
+export class UserStorage extends BaseStorage {
+  async getUserGrowthData(): Promise<UserGrowthData[]> { ... }
+  async getForumActivityData(): Promise<ForumActivityData[]> { ... }
+  async getTopCategories(limit: number): Promise<TopCategory[]> { ... }
+}
+
+// Step 4: DatabaseStorage delegation preserves types
+async getUserGrowthData(): Promise<UserGrowthData[]> {
+  return this.userStorage.getUserGrowthData();
+}
+
+// Step 5: MemStorage stubs use same types
+async getUserGrowthData(): Promise<UserGrowthData[]> {
+  return [];
+}
+```
+
+#### Type Consistency Review Checklist (Phase 2+)
+When reviewing domain repository PRs, **ALWAYS verify**:
+- [ ] IStorage interface uses specialized types (no inline `Array<{ ... }>` definitions)
+- [ ] Domain repository return types match IStorage exactly
+- [ ] DatabaseStorage delegation preserves types (no type widening/narrowing)
+- [ ] MemStorage stubs updated with matching types
+- [ ] Optional parameters reviewed (should `limit?` be `limit` required?)
+- [ ] All specialized types defined in storage/types.ts with domain grouping
+
+#### Optional vs Required Parameter Review
+```typescript
+// ❌ WRONG - Optional when it should be required
+getTopCategories(limit?: number): Promise<TopCategory[]>
+// Problem: No sensible default, omitting returns unbounded results
+
+// ✅ CORRECT - Required parameter
+getTopCategories(limit: number): Promise<TopCategory[]>
+// Better: Forces caller to be explicit about limits
+
+// ✅ ALSO CORRECT - Optional with documented default
+getProductsByCategory(category: string, limit = 20): Promise<Product[]>
+// Acceptable: Has sensible default that prevents unbounded queries
+```
+
+#### Why Type Consistency Is Critical
+1. **Maintainability**: Changes to return types only need updating in one place
+2. **Type Safety**: Named types provide better IDE autocomplete and error messages
+3. **Documentation**: `UserGrowthData[]` is self-documenting vs `Array<{ date: string; count: number }>`
+4. **Refactoring**: "Find All References" works on named types, not inline types
+5. **Consistency**: Prevents drift between interface definition and implementation
+
+**Action**: During Phase 2+ reviews, run a search for inline type definitions in IStorage:
+```bash
+grep -E "Promise<Array<{" server/storage.ts
+```
+If any results found, flag as critical type consistency issue.
+
 ## N+1 Query and Batch Processing Patterns
 
 ### N+1 Query Detection
