@@ -102,7 +102,8 @@ export function registerAdminRoutes(app: Express): void {
       const product = await storage.getAdminProductById(productId);
 
       if (!product) {
-        return res.status(404).json({ error: 'Product not found' });
+        res.status(404).json({ error: 'Product not found' });
+        return;
       }
 
       res.json(product);
@@ -134,7 +135,8 @@ export function registerAdminRoutes(app: Express): void {
       const updatedProduct = await storage.updateAdminProduct(productId, updateData);
 
       if (!updatedProduct) {
-        return res.status(404).json({ error: 'Product not found' });
+        res.status(404).json({ error: 'Product not found' });
+        return;
       }
 
       res.json(updatedProduct);
@@ -154,7 +156,8 @@ export function registerAdminRoutes(app: Express): void {
       const deletedProduct = await storage.deleteAdminProduct(productId);
 
       if (!deletedProduct) {
-        return res.status(404).json({ error: 'Product not found' });
+        res.status(404).json({ error: 'Product not found' });
+        return;
       }
 
       res.json({ success: true, message: 'Product deleted successfully' });
@@ -198,7 +201,8 @@ export function registerAdminRoutes(app: Express): void {
       const updatedRetailer = await storage.updateAdminRetailer(retailerId, updateData);
 
       if (!updatedRetailer) {
-        return res.status(404).json({ error: 'Retailer not found' });
+        res.status(404).json({ error: 'Retailer not found' });
+        return;
       }
 
       res.json(updatedRetailer);
@@ -218,7 +222,8 @@ export function registerAdminRoutes(app: Express): void {
       const deletedRetailer = await storage.deleteAdminRetailer(retailerId);
 
       if (!deletedRetailer) {
-        return res.status(404).json({ error: 'Retailer not found' });
+        res.status(404).json({ error: 'Retailer not found' });
+        return;
       }
 
       res.json({ success: true, message: 'Retailer deleted successfully' });

@@ -37,7 +37,8 @@ export function registerProductRoutes(app: Express): void {
         const result = await storage.getProductByUrl(productUrl);
 
         if (!result) {
-          return res.json({ product: null });
+          res.json({ product: null });
+          return;
         }
 
         const { product } = result;
@@ -47,13 +48,14 @@ export function registerProductRoutes(app: Express): void {
         const prices = offers.map(o => parseFloat(o.price));
         const bestPrice = Math.min(...prices);
 
-        return res.json({
+        res.json({
           product: {
             ...product,
             offers,
             bestPrice
           }
         });
+        return;
       }
 
       // Otherwise, use normal search filters
@@ -108,7 +110,8 @@ export function registerProductRoutes(app: Express): void {
 
       const product = await storage.getProductById(id);
       if (!product) {
-        return res.status(404).json({ message: "Product not found" });
+        res.status(404).json({ message: "Product not found" });
+        return;
       }
 
       const discussionCount = await forumStorage.getProductDiscussionCount(id);
@@ -223,7 +226,8 @@ export function registerProductRoutes(app: Express): void {
       const history = await storage.getPriceHistory(id, days);
 
       if (!history || history.length < 2) {
-        return res.json(null);
+        res.json(null);
+        return;
       }
 
       // Calculate volatility using the calculator
@@ -248,7 +252,8 @@ export function registerProductRoutes(app: Express): void {
       const history = await storage.getPriceHistory(id, days || 365); // Default to 1 year
 
       if (!history || history.length < 10) {
-        return res.json(null);
+        res.json(null);
+        return;
       }
 
       // Detect seasonal patterns
@@ -273,28 +278,29 @@ export function registerProductRoutes(app: Express): void {
       const history = await storage.getPriceHistory(id, days);
 
       if (!history || history.length < 5) {
-        return res.json(null);
+        res.json(null);
+        return;
       }
 
       // Group data by retailer
       interface RetailerAnalysisData {
         retailerId: number;
-        retailerName: string | null;
-        priceHistory: Array<{ price: string; recordedAt: Date; availability: string | null }>;
+        retailerName: string;
+        priceHistory: Array<{ price: string; recordedAt: Date; availability: string }>;
       }
       const retailerDataMap = new Map<number, RetailerAnalysisData>();
       history.forEach(entry => {
         if (!retailerDataMap.has(entry.retailerId)) {
           retailerDataMap.set(entry.retailerId, {
             retailerId: entry.retailerId,
-            retailerName: entry.retailerName,
+            retailerName: entry.retailerName || 'Unknown',
             priceHistory: [],
           });
         }
         retailerDataMap.get(entry.retailerId)!.priceHistory.push({
           price: entry.price,
           recordedAt: entry.recordedAt,
-          availability: entry.availability,
+          availability: entry.availability || 'unknown',
         });
       });
 
@@ -354,11 +360,12 @@ export function registerProductRoutes(app: Express): void {
 
       if (history.length < 7) {
         // Not enough data for predictions
-        return res.json({
+        res.json({
           predictions: [],
           confidence: 'low',
           message: 'Not enough historical data for predictions'
         });
+        return;
       }
 
       // Simple linear regression prediction
@@ -407,7 +414,8 @@ export function registerProductRoutes(app: Express): void {
       const { productId, source, retailer } = req.body;
 
       if (!productId) {
-        return res.status(400).json({ error: "productId is required" });
+        res.status(400).json({ error: "productId is required" });
+        return;
       }
 
       // Log the view (in a production app, this would go to an analytics service)

@@ -49,7 +49,8 @@ export function registerForumRoutes(app: Express): void {
       const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const topic = await forumStorage.getTopicById(topicId);
       if (!topic) {
-        return res.status(404).json({ error: "Topic not found" });
+        res.status(404).json({ error: "Topic not found" });
+        return;
       }
       res.json(topic);
     } catch (error: unknown) {
@@ -82,7 +83,8 @@ export function registerForumRoutes(app: Express): void {
       const user = req.user;
 
       if (!title || title.trim() === '') {
-        return res.status(400).json({ error: "Title is required" });
+        res.status(400).json({ error: "Title is required" });
+        return;
       }
 
       // DATA INTEGRITY: Use storage layer which handles transaction atomically

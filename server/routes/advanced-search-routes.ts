@@ -69,15 +69,16 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 50 }) : 5;
       
       logger.info('Search suggestions request', { query, limit });
-      
+
       if (!query || query.length < 2) {
-        return res.json({ suggestions: [] });
+        res.json({ suggestions: [] });
+        return;
       }
 
       const suggestions = await advancedSearchService.getSearchSuggestions(query, limit);
-      
-      logger.info('Search suggestions response:', suggestions);
-      
+
+      logger.info('Search suggestions response', { suggestions });
+
       res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=150');
       res.json({ suggestions });
       
@@ -93,13 +94,14 @@ export function registerAdvancedSearchRoutes(app: Express): void {
   app.post("/api/search/analyze", async (req: Request, res: Response) => {
     try {
       const { query } = req.body;
-      
+
       if (!query) {
-        return res.status(400).json({ message: "Query is required" });
+        res.status(400).json({ message: "Query is required" });
+        return;
       }
 
       const analysis = await advancedSearchService.analyzeQueryIntent(query);
-      
+
       res.json(analysis);
       
     } catch (error: unknown) {
@@ -115,9 +117,10 @@ export function registerAdvancedSearchRoutes(app: Express): void {
     try {
       const intent = req.params.intent;
       const query = req.query.query as string;
-      
+
       if (!query) {
-        return res.status(400).json({ message: "Query is required" });
+        res.status(400).json({ message: "Query is required" });
+        return;
       }
 
       let optimizedFilters: SearchFilters = { query };
@@ -176,9 +179,10 @@ export function registerAdvancedSearchRoutes(app: Express): void {
   app.get("/api/search/smart", async (req: Request, res: Response) => {
     try {
       const query = req.query.query as string;
-      
+
       if (!query) {
-        return res.status(400).json({ message: "Query is required" });
+        res.status(400).json({ message: "Query is required" });
+        return;
       }
 
       // First analyze the intent

@@ -61,7 +61,8 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userProfile = await enhancedForumStorage.getUserWithProfile(userId);
       
       if (!userProfile) {
-        return res.status(404).json({ error: "User not found" });
+        res.status(404).json({ error: "User not found" });
+        return;
       }
 
       res.json(userProfile);
@@ -153,16 +154,18 @@ export function registerEnhancedForumRoutes(app: Express) {
       // Validate with both the shared schema and our enhanced schema for mentions
       const baseValidation = validateRequestBody(insertForumPostSchema, req.body);
       if (!baseValidation.success) {
-        return res.status(400).json({ error: baseValidation.errors });
+        res.status(400).json({ error: baseValidation.errors });
+        return;
       }
 
       // Validate mentions array specifically
       const enhancedValidation = createEnhancedPostSchema.safeParse(req.body);
       if (!enhancedValidation.success) {
-        return res.status(400).json({
+        res.status(400).json({
           error: enhancedValidation.error.issues.map((e: { message: string }) => e.message),
           details: enhancedValidation.error.issues,
         });
+        return;
       }
 
       const { mentions, content, rawContent, ...postData } = enhancedValidation.data;
@@ -239,7 +242,8 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const validation = validateRequestBody(insertPrivateMessageSchema, req.body);
       if (!validation.success) {
-        return res.status(400).json({ error: validation.errors });
+        res.status(400).json({ error: validation.errors });
+        return;
       }
 
       const message = await enhancedForumStorage.createPrivateMessage({
@@ -271,7 +275,8 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const query = req.query.q as string;
       if (!query) {
-        return res.status(400).json({ error: "Search query required" });
+        res.status(400).json({ error: "Search query required" });
+        return;
       }
 
       const tags = await enhancedForumStorage.searchTags(query);
@@ -287,7 +292,8 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       // Only admins can award badges
       if (req.user!.role !== 'admin') {
-        return res.status(403).json({ error: "Admin access required" });
+        res.status(403).json({ error: "Admin access required" });
+        return;
       }
 
       // SECURITY: Safe integer parsing with validation
@@ -310,7 +316,8 @@ export function registerEnhancedForumRoutes(app: Express) {
       const categoryId = parseIntOptional(req.query.categoryId as string, 'categoryId', { min: 1 });
 
       if (!query) {
-        return res.status(400).json({ error: "Search query required" });
+        res.status(400).json({ error: "Search query required" });
+        return;
       }
 
       const posts = await enhancedForumStorage.searchPosts(query, categoryId);
@@ -341,7 +348,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.put("/api/users/:id/trust-level", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user!.role !== 'admin') {
-        return res.status(403).json({ error: "Admin access required" });
+        res.status(403).json({ error: "Admin access required" });
+        return;
       }
 
       // SECURITY: Safe integer parsing with validation
@@ -362,7 +370,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.put("/api/users/:id/suspend", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (!['admin', 'moderator'].includes(req.user!.role ?? '')) {
-        return res.status(403).json({ error: "Moderator access required" });
+        res.status(403).json({ error: "Moderator access required" });
+        return;
       }
 
       // SECURITY: Safe integer parsing with validation
@@ -383,7 +392,8 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.post("/api/admin/initialize-badges", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user!.role !== 'admin') {
-        return res.status(403).json({ error: "Admin access required" });
+        res.status(403).json({ error: "Admin access required" });
+        return;
       }
 
       await enhancedForumStorage.initializeDefaultBadges();

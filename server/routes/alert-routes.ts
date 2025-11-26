@@ -52,13 +52,15 @@ export function registerAlertRoutes(app: Express): void {
 
       const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
       if (!updatedAlert) {
-        return res.status(404).json({ error: "Alert not found or unauthorized" });
+        res.status(404).json({ error: "Alert not found or unauthorized" });
+        return;
       }
 
       res.json(updatedAlert);
     } catch (error) {
       if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
+        res.status(400).json({ error: error.message });
+        return;
       }
       res.status(500).json({ error: "Failed to update price alert" });
     }
@@ -72,13 +74,15 @@ export function registerAlertRoutes(app: Express): void {
 
       const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
       if (!deleted) {
-        return res.status(404).json({ error: "Alert not found or unauthorized" });
+        res.status(404).json({ error: "Alert not found or unauthorized" });
+        return;
       }
 
       res.json({ success: true });
     } catch (error) {
       if (error instanceof Error && error.message.includes('must be')) {
-        return res.status(400).json({ error: error.message });
+        res.status(400).json({ error: error.message });
+        return;
       }
       res.status(500).json({ error: "Failed to delete price alert" });
     }
