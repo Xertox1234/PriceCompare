@@ -8,6 +8,7 @@ import { UserStorage } from "./storage/domains/user-storage";
 import { ProductStorage } from "./storage/domains/product-storage";
 import { PriceStorage } from "./storage/domains/price-storage";
 import { WatchListStorage } from "./storage/domains/watchlist-storage";
+import { ForumStorage } from "./storage/domains/forum-storage";
 
 export interface IStorage {
   // Retailers
@@ -1574,12 +1575,14 @@ export class DatabaseStorage implements IStorage {
   private productStorage: ProductStorage;
   private priceStorage: PriceStorage;
   private watchListStorage: WatchListStorage;
+  private forumStorage: ForumStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
     this.productStorage = new ProductStorage(db);
     this.priceStorage = new PriceStorage(db);
     this.watchListStorage = new WatchListStorage(db);
+    this.forumStorage = new ForumStorage(db);
   }
 
   async getRetailers(): Promise<Retailer[]> {
@@ -1930,100 +1933,11 @@ export class DatabaseStorage implements IStorage {
     categoryId?: number | null;
     productId?: number | null;
   }, content: string): Promise<ForumTopicResult> {
-    let topic: ForumTopic;
-
-    await db.transaction(async (tx) => {
-      // Generate slug from title
-      let slug = topicData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-      // Check for existing slug and append random suffix if needed
-      const existing = await tx.select().from(forumTopics).where(eq(forumTopics.slug, slug)).limit(1);
-      if (existing.length > 0) {
-        const crypto = await import('crypto');
-        slug = `${slug}-${crypto.randomBytes(4).toString('hex')}`;
-      }
-
-      const topicResult = await tx.insert(forumTopics).values({
-        title: topicData.title,
-        authorId: topicData.authorId,
-        categoryId: topicData.categoryId || null,
-        productId: topicData.productId || null,
-        slug,
-      }).returning();
-      topic = topicResult[0];
-
-      // Create the first post
-      await tx.insert(forumPosts).values({
-        topicId: topic.id,
-        authorId: topicData.authorId,
-        content: content || '',
-        rawContent: content || '',
-        isFirstPost: true,
-        postNumber: 1,
-      });
-
-      // Update topic post count and last post time
-      await tx.update(forumTopics)
-        .set({
-          postCount: sql`${forumTopics.postCount} + 1`,
-          lastPostAt: new Date(),
-        })
-        .where(eq(forumTopics.id, topic.id));
-    });
-
-    return { topic: topic! };
+    return this.forumStorage.createTopicWithFirstPost(topicData, content);
   }
 
   async createForumPost(topicId: number, authorId: number, content: string, rawContent: string): Promise<ForumPostResult> {
-    let post: ForumPost;
-
-    await retryWithBackoff(
-      async () => db.transaction(async (tx) => {
-        // Get the next post number within transaction to prevent race conditions
-        const existingPosts = await tx
-          .select()
-          .from(forumPosts)
-          .where(eq(forumPosts.topicId, topicId));
-        const postNumber = existingPosts.length + 1;
-
-        // Create post with calculated postNumber
-        const result = await tx.insert(forumPosts).values({
-          topicId,
-          authorId,
-          content,
-          rawContent,
-          postNumber,
-          isFirstPost: false,
-        }).returning();
-        post = result[0];
-
-        // Update topic stats
-        await tx.update(forumTopics)
-          .set({
-            postCount: sql`${forumTopics.postCount} + 1`,
-            lastPostAt: new Date(),
-          })
-          .where(eq(forumTopics.id, topicId));
-      }, {
-        isolationLevel: 'serializable',
-      }),
-      {
-        maxAttempts: 3,
-        initialDelayMs: 100,
-        isRetryable: isTransientDatabaseError,
-        context: { operation: 'createForumPost', topicId, authorId },
-        onRetry: (error, attempt, delayMs) => {
-          logger.warn('[Storage] Retrying post creation after serialization error', {
-            error: error instanceof Error ? error.message : String(error),
-            attempt,
-            delayMs,
-            topicId,
-          });
-        },
-      }
-    );
-
-    return { post: post! };
+    return this.forumStorage.createForumPost(topicId, authorId, content, rawContent);
   }
 
   // Admin Product/Retailer Management
@@ -2249,11 +2163,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getForumActivityData(): Promise<ForumActivityData[]> {
-    return this.userStorage.getForumActivityData();
+    return this.forumStorage.getForumActivityData();
   }
 
   async getTopCategories(limit: number): Promise<TopCategory[]> {
-    return this.userStorage.getTopCategories(limit);
+    return this.forumStorage.getTopCategories(limit);
   }
 
   async checkDatabaseHealth(): Promise<boolean> {
@@ -3413,25 +3327,7 @@ export class DatabaseStorage implements IStorage {
    * Get recent forum topic for a product
    */
   async getRecentTopicForProduct(productId: number, daysAgo: number): Promise<ForumTopic | null> {
-    if (!productId || productId <= 0) {
-      throw new Error('productId must be a positive number');
-    }
-    if (daysAgo <= 0) {
-      throw new Error('daysAgo must be a positive number');
-    }
-
-    const result = await db
-      .select()
-      .from(forumTopics)
-      .where(
-        and(
-          eq(forumTopics.productId, productId),
-          gte(forumTopics.createdAt, sql`NOW() - INTERVAL '${sql.raw(daysAgo.toString())} days'`)
-        )
-      )
-      .limit(1);
-
-    return result.length > 0 ? result[0] : null;
+    return this.forumStorage.getRecentTopicForProduct(productId, daysAgo);
   }
 
   /**
@@ -3439,94 +3335,7 @@ export class DatabaseStorage implements IStorage {
    * DATA INTEGRITY: Topic, post, and notifications must all succeed or rollback
    */
   async createPriceDropForumPostTransaction(data: PriceDropForumPostData): Promise<number | null> {
-    const { dealPost, userId } = data;
-
-    let postId: number | null = null;
-
-    // DATA INTEGRITY: Use transaction for topic+post+notification creation
-    // If any step fails, rollback all changes (prevents orphaned topics/posts)
-    await db.transaction(async (tx) => {
-      // Check if there's already a recent topic for this product
-      const recentTopic = await tx
-        .select()
-        .from(forumTopics)
-        .where(
-          and(
-            eq(forumTopics.productId, dealPost.productId),
-            gte(forumTopics.createdAt, sql`NOW() - INTERVAL '7 days'`)
-          )
-        )
-        .limit(1);
-
-      let topicId: number;
-
-      if (recentTopic.length > 0) {
-        topicId = recentTopic[0].id;
-      } else {
-        // Create new topic
-        const topicTitle = `🔥 ${dealPost.dropPercent.toFixed(0)}% Price Drop: ${dealPost.productName}`;
-        const slug = topicTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-        const topicResult = await tx.insert(forumTopics).values({
-          categoryId: 1, // FORUM.DEALS_CATEGORY_ID
-          title: topicTitle,
-          slug,
-          authorId: userId || 1, // System user
-          productId: dealPost.productId,
-          isPinned: dealPost.dropPercent >= 50, // Pin massive drops
-        }).returning();
-
-        topicId = topicResult[0].id;
-      }
-
-      // Create post in the topic - must succeed or rollback topic
-      const postContent = `
-## Major Price Drop Alert! 🎉
-
-**Product:** ${dealPost.productName}
-**Retailer:** ${dealPost.retailer}
-
-**Price Change:**
-- Old Price: $${dealPost.oldPrice.toFixed(2)}
-- New Price: $${dealPost.newPrice.toFixed(2)}
-- **You Save: $${dealPost.dropAmount.toFixed(2)} (${dealPost.dropPercent.toFixed(1)}%)**
-
-${dealPost.dropPercent >= 50 ? '🔥 **MASSIVE DEAL!** This is an exceptional price drop!' : ''}
-${dealPost.dropPercent >= 30 && dealPost.dropPercent < 50 ? '💰 **Great Deal!** Significant savings on this product.' : ''}
-
-_This deal was automatically detected by our price tracking system._
-      `.trim();
-
-      const postResult = await tx.insert(forumPosts).values({
-        topicId,
-        authorId: userId || 1, // System user
-        content: postContent,
-        rawContent: postContent,
-        postNumber: 1,
-      }).returning();
-
-      postId = postResult[0].id;
-
-      // Notify all users watching this product - must succeed or rollback all
-      const watchers = await tx
-        .select({ userId: productWatches.userId })
-        .from(productWatches)
-        .where(eq(productWatches.productId, dealPost.productId));
-
-      if (watchers.length > 0) {
-        const notificationList = watchers.map(w => ({
-          userId: w.userId,
-          type: 'price_drop',
-          title: `${dealPost.dropPercent.toFixed(0)}% Price Drop on ${dealPost.productName}!`,
-          content: `The price dropped from $${dealPost.oldPrice.toFixed(2)} to $${dealPost.newPrice.toFixed(2)}`,
-          relatedPostId: postId!,
-        }));
-
-        await tx.insert(notifications).values(notificationList);
-      }
-    });
-
-    return postId;
+    return this.forumStorage.createPriceDropForumPostTransaction(data);
   }
 
   /**
@@ -3766,24 +3575,7 @@ _This deal was automatically detected by our price tracking system._
   }
 
   async getTrendingProductCategories(limit: number): Promise<ProductCategoryCount[]> {
-    if (limit <= 0) {
-      throw new Error('limit must be greater than 0');
-    }
-
-    const categoryCounts = await db.select({
-      category: products.category,
-      count: count(),
-    })
-      .from(products)
-      .where(isNotNull(products.category))
-      .groupBy(products.category)
-      .orderBy(desc(count()))
-      .limit(limit);
-
-    return categoryCounts.map(row => ({
-      category: row.category as string,
-      count: Number(row.count),
-    }));
+    return this.forumStorage.getTrendingProductCategories(limit);
   }
 
   async getProductSearchSuggestions(searchTerm: string, limit: number): Promise<ProductSuggestion[]> {
