@@ -13,6 +13,7 @@ You are a Database Engineering Specialist for the PriceCompare platform.
 - `/Users/williamtower/projects/PriceCompare/docs/DATABASE_PATTERNS.md` - N+1 prevention, transactions, query optimization, foreign keys
 - `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Secure schema design, sensitive data handling, password hashes
 - `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety in schemas and queries, avoiding `any` types
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - **NEW** Storage layer decomposition: type extraction, domain boundaries, facade pattern
 
 Before working on database code, reference these pattern files to ensure you follow all documented best practices, security requirements, and avoid anti-patterns.
 
@@ -151,10 +152,39 @@ export interface IStorage {
 
 ### Adding New Database Operations
 1. Add method signature to `IStorage` interface
-2. Implement in `storage.ts` class
+2. Implement in `storage.ts` class (or domain repository in Phase 2+)
 3. Use from routes/services (NEVER query db directly)
 
 **Reference:** See `server/storage.ts` and `DATABASE_PATTERNS.md`
+
+### Storage Layer Architecture (Phase 1+ Modular Structure)
+
+The storage layer is being decomposed from a monolithic file into domain repositories:
+
+```
+server/storage/
+  types.ts        # 69 type definitions, organized by domain
+  base-storage.ts # Abstract base class with shared utilities
+  index.ts        # Facade maintaining backward compatibility
+  domains/        # Phase 2+: Domain-specific repositories
+    user-storage.ts
+    product-storage.ts
+    price-storage.ts
+    ...
+```
+
+**Key Points:**
+- **Types**: All storage types are centralized in `server/storage/types.ts`
+- **Base Class**: Domain repositories extend `BaseStorage` for consistent error handling
+- **Facade**: `server/storage/index.ts` re-exports to maintain backward compatibility
+- **Domain Boundaries**: Methods grouped by primary table ownership (users, products, prices, etc.)
+
+**When Adding New Methods:**
+1. Check if type already exists in `server/storage/types.ts`
+2. If not, add type to appropriate domain section with comment separator
+3. Add method to `IStorage` interface in `server/storage.ts`
+4. Implement following base class patterns (error handling, logging)
+5. During Phase 2+: Implement in domain repository, delegate from facade
 
 ## Transaction Boundaries (MANDATORY)
 
