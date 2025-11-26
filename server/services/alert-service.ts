@@ -104,7 +104,7 @@ class AlertService {
         if (rule.condition(metrics)) {
           await this.triggerAlert(rule, metrics);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error(`Alert rule check failed: ${rule.name}`, {
           error: error instanceof Error ? error.message : String(error),
           ruleId: rule.id
@@ -219,7 +219,7 @@ class AlertService {
         alertId: alert.id,
         level: alert.level
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to send Slack alert', {
         error: error instanceof Error ? error.message : String(error),
         alertId: alert.id

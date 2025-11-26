@@ -191,7 +191,7 @@ async function checkAndAwardBadges(
       try {
         // Award badge with notification (transactional in storage layer)
         await storage.awardBadgeWithNotification(userId, badgeRecord.id, badgeRecord.name);
-      } catch (error) {
+      } catch (error: unknown) {
         // Log error but continue with remaining badges
         log.error('Failed to award badge', {
           userId,
@@ -265,8 +265,10 @@ export async function autoPostPriceDropToForum(
     });
 
     return postId;
-  } catch (error) {
-    log.error('Error auto-posting price drop to forum:', { error });
+  } catch (error: unknown) {
+    log.error('Error auto-posting price drop to forum:', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return null;
   }
 }

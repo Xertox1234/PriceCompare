@@ -28,6 +28,26 @@ export interface SmartThresholdSuggestion {
   basedOn: 'historical_low' | 'seasonal_pattern' | 'trending_down' | 'below_average';
 }
 
+/**
+ * Price history entry from database queries.
+ * Used for seasonal pattern analysis and price predictions.
+ */
+export interface PriceHistoryEntry {
+  price: string;
+  recordedAt: Date | string | null;
+  createdAt?: Date | string | null;
+}
+
+/**
+ * Seasonal price pattern for a specific month.
+ * Contains aggregated statistics for price trends.
+ */
+export interface SeasonalPattern {
+  month: string;
+  average: number;
+  count: number;
+}
+
 export interface PredictiveAlert {
   productId: number;
   productName: string;
@@ -165,7 +185,7 @@ export async function generateSmartThresholdSuggestions(
 /**
  * Analyze seasonal patterns from price history
  */
-function analyzeSeasonalPatterns(history: Array<Record<string, unknown>>): Array<{ month: string; average: number; count: number }> {
+function analyzeSeasonalPatterns(history: Array<Record<string, unknown>>): SeasonalPattern[] {
   const monthlyData: Record<string, number[]> = {};
 
   history.forEach(entry => {

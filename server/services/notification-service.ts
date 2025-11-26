@@ -264,9 +264,9 @@ export async function createNotification(
         metadata: null, // No metadata stored in DB currently
       }, stats.unread);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Don't fail the operation if WebSocket emit fails
-    console.error('Failed to emit new notification event:', error);
+    console.error('Failed to emit new notification event:', error instanceof Error ? error.message : String(error));
   }
 
   return created;
