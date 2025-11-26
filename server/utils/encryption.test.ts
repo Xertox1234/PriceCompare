@@ -116,8 +116,8 @@ describe('Encryption Utilities (GDPR Compliance)', () => {
     });
 
     it('should throw error for invalid auth tag', () => {
-      const [iv, authTag, ciphertext] = 'a'.repeat(32) + ':' + 'b'.repeat(32) + ':' + 'c'.repeat(32);
-      expect(() => decrypt(`${iv}:${authTag}:${ciphertext}`)).toThrow();
+      const invalidEncrypted = 'a'.repeat(32) + ':' + 'b'.repeat(32) + ':' + 'c'.repeat(32);
+      expect(() => decrypt(invalidEncrypted)).toThrow();
     });
   });
 

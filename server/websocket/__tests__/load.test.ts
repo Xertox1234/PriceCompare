@@ -80,7 +80,7 @@ describe('WebSocket Load Tests', () => {
 
       try {
         // Create connections
-        const connectionPromises = [];
+        const connectionPromises: Promise<unknown>[] = [];
         for (let i = 0; i < connectionCount; i++) {
           const userId = 1000 + i;
           const client = createAuthenticatedSocket(userId, port);

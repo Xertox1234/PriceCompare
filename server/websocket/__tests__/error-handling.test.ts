@@ -187,7 +187,8 @@ describe('WebSocket Error Handling Tests', () => {
       );
 
       // Should not include internal details
-      const errorCall = mockSocket.emit.mock.calls[0][1];
+      const emitMock = mockSocket.emit as ReturnType<typeof vi.fn>;
+      const errorCall = emitMock.mock.calls[0][1];
       expect(errorCall.details).toBeUndefined();
       expect(errorCall.stack).toBeUndefined();
 

@@ -44,16 +44,18 @@ vi.mock('../middleware/security', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../middleware/security')>();
   return {
     ...actual,
-    csrfProtection: (req: Request, res: Response, next: NextFunction) => {
+    csrfProtection: (req: Request, res: Response, next: NextFunction): void => {
       (req as Request & { csrfToken: () => string }).csrfToken = () => 'test-csrf-token';
 
       // Validate CSRF token if present in headers
       const token = req.headers['x-csrf-token'];
       if (req.method !== 'GET' && req.method !== 'HEAD' && !token) {
-        return res.status(403).json({ error: 'CSRF token missing' });
+        res.status(403).json({ error: 'CSRF token missing' });
+        return;
       }
       if (token && token !== 'test-csrf-token') {
-        return res.status(403).json({ error: 'Invalid CSRF token' });
+        res.status(403).json({ error: 'Invalid CSRF token' });
+        return;
       }
 
       next();
@@ -66,7 +68,7 @@ describe('Watchlist Routes - Integration Tests', () => {
   let testUserId: number;
   let testProductId: number;
   let testRetailerId: number;
-  let authCookie: string;
+  let authCookie: string[];
   let csrfToken: string;
 
   beforeEach(async () => {
@@ -117,7 +119,8 @@ describe('Watchlist Routes - Integration Tests', () => {
       });
 
     testUserId = registerRes.body.user.id;
-    authCookie = registerRes.headers['set-cookie'];
+    const setCookieHeader = registerRes.headers['set-cookie'];
+    authCookie = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
 
     // Create test retailer
     const [retailer] = await db

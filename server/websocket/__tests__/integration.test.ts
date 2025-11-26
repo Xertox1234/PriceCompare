@@ -399,8 +399,6 @@ describe('WebSocket Integration Tests', () => {
               title: 'Price dropped!',
               content: 'iPhone 15 is now $899',
               priority: 'high',
-              read: false,
-              timestamp: new Date().toISOString(),
             },
             5
           );
@@ -476,7 +474,6 @@ describe('WebSocket Integration Tests', () => {
             percentageChange: -10.0,
             retailerName: 'Amazon',
             retailerUrl: 'https://amazon.com/iphone',
-            timestamp: new Date().toISOString(),
           });
         }
 
@@ -524,7 +521,6 @@ describe('WebSocket Integration Tests', () => {
             percentageChange: -12.5,
             retailerName: 'Best Buy',
             retailerUrl: 'https://bestbuy.com/samsung',
-            timestamp: new Date().toISOString(),
           });
         }
 
