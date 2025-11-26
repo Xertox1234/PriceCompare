@@ -191,7 +191,7 @@ async function checkAndAwardBadges(
       try {
         // Award badge with notification (transactional in storage layer)
         await storage.awardBadgeWithNotification(userId, badgeRecord.id, badgeRecord.name);
-      } catch (error) {
+      } catch (error: unknown) {
         // Log error but continue with remaining badges
         log.error('Failed to award badge', {
           userId,
@@ -265,8 +265,10 @@ export async function autoPostPriceDropToForum(
     });
 
     return postId;
-  } catch (error) {
-    log.error('Error auto-posting price drop to forum:', { error });
+  } catch (error: unknown) {
+    log.error('Error auto-posting price drop to forum:', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return null;
   }
 }
@@ -412,7 +414,7 @@ export async function getUserDefaultWatchList(userId: number): Promise<WatchList
 /**
  * Export user's watch lists and products as JSON
  */
-export async function exportWatchLists(userId: number): Promise<Record<string, unknown>> {
+export async function exportWatchLists(userId: number): Promise<import('../storage').WatchListExportData> {
   return await storage.exportUserWatchListsData(userId);
 }
 
@@ -421,9 +423,7 @@ export async function exportWatchLists(userId: number): Promise<Record<string, u
  */
 export async function importWatchLists(
   userId: number,
-  importData: Record<string, unknown>
+  importData: import('../storage').WatchListImportData
 ): Promise<{ created: number; skipped: number }> {
-  // Storage layer expects WatchListImportData structure
-  // Cast is safe as storage layer validates structure
-  return await storage.importWatchListsData(userId, importData as import('../storage').WatchListImportData);
+  return await storage.importWatchListsData(userId, importData);
 }

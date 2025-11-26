@@ -259,14 +259,14 @@ export async function createNotification(
         id: created.id,
         type: created.type,
         title: created.title,
-        content: created.content,
-        priority: created.priority,
-        metadata: created.metadata,
+        content: created.content ?? '',
+        priority: 'normal', // Default priority since not stored in DB
+        metadata: null, // No metadata stored in DB currently
       }, stats.unread);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Don't fail the operation if WebSocket emit fails
-    console.error('Failed to emit new notification event:', error);
+    console.error('Failed to emit new notification event:', error instanceof Error ? error.message : String(error));
   }
 
   return created;
@@ -370,8 +370,6 @@ export async function updateUserPreferences(
           emailEnabled: false,
           priceDropEnabled: true,
           priceAlertEnabled: true,
-          forumMentionEnabled: true,
-          badgeEarnedEnabled: true,
           quietHoursStart: null,
           quietHoursEnd: null,
           maxDailyNotifications: 50,

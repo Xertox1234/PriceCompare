@@ -38,6 +38,20 @@ const tsvector = customType<{ data: string; driverData: string }>({
 // Cache the encryption module to avoid repeated requires
 let encryptionModule: { encrypt: (value: string) => string; decrypt: (value: string) => string } | null = null;
 
+/**
+ * Lazy-load the encryption module with fallback for test environment.
+ *
+ * Returns null initially, then caches the loaded module on first access.
+ * This pattern avoids circular dependencies and ensures encryption is
+ * only loaded when actually needed (not during schema definition).
+ *
+ * @returns Encryption module with encrypt/decrypt functions, or null if not yet loaded
+ * @throws Error if module fails to load in production environment
+ *
+ * IMPORTANT: Always null-check the return value before accessing properties
+ * to satisfy TypeScript's strict null checking, even though the module is
+ * guaranteed to be loaded after the first call.
+ */
 function getEncryptionModule() {
   if (!encryptionModule) {
     // In test environment, use no-op encryption for simplicity
@@ -74,8 +88,14 @@ const encryptedText = customType<{ data: string; driverData: string }>({
       throw new Error('encryptedText type can only be used on the server side');
     }
 
-    const { encrypt } = getEncryptionModule();
-    return encrypt(value);
+    const module = getEncryptionModule();
+    // TypeScript null check: Required even though getEncryptionModule() initializes
+    // the module on first call. The null check satisfies strict type checking since
+    // the return type is `{ encrypt, decrypt } | null`.
+    if (!module) {
+      throw new Error('Encryption module not initialized');
+    }
+    return module.encrypt(value);
   },
   fromDriver(value: string): string {
     // Lazy-load decryption functions
@@ -83,8 +103,14 @@ const encryptedText = customType<{ data: string; driverData: string }>({
       throw new Error('encryptedText type can only be used on the server side');
     }
 
-    const { decrypt } = getEncryptionModule();
-    return decrypt(value);
+    const module = getEncryptionModule();
+    // TypeScript null check: Required even though getEncryptionModule() initializes
+    // the module on first call. The null check satisfies strict type checking since
+    // the return type is `{ encrypt, decrypt } | null`.
+    if (!module) {
+      throw new Error('Encryption module not initialized');
+    }
+    return module.decrypt(value);
   },
 });
 

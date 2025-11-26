@@ -54,12 +54,10 @@ export const productIdSchema = z.number().int().positive({
 // Date range validation
 export const dateRangeSchema = z.object({
   startDate: z.date({
-    required_error: 'Start date is required',
-    invalid_type_error: 'Start date must be a valid Date object',
+    message: 'Start date must be a valid Date object',
   }),
   endDate: z.date({
-    required_error: 'End date is required',
-    invalid_type_error: 'End date must be a valid Date object',
+    message: 'End date must be a valid Date object',
   }),
 }).refine(
   (data) => data.endDate >= data.startDate,
