@@ -6,6 +6,7 @@ import { logger } from "./utils/logger";
 import { USER_CONSTANTS, PRODUCT_CONSTANTS, JOB_LOCK_CONSTANTS, ALERT_CONSTANTS } from "./utils/constants";
 import { UserStorage } from "./storage/domains/user-storage";
 import { ProductStorage } from "./storage/domains/product-storage";
+import { PriceStorage } from "./storage/domains/price-storage";
 
 export interface IStorage {
   // Retailers
@@ -1570,10 +1571,12 @@ export class MemStorage implements IStorage {
 export class DatabaseStorage implements IStorage {
   private userStorage: UserStorage;
   private productStorage: ProductStorage;
+  private priceStorage: PriceStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
     this.productStorage = new ProductStorage(db);
+    this.priceStorage = new PriceStorage(db);
   }
 
   async getRetailers(): Promise<Retailer[]> {
@@ -1807,218 +1810,22 @@ export class DatabaseStorage implements IStorage {
    * Automatically uses aggregated data for longer time ranges
    */
   async getPriceHistory(productId: number, days?: number): Promise<PriceHistoryWithDetails[]> {
-    // Use optimized query that selects appropriate data source based on date range
-    const { getPriceHistoryOptimized } = await import('./services/price-history-service');
-    const optimizedData = await getPriceHistoryOptimized(productId, days || 30);
-
-    // Convert normalized format to legacy format for backward compatibility
-    return optimizedData.map(point => ({
-      id: 0, // Not available in aggregated data
-      productOfferId: 0, // Not available in aggregated data
-      productId,
-      retailerId: point.retailerId,
-      price: point.price.toFixed(2),
-      originalPrice: null,
-      availability: point.availability || null,
-      rating: null,
-      reviewCount: null,
-      source: point.source,
-      confidence: '1.00',
-      metadata: null,
-      recordedAt: point.date,
-      aggregatedAt: null,
-      createdAt: point.date,
-      retailerName: point.retailerName || '',
-      retailerLogo: null,
-    }));
+    return this.priceStorage.getPriceHistory(productId, days);
   }
 
   /**
    * Get retailer-specific price history with smart data source selection
    */
   async getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]> {
-    // Use optimized query with retailer filter
-    const { getPriceHistoryOptimized } = await import('./services/price-history-service');
-    const optimizedData = await getPriceHistoryOptimized(productId, days || 30, retailerId);
-
-    // Convert normalized format to legacy format
-    return optimizedData.map(point => ({
-      id: 0,
-      productOfferId: 0,
-      productId,
-      retailerId: point.retailerId,
-      price: point.price.toFixed(2),
-      originalPrice: null,
-      availability: point.availability || null,
-      rating: null,
-      reviewCount: null,
-      source: point.source,
-      confidence: '1.00',
-      metadata: null,
-      recordedAt: point.date,
-      aggregatedAt: null,
-      createdAt: point.date,
-    }));
+    return this.priceStorage.getRetailerPriceHistory(productId, retailerId, days);
   }
 
   async getPriceTrend(productId: number): Promise<PriceTrendAnalysis> {
-    // Get price history for the last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    // Select only required columns for price calculations (performance optimization)
-    const history = await db
-      .select({
-        price: priceHistory.price,
-        recordedAt: priceHistory.recordedAt,
-      })
-      .from(priceHistory)
-      .where(and(
-        eq(priceHistory.productId, productId),
-        gte(priceHistory.recordedAt, thirtyDaysAgo)
-      ))
-      .orderBy(asc(priceHistory.recordedAt));
-
-    if (history.length === 0) {
-      // No history, use current price from offers
-      const offers = await this.getProductOffers(productId);
-      const currentPrice = offers.length > 0
-        ? Math.min(...offers.map(o => parseFloat(o.price)))
-        : 0;
-
-      return {
-        productId,
-        currentPrice,
-        averagePrice: currentPrice,
-        lowestPrice: currentPrice,
-        highestPrice: currentPrice,
-        trend: 'stable',
-        changePercentage: 0,
-        daysAnalyzed: 0,
-      };
-    }
-
-    const prices = history.map(h => parseFloat(h.price));
-    const currentPrice = prices[prices.length - 1];
-    const oldestPrice = prices[0];
-    const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
-    const lowestPrice = Math.min(...prices);
-    const highestPrice = Math.max(...prices);
-
-    // Calculate trend
-    const priceChange = currentPrice - oldestPrice;
-    const changePercentage = oldestPrice > 0
-      ? ((priceChange / oldestPrice) * 100)
-      : 0;
-
-    let trend: 'rising' | 'falling' | 'stable' = 'stable';
-    if (Math.abs(changePercentage) > 5) {
-      trend = changePercentage > 0 ? 'rising' : 'falling';
-    }
-
-    return {
-      productId,
-      currentPrice,
-      averagePrice,
-      lowestPrice,
-      highestPrice,
-      trend,
-      changePercentage,
-      daysAnalyzed: history.length,
-    };
+    return this.priceStorage.getPriceTrend(productId);
   }
 
   async getBestTimeToBuy(productId: number): Promise<BestTimeAnalysis> {
-    // Get price history for the last 90 days
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    // Select only required columns for price calculations (performance optimization)
-    const history = await db
-      .select({
-        price: priceHistory.price,
-        recordedAt: priceHistory.recordedAt,
-      })
-      .from(priceHistory)
-      .where(and(
-        eq(priceHistory.productId, productId),
-        gte(priceHistory.recordedAt, ninetyDaysAgo)
-      ))
-      .orderBy(asc(priceHistory.recordedAt));
-
-    // Get current price
-    const offers = await this.getProductOffers(productId);
-    const currentPrice = offers.length > 0
-      ? Math.min(...offers.map(o => parseFloat(o.price)))
-      : 0;
-
-    if (history.length === 0) {
-      return {
-        productId,
-        currentPrice,
-        historicalAverage: currentPrice,
-        lowestPriceLast90Days: currentPrice,
-        daysSinceLowest: 0,
-        recommendation: 'buy_now',
-        confidenceScore: 0.5,
-        priceChangeVelocity: 0,
-      };
-    }
-
-    const prices = history.map(h => parseFloat(h.price));
-    const historicalAverage = prices.reduce((sum, p) => sum + p, 0) / prices.length;
-    const lowestPriceLast90Days = Math.min(...prices);
-
-    // Find days since lowest price
-    const lowestPriceIndex = prices.lastIndexOf(lowestPriceLast90Days);
-    const lowestPriceDate = history[lowestPriceIndex].recordedAt;
-    const daysSinceLowest = Math.floor(
-      (Date.now() - new Date(lowestPriceDate).getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    // Calculate price change velocity (change per day over last 7 days)
-    const sevenDaysOfPrices = prices.slice(-7);
-    const priceChangeVelocity = sevenDaysOfPrices.length >= 2
-      ? (sevenDaysOfPrices[sevenDaysOfPrices.length - 1] - sevenDaysOfPrices[0]) / sevenDaysOfPrices.length
-      : 0;
-
-    // Determine recommendation
-    let recommendation: 'buy_now' | 'wait' | 'good_deal' = 'buy_now';
-    let confidenceScore = 0.5;
-
-    const percentageBelowAverage = ((historicalAverage - currentPrice) / historicalAverage) * 100;
-
-    if (currentPrice <= lowestPriceLast90Days * 1.05) {
-      // Within 5% of historical low
-      recommendation = 'good_deal';
-      confidenceScore = 0.9;
-    } else if (percentageBelowAverage > 10) {
-      // More than 10% below average
-      recommendation = 'good_deal';
-      confidenceScore = 0.8;
-    } else if (priceChangeVelocity < 0 && percentageBelowAverage > 0) {
-      // Price is falling and below average
-      recommendation = 'wait';
-      confidenceScore = 0.7;
-    } else if (priceChangeVelocity > 0 && percentageBelowAverage < -5) {
-      // Price is rising and above average
-      recommendation = 'wait';
-      confidenceScore = 0.8;
-    } else {
-      recommendation = 'buy_now';
-      confidenceScore = 0.6;
-    }
-
-    return {
-      productId,
-      currentPrice,
-      historicalAverage,
-      lowestPriceLast90Days,
-      daysSinceLowest,
-      recommendation,
-      confidenceScore,
-      priceChangeVelocity,
-    };
+    return this.priceStorage.getBestTimeToBuy(productId);
   }
 
   // Watch Lists Implementation
@@ -3134,91 +2941,14 @@ export class DatabaseStorage implements IStorage {
     productId: number,
     options?: { year?: number; week?: number; retailerId?: number; limit?: number }
   ): Promise<WeeklyAggregate[]> {
-    const { year, week, retailerId, limit = 12 } = options || {};
-
-    const conditions = [eq(priceAggregatesWeekly.productId, productId)];
-
-    if (year !== undefined) {
-      conditions.push(eq(priceAggregatesWeekly.year, year));
-    }
-
-    if (week !== undefined) {
-      conditions.push(eq(priceAggregatesWeekly.week, week));
-    }
-
-    if (retailerId !== undefined) {
-      conditions.push(eq(priceAggregatesWeekly.retailerId, retailerId));
-    }
-
-    const result = await db
-      .select()
-      .from(priceAggregatesWeekly)
-      .where(and(...conditions))
-      .orderBy(desc(priceAggregatesWeekly.year), desc(priceAggregatesWeekly.week))
-      .limit(limit);
-
-    return result.map(row => ({
-      id: row.id,
-      productId: row.productId,
-      retailerId: row.retailerId,
-      year: row.year,
-      week: row.week,
-      minPrice: row.minPrice,
-      maxPrice: row.maxPrice,
-      avgPrice: row.avgPrice,
-      medianPrice: row.medianPrice,
-      volatilityScore: row.volatilityScore,
-      recordCount: row.recordCount,
-      weekOverWeekChange: row.weekOverWeekChange,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt
-    }));
+    return this.priceStorage.getWeeklyAggregates(productId, options);
   }
 
   async getMonthlyAggregates(
     productId: number,
     options?: { year?: number; month?: number; retailerId?: number; limit?: number }
   ): Promise<MonthlyAggregate[]> {
-    const { year, month, retailerId, limit = 12 } = options || {};
-
-    const conditions = [eq(priceAggregatesMonthly.productId, productId)];
-
-    if (year !== undefined) {
-      conditions.push(eq(priceAggregatesMonthly.year, year));
-    }
-
-    if (month !== undefined) {
-      conditions.push(eq(priceAggregatesMonthly.month, month));
-    }
-
-    if (retailerId !== undefined) {
-      conditions.push(eq(priceAggregatesMonthly.retailerId, retailerId));
-    }
-
-    const result = await db
-      .select()
-      .from(priceAggregatesMonthly)
-      .where(and(...conditions))
-      .orderBy(desc(priceAggregatesMonthly.year), desc(priceAggregatesMonthly.month))
-      .limit(limit);
-
-    return result.map(row => ({
-      id: row.id,
-      productId: row.productId,
-      retailerId: row.retailerId,
-      year: row.year,
-      month: row.month,
-      minPrice: row.minPrice,
-      maxPrice: row.maxPrice,
-      avgPrice: row.avgPrice,
-      medianPrice: row.medianPrice,
-      volatilityScore: row.volatilityScore,
-      recordCount: row.recordCount,
-      monthOverMonthChange: row.monthOverMonthChange,
-      yearOverYearChange: row.yearOverYearChange,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt
-    }));
+    return this.priceStorage.getMonthlyAggregates(productId, options);
   }
 
   async getAnalyticsOverview(): Promise<AnalyticsOverview> {
@@ -3780,155 +3510,39 @@ export class DatabaseStorage implements IStorage {
 
   // Price Aggregation Data Access
   async getPriceDataForAggregation(startDate: Date, endDate: Date, productId?: number): Promise<PriceAggregationData[]> {
-    const conditions = [
-      gte(priceHistory.recordedAt, startDate),
-      lte(priceHistory.recordedAt, endDate)
-    ];
-
-    if (productId !== undefined) {
-      conditions.push(eq(priceHistory.productId, productId));
-    }
-
-    const result = await db
-      .select({
-        productId: priceHistory.productId,
-        retailerId: priceHistory.retailerId,
-        prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,
-        recordCount: sql<number>`count(*)::int`,
-      })
-      .from(priceHistory)
-      .where(and(...conditions))
-      .groupBy(priceHistory.productId, priceHistory.retailerId);
-
-    return result;
+    return this.priceStorage.getPriceDataForAggregation(startDate, endDate, productId);
   }
 
   async getWeeklyAggregatesData(year: number, week: number): Promise<WeeklyAggregateRecord[]> {
-    const result = await db
-      .select()
-      .from(priceAggregatesWeekly)
-      .where(and(
-        eq(priceAggregatesWeekly.year, year),
-        eq(priceAggregatesWeekly.week, week)
-      ));
-    return result;
+    return this.priceStorage.getWeeklyAggregatesData(year, week);
   }
 
   async getDailyAggregatesData(date: string): Promise<DailyAggregateRecord[]> {
-    const result = await db
-      .select()
-      .from(priceAggregatesDaily)
-      .where(eq(priceAggregatesDaily.date, date));
-    return result;
+    return this.priceStorage.getDailyAggregatesData(date);
   }
 
   async getMonthlyAggregatesData(year: number, month: number): Promise<MonthlyAggregateRecord[]> {
-    const result = await db
-      .select()
-      .from(priceAggregatesMonthly)
-      .where(and(
-        eq(priceAggregatesMonthly.year, year),
-        eq(priceAggregatesMonthly.month, month)
-      ));
-    return result;
+    return this.priceStorage.getMonthlyAggregatesData(year, month);
   }
 
   async upsertDailyAggregates(values: DailyAggregateInsert[]): Promise<void> {
-    if (values.length === 0) return;
-
-    await db
-      .insert(priceAggregatesDaily)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [
-          priceAggregatesDaily.productId,
-          priceAggregatesDaily.retailerId,
-          priceAggregatesDaily.date,
-        ],
-        set: {
-          minPrice: sql`excluded.min_price`,
-          maxPrice: sql`excluded.max_price`,
-          avgPrice: sql`excluded.avg_price`,
-          medianPrice: sql`excluded.median_price`,
-          volatilityScore: sql`excluded.volatility_score`,
-          recordCount: sql`excluded.record_count`,
-          dayOverDayChange: sql`excluded.day_over_day_change`,
-          updatedAt: sql`excluded.updated_at`,
-        },
-      });
+    return this.priceStorage.upsertDailyAggregates(values);
   }
 
   async upsertWeeklyAggregates(values: WeeklyAggregateInsert[]): Promise<void> {
-    if (values.length === 0) return;
-
-    await db
-      .insert(priceAggregatesWeekly)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [
-          priceAggregatesWeekly.productId,
-          priceAggregatesWeekly.retailerId,
-          priceAggregatesWeekly.year,
-          priceAggregatesWeekly.week,
-        ],
-        set: {
-          minPrice: sql`excluded.min_price`,
-          maxPrice: sql`excluded.max_price`,
-          avgPrice: sql`excluded.avg_price`,
-          medianPrice: sql`excluded.median_price`,
-          volatilityScore: sql`excluded.volatility_score`,
-          recordCount: sql`excluded.record_count`,
-          weekOverWeekChange: sql`excluded.week_over_week_change`,
-          updatedAt: sql`excluded.updated_at`,
-        },
-      });
+    return this.priceStorage.upsertWeeklyAggregates(values);
   }
 
   async upsertMonthlyAggregates(values: MonthlyAggregateInsert[]): Promise<void> {
-    if (values.length === 0) return;
-
-    await db
-      .insert(priceAggregatesMonthly)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [
-          priceAggregatesMonthly.productId,
-          priceAggregatesMonthly.retailerId,
-          priceAggregatesMonthly.year,
-          priceAggregatesMonthly.month,
-        ],
-        set: {
-          minPrice: sql`excluded.min_price`,
-          maxPrice: sql`excluded.max_price`,
-          avgPrice: sql`excluded.avg_price`,
-          medianPrice: sql`excluded.median_price`,
-          volatilityScore: sql`excluded.volatility_score`,
-          recordCount: sql`excluded.record_count`,
-          monthOverMonthChange: sql`excluded.month_over_month_change`,
-          yearOverYearChange: sql`excluded.year_over_year_change`,
-          updatedAt: sql`excluded.updated_at`,
-        },
-      });
+    return this.priceStorage.upsertMonthlyAggregates(values);
   }
 
   async markPriceHistoryAsAggregated(startDate: Date, endDate: Date): Promise<void> {
-    await db
-      .update(priceHistory)
-      .set({ aggregatedAt: new Date() })
-      .where(and(
-        gte(priceHistory.recordedAt, startDate),
-        lte(priceHistory.recordedAt, endDate)
-      ));
+    return this.priceStorage.markPriceHistoryAsAggregated(startDate, endDate);
   }
 
   async deleteOldAggregatedPriceHistory(cutoffDate: Date): Promise<number> {
-    const result = await db
-      .delete(priceHistory)
-      .where(and(
-        lte(priceHistory.recordedAt, cutoffDate),
-        isNotNull(priceHistory.aggregatedAt)
-      ));
-    return result.rowCount || 0;
+    return this.priceStorage.deleteOldAggregatedPriceHistory(cutoffDate);
   }
 
   // Price History Data Access
@@ -3947,221 +3561,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLatestPriceForOffer(offerId: number): Promise<PriceHistory | null> {
-    const [result] = await db
-      .select()
-      .from(priceHistory)
-      .where(eq(priceHistory.productOfferId, offerId))
-      .orderBy(desc(priceHistory.recordedAt))
-      .limit(1);
-
-    return result || null;
+    return this.priceStorage.getLatestPriceForOffer(offerId);
   }
 
   async insertPriceHistory(data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory> {
-    const [result] = await db
-      .insert(priceHistory)
-      .values(data)
-      .returning();
-    return result;
+    return this.priceStorage.insertPriceHistory(data);
   }
 
   async getPriceHistoryByQuery(query: PriceHistoryQueryParams): Promise<PriceHistory[]> {
-    const conditions: ReturnType<typeof eq>[] = [];
-
-    if (query.productOfferId) {
-      conditions.push(eq(priceHistory.productOfferId, query.productOfferId));
-    }
-    if (query.productId) {
-      conditions.push(eq(priceHistory.productId, query.productId));
-    }
-    if (query.retailerId) {
-      conditions.push(eq(priceHistory.retailerId, query.retailerId));
-    }
-    if (query.startDate) {
-      conditions.push(gte(priceHistory.recordedAt, query.startDate));
-    }
-    if (query.endDate) {
-      conditions.push(lte(priceHistory.recordedAt, query.endDate));
-    }
-    if (query.source) {
-      conditions.push(eq(priceHistory.source, query.source));
-    }
-
-    // Build query with all conditions and limit applied at once to avoid type issues
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-    if (whereClause && query.limit) {
-      return db
-        .select()
-        .from(priceHistory)
-        .where(whereClause)
-        .orderBy(desc(priceHistory.recordedAt))
-        .limit(query.limit);
-    } else if (whereClause) {
-      return db
-        .select()
-        .from(priceHistory)
-        .where(whereClause)
-        .orderBy(desc(priceHistory.recordedAt));
-    } else if (query.limit) {
-      return db
-        .select()
-        .from(priceHistory)
-        .orderBy(desc(priceHistory.recordedAt))
-        .limit(query.limit);
-    } else {
-      return db
-        .select()
-        .from(priceHistory)
-        .orderBy(desc(priceHistory.recordedAt));
-    }
+    return this.priceStorage.getPriceHistoryByQuery(query);
   }
 
   async getExistingSnapshotsForDate(date: Date): Promise<PriceSnapshotRecord[]> {
-    const result = await db
-      .select()
-      .from(priceSnapshots)
-      .where(sql`DATE(${priceSnapshots.snapshotDate}) = DATE(${date})`);
-    return result;
+    return this.priceStorage.getExistingSnapshotsForDate(date);
   }
 
   async insertPriceSnapshots(snapshots: PriceSnapshotInsert[]): Promise<void> {
-    if (snapshots.length === 0) return;
-    await db.insert(priceSnapshots).values(snapshots);
+    return this.priceStorage.insertPriceSnapshots(snapshots);
   }
 
   async updatePriceSnapshot(id: number, data: Partial<PriceSnapshotInsert>): Promise<void> {
-    await db
-      .update(priceSnapshots)
-      .set(data)
-      .where(eq(priceSnapshots.id, id));
+    return this.priceStorage.updatePriceSnapshot(id, data);
   }
 
   // Price Snapshot Data Access
   async getProductOffersForSnapshot(batchSize: number, offset: number): Promise<ProductOffer[]> {
-    return await db
-      .select()
-      .from(productOffers)
-      .limit(batchSize)
-      .offset(offset);
+    return this.priceStorage.getProductOffersForSnapshot(batchSize, offset);
   }
 
   async getPriceHistoryForOffers(offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>> {
-    if (offerIds.length === 0) return [];
-
-    return await db
-      .select({
-        productOfferId: priceHistory.productOfferId,
-        price: priceHistory.price,
-      })
-      .from(priceHistory)
-      .where(inArray(priceHistory.productOfferId, offerIds))
-      .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+    return this.priceStorage.getPriceHistoryForOffers(offerIds);
   }
 
   // Trend Analysis Data Access
   async getPriceDataGroupedForTrend(cutoffDate: Date): Promise<TrendPriceData[]> {
-    const result = await db
-      .select({
-        productId: priceHistory.productId,
-        retailerId: priceHistory.retailerId,
-        prices: sql<Array<{price: number, timestamp: string}>>`
-          json_agg(
-            json_build_object(
-              'price', ${priceHistory.price}::numeric,
-              'timestamp', ${priceHistory.recordedAt}
-            ) ORDER BY ${priceHistory.recordedAt}
-          )`,
-        recordCount: sql<number>`count(*)::int`,
-      })
-      .from(priceHistory)
-      .where(gte(priceHistory.recordedAt, cutoffDate))
-      .groupBy(priceHistory.productId, priceHistory.retailerId)
-      .having(sql`count(*) >= 5`);
-
-    return result;
+    return this.priceStorage.getPriceDataGroupedForTrend(cutoffDate);
   }
 
   async upsertPriceTrends(values: PriceTrendInsert[]): Promise<void> {
-    if (values.length === 0) return;
-
-    // Split into smaller chunks if needed (PostgreSQL has param limits)
-    const CHUNK_SIZE = 100;
-    for (let i = 0; i < values.length; i += CHUNK_SIZE) {
-      const chunk = values.slice(i, i + CHUNK_SIZE);
-
-      await db
-        .insert(priceTrends)
-        .values(chunk)
-        .onConflictDoUpdate({
-          target: [priceTrends.productId, priceTrends.retailerId],
-          set: {
-            trendDirection: sql`excluded.trend_direction`,
-            trendSlope: sql`excluded.trend_slope`,
-            trendStrength: sql`excluded.trend_strength`,
-            predictedNextPrice: sql`excluded.predicted_next_price`,
-            confidenceLevel: sql`excluded.confidence_level`,
-            analysisPeriodDays: sql`excluded.analysis_period_days`,
-            lastAnalyzedAt: sql`excluded.last_analyzed_at`,
-            updatedAt: sql`excluded.updated_at`,
-          },
-        });
-    }
+    return this.priceStorage.upsertPriceTrends(values);
   }
 
   async getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null> {
-    const [result] = await db
-      .select({
-        id: priceTrends.id,
-        productId: priceTrends.productId,
-        retailerId: priceTrends.retailerId,
-        retailerName: retailers.name,
-        retailerLogo: retailers.logo,
-        trendDirection: priceTrends.trendDirection,
-        trendSlope: priceTrends.trendSlope,
-        trendStrength: priceTrends.trendStrength,
-        predictedNextPrice: priceTrends.predictedNextPrice,
-        confidenceLevel: priceTrends.confidenceLevel,
-        analysisPeriodDays: priceTrends.analysisPeriodDays,
-        lastAnalyzedAt: priceTrends.lastAnalyzedAt,
-        createdAt: priceTrends.createdAt,
-        updatedAt: priceTrends.updatedAt,
-      })
-      .from(priceTrends)
-      .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
-      .where(
-        and(
-          eq(priceTrends.productId, productId),
-          eq(priceTrends.retailerId, retailerId)
-        )
-      )
-      .limit(1);
-
-    return result || null;
+    return this.priceStorage.getPriceTrendWithRetailer(productId, retailerId);
   }
 
   async getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]> {
-    return await db
-      .select({
-        id: priceTrends.id,
-        productId: priceTrends.productId,
-        retailerId: priceTrends.retailerId,
-        retailerName: retailers.name,
-        retailerLogo: retailers.logo,
-        trendDirection: priceTrends.trendDirection,
-        trendSlope: priceTrends.trendSlope,
-        trendStrength: priceTrends.trendStrength,
-        predictedNextPrice: priceTrends.predictedNextPrice,
-        confidenceLevel: priceTrends.confidenceLevel,
-        analysisPeriodDays: priceTrends.analysisPeriodDays,
-        lastAnalyzedAt: priceTrends.lastAnalyzedAt,
-        createdAt: priceTrends.createdAt,
-        updatedAt: priceTrends.updatedAt,
-      })
-      .from(priceTrends)
-      .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
-      .where(eq(priceTrends.productId, productId))
-      .orderBy(desc(priceTrends.lastAnalyzedAt));
+    return this.priceStorage.getPriceTrendsForProduct(productId);
   }
 
   // ============================================================================
@@ -5353,20 +4799,7 @@ _This deal was automatically detected by our price tracking system._
   // ============================================================================
 
   async getPriceHistoryByOfferId(productOfferId: number, limit: number): Promise<PriceHistory[]> {
-    if (productOfferId <= 0) {
-      throw new Error('productOfferId must be greater than 0');
-    }
-    if (limit <= 0) {
-      throw new Error('limit must be greater than 0');
-    }
-
-    const history = await db.select()
-      .from(priceHistory)
-      .where(eq(priceHistory.productOfferId, productOfferId))
-      .orderBy(desc(priceHistory.recordedAt))
-      .limit(limit);
-
-    return history;
+    return this.priceStorage.getPriceHistoryByOfferId(productOfferId, limit);
   }
 
   async getProductOfferDetailsForAlert(productOfferId: number): Promise<ProductOfferForAlert | null> {
