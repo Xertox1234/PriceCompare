@@ -206,7 +206,7 @@ export const PRODUCT_CONSTANTS = {
 
 /**
  * Job Lock domain constants
- * Used by DatabaseStorage job lock methods for distributed locking validation
+ * Used by JobLockStorage for distributed locking validation
  */
 export const JOB_LOCK_CONSTANTS = {
   VALIDATION: {
@@ -215,7 +215,7 @@ export const JOB_LOCK_CONSTANTS = {
     MIN_LOCKED_BY_LENGTH: 1,
     MAX_LOCKED_BY_LENGTH: 255,
     MIN_TTL_SECONDS: 1,
-    MAX_TTL_SECONDS: 86400, // 24 hours
+    MAX_TTL_SECONDS: 604800, // 7 days (recommended max for background jobs)
   },
 } as const;
 
