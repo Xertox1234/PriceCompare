@@ -217,6 +217,7 @@ export function registerScrapingRoutes(app: Express): void {
         const { productName, category, retailers = ['amazon', 'walmart', 'target'] } = req.body;
 
         const searchResults = await searchAgent.processTask({
+          action: 'search_products',
           productName,
           category,
           retailers
@@ -285,10 +286,11 @@ export function registerScrapingRoutes(app: Express): void {
         const { query, retailers = ['amazon.com', 'walmart.com', 'target.com'], maxResults = 5 } = req.body;
 
       if (!googleSearchService.isConfigured()) {
-        return res.status(500).json({ 
+        res.status(500).json({ 
           error: "Google Custom Search API not configured",
           message: "Please set GOOGLE_CUSTOM_SEARCH_API_KEY and GOOGLE_CUSTOM_SEARCH_ENGINE_ID environment variables"
         });
+        return;
       }
 
       const results = await googleSearchService.searchMultipleRetailers(query, retailers, { 
@@ -351,13 +353,15 @@ export function registerScrapingRoutes(app: Express): void {
       const { url, retailer, searchQuery } = req.body;
 
       if (!url) {
-        return res.status(400).json({ error: "Product URL is required" });
+        res.status(400).json({ error: "Product URL is required" });
+        return;
       }
 
       // SECURITY: Validate URL to prevent SSRF attacks
       const urlValidation = validateScrapingUrl(url);
       if (!urlValidation.valid) {
-        return res.status(400).json({ error: urlValidation.error });
+        res.status(400).json({ error: urlValidation.error });
+        return;
       }
 
       // Import the extraction agent dynamically to avoid initialization issues
@@ -372,7 +376,7 @@ export function registerScrapingRoutes(app: Express): void {
 
       res.json({
         success: result.success,
-        data: result.data,
+        data: result.success ? result.data : undefined,
         message: result.success ? 'Product data extracted successfully' : 'Extraction failed'
       });
 
@@ -438,7 +442,8 @@ export function registerScrapingRoutes(app: Express): void {
       const { searchQuery, maxResults = 5 } = req.body;
       
       if (!searchQuery) {
-        return res.status(400).json({ error: "Search query is required" });
+        res.status(400).json({ error: "Search query is required" });
+        return;
       }
 
       // Step 1: Search for products using Google Custom Search
@@ -453,11 +458,12 @@ export function registerScrapingRoutes(app: Express): void {
       );
 
       if (productUrls.length === 0) {
-        return res.json({
+        res.json({
           success: false,
           message: "No product URLs found",
           searchResults: searchResults.length
         });
+        return;
       }
 
       // Step 2: Extract product data from found URLs (process first few to avoid timeout)

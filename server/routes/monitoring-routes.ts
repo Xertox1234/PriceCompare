@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { requireAuth, requireAdmin } from '../middleware/auth';
+import { requireAuth, requireAdmin } from '../auth';
 import { monitoringService } from '../services/monitoring-service';
 import { alertService } from '../services/alert-service';
 import { logger } from '../utils/logger';

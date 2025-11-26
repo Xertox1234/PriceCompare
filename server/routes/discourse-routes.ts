@@ -105,32 +105,36 @@ export function registerDiscourseRoutes(app: Express): void {
       const { sso, sig } = req.query;
       
       if (!sso || !sig) {
-        return res.status(400).json({ error: 'Missing SSO parameters' });
+        res.status(400).json({ error: 'Missing SSO parameters' });
+        return;
       }
-      
+
       // Verify the request signature
       if (!verifySSO(sso as string, sig as string)) {
-        return res.status(403).json({ error: 'Invalid SSO signature' });
+        res.status(403).json({ error: 'Invalid SSO signature' });
+        return;
       }
-      
+
       // Check if user is authenticated
       if (!req.user) {
         // Redirect to login with return URL
         const returnUrl = encodeURIComponent(req.originalUrl);
-        return res.redirect(`/login?return_to=${returnUrl}`);
+        res.redirect(`/login?return_to=${returnUrl}`);
+        return;
       }
-      
+
       // Parse the SSO payload
       const params = parseSSO(sso as string);
       const nonce = params.nonce;
       const returnUrl = params.return_sso_url;
-      
+
       if (!nonce || !returnUrl) {
-        return res.status(400).json({ error: 'Missing required SSO parameters' });
+        res.status(400).json({ error: 'Missing required SSO parameters' });
+        return;
       }
-      
+
       // Generate SSO response
-      const { payload, signature } = generateDiscourseSSO(req.user, nonce, returnUrl);
+      const { payload, signature } = generateDiscourseSSO(req.user as User, nonce, returnUrl);
       
       // Redirect back to Discourse with SSO response
       const redirectUrl = `${returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
@@ -153,10 +157,11 @@ export function registerDiscourseRoutes(app: Express): void {
 
       if (!signature) {
         logger.warn('Discourse webhook rejected: Missing signature header');
-        return res.status(401).json({
+        res.status(401).json({
           error: 'Missing webhook signature',
           message: 'X-Discourse-Event-Signature header is required'
         });
+        return;
       }
 
       if (!verifyWebhookSignature(req.body, signature)) {
@@ -164,10 +169,11 @@ export function registerDiscourseRoutes(app: Express): void {
           receivedSignature: signature.substring(0, 10) + '...',
           eventType: req.body.event_type,
         });
-        return res.status(403).json({
+        res.status(403).json({
           error: 'Invalid webhook signature',
           message: 'Webhook signature verification failed'
         });
+        return;
       }
 
       const { event_type, user } = req.body;
@@ -193,13 +199,14 @@ export function registerDiscourseRoutes(app: Express): void {
   app.get("/api/admin/discourse/test-sso", requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user?.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin access required' });
+        res.status(403).json({ error: 'Admin access required' });
+        return;
       }
 
       const testNonce = crypto.randomBytes(16).toString('hex');
       const testReturnUrl = 'http://localhost:3000/session/sso_login';
-      
-      const { payload, signature } = generateDiscourseSSO(req.user, testNonce, testReturnUrl);
+
+      const { payload, signature } = generateDiscourseSSO(req.user as User, testNonce, testReturnUrl);
       
       res.json({
         success: true,

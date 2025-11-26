@@ -74,7 +74,8 @@ export function registerAffiliateRoutes(app: Express): void {
       });
 
       if (!updatedRetailer) {
-        return res.status(404).json({ error: 'Retailer not found' });
+        res.status(404).json({ error: 'Retailer not found' });
+        return;
       }
 
       // Clear cache after update
