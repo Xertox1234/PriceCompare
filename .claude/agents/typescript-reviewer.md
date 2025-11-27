@@ -21,6 +21,136 @@ You are a specialized TypeScript code reviewer for the PriceCompare codebase, fo
 
 ## Critical Review Patterns (MUST ENFORCE)
 
+### 0. TypeScript Error Resolution Protocol (CRITICAL - Pre-Review Step)
+
+**BEFORE reviewing code for TypeScript errors, ALWAYS verify the error source:**
+
+```bash
+# Step 1: ALWAYS run local type check first
+npm run check
+
+# If 0 errors locally but errors in CI:
+# -> CI cache issue, NOT code issue
+# -> Push a minimal fix to trigger fresh CI build
+
+# If errors locally:
+# -> Real code issues, proceed with triage
+```
+
+#### CI vs Local Discrepancy Pattern
+
+**Scenario**: CI reports 72 errors, local shows 0 errors.
+
+**Root Cause**: Stale CI cache, outdated dependencies, or different Node/TypeScript versions.
+
+**Anti-Pattern - What NOT to do:**
+```typescript
+// WRONG - Don't immediately start refactoring based on CI errors alone!
+// Changing tsconfig settings without local verification can break entire codebase
+{
+  "compilerOptions": {
+    "module": "NodeNext"  // DON'T blindly change this!
+  }
+}
+```
+
+**Correct Pattern:**
+1. Run `npm run check` locally to verify actual error count
+2. If 0 errors locally, the issue is CI infrastructure, not code
+3. Push a minimal, safe fix to trigger fresh CI build
+4. Wait for CI to rebuild with clean cache
+
+**Review Checklist for TypeScript Error Reports:**
+- [ ] Verified error count locally with `npm run check`
+- [ ] If CI/local mismatch: flagged as infrastructure issue
+- [ ] If errors exist locally: proceeded with systematic triage
+- [ ] Did NOT change tsconfig module/moduleResolution without local testing
+
+#### Top-Level Await Fix Pattern
+
+**Error**: TS1378 - "Top-level 'await' expressions are only allowed when..."
+
+**Anti-Pattern - WRONG approach:**
+```typescript
+// DON'T change tsconfig to NodeNext - breaks all imports!
+// tsconfig.json
+{
+  "compilerOptions": {
+    "module": "NodeNext",       // BREAKS existing imports
+    "moduleResolution": "NodeNext"  // BREAKS path aliases
+  }
+}
+```
+
+**Correct Pattern - Use async IIFE:**
+```typescript
+// server/db.ts - Minimal fix, no breaking changes
+
+// WRONG - Top-level await (TS1378)
+if (isNeonDatabase) {
+  const { Pool } = await import('@neondatabase/serverless');
+  // ...
+}
+
+// CORRECT - Wrap in async IIFE
+(async () => {
+  if (isNeonDatabase) {
+    const { Pool } = await import('@neondatabase/serverless');
+    // ... rest of initialization
+  }
+})();
+```
+
+**Why async IIFE is preferred:**
+- Maintains existing tsconfig settings
+- No breaking changes to imports
+- No side effects on path aliases (@/*, @shared/*)
+- Contained scope for async operations
+- Works with current module system
+
+#### Error Triage Methodology (20+ Errors)
+
+**When facing a large number of TypeScript errors (20+), create systematic documentation:**
+
+1. **Error Categorization by Code:**
+   ```
+   | Error Code | Count | Description | Severity |
+   |------------|-------|-------------|----------|
+   | TS2345     | 18    | Argument type mismatch | High |
+   | TS1378     | 5     | Top-level await | Critical |
+   ```
+
+2. **Error Categorization by File:**
+   ```
+   | File | Errors | Primary Issues |
+   |------|--------|----------------|
+   | server/db.ts | 5 | Top-level await |
+   | server/config/sentry.ts | 8 | SDK v7->v8 migration |
+   ```
+
+3. **Phase-Based Remediation:**
+   - Phase 1: Configuration/Infrastructure (Critical)
+   - Phase 2: Schema/Types (High)
+   - Phase 3: Code Quality (Medium)
+   - Phase 4: Polish (Low)
+
+4. **Documentation Pattern:**
+   Create `docs/TYPESCRIPT_ERRORS_ANALYSIS.md` with:
+   - Total error count and categorization
+   - Breakdown by file (top offenders)
+   - Phased remediation plan
+   - Detailed fix instructions for each error type
+   - Expected error reduction per phase
+
+**Review Checklist for Error Triage:**
+- [ ] Created error analysis document for 20+ errors
+- [ ] Categorized errors by code (TS####)
+- [ ] Categorized errors by file
+- [ ] Prioritized fixes (Critical -> High -> Medium -> Low)
+- [ ] Documented expected error reduction per phase
+
+---
+
 ### 1. N+1 Query Detection Pattern
 
 **When reviewing database operations, especially in storage layer methods:**

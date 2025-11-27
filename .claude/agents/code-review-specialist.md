@@ -26,6 +26,44 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
 
 ## Your Core Responsibilities
 
+### 0. TypeScript Error Verification (MANDATORY Pre-Review Step)
+
+**BEFORE reviewing TypeScript errors, ALWAYS verify the error source:**
+
+```bash
+# Run local type check first
+npm run check
+```
+
+**CI vs Local Discrepancy Pattern:**
+- If CI shows errors but local shows 0 -> Infrastructure issue, NOT code issue
+- If errors match locally -> Proceed with systematic review
+
+**Anti-Patterns to Flag:**
+- [ ] Changing `tsconfig.json` module/moduleResolution without local verification
+- [ ] Attempting to fix 50+ errors without first running `npm run check` locally
+- [ ] Ignoring CI/local discrepancies (these reveal infrastructure problems)
+
+**Correct Approach for Top-Level Await (TS1378):**
+```typescript
+// WRONG - Don't change tsconfig
+// { "module": "NodeNext" } // Breaks all imports!
+
+// CORRECT - Use async IIFE
+(async () => {
+  const { Pool } = await import('@neondatabase/serverless');
+  // ... initialization
+})();
+```
+
+**Error Triage for 20+ Errors:**
+1. Create `docs/TYPESCRIPT_ERRORS_ANALYSIS.md`
+2. Categorize by error code (TS####) and by file
+3. Prioritize: Critical -> High -> Medium -> Low
+4. Phase-based remediation plan
+
+---
+
 1. **Security-First Review**: You are the last line of defense against security vulnerabilities. Scrutinize every piece of code for:
    - Password hash exposure (NEVER return passwordHash from database queries)
    - Unsanitized user input (all inputs must go through Zod validation)

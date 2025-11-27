@@ -12,6 +12,7 @@ Related Patterns: [DATABASE_PATTERNS.md, SECURITY_PATTERNS.md, ERROR_HANDLING_PA
 This document codifies TypeScript patterns to ensure type safety and prevent runtime errors in the PriceCompare codebase.
 
 ## Table of Contents
+- [TypeScript Error Resolution Protocol](#typescript-error-resolution-protocol)
 - [Critical Type Safety Violations](#critical-type-safety-violations)
 - [Type Inference Patterns](#type-inference-patterns)
 - [Zod Schema Patterns](#zod-schema-patterns)
@@ -21,6 +22,160 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
 - [Async/Await Patterns](#asyncawait-patterns)
 - [Type Guards & Narrowing](#type-guards--narrowing)
 - [Generic Patterns](#generic-patterns)
+
+---
+
+## TypeScript Error Resolution Protocol
+
+**CRITICAL**: Before attempting to fix TypeScript errors, always verify the error source to avoid wasting time on phantom errors.
+
+### CI vs Local Verification (MANDATORY First Step)
+
+```bash
+# Step 1: ALWAYS run local type check first
+npm run check
+
+# Interpretation:
+# - 0 errors locally but errors in CI -> CI infrastructure issue
+# - Errors match locally -> Proceed with systematic fixes
+```
+
+#### Scenario: CI Shows 72 Errors, Local Shows 0
+
+**Root Cause**: Stale CI cache, outdated dependencies, or Node/TypeScript version mismatch.
+
+**Solution**:
+1. Verify locally first with `npm run check`
+2. If 0 errors locally, push a minimal fix to trigger fresh CI build
+3. CI will rebuild with clean state and errors disappear
+
+**Key Lesson**: CI errors are not always code issues. Infrastructure problems can cause phantom errors.
+
+### Async IIFE Pattern for Top-Level Await (TS1378)
+
+**Error**: `TS1378: Top-level 'await' expressions are only allowed when the 'module' option is set to...`
+
+#### ❌ WRONG - Changing tsconfig Module Settings
+```json
+// tsconfig.json - DON'T DO THIS!
+{
+  "compilerOptions": {
+    "module": "NodeNext",          // Breaks all existing imports!
+    "moduleResolution": "NodeNext" // Breaks path aliases!
+  }
+}
+```
+
+**Why this is dangerous:**
+- Changes import syntax requirements across entire codebase
+- Breaks path aliases (@/*, @shared/*)
+- Requires updating hundreds of imports
+- High risk of introducing new errors
+
+#### ✅ CORRECT - Async IIFE Wrapper
+```typescript
+// server/db.ts - Minimal, non-breaking fix
+
+// BEFORE - Top-level await causing TS1378
+let pool: NeonPool | PgPool;
+let db: NodePgDatabase | NeonDatabase;
+
+if (isNeonDatabase) {
+  const { Pool } = await import('@neondatabase/serverless');
+  const neonPool = new Pool(poolConfig);
+  pool = neonPool;
+  // ...
+}
+
+// AFTER - Wrapped in async IIFE
+let pool: NeonPool | PgPool;
+let db: NodePgDatabase | NeonDatabase;
+
+(async () => {
+  if (isNeonDatabase) {
+    const { Pool } = await import('@neondatabase/serverless');
+    const neonPool = new Pool(poolConfig);
+    pool = neonPool;
+    // ...
+  }
+})();
+
+export { pool, db };
+```
+
+**Benefits of async IIFE:**
+- Zero changes to tsconfig
+- No breaking changes to imports
+- Path aliases continue to work
+- Maintains existing module system
+- Localized scope for async initialization
+
+### Error Triage Methodology (20+ Errors)
+
+When facing many TypeScript errors, use systematic documentation:
+
+#### 1. Create Error Analysis Document
+
+Create `docs/TYPESCRIPT_ERRORS_ANALYSIS.md`:
+
+```markdown
+# TypeScript Errors Analysis
+**Date:** YYYY-MM-DD
+**Total Errors:** N
+**Status:** [Pre-existing / New]
+
+## Error Categories
+
+### By Error Type
+| Error Code | Count | Description | Severity |
+|------------|-------|-------------|----------|
+| TS2345     | 18    | Argument type mismatch | High |
+| TS1378     | 5     | Top-level await | Critical |
+
+### By File (Top 10)
+| File | Errors | Primary Issues |
+|------|--------|----------------|
+| server/db.ts | 5 | Top-level await |
+| server/config/sentry.ts | 8 | SDK migration |
+```
+
+#### 2. Phase-Based Remediation Plan
+
+- **Phase 1 (Critical)**: Configuration/Infrastructure errors
+- **Phase 2 (High)**: Schema/Type definition errors
+- **Phase 3 (Medium)**: Code logic type errors
+- **Phase 4 (Low)**: Style and minor type issues
+
+#### 3. Track Expected Progress
+
+```markdown
+## Recommended Fix Order
+
+### Phase 1: Configuration (Critical)
+1. Fix tsconfig for top-level await (5 errors)
+2. Migrate Sentry SDK (8 errors)
+**Expected:** 13/72 errors fixed (18%)
+
+### Phase 2: Types (High)
+3. Fix schema mismatches (8 errors)
+**Expected:** 21/72 errors fixed (29%)
+```
+
+### Anti-Patterns to Avoid
+
+1. **Assuming CI errors are all real** - Verify locally first
+2. **Changing fundamental tsconfig settings** - Can break entire codebase
+3. **Trying to fix everything at once** - Triage and prioritize
+4. **Not documenting error patterns** - Create analysis docs for complex situations
+5. **Ignoring CI/local discrepancies** - These reveal infrastructure issues
+
+### Correct Patterns to Follow
+
+1. **Local verification first** - `npm run check` is source of truth
+2. **Minimal fixes** - async IIFE vs tsconfig changes
+3. **Systematic documentation** - Create analysis docs for 20+ errors
+4. **Phase-based remediation** - Critical -> High -> Medium -> Low
+5. **Error categorization** - By code, file, and severity
 
 ---
 

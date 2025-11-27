@@ -2,6 +2,67 @@
 
 ## CRITICAL RULES ⛔
 
+### TypeScript Error Resolution Protocol (MANDATORY Pre-Review Step)
+
+**BEFORE reviewing TypeScript errors from CI, ALWAYS verify locally:**
+
+```bash
+# Step 1: Run local type check
+npm run check
+
+# If 0 errors locally but CI shows errors:
+# -> CI infrastructure issue (stale cache, deps, etc.)
+# -> Push minimal fix to trigger fresh CI build
+# -> DO NOT start refactoring based on CI errors alone
+
+# If errors match locally:
+# -> Real code issues, proceed with systematic triage
+```
+
+#### CI vs Local Discrepancy Pattern
+
+**Scenario**: CI reports 72 errors, local shows 0 errors.
+
+**Root Cause**: Stale CI cache, outdated dependencies, different Node/TypeScript versions.
+
+**Anti-Patterns to Flag:**
+- Changing `tsconfig.json` module/moduleResolution without local verification
+- Attempting to fix 50+ errors without running `npm run check` locally
+- Assuming all CI errors are real code issues
+
+**Correct Pattern:**
+1. Verify locally with `npm run check`
+2. If 0 errors locally, CI needs fresh build (push minimal fix)
+3. If errors exist locally, create error analysis document
+4. Use phase-based remediation (Critical -> High -> Medium -> Low)
+
+#### Error Triage for 20+ Errors
+
+Create `docs/TYPESCRIPT_ERRORS_ANALYSIS.md` with:
+- Total error count and categorization by error code (TS####)
+- Breakdown by file (top offenders)
+- Phased remediation plan with expected error reduction per phase
+- Detailed fix instructions for each error type
+
+#### Top-Level Await Fix (TS1378)
+
+**WRONG - Changing tsconfig breaks everything:**
+```json
+// DON'T DO THIS - breaks all imports and path aliases!
+{ "module": "NodeNext", "moduleResolution": "NodeNext" }
+```
+
+**CORRECT - Use async IIFE (minimal, non-breaking):**
+```typescript
+// Wrap top-level await in async IIFE
+(async () => {
+  const { Pool } = await import('@neondatabase/serverless');
+  // ... initialization code
+})();
+```
+
+---
+
 ### NO `any` Types
 - **NEVER** accept `any` types in code reviews
 - Use `unknown` for truly unknown types, then narrow with type guards
