@@ -6,6 +6,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { ProductWithOffers } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 // Type for product data expected by template components
 export interface ProductData {
@@ -79,6 +80,7 @@ function transformProduct(product: ProductWithOffers): ProductData {
 export function useAllProducts() {
   return useQuery<ProductWithOffers[]>({
     queryKey: ['/api/products'],
+    queryFn: () => apiRequest<ProductWithOffers[]>('/api/products'),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000,
   });
@@ -86,15 +88,10 @@ export function useAllProducts() {
 
 // Fetch trending/most watched products
 export function useTrendingProducts(limit = 6) {
-  return useQuery<{ success: boolean; data: Array<{ productId: number; watchCount: number; product: ProductWithOffers }> }>({
+  return useQuery<Array<{ productId: number; watchCount: number; product: ProductWithOffers }>>({
     queryKey: ['/api/community/most-watched', limit],
-    queryFn: async () => {
-      const response = await fetch(`/api/community/most-watched?limit=${limit}`);
-      if (!response.ok) throw new Error('Failed to fetch trending products');
-      return response.json();
-    },
+    queryFn: () => apiRequest<Array<{ productId: number; watchCount: number; product: ProductWithOffers }>>(`/api/community/most-watched?limit=${limit}`),
     staleTime: 5 * 60 * 1000,
-    select: (data) => data,
   });
 }
 
@@ -102,11 +99,7 @@ export function useTrendingProducts(limit = 6) {
 export function useProductsByCategory(category: string, limit = 8) {
   return useQuery<{ results: ProductWithOffers[] }>({
     queryKey: ['/api/products/search', category, limit],
-    queryFn: async () => {
-      const response = await fetch(`/api/products/search?category=${encodeURIComponent(category)}&limit=${limit}`);
-      if (!response.ok) throw new Error('Failed to fetch products');
-      return response.json();
-    },
+    queryFn: () => apiRequest<{ results: ProductWithOffers[] }>(`/api/products/search?category=${encodeURIComponent(category)}&limit=${limit}`),
     staleTime: 5 * 60 * 1000,
     enabled: !!category,
   });
@@ -116,12 +109,7 @@ export function useProductsByCategory(category: string, limit = 8) {
 export function useDealProducts(limit = 6) {
   return useQuery<{ results: ProductWithOffers[] }>({
     queryKey: ['/api/products/search', 'deals', limit],
-    queryFn: async () => {
-      // Fetch products and filter for those with discounts
-      const response = await fetch(`/api/products/search?sortBy=price_low&limit=${limit * 2}`);
-      if (!response.ok) throw new Error('Failed to fetch deals');
-      return response.json();
-    },
+    queryFn: () => apiRequest<{ results: ProductWithOffers[] }>(`/api/products/search?sortBy=price_low&limit=${limit * 2}`),
     staleTime: 5 * 60 * 1000,
     select: (data) => {
       // Filter to products that have original price > current price
@@ -141,9 +129,7 @@ export function useNewArrivals(limit = 8) {
     queryKey: ['/api/products', 'new-arrivals', limit],
     queryFn: async () => {
       // Products endpoint returns in order, we assume newest first
-      const response = await fetch(`/api/products`);
-      if (!response.ok) throw new Error('Failed to fetch products');
-      const products = await response.json();
+      const products = await apiRequest<ProductWithOffers[]>('/api/products');
       // Return the most recent products (by createdAt if available, or just first N)
       return products.slice(0, limit);
     },
@@ -155,11 +141,7 @@ export function useNewArrivals(limit = 8) {
 export function useBestSellers(limit = 8) {
   return useQuery<{ results: ProductWithOffers[] }>({
     queryKey: ['/api/products/search', 'best-sellers', limit],
-    queryFn: async () => {
-      const response = await fetch(`/api/products/search?sortBy=rating&limit=${limit}`);
-      if (!response.ok) throw new Error('Failed to fetch best sellers');
-      return response.json();
-    },
+    queryFn: () => apiRequest<{ results: ProductWithOffers[] }>(`/api/products/search?sortBy=rating&limit=${limit}`),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -168,11 +150,7 @@ export function useBestSellers(limit = 8) {
 export function useProduct(productId: number | null) {
   return useQuery<ProductWithOffers>({
     queryKey: ['/api/products', productId],
-    queryFn: async () => {
-      const response = await fetch(`/api/products/${productId}`);
-      if (!response.ok) throw new Error('Failed to fetch product');
-      return response.json();
-    },
+    queryFn: () => apiRequest<ProductWithOffers>(`/api/products/${productId}`),
     staleTime: 5 * 60 * 1000,
     enabled: !!productId,
   });
@@ -180,13 +158,9 @@ export function useProduct(productId: number | null) {
 
 // Fetch product with full details including specifications
 export function useProductFull(productId: number | null) {
-  return useQuery<ProductFullResponse>({
+  return useQuery<ProductWithOffers & { specifications?: ProductSpecification[]; specGroups?: ProductSpecificationGroup[] }>({
     queryKey: ['/api/products', productId, 'full'],
-    queryFn: async () => {
-      const response = await fetch(`/api/products/${productId}/full`);
-      if (!response.ok) throw new Error('Failed to fetch product');
-      return response.json();
-    },
+    queryFn: () => apiRequest<ProductWithOffers & { specifications?: ProductSpecification[]; specGroups?: ProductSpecificationGroup[] }>(`/api/products/${productId}/full`),
     staleTime: 5 * 60 * 1000,
     enabled: !!productId,
   });
@@ -196,6 +170,7 @@ export function useProductFull(productId: number | null) {
 export function useRetailers() {
   return useQuery<Array<{ id: number; name: string; logo?: string }>>({
     queryKey: ['/api/retailers'],
+    queryFn: () => apiRequest<Array<{ id: number; name: string; logo?: string }>>('/api/retailers'),
     staleTime: 60 * 60 * 1000, // 1 hour - retailers don't change often
   });
 }
@@ -216,7 +191,7 @@ export function useHomePageData() {
   // Transform all products to template format
   const transformedProducts = {
     all: allProducts.data?.map(transformProduct) ?? [],
-    trending: trending.data?.data?.map(item => transformProduct(item.product)) ?? [],
+    trending: trending.data?.map(item => transformProduct(item.product)) ?? [],
     deals: deals.data?.results?.map(transformProduct) ?? [],
     newArrivals: newArrivals.data?.map(transformProduct) ?? [],
     bestSellers: bestSellers.data?.results?.map(transformProduct) ?? [],

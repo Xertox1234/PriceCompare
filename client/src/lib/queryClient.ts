@@ -10,6 +10,55 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+/**
+ * API Response Envelope Types
+ * All API endpoints now return standardized envelope format
+ */
+interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+  meta?: Record<string, unknown>;
+}
+
+interface ApiErrorResponse {
+  success: false;
+  error: string;
+  details?: string;
+}
+
+type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+
+/**
+ * Type guard for discriminated union
+ */
+function isSuccessResponse<T>(
+  response: ApiResponse<T>
+): response is ApiSuccessResponse<T> {
+  return response.success === true;
+}
+
+/**
+ * Custom error class for API errors
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public details?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/**
+ * Make an API request and automatically unwrap envelope responses
+ *
+ * @param url - API endpoint URL
+ * @param options - Fetch options
+ * @returns Unwrapped data of type T
+ * @throws ApiError with status code and details
+ */
 export async function apiRequest<T = unknown>(
   url: string,
   options: RequestInit = {}
@@ -47,26 +96,65 @@ export async function apiRequest<T = unknown>(
   if (newCsrfToken) {
     csrfToken = newCsrfToken;
   }
-  
-  // Don't throw for 401 errors, let components handle them
-  if (res.status === 401) {
-    throw new Error('Unauthorized');
-  }
-  
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText || res.statusText);
+
+  // Handle empty responses (204 No Content)
+  if (res.status === 204) {
+    return null as T;
   }
 
-  // Handle empty responses
+  // Parse response body
   const text = await res.text();
-  if (!text) return null as T;
+  if (!text) {
+    if (!res.ok) {
+      throw new ApiError(res.statusText || 'Request failed', res.status);
+    }
+    return null as T;
+  }
 
+  let parsedResponse: unknown;
   try {
-    return JSON.parse(text);
+    parsedResponse = JSON.parse(text);
   } catch {
+    // Non-JSON response
+    if (!res.ok) {
+      throw new ApiError(text || res.statusText, res.status);
+    }
     return text as T;
   }
+
+  // Check if response is in envelope format
+  if (
+    typeof parsedResponse === 'object' &&
+    parsedResponse !== null &&
+    'success' in parsedResponse
+  ) {
+    const envelopeResponse = parsedResponse as ApiResponse<T>;
+
+    // Handle error responses
+    if (!isSuccessResponse(envelopeResponse)) {
+      throw new ApiError(
+        envelopeResponse.error,
+        res.status,
+        envelopeResponse.details
+      );
+    }
+
+    // Unwrap and return data from success responses
+    return envelopeResponse.data;
+  }
+
+  // Legacy format (direct data) - return as-is for backward compatibility
+  // This allows gradual migration and handles endpoints not yet standardized
+  if (!res.ok) {
+    throw new ApiError(
+      typeof parsedResponse === 'object' && parsedResponse !== null && 'error' in parsedResponse
+        ? String((parsedResponse as { error: unknown }).error)
+        : res.statusText,
+      res.status
+    );
+  }
+
+  return parsedResponse as T;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
