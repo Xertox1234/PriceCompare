@@ -210,3 +210,45 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+/**
+ * Custom hook composition helper that combines apiRequest with useQuery
+ *
+ * Provides a standardized pattern for creating type-safe API query hooks
+ * with automatic error handling, CSRF token management, and response unwrapping.
+ *
+ * @template T - The expected response data type
+ * @param url - API endpoint URL
+ * @param options - Optional fetch options (method, headers, body, etc.)
+ * @returns Query function compatible with React Query
+ *
+ * @example
+ * ```typescript
+ * import { useQuery } from '@tanstack/react-query';
+ * import { createApiQueryFn } from '@/lib/queryClient';
+ *
+ * export function useProducts() {
+ *   return useQuery<Product[]>({
+ *     queryKey: ['products'],
+ *     queryFn: createApiQueryFn<Product[]>('/api/products'),
+ *   });
+ * }
+ *
+ * // With dynamic parameters
+ * export function useProduct(id: number) {
+ *   return useQuery<Product>({
+ *     queryKey: ['product', id],
+ *     queryFn: createApiQueryFn<Product>(`/api/products/${id}`),
+ *     enabled: !!id,
+ *   });
+ * }
+ * ```
+ */
+export function createApiQueryFn<T>(
+  url: string,
+  options?: RequestInit
+): () => Promise<T> {
+  return async () => {
+    return apiRequest<T>(url, options);
+  };
+}

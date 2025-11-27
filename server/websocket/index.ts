@@ -175,15 +175,19 @@ async function authenticationMiddleware(
   };
 
   // Run Express session middleware
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // Type assertion: MinimalResponse is sufficient for session middleware (Socket.IO doesn't need full Response)
-  sessionMiddleware(req, res as any, ((err: any) => {
-    if (err) {
-      log.error('Session middleware error', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return next(new Error('Authentication failed'));
-    }
+  // Type assertion: MinimalResponse implements the minimal Response interface needed by session middleware.
+  // Socket.IO doesn't use the response, but express-session requires it for middleware signature compatibility.
+  // We use 'unknown' as an intermediate step to safely cast between incompatible types.
+  sessionMiddleware(
+    req,
+    res as unknown as Response,
+    (err?: unknown) => {
+      if (err) {
+        log.error('Session middleware error', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return next(new Error('Authentication failed'));
+      }
 
     // Extract session from request (now populated by session middleware)
     const session = req.session;
@@ -218,8 +222,7 @@ async function authenticationMiddleware(
     });
 
     next();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any); // Type assertion: callback signature compatible with NextFunction
+  });
 }
 
 /**

@@ -120,3 +120,40 @@ export function unwrapApiResponse<T>(response: ApiResponse<T>): T | T[] {
  * Helper type to infer data type from API response
  */
 export type InferApiData<T> = T extends ApiResponse<infer D> ? D : never;
+
+/**
+ * Generic wrapper for list responses with count metadata
+ *
+ * Used when API returns an array of items along with a count.
+ * Common for endpoints that filter/search but don't use pagination.
+ *
+ * @example
+ * ```typescript
+ * // API returns: { data: [...items], count: 42 }
+ * useQuery<ListResponse<Product>>({
+ *   queryFn: () => apiRequest<ListResponse<Product>>('/api/products/search')
+ * });
+ * ```
+ */
+export interface ListResponse<T> {
+  data: T[];
+  count: number;
+}
+
+/**
+ * Generic wrapper for single object responses
+ *
+ * Used when API returns a single object wrapped in a data field.
+ * Provides consistent typing for individual resource endpoints.
+ *
+ * @example
+ * ```typescript
+ * // API returns: { data: { id: 1, name: "..." } }
+ * useQuery<DataResponse<User>>({
+ *   queryFn: () => apiRequest<DataResponse<User>>('/api/users/1')
+ * });
+ * ```
+ */
+export interface DataResponse<T> {
+  data: T;
+}

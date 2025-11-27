@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import type { ListResponse, DataResponse } from '@shared/api-types';
 
 export interface SmartThresholdSuggestion {
   targetPrice: number;
@@ -42,84 +44,235 @@ export interface AlertAnalytics {
   alertsByProduct: Record<number, number>;
 }
 
-// Fetch smart threshold suggestions for a product
+/**
+ * Fetch AI-generated smart threshold suggestions for a product
+ *
+ * Returns intelligent price alert suggestions based on historical data, seasonal patterns,
+ * and trending analysis. Helps users set optimal price targets for alerts.
+ *
+ * @param productId - The product ID to analyze
+ * @param currentPrice - The current product price for comparison
+ * @returns React Query result with ListResponse containing SmartThresholdSuggestion array
+ *
+ * @example
+ * ```tsx
+ * function SmartAlertSuggestions({ productId, currentPrice }: Props) {
+ *   const { data } = useSmartThresholdSuggestions(productId, currentPrice);
+ *
+ *   return (
+ *     <div>
+ *       <h3>Suggested Price Targets</h3>
+ *       {data?.data.map(suggestion => (
+ *         <div key={suggestion.targetPrice}>
+ *           <p>${suggestion.targetPrice}</p>
+ *           <p>{suggestion.reason}</p>
+ *           <p>Confidence: {suggestion.confidence}%</p>
+ *           <p>Save: {suggestion.savingsPercent}%</p>
+ *         </div>
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function useSmartThresholdSuggestions(productId?: number, currentPrice?: number) {
-  return useQuery<{ success: boolean; data: SmartThresholdSuggestion[]; count: number }>({
+  return useQuery<ListResponse<SmartThresholdSuggestion>>({
     queryKey: ['/api/smart-alerts/suggestions', productId, currentPrice],
     queryFn: async () => {
       if (!productId || !currentPrice) {
         throw new Error('Product ID and current price are required');
       }
-      const res = await fetch(
-        `/api/smart-alerts/suggestions/${productId}?currentPrice=${currentPrice}`,
-        { credentials: 'include' }
+      return apiRequest<ListResponse<SmartThresholdSuggestion>>(
+        `/api/smart-alerts/suggestions/${productId}?currentPrice=${currentPrice}`
       );
-      if (!res.ok) throw new Error('Failed to fetch suggestions');
-      return res.json();
     },
     enabled: !!productId && !!currentPrice,
   });
 }
 
-// Fetch predictive alerts for the user
+/**
+ * Fetch predictive price alerts for the current user
+ *
+ * Returns AI-generated predictions about upcoming price changes and deal opportunities
+ * for products in the user's watchlist. Automatically refreshes every 5 minutes.
+ *
+ * @returns React Query result with ListResponse containing PredictiveAlert array
+ *
+ * @example
+ * ```tsx
+ * function PredictiveAlertsDashboard() {
+ *   const { data, isLoading } = usePredictiveAlerts();
+ *
+ *   if (isLoading) return <Spinner />;
+ *
+ *   return (
+ *     <div>
+ *       <h2>Price Predictions</h2>
+ *       {data?.data.map(alert => (
+ *         <div key={alert.productId}>
+ *           <h3>{alert.productName}</h3>
+ *           <p>Prediction: {alert.prediction}</p>
+ *           <p>Confidence: {alert.confidence}%</p>
+ *           <p>Estimated in {alert.estimatedDays} days</p>
+ *         </div>
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function usePredictiveAlerts() {
-  return useQuery<{ success: boolean; data: PredictiveAlert[]; count: number }>({
+  return useQuery<ListResponse<PredictiveAlert>>({
     queryKey: ['/api/smart-alerts/predictive'],
     queryFn: async () => {
-      const res = await fetch('/api/smart-alerts/predictive', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch predictive alerts');
-      return res.json();
+      return apiRequest<ListResponse<PredictiveAlert>>('/api/smart-alerts/predictive');
     },
     refetchInterval: 300000, // Refresh every 5 minutes
   });
 }
 
-// Fetch alert effectiveness metrics
+/**
+ * Fetch alert effectiveness metrics for the current user
+ *
+ * Returns performance metrics for all user price alerts, including trigger frequency,
+ * time to trigger, and savings realized. Helps users understand which alerts are most valuable.
+ *
+ * @returns React Query result with ListResponse containing AlertEffectiveness array
+ *
+ * @example
+ * ```tsx
+ * function AlertPerformance() {
+ *   const { data } = useAlertEffectiveness();
+ *
+ *   return (
+ *     <table>
+ *       <thead>
+ *         <tr>
+ *           <th>Alert ID</th>
+ *           <th>Effectiveness</th>
+ *           <th>Triggers</th>
+ *           <th>Savings</th>
+ *         </tr>
+ *       </thead>
+ *       <tbody>
+ *         {data?.data.map(alert => (
+ *           <tr key={alert.alertId}>
+ *             <td>{alert.alertId}</td>
+ *             <td>{alert.effectiveness}</td>
+ *             <td>{alert.timesTriggered}</td>
+ *             <td>${alert.savingsRealized}</td>
+ *           </tr>
+ *         ))}
+ *       </tbody>
+ *     </table>
+ *   );
+ * }
+ * ```
+ */
 export function useAlertEffectiveness() {
-  return useQuery<{ success: boolean; data: AlertEffectiveness[]; count: number }>({
+  return useQuery<ListResponse<AlertEffectiveness>>({
     queryKey: ['/api/smart-alerts/effectiveness'],
     queryFn: async () => {
-      const res = await fetch('/api/smart-alerts/effectiveness', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch effectiveness metrics');
-      return res.json();
+      return apiRequest<ListResponse<AlertEffectiveness>>('/api/smart-alerts/effectiveness');
     },
   });
 }
 
-// Fetch alert analytics
+/**
+ * Fetch comprehensive alert analytics for the current user
+ *
+ * Returns aggregated statistics about all user alerts including total count, active alerts,
+ * triggered alerts, average time to trigger, total savings, and top performing alerts.
+ *
+ * @returns React Query result with DataResponse containing AlertAnalytics object
+ *
+ * @example
+ * ```tsx
+ * function AlertsDashboard() {
+ *   const { data } = useAlertAnalytics();
+ *
+ *   return (
+ *     <div>
+ *       <h2>Alert Performance Overview</h2>
+ *       <div>
+ *         <p>Total Alerts: {data?.data.totalAlerts}</p>
+ *         <p>Active: {data?.data.activeAlerts}</p>
+ *         <p>Triggered: {data?.data.triggeredAlerts}</p>
+ *         <p>Total Savings: ${data?.data.totalSavings}</p>
+ *         <p>Avg. Time to Trigger: {data?.data.averageTimeToTrigger} days</p>
+ *       </div>
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function useAlertAnalytics() {
-  return useQuery<{ success: boolean; data: AlertAnalytics }>({
+  return useQuery<DataResponse<AlertAnalytics>>({
     queryKey: ['/api/smart-alerts/analytics'],
     queryFn: async () => {
-      const res = await fetch('/api/smart-alerts/analytics', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch analytics');
-      return res.json();
+      return apiRequest<DataResponse<AlertAnalytics>>('/api/smart-alerts/analytics');
     },
   });
 }
 
-// Create a suggested alert
+/**
+ * Request payload for creating a suggested alert
+ */
+export interface CreateSuggestedAlertRequest {
+  productId: number;
+  targetPrice: number;
+  reason: string;
+  confidence: number;
+  savingsPercent: number;
+  savingsAmount: number;
+  basedOn: 'historical_low' | 'seasonal_pattern' | 'trending_down' | 'below_average';
+}
+
+/**
+ * Create a price alert from an AI-generated suggestion
+ *
+ * Creates a new price alert using data from smart threshold suggestions.
+ * Automatically invalidates related queries on success to refresh the UI.
+ *
+ * @returns React Query mutation result
+ *
+ * @example
+ * ```tsx
+ * function SuggestionCard({ suggestion }: Props) {
+ *   const createAlert = useCreateSuggestedAlert();
+ *
+ *   const handleCreate = () => {
+ *     createAlert.mutate({
+ *       productId: suggestion.productId,
+ *       targetPrice: suggestion.targetPrice,
+ *       reason: suggestion.reason,
+ *       confidence: suggestion.confidence,
+ *       savingsPercent: suggestion.savingsPercent,
+ *       savingsAmount: suggestion.savingsAmount,
+ *       basedOn: suggestion.basedOn,
+ *     });
+ *   };
+ *
+ *   return (
+ *     <button
+ *       onClick={handleCreate}
+ *       disabled={createAlert.isPending}
+ *     >
+ *       {createAlert.isPending ? 'Creating...' : 'Create Alert'}
+ *     </button>
+ *   );
+ * }
+ * ```
+ */
 export function useCreateSuggestedAlert() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: {
-      productId: number;
-      targetPrice: number;
-      reason: string;
-      confidence: number;
-      savingsPercent: number;
-      savingsAmount: number;
-      basedOn: 'historical_low' | 'seasonal_pattern' | 'trending_down' | 'below_average';
-    }) => {
-      const res = await fetch('/api/smart-alerts/create-suggested', {
+    mutationFn: async (data: CreateSuggestedAlertRequest) => {
+      return apiRequest('/api/smart-alerts/create-suggested', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create suggested alert');
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });

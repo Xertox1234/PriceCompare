@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { PriceHistory, PriceSnapshot } from "@shared/schema";
 
 export interface PriceStats {
@@ -23,14 +24,51 @@ export interface PriceHistoryQueryParams {
 }
 
 /**
- * Hook to fetch price history for a specific product offer
+ * Price drop information from the API
+ */
+export interface PriceDrop {
+  productOfferId: number;
+  previousPrice: number;
+  currentPrice: number;
+  dropPercent: number;
+}
+
+/**
+ * Fetch price history for a specific product offer
+ *
+ * Returns historical price data points for a product offer with optional filtering
+ * by date range, source, and limit. Automatically refetches every 10 minutes.
+ *
+ * @param productId - The product ID
+ * @param offerId - The product offer ID
+ * @param params - Optional query parameters for filtering
+ * @param params.startDate - Filter prices from this date onwards
+ * @param params.endDate - Filter prices until this date
+ * @param params.source - Filter by data source (e.g., 'scraper', 'api')
+ * @param params.limit - Limit the number of results
+ * @returns React Query result with PriceHistory array
+ *
+ * @example
+ * ```tsx
+ * function PriceChart({ productId, offerId }: Props) {
+ *   const { data: history, isLoading } = usePriceHistory(
+ *     productId,
+ *     offerId,
+ *     { days: 30 } // Last 30 days
+ *   );
+ *
+ *   if (isLoading) return <Spinner />;
+ *
+ *   return <LineChart data={history} />;
+ * }
+ * ```
  */
 export function usePriceHistory(
   productId: number | undefined,
   offerId: number | undefined,
   params?: PriceHistoryQueryParams
 ) {
-  return useQuery({
+  return useQuery<PriceHistory[]>({
     queryKey: ['priceHistory', productId, offerId, params],
     queryFn: async () => {
       if (!productId || !offerId) {
@@ -51,16 +89,9 @@ export function usePriceHistory(
         queryParams.append('limit', params.limit.toString());
       }
 
-      const response = await fetch(
+      return apiRequest<PriceHistory[]>(
         `/api/products/${productId}/offers/${offerId}/price-history?${queryParams.toString()}`
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch price history');
-      }
-
-      const data = await response.json();
-      return data.data as PriceHistory[];
     },
     enabled: !!productId && !!offerId,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -70,30 +101,46 @@ export function usePriceHistory(
 }
 
 /**
- * Hook to fetch price statistics for a specific product offer
+ * Fetch price statistics for a specific product offer
+ *
+ * Returns aggregated price statistics including current, lowest, highest, average prices,
+ * and percentage changes over different time periods (24h, 7d, 30d).
+ *
+ * @param productId - The product ID
+ * @param offerId - The product offer ID
+ * @param days - Number of days to calculate statistics over (default: 90)
+ * @returns React Query result with PriceStats object
+ *
+ * @example
+ * ```tsx
+ * function PriceStats({ productId, offerId }: Props) {
+ *   const { data: stats } = usePriceStats(productId, offerId, 30);
+ *
+ *   return (
+ *     <div>
+ *       <p>Current: ${stats?.currentPrice}</p>
+ *       <p>Lowest: ${stats?.lowestPrice}</p>
+ *       <p>24h Change: {stats?.priceChangePercent24h}%</p>
+ *     </div>
+ *   );
+ * }
+ * ```
  */
 export function usePriceStats(
   productId: number | undefined,
   offerId: number | undefined,
   days: number = 90
 ) {
-  return useQuery({
+  return useQuery<PriceStats>({
     queryKey: ['priceStats', productId, offerId, days],
     queryFn: async () => {
       if (!productId || !offerId) {
         throw new Error('Product ID and Offer ID are required');
       }
 
-      const response = await fetch(
+      return apiRequest<PriceStats>(
         `/api/products/${productId}/offers/${offerId}/price-stats?days=${days}`
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch price statistics');
-      }
-
-      const data = await response.json();
-      return data.data as PriceStats;
     },
     enabled: !!productId && !!offerId,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -102,7 +149,34 @@ export function usePriceStats(
 }
 
 /**
- * Hook to fetch price snapshots for a product across all retailers
+ * Fetch price snapshots for a product across all retailers
+ *
+ * Returns price snapshot data for a product across multiple retailers with optional
+ * filtering by retailer and date range. Useful for comparing prices across different stores.
+ *
+ * @param productId - The product ID
+ * @param params - Optional query parameters for filtering
+ * @param params.retailerId - Filter by specific retailer ID
+ * @param params.startDate - Filter snapshots from this date onwards
+ * @param params.endDate - Filter snapshots until this date
+ * @returns React Query result with PriceSnapshot array
+ *
+ * @example
+ * ```tsx
+ * function RetailerPriceComparison({ productId }: Props) {
+ *   const { data: snapshots } = usePriceSnapshots(productId);
+ *
+ *   return (
+ *     <ul>
+ *       {snapshots?.map(snapshot => (
+ *         <li key={snapshot.id}>
+ *           {snapshot.retailerName}: ${snapshot.price}
+ *         </li>
+ *       ))}
+ *     </ul>
+ *   );
+ * }
+ * ```
  */
 export function usePriceSnapshots(
   productId: number | undefined,
@@ -112,7 +186,7 @@ export function usePriceSnapshots(
     endDate?: Date;
   }
 ) {
-  return useQuery({
+  return useQuery<PriceSnapshot[]>({
     queryKey: ['priceSnapshots', productId, params],
     queryFn: async () => {
       if (!productId) {
@@ -130,16 +204,9 @@ export function usePriceSnapshots(
         queryParams.append('endDate', params.endDate.toISOString());
       }
 
-      const response = await fetch(
+      return apiRequest<PriceSnapshot[]>(
         `/api/products/${productId}/price-snapshots?${queryParams.toString()}`
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch price snapshots');
-      }
-
-      const data = await response.json();
-      return data.data as PriceSnapshot[];
     },
     enabled: !!productId,
     staleTime: 10 * 60 * 1000, // 10 minutes
@@ -148,10 +215,38 @@ export function usePriceSnapshots(
 }
 
 /**
- * Hook to fetch recent significant price drops
+ * Fetch recent significant price drops
+ *
+ * Returns recent price drops that exceed a specified threshold percentage.
+ * Automatically refetches every 15 minutes to keep data fresh.
+ *
+ * @param thresholdPercent - Minimum price drop percentage to include (default: 10%)
+ * @param hours - Time window to check for drops (default: 24 hours)
+ * @returns React Query result with PriceDrop array
+ *
+ * @example
+ * ```tsx
+ * function PriceDropAlerts() {
+ *   // Get all drops > 15% in the last 48 hours
+ *   const { data: drops } = useRecentPriceDrops(15, 48);
+ *
+ *   return (
+ *     <div>
+ *       <h2>Recent Price Drops</h2>
+ *       {drops?.map(drop => (
+ *         <div key={drop.productOfferId}>
+ *           <p>Was: ${drop.previousPrice}</p>
+ *           <p>Now: ${drop.currentPrice}</p>
+ *           <p>Save: {drop.dropPercent.toFixed(1)}%</p>
+ *         </div>
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
  */
 export function useRecentPriceDrops(thresholdPercent: number = 10, hours: number = 24) {
-  return useQuery({
+  return useQuery<PriceDrop[]>({
     queryKey: ['recentPriceDrops', thresholdPercent, hours],
     queryFn: async () => {
       const queryParams = new URLSearchParams({
@@ -159,21 +254,9 @@ export function useRecentPriceDrops(thresholdPercent: number = 10, hours: number
         hours: hours.toString()
       });
 
-      const response = await fetch(
+      return apiRequest<PriceDrop[]>(
         `/api/price-history/recent-drops?${queryParams.toString()}`
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch recent price drops');
-      }
-
-      const data = await response.json();
-      return data.data as Array<{
-        productOfferId: number;
-        previousPrice: number;
-        currentPrice: number;
-        dropPercent: number;
-      }>;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)

@@ -11,7 +11,8 @@ import { vi } from 'vitest';
 /**
  * Mock Redis Client for testing rate limiting and other Redis operations
  *
- * Partial type to allow mocking only needed methods for tests
+ * Partial type to allow mocking only needed methods for tests.
+ * Uses specific method signatures instead of 'any' for better type safety.
  */
 export type MockRedisClient = Partial<{
   incr: (key: string) => Promise<number>;
@@ -19,9 +20,8 @@ export type MockRedisClient = Partial<{
   get: (key: string) => Promise<string | null>;
   set: (key: string, value: string) => Promise<void>;
   del: (key: string) => Promise<number>;
-  // Add other Redis methods as needed for tests
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: (...args: any[]) => Promise<any>;
+  duplicate: () => MockRedisClient;
+  // Add other Redis methods as needed for tests with specific signatures
 }>;
 
 /**
@@ -39,5 +39,7 @@ export function createMockSocket(userId: number, id?: string): AuthenticatedSock
     off: vi.fn(),
     disconnect: vi.fn(),
     connected: true,
+    // Type assertion: Test mock implements all required AuthenticatedSocket properties
+    // Safe because: (1) Vitest mock context, (2) vi.fn() creates function mocks for methods
   } as unknown as AuthenticatedSocket;
 }

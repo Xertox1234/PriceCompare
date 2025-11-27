@@ -1,3 +1,4 @@
+
 ---
 name: typescript-reviewer
 description: Use this agent for focused TypeScript/React code reviews with emphasis on service integration patterns, type safety, and architectural consistency. This agent enforces specific patterns identified from production code reviews.
@@ -600,7 +601,315 @@ class PriceService {
 }
 ```
 
-### 13. Validation Code Type Safety Pattern
+### 13. React Query Hook Type Safety Pattern (NEW - 2025-01-27)
+
+**When reviewing React Query hooks, enforce explicit type parameters and proper error handling:**
+
+```typescript
+// ❌ WRONG - Implicit types and swallowing all errors
+export function useAuth() {
+  return useQuery({
+    queryKey: ['auth', 'user'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/auth/user');
+        return response.json();
+      } catch (error) {
+        return null; // Swallows network errors!
+      }
+    },
+  });
+}
+
+// ✅ CORRECT - Explicit types and discriminating error types
+export function useAuth(): UseQueryResult<User | null> {
+  return useQuery<User | null>({
+    queryKey: ['auth', 'user'],
+    queryFn: async (): Promise<User | null> => {
+      try {
+        const response = await apiRequest<User>('/api/auth/user');
+        return response;
+      } catch (error) {
+        // Type-guard the error for proper handling
+        if (error instanceof ApiError) {
+          // Return null for expected auth failures (401/404)
+          if (error.status === 401 || error.status === 404) {
+            return null;
+          }
+          // Log unexpected API errors for debugging
+          console.warn('Auth check failed with unexpected status:', {
+            status: error.status,
+            message: error.message,
+          });
+        } else if (error instanceof Error) {
+          // Log network or other errors
+          console.warn('Auth check failed:', error.message);
+        }
+
+        // Re-throw unexpected errors so React Query can retry
+        throw error;
+      }
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+```
+
+**Review Checklist:**
+- [ ] All `useQuery` calls have explicit type parameter: `useQuery<ResponseType>`
+- [ ] `queryFn` has explicit return type: `async (): Promise<T>`
+- [ ] Error handling uses type guards (`instanceof ApiError`, `instanceof Error`)
+- [ ] Expected errors return appropriate values (e.g., null for 401/404)
+- [ ] Unexpected errors are re-thrown for React Query retry logic
+- [ ] No manual `fetch` - use `apiRequest<T>` helper for consistency
+
+**Type-Safe API Request Pattern:**
+```typescript
+// Use apiRequest helper for automatic:
+// - CSRF token handling
+// - Response envelope unwrapping
+// - Error type consistency
+import { apiRequest } from '@/lib/queryClient';
+
+export function useProduct(id: number) {
+  return useQuery<Product>({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      return apiRequest<Product>(`/api/products/${id}`);
+    },
+    enabled: !!id,
+  });
+}
+```
+
+### 14. Named Response Type Extraction Pattern (NEW - 2025-01-27)
+
+**Extract named interfaces for API response structures instead of inline type assertions:**
+
+```typescript
+// ❌ WRONG - Inline type assertions reduce type safety
+export function usePriceHistory(productId: number, offerId: number) {
+  return useQuery({
+    queryFn: async () => {
+      const response = await fetch(`/api/products/${productId}/offers/${offerId}/price-history`);
+      const data = await response.json();
+      return data.data as PriceHistory[]; // Type assertion!
+    },
+  });
+}
+
+// ✅ CORRECT - Named response types with apiRequest
+export function usePriceHistory(productId: number, offerId: number) {
+  return useQuery<PriceHistory[]>({
+    queryFn: async () => {
+      return apiRequest<PriceHistory[]>(
+        `/api/products/${productId}/offers/${offerId}/price-history`
+      );
+    },
+  });
+}
+```
+
+**For complex responses, use shared generic wrappers:**
+
+```typescript
+// In shared/api-types.ts - Reusable response wrappers
+export interface ListResponse<T> {
+  data: T[];
+  count: number;
+}
+
+export interface DataResponse<T> {
+  data: T;
+}
+
+// ❌ WRONG - Inline complex type
+export function useAlertAnalytics() {
+  return useQuery<{ success: boolean; data: { totalAlerts: number; activeAlerts: number; ... } }>({
+    // ...
+  });
+}
+
+// ✅ CORRECT - Use shared generic wrapper
+import type { DataResponse } from '@shared/api-types';
+
+export interface AlertAnalytics {
+  totalAlerts: number;
+  activeAlerts: number;
+  triggeredAlerts: number;
+  totalSavings: number;
+}
+
+export function useAlertAnalytics() {
+  return useQuery<DataResponse<AlertAnalytics>>({
+    queryFn: async () => {
+      return apiRequest<DataResponse<AlertAnalytics>>('/api/smart-alerts/analytics');
+    },
+  });
+}
+```
+
+**Review Checklist:**
+- [ ] No type assertions (`as Type[]`) in query functions
+- [ ] Complex response types extracted to named interfaces
+- [ ] Use `ListResponse<T>` for array + count responses
+- [ ] Use `DataResponse<T>` for single object responses
+- [ ] Import generic wrappers from `@shared/api-types`
+- [ ] Replace manual `fetch` with `apiRequest<T>`
+
+### 15. JSDoc Documentation Pattern for Hooks (NEW - 2025-01-27)
+
+**All exported hooks MUST have comprehensive JSDoc comments:**
+
+```typescript
+/**
+ * Fetch price history for a specific product offer
+ *
+ * Returns historical price data points for a product offer with optional filtering
+ * by date range, source, and limit. Automatically refetches every 10 minutes.
+ *
+ * @param productId - The product ID
+ * @param offerId - The product offer ID
+ * @param params - Optional query parameters for filtering
+ * @param params.startDate - Filter prices from this date onwards
+ * @param params.endDate - Filter prices until this date
+ * @param params.source - Filter by data source (e.g., 'scraper', 'api')
+ * @param params.limit - Limit the number of results
+ * @returns React Query result with PriceHistory array
+ *
+ * @example
+ * ```tsx
+ * function PriceChart({ productId, offerId }: Props) {
+ *   const { data: history, isLoading } = usePriceHistory(
+ *     productId,
+ *     offerId,
+ *     { days: 30 } // Last 30 days
+ *   );
+ *
+ *   if (isLoading) return <Spinner />;
+ *   return <LineChart data={history} />;
+ * }
+ * ```
+ */
+export function usePriceHistory(
+  productId: number | undefined,
+  offerId: number | undefined,
+  params?: PriceHistoryQueryParams
+) {
+  // ...
+}
+```
+
+**JSDoc Requirements for Hooks:**
+- [ ] Summary line explaining what the hook does
+- [ ] Detailed description including behavior and features
+- [ ] All parameters documented with types
+- [ ] Return type documented
+- [ ] Realistic usage example with TSX code
+- [ ] Special behaviors noted (auto-refetch, caching, etc.)
+
+**For mutations, include mutation data structure:**
+
+```typescript
+/**
+ * Create a price alert from an AI-generated suggestion
+ *
+ * Creates a new price alert using data from smart threshold suggestions.
+ * Automatically invalidates related queries on success to refresh the UI.
+ *
+ * @returns React Query mutation result
+ *
+ * @example
+ * ```tsx
+ * function SuggestionCard({ suggestion }: Props) {
+ *   const createAlert = useCreateSuggestedAlert();
+ *
+ *   const handleCreate = () => {
+ *     createAlert.mutate({
+ *       productId: suggestion.productId,
+ *       targetPrice: suggestion.targetPrice,
+ *       reason: suggestion.reason,
+ *       // ... other fields
+ *     });
+ *   };
+ *
+ *   return (
+ *     <button onClick={handleCreate} disabled={createAlert.isPending}>
+ *       {createAlert.isPending ? 'Creating...' : 'Create Alert'}
+ *     </button>
+ *   );
+ * }
+ * ```
+ */
+export function useCreateSuggestedAlert() {
+  // ...
+}
+```
+
+### 16. Hook Composition Helper Pattern (NEW - 2025-01-27)
+
+**Use composition helpers to reduce boilerplate:**
+
+```typescript
+// In lib/queryClient.ts - Reusable query function creator
+/**
+ * Custom hook composition helper that combines apiRequest with useQuery
+ *
+ * Provides a standardized pattern for creating type-safe API query hooks
+ * with automatic error handling, CSRF token management, and response unwrapping.
+ */
+export function createApiQueryFn<T>(
+  url: string,
+  options?: RequestInit
+): () => Promise<T> {
+  return async () => {
+    return apiRequest<T>(url, options);
+  };
+}
+
+// ❌ BEFORE - Repetitive queryFn definitions
+export function useProducts() {
+  return useQuery<Product[]>({
+    queryKey: ['products'],
+    queryFn: async () => {
+      return apiRequest<Product[]>('/api/products');
+    },
+  });
+}
+
+export function useRetailers() {
+  return useQuery<Retailer[]>({
+    queryKey: ['retailers'],
+    queryFn: async () => {
+      return apiRequest<Retailer[]>('/api/retailers');
+    },
+  });
+}
+
+// ✅ AFTER - Using composition helper
+export function useProducts() {
+  return useQuery<Product[]>({
+    queryKey: ['products'],
+    queryFn: createApiQueryFn<Product[]>('/api/products'),
+  });
+}
+
+export function useRetailers() {
+  return useQuery<Retailer[]>({
+    queryKey: ['retailers'],
+    queryFn: createApiQueryFn<Retailer[]>('/api/retailers'),
+  });
+}
+```
+
+**Review Checklist:**
+- [ ] Simple query hooks use `createApiQueryFn<T>` helper
+- [ ] Complex hooks with custom logic keep inline queryFn
+- [ ] Helper function has comprehensive JSDoc
+- [ ] Type parameter explicitly provided: `createApiQueryFn<Type>`
+
+### 17. Validation Code Type Safety Pattern
 
 **When reviewing validation or schema-based code:**
 
@@ -730,6 +1039,18 @@ errors.push({
 - Flag @ts-expect-error/@ts-ignore without detailed justification
 - Verify dynamic query building doesn't use type suppression
 
+### Step 3a: React Query Hook Review (NEW)
+- Verify all `useQuery` calls have explicit type parameter: `useQuery<T>`
+- Check `queryFn` has explicit return type: `async (): Promise<T>`
+- Ensure error handling uses type guards (instanceof checks)
+- Verify expected errors are handled appropriately (return null for 401/404)
+- Check unexpected errors are re-thrown for React Query retry
+- Ensure `apiRequest<T>` is used instead of manual `fetch`
+- Flag type assertions (`as Type`) - should use explicit types
+- Verify complex response types are extracted to named interfaces
+- Check if `ListResponse<T>` or `DataResponse<T>` should be used
+- Ensure mutations invalidate appropriate queries
+
 ### Step 4: Input Validation Review
 - Check all public functions validate their inputs
 - Verify numeric IDs are validated (> 0)
@@ -773,6 +1094,11 @@ errors.push({
 - [✓/✗] Error message quality
 - [✓/✗] Route helper usage
 - [✓/✗] No nested response wrappers (sendSuccess with manual envelope)
+- [✓/✗] React Query hooks have explicit type parameters (NEW)
+- [✓/✗] Error handling discriminates error types (NEW)
+- [✓/✗] Named response types instead of type assertions (NEW)
+- [✓/✗] JSDoc documentation on exported hooks (NEW)
+- [✓/✗] Shared generic wrappers used (ListResponse/DataResponse) (NEW)
 
 ### 🚨 Critical Issues
 [Pattern violations that break established conventions]
