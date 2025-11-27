@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { storage } from "../storage";
 import { notifications, products, productOffers, priceHistory } from "../../shared/schema";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { getRedisClient } from "../config/redis";
@@ -213,18 +213,7 @@ async function getSmartNotificationCount(userId: number, period: 'today'): Promi
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(notifications)
-    .where(
-      and(
-        eq(notifications.userId, userId),
-        eq(notifications.type, 'smart_alert'),
-        gte(notifications.createdAt, today)
-      )
-    );
-
-  return Number(result[0]?.count || 0);
+  return await storage.getNotificationCountByType(userId, 'smart_alert', today);
 }
 
 /**
@@ -237,11 +226,7 @@ export async function createSmartNotification(
   const redisClient = getRedisClient();
 
   // Get product details
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(eq(products.id, trigger.metadata.productId))
-    .limit(1);
+  const product = await storage.getProductByIdRaw(trigger.metadata.productId);
 
   if (!product) {
     log.error('Product not found for notification', { productId: trigger.metadata.productId });
@@ -254,36 +239,14 @@ export async function createSmartNotification(
 
   try {
     // Create notification record via notification-service
-    // Use transaction to ensure atomicity with metadata storage
-    const notification = await db.transaction(async (tx) => {
-      const notificationData = {
-        userId,
-        type: 'smart_alert' as const,
-        title,
-        content,
-        relatedProductId: trigger.metadata.productId,
-        isRead: false,
-        metadata: {
-          urgency: trigger.urgency,
-          savings: trigger.metadata.savings,
-          expiresAt: trigger.expiresAt.toISOString(),
-          confidence: trigger.metadata.confidence,
-          triggerType: trigger.type
-        }
-      };
-
-      // Note: createNotification already uses transaction, but we pass tx anyway
-      // This ensures our deduplication key is set atomically with notification creation
-      const created = await createNotification({
-        userId: notificationData.userId,
-        type: notificationData.type,
-        title: notificationData.title,
-        content: notificationData.content,
-        relatedProductId: notificationData.relatedProductId,
-        isRead: notificationData.isRead
-      });
-
-      return created;
+    // Note: createNotification already uses transaction for atomicity
+    const notification = await createNotification({
+      userId,
+      type: 'smart_alert' as const,
+      title,
+      content,
+      relatedProductId: trigger.metadata.productId,
+      isRead: false
     });
 
     // Set deduplication key in Redis (6-hour TTL)
@@ -311,13 +274,7 @@ export async function createSmartNotification(
     const prefs = await getUserPreferences(userId);
     if (prefs.emailEnabled && emailService.isReady()) {
       // Get user email
-      const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.id, userId),
-        columns: {
-          email: true,
-          username: true
-        }
-      });
+      const user = await storage.getUserEmailById(userId);
 
       if (user?.email) {
         // Send email notification (async, don't block)

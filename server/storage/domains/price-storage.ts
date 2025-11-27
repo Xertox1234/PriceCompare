@@ -23,8 +23,13 @@ import {
   priceTrends,
   retailers,
   productOffers,
+  priceAlerts,
+  products,
   type PriceHistory,
   type ProductOffer,
+  type PriceAlert,
+  type InsertPriceAlert,
+  type Retailer,
 } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
 import type { NormalizedPricePoint } from "../../services/price-history-service";
@@ -989,6 +994,38 @@ export class PriceStorage extends BaseStorage {
     }
   }
 
+  /**
+   * Get price history with timestamps for price change analysis
+   * Used for: Price snapshot analysis, anomaly detection
+   *
+   * @param offerIds - Array of product offer IDs
+   * @returns Array of price records with productOfferId, price, and recordedAt
+   */
+  async getPriceHistoryForAnalysis(offerIds: number[]): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>> {
+    try {
+      if (offerIds.length === 0) return [];
+
+      // Validate all IDs
+      offerIds.forEach(id => this.validateOfferId(id));
+
+      return await this.db
+        .select({
+          productOfferId: priceHistory.productOfferId,
+          price: priceHistory.price,
+          recordedAt: priceHistory.recordedAt,
+        })
+        .from(priceHistory)
+        .where(inArray(priceHistory.productOfferId, offerIds))
+        .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+    } catch (error) {
+      this.handleError(error, 'getPriceHistoryForAnalysis');
+    }
+  }
+
   // ============================================================================
   // Trend Analysis Operations
   // ============================================================================
@@ -1141,6 +1178,544 @@ export class PriceStorage extends BaseStorage {
         .orderBy(desc(priceTrends.lastAnalyzedAt));
     } catch (error) {
       this.handleError(error, 'getPriceTrendsForProduct');
+    }
+  }
+
+  // ============================================================================
+  // Smart Alerts Operations (Phase 8D)
+  // ============================================================================
+
+  /**
+   * Get product offer IDs for a product (for smart alerts analysis)
+   * Used for: Smart threshold suggestions
+   *
+   * @param productId - Product ID (validated as positive integer)
+   * @returns Array of offer IDs
+   */
+  async getProductOfferIds(productId: number): Promise<number[]> {
+    try {
+      this.validateProductId(productId);
+
+      const offers = await this.db
+        .select({ id: productOffers.id })
+        .from(productOffers)
+        .where(eq(productOffers.productId, productId));
+
+      return offers.map(o => o.id);
+    } catch (error) {
+      this.handleError(error, 'getProductOfferIds');
+    }
+  }
+
+  /**
+   * Get price history for offer IDs with limit (for smart alerts analysis)
+   * Used for: Smart threshold suggestions, seasonal pattern analysis
+   *
+   * @param offerIds - Array of offer IDs
+   * @param limit - Maximum number of records to return (default: 365)
+   * @returns Array of price history records
+   */
+  async getPriceHistoryForOfferIds(offerIds: number[], limit = 365): Promise<PriceHistory[]> {
+    try {
+      if (offerIds.length === 0) return [];
+
+      // Validate all IDs
+      offerIds.forEach(id => this.validateOfferId(id));
+
+      return await this.db
+        .select()
+        .from(priceHistory)
+        .where(sql`${priceHistory.productOfferId} = ANY(${offerIds})`)
+        .orderBy(desc(priceHistory.recordedAt))
+        .limit(limit);
+    } catch (error) {
+      this.handleError(error, 'getPriceHistoryForOfferIds');
+    }
+  }
+
+  /**
+   * Get user's active price alerts with product names (for predictive alerts)
+   * Used for: Generating predictive alerts
+   *
+   * @param userId - User ID
+   * @returns Array of alerts with product IDs, target prices, and product names
+   */
+  async getUserActiveAlertsWithProducts(userId: number): Promise<Array<{
+    productId: number;
+    targetPrice: string;
+    productName: string | null;
+  }>> {
+    try {
+      if (!userId || userId < 1) {
+        throw new Error(`Invalid userId: ${userId}`);
+      }
+
+      return await this.db
+        .select({
+          productId: priceAlerts.productId,
+          targetPrice: priceAlerts.targetPrice,
+          productName: products.name,
+        })
+        .from(priceAlerts)
+        .innerJoin(products, eq(priceAlerts.productId, products.id))
+        .where(and(
+          eq(priceAlerts.userId, userId),
+          eq(priceAlerts.isActive, true)
+        ));
+    } catch (error) {
+      this.handleError(error, 'getUserActiveAlertsWithProducts');
+    }
+  }
+
+  /**
+   * Batch get lowest-priced offers for multiple products
+   * N+1 Prevention: Returns all offers ordered by product ID and price
+   *
+   * @param productIds - Array of product IDs
+   * @returns Array of offers with product ID, offer ID, and price
+   */
+  async getLowestPricedOffersForProducts(productIds: number[]): Promise<Array<{
+    productId: number;
+    id: number;
+    price: string;
+  }>> {
+    try {
+      if (productIds.length === 0) return [];
+
+      // Validate all IDs
+      productIds.forEach(id => this.validateProductId(id));
+
+      return await this.db
+        .select({
+          productId: productOffers.productId,
+          id: productOffers.id,
+          price: productOffers.price,
+        })
+        .from(productOffers)
+        .where(inArray(productOffers.productId, productIds))
+        .orderBy(productOffers.productId, productOffers.price);
+    } catch (error) {
+      this.handleError(error, 'getLowestPricedOffersForProducts');
+    }
+  }
+
+  /**
+   * Batch get price history for multiple offer IDs (for predictive alerts)
+   * N+1 Prevention: Returns all history ordered by offer ID and recorded date
+   *
+   * @param offerIds - Array of offer IDs
+   * @returns Array of price history records
+   */
+  async getBatchPriceHistoryForOffers(offerIds: number[]): Promise<PriceHistory[]> {
+    try {
+      if (offerIds.length === 0) return [];
+
+      // Validate all IDs
+      offerIds.forEach(id => this.validateOfferId(id));
+
+      return await this.db
+        .select()
+        .from(priceHistory)
+        .where(inArray(priceHistory.productOfferId, offerIds))
+        .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+    } catch (error) {
+      this.handleError(error, 'getBatchPriceHistoryForOffers');
+    }
+  }
+
+  /**
+   * Get all price alerts for a user (for effectiveness analysis)
+   * Ordered by times triggered (descending)
+   *
+   * @param userId - User ID
+   * @returns Array of price alerts
+   */
+  async getUserPriceAlertsForEffectiveness(userId: number): Promise<PriceAlert[]> {
+    try {
+      if (!userId || userId < 1) {
+        throw new Error(`Invalid userId: ${userId}`);
+      }
+
+      return await this.db
+        .select()
+        .from(priceAlerts)
+        .where(eq(priceAlerts.userId, userId))
+        .orderBy(desc(priceAlerts.timesTriggered));
+    } catch (error) {
+      this.handleError(error, 'getUserPriceAlertsForEffectiveness');
+    }
+  }
+
+  /**
+   * Get all price alerts for a user (for analytics)
+   *
+   * @param userId - User ID
+   * @returns Array of price alerts
+   */
+  async getUserPriceAlerts(userId: number): Promise<PriceAlert[]> {
+    try {
+      if (!userId || userId < 1) {
+        throw new Error(`Invalid userId: ${userId}`);
+      }
+
+      return await this.db
+        .select()
+        .from(priceAlerts)
+        .where(eq(priceAlerts.userId, userId));
+    } catch (error) {
+      this.handleError(error, 'getUserPriceAlerts');
+    }
+  }
+
+  /**
+   * Create a suggested price alert
+   *
+   * @param alert - Price alert data to insert
+   * @returns Created price alert
+   */
+  async createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert> {
+    try {
+      const [result] = await this.db
+        .insert(priceAlerts)
+        .values(alert)
+        .returning();
+
+      if (!result) {
+        throw new Error('Failed to create price alert');
+      }
+
+      return result;
+    } catch (error) {
+      this.handleError(error, 'createPriceAlert');
+    }
+  }
+
+  // ============================================================================
+  // Price History Service Support (Phase 8B)
+  // ============================================================================
+
+  /**
+   * Get raw price history data with retailer details
+   * Used for: price-history-service.ts getRawPriceHistory()
+   *
+   * @param productId - Product ID (validated as positive integer)
+   * @param startDate - Start date for range
+   * @param endDate - End date for range
+   * @param retailerId - Optional retailer filter
+   * @returns Array of price history with retailer info, ordered by recordedAt (ascending)
+   */
+  async getRawPriceHistoryWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{
+    history: PriceHistory;
+    retailer: Retailer;
+  }>> {
+    try {
+      this.validateProductId(productId);
+
+      const conditions = [
+        eq(priceHistory.productId, productId),
+        gte(priceHistory.recordedAt, startDate),
+        lte(priceHistory.recordedAt, endDate)
+      ];
+
+      if (retailerId !== undefined) {
+        this.validateRetailerId(retailerId);
+        conditions.push(eq(priceHistory.retailerId, retailerId));
+      }
+
+      const result = await this.db
+        .select({
+          history: priceHistory,
+          retailer: retailers
+        })
+        .from(priceHistory)
+        .innerJoin(retailers, eq(priceHistory.retailerId, retailers.id))
+        .where(and(...conditions))
+        .orderBy(asc(priceHistory.recordedAt));
+
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getRawPriceHistoryWithRetailers');
+    }
+  }
+
+  /**
+   * Get daily aggregates with retailer details
+   * Used for: price-history-service.ts getDailyAggregates()
+   *
+   * @param productId - Product ID (validated as positive integer)
+   * @param startDate - Start date for range
+   * @param endDate - End date for range
+   * @param retailerId - Optional retailer filter
+   * @returns Array of daily aggregates with retailer info, ordered by date (ascending)
+   */
+  async getDailyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{
+    agg: DailyAggregateRecord;
+    retailer: Retailer;
+  }>> {
+    try {
+      this.validateProductId(productId);
+
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      const conditions = [
+        eq(priceAggregatesDaily.productId, productId),
+        gte(priceAggregatesDaily.date, startDateStr),
+        lte(priceAggregatesDaily.date, endDateStr)
+      ];
+
+      if (retailerId !== undefined) {
+        this.validateRetailerId(retailerId);
+        conditions.push(eq(priceAggregatesDaily.retailerId, retailerId));
+      }
+
+      const result = await this.db
+        .select({
+          agg: priceAggregatesDaily,
+          retailer: retailers
+        })
+        .from(priceAggregatesDaily)
+        .innerJoin(retailers, eq(priceAggregatesDaily.retailerId, retailers.id))
+        .where(and(...conditions))
+        .orderBy(asc(priceAggregatesDaily.date));
+
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getDailyAggregatesWithRetailers');
+    }
+  }
+
+  /**
+   * Get weekly aggregates with retailer details
+   * Used for: price-history-service.ts getWeeklyAggregates()
+   *
+   * @param productId - Product ID (validated as positive integer)
+   * @param startDate - Start date for range (used to calculate year range)
+   * @param endDate - End date for range (used to calculate year range)
+   * @param retailerId - Optional retailer filter
+   * @returns Array of weekly aggregates with retailer info, ordered by year/week (ascending)
+   */
+  async getWeeklyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{
+    agg: WeeklyAggregateRecord;
+    retailer: Retailer;
+  }>> {
+    try {
+      this.validateProductId(productId);
+
+      const startYear = startDate.getFullYear();
+      const endYear = endDate.getFullYear();
+
+      const conditions = [
+        eq(priceAggregatesWeekly.productId, productId),
+        gte(priceAggregatesWeekly.year, startYear),
+        lte(priceAggregatesWeekly.year, endYear)
+      ];
+
+      if (retailerId !== undefined) {
+        this.validateRetailerId(retailerId);
+        conditions.push(eq(priceAggregatesWeekly.retailerId, retailerId));
+      }
+
+      const result = await this.db
+        .select({
+          agg: priceAggregatesWeekly,
+          retailer: retailers
+        })
+        .from(priceAggregatesWeekly)
+        .innerJoin(retailers, eq(priceAggregatesWeekly.retailerId, retailers.id))
+        .where(and(...conditions))
+        .orderBy(asc(priceAggregatesWeekly.year), asc(priceAggregatesWeekly.week));
+
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getWeeklyAggregatesWithRetailers');
+    }
+  }
+
+  /**
+   * Get monthly aggregates with retailer details
+   * Used for: price-history-service.ts getMonthlyAggregates()
+   *
+   * @param productId - Product ID (validated as positive integer)
+   * @param startDate - Start date for range (used to calculate year range)
+   * @param endDate - End date for range (used to calculate year range)
+   * @param retailerId - Optional retailer filter
+   * @returns Array of monthly aggregates with retailer info, ordered by year/month (ascending)
+   */
+  async getMonthlyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{
+    agg: MonthlyAggregateRecord;
+    retailer: Retailer;
+  }>> {
+    try {
+      this.validateProductId(productId);
+
+      const startYear = startDate.getFullYear();
+      const endYear = endDate.getFullYear();
+
+      const conditions = [
+        eq(priceAggregatesMonthly.productId, productId),
+        gte(priceAggregatesMonthly.year, startYear),
+        lte(priceAggregatesMonthly.year, endYear)
+      ];
+
+      if (retailerId !== undefined) {
+        this.validateRetailerId(retailerId);
+        conditions.push(eq(priceAggregatesMonthly.retailerId, retailerId));
+      }
+
+      const result = await this.db
+        .select({
+          agg: priceAggregatesMonthly,
+          retailer: retailers
+        })
+        .from(priceAggregatesMonthly)
+        .innerJoin(retailers, eq(priceAggregatesMonthly.retailerId, retailers.id))
+        .where(and(...conditions))
+        .orderBy(asc(priceAggregatesMonthly.year), asc(priceAggregatesMonthly.month));
+
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getMonthlyAggregatesWithRetailers');
+    }
+  }
+
+  /**
+   * Get active product offers grouped by product and retailer
+   * Used for: price-history-service.ts generateDailySnapshots()
+   *
+   * @returns Array of active offers with product ID, retailer ID, and price
+   */
+  async getActiveProductOffersGrouped(): Promise<Array<{
+    productId: number;
+    retailerId: number;
+    price: string;
+  }>> {
+    try {
+      const result = await this.db
+        .select({
+          productId: products.id,
+          retailerId: productOffers.retailerId,
+          price: productOffers.price
+        })
+        .from(productOffers)
+        .innerJoin(products, eq(productOffers.productId, products.id))
+        .where(eq(productOffers.availability, 'in_stock'));
+
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getActiveProductOffersGrouped');
+    }
+  }
+
+  /**
+   * Get price snapshots with filters
+   * Used for: price-history-service.ts getPriceSnapshots()
+   *
+   * @param productId - Product ID (validated as positive integer)
+   * @param retailerId - Optional retailer ID filter
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @returns Array of price snapshots ordered by snapshotDate (descending)
+   */
+  async getPriceSnapshotsByFilters(
+    productId: number,
+    retailerId?: number,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<PriceSnapshotRecord[]> {
+    try {
+      this.validateProductId(productId);
+
+      const conditions = [eq(priceSnapshots.productId, productId)];
+
+      if (retailerId !== undefined) {
+        this.validateRetailerId(retailerId);
+        conditions.push(eq(priceSnapshots.retailerId, retailerId));
+      }
+
+      if (startDate !== undefined) {
+        conditions.push(gte(priceSnapshots.snapshotDate, startDate));
+      }
+
+      if (endDate !== undefined) {
+        conditions.push(lte(priceSnapshots.snapshotDate, endDate));
+      }
+
+      return await this.db
+        .select()
+        .from(priceSnapshots)
+        .where(and(...conditions))
+        .orderBy(desc(priceSnapshots.snapshotDate));
+    } catch (error) {
+      this.handleError(error, 'getPriceSnapshotsByFilters');
+    }
+  }
+
+  /**
+   * Delete old price history records
+   * Used for: price-history-service.ts cleanupOldPriceHistory()
+   *
+   * @param cutoffDate - Delete records older than this date
+   * @returns Number of records deleted
+   */
+  async deleteOldPriceHistory(cutoffDate: Date): Promise<number> {
+    try {
+      const result = await this.db
+        .delete(priceHistory)
+        .where(lte(priceHistory.recordedAt, cutoffDate));
+
+      return result.rowCount ?? 0;
+    } catch (error) {
+      this.handleError(error, 'deleteOldPriceHistory');
+    }
+  }
+
+  /**
+   * Get recent price changes for drop detection
+   * Used for: price-history-service.ts detectSignificantPriceDrops()
+   *
+   * @param cutoffDate - Only include price changes after this date
+   * @returns Array of recent price changes with offer ID, price, and recordedAt
+   */
+  async getRecentPriceChanges(cutoffDate: Date): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>> {
+    try {
+      const result = await this.db
+        .select({
+          productOfferId: priceHistory.productOfferId,
+          price: priceHistory.price,
+          recordedAt: priceHistory.recordedAt
+        })
+        .from(priceHistory)
+        .where(gte(priceHistory.recordedAt, cutoffDate))
+        .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getRecentPriceChanges');
     }
   }
 }

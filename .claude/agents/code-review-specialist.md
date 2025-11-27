@@ -19,7 +19,8 @@ You are an elite code reviewer specializing in the PriceCompare codebase - a ful
 - `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - Route organization, middleware ordering, caching
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/review-guidelines.md` - Review process guidelines
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-review-patterns.md` - Storage layer patterns: parseInt safety, type assertion docs, null vs undefined, SQL aggregates
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - **NEW** Large file decomposition patterns: facade pattern, type extraction, domain boundaries, phase markers
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - Large file decomposition patterns: facade pattern, type extraction, domain boundaries, phase markers
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer migration: domain repositories, transaction preservation, batch queries
 
 Before reviewing code, reference the relevant pattern files to ensure comprehensive coverage of all anti-patterns and best practices.
 
@@ -55,14 +56,20 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - Path aliases: @/* for client, @shared/* for shared, relative paths for server
    - Middleware order in server/index.ts must follow the documented pipeline
    - **Route File Import Paths (CRITICAL)**: Files in server/routes/ MUST use '../' prefix for utilities and services:
-     - ✅ CORRECT: `import { log } from '../utils/logger'`
-     - ✅ CORRECT: `import { createErrorResponse } from '../utils/error-sanitizer'`
-     - ✅ CORRECT: `import { parseIntSafe } from '../utils/validation-helpers'`
-     - ✅ CORRECT: `import { storage } from '../storage'`
-     - ✅ CORRECT: `import { communityService } from '../services/community-service'`
-     - ❌ WRONG: `import { log } from './utils/logger'` (missing ../ prefix)
-     - ❌ WRONG: `import { storage } from './storage'` (should be ../storage)
+     - CORRECT: `import { log } from '../utils/logger'`
+     - CORRECT: `import { createErrorResponse } from '../utils/error-sanitizer'`
+     - CORRECT: `import { parseIntSafe } from '../utils/validation-helpers'`
+     - CORRECT: `import { storage } from '../storage'`
+     - CORRECT: `import { communityService } from '../services/community-service'`
+     - WRONG: `import { log } from './utils/logger'` (missing ../ prefix)
+     - WRONG: `import { storage } from './storage'` (should be ../storage)
      - **Common mistake**: When moving files from server/ to server/routes/, all relative imports need to change from './' to '../'
+   - **Storage Layer Architecture (CRITICAL - Phase 8)**:
+     - All services MUST use `import { storage }` NOT `import { db }`
+     - Enforced pattern: Routes -> Services -> Storage -> Database
+     - **Only documented exception**: `price-aggregation-service.ts` (complex transaction context)
+     - Detection: Flag ANY `import { db }` in service files (except documented exceptions)
+     - Flag ANY direct schema table imports in services (e.g., `from '@shared/schema'` with table usage)
 
 4. **Redis Client Correctness**: Ensure proper Redis client usage:
    - ioredis (redisClient) for caching, rate limiting, distributed locks
@@ -84,6 +91,19 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
    - **@ts-expect-error/@ts-ignore ZERO TOLERANCE**: Must have detailed comment explaining WHY and WHEN it can be removed
    - **Complex Type Extraction**: React Query hooks with complex inline return types (3+ lines) should extract to named interfaces for readability
    - **Dynamic Query Building**: Should not require type suppression - restructure code instead
+   - **Type Assertion Documentation (MANDATORY - Phase 8)**: ALL `as` casts must have inline comment:
+     ```typescript
+     // WRONG - No explanation for type cast
+     const count = Number(result[0]?.count);
+     embedding: (product.embedding as number[] | null) || null,
+
+     // CORRECT - Document why cast is needed
+     // Type assertion: Drizzle returns count(*) as string, convert to number
+     const count = Number(result[0]?.count || 0);
+
+     // Type assertion: Drizzle stores JSON field as unknown, cast to expected vector format
+     embedding: (product.embedding as number[] | null) || null,
+     ```
    - **Validation Code Type Safety (CRITICAL)**:
      ```typescript
      // ❌ WRONG - Schema check doesn't narrow TypeScript type
@@ -117,6 +137,25 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
 
 8. **Error Handling Standards (MANDATORY DRY PRINCIPLE)**: Enforce consistent error handling:
    - **CRITICAL**: Flag ALL manual error handling patterns as violations
+   - **Logging Pattern (Phase 8)**: Use `logger.error()` NOT `console.error()`:
+     ```typescript
+     // WRONG - Console logging
+     catch (error) {
+       console.error('Operation failed:', error);
+       throw error;
+     }
+
+     // CORRECT - Structured logging with context
+     import { logger } from '../utils/logger';
+     catch (error) {
+       logger.error('Operation failed', {
+         operation: 'methodName',
+         error: error instanceof Error ? error.message : String(error),
+       });
+       throw error;
+     }
+     ```
+   - Detection: Flag ANY `console.error` or `console.log` in production code (use `log()` or `logger.*`)
    - **Nested Response Wrapper Anti-Pattern (CRITICAL)**:
      ```typescript
      // ❌ WRONG - Double-wrapped response (breaks API contract!)

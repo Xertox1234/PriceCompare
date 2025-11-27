@@ -10,7 +10,7 @@
  */
 
 import { db } from "../../db";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, sql, inArray } from "drizzle-orm";
 import { BaseStorage } from "../base-storage";
 import {
   retailers,
@@ -156,6 +156,31 @@ export class RetailerStorage extends BaseStorage {
       return result || null;
     } catch (error) {
       this.handleError(error, 'getRetailerById');
+    }
+  }
+
+  /**
+   * Get retailers by array of IDs (batch query to prevent N+1)
+   * Used for: Price snapshot operations, bulk retailer lookups
+   *
+   * @param ids - Array of retailer IDs
+   * @returns Array of retailers with id and name fields
+   */
+  async getRetailersByIds(ids: number[]): Promise<Array<{ id: number; name: string }>> {
+    try {
+      // Validate all IDs
+      ids.forEach(id => this.validateRetailerId(id));
+
+      if (ids.length === 0) {
+        return [];
+      }
+
+      return await this.db
+        .select({ id: retailers.id, name: retailers.name })
+        .from(retailers)
+        .where(inArray(retailers.id, ids));
+    } catch (error) {
+      this.handleError(error, 'getRetailersByIds');
     }
   }
 

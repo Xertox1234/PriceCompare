@@ -1,8 +1,5 @@
 import { storage } from "../storage";
-import { db } from "../db";
 import { logger } from "../utils/logger";
-import { products, retailers, productOffers, priceHistory } from "../../shared/schema";
-import { eq, inArray, desc } from "drizzle-orm";
 import { priceAggregationService } from "./price-aggregation-service";
 import { BATCH_PROCESSING } from "../utils/constants";
 
@@ -86,10 +83,7 @@ export class PriceSnapshotService {
    */
   async snapshotProductPrices(productId: number): Promise<number> {
     try {
-      const offers = await db
-        .select()
-        .from(productOffers)
-        .where(eq(productOffers.productId, productId));
+      const offers = await storage.getProductOffersByProductId(productId);
 
       if (offers.length === 0) {
         logger.info(`[PriceSnapshot] No offers found for product ${productId}`);
@@ -141,18 +135,11 @@ export class PriceSnapshotService {
 
         if (io) {
           // Batch fetch product and retailer details to avoid N+1 queries
-          const [productDetails] = await db
-            .select({ name: products.name })
-            .from(products)
-            .where(eq(products.id, productId))
-            .limit(1);
+          const productDetails = await storage.getProductByIdRaw(productId);
 
           // Batch fetch all retailers for the offers
           const retailerIds = Array.from(new Set(offers.map(o => o.retailerId)));
-          const retailerData = await db
-            .select({ id: retailers.id, name: retailers.name })
-            .from(retailers)
-            .where(inArray(retailers.id, retailerIds));
+          const retailerData = await storage.getRetailersByIds(retailerIds);
           const retailerMap = new Map(retailerData.map(r => [r.id, r.name]));
 
           if (productDetails) {
@@ -211,18 +198,7 @@ export class PriceSnapshotService {
       );
 
       // Get current offers with their products and retailers
-      const currentOffers = await db
-        .select({
-          offerId: productOffers.id,
-          productId: productOffers.productId,
-          retailerId: productOffers.retailerId,
-          currentPrice: productOffers.price,
-          productName: products.name,
-          retailerName: retailers.name,
-        })
-        .from(productOffers)
-        .innerJoin(products, eq(productOffers.productId, products.id))
-        .innerJoin(retailers, eq(productOffers.retailerId, retailers.id));
+      const currentOffers = await storage.getAllOffersWithDetails();
 
       if (currentOffers.length === 0) {
         logger.info('[PriceSnapshot] No offers found for analysis');
@@ -232,15 +208,7 @@ export class PriceSnapshotService {
       // BATCH QUERY: Get historical prices for all offers
       // We need at least 2 data points to detect changes
       const offerIds = currentOffers.map(o => o.offerId);
-      const allHistory = await db
-        .select({
-          productOfferId: priceHistory.productOfferId,
-          price: priceHistory.price,
-          recordedAt: priceHistory.recordedAt,
-        })
-        .from(priceHistory)
-        .where(inArray(priceHistory.productOfferId, offerIds))
-        .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+      const allHistory = await storage.getPriceHistoryForAnalysis(offerIds);
 
       // Build map of offerId -> price history (limited to last 30 entries for analysis)
       const historyByOffer = new Map<number, Array<{ price: string; recordedAt: Date | null }>>();

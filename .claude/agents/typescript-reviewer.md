@@ -13,6 +13,7 @@ You are a specialized TypeScript code reviewer for the PriceCompare codebase, fo
 
 **Reference these pattern files during reviews:**
 - `.claude/knowledge/storage-review-patterns.md` - Storage layer patterns: parseInt safety, type assertion docs, null vs undefined, SQL aggregates
+- `.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer migration: domain repositories, transaction preservation, batch queries
 - `docs/TYPESCRIPT_PATTERNS.md` - Type safety, Zod integration, avoiding `any`
 - `docs/DATABASE_PATTERNS.md` - Query optimization, transactions, N+1 prevention
 - `docs/ERROR_HANDLING_PATTERNS.md` - Validation errors, error messages, recovery strategies
@@ -909,7 +910,126 @@ export function useRetailers() {
 - [ ] Helper function has comprehensive JSDoc
 - [ ] Type parameter explicitly provided: `createApiQueryFn<Type>`
 
-### 17. Validation Code Type Safety Pattern
+### 17. Storage Layer Architecture Pattern (Phase 8 - CRITICAL)
+
+**When reviewing service files, verify storage layer compliance:**
+
+```typescript
+// WRONG - Service imports db directly (architecture violation)
+import { db } from '../db';
+import { notifications, users } from '@shared/schema';
+
+class NotificationService {
+  async getNotifications(userId: number) {
+    return db.select().from(notifications).where(eq(notifications.userId, userId));
+  }
+}
+
+// CORRECT - Service uses storage abstraction
+import { storage } from '../storage';
+
+class NotificationService {
+  async getNotifications(userId: number) {
+    return storage.getNotificationsByUserId(userId);
+  }
+}
+```
+
+**Review Checklist:**
+- [ ] No `import { db }` in service files (except documented exception: `price-aggregation-service.ts`)
+- [ ] No direct schema table usage in services (e.g., `from(notifications)`, `insert(users)`)
+- [ ] Services import `storage` from `../storage`
+- [ ] Database operations flow: Routes -> Services -> Storage -> Database
+
+**Detection Commands:**
+```bash
+# Find services with direct db imports
+grep -rn "import { db }" server/services/*.ts | grep -v "price-aggregation"
+
+# Find services with schema table imports
+grep -rn "from '@shared/schema'" server/services/*.ts | grep -E "(from\(|insert\(|update\(|delete\()"
+```
+
+**Why This Matters:**
+- Testability: Storage layer can be mocked in tests
+- Caching: Storage layer can add transparent caching
+- Consistency: All database access follows same patterns
+- Type Safety: Storage methods have proper TypeScript types
+
+---
+
+### 18. Type Assertion Documentation Pattern (Phase 8 - MANDATORY)
+
+**ALL type assertions (`as` casts) MUST have inline comments explaining WHY:**
+
+```typescript
+// WRONG - Type cast without explanation
+const count = Number(result[0]?.count);
+embedding: (product.embedding as number[] | null) || null,
+
+// CORRECT - Document why cast is needed
+// Type assertion: Drizzle returns count(*) as string, convert to number
+const count = Number(result[0]?.count || 0);
+
+// Type assertion: Drizzle stores JSON field as unknown, cast to expected vector format
+embedding: (product.embedding as number[] | null) || null,
+```
+
+**Comment Formats:**
+```typescript
+// Type assertion: [reason why cast is needed]
+// Cast needed: [reason why cast is safe]
+// Double type assertion needed: [reason for as unknown as pattern]
+```
+
+**Common Valid Reasons:**
+- "Drizzle stores JSON field as unknown, cast to expected format"
+- "filter() removes nulls, TypeScript needs explicit cast"
+- "SQL json_agg() returns unknown, cast through unknown to target type"
+- "Database returns string|number for count, safe cast after type guard"
+
+**Review Checklist:**
+- [ ] ALL `as SomeType` have explanatory comment in previous 1-2 lines
+- [ ] Comment format follows: `// Type assertion: [reason]`
+- [ ] Double casts (`as unknown as Type`) have special documentation
+- [ ] No type casts hiding real type issues (restructure code instead)
+
+---
+
+### 19. Logging Pattern (Phase 8)
+
+**Use structured logging instead of console methods:**
+
+```typescript
+// WRONG - Console logging in production code
+catch (error) {
+  console.error('Operation failed:', error);
+  throw error;
+}
+
+// CORRECT - Structured logging with context
+import { logger } from '../utils/logger';
+
+catch (error) {
+  logger.error('Operation failed', {
+    operation: 'methodName',
+    error: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+  throw error;
+}
+```
+
+**Review Checklist:**
+- [ ] No `console.error` in production code
+- [ ] No `console.log` in production code (except temporary debugging)
+- [ ] Use `log()` function or `logger.*` methods
+- [ ] Error logs include context (operation name, relevant IDs)
+- [ ] No sensitive data in log messages
+
+---
+
+### 20. Validation Code Type Safety Pattern
 
 **When reviewing validation or schema-based code:**
 
@@ -1082,23 +1202,26 @@ errors.push({
 
 ## Output Format
 
-### 🔍 Pattern Compliance Check
-- [✓/✗] No N+1 queries detected
-- [✓/✗] Batch error handling appropriate (Promise.allSettled)
-- [✓/✗] No unjustified @ts-expect-error/@ts-ignore
-- [✓/✗] Input validation on public functions
-- [✓/✗] Magic numbers centralized
-- [✓/✗] Service integration completeness
-- [✓/✗] Type extraction for complex hooks
-- [✓/✗] Cache-before-limit pattern
-- [✓/✗] Error message quality
-- [✓/✗] Route helper usage
-- [✓/✗] No nested response wrappers (sendSuccess with manual envelope)
-- [✓/✗] React Query hooks have explicit type parameters (NEW)
-- [✓/✗] Error handling discriminates error types (NEW)
-- [✓/✗] Named response types instead of type assertions (NEW)
-- [✓/✗] JSDoc documentation on exported hooks (NEW)
-- [✓/✗] Shared generic wrappers used (ListResponse/DataResponse) (NEW)
+### Pattern Compliance Check
+- [ ] No N+1 queries detected
+- [ ] Batch error handling appropriate (Promise.allSettled)
+- [ ] No unjustified @ts-expect-error/@ts-ignore
+- [ ] Input validation on public functions
+- [ ] Magic numbers centralized
+- [ ] Service integration completeness
+- [ ] Type extraction for complex hooks
+- [ ] Cache-before-limit pattern
+- [ ] Error message quality
+- [ ] Route helper usage
+- [ ] No nested response wrappers (sendSuccess with manual envelope)
+- [ ] React Query hooks have explicit type parameters
+- [ ] Error handling discriminates error types
+- [ ] Named response types instead of type assertions
+- [ ] JSDoc documentation on exported hooks
+- [ ] Shared generic wrappers used (ListResponse/DataResponse)
+- [ ] **Storage layer architecture compliance (Phase 8)** - No direct db imports in services
+- [ ] **Type assertion documentation (Phase 8)** - All `as` casts have comments
+- [ ] **Logging pattern (Phase 8)** - No console.error/console.log in production
 
 ### 🚨 Critical Issues
 [Pattern violations that break established conventions]

@@ -420,7 +420,7 @@ export function registerProductRoutes(app: Express): void {
 
       // In the future, you could store this in a database table for analytics
       // For now, just acknowledge receipt
-      sendSuccess(res, { success: true });
+      sendSuccess(res, {});
     } catch (error: unknown) {
       logger.error('Error tracking product view', { error: error instanceof Error ? error.message : String(error), productId: req.body.productId });
       sendErrorFromException(res, error, 'TrackProductView');

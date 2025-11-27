@@ -13,7 +13,8 @@ You are a Database Engineering Specialist for the PriceCompare platform.
 - `/Users/williamtower/projects/PriceCompare/docs/DATABASE_PATTERNS.md` - N+1 prevention, transactions, query optimization, foreign keys
 - `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Secure schema design, sensitive data handling, password hashes
 - `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety in schemas and queries, avoiding `any` types
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - **NEW** Storage layer decomposition: type extraction, domain boundaries, facade pattern
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - Storage layer decomposition: type extraction, domain boundaries, facade pattern
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer migration: domain repositories, transaction preservation, batch queries
 
 Before working on database code, reference these pattern files to ensure you follow all documented best practices, security requirements, and avoid anti-patterns.
 
@@ -221,11 +222,13 @@ await db.transaction(async (tx) => {
 Use SERIALIZABLE isolation for operations with race condition risks:
 
 ```typescript
-// ✅ CORRECT - Prevent race conditions with SERIALIZABLE
+// CORRECT - Prevent race conditions with SERIALIZABLE
 await db.transaction(async (tx) => {
   // Check if first user (count could change concurrently)
   const userCount = await tx.select({ count: sql`count(*)` }).from(users);
-  const isFirstUser = parseInt(userCount[0].count as string) === 0;
+
+  // Type assertion: Drizzle returns count(*) as string, convert to number
+  const isFirstUser = Number(userCount[0]?.count || 0) === 0;
 
   // Create user - role determined by count check
   await tx.insert(users).values({
@@ -247,6 +250,52 @@ await db.transaction(async (tx) => {
 - Simple multi-step creates with no conditionals
 - Operations on records locked by primary key
 - Sequential operations with no race condition risk
+
+### Retry Logic for SERIALIZABLE Conflicts (Phase 8)
+
+SERIALIZABLE transactions can fail due to concurrent access. Implement retry logic:
+
+```typescript
+import { retryWithBackoff } from '../utils/retry';
+
+// Pattern: Wrap SERIALIZABLE transactions with retry logic
+async createAlertWithRetry(data: AlertInsert): Promise<Alert> {
+  return retryWithBackoff(
+    async () => this.createAlert(data),
+    {
+      maxRetries: 3,
+      initialDelayMs: 100,
+      maxDelayMs: 1000,
+      // Only retry on serialization failures
+      shouldRetry: (error) =>
+        error.message?.includes('could not serialize') ||
+        error.code === '40001'
+    }
+  );
+}
+```
+
+### ON CONFLICT for Concurrent Insert Prevention (Phase 8)
+
+Prevent duplicate inserts without transactions:
+
+```typescript
+// Pattern: Upsert to prevent duplicates atomically
+async upsertNotification(data: NotificationInsert): Promise<Notification> {
+  const [result] = await this.db
+    .insert(notifications)
+    .values(data)
+    .onConflictDoUpdate({
+      target: [notifications.userId, notifications.type, notifications.relatedEntityId],
+      set: {
+        content: data.content,
+        updatedAt: new Date()
+      }
+    })
+    .returning();
+
+  return result;
+}
 
 ### Common Transaction Patterns
 
@@ -412,14 +461,14 @@ Mark passwordHash usage with `// SECURITY: NEVER expose` to pass pre-commit hook
 
 ### N+1 Queries (NEVER DO THIS)
 ```typescript
-// ❌ WRONG - Queries in loops create N+1 problem
+// WRONG - Queries in loops create N+1 problem
 for (const item of items) {
   const relatedData = await db.select()
     .from(relatedTable)
     .where(eq(relatedTable.itemId, item.id));
 }
 
-// ✅ CORRECT - Use batch query with Map
+// CORRECT - Use batch query with Map
 const itemIds = items.map(i => i.id);
 const allRelated = await db.select()
   .from(relatedTable)
@@ -432,6 +481,64 @@ allRelated.forEach(r => {
   }
   relatedByItemId.get(r.itemId).push(r);
 });
+```
+
+### Batch Query Pattern with inArray() (Phase 8)
+
+When fetching related data for multiple records, use batch queries:
+
+```typescript
+// Pattern: Batch fetch with input validation
+async getRetailersByIds(ids: number[]): Promise<Retailer[]> {
+  // Input validation
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return [];
+  }
+
+  // Validate all IDs are positive integers
+  for (const id of ids) {
+    if (!Number.isFinite(id) || id <= 0) {
+      throw new Error(`Invalid retailer ID in batch: ${id}`);
+    }
+  }
+
+  try {
+    return await this.db
+      .select()
+      .from(retailers)
+      .where(inArray(retailers.id, ids));
+  } catch (error) {
+    this.handleError(error, 'getRetailersByIds');
+  }
+}
+```
+
+### Using Batch Methods in Services (Phase 8)
+
+```typescript
+// WRONG (N+1 query):
+async processOffers(offers: Offer[]) {
+  for (const offer of offers) {
+    // N queries!
+    const retailer = await storage.getRetailerById(offer.retailerId);
+    offer.retailerName = retailer?.name;
+  }
+}
+
+// CORRECT (Batch query):
+async processOffers(offers: Offer[]) {
+  // Single query for all retailers
+  const retailerIds = [...new Set(offers.map(o => o.retailerId))];
+  const retailers = await storage.getRetailersByIds(retailerIds);
+
+  // O(1) lookups with Map
+  const retailerMap = new Map(retailers.map(r => [r.id, r]));
+
+  for (const offer of offers) {
+    const retailer = retailerMap.get(offer.retailerId);
+    offer.retailerName = retailer?.name;
+  }
+}
 ```
 
 ### Promise.all for Batch Operations

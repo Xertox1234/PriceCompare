@@ -142,7 +142,7 @@ export function registerAdminRoutes(app: Express): void {
         return;
       }
 
-      sendSuccess(res, { success: true, message: 'Product deleted successfully' });
+      sendSuccess(res, { message: 'Product deleted successfully' });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'DeleteProduct');
     }
@@ -200,7 +200,7 @@ export function registerAdminRoutes(app: Express): void {
         return;
       }
 
-      sendSuccess(res, { success: true, message: 'Retailer deleted successfully' });
+      sendSuccess(res, { message: 'Retailer deleted successfully' });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'DeleteRetailer');
     }

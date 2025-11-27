@@ -12,6 +12,7 @@ Related Patterns: [SECURITY_PATTERNS.md, API_PATTERNS.md, SERVICE_INTEGRATION_PA
 This document codifies database patterns and anti-patterns in the PriceCompare codebase to prevent common mistakes and ensure data integrity.
 
 ## Table of Contents
+- [Storage Layer Architecture (Phase 8)](#storage-layer-architecture-phase-8)
 - [Critical Anti-Patterns](#critical-anti-patterns)
 - [Transaction Patterns](#transaction-patterns)
 - [Query Optimization](#query-optimization)
@@ -19,6 +20,298 @@ This document codifies database patterns and anti-patterns in the PriceCompare c
 - [Field Selection Security](#field-selection-security)
 - [Drizzle ORM Patterns](#drizzle-orm-patterns)
 - [Architecture Decisions](#architecture-decisions)
+
+---
+
+## Storage Layer Architecture (Phase 8)
+
+**Status:** MANDATORY as of Phase 8 completion (2025-11-27)
+**Compliance:** 100% (5/5 services migrated, 43/43 db operations abstracted)
+
+### Overview
+
+All database access MUST flow through the storage layer abstraction. Services should NEVER import `db` directly.
+
+**Correct Architecture:**
+```
+Route → Service → Storage → Database
+```
+
+**Migration Status:**
+- ✅ 5/5 services migrated (100%)
+- ✅ 43/43 database operations abstracted
+- ✅ 40+ storage methods created
+- ❌ 1 documented exception: `price-aggregation-service.ts`
+
+### ❌ ANTI-PATTERN: Direct Database Access in Services
+
+```typescript
+// ❌ WRONG - Service imports db directly
+import { db } from "../db";
+import { products } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+export async function getProduct(id: number) {
+  const [product] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
+  return product;
+}
+```
+
+**Problems:**
+- Mixed concerns (business logic + data access)
+- Difficult to test (requires database)
+- No centralized query optimization
+- Violates architecture pattern
+
+### ✅ CORRECT PATTERN: Storage Layer Abstraction
+
+**Service Layer** (`server/services/product-service.ts`):
+```typescript
+// ✅ CORRECT - Service uses storage abstraction
+import { storage } from "../storage";
+
+export async function getProduct(id: number) {
+  // Business logic only - data access delegated to storage
+  const product = await storage.getProductById(id);
+
+  if (!product) {
+    throw new Error(`Product ${id} not found`);
+  }
+
+  return product;
+}
+```
+
+**Storage Layer** (`server/storage/domains/product-storage.ts`):
+```typescript
+export class ProductStorage extends BaseStorage {
+  /**
+   * Get product by ID
+   * @param id - Product ID (validated as positive integer)
+   */
+  async getProductById(id: number): Promise<Product | null> {
+    try {
+      // Input validation
+      this.validateProductId(id);
+
+      // Data access only
+      const [product] = await this.db
+        .select()
+        .from(products)
+        .where(eq(products.id, id))
+        .limit(1);
+
+      return product || null;
+    } catch (error) {
+      this.handleError(error, 'getProductById');
+    }
+  }
+}
+```
+
+**Storage Facade** (`server/storage.ts`):
+```typescript
+export interface IStorage {
+  // Interface contract
+  getProductById(id: number): Promise<Product | null>;
+}
+
+export class DatabaseStorage implements IStorage {
+  private productStorage: ProductStorage;
+
+  async getProductById(id: number): Promise<Product | null> {
+    // Delegation to domain storage
+    return this.productStorage.getProductById(id);
+  }
+}
+```
+
+### Storage Layer Benefits
+
+1. **Separation of Concerns**
+   - Services: Business logic, validation, orchestration
+   - Storage: Data access, queries, transactions
+
+2. **Testability**
+   - Mock storage layer in service tests
+   - Test storage layer independently
+
+3. **Type Safety**
+   - Full TypeScript support
+   - Interface contracts enforced
+
+4. **Consistency**
+   - All database queries in one place
+   - Centralized optimization
+   - Consistent error handling
+
+5. **Maintainability**
+   - Easy to refactor queries
+   - Clear boundaries between layers
+
+### Migration Pattern
+
+When migrating services to storage layer:
+
+**Step 1:** Analyze database usage
+```bash
+grep -n "await db\." server/services/your-service.ts
+```
+
+**Step 2:** Check for existing storage methods
+```bash
+grep -n "methodName" server/storage.ts
+```
+
+**Step 3:** Create storage methods if needed
+```typescript
+// In appropriate domain storage class
+async getYourData(params): Promise<Result> {
+  try {
+    // Validation
+    this.validateParams(params);
+
+    // Query
+    return await this.db.select()...;
+  } catch (error) {
+    this.handleError(error, 'getYourData');
+  }
+}
+```
+
+**Step 4:** Add to storage interface and facade
+```typescript
+// server/storage.ts - IStorage interface
+getYourData(params): Promise<Result>;
+
+// server/storage.ts - DatabaseStorage class
+async getYourData(params): Promise<Result> {
+  return this.yourDomainStorage.getYourData(params);
+}
+
+// server/storage.ts - MemStorage class (testing stub)
+async getYourData(params): Promise<Result> {
+  return mockResult; // or throw new Error('Not supported in memory storage');
+}
+```
+
+**Step 5:** Migrate service
+```typescript
+// Remove
+- import { db } from "../db";
+- import { schema tables } from "@shared/schema";
+
+// Add
++ import { storage } from "../storage";
+
+// Replace
+- await db.select()...
++ await storage.getYourData(params)
+```
+
+**Step 6:** Verify
+```bash
+npm run check  # TypeScript compilation
+grep -n "import.*\bdb\b" server/services/your-service.ts  # Should be empty
+```
+
+### Documented Exception
+
+**File:** `server/services/price-aggregation-service.ts`
+
+**Reason:** Complex transaction context passing between private helper methods. The service uses transactions with shared context passed to multiple private methods, making storage layer abstraction impractical without significant refactoring.
+
+**Justification:** Documented in CLAUDE.md. This is the ONLY service allowed to use direct `db` access.
+
+### Type Assertion Documentation (Phase 8)
+
+When using type assertions with Drizzle ORM, ALWAYS add inline comments explaining why:
+
+```typescript
+// ❌ WRONG - No explanation
+return Number(result[0]?.count || 0);
+
+// ✅ CORRECT - Explains Drizzle behavior
+// Type assertion: Drizzle returns count(*) as string, convert to number
+return Number(result[0]?.count || 0);
+
+// ✅ CORRECT - Explains SQL cast
+// Type assertion: SQL aggregate with ::int cast returns typed as number
+const count = sql<number>`count(*) FILTER (WHERE ${table.field} = true)::int`;
+```
+
+**Why:** Drizzle's type system sometimes returns unexpected types (e.g., `count()` returns `string` not `number`). Comments prevent confusion during code review.
+
+### Input Validation in Storage Layer
+
+All public storage methods MUST validate inputs:
+
+```typescript
+async getNotificationCountByType(
+  userId: number,
+  type: string,
+  sinceDate: Date
+): Promise<number> {
+  try {
+    // Validate userId
+    if (!Number.isFinite(userId) || userId <= 0) {
+      throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+    }
+
+    // Validate type
+    if (!type || typeof type !== 'string') {
+      throw new Error(`Invalid type: ${type}. Must be non-empty string.`);
+    }
+
+    // Validate date
+    if (!(sinceDate instanceof Date) || isNaN(sinceDate.getTime())) {
+      throw new Error(`Invalid sinceDate: ${sinceDate}. Must be valid Date.`);
+    }
+
+    // Query
+    const result = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.type, type),
+        gte(notifications.createdAt, sinceDate)
+      ));
+
+    // Type assertion: Drizzle returns count(*) as string, convert to number
+    return Number(result[0]?.count || 0);
+  } catch (error) {
+    this.handleError(error, 'getNotificationCountByType');
+    return 0;
+  }
+}
+```
+
+### Storage Layer Constants
+
+Use constants from `server/utils/constants.ts` instead of magic numbers:
+
+```typescript
+import { NOTIFICATION, STORAGE_VALIDATION } from "../utils/constants";
+
+// ❌ WRONG - Magic numbers
+if (notificationCount >= 3) { ... }
+const dedup = await redis.setex(key, 6 * 60 * 60, '1');
+
+// ✅ CORRECT - Named constants
+if (notificationCount >= NOTIFICATION.SMART_ALERT_DAILY_LIMIT) { ... }
+const dedup = await redis.setex(key, NOTIFICATION.DEDUP_TTL_HOURS * 60 * 60, '1');
+```
+
+**Available Constants (Phase 8):**
+- `NOTIFICATION.*` - Notification limits and TTLs
+- `TRANSACTION_RETRY.*` - Retry logic configuration
+- `STORAGE_VALIDATION.*` - Input validation bounds
+- `DATA_RETENTION.*` - Data retention policies
 
 ---
 

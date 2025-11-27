@@ -1,20 +1,10 @@
 import { storage } from '../storage';
-import { db } from '../db';
 import { logger } from '../utils/logger';
+import type { PriceSnapshotInsert } from '../storage/types';
 import {
-  priceHistory,
-  priceSnapshots,
-  productOffers,
-  products,
-  retailers,
-  priceAggregatesDaily,
-  priceAggregatesWeekly,
-  priceAggregatesMonthly,
   type PriceHistory,
-  type PriceSnapshot,
-  type InsertPriceSnapshot
+  type PriceSnapshot
 } from '@shared/schema';
-import { eq, and, gte, desc, sql, lte, asc } from 'drizzle-orm';
 
 /**
  * Price History Service
@@ -318,25 +308,12 @@ async function getRawPriceHistory(
   endDate: Date,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
-  const conditions = [
-    eq(priceHistory.productId, productId),
-    gte(priceHistory.recordedAt, startDate),
-    lte(priceHistory.recordedAt, endDate)
-  ];
-
-  if (retailerId) {
-    conditions.push(eq(priceHistory.retailerId, retailerId));
-  }
-
-  const result = await db
-    .select({
-      history: priceHistory,
-      retailer: retailers
-    })
-    .from(priceHistory)
-    .innerJoin(retailers, eq(priceHistory.retailerId, retailers.id))
-    .where(and(...conditions))
-    .orderBy(asc(priceHistory.recordedAt));
+  const result = await storage.getRawPriceHistoryWithRetailers(
+    productId,
+    startDate,
+    endDate,
+    retailerId
+  );
 
   return result.map(row => ({
     date: row.history.recordedAt || new Date(),
@@ -357,28 +334,12 @@ async function getDailyAggregates(
   endDate: Date,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
-  const startDateStr = startDate.toISOString().split('T')[0];
-  const endDateStr = endDate.toISOString().split('T')[0];
-
-  const conditions = [
-    eq(priceAggregatesDaily.productId, productId),
-    gte(priceAggregatesDaily.date, startDateStr),
-    lte(priceAggregatesDaily.date, endDateStr)
-  ];
-
-  if (retailerId) {
-    conditions.push(eq(priceAggregatesDaily.retailerId, retailerId));
-  }
-
-  const result = await db
-    .select({
-      agg: priceAggregatesDaily,
-      retailer: retailers
-    })
-    .from(priceAggregatesDaily)
-    .innerJoin(retailers, eq(priceAggregatesDaily.retailerId, retailers.id))
-    .where(and(...conditions))
-    .orderBy(asc(priceAggregatesDaily.date));
+  const result = await storage.getDailyAggregatesWithRetailers(
+    productId,
+    startDate,
+    endDate,
+    retailerId
+  );
 
   return result.map(row => ({
     date: new Date(row.agg.date + 'T00:00:00'), // Convert YYYY-MM-DD to Date
@@ -402,29 +363,12 @@ async function getWeeklyAggregates(
   endDate: Date,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
-  // Calculate year/week range
-  const startYear = startDate.getFullYear();
-  const endYear = endDate.getFullYear();
-
-  const conditions = [
-    eq(priceAggregatesWeekly.productId, productId),
-    gte(priceAggregatesWeekly.year, startYear),
-    lte(priceAggregatesWeekly.year, endYear)
-  ];
-
-  if (retailerId) {
-    conditions.push(eq(priceAggregatesWeekly.retailerId, retailerId));
-  }
-
-  const result = await db
-    .select({
-      agg: priceAggregatesWeekly,
-      retailer: retailers
-    })
-    .from(priceAggregatesWeekly)
-    .innerJoin(retailers, eq(priceAggregatesWeekly.retailerId, retailers.id))
-    .where(and(...conditions))
-    .orderBy(asc(priceAggregatesWeekly.year), asc(priceAggregatesWeekly.week));
+  const result = await storage.getWeeklyAggregatesWithRetailers(
+    productId,
+    startDate,
+    endDate,
+    retailerId
+  );
 
   return result.map(row => {
     // Approximate date from year/week (use Monday of that week)
@@ -432,10 +376,10 @@ async function getWeeklyAggregates(
 
     return {
       date: weekDate,
-      price: parseFloat(row.agg.avgPrice),
-      minPrice: parseFloat(row.agg.minPrice),
-      maxPrice: parseFloat(row.agg.maxPrice),
-      avgPrice: parseFloat(row.agg.avgPrice),
+      price: parseFloat(row.agg.avgPrice || '0'),
+      minPrice: parseFloat(row.agg.minPrice || '0'),
+      maxPrice: parseFloat(row.agg.maxPrice || '0'),
+      avgPrice: parseFloat(row.agg.avgPrice || '0'),
       medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
       retailerId: row.agg.retailerId,
       retailerName: row.retailer.name,
@@ -453,35 +397,19 @@ async function getMonthlyAggregates(
   endDate: Date,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
-  const startYear = startDate.getFullYear();
-  const endYear = endDate.getFullYear();
-
-  const conditions = [
-    eq(priceAggregatesMonthly.productId, productId),
-    gte(priceAggregatesMonthly.year, startYear),
-    lte(priceAggregatesMonthly.year, endYear)
-  ];
-
-  if (retailerId) {
-    conditions.push(eq(priceAggregatesMonthly.retailerId, retailerId));
-  }
-
-  const result = await db
-    .select({
-      agg: priceAggregatesMonthly,
-      retailer: retailers
-    })
-    .from(priceAggregatesMonthly)
-    .innerJoin(retailers, eq(priceAggregatesMonthly.retailerId, retailers.id))
-    .where(and(...conditions))
-    .orderBy(asc(priceAggregatesMonthly.year), asc(priceAggregatesMonthly.month));
+  const result = await storage.getMonthlyAggregatesWithRetailers(
+    productId,
+    startDate,
+    endDate,
+    retailerId
+  );
 
   return result.map(row => ({
     date: new Date(row.agg.year, row.agg.month - 1, 1), // First day of month
-    price: parseFloat(row.agg.avgPrice),
-    minPrice: parseFloat(row.agg.minPrice),
-    maxPrice: parseFloat(row.agg.maxPrice),
-    avgPrice: parseFloat(row.agg.avgPrice),
+    price: parseFloat(row.agg.avgPrice || '0'),
+    minPrice: parseFloat(row.agg.minPrice || '0'),
+    maxPrice: parseFloat(row.agg.maxPrice || '0'),
+    avgPrice: parseFloat(row.agg.avgPrice || '0'),
     medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
     retailerId: row.agg.retailerId,
     retailerName: row.retailer.name,
@@ -520,11 +448,7 @@ export async function getPriceStats(
     startDate.setDate(startDate.getDate() - days);
 
     // Get current price from product_offers
-    const [offer] = await db
-      .select()
-      .from(productOffers)
-      .where(eq(productOffers.id, productOfferId))
-      .limit(1);
+    const offer = await storage.getProductOfferById(productOfferId);
 
     if (!offer) {
       return null;
@@ -533,16 +457,10 @@ export async function getPriceStats(
     const currentPrice = parseFloat(offer.price);
 
     // Get historical data
-    const history = await db
-      .select()
-      .from(priceHistory)
-      .where(
-        and(
-          eq(priceHistory.productOfferId, productOfferId),
-          gte(priceHistory.recordedAt, startDate)
-        )
-      )
-      .orderBy(desc(priceHistory.recordedAt));
+    const history = await storage.getPriceHistoryByQuery({
+      productOfferId,
+      startDate
+    });
 
     if (history.length === 0) {
       return {
@@ -621,22 +539,11 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
     const startTime = Date.now();
 
     // Step 1: Get all active product offers grouped by product and retailer
-    const offers = await db
-      .select({
-        productId: products.id,
-        retailerId: productOffers.retailerId,
-        price: productOffers.price
-      })
-      .from(productOffers)
-      .innerJoin(products, eq(productOffers.productId, products.id))
-      .where(eq(productOffers.availability, 'in_stock'));
+    const offers = await storage.getActiveProductOffersGrouped();
 
     // Step 2: BATCH FETCH - Get all existing snapshots for this date in ONE query
     // This eliminates the N+1 query pattern (was 5000+ queries, now just 1!)
-    const existingSnapshots = await db
-      .select()
-      .from(priceSnapshots)
-      .where(sql`DATE(${priceSnapshots.snapshotDate}) = DATE(${snapshotDate})`);
+    const existingSnapshots = await storage.getExistingSnapshotsForDate(snapshotDate);
 
     // Step 3: Create Map for O(1) lookup - no more queries in loop!
     const existingMap = new Map(
@@ -660,8 +567,8 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
     }
 
     // Step 5: Process snapshots and separate into inserts vs updates (no database queries in loop!)
-    const snapshotsToInsert: InsertPriceSnapshot[] = [];
-    const snapshotsToUpdate: Array<{ id: number; data: Partial<InsertPriceSnapshot> }> = [];
+    const snapshotsToInsert: PriceSnapshotInsert[] = [];
+    const snapshotsToUpdate: Array<{ id: number; data: Partial<PriceSnapshotInsert> }> = [];
 
     for (const [key, prices] of Array.from(groupedOffers.entries())) {
       const [productId, retailerId] = key.split('-').map(Number);
@@ -670,7 +577,7 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
       const highestPrice = Math.max(...prices);
       const averagePrice = prices.reduce((sum: number, p: number) => sum + p, 0) / prices.length;
 
-      const snapshotData: InsertPriceSnapshot = {
+      const snapshotData: PriceSnapshotInsert = {
         productId,
         retailerId,
         lowestPrice: lowestPrice.toString(),
@@ -702,17 +609,14 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
 
     // Step 6: Batch insert new snapshots
     if (snapshotsToInsert.length > 0) {
-      await db.insert(priceSnapshots).values(snapshotsToInsert);
+      await storage.insertPriceSnapshots(snapshotsToInsert);
     }
 
     // Step 7: Batch update existing snapshots
     // Note: Drizzle doesn't support batch updates directly, but we can do them sequentially
     // This is still much faster than the original N+1 query pattern for existence checks
     for (const { id, data } of snapshotsToUpdate) {
-      await db
-        .update(priceSnapshots)
-        .set(data)
-        .where(eq(priceSnapshots.id, id));
+      await storage.updatePriceSnapshot(id, data);
     }
 
     const snapshotCount = snapshotsToInsert.length + snapshotsToUpdate.length;
@@ -743,25 +647,12 @@ export async function getPriceSnapshots(
   endDate?: Date
 ): Promise<PriceSnapshot[]> {
   try {
-    const conditions = [eq(priceSnapshots.productId, productId)];
-
-    if (retailerId) {
-      conditions.push(eq(priceSnapshots.retailerId, retailerId));
-    }
-
-    if (startDate) {
-      conditions.push(gte(priceSnapshots.snapshotDate, startDate));
-    }
-
-    if (endDate) {
-      conditions.push(lte(priceSnapshots.snapshotDate, endDate));
-    }
-
-    return await db
-      .select()
-      .from(priceSnapshots)
-      .where(and(...conditions))
-      .orderBy(desc(priceSnapshots.snapshotDate));
+    return await storage.getPriceSnapshotsByFilters(
+      productId,
+      retailerId,
+      startDate,
+      endDate
+    );
   } catch (error) {
     logger.error('Error getting price snapshots:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
@@ -780,12 +671,10 @@ export async function cleanupOldPriceHistory(daysToKeep: number = 90): Promise<n
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-    const result = await db
-      .delete(priceHistory)
-      .where(lte(priceHistory.recordedAt, cutoffDate));
+    const deletedCount = await storage.deleteOldPriceHistory(cutoffDate);
 
     logger.info(`Cleaned up price history records older than ${cutoffDate.toISOString()}`);
-    return result.rowCount ?? 0;
+    return deletedCount;
   } catch (error) {
     logger.error('Error cleaning up old price history:', { error: error instanceof Error ? error.message : String(error) });
     throw error;
@@ -808,15 +697,7 @@ export async function detectSignificantPriceDrops(
     cutoffDate.setHours(cutoffDate.getHours() - hours);
 
     // Get recent price changes
-    const recentChanges = await db
-      .select({
-        productOfferId: priceHistory.productOfferId,
-        price: priceHistory.price,
-        recordedAt: priceHistory.recordedAt
-      })
-      .from(priceHistory)
-      .where(gte(priceHistory.recordedAt, cutoffDate))
-      .orderBy(priceHistory.productOfferId, desc(priceHistory.recordedAt));
+    const recentChanges = await storage.getRecentPriceChanges(cutoffDate);
 
     // Group by product offer and find drops
     const drops: Array<{ productOfferId: number; previousPrice: number; currentPrice: number; dropPercent: number }> = [];

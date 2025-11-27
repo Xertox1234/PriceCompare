@@ -616,6 +616,59 @@ export class ProductStorage extends BaseStorage {
     }
   }
 
+  /**
+   * Get all product offers for a specific product
+   * Used for: Price snapshot operations, product monitoring
+   *
+   * @param productId - Product ID to get offers for (validated as positive integer)
+   * @returns Array of ProductOffers for the product
+   */
+  async getProductOffersByProductId(productId: number): Promise<ProductOffer[]> {
+    try {
+      // Validate input
+      this.validateProductId(productId);
+
+      return this.db
+        .select()
+        .from(productOffers)
+        .where(eq(productOffers.productId, productId));
+    } catch (error) {
+      this.handleError(error, 'getProductOffersByProductId');
+    }
+  }
+
+  /**
+   * Get all product offers with product and retailer details (JOIN query)
+   * Used for: Price change analysis, monitoring dashboards
+   *
+   * @returns Array of offers with product name and retailer name included
+   */
+  async getAllOffersWithDetails(): Promise<Array<{
+    offerId: number;
+    productId: number;
+    retailerId: number;
+    currentPrice: string;
+    productName: string;
+    retailerName: string;
+  }>> {
+    try {
+      return await this.db
+        .select({
+          offerId: productOffers.id,
+          productId: productOffers.productId,
+          retailerId: productOffers.retailerId,
+          currentPrice: productOffers.price,
+          productName: products.name,
+          retailerName: retailers.name,
+        })
+        .from(productOffers)
+        .innerJoin(products, eq(productOffers.productId, products.id))
+        .innerJoin(retailers, eq(productOffers.retailerId, retailers.id));
+    } catch (error) {
+      this.handleError(error, 'getAllOffersWithDetails');
+    }
+  }
+
   // ============================================================================
   // Product Search & Discovery
   // ============================================================================

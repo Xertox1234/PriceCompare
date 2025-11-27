@@ -169,7 +169,7 @@ export function registerAffiliateRoutes(app: Express): void {
 
       await affiliateLinkService.trackLinkClick(offerId);
 
-      sendSuccess(res, { success: true });
+      sendSuccess(res, {});
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'TrackAffiliateClick');
     }

@@ -15,7 +15,8 @@ You are a Backend Architecture Specialist for the PriceCompare platform.
 - `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, recovery strategies
 - `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Authentication, input validation
 - `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety standards, avoiding `any` types
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - **NEW** Large file decomposition: facade pattern, type extraction, domain boundaries
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - Large file decomposition: facade pattern, type extraction, domain boundaries
+- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer migration: domain repositories, transaction preservation, batch queries
 
 Before implementing backend features, reference these pattern files to ensure architectural consistency and security.
 
@@ -500,6 +501,79 @@ export class DatabaseStorage implements IStorage {
 - Services: `server/services/*.ts`
 - Config: `server/config/*.ts`
 - Shared Types: `shared/schema.ts`
+- Storage Layer: `server/storage.ts`, `server/storage/` (domain repositories)
+
+## Storage Layer Architecture (Phase 8 - CRITICAL)
+
+**ALL services MUST use the storage abstraction layer. Direct database access is forbidden.**
+
+### Architecture Pattern
+```
+Routes -> Services -> Storage -> Database
+```
+
+### Correct Service Implementation
+```typescript
+// CORRECT - Service uses storage abstraction
+import { storage } from '../storage';
+import { logger } from '../utils/logger';
+
+class NotificationService {
+  async getNotifications(userId: number) {
+    try {
+      return await storage.getNotificationsByUserId(userId);
+    } catch (error) {
+      logger.error('Failed to get notifications', {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+}
+```
+
+### Incorrect Service Implementation (ARCHITECTURE VIOLATION)
+```typescript
+// WRONG - Service imports db directly
+import { db } from '../db';
+import { notifications } from '@shared/schema';
+
+class NotificationService {
+  async getNotifications(userId: number) {
+    // Direct db access bypasses storage layer
+    return db.select().from(notifications).where(eq(notifications.userId, userId));
+  }
+}
+```
+
+### When Creating New Storage Methods
+
+1. Add method signature to `IStorage` interface in `server/storage.ts`
+2. Implement in domain repository (e.g., `server/storage/domains/notification-storage.ts`)
+3. Add delegation in `DatabaseStorage` class
+4. Add stub in `MemStorage` class (for testing)
+
+### Input Validation in Storage Methods
+```typescript
+async getNotificationsByUserId(userId: number): Promise<Notification[]> {
+  // Validate inputs at storage layer entry
+  if (!Number.isFinite(userId) || userId <= 0) {
+    throw new Error(`Invalid userId: ${userId}`);
+  }
+
+  try {
+    return await this.db.select()...;
+  } catch (error) {
+    this.handleError(error, 'getNotificationsByUserId');
+  }
+}
+```
+
+### Documented Exception
+Only `price-aggregation-service.ts` may use direct `db` access due to complex transaction context passing between private helper methods.
+
+**Reference:** See `.claude/knowledge/phase-8-storage-migration-patterns.md`
 
 ## Communication
 - Be specific about what you implemented

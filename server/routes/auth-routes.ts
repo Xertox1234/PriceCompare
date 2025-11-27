@@ -202,7 +202,7 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
 
-      sendSuccess(res, { success: true });
+      sendSuccess(res, {});
     });
   });
 

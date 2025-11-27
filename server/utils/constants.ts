@@ -244,3 +244,59 @@ export const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'Internal server error',
   DATABASE_ERROR: 'Database error occurred',
 } as const;
+
+/**
+ * Notification constants (Phase 8 - Storage Layer Migration)
+ * Used by NotificationStorage for deduplication and daily limits
+ */
+export const NOTIFICATION = {
+  /** Hours window for deduplication (prevent duplicate notifications within this window) */
+  DEDUP_TTL_HOURS: 6,
+  /** Maximum notifications per user per day for smart alerts */
+  SMART_ALERT_DAILY_LIMIT: 3,
+  /** Default pagination limit for notification queries */
+  DEFAULT_LIMIT: 50,
+  /** Maximum batch size for bulk operations */
+  MAX_BATCH_SIZE: 100,
+} as const;
+
+/**
+ * Transaction retry constants (Phase 8)
+ * Used for SERIALIZABLE transaction retry logic
+ */
+export const TRANSACTION_RETRY = {
+  /** Maximum retry attempts for serialization failures */
+  MAX_RETRIES: 3,
+  /** Initial delay in milliseconds before first retry */
+  INITIAL_DELAY_MS: 100,
+  /** Maximum delay in milliseconds between retries */
+  MAX_DELAY_MS: 1000,
+  /** PostgreSQL error code for serialization failure */
+  SERIALIZATION_FAILURE_CODE: '40001',
+} as const;
+
+/**
+ * Storage layer validation constants (Phase 8)
+ * Used by domain repositories for input validation
+ */
+export const STORAGE_VALIDATION = {
+  /** Minimum valid ID (all IDs must be positive) */
+  MIN_ID: 1,
+  /** Maximum days for price history queries */
+  MAX_PRICE_HISTORY_DAYS: 3650,
+  /** Maximum items in a batch query */
+  MAX_BATCH_IDS: 1000,
+} as const;
+
+/**
+ * Data retention constants (Phase 8)
+ * Used by cleanup jobs and storage methods
+ */
+export const DATA_RETENTION = {
+  /** Days to retain notification records */
+  NOTIFICATION_DAYS: 90,
+  /** Days to retain price snapshots */
+  PRICE_SNAPSHOT_DAYS: 365,
+  /** Days to retain analytics data */
+  ANALYTICS_DAYS: 730,
+} as const;

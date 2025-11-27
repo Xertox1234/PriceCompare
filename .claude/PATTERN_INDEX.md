@@ -40,6 +40,7 @@ This index provides a complete overview of all pattern files, their relationship
 |------|---------|-------|---------|--------------|
 | claude-code-subagent-setup-guide.md | 1.0 | 1,581 | Subagent system guide | 2025-11-20 |
 | storage-refactoring-patterns.md | 1.0 | 1,071 | Large file refactoring | 2025-11-25 |
+| phase-8-storage-migration-patterns.md | 1.0 | 664 | **Phase 8** Storage layer migration | 2025-11-27 |
 | subagent-architecture-guide.md | 1.0 | 650 | Architecture patterns | 2025-11-20 |
 | phase-2-lessons-learned.md | 1.0 | 424 | Project history | 2025-11-18 |
 | route-error-handling-patterns.md | 1.0 | 340 | Route error patterns | 2025-11-20 |
@@ -48,9 +49,9 @@ This index provides a complete overview of all pattern files, their relationship
 | review-guidelines.md | 1.0 | 196 | Review process | 2025-11-20 |
 | route-file-review-checklist.md | 1.0 | 193 | Route review | 2025-11-20 |
 
-**Subtotal**: 4,958 lines
+**Subtotal**: 5,622 lines
 
-**Grand Total**: 13,228 lines of pattern documentation
+**Grand Total**: 13,892 lines of pattern documentation
 
 ---
 
@@ -60,15 +61,16 @@ This index provides a complete overview of all pattern files, their relationship
 **Domain**: Node.js/TypeScript/Express backend development
 
 **Patterns**:
-- ✅ API_PATTERNS.md - Route organization, middleware, validation
-- ✅ DATABASE_PATTERNS.md - Query optimization, transactions
-- ✅ SERVICE_INTEGRATION_PATTERNS.md - Guard patterns, storage layer
-- ✅ ERROR_HANDLING_PATTERNS.md - Error responses, recovery
-- ✅ SECURITY_PATTERNS.md - Auth, validation, sanitization
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety, Zod integration
-- ✅ storage-refactoring-patterns.md - Large file decomposition
+- API_PATTERNS.md - Route organization, middleware, validation
+- DATABASE_PATTERNS.md - Query optimization, transactions
+- SERVICE_INTEGRATION_PATTERNS.md - Guard patterns, storage layer
+- ERROR_HANDLING_PATTERNS.md - Error responses, recovery
+- SECURITY_PATTERNS.md - Auth, validation, sanitization
+- TYPESCRIPT_PATTERNS.md - Type safety, Zod integration
+- storage-refactoring-patterns.md - Large file decomposition
+- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
 
-**Coverage**: 7 patterns | **Status**: Comprehensive ✅
+**Coverage**: 8 patterns | **Status**: Comprehensive
 
 ---
 
@@ -90,12 +92,13 @@ This index provides a complete overview of all pattern files, their relationship
 **Domain**: PostgreSQL/Drizzle/schema design
 
 **Patterns**:
-- ✅ DATABASE_PATTERNS.md - Query optimization, transactions, N+1 prevention
-- ✅ SECURITY_PATTERNS.md - Field selection security, password hashes
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety in queries
-- ✅ storage-refactoring-patterns.md - Large file refactoring
+- DATABASE_PATTERNS.md - Query optimization, transactions, N+1 prevention
+- SECURITY_PATTERNS.md - Field selection security, password hashes
+- TYPESCRIPT_PATTERNS.md - Type safety in queries
+- storage-refactoring-patterns.md - Large file refactoring
+- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
 
-**Coverage**: 4 patterns | **Status**: Comprehensive ✅
+**Coverage**: 5 patterns | **Status**: Comprehensive
 
 ---
 
@@ -117,13 +120,14 @@ This index provides a complete overview of all pattern files, their relationship
 **Domain**: Security/auth/vulnerability assessment
 
 **Patterns**:
-- ✅ SECURITY_PATTERNS.md - Auth, CSRF, validation
-- ✅ ERROR_HANDLING_PATTERNS.md - Error sanitization
-- ✅ TYPESCRIPT_PATTERNS.md - Type-based security
-- ✅ API_PATTERNS.md - Route security
-- ✅ DATABASE_PATTERNS.md - Query security
+- SECURITY_PATTERNS.md - Auth, CSRF, validation
+- ERROR_HANDLING_PATTERNS.md - Error sanitization
+- TYPESCRIPT_PATTERNS.md - Type-based security
+- API_PATTERNS.md - Route security
+- DATABASE_PATTERNS.md - Query security
+- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer architecture compliance *(Added 2025-11-27)*
 
-**Coverage**: 5 patterns | **Status**: Excellent ✅
+**Coverage**: 6 patterns | **Status**: Excellent
 
 ---
 
@@ -131,16 +135,17 @@ This index provides a complete overview of all pattern files, their relationship
 **Domain**: Code quality/architecture review
 
 **Patterns**:
-- ✅ DATABASE_PATTERNS.md - Query patterns
-- ✅ SECURITY_PATTERNS.md - Security violations
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety
-- ✅ ERROR_HANDLING_PATTERNS.md - Error patterns
-- ✅ API_PATTERNS.md - Route patterns
-- ✅ review-guidelines.md - Review process
-- ✅ storage-review-patterns.md - Storage layer review
-- ✅ storage-refactoring-patterns.md - Refactoring patterns
+- DATABASE_PATTERNS.md - Query patterns
+- SECURITY_PATTERNS.md - Security violations
+- TYPESCRIPT_PATTERNS.md - Type safety
+- ERROR_HANDLING_PATTERNS.md - Error patterns
+- API_PATTERNS.md - Route patterns
+- review-guidelines.md - Review process
+- storage-review-patterns.md - Storage layer review
+- storage-refactoring-patterns.md - Refactoring patterns
+- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
 
-**Coverage**: 8 patterns | **Status**: Exceptional ✅
+**Coverage**: 9 patterns | **Status**: Exceptional
 
 ---
 
@@ -148,13 +153,14 @@ This index provides a complete overview of all pattern files, their relationship
 **Domain**: TypeScript/service pattern review
 
 **Patterns**:
-- ✅ storage-review-patterns.md - Storage layer patterns
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety, Zod
-- ✅ DATABASE_PATTERNS.md - Query optimization
-- ✅ ERROR_HANDLING_PATTERNS.md - Validation errors *(Added 2025-11-26)*
-- ✅ SECURITY_PATTERNS.md - Type-based security *(Added 2025-11-26)*
+- storage-review-patterns.md - Storage layer patterns
+- TYPESCRIPT_PATTERNS.md - Type safety, Zod
+- DATABASE_PATTERNS.md - Query optimization
+- ERROR_HANDLING_PATTERNS.md - Validation errors *(Added 2025-11-26)*
+- SECURITY_PATTERNS.md - Type-based security *(Added 2025-11-26)*
+- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
 
-**Coverage**: 5 patterns | **Status**: Complete ✅
+**Coverage**: 6 patterns | **Status**: Complete
 
 ---
 
@@ -281,6 +287,7 @@ ERROR_HANDLING_PATTERNS.md (Cross-cutting)
 | BACKGROUND_JOBS_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | Distributed locking |
 | AUTHENTICATION_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-17 | Session management |
 | PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-16 | General backend overview |
+| phase-8-storage-migration-patterns.md | 2025-11-27 | 1.0 | 2025-11-27 | **NEW** Storage layer migration, transactions, batch queries |
 
 ---
 

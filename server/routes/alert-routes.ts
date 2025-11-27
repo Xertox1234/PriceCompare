@@ -72,7 +72,7 @@ export function registerAlertRoutes(app: Express): void {
         return;
       }
 
-      sendSuccess(res, { success: true });
+      sendSuccess(res, {});
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'DeletePriceAlert');
     }

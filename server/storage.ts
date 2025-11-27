@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, notificationPreferences, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
 import type { WatchListImportData } from './storage/types';
 import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
@@ -12,12 +12,14 @@ import { WatchListStorage } from "./storage/domains/watchlist-storage";
 import { ForumStorage } from "./storage/domains/forum-storage";
 import { RetailerStorage } from "./storage/domains/retailer-storage";
 import { JobLockStorage } from "./storage/domains/job-lock-storage";
+import { NotificationStorage } from "./storage/domains/notification-storage";
 
 export interface IStorage {
   // Retailers
   getRetailers(): Promise<Retailer[]>;
   getAllRetailers(): Promise<Retailer[]>;
   getRetailerById(id: number): Promise<Retailer | null>;
+  getRetailersByIds(ids: number[]): Promise<Array<{ id: number; name: string }>>;
   createRetailer(retailer: InsertRetailer): Promise<Retailer>;
   updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | null>;
   deleteRetailer(id: number): Promise<Retailer | null>;
@@ -43,6 +45,15 @@ export interface IStorage {
   updateProductOfferAffiliateLink(offerId: number, data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }): Promise<void>;
   incrementProductOfferClickCount(offerId: number): Promise<void>;
   getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]>;
+  getProductOffersByProductId(productId: number): Promise<ProductOffer[]>;
+  getAllOffersWithDetails(): Promise<Array<{
+    offerId: number;
+    productId: number;
+    retailerId: number;
+    currentPrice: string;
+    productName: string;
+    retailerName: string;
+  }>>;
   getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats>;
 
   // Product URL Search (for browser extension)
@@ -106,6 +117,22 @@ export interface IStorage {
   markPasswordResetTokenAsUsed(token: string): Promise<void>;
   cleanupExpiredPasswordResetTokens(): Promise<number>;
   getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number>;
+
+  // Notification Operations (Phase 8E + Phase 8A)
+  getNotificationCountByType(userId: number, type: string, sinceDate: Date): Promise<number>;
+  getUserEmailById(userId: number): Promise<{ email: string; username: string } | null>;
+  getUserNotifications(userId: number, filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }): Promise<Notification[]>;
+  getNotificationStats(userId: number): Promise<{ total: number; unread: number; byType: Record<string, number> }>;
+  markAsRead(userId: number, notificationIds: number | number[]): Promise<number>;
+  markAllAsRead(userId: number): Promise<number>;
+  deleteNotification(userId: number, notificationId: number): Promise<boolean>;
+  deleteAllNotifications(userId: number): Promise<number>;
+  createNotification(notification: InsertNotification, preferences: NotificationPreferences): Promise<Notification>;
+  getUserPreferences(userId: number): Promise<NotificationPreferences | null>;
+  createDefaultPreferences(userId: number): Promise<NotificationPreferences>;
+  updateUserPreferences(userId: number, updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+  getRecentPriceDrops(userId: number, days?: number): Promise<Notification[]>;
+  getRecentPriceAlerts(userId: number, days?: number): Promise<Notification[]>;
 
   // Forum Operations (with transactions)
   createTopicWithFirstPost(topicData: {
@@ -200,12 +227,78 @@ export interface IStorage {
   // Price Snapshot Data Access
   getProductOffersForSnapshot(batchSize: number, offset: number): Promise<ProductOffer[]>;
   getPriceHistoryForOffers(offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>>;
+  getPriceHistoryForAnalysis(offerIds: number[]): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>>;
 
   // Trend Analysis Data Access
   getPriceDataGroupedForTrend(cutoffDate: Date): Promise<TrendPriceData[]>;
   upsertPriceTrends(values: PriceTrendInsert[]): Promise<void>;
   getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null>;
   getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]>;
+
+  // Smart Alerts Data Access (Phase 8D)
+  getProductOfferIds(productId: number): Promise<number[]>;
+  getPriceHistoryForOfferIds(offerIds: number[], limit?: number): Promise<PriceHistory[]>;
+  getUserActiveAlertsWithProducts(userId: number): Promise<Array<{
+    productId: number;
+    targetPrice: string;
+    productName: string | null;
+  }>>;
+  getLowestPricedOffersForProducts(productIds: number[]): Promise<Array<{
+    productId: number;
+    id: number;
+    price: string;
+  }>>;
+  getBatchPriceHistoryForOffers(offerIds: number[]): Promise<PriceHistory[]>;
+  getUserPriceAlertsForEffectiveness(userId: number): Promise<PriceAlert[]>;
+  getUserPriceAlerts(userId: number): Promise<PriceAlert[]>;
+  createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert>;
+
+  // Phase 8B: Price History Service Support
+  getRawPriceHistoryWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ history: PriceHistory; retailer: Retailer }>>;
+  getDailyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ agg: DailyAggregateRecord; retailer: Retailer }>>;
+  getWeeklyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ agg: WeeklyAggregateRecord; retailer: Retailer }>>;
+  getMonthlyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ agg: MonthlyAggregateRecord; retailer: Retailer }>>;
+  getActiveProductOffersGrouped(): Promise<Array<{
+    productId: number;
+    retailerId: number;
+    price: string;
+  }>>;
+  getPriceSnapshotsByFilters(
+    productId: number,
+    retailerId?: number,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<PriceSnapshotRecord[]>;
+  deleteOldPriceHistory(cutoffDate: Date): Promise<number>;
+  getRecentPriceChanges(cutoffDate: Date): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>>;
 
   // ============================================================================
   // Community Service Operations (Phase 4 Storage Migration)
@@ -1227,6 +1320,92 @@ export class MemStorage implements IStorage {
   async getPriceTrendWithRetailer(_productId: number, _retailerId: number): Promise<PriceTrendWithRetailer | null> { return null; }
   async getPriceTrendsForProduct(_productId: number): Promise<PriceTrendWithRetailer[]> { return []; }
 
+  // Smart Alerts stubs (Phase 8D)
+  async getProductOfferIds(_productId: number): Promise<number[]> { return []; }
+  async getPriceHistoryForOfferIds(_offerIds: number[], _limit?: number): Promise<PriceHistory[]> { return []; }
+  async getUserActiveAlertsWithProducts(_userId: number): Promise<Array<{
+    productId: number;
+    targetPrice: string;
+    productName: string | null;
+  }>> { return []; }
+  async getLowestPricedOffersForProducts(_productIds: number[]): Promise<Array<{
+    productId: number;
+    id: number;
+    price: string;
+  }>> { return []; }
+  async getBatchPriceHistoryForOffers(_offerIds: number[]): Promise<PriceHistory[]> { return []; }
+  async getUserPriceAlertsForEffectiveness(_userId: number): Promise<PriceAlert[]> { return []; }
+  async getUserPriceAlerts(_userId: number): Promise<PriceAlert[]> { return []; }
+  async createPriceAlert(_alert: InsertPriceAlert): Promise<PriceAlert> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // Phase 8B: Price History Service Support - STUBS
+  async getRawPriceHistoryWithRetailers(
+    _productId: number,
+    _startDate: Date,
+    _endDate: Date,
+    _retailerId?: number
+  ): Promise<Array<{ history: PriceHistory; retailer: Retailer }>> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getDailyAggregatesWithRetailers(
+    _productId: number,
+    _startDate: Date,
+    _endDate: Date,
+    _retailerId?: number
+  ): Promise<Array<{ agg: DailyAggregateRecord; retailer: Retailer }>> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getWeeklyAggregatesWithRetailers(
+    _productId: number,
+    _startDate: Date,
+    _endDate: Date,
+    _retailerId?: number
+  ): Promise<Array<{ agg: WeeklyAggregateRecord; retailer: Retailer }>> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getMonthlyAggregatesWithRetailers(
+    _productId: number,
+    _startDate: Date,
+    _endDate: Date,
+    _retailerId?: number
+  ): Promise<Array<{ agg: MonthlyAggregateRecord; retailer: Retailer }>> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getActiveProductOffersGrouped(): Promise<Array<{
+    productId: number;
+    retailerId: number;
+    price: string;
+  }>> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getPriceSnapshotsByFilters(
+    _productId: number,
+    _retailerId?: number,
+    _startDate?: Date,
+    _endDate?: Date
+  ): Promise<PriceSnapshotRecord[]> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async deleteOldPriceHistory(_cutoffDate: Date): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getRecentPriceChanges(_cutoffDate: Date): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>> {
+    throw new Error('Not supported in memory storage');
+  }
+
   // ============================================================================
   // Community Service Operations (Phase 4 Storage Migration) - STUBS
   // ============================================================================
@@ -1403,6 +1582,71 @@ export class MemStorage implements IStorage {
   }
   async updateProductEmbedding(_productId: number, _embedding: number[]): Promise<void> {
     throw new Error('Not supported in memory storage');
+  }
+  async getNotificationCountByType(_userId: number, _type: string, _sinceDate: Date): Promise<number> {
+    return 0; // Stub implementation for testing
+  }
+  async getUserEmailById(_userId: number): Promise<{ email: string; username: string } | null> {
+    return null; // Stub implementation for testing
+  }
+  async getUserNotifications(_userId: number, _filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }): Promise<Notification[]> {
+    return []; // Stub implementation for testing
+  }
+  async getNotificationStats(_userId: number): Promise<{ total: number; unread: number; byType: Record<string, number> }> {
+    return { total: 0, unread: 0, byType: {} }; // Stub implementation for testing
+  }
+  async markAsRead(_userId: number, _notificationIds: number | number[]): Promise<number> {
+    return 0; // Stub implementation for testing
+  }
+  async markAllAsRead(_userId: number): Promise<number> {
+    return 0; // Stub implementation for testing
+  }
+  async deleteNotification(_userId: number, _notificationId: number): Promise<boolean> {
+    return false; // Stub implementation for testing
+  }
+  async deleteAllNotifications(_userId: number): Promise<number> {
+    return 0; // Stub implementation for testing
+  }
+  async createNotification(_notification: InsertNotification, _preferences: NotificationPreferences): Promise<Notification> {
+    throw new Error('Not supported in memory storage'); // Stub implementation for testing
+  }
+  async getUserPreferences(_userId: number): Promise<NotificationPreferences | null> {
+    return null; // Stub implementation for testing
+  }
+  async createDefaultPreferences(_userId: number): Promise<NotificationPreferences> {
+    throw new Error('Not supported in memory storage'); // Stub implementation for testing
+  }
+  async updateUserPreferences(_userId: number, _updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+    throw new Error('Not supported in memory storage'); // Stub implementation for testing
+  }
+  async getRecentPriceDrops(_userId: number, _days?: number): Promise<Notification[]> {
+    return []; // Stub implementation for testing
+  }
+  async getRecentPriceAlerts(_userId: number, _days?: number): Promise<Notification[]> {
+    return []; // Stub implementation for testing
+  }
+  async getProductOffersByProductId(_productId: number): Promise<ProductOffer[]> {
+    return []; // Stub implementation for testing
+  }
+  async getAllOffersWithDetails(): Promise<Array<{
+    offerId: number;
+    productId: number;
+    retailerId: number;
+    currentPrice: string;
+    productName: string;
+    retailerName: string;
+  }>> {
+    return []; // Stub implementation for testing
+  }
+  async getRetailersByIds(_ids: number[]): Promise<Array<{ id: number; name: string }>> {
+    return []; // Stub implementation for testing
+  }
+  async getPriceHistoryForAnalysis(_offerIds: number[]): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>> {
+    return []; // Stub implementation for testing
   }
 }
 
@@ -1581,6 +1825,7 @@ export class DatabaseStorage implements IStorage {
   private forumStorage: ForumStorage;
   private retailerStorage: RetailerStorage;
   private jobLockStorage: JobLockStorage;
+  private notificationStorage: NotificationStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
@@ -1590,6 +1835,7 @@ export class DatabaseStorage implements IStorage {
     this.forumStorage = new ForumStorage(db);
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
+    this.notificationStorage = new NotificationStorage(db);
   }
 
   // ============================================================================
@@ -1606,6 +1852,10 @@ export class DatabaseStorage implements IStorage {
 
   async getRetailerById(id: number): Promise<Retailer | null> {
     return this.retailerStorage.getRetailerById(id);
+  }
+
+  async getRetailersByIds(ids: number[]): Promise<Array<{ id: number; name: string }>> {
+    return this.retailerStorage.getRetailersByIds(ids);
   }
 
   async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
@@ -1752,6 +2002,21 @@ export class DatabaseStorage implements IStorage {
 
   async getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]> {
     return this.productStorage.getProductOffersByRetailerId(retailerId);
+  }
+
+  async getProductOffersByProductId(productId: number): Promise<ProductOffer[]> {
+    return this.productStorage.getProductOffersByProductId(productId);
+  }
+
+  async getAllOffersWithDetails(): Promise<Array<{
+    offerId: number;
+    productId: number;
+    retailerId: number;
+    currentPrice: string;
+    productName: string;
+    retailerName: string;
+  }>> {
+    return this.productStorage.getAllOffersWithDetails();
   }
 
   async getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats> {
@@ -2611,6 +2876,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ============================================================================
+  // Notification Operations (Phase 8E + Phase 8A: Notification Service Migration)
+  // ============================================================================
+
+  async getNotificationCountByType(userId: number, type: string, sinceDate: Date): Promise<number> {
+    return this.notificationStorage.getNotificationCountByType(userId, type, sinceDate);
+  }
+
+  async getUserEmailById(userId: number): Promise<{ email: string; username: string } | null> {
+    return this.notificationStorage.getUserEmailById(userId);
+  }
+
+  async getUserNotifications(userId: number, filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }): Promise<Notification[]> {
+    return this.notificationStorage.getUserNotifications(userId, filters);
+  }
+
+  async getNotificationStats(userId: number): Promise<{ total: number; unread: number; byType: Record<string, number> }> {
+    return this.notificationStorage.getNotificationStats(userId);
+  }
+
+  async markAsRead(userId: number, notificationIds: number | number[]): Promise<number> {
+    return this.notificationStorage.markAsRead(userId, notificationIds);
+  }
+
+  async markAllAsRead(userId: number): Promise<number> {
+    return this.notificationStorage.markAllAsRead(userId);
+  }
+
+  async deleteNotification(userId: number, notificationId: number): Promise<boolean> {
+    return this.notificationStorage.deleteNotification(userId, notificationId);
+  }
+
+  async deleteAllNotifications(userId: number): Promise<number> {
+    return this.notificationStorage.deleteAllNotifications(userId);
+  }
+
+  async createNotification(notification: InsertNotification, preferences: NotificationPreferences): Promise<Notification> {
+    return this.notificationStorage.createNotification(notification, preferences);
+  }
+
+  async getUserPreferences(userId: number): Promise<NotificationPreferences | null> {
+    return this.notificationStorage.getUserPreferences(userId);
+  }
+
+  async createDefaultPreferences(userId: number): Promise<NotificationPreferences> {
+    return this.notificationStorage.createDefaultPreferences(userId);
+  }
+
+  async updateUserPreferences(userId: number, updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+    return this.notificationStorage.updateUserPreferences(userId, updates);
+  }
+
+  async getRecentPriceDrops(userId: number, days?: number): Promise<Notification[]> {
+    return this.notificationStorage.getRecentPriceDrops(userId, days);
+  }
+
+  async getRecentPriceAlerts(userId: number, days?: number): Promise<Notification[]> {
+    return this.notificationStorage.getRecentPriceAlerts(userId, days);
+  }
+
+  // ============================================================================
   // Price Analytics Operations (Phase 3 Storage Migration - Database Implementations)
   // ============================================================================
 
@@ -2699,6 +3024,14 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.getPriceHistoryForOffers(offerIds);
   }
 
+  async getPriceHistoryForAnalysis(offerIds: number[]): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>> {
+    return this.priceStorage.getPriceHistoryForAnalysis(offerIds);
+  }
+
   // Trend Analysis Data Access
   async getPriceDataGroupedForTrend(cutoffDate: Date): Promise<TrendPriceData[]> {
     return this.priceStorage.getPriceDataGroupedForTrend(cutoffDate);
@@ -2714,6 +3047,113 @@ export class DatabaseStorage implements IStorage {
 
   async getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]> {
     return this.priceStorage.getPriceTrendsForProduct(productId);
+  }
+
+  // Smart Alerts Methods (Phase 8D)
+  async getProductOfferIds(productId: number): Promise<number[]> {
+    return this.priceStorage.getProductOfferIds(productId);
+  }
+
+  async getPriceHistoryForOfferIds(offerIds: number[], limit?: number): Promise<PriceHistory[]> {
+    return this.priceStorage.getPriceHistoryForOfferIds(offerIds, limit);
+  }
+
+  async getUserActiveAlertsWithProducts(userId: number): Promise<Array<{
+    productId: number;
+    targetPrice: string;
+    productName: string | null;
+  }>> {
+    return this.priceStorage.getUserActiveAlertsWithProducts(userId);
+  }
+
+  async getLowestPricedOffersForProducts(productIds: number[]): Promise<Array<{
+    productId: number;
+    id: number;
+    price: string;
+  }>> {
+    return this.priceStorage.getLowestPricedOffersForProducts(productIds);
+  }
+
+  async getBatchPriceHistoryForOffers(offerIds: number[]): Promise<PriceHistory[]> {
+    return this.priceStorage.getBatchPriceHistoryForOffers(offerIds);
+  }
+
+  async getUserPriceAlertsForEffectiveness(userId: number): Promise<PriceAlert[]> {
+    return this.priceStorage.getUserPriceAlertsForEffectiveness(userId);
+  }
+
+  async getUserPriceAlerts(userId: number): Promise<PriceAlert[]> {
+    return this.priceStorage.getUserPriceAlerts(userId);
+  }
+
+  async createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert> {
+    return this.priceStorage.createPriceAlert(alert);
+  }
+
+  // Phase 8B: Price History Service Support
+  async getRawPriceHistoryWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ history: PriceHistory; retailer: Retailer }>> {
+    return this.priceStorage.getRawPriceHistoryWithRetailers(productId, startDate, endDate, retailerId);
+  }
+
+  async getDailyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ agg: DailyAggregateRecord; retailer: Retailer }>> {
+    return this.priceStorage.getDailyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+  }
+
+  async getWeeklyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ agg: WeeklyAggregateRecord; retailer: Retailer }>> {
+    return this.priceStorage.getWeeklyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+  }
+
+  async getMonthlyAggregatesWithRetailers(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<Array<{ agg: MonthlyAggregateRecord; retailer: Retailer }>> {
+    return this.priceStorage.getMonthlyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+  }
+
+  async getActiveProductOffersGrouped(): Promise<Array<{
+    productId: number;
+    retailerId: number;
+    price: string;
+  }>> {
+    return this.priceStorage.getActiveProductOffersGrouped();
+  }
+
+  async getPriceSnapshotsByFilters(
+    productId: number,
+    retailerId?: number,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<PriceSnapshotRecord[]> {
+    return this.priceStorage.getPriceSnapshotsByFilters(productId, retailerId, startDate, endDate);
+  }
+
+  async deleteOldPriceHistory(cutoffDate: Date): Promise<number> {
+    return this.priceStorage.deleteOldPriceHistory(cutoffDate);
+  }
+
+  async getRecentPriceChanges(cutoffDate: Date): Promise<Array<{
+    productOfferId: number;
+    price: string;
+    recordedAt: Date | null;
+  }>> {
+    return this.priceStorage.getRecentPriceChanges(cutoffDate);
   }
 
   // ============================================================================
