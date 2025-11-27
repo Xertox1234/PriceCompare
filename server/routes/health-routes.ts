@@ -3,6 +3,7 @@ import express from 'express';
 import { storage } from "../storage";
 import { getRedisClient, getRedisSessionClient } from '../config/redis';
 import { createLogger } from '../utils/logger';
+import { sendSuccess, sendNoContent } from "../utils/api-response";
 
 const cspLog = createLogger('CSP');
 
@@ -14,7 +15,7 @@ const cspLog = createLogger('CSP');
 export function registerHealthRoutes(app: Express): void {
   // Basic health check
   app.get("/health", async (req, res) => {
-    res.status(200).json({
+    sendSuccess(res, {
       status: "ok",
       timestamp: new Date().toISOString(),
       uptime: process.uptime()
@@ -78,13 +79,13 @@ export function registerHealthRoutes(app: Express): void {
 
     const statusCode = overallStatus === "error" ? 503 : 200;
 
-    res.status(statusCode).json({
+    sendSuccess(res, {
       status: overallStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
       checks
-    });
+    }, statusCode);
   });
 
   // CSP Violation Report Endpoint
@@ -110,7 +111,7 @@ export function registerHealthRoutes(app: Express): void {
       });
 
       // Return 204 No Content - browser doesn't need response
-      res.status(204).end();
+      sendNoContent(res);
     }
   );
 }

@@ -6,7 +6,7 @@ import { insertProductSchema, insertRetailerSchema } from "@shared/schema";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { getPerformanceStats, getSlowestEndpoints } from "../middleware/performance";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 
 /**
  * Admin Routes
@@ -19,10 +19,9 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/categories", withAdmin(async (req, res) => {
     try {
       const categories = await forumStorage.getCategories();
-      res.json(Array.isArray(categories) ? categories : []);
+      sendSuccess(res, Array.isArray(categories) ? categories : []);
     } catch (error: unknown) {
-      logger.error('Error fetching categories', { error: error instanceof Error ? error.message : String(error) });
-      res.json([]);
+      sendErrorFromException(res, error, 'GetAdminCategories');
     }
   }));
 
@@ -30,10 +29,9 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/users", withAdmin(async (req, res) => {
     try {
       const usersData = await storage.getAllUsers();
-      res.json(Array.isArray(usersData) ? usersData : []);
+      sendSuccess(res, Array.isArray(usersData) ? usersData : []);
     } catch (error: unknown) {
-      logger.error('Error fetching users', { error: error instanceof Error ? error.message : String(error) });
-      res.json([]);
+      sendErrorFromException(res, error, 'GetAdminUsers');
     }
   }));
 
@@ -41,44 +39,36 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/analytics/overview", withAdmin(async (req, res) => {
     try {
       const overview = await storage.getAdminAnalyticsOverview();
-      res.json(overview);
+      sendSuccess(res, overview);
     } catch (error: unknown) {
-      logger.error('Error fetching overview analytics', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchAnalyticsOverview');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchAnalyticsOverview');
     }
   }));
 
   app.get("/api/admin/analytics/user-growth", withAdmin(async (req, res) => {
     try {
       const userGrowth = await storage.getUserGrowthData();
-      res.json(userGrowth);
+      sendSuccess(res, userGrowth);
     } catch (error: unknown) {
-      logger.error('Error fetching user growth', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchUserGrowth');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchUserGrowth');
     }
   }));
 
   app.get("/api/admin/analytics/forum-activity", withAdmin(async (req, res) => {
     try {
       const postActivity = await storage.getForumActivityData();
-      res.json(postActivity);
+      sendSuccess(res, postActivity);
     } catch (error: unknown) {
-      logger.error('Error fetching forum activity', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchForumActivity');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchForumActivity');
     }
   }));
 
   app.get("/api/admin/analytics/top-categories", withAdmin(async (req, res) => {
     try {
       const topCategories = await storage.getTopCategories(10);
-      res.json(topCategories);
+      sendSuccess(res, topCategories);
     } catch (error: unknown) {
-      logger.error('Error fetching top categories', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchTopCategories');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchTopCategories');
     }
   }));
 
@@ -86,11 +76,9 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/products", withAdmin(async (req, res) => {
     try {
       const products = await storage.getAdminProducts();
-      res.json(products);
+      sendSuccess(res, products);
     } catch (error: unknown) {
-      logger.error('Error fetching admin products', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchAdminProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchAdminProducts');
     }
   }));
 
@@ -102,15 +90,13 @@ export function registerAdminRoutes(app: Express): void {
       const product = await storage.getAdminProductById(productId);
 
       if (!product) {
-        res.status(404).json({ error: 'Product not found' });
+        sendError(res, 'Product not found', 404);
         return;
       }
 
-      res.json(product);
+      sendSuccess(res, product);
     } catch (error: unknown) {
-      logger.error('Error fetching product details', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'FetchProductDetails');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchProductDetails');
     }
   }));
 
@@ -118,11 +104,9 @@ export function registerAdminRoutes(app: Express): void {
     try {
       const productData = insertProductSchema.parse(req.body);
       const newProduct = await storage.createAdminProduct(productData);
-      res.status(201).json(newProduct);
+      sendSuccess(res, newProduct, 201);
     } catch (error: unknown) {
-      logger.error('Error creating product', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'CreateProduct');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CreateProduct');
     }
   }));
 
@@ -135,15 +119,13 @@ export function registerAdminRoutes(app: Express): void {
       const updatedProduct = await storage.updateAdminProduct(productId, updateData);
 
       if (!updatedProduct) {
-        res.status(404).json({ error: 'Product not found' });
+        sendError(res, 'Product not found', 404);
         return;
       }
 
-      res.json(updatedProduct);
+      sendSuccess(res, updatedProduct);
     } catch (error: unknown) {
-      logger.error('Error updating product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'UpdateProduct');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'UpdateProduct');
     }
   }));
 
@@ -156,15 +138,13 @@ export function registerAdminRoutes(app: Express): void {
       const deletedProduct = await storage.deleteAdminProduct(productId);
 
       if (!deletedProduct) {
-        res.status(404).json({ error: 'Product not found' });
+        sendError(res, 'Product not found', 404);
         return;
       }
 
-      res.json({ success: true, message: 'Product deleted successfully' });
+      sendSuccess(res, { success: true, message: 'Product deleted successfully' });
     } catch (error: unknown) {
-      logger.error('Error deleting product', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'DeleteProduct');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DeleteProduct');
     }
   }));
 
@@ -172,11 +152,9 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/retailers", withAdmin(async (req, res) => {
     try {
       const allRetailers = await storage.getAdminRetailers();
-      res.json(allRetailers);
+      sendSuccess(res, allRetailers);
     } catch (error: unknown) {
-      logger.error('Error fetching retailers', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchRetailers');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchRetailers');
     }
   }));
 
@@ -184,11 +162,9 @@ export function registerAdminRoutes(app: Express): void {
     try {
       const retailerData = insertRetailerSchema.parse(req.body);
       const newRetailer = await storage.createAdminRetailer(retailerData);
-      res.status(201).json(newRetailer);
+      sendSuccess(res, newRetailer, 201);
     } catch (error: unknown) {
-      logger.error('Error creating retailer', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'CreateRetailer');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CreateRetailer');
     }
   }));
 
@@ -201,15 +177,13 @@ export function registerAdminRoutes(app: Express): void {
       const updatedRetailer = await storage.updateAdminRetailer(retailerId, updateData);
 
       if (!updatedRetailer) {
-        res.status(404).json({ error: 'Retailer not found' });
+        sendError(res, 'Retailer not found', 404);
         return;
       }
 
-      res.json(updatedRetailer);
+      sendSuccess(res, updatedRetailer);
     } catch (error: unknown) {
-      logger.error('Error updating retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'UpdateRetailer');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'UpdateRetailer');
     }
   }));
 
@@ -222,15 +196,13 @@ export function registerAdminRoutes(app: Express): void {
       const deletedRetailer = await storage.deleteAdminRetailer(retailerId);
 
       if (!deletedRetailer) {
-        res.status(404).json({ error: 'Retailer not found' });
+        sendError(res, 'Retailer not found', 404);
         return;
       }
 
-      res.json({ success: true, message: 'Retailer deleted successfully' });
+      sendSuccess(res, { success: true, message: 'Retailer deleted successfully' });
     } catch (error: unknown) {
-      logger.error('Error deleting retailer', { error: error instanceof Error ? error.message : String(error), retailerId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'DeleteRetailer');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DeleteRetailer');
     }
   }));
 
@@ -238,11 +210,9 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/performance/stats", withAdmin(async (req, res) => {
     try {
       const stats = getPerformanceStats();
-      res.json(stats);
+      sendSuccess(res, stats);
     } catch (error: unknown) {
-      logger.error('Error getting performance stats', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetPerformanceStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetPerformanceStats');
     }
   }));
 
@@ -251,11 +221,9 @@ export function registerAdminRoutes(app: Express): void {
       // SECURITY: Safe integer parsing with validation and cap
       const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 10;
       const slowest = getSlowestEndpoints(limit);
-      res.json(slowest);
+      sendSuccess(res, slowest);
     } catch (error: unknown) {
-      logger.error('Error getting slowest endpoints', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetSlowestEndpoints');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetSlowestEndpoints');
     }
   }));
 }
