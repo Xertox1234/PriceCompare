@@ -28,14 +28,14 @@ import type {
  * Extended request type for Socket.io integration with Express sessions
  * Includes session data populated by express-session middleware
  */
-interface SocketRequestWithSession extends Request {
+type SocketRequestWithSession = Request & {
   session: {
     passport?: {
       user?: number;
     };
     [key: string]: unknown;
   };
-}
+};
 
 /**
  * Minimal response object for Express middleware compatibility
@@ -175,7 +175,9 @@ async function authenticationMiddleware(
   };
 
   // Run Express session middleware
-  sessionMiddleware(req, res, (err?: Error) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Type assertion: MinimalResponse is sufficient for session middleware (Socket.IO doesn't need full Response)
+  sessionMiddleware(req, res as any, ((err: any) => {
     if (err) {
       log.error('Session middleware error', {
         error: err instanceof Error ? err.message : String(err),
@@ -216,7 +218,9 @@ async function authenticationMiddleware(
     });
 
     next();
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any); // Type assertion: callback signature compatible with NextFunction
+}
 }
 
 /**
@@ -401,8 +405,9 @@ export function emitToUser<K extends keyof ServerToClientEvents>(
   }
 
   const room = `user:${userId}`;
-  // Type assertion needed for Socket.io's complex generic emit signature
-  io.to(room).emit(event, data as Parameters<ServerToClientEvents[K]>[0]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Type assertion needed for Socket.io's complex generic emit signature with acknowledgements
+  io.to(room).emit(event, data as any);
 
   log.debug('Event emitted to user', {
     userId,

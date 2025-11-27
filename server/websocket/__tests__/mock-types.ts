@@ -10,16 +10,19 @@ import { vi } from 'vitest';
 
 /**
  * Mock Redis Client for testing rate limiting and other Redis operations
+ *
+ * Partial type to allow mocking only needed methods for tests
  */
-export interface MockRedisClient {
-  incr?: (key: string) => Promise<number>;
-  expire?: (key: string, seconds: number) => Promise<void>;
-  get?: (key: string) => Promise<string | null>;
-  set?: (key: string, value: string) => Promise<void>;
-  del?: (key: string) => Promise<number>;
-  // Allow other methods with flexible typing for test mocking
-  [key: string]: ((...args: unknown[]) => Promise<unknown>) | undefined;
-}
+export type MockRedisClient = Partial<{
+  incr: (key: string) => Promise<number>;
+  expire: (key: string, seconds: number) => Promise<void>;
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string) => Promise<void>;
+  del: (key: string) => Promise<number>;
+  // Add other Redis methods as needed for tests
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: (...args: any[]) => Promise<any>;
+}>;
 
 /**
  * Create a mock authenticated socket for testing
