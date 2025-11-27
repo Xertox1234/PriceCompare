@@ -366,8 +366,16 @@ export class AffiliateLinkAgent extends BaseAgent {
    */
   async getStats(): Promise<AffiliateStats | null> {
     try {
-      const stats = await affiliateLinkService.getAffiliateLinkStats();
+      const dbStats = await affiliateLinkService.getAffiliateLinkStats();
       const baseStatus = this.getStatus();
+
+      // Transform AffiliateLinkStats from storage to AffiliateStats.links format
+      const links = dbStats ? {
+        total: dbStats.total_offers,
+        active: dbStats.affiliate_offers,
+        broken: dbStats.broken_links,
+        byRetailer: {} as Record<string, number>, // TODO: Add retailer breakdown
+      } : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
 
       return {
         agent: {
@@ -376,7 +384,7 @@ export class AffiliateLinkAgent extends BaseAgent {
           successCount: 0, // Not tracked in base status
           errorCount: 0, // Not tracked in base status
         },
-        links: stats || { total: 0, active: 0, broken: 0, byRetailer: {} },
+        links,
         timestamp: new Date().toISOString()
       };
     } catch (error) {

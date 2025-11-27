@@ -51,7 +51,9 @@ export async function initializeAdvancedCache(app: Express): Promise<void> {
     logger.info('  - Popularity tracking for hot/warm/cold products');
     logger.info('  - Cache metrics and monitoring endpoints');
   } catch (error) {
-    logger.error('Error initializing advanced cache system:', error);
+    logger.error('Error initializing advanced cache system:', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     throw error;
   }
 }
@@ -76,6 +78,8 @@ export async function performInitialCacheWarming(): Promise<void> {
     logger.info(`Initial cache warming completed: ${count} products warmed`);
   } catch (error) {
     // Don't fail startup if initial warming fails
-    logger.error('Error during initial cache warming:', error);
+    logger.error('Error during initial cache warming:', {
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 }

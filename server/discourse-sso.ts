@@ -67,15 +67,13 @@ function parseSSO(sso: string): Record<string, string> {
   return result;
 }
 
-// Extended Request type with user
-interface AuthenticatedRequest extends Request {
-  user?: SharedUser;
-}
+// Type for request with optional user (for type casting only)
+type RequestWithUser = Request & { user?: SharedUser };
 
 /**
  * Handle Discourse SSO login request
  */
-export async function handleDiscourseSSO(req: AuthenticatedRequest, res: Response) {
+export async function handleDiscourseSSO(req: RequestWithUser, res: Response) {
   try {
     const { sso, sig } = req.query;
     
@@ -133,7 +131,7 @@ export async function handleDiscourseSSO(req: AuthenticatedRequest, res: Respons
 /**
  * Complete SSO process after user login
  */
-export async function completeSSOAfterLogin(req: AuthenticatedRequest, res: Response) {
+export async function completeSSOAfterLogin(req: RequestWithUser, res: Response) {
   try {
     const { sso_token } = req.query;
     
@@ -173,10 +171,10 @@ export async function completeSSOAfterLogin(req: AuthenticatedRequest, res: Resp
     
     // Clean up the token
     await db.delete(ssoTokens).where(eq(ssoTokens.id, tokenRecord.id));
-    
+
     // Redirect back to Discourse
     const redirectUrl = `${tokenRecord.returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
-    res.redirect(redirectUrl);
+    return res.redirect(redirectUrl);
 
   } catch (error) {
     log.error('SSO completion error:', { error });
@@ -298,7 +296,7 @@ export async function cleanupExpiredTokens(): Promise<void> {
 /**
  * Middleware to handle SSO token completion
  */
-export function handleSSOCompletion(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function handleSSOCompletion(req: RequestWithUser, res: Response, next: NextFunction) {
   if (req.query.sso_token && req.user) {
     // Complete SSO process
     return completeSSOAfterLogin(req, res);
