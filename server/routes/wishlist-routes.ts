@@ -172,11 +172,6 @@ export function registerWishlistRoutes(app: Express): void {
       logger.info('Product added to wishlist', { userId, wishlistId, productId: data.productId });
       sendSuccess(res, item, 201);
     } catch (error) {
-      // Handle duplicate entry
-      if (error instanceof Error && error.message.includes('unique')) {
-        sendError(res, 'Product already in wishlist', 400);
-        return;
-      }
       sendErrorFromException(res, error, 'AddToWishlist');
     }
   }));
