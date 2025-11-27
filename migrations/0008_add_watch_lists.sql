@@ -13,8 +13,7 @@ CREATE TABLE IF NOT EXISTS watch_lists (
   is_default BOOLEAN DEFAULT false,
   sort_order INTEGER DEFAULT 0, -- For custom ordering
   created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  CONSTRAINT unique_user_list_name UNIQUE(user_id, name)
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Create indexes for watch_lists
@@ -61,8 +60,7 @@ SELECT
   true,
   0
 FROM users
-WHERE id NOT IN (SELECT user_id FROM watch_lists WHERE is_default = true)
-ON CONFLICT (user_id, name) DO NOTHING;
+WHERE id NOT IN (SELECT user_id FROM watch_lists WHERE is_default = true);
 
 -- Assign existing watches to users' default watch lists
 UPDATE product_watches pw
@@ -77,9 +75,11 @@ WHERE watch_list_id IS NULL;
 CREATE OR REPLACE FUNCTION create_default_watch_list()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO watch_lists (user_id, name, description, is_default, sort_order)
-  VALUES (NEW.id, 'My Watches', 'Default watch list', true, 0)
-  ON CONFLICT (user_id, name) DO NOTHING;
+  -- Only create if user doesn't already have a default watch list
+  IF NOT EXISTS (SELECT 1 FROM watch_lists WHERE user_id = NEW.id AND is_default = true) THEN
+    INSERT INTO watch_lists (user_id, name, description, is_default, sort_order)
+    VALUES (NEW.id, 'My Watches', 'Default watch list', true, 0);
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
