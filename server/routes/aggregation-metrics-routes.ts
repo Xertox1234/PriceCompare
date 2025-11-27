@@ -10,7 +10,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { metricsStore, getMetricsSummary } from '../services/aggregation-metrics';
 import { logger } from '../utils/logger';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 
 /**
  * Middleware to authenticate metrics API requests
@@ -34,10 +34,7 @@ function metricsAuth(req: Request, res: Response, next: NextFunction): void {
   // In production, API key is required
   if (!isDevelopment && !expectedApiKey) {
     logger.error('[MetricsAuth] CRITICAL: METRICS_API_KEY not set in production');
-    res.status(500).json({
-      error: 'Metrics endpoint not configured',
-      details: 'METRICS_API_KEY environment variable is required in production',
-    });
+    sendError(res, 'Metrics endpoint not configured - METRICS_API_KEY environment variable is required in production', 500);
     return;
   }
 
@@ -51,10 +48,7 @@ function metricsAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     logger.warn('[MetricsAuth] Missing or invalid Authorization header');
-    res.status(401).json({
-      error: 'Authentication required',
-      details: 'Provide API key via Authorization: Bearer <METRICS_API_KEY>',
-    });
+    sendError(res, 'Authentication required - Provide API key via Authorization: Bearer <METRICS_API_KEY>', 401);
     return;
   }
 
@@ -63,9 +57,7 @@ function metricsAuth(req: Request, res: Response, next: NextFunction): void {
   // Constant-time comparison to prevent timing attacks
   if (providedApiKey !== expectedApiKey) {
     logger.warn('[MetricsAuth] Invalid API key provided');
-    res.status(403).json({
-      error: 'Invalid API key',
-    });
+    sendError(res, 'Invalid API key', 403);
     return;
   }
 
@@ -90,11 +82,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       res.type('text/plain').send(summary);
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error fetching summary:', { error });
-      const errorResponse = createErrorResponse(error, 'FetchMetricsSummary');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'FetchMetricsSummary');
     }
   });
 
@@ -108,14 +96,10 @@ export function registerAggregationMetricsRoutes(app: Express): void {
   app.get('/api/aggregation-metrics/stats', (req: Request, res: Response) => {
     try {
       const stats = metricsStore.getAllStats();
-      res.json(stats);
+      sendSuccess(res, stats);
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error fetching stats:', { error });
-      const errorResponse = createErrorResponse(error, 'FetchMetricsStats');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'FetchMetricsStats');
     }
   });
 
@@ -133,24 +117,17 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       const stats = metricsStore.getStats(operation);
 
       if (!stats) {
-        res.status(404).json({
-          error: 'No metrics found for operation',
-          operation,
-        });
+        sendError(res, `No metrics found for operation: ${operation}`, 404);
         return;
       }
 
-      res.json(stats);
+      sendSuccess(res, stats);
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error fetching operation stats:', {
         error,
         operation: req.params.operation,
       });
-      const errorResponse = createErrorResponse(error, 'FetchOperationStats');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'FetchOperationStats');
     }
   });
 
@@ -169,11 +146,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       res.type('text/plain; version=0.0.4').send(prometheus);
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error exporting Prometheus metrics:', { error });
-      const errorResponse = createErrorResponse(error, 'ExportPrometheusMetrics');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'ExportPrometheusMetrics');
     }
   });
 
@@ -191,7 +164,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       const operations = Object.keys(allStats);
 
       if (operations.length === 0) {
-        res.json({
+        sendSuccess(res, {
           status: 'healthy',
           message: 'No aggregation operations have run yet',
         });
@@ -225,26 +198,24 @@ export function registerAggregationMetricsRoutes(app: Express): void {
 
       if (warnings.length > 0) {
         res.status(503).json({
-          status: 'degraded',
-          warnings,
-          stats: allStats,
+          success: true,
+          data: {
+            status: 'degraded',
+            warnings,
+            stats: allStats,
+          }
         });
         return;
       }
 
-      res.json({
+      sendSuccess(res, {
         status: 'healthy',
         message: 'All aggregation operations are healthy',
         stats: allStats,
       });
     } catch (error: unknown) {
       logger.error('[AggregationMetrics] Error checking health:', { error });
-      const errorResponse = createErrorResponse(error, 'CheckAggregationHealth');
-      res.status(500).json({
-        status: 'error',
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'CheckAggregationHealth');
     }
   });
 }
