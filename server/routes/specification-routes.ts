@@ -176,7 +176,7 @@ export function registerSpecificationRoutes(app: Express): void {
       }
 
       logger.info('Product specification deleted', { specId });
-      sendSuccess(res, {});
+      sendSuccess(res, { deletedCount: 1 });
     } catch (error) {
       sendErrorFromException(res, error, 'DeleteSpecification');
     }
