@@ -1,3 +1,12 @@
+---
+Pattern: Frontend Patterns & Anti-Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [TYPESCRIPT_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, API_PATTERNS.md]
+---
+
 # Frontend Patterns & Anti-Patterns
 
 This document codifies frontend patterns to ensure consistent, performant, and maintainable React code in the PriceCompare client application.

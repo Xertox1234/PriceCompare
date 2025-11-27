@@ -1,3 +1,12 @@
+---
+Pattern: TypeScript Patterns & Anti-Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [DATABASE_PATTERNS.md, SECURITY_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md]
+---
+
 # TypeScript Patterns & Anti-Patterns
 
 This document codifies TypeScript patterns to ensure type safety and prevent runtime errors in the PriceCompare codebase.

@@ -10,8 +10,8 @@ import {
 } from "../middleware/redis-cache";
 import { CACHE_DURATION } from "../utils/constants";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 import { csrfProtection } from "../middleware/security";
+import { sendSuccess, sendError, sendPaginated, sendErrorFromException } from "../utils/api-response";
 
 // Price history cache middleware - using redis cache with 1 hour TTL
 const priceHistoryCacheMiddleware = redisCacheMiddleware({
@@ -37,7 +37,7 @@ export function registerProductRoutes(app: Express): void {
         const result = await storage.getProductByUrl(productUrl);
 
         if (!result) {
-          res.json({ product: null });
+          sendSuccess(res, { product: null });
           return;
         }
 
@@ -48,7 +48,7 @@ export function registerProductRoutes(app: Express): void {
         const prices = offers.map(o => parseFloat(o.price));
         const bestPrice = Math.min(...prices);
 
-        res.json({
+        sendSuccess(res, {
           product: {
             ...product,
             offers,
@@ -91,14 +91,15 @@ export function registerProductRoutes(app: Express): void {
         hasActiveDiscussion: (discussionCounts.get(product.id) || 0) > 0,
       }));
 
-      // Return response in the format expected by the frontend
-      res.json({
-        results: productsWithDiscussions,
-        metadata: pagination,
+      // Return standardized paginated response
+      sendPaginated(res, productsWithDiscussions, {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        totalPages: pagination.totalPages,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SearchProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'SearchProducts');
     }
   });
 
@@ -110,7 +111,7 @@ export function registerProductRoutes(app: Express): void {
 
       const product = await storage.getProductById(id);
       if (!product) {
-        res.status(404).json({ message: "Product not found" });
+        sendError(res, "Product not found", 404);
         return;
       }
 
@@ -121,10 +122,9 @@ export function registerProductRoutes(app: Express): void {
         hasActiveDiscussion: discussionCount > 0,
       };
 
-      res.json(productWithDiscussions);
+      sendSuccess(res, productWithDiscussions);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchProduct');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchProduct');
     }
   });
 
@@ -135,10 +135,9 @@ export function registerProductRoutes(app: Express): void {
         sortBy: "popularity",
       };
       const products = await storage.searchProducts(filters);
-      res.json(products);
+      sendSuccess(res, products);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchProducts');
     }
   });
 
@@ -168,11 +167,10 @@ export function registerProductRoutes(app: Express): void {
         availability: h.availability
       }));
 
-      res.json({ history: formattedHistory });
+      sendSuccess(res, { history: formattedHistory });
     } catch (error: unknown) {
       logger.error('Error fetching price history', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'FetchPriceHistory');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchPriceHistory');
     }
   });
 
@@ -183,7 +181,7 @@ export function registerProductRoutes(app: Express): void {
       const trendData = await storage.getPriceTrend(id);
 
       // Format for extension compatibility
-      res.json({
+      sendSuccess(res, {
         trend: {
           direction: trendData.trend,
           change: trendData.changePercentage,
@@ -198,8 +196,7 @@ export function registerProductRoutes(app: Express): void {
       });
     } catch (error: unknown) {
       logger.error('Error fetching price trend', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'FetchPriceTrend');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchPriceTrend');
     }
   });
 
@@ -208,11 +205,10 @@ export function registerProductRoutes(app: Express): void {
     try {
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
       const analysis = await storage.getBestTimeToBuy(id);
-      res.json(analysis);
+      sendSuccess(res, analysis);
     } catch (error: unknown) {
       logger.error('Error fetching best time to buy', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'FetchBestTimeToBuy');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchBestTimeToBuy');
     }
   });
 
@@ -226,7 +222,7 @@ export function registerProductRoutes(app: Express): void {
       const history = await storage.getPriceHistory(id, days);
 
       if (!history || history.length < 2) {
-        res.json(null);
+        sendSuccess(res, null);
         return;
       }
 
@@ -234,11 +230,10 @@ export function registerProductRoutes(app: Express): void {
       const { calculateVolatility } = await import('../utils/volatility-calculator');
       const volatility = calculateVolatility(history);
 
-      res.json(volatility);
+      sendSuccess(res, volatility);
     } catch (error: unknown) {
       logger.error('Error calculating volatility', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'CalculateVolatility');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CalculateVolatility');
     }
   });
 
@@ -252,7 +247,7 @@ export function registerProductRoutes(app: Express): void {
       const history = await storage.getPriceHistory(id, days || 365); // Default to 1 year
 
       if (!history || history.length < 10) {
-        res.json(null);
+        sendSuccess(res, null);
         return;
       }
 
@@ -260,11 +255,10 @@ export function registerProductRoutes(app: Express): void {
       const { detectSeasonalPatterns } = await import('../utils/seasonal-pattern-detector');
       const patterns = detectSeasonalPatterns(history);
 
-      res.json(patterns);
+      sendSuccess(res, patterns);
     } catch (error: unknown) {
       logger.error('Error detecting seasonal patterns', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'DetectSeasonalPatterns');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DetectSeasonalPatterns');
     }
   });
 
@@ -278,7 +272,7 @@ export function registerProductRoutes(app: Express): void {
       const history = await storage.getPriceHistory(id, days);
 
       if (!history || history.length < 5) {
-        res.json(null);
+        sendSuccess(res, null);
         return;
       }
 
@@ -310,11 +304,10 @@ export function registerProductRoutes(app: Express): void {
       const { calculateAllRetailerReliability } = await import('../utils/retailer-reliability-calculator');
       const scores = calculateAllRetailerReliability(allRetailersData);
 
-      res.json(scores);
+      sendSuccess(res, scores);
     } catch (error: unknown) {
       logger.error('Error calculating retailer reliability', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'CalculateRetailerReliability');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CalculateRetailerReliability');
     }
   });
 
@@ -341,11 +334,10 @@ export function registerProductRoutes(app: Express): void {
         affiliateUrl: offer.affiliateUrl
       }));
 
-      res.json({ offers: formattedOffers });
+      sendSuccess(res, { offers: formattedOffers });
     } catch (error: unknown) {
       logger.error('Error fetching product offers', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'FetchProductOffers');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchProductOffers');
     }
   });
 
@@ -360,7 +352,7 @@ export function registerProductRoutes(app: Express): void {
 
       if (history.length < 7) {
         // Not enough data for predictions
-        res.json({
+        sendSuccess(res, {
           predictions: [],
           confidence: 'low',
           message: 'Not enough historical data for predictions'
@@ -395,7 +387,7 @@ export function registerProductRoutes(app: Express): void {
         });
       }
 
-      res.json({
+      sendSuccess(res, {
         predictions,
         confidence: recentPrices.length >= 30 ? 'medium' : 'low',
         basePrice: lastPrice,
@@ -403,8 +395,7 @@ export function registerProductRoutes(app: Express): void {
       });
     } catch (error: unknown) {
       logger.error('Error fetching price predictions', { error: error instanceof Error ? error.message : String(error), productId: req.params.id });
-      const errorResponse = createErrorResponse(error, 'FetchPricePredictions');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchPricePredictions');
     }
   });
 
@@ -414,7 +405,7 @@ export function registerProductRoutes(app: Express): void {
       const { productId, source, retailer } = req.body;
 
       if (!productId) {
-        res.status(400).json({ error: "productId is required" });
+        sendError(res, "productId is required", 400);
         return;
       }
 
@@ -429,11 +420,10 @@ export function registerProductRoutes(app: Express): void {
 
       // In the future, you could store this in a database table for analytics
       // For now, just acknowledge receipt
-      res.json({ success: true });
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
       logger.error('Error tracking product view', { error: error instanceof Error ? error.message : String(error), productId: req.body.productId });
-      const errorResponse = createErrorResponse(error, 'TrackProductView');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'TrackProductView');
     }
   });
 }

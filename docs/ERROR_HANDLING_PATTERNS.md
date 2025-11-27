@@ -1,3 +1,12 @@
+---
+Pattern: Error Handling Patterns & Anti-Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [API_PATTERNS.md, SECURITY_PATTERNS.md, TYPESCRIPT_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md]
+---
+
 # Error Handling Patterns & Anti-Patterns
 
 This document codifies error handling patterns to ensure consistent, secure, and user-friendly error management in the PriceCompare codebase.

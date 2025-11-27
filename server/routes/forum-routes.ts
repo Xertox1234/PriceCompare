@@ -5,6 +5,7 @@ import { withAuth, handleRouteError, notFound } from "./helpers";
 import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
 import { logger } from "../utils/logger";
 import { csrfProtection } from "../middleware/security";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 
 /**
  * Forum Routes
@@ -16,9 +17,9 @@ export function registerForumRoutes(app: Express): void {
   app.get("/api/forum/categories", async (req, res) => {
     try {
       const categories = await forumStorage.getCategories();
-      res.json(categories);
+      sendSuccess(res, categories);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'GetForumCategories');
+      sendErrorFromException(res, error, 'GetForumCategories');
     }
   });
 
@@ -33,9 +34,9 @@ export function registerForumRoutes(app: Express): void {
         parseIntOptional(page as string, 'page', { min: 1 }) ?? 1,
         parseIntOptional(limit as string, 'limit', { min: 1, max: 100 }) ?? 50
       );
-      res.json(result);
+      sendSuccess(res, result);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'GetForumTopics');
+      sendErrorFromException(res, error, 'GetForumTopics');
     }
   });
 
@@ -46,12 +47,12 @@ export function registerForumRoutes(app: Express): void {
       const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const topic = await forumStorage.getTopicById(topicId);
       if (!topic) {
-        notFound(res, 'Topic');
+        sendError(res, 'Topic not found', 404);
         return;
       }
-      res.json(topic);
+      sendSuccess(res, topic);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'GetForumTopic');
+      sendErrorFromException(res, error, 'GetForumTopic');
     }
   });
 
@@ -61,9 +62,9 @@ export function registerForumRoutes(app: Express): void {
       // SECURITY: Safe integer parsing with validation
       const topicId = parseIntSafe(req.params.id, 'topicId', { min: 1 });
       const posts = await forumStorage.getPostsByTopic(topicId);
-      res.json(posts);
+      sendSuccess(res, posts);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'GetTopicPosts');
+      sendErrorFromException(res, error, 'GetTopicPosts');
     }
   });
 
@@ -76,7 +77,7 @@ export function registerForumRoutes(app: Express): void {
       const user = req.user;
 
       if (!title || title.trim() === '') {
-        res.status(400).json({ error: "Title is required" });
+        sendError(res, "Title is required", 400);
         return;
       }
 
@@ -93,9 +94,9 @@ export function registerForumRoutes(app: Express): void {
 
       logger.info("Topic created", { topicId: result.topic.id, title: result.topic.title });
 
-      res.json({ success: true, topic: result.topic });
+      sendSuccess(res, result.topic, 201);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'CreateForumTopic');
+      sendErrorFromException(res, error, 'CreateForumTopic');
     }
   }));
 
@@ -112,9 +113,9 @@ export function registerForumRoutes(app: Express): void {
       // RACE CONDITION: Storage layer handles SERIALIZABLE transaction with retry
       const result = await storage.createForumPost(topicId, user.id, sanitizedContent, content);
 
-      res.json({ success: true, post: result.post });
+      sendSuccess(res, result.post, 201);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'CreateForumPost');
+      sendErrorFromException(res, error, 'CreateForumPost');
     }
   }));
 }

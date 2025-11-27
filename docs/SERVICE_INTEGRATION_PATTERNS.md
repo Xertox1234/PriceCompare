@@ -1,13 +1,83 @@
+---
+Pattern: Service Integration Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [API_PATTERNS.md, SECURITY_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, DATABASE_PATTERNS.md, TYPESCRIPT_PATTERNS.md]
+---
+
 # Service Integration Patterns
 
 This document codifies service integration patterns identified through production code reviews. These patterns ensure consistency, reliability, and maintainability across all service integrations.
 
 ## Table of Contents
+- [Storage Layer Pattern](#storage-layer-pattern)
 - [Guard Completeness Pattern](#guard-completeness-pattern)
 - [Cache-Before-Limit Pattern](#cache-before-limit-pattern)
 - [Type Extraction Pattern](#type-extraction-pattern)
 - [Error Message Quality Pattern](#error-message-quality-pattern)
 - [Route Helper Compliance](#route-helper-compliance)
+
+## Storage Layer Pattern
+
+**Rule**: All database access flows through `server/storage.ts` which implements the `IStorage` interface. Never query `db` directly from routes or services.
+
+### Anti-Pattern: Direct Database Access
+
+```typescript
+// ❌ WRONG - Direct db import in route
+import { db } from './db';
+import { products } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+
+app.get('/api/products/:id', async (req, res) => {
+  const product = await db.select()
+    .from(products)
+    .where(eq(products.id, parseInt(req.params.id)));
+  res.json(product[0]);
+});
+```
+
+### Correct Pattern: Storage Layer Abstraction
+
+```typescript
+// ✅ CORRECT - Use storage layer
+import { storage } from './storage';
+import { parseIntSafe } from './utils/validation-helpers';
+
+app.get('/api/products/:id', async (req, res) => {
+  const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+  const product = await storage.getProductById(id);
+
+  if (!product) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  res.json(product);
+});
+```
+
+### Benefits of Storage Layer
+
+1. **Single Source of Truth**: All queries in one place
+2. **Testability**: Easy to mock `storage` for testing
+3. **Consistency**: Uniform error handling and validation
+4. **Migration Safety**: Schema changes require updates in one location
+5. **Type Safety**: Storage methods return properly typed results
+
+### Documented Exception
+
+**`price-aggregation-service.ts`** is the ONLY service with direct `db` access. This exception is documented because:
+- Passes transaction contexts between private helper methods
+- Complex atomic operations require fine-grained transaction control
+- All other services MUST use the storage layer
+
+### Migration Status
+
+- ✅ 14/15 services migrated to storage layer
+- ✅ All routes use storage layer
+- ✅ 1 documented exception (price-aggregation-service.ts)
 
 ## Guard Completeness Pattern
 

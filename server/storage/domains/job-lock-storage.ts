@@ -12,6 +12,7 @@ import { jobLocks } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
 import type { JobLock } from "../types";
 import { db } from "../../db";
+import { JOB_LOCK_CONSTANTS } from "../../utils/constants";
 
 /**
  * JobLockStorage Class
@@ -41,8 +42,8 @@ export class JobLockStorage extends BaseStorage {
     if (!jobName || typeof jobName !== 'string' || jobName.trim().length === 0) {
       throw new Error(`Invalid jobName: "${jobName}". Must be a non-empty string.`);
     }
-    if (jobName.length > 255) {
-      throw new Error(`Invalid jobName: "${jobName}". Must be 255 characters or less.`);
+    if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
+      throw new Error(`Invalid jobName: "${jobName}". Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters or less.`);
     }
   }
 
@@ -50,13 +51,11 @@ export class JobLockStorage extends BaseStorage {
    * Validates that ttlSeconds is a positive integer within reasonable bounds
    */
   private validateTTL(ttlSeconds: number): void {
-    if (!Number.isInteger(ttlSeconds) || ttlSeconds < 1) {
+    if (!Number.isInteger(ttlSeconds) || ttlSeconds < JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS) {
       throw new Error(`Invalid ttlSeconds: ${ttlSeconds}. Must be a positive integer.`);
     }
-    // Maximum TTL: 7 days (604800 seconds)
-    const MAX_TTL = 604800;
-    if (ttlSeconds > MAX_TTL) {
-      throw new Error(`Invalid ttlSeconds: ${ttlSeconds}. Must be ${MAX_TTL} seconds (7 days) or less.`);
+    if (ttlSeconds > JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS) {
+      throw new Error(`Invalid ttlSeconds: ${ttlSeconds}. Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS} seconds (7 days) or less.`);
     }
   }
 
@@ -67,8 +66,8 @@ export class JobLockStorage extends BaseStorage {
     if (!lockedBy || typeof lockedBy !== 'string' || lockedBy.trim().length === 0) {
       throw new Error(`Invalid lockedBy: "${lockedBy}". Must be a non-empty string.`);
     }
-    if (lockedBy.length > 255) {
-      throw new Error(`Invalid lockedBy: "${lockedBy}". Must be 255 characters or less.`);
+    if (lockedBy.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH) {
+      throw new Error(`Invalid lockedBy: "${lockedBy}". Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH} characters or less.`);
     }
   }
 

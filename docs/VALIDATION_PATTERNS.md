@@ -1,3 +1,12 @@
+---
+Pattern: Validation Patterns (Storage Layer)
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [TYPESCRIPT_PATTERNS.md, SECURITY_PATTERNS.md, DATABASE_PATTERNS.md]
+---
+
 # Storage Layer Validation Helper Pattern
 
 **Quick Reference Guide for Developers**

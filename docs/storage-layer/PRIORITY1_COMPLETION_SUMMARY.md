@@ -44,7 +44,7 @@ We successfully brought early storage phases (2-6) up to the standards establish
 
 5. ✅ Documented the pattern in 2 files
    - `docs/storage-layer/PHASE1_COMPLETION_REPORT.md` (404 lines)
-   - `docs/storage-layer/VALIDATION_HELPER_PATTERN.md` (403 lines)
+   - `docs/VALIDATION_PATTERNS.md` (403 lines) - Moved from storage-layer/
 
 **Benefits Achieved:**
 - ✅ Eliminated ~25 lines of duplicate validation code
@@ -162,7 +162,7 @@ We successfully brought early storage phases (2-6) up to the standards establish
 - `server/storage.ts` (+159 lines) - Validation helpers
 - `server/__tests__/validation-helpers.test.ts` (+152 lines) - Tests
 - `docs/storage-layer/PHASE1_COMPLETION_REPORT.md` (+404 lines) - Report
-- `docs/storage-layer/VALIDATION_HELPER_PATTERN.md` (+403 lines) - Pattern guide
+- `docs/VALIDATION_PATTERNS.md` (+403 lines) - Pattern guide (moved from storage-layer/)
 
 **Total**: +1,186 lines
 

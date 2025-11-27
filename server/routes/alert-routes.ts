@@ -3,6 +3,7 @@ import { forumStorage } from "../forum-storage";
 import { withAuth, handleRouteError, notFound } from "./helpers";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { csrfProtection } from "../middleware/security";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 
 /**
  * Price Alert Routes
@@ -23,9 +24,9 @@ export function registerAlertRoutes(app: Express): void {
         notifyForum: notifyForum || false,
       });
 
-      res.json({ success: true, alert });
+      sendSuccess(res, alert, 201);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'CreatePriceAlert');
+      sendErrorFromException(res, error, 'CreatePriceAlert');
     }
   }));
 
@@ -34,9 +35,9 @@ export function registerAlertRoutes(app: Express): void {
     try {
       const user = req.user;
       const alerts = await forumStorage.getUserPriceAlerts(user.id);
-      res.json(alerts);
+      sendSuccess(res, alerts);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'GetPriceAlerts');
+      sendErrorFromException(res, error, 'GetPriceAlerts');
     }
   }));
 
@@ -49,13 +50,13 @@ export function registerAlertRoutes(app: Express): void {
 
       const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
       if (!updatedAlert) {
-        notFound(res, 'Alert');
+        sendError(res, 'Alert not found', 404);
         return;
       }
 
-      res.json(updatedAlert);
+      sendSuccess(res, updatedAlert);
     } catch (error: unknown) {
-      handleRouteError(res, error, 'UpdatePriceAlert');
+      sendErrorFromException(res, error, 'UpdatePriceAlert');
     }
   }));
 
@@ -67,13 +68,13 @@ export function registerAlertRoutes(app: Express): void {
 
       const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
       if (!deleted) {
-        notFound(res, 'Alert');
+        sendError(res, 'Alert not found', 404);
         return;
       }
 
-      res.json({ success: true });
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
-      handleRouteError(res, error, 'DeletePriceAlert');
+      sendErrorFromException(res, error, 'DeletePriceAlert');
     }
   }));
 }

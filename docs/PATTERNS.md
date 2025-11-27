@@ -1,8 +1,15 @@
+---
+Pattern: General Backend Patterns & Best Practices
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, BACKGROUND_JOBS_PATTERNS.md]
+---
+
 # Code Patterns & Best Practices
 
 This document codifies proven patterns used in the PriceCompare application.
-
----
 
 ## Database Query Patterns
 

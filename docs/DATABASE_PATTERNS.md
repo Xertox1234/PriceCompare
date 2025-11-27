@@ -1,3 +1,12 @@
+---
+Pattern: Database Patterns & Anti-Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [SECURITY_PATTERNS.md, API_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, ERROR_HANDLING_PATTERNS.md]
+---
+
 # Database Patterns & Anti-Patterns
 
 This document codifies database patterns and anti-patterns in the PriceCompare codebase to prevent common mistakes and ensure data integrity.

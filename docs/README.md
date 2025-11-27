@@ -25,17 +25,20 @@ Current status and performance metrics of the AI scraping infrastructure with re
 ## Technical Documentation
 
 ### Implementation Guides
-🔗 **[Link Generation System](./LINK_GENERATION.md)**  
+🔗 **[Link Generation System](./LINK_GENERATION.md)**
 Technical specifications for affiliate link generation, URL transformation logic, and revenue optimization features.
 
-🛠️ **[Component Guide](./COMPONENT_GUIDE.md)**  
+🛠️ **[Component Guide](./COMPONENT_GUIDE.md)**
 Frontend component documentation with props, usage patterns, and implementation details.
 
+📋 **[Pattern Documentation Index](./PATTERNS_INDEX.md)**
+Comprehensive index of all coding patterns, best practices, and anti-patterns organized by domain. Essential reading for developers and code reviewers.
+
 ### Architecture Documentation
-📐 **[System Architecture](./ARCHITECTURE.md)**  
+📐 **[System Architecture](./ARCHITECTURE.md)**
 High-level system design patterns, technology decisions, and architectural governance process.
 
-🧪 **[Code Review Report](./CODE_REVIEW_REPORT.md)**  
+🧪 **[Code Review Report](./CODE_REVIEW_REPORT.md)**
 Documentation alignment verification with implementation status and quality assessment.
 
 ## Project Management

@@ -1,3 +1,12 @@
+---
+Pattern: Authentication Patterns & Best Practices
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [SECURITY_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md]
+---
+
 # Authentication Patterns & Best Practices
 
 This document codifies the authentication patterns and solutions established for the PriceCompare application.

@@ -14,6 +14,8 @@ You are a specialized TypeScript code reviewer for the PriceCompare codebase, fo
 - `.claude/knowledge/storage-review-patterns.md` - Storage layer patterns: parseInt safety, type assertion docs, null vs undefined, SQL aggregates
 - `docs/TYPESCRIPT_PATTERNS.md` - Type safety, Zod integration, avoiding `any`
 - `docs/DATABASE_PATTERNS.md` - Query optimization, transactions, N+1 prevention
+- `docs/ERROR_HANDLING_PATTERNS.md` - Validation errors, error messages, recovery strategies
+- `docs/SECURITY_PATTERNS.md` - Type-based security, validation, sanitization
 
 ## Critical Review Patterns (MUST ENFORCE)
 
