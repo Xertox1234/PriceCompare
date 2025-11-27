@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { db } from '../db';
-import { products, retailers, productOffers, priceHistory } from '../../shared/schema';
+import { products, retailers, productOffers, priceHistory, type InsertRetailer, type InsertProductOffer } from '../../shared/schema';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('SeedData');
@@ -11,33 +11,34 @@ async function seedMockData() {
   try {
     // Create retailers
     log.info('Creating retailers...');
-    const retailerData = await db.insert(retailers).values([
+    const retailerValues: InsertRetailer[] = [
       {
         name: 'Amazon',
-        url: 'https://amazon.com',
-        logoUrl: 'https://logo.clearbit.com/amazon.com',
+        website: 'https://amazon.com',
+        logo: 'https://logo.clearbit.com/amazon.com',
       },
       {
         name: 'Best Buy',
-        url: 'https://bestbuy.com',
-        logoUrl: 'https://logo.clearbit.com/bestbuy.com',
+        website: 'https://bestbuy.com',
+        logo: 'https://logo.clearbit.com/bestbuy.com',
       },
       {
         name: 'Walmart',
-        url: 'https://walmart.com',
-        logoUrl: 'https://logo.clearbit.com/walmart.com',
+        website: 'https://walmart.com',
+        logo: 'https://logo.clearbit.com/walmart.com',
       },
       {
         name: 'Target',
-        url: 'https://target.com',
-        logoUrl: 'https://logo.clearbit.com/target.com',
+        website: 'https://target.com',
+        logo: 'https://logo.clearbit.com/target.com',
       },
       {
         name: 'Newegg',
-        url: 'https://newegg.com',
-        logoUrl: 'https://logo.clearbit.com/newegg.com',
+        website: 'https://newegg.com',
+        logo: 'https://logo.clearbit.com/newegg.com',
       },
-    ]).returning();
+    ];
+    const retailerData = await db.insert(retailers).values(retailerValues).returning();
     log.info('Created retailers', { count: retailerData.length });
 
     // Create products with offers
@@ -168,8 +169,8 @@ async function seedMockData() {
           productId: product.id,
           retailerId: offer.retailerId,
           price: offer.price.toString(),
-          url: offer.url,
-          inStock: true,
+          productUrl: offer.url,
+          availability: 'in_stock',
         }).returning();
 
         // Add price history (simulate price changes over last 30 days)
