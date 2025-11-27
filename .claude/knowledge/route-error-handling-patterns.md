@@ -85,6 +85,44 @@ import { notFound } from "./helpers";
 
 ## Anti-Patterns to Flag
 
+### Anti-Pattern 0: Nested Response Wrappers (NEW - 2025-11-27)
+
+**Severity: HIGH** - Breaks the API contract and creates double-nested responses.
+
+When using standardized API response helpers (`sendSuccess`, `sendError`, `sendErrorFromException`), the helpers automatically add the envelope. Developers migrating from manual patterns sometimes add redundant wrappers.
+
+```typescript
+// ❌ WRONG - Double-wrapped response (breaks frontend!)
+sendSuccess(res, {
+  success: true,
+  data: metrics
+});
+// Results in: { success: true, data: { success: true, data: metrics } }
+
+// ❌ WRONG - Manual data wrapper
+sendSuccess(res, { data: watchLists });
+// Results in: { success: true, data: { data: watchLists } }
+
+// ✅ CORRECT - Pass data directly
+sendSuccess(res, metrics);
+// Results in: { success: true, data: metrics }
+
+// ✅ CORRECT - Object with properties (no manual envelope)
+sendSuccess(res, { watchLists, count: watchLists.length });
+// Results in: { success: true, data: { watchLists, count } }
+```
+
+**Detection:**
+```bash
+grep -rn "sendSuccess(res, {" server/routes/*.ts | grep -E "(success|data):"
+```
+
+**Root Cause:** Developers familiar with manual response patterns don't realize the helpers provide the envelope.
+
+**Key Rule:** The API response helpers ARE the envelope - never manually add `success: true` or wrap in `{ data: ... }`.
+
+---
+
 ### Anti-Pattern 1: Manual createErrorResponse
 
 ```typescript
@@ -299,6 +337,7 @@ app.get("/api/products/:id", async (req, res) => {
 
 When reviewing route files (`server/routes/*.ts`), verify:
 
+- [ ] **No nested response wrappers** - `sendSuccess` called without manual `success:` or `data:` wrappers
 - [ ] All catch blocks use `handleRouteError(res, error, 'OpName')`
 - [ ] All 404 responses use `notFound(res, 'ResourceName')`
 - [ ] No manual `createErrorResponse` calls in catch blocks

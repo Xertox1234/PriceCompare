@@ -117,6 +117,29 @@ Before reviewing code, reference the relevant pattern files to ensure comprehens
 
 8. **Error Handling Standards (MANDATORY DRY PRINCIPLE)**: Enforce consistent error handling:
    - **CRITICAL**: Flag ALL manual error handling patterns as violations
+   - **Nested Response Wrapper Anti-Pattern (CRITICAL)**:
+     ```typescript
+     // ❌ WRONG - Double-wrapped response (breaks API contract!)
+     sendSuccess(res, {
+       success: true,
+       data: metrics
+     });
+     // Results in: { success: true, data: { success: true, data: metrics } }
+
+     // ❌ WRONG - Manual data wrapper
+     sendSuccess(res, { data: watchLists });
+     // Results in: { success: true, data: { data: watchLists } }
+
+     // ✅ CORRECT - Pass data directly
+     sendSuccess(res, metrics);
+     // Results in: { success: true, data: metrics }
+
+     // ✅ CORRECT - Object with properties
+     sendSuccess(res, { watchLists, count: watchLists.length });
+     // Results in: { success: true, data: { watchLists, count } }
+     ```
+   - **Detection**: Look for `sendSuccess(res, { success:` or `sendSuccess(res, { data:`
+   - **Root Cause**: Developers migrating from manual response patterns don't realize helpers provide the envelope
    - **Common violations to catch**:
      ```typescript
      // ❌ WRONG - Raw error exposure
@@ -219,7 +242,12 @@ When reviewing files in `server/routes/` directory, **ALWAYS check these first**
    - `../services/*` NOT `./services/*`
    - `../storage` NOT `./storage`
 
-2. **✓ Error Handling**: Every catch block uses createErrorResponse
+2. **✓ Nested Response Wrappers (CRITICAL)**: No double-wrapped responses
+   - Flag: `sendSuccess(res, { success: true, ...` - Double success wrapper
+   - Flag: `sendSuccess(res, { data: ...` - Manual data wrapper
+   - Correct: `sendSuccess(res, actualData)` - Pass data directly
+
+3. **✓ Error Handling**: Every catch block uses createErrorResponse
    - Must import: `import { createErrorResponse } from '../utils/error-sanitizer'`
    - Pattern: `const errorResponse = createErrorResponse(error, 'OperationName')`
    - Never: `res.status(500).json({ error: error.message })`

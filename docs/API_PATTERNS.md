@@ -1,7 +1,7 @@
 ---
 Pattern: API & Route Patterns
-Version: 1.0
-Last Updated: 2025-11-26
+Version: 1.1
+Last Updated: 2025-11-27
 Maintainer: Claude Code / Development Team
 Status: Active
 Related Patterns: [SECURITY_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, DATABASE_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md]
@@ -573,6 +573,59 @@ export function sendNoContent(res: Response): void {
   res.status(204).send();
 }
 ```
+
+#### Anti-Pattern: Nested Response Wrappers (CRITICAL)
+
+**Severity: HIGH** - This breaks the API contract and creates inconsistent responses.
+
+When migrating to standardized API response helpers, developers sometimes accidentally wrap data with redundant `success` and `data` fields before passing to `sendSuccess()`. This creates double-nested envelopes that break frontend parsing.
+
+```typescript
+// ❌ WRONG - Nested wrappers (creates double envelope)
+sendSuccess(res, {
+  success: true,
+  data: metrics
+});
+// Results in: { success: true, data: { success: true, data: metrics } }
+
+// ❌ WRONG - Manual data wrapper
+sendSuccess(res, {
+  data: { watchLists, count: watchLists.length }
+});
+// Results in: { success: true, data: { data: { watchLists, count } } }
+
+// ❌ WRONG - Manual success wrapper
+sendSuccess(res, {
+  success: true,
+  alerts,
+  count: alerts.length
+});
+// Results in: { success: true, data: { success: true, alerts, count } }
+
+// ✅ CORRECT - Pass data directly (helper adds the envelope)
+sendSuccess(res, metrics);
+// Results in: { success: true, data: metrics }
+
+// ✅ CORRECT - Object with properties (no manual envelope)
+sendSuccess(res, { watchLists, count: watchLists.length });
+// Results in: { success: true, data: { watchLists, count } }
+
+// ✅ CORRECT - Array data
+sendSuccess(res, alerts);
+// Results in: { success: true, data: [...alerts] }
+```
+
+**Detection Pattern:**
+```bash
+# Find potential nested wrapper issues
+grep -rn "sendSuccess(res, {" server/routes/*.ts | grep -E "(success|data):"
+```
+
+**Root Cause:** Developers familiar with manual response patterns may not internalize that `sendSuccess()`, `sendError()`, and `sendErrorFromException()` automatically provide the envelope format.
+
+**Key Rule:** The helpers ARE the envelope - never manually add `success: true` or wrap in `{ data: ... }`.
+
+---
 
 #### Route Usage Examples
 

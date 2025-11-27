@@ -124,7 +124,7 @@ class SearchService {
 - [ ] Error messages include actionable information (remaining count, reset time)
 - [ ] No partial protection - either all or none
 
-### 2. Type Extraction Pattern for Complex React Query Hooks
+### 3. Type Extraction Pattern for Complex React Query Hooks
 
 **When reviewing React Query implementations:**
 
@@ -182,7 +182,7 @@ const { data, isLoading } = useQuery<ProductFullResponse>({
 - Group related type definitions together
 - Use descriptive names that indicate purpose
 
-### 3. Cache-Before-Limit Pattern
+### 4. Cache-Before-Limit Pattern
 
 **When reviewing cached services with rate limits:**
 
@@ -231,7 +231,7 @@ async function searchWithCache(query: string) {
 3. Only consume rate limit quota for actual external calls
 4. Include cache suggestions in rate limit errors
 
-### 4. Consistent Error Message Pattern
+### 5. Consistent Error Message Pattern
 
 **When reviewing error handling in guards/limiters:**
 
@@ -262,7 +262,65 @@ throw new Error(
 - How many requests remain (if applicable)
 - Suggested alternatives (use cache, try different operation)
 
-### 5. Route Helper Pattern Enforcement
+### 6. Nested Response Wrapper Anti-Pattern (API Standardization)
+
+**CRITICAL: When migrating to or using standardized API response helpers, never manually wrap data in envelope structures.**
+
+```typescript
+// ❌ WRONG - Double-wrapped response (breaks API contract!)
+sendSuccess(res, {
+  success: true,
+  data: metrics
+});
+// Results in: { success: true, data: { success: true, data: metrics } }
+
+// ❌ WRONG - Manual data wrapper
+sendSuccess(res, { data: { alerts, count } });
+// Results in: { success: true, data: { data: { alerts, count } } }
+
+// ❌ WRONG - Hybrid pattern (partial manual envelope)
+sendSuccess(res, {
+  success: true,
+  alerts,
+  count: alerts.length
+});
+// Results in: { success: true, data: { success: true, alerts, count } }
+
+// ✅ CORRECT - Pass data directly (helper adds the envelope)
+sendSuccess(res, metrics);
+// Results in: { success: true, data: metrics }
+
+// ✅ CORRECT - Object with properties (no manual envelope)
+sendSuccess(res, { alerts, count: alerts.length });
+// Results in: { success: true, data: { alerts, count } }
+
+// ✅ CORRECT - Structured response object
+sendSuccess(res, {
+  errors,
+  count: errors.length
+});
+// Results in: { success: true, data: { errors, count } }
+```
+
+**Detection Patterns:**
+```bash
+# Find potential nested wrapper issues in route files
+grep -rn "sendSuccess(res, {" server/routes/*.ts | grep -E "success.*:|data.*:"
+```
+
+**Review Checklist:**
+- [ ] No `sendSuccess(res, { success: true, ...` patterns
+- [ ] No `sendSuccess(res, { data: ...` patterns
+- [ ] Data passed directly to sendSuccess without manual envelope
+- [ ] Migrated routes verified to not double-wrap responses
+
+**Root Cause:** Developers migrating from manual response patterns (where they built `{ success: true, data: ... }` explicitly) don't realize the helpers provide the envelope automatically.
+
+**Key Rule:** The API response helpers ARE the envelope - never manually add `success: true` or wrap in `{ data: ... }`.
+
+---
+
+### 7. Route Helper Pattern Enforcement
 
 **ZERO TOLERANCE for inline auth/error handling:**
 
@@ -304,7 +362,7 @@ app.post('/api/products', csrfProtection, async (req, res) => {
 });
 ```
 
-### 6. Promise.allSettled for Batch Error Handling
+### 8. Promise.allSettled for Batch Error Handling
 
 **When reviewing batch operations that shouldn't fail entirely if one item fails:**
 
@@ -356,7 +414,7 @@ async getRetailersWithAffiliateStats() {
 - Data enrichment operations where missing data is acceptable
 - Report generation where partial data is better than no data
 
-### 7. @ts-expect-error and @ts-ignore Usage
+### 9. @ts-expect-error and @ts-ignore Usage
 
 **ZERO TOLERANCE for type suppression without proper justification:**
 
@@ -392,7 +450,7 @@ const complexQuery = buildDynamicQuery(params);
 - Prefer restructuring code over type suppression
 - If unavoidable, require ticket/issue reference for tracking
 
-### 8. Input Validation on Public Functions
+### 10. Input Validation on Public Functions
 
 **ALL public storage/service functions must validate inputs:**
 
@@ -450,7 +508,7 @@ async getPriceHistoryOptimized(productId: number, days: number, retailerId?: num
 - Arrays: Check length limits to prevent memory issues
 - Optional params: Validate IF provided
 
-### 9. Magic Number Centralization
+### 11. Magic Number Centralization
 
 **ALL magic numbers must be in constants.ts:**
 
@@ -508,7 +566,7 @@ export const TIMING = {
 } as const;
 ```
 
-### 10. Service Method Consistency Pattern
+### 12. Service Method Consistency Pattern
 
 **When reviewing service classes:**
 
@@ -542,7 +600,7 @@ class PriceService {
 }
 ```
 
-### 11. Validation Code Type Safety Pattern
+### 13. Validation Code Type Safety Pattern
 
 **When reviewing validation or schema-based code:**
 
@@ -714,6 +772,7 @@ errors.push({
 - [✓/✗] Cache-before-limit pattern
 - [✓/✗] Error message quality
 - [✓/✗] Route helper usage
+- [✓/✗] No nested response wrappers (sendSuccess with manual envelope)
 
 ### 🚨 Critical Issues
 [Pattern violations that break established conventions]

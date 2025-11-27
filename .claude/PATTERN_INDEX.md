@@ -1,6 +1,6 @@
 # Master Pattern Index
 
-**Last Updated**: 2025-11-26
+**Last Updated**: 2025-11-27
 **Purpose**: Central reference for all pattern documentation and subagent access mapping
 
 This index provides a complete overview of all pattern files, their relationships, and which subagents reference them.
@@ -271,7 +271,7 @@ ERROR_HANDLING_PATTERNS.md (Cross-cutting)
 | Pattern | v1.0 Release | Latest Version | Last Updated | Recent Changes |
 |---------|--------------|----------------|--------------|----------------|
 | DATABASE_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-24 | Foreign key cascade rules |
-| API_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | Middleware pipeline order |
+| API_PATTERNS.md | 2025-11-01 | 1.1 | 2025-11-27 | **Nested response wrapper anti-pattern** |
 | TYPESCRIPT_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-25 | Validation code type safety |
 | ERROR_HANDLING_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-26 | createErrorResponse patterns |
 | SECURITY_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | CSRF token attachment |
