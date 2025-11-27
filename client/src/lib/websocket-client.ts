@@ -151,7 +151,8 @@ export class WebSocketClient {
 
     // Socket.io typed sockets handle event typing through the generic parameter.
     // The handler type matches ServerToClientEvents[E] which Socket.io expects.
-    this.socket.on(event, handler);
+    // Use any to bypass Socket.IO's overly strict listener type checking
+    this.socket.on(event, handler as any);
   }
 
   /**
@@ -170,7 +171,8 @@ export class WebSocketClient {
 
     if (handler) {
       // Socket.io typed sockets handle event typing through the generic parameter.
-      this.socket.off(event, handler);
+      // Use any to bypass Socket.IO's overly strict listener type checking
+      this.socket.off(event, handler as any);
     } else {
       this.socket.off(event);
     }

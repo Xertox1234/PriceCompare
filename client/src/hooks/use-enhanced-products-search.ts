@@ -12,7 +12,7 @@ interface SearchFacets {
 }
 
 interface EnhancedSearchResults {
-  results: Product[];
+  results: ProductWithOffers[];
   metadata: {
     total: number;
     page: number;

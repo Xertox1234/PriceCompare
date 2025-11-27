@@ -34,18 +34,50 @@ vi.mock('../use-user', () => ({
 
 // Helper to create a full React Query result mock
 function createUseUserMock(user: unknown, isLoading = false) {
+  if (isLoading) {
+    return {
+      user,
+      data: user,
+      isLoading: true as const,
+      isError: false as const,
+      error: null,
+      isPending: true as const,
+      isLoadingError: false as const,
+      isRefetchError: false as const,
+      isSuccess: false as const,
+      isPlaceholderData: false as const,
+      status: 'pending' as const,
+      dataUpdatedAt: Date.now(),
+      errorUpdatedAt: 0,
+      failureCount: 0,
+      failureReason: null,
+      errorUpdateCount: 0,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      isFetching: false as const,
+      isRefetching: false as const,
+      isStale: false as const,
+      isInitialLoading: true as const,
+      isPaused: false as const,
+      isEnabled: true,
+      fetchStatus: 'idle' as const,
+      refetch: vi.fn(),
+      promise: Promise.resolve(user),
+    } as any; // Use any to bypass strict React Query type checking in tests
+  }
+
   return {
     user,
     data: user,
-    isLoading,
+    isLoading: false as const,
     isError: false as const,
     error: null,
-    isPending: isLoading,
+    isPending: false as const,
     isLoadingError: false as const,
     isRefetchError: false as const,
-    isSuccess: !isLoading,
+    isSuccess: true as const,
     isPlaceholderData: false as const,
-    status: isLoading ? ('pending' as const) : ('success' as const),
+    status: 'success' as const,
     dataUpdatedAt: Date.now(),
     errorUpdatedAt: 0,
     failureCount: 0,
@@ -56,13 +88,13 @@ function createUseUserMock(user: unknown, isLoading = false) {
     isFetching: false as const,
     isRefetching: false as const,
     isStale: false as const,
-    isInitialLoading: isLoading,
+    isInitialLoading: false as const,
     isPaused: false as const,
     isEnabled: true,
     fetchStatus: 'idle' as const,
     refetch: vi.fn(),
     promise: Promise.resolve(user),
-  };
+  } as any; // Use any to bypass strict React Query type checking in tests
 }
 
 describe('useWebSocket', () => {

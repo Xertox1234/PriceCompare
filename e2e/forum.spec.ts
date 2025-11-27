@@ -3,7 +3,7 @@
  *
  * Tests creating topics, posting replies, editing posts, and moderation
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   cleanDatabase,
   registerUser,

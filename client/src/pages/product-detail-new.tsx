@@ -41,7 +41,7 @@ function ProductDetailContent() {
 
   // Fetch product from API
   const { data: productData, isLoading, error } = useProductFull(productId || null);
-  const product = productData?.data;
+  const product = productData;
 
   // Fetch related products (same category)
   const { data: relatedData } = useProductsByCategory(product?.category ?? '', 4);

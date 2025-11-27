@@ -403,16 +403,15 @@ async function seedTestData() {
   // Create test retailer
   const [retailer] = await db.insert(retailers).values({
     name: 'Test Store',
-    domain: 'test-store.example.com',
-    logoUrl: 'https://via.placeholder.com/150',
+    logo: 'https://via.placeholder.com/150',
   }).returning();
 
   // Create test product
   const [product] = await db.insert(products).values({
     name: 'Gaming Laptop',
     description: 'High-performance gaming laptop',
-    imageUrl: 'https://via.placeholder.com/400',
-    categoryId: 1,
+    image: 'https://via.placeholder.com/400',
+    category: 'Electronics',
   }).returning();
 
   // Create product offer
