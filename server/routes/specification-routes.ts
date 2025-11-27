@@ -8,7 +8,7 @@ import type { Express } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
 import { withAuth, withAdmin } from './helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { logger } from '../utils/logger';
 
@@ -55,10 +55,9 @@ export function registerSpecificationRoutes(app: Express): void {
     try {
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
       const specs = await storage.getProductSpecifications(productId);
-      res.json({ success: true, data: specs, count: specs.length });
+      sendSuccess(res, { specs, count: specs.length });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductSpecifications');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetProductSpecifications');
     }
   });
 
@@ -67,10 +66,9 @@ export function registerSpecificationRoutes(app: Express): void {
     try {
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
       const groups = await storage.getProductSpecificationsGrouped(productId);
-      res.json({ success: true, data: groups, count: groups.length });
+      sendSuccess(res, { groups, count: groups.length });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductSpecificationsGrouped');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetProductSpecificationsGrouped');
     }
   });
 
@@ -81,14 +79,13 @@ export function registerSpecificationRoutes(app: Express): void {
       const product = await storage.getProductFull(productId);
 
       if (!product) {
-        res.status(404).json({ error: 'Product not found' });
+        sendError(res, 'Product not found', 404);
         return;
       }
 
-      res.json({ success: true, data: product });
+      sendSuccess(res, product);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetProductFull');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetProductFull');
     }
   });
 
@@ -114,10 +111,9 @@ export function registerSpecificationRoutes(app: Express): void {
         specName: data.specName,
       });
 
-      res.status(201).json({ success: true, data: spec });
+      sendSuccess(res, spec, 201);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CreateSpecification');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CreateSpecification');
     }
   }));
 
@@ -144,10 +140,9 @@ export function registerSpecificationRoutes(app: Express): void {
         count: specs.length,
       });
 
-      res.status(201).json({ success: true, data: specs, count: specs.length });
+      sendSuccess(res, { specs, count: specs.length }, 201);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CreateSpecificationsBatch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CreateSpecificationsBatch');
     }
   }));
 
@@ -159,14 +154,13 @@ export function registerSpecificationRoutes(app: Express): void {
 
       const spec = await storage.updateProductSpecification(specId, updates);
       if (!spec) {
-        res.status(404).json({ error: 'Specification not found' });
+        sendError(res, 'Specification not found', 404);
         return;
       }
 
-      res.json({ success: true, data: spec });
+      sendSuccess(res, spec);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'UpdateSpecification');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'UpdateSpecification');
     }
   }));
 
@@ -177,15 +171,14 @@ export function registerSpecificationRoutes(app: Express): void {
 
       const deleted = await storage.deleteProductSpecification(specId);
       if (!deleted) {
-        res.status(404).json({ error: 'Specification not found' });
+        sendError(res, 'Specification not found', 404);
         return;
       }
 
       logger.info('Product specification deleted', { specId });
-      res.json({ success: true });
+      sendSuccess(res, { deletedCount: 1 });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'DeleteSpecification');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DeleteSpecification');
     }
   }));
 
@@ -197,10 +190,9 @@ export function registerSpecificationRoutes(app: Express): void {
       const count = await storage.deleteProductSpecifications(productId);
 
       logger.info('Product specifications cleared', { productId, count });
-      res.json({ success: true, deletedCount: count });
+      sendSuccess(res, { deletedCount: count });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'DeleteProductSpecifications');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DeleteProductSpecifications');
     }
   }));
 }

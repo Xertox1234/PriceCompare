@@ -1,6 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { requireAuth, requireAdmin } from '../auth';
 import { advancedSearchService } from '../services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
@@ -51,11 +51,10 @@ export function registerAdvancedSearchRoutes(app: Express): void {
 
       // Cache for 2 minutes for search results
       res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
-      res.json(response);
-      
+      sendSuccess(res, response);
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AdvancedSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'AdvancedSearch');
     }
   });
 
@@ -71,7 +70,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       logger.info('Search suggestions request', { query, limit });
 
       if (!query || query.length < 2) {
-        res.json({ suggestions: [] });
+        sendSuccess(res, { suggestions: [] });
         return;
       }
 
@@ -80,11 +79,10 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       logger.info('Search suggestions response', { suggestions });
 
       res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=150');
-      res.json({ suggestions });
-      
+      sendSuccess(res, { suggestions });
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetSearchSuggestions');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetSearchSuggestions');
     }
   });
 
@@ -96,17 +94,16 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       const { query } = req.body;
 
       if (!query) {
-        res.status(400).json({ message: "Query is required" });
+        sendError(res, "Query is required", 400);
         return;
       }
 
       const analysis = await advancedSearchService.analyzeQueryIntent(query);
 
-      res.json(analysis);
-      
+      sendSuccess(res, analysis);
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AnalyzeQueryIntent');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'AnalyzeQueryIntent');
     }
   });
 
@@ -119,7 +116,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       const query = req.query.query as string;
 
       if (!query) {
-        res.status(400).json({ message: "Query is required" });
+        sendError(res, "Query is required", 400);
         return;
       }
 
@@ -155,9 +152,9 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       // SECURITY: Use properly typed session data instead of 'as any'
       const userId = req.session.userId;
       const results = await advancedSearchService.searchProducts(optimizedFilters, userId);
-      
+
       res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
-      res.json({
+      sendSuccess(res, {
         results: results.map(result => ({
           product: result.product,
           relevanceScore: result.relevanceScore,
@@ -166,10 +163,9 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         intent,
         optimizations: `Optimized for ${intent}`
       });
-      
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'IntentBasedSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'IntentBasedSearch');
     }
   });
 
@@ -181,7 +177,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       const query = req.query.query as string;
 
       if (!query) {
-        res.status(400).json({ message: "Query is required" });
+        sendError(res, "Query is required", 400);
         return;
       }
 
@@ -224,9 +220,9 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       // SECURITY: Use properly typed session data instead of 'as any'
       const userId = req.session.userId;
       const results = await advancedSearchService.searchProducts(filters, userId);
-      
+
       res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
-      res.json({
+      sendSuccess(res, {
         results: results.map(result => ({
           product: result.product,
           relevanceScore: result.relevanceScore,
@@ -241,10 +237,9 @@ export function registerAdvancedSearchRoutes(app: Express): void {
           confidence: analysis.confidence
         }
       });
-      
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SmartSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'SmartSearch');
     }
   });
 
@@ -289,11 +284,10 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       };
       
       res.setHeader('Cache-Control', 'public, max-age=1800, stale-while-revalidate=900');
-      res.json({ facets });
-      
+      sendSuccess(res, { facets });
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetSearchFacets');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetSearchFacets');
     }
   });
 
@@ -305,15 +299,14 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       // SECURITY: Using requireAdmin middleware for consistent authorization
 
       const stats = advancedSearchService.getStats();
-      
-      res.json({
+
+      sendSuccess(res, {
         ...stats,
         timestamp: new Date().toISOString()
       });
-      
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetSearchStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetSearchStats');
     }
   });
 
@@ -325,12 +318,11 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       // SECURITY: Using requireAdmin middleware for consistent authorization
 
       advancedSearchService.clearCaches();
-      
-      res.json({ message: "Search caches cleared successfully" });
-      
+
+      sendSuccess(res, { message: "Search caches cleared successfully" });
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ClearSearchCaches');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'ClearSearchCaches');
     }
   });
 

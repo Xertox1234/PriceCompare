@@ -4,7 +4,7 @@ import { z } from "zod";
 import * as notificationService from "../services/notification-service";
 import { csrfProtection } from "../middleware/security";
 import { parseIntSafe } from "../utils/validation-helpers";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { withAuth } from "./helpers";
 
 /**
@@ -17,7 +17,7 @@ export function registerNotificationRoutes(app: Express) {
   // Middleware function for routes with CSRF (works with middleware chaining)
   function requireAuth(req: Request, res: Response, next: NextFunction) {
     if (!req.user) {
-      res.status(401).json({ error: "Unauthorized" });
+      sendError(res, "Unauthorized", 401);
       return;
     }
     next();
@@ -42,18 +42,12 @@ export function registerNotificationRoutes(app: Express) {
 
       const notifications = await notificationService.getUserNotifications(user.id, filters);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: notifications,
         count: notifications.length
       });
     } catch (error: unknown) {
-      logger.error('Error fetching notifications:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetNotifications');
     }
   }));
 
@@ -66,17 +60,9 @@ export function registerNotificationRoutes(app: Express) {
       const user = req.user!; // Auth verified by withAuth middleware
       const stats = await notificationService.getNotificationStats(user.id);
 
-      res.json({
-        success: true,
-        data: stats
-      });
+      sendSuccess(res, stats);
     } catch (error: unknown) {
-      logger.error('Error fetching notification stats:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetNotificationStats');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetNotificationStats');
     }
   }));
 
@@ -93,18 +79,13 @@ export function registerNotificationRoutes(app: Express) {
       const count = await notificationService.markAsRead(user.id, notificationId);
 
       if (count === 0) {
-        res.status(404).json({ error: "Notification not found" });
+        sendError(res, "Notification not found", 404);
         return;
       }
 
-      res.json({ success: true });
+      sendSuccess(res, {});
     } catch (error: unknown) {
-      logger.error('Error marking notification as read:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'MarkNotificationRead');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'MarkNotificationRead');
     }
   });
 
@@ -118,17 +99,9 @@ export function registerNotificationRoutes(app: Express) {
       const user = req.user!; // Auth verified by requireAuth middleware
       const count = await notificationService.markAllAsRead(user.id);
 
-      res.json({
-        success: true,
-        count
-      });
+      sendSuccess(res, { count });
     } catch (error: unknown) {
-      logger.error('Error marking all as read:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'MarkAllNotificationsRead');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'MarkAllNotificationsRead');
     }
   });
 
@@ -145,18 +118,13 @@ export function registerNotificationRoutes(app: Express) {
       const deleted = await notificationService.deleteNotification(user.id, notificationId);
 
       if (!deleted) {
-        res.status(404).json({ error: "Notification not found" });
+        sendError(res, "Notification not found", 404);
         return;
       }
 
-      res.json({ success: true });
+      sendSuccess(res, {});
     } catch (error: unknown) {
-      logger.error('Error deleting notification:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'DeleteNotification');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'DeleteNotification');
     }
   });
 
@@ -170,17 +138,9 @@ export function registerNotificationRoutes(app: Express) {
       const user = req.user!; // Auth verified by requireAuth middleware
       const count = await notificationService.deleteAllNotifications(user.id);
 
-      res.json({
-        success: true,
-        count
-      });
+      sendSuccess(res, { count });
     } catch (error: unknown) {
-      logger.error('Error deleting all notifications:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'DeleteAllNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'DeleteAllNotifications');
     }
   });
 
@@ -193,17 +153,9 @@ export function registerNotificationRoutes(app: Express) {
       const user = req.user!; // Auth verified by withAuth middleware
       const preferences = await notificationService.getUserPreferences(user.id);
 
-      res.json({
-        success: true,
-        data: preferences
-      });
+      sendSuccess(res, preferences);
     } catch (error: unknown) {
-      logger.error('Error fetching preferences:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetNotificationPreferences');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetNotificationPreferences');
     }
   }));
 
@@ -232,17 +184,9 @@ export function registerNotificationRoutes(app: Express) {
 
       const preferences = await notificationService.updateUserPreferences(user.id, updates);
 
-      res.json({
-        success: true,
-        data: preferences
-      });
+      sendSuccess(res, preferences);
     } catch (error: unknown) {
-      logger.error('Error updating preferences:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'UpdateNotificationPreferences');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'UpdateNotificationPreferences');
     }
   });
 
@@ -259,18 +203,12 @@ export function registerNotificationRoutes(app: Express) {
 
       const notifications = await notificationService.getRecentPriceDrops(user.id, days);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: notifications,
         count: notifications.length
       });
     } catch (error: unknown) {
-      logger.error('Error fetching price drops:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetPriceDropNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetPriceDropNotifications');
     }
   }));
 
@@ -287,18 +225,12 @@ export function registerNotificationRoutes(app: Express) {
 
       const notifications = await notificationService.getRecentPriceAlerts(user.id, days);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: notifications,
         count: notifications.length
       });
     } catch (error: unknown) {
-      logger.error('Error fetching price alerts:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetPriceAlertNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetPriceAlertNotifications');
     }
   }));
 
@@ -343,18 +275,12 @@ export function registerNotificationRoutes(app: Express) {
       // For now, all smart_alert notifications are returned regardless of urgency parameter.
       const filteredNotifications = notifications;
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: filteredNotifications,
         count: filteredNotifications.length
       });
     } catch (error: unknown) {
-      logger.error('Error fetching smart notifications:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetSmartNotifications');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetSmartNotifications');
     }
   }));
 
@@ -383,12 +309,12 @@ export function registerNotificationRoutes(app: Express) {
       const notification = notifications.find(n => n.id === notificationId);
 
       if (!notification) {
-        res.status(404).json({ error: "Notification not found" });
+        sendError(res, "Notification not found", 404);
         return;
       }
 
       if (notification.type !== 'smart_alert') {
-        res.status(400).json({ error: "Can only snooze smart notifications" });
+        sendError(res, "Can only snooze smart notifications", 400);
         return;
       }
 
@@ -404,18 +330,12 @@ export function registerNotificationRoutes(app: Express) {
       // metadata column to the notifications schema and implement snooze expiration
       // checking in getUserNotifications.
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         snoozedUntil: snoozeUntil.toISOString(),
         message: `Notification snoozed for ${duration / 3600} hours`
       });
     } catch (error: unknown) {
-      logger.error('Error snoozing notification:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'SnoozeNotification');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'SnoozeNotification');
     }
   });
 
@@ -438,29 +358,23 @@ export function registerNotificationRoutes(app: Express) {
       const notification = notifications.find(n => n.id === notificationId);
 
       if (!notification) {
-        res.status(404).json({ error: "Notification not found" });
+        sendError(res, "Notification not found", 404);
         return;
       }
 
       if (notification.type !== 'smart_alert') {
-        res.status(400).json({ error: "Can only dismiss smart notifications" });
+        sendError(res, "Can only dismiss smart notifications", 400);
         return;
       }
 
       // Mark as read
       await notificationService.markAsRead(user.id, notificationId);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: "Notification dismissed successfully"
       });
     } catch (error: unknown) {
-      logger.error('Error dismissing notification:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'DismissNotification');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'DismissNotification');
     }
   });
 }

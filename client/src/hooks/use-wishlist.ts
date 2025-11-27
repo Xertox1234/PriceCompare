@@ -6,6 +6,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Wishlist, WishlistItem, Product, ProductWithOffers } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 // Types
 export interface WishlistWithItems extends Wishlist {
@@ -20,21 +21,18 @@ export interface WishlistItemWithProduct extends WishlistItem {
 
 // Fetch all user wishlists
 export function useWishlists() {
-  return useQuery<{ success: boolean; data: WishlistWithItems[]; count: number }>({
+  return useQuery<{ wishlists: WishlistWithItems[]; count: number }>({
     queryKey: ['/api/wishlists'],
+    queryFn: () => apiRequest<{ wishlists: WishlistWithItems[]; count: number }>('/api/wishlists'),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
 // Fetch single wishlist with items
 export function useWishlist(wishlistId: number | null) {
-  return useQuery<{ success: boolean; data: WishlistWithItems }>({
+  return useQuery<WishlistWithItems>({
     queryKey: ['/api/wishlists', wishlistId],
-    queryFn: async () => {
-      const response = await fetch(`/api/wishlists/${wishlistId}`);
-      if (!response.ok) throw new Error('Failed to fetch wishlist');
-      return response.json();
-    },
+    queryFn: () => apiRequest<WishlistWithItems>(`/api/wishlists/${wishlistId}`),
     staleTime: 2 * 60 * 1000,
     enabled: !!wishlistId,
   });
@@ -42,21 +40,18 @@ export function useWishlist(wishlistId: number | null) {
 
 // Fetch all wishlist items for user (flat list)
 export function useWishlistItems() {
-  return useQuery<{ success: boolean; data: WishlistItemWithProduct[]; count: number }>({
+  return useQuery<{ items: WishlistItemWithProduct[]; count: number }>({
     queryKey: ['/api/wishlists/items'],
+    queryFn: () => apiRequest<{ items: WishlistItemWithProduct[]; count: number }>('/api/wishlists/items'),
     staleTime: 2 * 60 * 1000,
   });
 }
 
 // Check if product is in any wishlist
 export function useIsInWishlist(productId: number | null) {
-  return useQuery<{ success: boolean; isInWishlist: boolean }>({
+  return useQuery<{ isInWishlist: boolean }>({
     queryKey: ['/api/wishlists/check', productId],
-    queryFn: async () => {
-      const response = await fetch(`/api/wishlists/check/${productId}`);
-      if (!response.ok) throw new Error('Failed to check wishlist');
-      return response.json();
-    },
+    queryFn: () => apiRequest<{ isInWishlist: boolean }>(`/api/wishlists/check/${productId}`),
     staleTime: 30 * 1000, // 30 seconds
     enabled: !!productId,
   });
@@ -197,17 +192,17 @@ export function useToggleWishlist() {
   return useMutation({
     mutationFn: async ({ productId, isCurrentlyInWishlist }: { productId: number; isCurrentlyInWishlist: boolean }) => {
       // Get or create default wishlist
-      let defaultWishlist = wishlists?.data?.find(w => w.name === 'My Wishlist') ?? wishlists?.data?.[0];
+      let defaultWishlist = wishlists?.wishlists?.find(w => w.name === 'My Wishlist') ?? wishlists?.wishlists?.[0];
 
       if (!defaultWishlist) {
         // Create default wishlist
         const result = await createMutation.mutateAsync({ name: 'My Wishlist' });
-        defaultWishlist = result.data;
+        defaultWishlist = result;
       }
 
       if (isCurrentlyInWishlist) {
         // Find which wishlist has this product and remove it
-        const wishlistWithProduct = wishlists?.data?.find(w =>
+        const wishlistWithProduct = wishlists?.wishlists?.find(w =>
           w.items?.some(item => item.productId === productId)
         );
         if (wishlistWithProduct) {

@@ -2,6 +2,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import {
   ApiResponse,
   isErrorResponse,
+  isSuccessResponse,
   isPaginatedResponse,
   unwrapApiResponse,
 } from "@shared/api-types";
@@ -16,6 +17,28 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+/**
+ * Custom error class for API errors with status codes
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public details?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/**
+ * Make an API request and automatically unwrap envelope responses
+ *
+ * @param url - API endpoint URL
+ * @param options - Fetch options
+ * @returns Unwrapped data of type T
+ * @throws ApiError with status code and details
+ */
 export async function apiRequest<T = unknown>(
   url: string,
   options: RequestInit = {}
@@ -54,53 +77,71 @@ export async function apiRequest<T = unknown>(
     csrfToken = newCsrfToken;
   }
 
-  // Don't throw for 401 errors, let components handle them
-  if (res.status === 401) {
-    throw new Error('Unauthorized');
-  }
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    // Try to parse error response
-    try {
-      const errorJson = JSON.parse(errorText) as ApiResponse<unknown>;
-      if (isErrorResponse(errorJson)) {
-        throw new Error(errorJson.error);
-      }
-    } catch {
-      // If parsing fails, use raw error text
-      throw new Error(errorText || res.statusText);
-    }
-    throw new Error(errorText || res.statusText);
-  }
-
   // Handle empty responses (204 No Content)
+  if (res.status === 204) {
+    return null as T;
+  }
+
+  // Parse response body
   const text = await res.text();
-  if (!text) return null as T;
+  if (!text) {
+    if (!res.ok) {
+      throw new ApiError(res.statusText || 'Request failed', res.status);
+    }
+    return null as T;
+  }
 
+  let parsedResponse: unknown;
   try {
-    const parsed = JSON.parse(text) as ApiResponse<T>;
-
-    // Handle standardized API responses
-    if (typeof parsed === 'object' && parsed !== null && 'success' in parsed) {
-      if (isErrorResponse(parsed)) {
-        throw new Error(parsed.error);
-      }
-
-      // Unwrap the response envelope and return the data
-      return unwrapApiResponse(parsed) as T;
+    parsedResponse = JSON.parse(text);
+  } catch {
+    // Non-JSON response
+    if (!res.ok) {
+      throw new ApiError(text || res.statusText, res.status);
     }
-
-    // Legacy responses without envelope - return as-is for backward compatibility
-    return parsed as T;
-  } catch (error) {
-    // If it's already our Error from above, re-throw it
-    if (error instanceof Error) {
-      throw error;
-    }
-    // Otherwise, treat as plain text response
     return text as T;
   }
+
+  // Check if response is in envelope format
+  if (
+    typeof parsedResponse === 'object' &&
+    parsedResponse !== null &&
+    'success' in parsedResponse
+  ) {
+    const envelopeResponse = parsedResponse as ApiResponse<T>;
+
+    // Handle error responses
+    if (isErrorResponse(envelopeResponse)) {
+      throw new ApiError(
+        envelopeResponse.error,
+        res.status,
+        envelopeResponse.details
+      );
+    }
+
+    // Unwrap and return data from success responses
+    if (isSuccessResponse(envelopeResponse)) {
+      // Handle paginated responses
+      if (isPaginatedResponse(envelopeResponse)) {
+        return envelopeResponse.data as T;
+      }
+      // Handle regular success responses
+      return envelopeResponse.data;
+    }
+  }
+
+  // Legacy format (direct data) - return as-is for backward compatibility
+  // This allows gradual migration and handles endpoints not yet standardized
+  if (!res.ok) {
+    throw new ApiError(
+      typeof parsedResponse === 'object' && parsedResponse !== null && 'error' in parsedResponse
+        ? String((parsedResponse as { error: unknown }).error)
+        : res.statusText,
+      res.status
+    );
+  }
+
+  return parsedResponse as T;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

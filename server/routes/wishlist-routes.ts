@@ -8,7 +8,7 @@ import type { Express } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
 import { withAuth } from './helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { logger } from '../utils/logger';
 
@@ -40,10 +40,9 @@ export function registerWishlistRoutes(app: Express): void {
     try {
       const userId = req.user!.id;
       const wishlists = await storage.getUserWishlists(userId);
-      res.json({ success: true, data: wishlists, count: wishlists.length });
+      sendSuccess(res, { wishlists, count: wishlists.length });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetUserWishlists');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetUserWishlists');
     }
   }));
 
@@ -52,10 +51,9 @@ export function registerWishlistRoutes(app: Express): void {
     try {
       const userId = req.user!.id;
       const items = await storage.getUserWishlistItems(userId);
-      res.json({ success: true, data: items, count: items.length });
+      sendSuccess(res, { items, count: items.length });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetUserWishlistItems');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetUserWishlistItems');
     }
   }));
 
@@ -65,10 +63,9 @@ export function registerWishlistRoutes(app: Express): void {
       const userId = req.user!.id;
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
       const isInWishlist = await storage.isInWishlist(userId, productId);
-      res.json({ success: true, isInWishlist });
+      sendSuccess(res, { isInWishlist });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CheckWishlist');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CheckWishlist');
     }
   }));
 
@@ -81,16 +78,15 @@ export function registerWishlistRoutes(app: Express): void {
       // Check user doesn't have too many wishlists (limit to 10)
       const existing = await storage.getUserWishlists(userId);
       if (existing.length >= 10) {
-        res.status(400).json({ error: 'Maximum of 10 wishlists allowed' });
+        sendError(res, 'Maximum of 10 wishlists allowed', 400);
         return;
       }
 
       const wishlist = await storage.createWishlist(userId, data);
       logger.info('Wishlist created', { userId, wishlistId: wishlist.id });
-      res.status(201).json({ success: true, data: wishlist });
+      sendSuccess(res, wishlist, 201);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CreateWishlist');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CreateWishlist');
     }
   }));
 
@@ -102,14 +98,13 @@ export function registerWishlistRoutes(app: Express): void {
 
       const wishlist = await storage.getWishlistById(wishlistId, userId);
       if (!wishlist) {
-        res.status(404).json({ error: 'Wishlist not found' });
+        sendError(res, 'Wishlist not found', 404);
         return;
       }
 
-      res.json({ success: true, data: wishlist });
+      sendSuccess(res, wishlist);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetWishlist');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetWishlist');
     }
   }));
 
@@ -122,14 +117,13 @@ export function registerWishlistRoutes(app: Express): void {
 
       const wishlist = await storage.updateWishlist(wishlistId, userId, updates);
       if (!wishlist) {
-        res.status(404).json({ error: 'Wishlist not found' });
+        sendError(res, 'Wishlist not found', 404);
         return;
       }
 
-      res.json({ success: true, data: wishlist });
+      sendSuccess(res, wishlist);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'UpdateWishlist');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'UpdateWishlist');
     }
   }));
 
@@ -141,15 +135,14 @@ export function registerWishlistRoutes(app: Express): void {
 
       const deleted = await storage.deleteWishlist(wishlistId, userId);
       if (!deleted) {
-        res.status(404).json({ error: 'Wishlist not found' });
+        sendError(res, 'Wishlist not found', 404);
         return;
       }
 
       logger.info('Wishlist deleted', { userId, wishlistId });
-      res.json({ success: true });
+      sendSuccess(res, {});
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'DeleteWishlist');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DeleteWishlist');
     }
   }));
 
@@ -163,11 +156,11 @@ export function registerWishlistRoutes(app: Express): void {
       // Check wishlist item limit (100 per wishlist)
       const wishlist = await storage.getWishlistById(wishlistId, userId);
       if (!wishlist) {
-        res.status(404).json({ error: 'Wishlist not found' });
+        sendError(res, 'Wishlist not found', 404);
         return;
       }
       if (wishlist.itemCount >= 100) {
-        res.status(400).json({ error: 'Maximum of 100 items per wishlist' });
+        sendError(res, 'Maximum of 100 items per wishlist', 400);
         return;
       }
 
@@ -177,15 +170,9 @@ export function registerWishlistRoutes(app: Express): void {
       });
 
       logger.info('Product added to wishlist', { userId, wishlistId, productId: data.productId });
-      res.status(201).json({ success: true, data: item });
+      sendSuccess(res, item, 201);
     } catch (error) {
-      // Handle duplicate entry
-      if (error instanceof Error && error.message.includes('unique')) {
-        res.status(400).json({ error: 'Product already in wishlist' });
-        return;
-      }
-      const errorResponse = createErrorResponse(error, 'AddToWishlist');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'AddToWishlist');
     }
   }));
 
@@ -198,15 +185,14 @@ export function registerWishlistRoutes(app: Express): void {
 
       const removed = await storage.removeFromWishlist(wishlistId, userId, productId);
       if (!removed) {
-        res.status(404).json({ error: 'Item not found in wishlist' });
+        sendError(res, 'Item not found in wishlist', 404);
         return;
       }
 
       logger.info('Product removed from wishlist', { userId, wishlistId, productId });
-      res.json({ success: true });
+      sendSuccess(res, {});
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'RemoveFromWishlist');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'RemoveFromWishlist');
     }
   }));
 }

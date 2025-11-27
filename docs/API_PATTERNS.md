@@ -399,64 +399,391 @@ router.get('/api/products/:id', async (req, res, next) => {
 
 ## Response Patterns
 
-### Consistent Response Format
+### Standardized API Response Envelope (Phase 4g - Issue #147)
 
-#### ✅ CORRECT - Standardized Responses
+**All 210 API endpoints** now use a consistent envelope format for type-safe responses.
+
+#### Response Type Definitions
+
 ```typescript
-// types/api.ts
-interface SuccessResponse<T = any> {
+// server/utils/api-response.ts
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore?: boolean;
+  nextPage?: number | null;
+  prevPage?: number | null;
+}
+
+export interface ApiResponseMeta {
+  timestamp: string;
+  version: string;
+  requestId?: string;
+}
+
+// Success responses - discriminated union with success: true
+interface ApiSuccessResponse<T> {
   success: true;
   data: T;
-  meta?: {
-    page?: number;
-    limit?: number;
-    total?: number;
-  };
+  meta?: ApiResponseMeta;
 }
 
-interface ErrorResponse {
+// Error responses - discriminated union with success: false
+interface ApiErrorResponse {
   success: false;
   error: string;
-  code?: string;
-  details?: any;
+  details?: string; // Only in development mode
 }
 
-type ApiResponse<T = any> = SuccessResponse<T> | ErrorResponse;
+type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+```
 
-// utils/response.ts
-export function successResponse<T>(data: T, meta?: any): SuccessResponse<T> {
-  return {
+#### Response Helper Functions
+
+```typescript
+// server/utils/api-response.ts
+import { Response } from 'express';
+
+/**
+ * Send successful response with data
+ * @param res - Express response object
+ * @param data - Response data (any type)
+ * @param statusCode - HTTP status code (default: 200)
+ * @param meta - Optional metadata (pagination, etc.)
+ */
+export function sendSuccess<T>(
+  res: Response,
+  data: T,
+  statusCode: number = 200,
+  meta?: Partial<ApiResponseMeta>
+): void {
+  const response: { success: true; data: T; meta?: ApiResponseMeta } = {
     success: true,
     data,
-    ...(meta && { meta }),
   };
+
+  if (meta || res.locals.requestId) {
+    response.meta = {
+      timestamp: new Date().toISOString(),
+      version: '1.0',
+      requestId: res.locals.requestId,
+      ...meta,
+    };
+  }
+
+  res.status(statusCode).json(response);
 }
 
-export function errorResponse(
+/**
+ * Send error response
+ * @param res - Express response object
+ * @param error - Error message string
+ * @param statusCode - HTTP status code (default: 500)
+ * @param details - Optional error details (development only)
+ */
+export function sendError(
+  res: Response,
   error: string,
-  code?: string,
-  details?: any
-): ErrorResponse {
-  return {
+  statusCode: number = 500,
+  details?: string
+): void {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const response: { success: false; error: string; details?: string } = {
     success: false,
     error,
-    ...(code && { code }),
-    ...(details && { details }),
   };
+
+  if (isDevelopment && details) {
+    response.details = details;
+  }
+
+  res.status(statusCode).json(response);
 }
 
-// Route usage
-router.get('/api/products', async (req, res) => {
-  const { page = 1, limit = 50 } = req.query;
-  const { products, total } = await storage.getProducts(page, limit);
+/**
+ * Send error from caught exception
+ * Automatically detects status codes from error messages
+ * @param res - Express response object
+ * @param error - Caught error (unknown type)
+ * @param context - Operation context for logging
+ */
+export function sendErrorFromException(
+  res: Response,
+  error: unknown,
+  context: string = 'Operation'
+): void {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  let message = `${context} failed`;
+  let status = 500;
+  let details: string | undefined;
 
-  res.json(successResponse(products, {
-    page,
-    limit,
-    total,
-  }));
-});
+  if (error instanceof Error) {
+    message = error.message;
+
+    // Automatic status code detection from error messages
+    const errorMsg = error.message.toLowerCase();
+    if (errorMsg.includes('not found')) status = 404;
+    else if (errorMsg.includes('unauthorized')) status = 401;
+    else if (errorMsg.includes('forbidden')) status = 403;
+    else if (errorMsg.includes('already exists') || errorMsg.includes('unique')) status = 409;
+    else if (errorMsg.includes('invalid') || errorMsg.includes('must be')) status = 400;
+
+    if (isDevelopment && error.stack) {
+      details = error.stack;
+    }
+  }
+
+  logger.error(`${context} error:`, {
+    error: error instanceof Error ? error.message : String(error),
+    status,
+  });
+
+  sendError(res, message, status, details);
+}
+
+/**
+ * Send paginated response
+ * @param res - Express response object
+ * @param data - Array of items for current page
+ * @param meta - Pagination metadata
+ */
+export function sendPaginated<T>(
+  res: Response,
+  data: T[],
+  meta: PaginationMeta,
+  statusCode: number = 200
+): void {
+  res.status(statusCode).json({
+    success: true,
+    data,
+    meta,
+  });
+}
+
+/**
+ * Convenience helpers for common status codes
+ */
+export function sendCreated<T>(res: Response, data: T): void {
+  sendSuccess(res, data, 201);
+}
+
+export function sendNoContent(res: Response): void {
+  res.status(204).send();
+}
 ```
+
+#### Route Usage Examples
+
+```typescript
+// server/routes/product-routes.ts
+import { sendSuccess, sendError, sendErrorFromException, sendPaginated } from '../utils/api-response';
+import { withAuth } from './helpers';
+
+// Example 1: Simple success response
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
+    const product = await storage.getProductById(productId);
+
+    if (!product) {
+      sendError(res, 'Product not found', 404);
+      return;
+    }
+
+    sendSuccess(res, product);
+    // Response: { success: true, data: Product }
+  } catch (error) {
+    sendErrorFromException(res, error, 'GetProduct');
+    // Response: { success: false, error: "Error message", details?: "..." }
+  }
+});
+
+// Example 2: Created resource (201)
+app.post('/api/wishlists', withAuth(async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const data = createWishlistSchema.parse(req.body);
+    const wishlist = await storage.createWishlist(userId, data);
+
+    sendSuccess(res, wishlist, 201);
+    // Response: { success: true, data: Wishlist } with 201 status
+  } catch (error) {
+    sendErrorFromException(res, error, 'CreateWishlist');
+  }
+}));
+
+// Example 3: Paginated response
+app.get('/api/products/search', async (req, res) => {
+  try {
+    const page = parseIntSafe(req.query.page as string, 'page', { min: 1 }) || 1;
+    const limit = parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) || 20;
+
+    const { products, total } = await storage.searchProducts({ page, limit, query });
+
+    sendPaginated(res, products, {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasMore: page < Math.ceil(total / limit),
+      nextPage: page < Math.ceil(total / limit) ? page + 1 : null,
+      prevPage: page > 1 ? page - 1 : null,
+    });
+    // Response: { success: true, data: Product[], meta: PaginationMeta }
+  } catch (error) {
+    sendErrorFromException(res, error, 'SearchProducts');
+  }
+});
+
+// Example 4: Manual error with specific status
+app.delete('/api/wishlists/:id', withAuth(async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
+
+    const deleted = await storage.deleteWishlist(wishlistId, userId);
+    if (!deleted) {
+      sendError(res, 'Wishlist not found', 404);
+      return;
+    }
+
+    sendSuccess(res, {});
+    // Response: { success: true, data: {} }
+  } catch (error) {
+    sendErrorFromException(res, error, 'DeleteWishlist');
+  }
+}));
+
+// Example 5: Response with metadata
+app.get('/api/wishlists', withAuth(async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const wishlists = await storage.getUserWishlists(userId);
+
+    sendSuccess(res, { wishlists, count: wishlists.length });
+    // Response: { success: true, data: { wishlists: Wishlist[], count: number } }
+  } catch (error) {
+    sendErrorFromException(res, error, 'GetUserWishlists');
+  }
+}));
+```
+
+#### Client-Side Usage (React Query)
+
+```typescript
+// client/src/lib/queryClient.ts
+import { QueryClient } from '@tanstack/react-query';
+
+/**
+ * API Error class with status code and details
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public details?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/**
+ * Make an API request and automatically unwrap envelope responses
+ * @param url - API endpoint URL
+ * @param options - Fetch options
+ * @returns Unwrapped data of type T
+ * @throws ApiError with status code and details
+ */
+export async function apiRequest<T = unknown>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  // ... CSRF token handling ...
+
+  const res = await fetch(url, options);
+
+  // Handle 204 No Content
+  if (res.status === 204) {
+    return null as T;
+  }
+
+  const text = await res.text();
+  if (!text) {
+    if (!res.ok) {
+      throw new ApiError(res.statusText || 'Request failed', res.status);
+    }
+    return null as T;
+  }
+
+  const parsedResponse = JSON.parse(text);
+
+  // Check if response is in envelope format
+  if (parsedResponse && typeof parsedResponse === 'object' && 'success' in parsedResponse) {
+    const envelope = parsedResponse as ApiResponse<T>;
+
+    // Handle error responses
+    if (!envelope.success) {
+      throw new ApiError(envelope.error, res.status, envelope.details);
+    }
+
+    // Unwrap and return data from success responses
+    return envelope.data;
+  }
+
+  // Legacy format (backward compatibility)
+  return parsedResponse as T;
+}
+
+// client/src/hooks/use-products.ts
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { ProductWithOffers } from '@shared/schema';
+
+export function useAllProducts() {
+  return useQuery<ProductWithOffers[]>({
+    queryKey: ['/api/products'],
+    queryFn: () => apiRequest<ProductWithOffers[]>('/api/products'),
+    // apiRequest automatically unwraps { success: true, data: ProductWithOffers[] }
+    // Returns ProductWithOffers[] directly
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Usage in components
+function ProductList() {
+  const { data: products, isLoading, error } = useAllProducts();
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  // products is ProductWithOffers[] - no manual unwrapping needed!
+  return (
+    <div>
+      {products?.map(product => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+}
+```
+
+#### Migration Status (Phase 4g Complete)
+
+**✅ 210/210 endpoints migrated (100%)**
+- All routes use standardized `sendSuccess()`, `sendError()`, `sendErrorFromException()`
+- All React Query hooks use explicit `queryFn: () => apiRequest<T>(url)`
+- Frontend automatically unwraps envelope responses
+- Type-safe discriminated union pattern throughout
+
+**Key Benefits:**
+1. **Type Safety**: Discriminated union prevents accessing data/error incorrectly
+2. **Consistency**: All endpoints follow same format
+3. **Developer Experience**: Auto-unwrapping simplifies component code
+4. **Error Handling**: Consistent ApiError class with status codes
+5. **Maintainability**: Single source of truth for response format
 
 ### Status Code Standards
 

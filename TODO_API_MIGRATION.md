@@ -1,0 +1,367 @@
+# API Standardization Migration - Remaining Work
+
+**Status:** 60% Complete (130/217 endpoints migrated)
+**Priority:** HIGH
+**Estimated Effort:** 18-25 hours
+**Reference:** See `docs/API_AUDIT_REPORT.md` for full audit details
+
+---
+
+## Current Branch Status
+
+**Branch:** `add_scraping`
+**Commits Ahead:** 16 commits
+**Clean Working Tree:** Yes
+
+**Recent Work Completed:**
+- ✅ Backend API standardization (15/25 route files)
+- ✅ Frontend React Query hooks with envelope unwrapping
+- ✅ API documentation updated (API_PATTERNS.md)
+- ✅ OpenAPI 3.1 specification created
+- ✅ Comprehensive audit report generated
+
+---
+
+## Phase 1: Critical User-Facing Routes (HIGH PRIORITY)
+
+**Estimated Time:** 8-10 hours
+**Impact:** Core user functionality
+
+### 1. auth-routes.ts (9 endpoints)
+- [ ] Replace 9 `res.json()` calls with `sendSuccess()`
+- [ ] Replace 6 `createErrorResponse()` calls with `sendErrorFromException()`
+- [ ] Add `sendSuccess`, `sendError`, `sendErrorFromException` imports
+- [ ] Verify CSRF protection on POST endpoints
+- [ ] Add Zod validation schemas for login/register
+- [ ] Test: Login, register, logout, password reset flows
+
+**Endpoints:**
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/logout
+- GET /api/auth/user
+- POST /api/auth/password-reset
+- POST /api/auth/password-reset/confirm
+- POST /api/auth/verify-email
+- GET /api/auth/check
+- POST /api/auth/refresh
+
+### 2. product-routes.ts (18 endpoints)
+- [ ] Replace 18 `res.json()` calls with `sendSuccess()`
+- [ ] Replace 13 `createErrorResponse()` calls with `sendErrorFromException()`
+- [ ] Add response helper imports
+- [ ] Add CSRF protection on POST/PUT/DELETE
+- [ ] Add Zod schemas for product mutations
+- [ ] Verify parseIntSafe usage
+- [ ] Test: Product catalog, search, details, recommendations
+
+**Endpoints:**
+- GET /api/products
+- GET /api/products/:id
+- GET /api/products/search
+- GET /api/products/recommendations
+- GET /api/products/trending
+- GET /api/products/category/:category
+- POST /api/products (admin)
+- PUT /api/products/:id (admin)
+- DELETE /api/products/:id (admin)
+- (+ 9 more endpoints)
+
+### 3. watchlist-routes.ts (9 endpoints)
+- [ ] Replace 7 `res.json()` calls with `sendSuccess()`
+- [ ] Replace 10 `createErrorResponse()` calls with `sendErrorFromException()`
+- [ ] Add response helper imports
+- [ ] Verify CSRF protection is working
+- [ ] Add Zod validation schemas
+- [ ] Test: Watchlist CRUD, product watch operations
+
+**Endpoints:**
+- GET /api/watchlists
+- POST /api/watchlists
+- GET /api/watchlists/:id
+- PUT /api/watchlists/:id
+- DELETE /api/watchlists/:id
+- POST /api/watchlists/:id/products
+- DELETE /api/watchlists/:id/products/:productId
+- GET /api/watchlists/:id/stats
+- GET /api/watchlists/products/:productId
+
+### 4. alert-routes.ts (4 endpoints)
+- [ ] Replace 4 `res.json()` calls with `sendSuccess()`
+- [ ] Add response helper imports
+- [ ] Verify CSRF protection
+- [ ] Add Zod validation schemas
+- [ ] Test: Price alert creation, management, deletion
+
+**Endpoints:**
+- GET /api/alerts
+- POST /api/alerts
+- PUT /api/alerts/:id
+- DELETE /api/alerts/:id
+
+**Phase 1 Total:** 40 endpoints
+
+---
+
+## Phase 2: Admin & Advanced Features (MEDIUM PRIORITY)
+
+**Estimated Time:** 6-8 hours
+**Impact:** Admin operations, advanced features
+
+### 5. admin-routes.ts (17 endpoints)
+- [ ] Replace 17 `res.json()` calls with `sendSuccess()`
+- [ ] Replace 16 `createErrorResponse()` calls with `sendErrorFromException()` (HIGHEST COUNT!)
+- [ ] Add response helper imports
+- [ ] Add CSRF protection on mutations
+- [ ] Add Zod validation schemas
+- [ ] Test: User management, system stats, moderation
+
+**Critical:** This file has the most legacy error handling (16 occurrences)
+
+### 6. scraping-routes.ts (17 endpoints)
+- [ ] Replace 17 `res.json()` calls with `sendSuccess()`
+- [ ] Replace 15 `createErrorResponse()` calls with `sendErrorFromException()`
+- [ ] Add response helper imports
+- [ ] Add CSRF protection
+- [ ] Add Zod validation
+- [ ] Test: URL discovery, product extraction, scraper management
+
+### 7. affiliate-routes.ts (8 endpoints)
+- [ ] Replace 8 `res.json()` calls with `sendSuccess()`
+- [ ] Replace 8 `createErrorResponse()` calls with `sendErrorFromException()`
+- [ ] Add response helper imports
+- [ ] Add CSRF protection
+- [ ] Test: Affiliate link generation, tracking
+
+**Phase 2 Total:** 42 endpoints
+
+---
+
+## Phase 3: Supporting Routes (LOW PRIORITY)
+
+**Estimated Time:** 2-3 hours
+**Impact:** Community, monitoring, data
+
+### 8. forum-routes.ts (6 endpoints)
+- [ ] Replace 6 `res.json()` calls with `sendSuccess()`
+- [ ] Add response helper imports
+- [ ] Verify CSRF protection
+- [ ] Add Zod validation
+- [ ] Test: Forum categories, topics, posts
+
+### 9. monitoring-routes.ts (6 endpoints)
+- [ ] Replace 6 `res.json()` calls with `sendSuccess()`
+- [ ] Replace 6 `createErrorResponse()` calls with `sendErrorFromException()`
+- [ ] Add response helper imports
+- [ ] Test: System health, metrics, monitoring dashboard
+
+### 10. retailer-routes.ts (1 endpoint)
+- [ ] Replace 1 `res.json()` call with `sendSuccess()`
+- [ ] Add response helper imports
+- [ ] Test: GET /api/retailers
+
+**Phase 3 Total:** 13 endpoints
+
+---
+
+## Cross-Cutting Concerns
+
+### CSRF Protection Audit (2-4 hours)
+Files missing CSRF protection on mutation endpoints:
+
+- [ ] admin-aggregation-routes.ts (POST/PUT/DELETE endpoints)
+- [ ] admin-routes.ts (POST/PUT/DELETE endpoints)
+- [ ] advanced-search-routes.ts (if any mutations exist)
+- [ ] affiliate-routes.ts (POST/PUT/DELETE endpoints)
+- [ ] agent-limits-routes.ts (POST endpoints)
+- [ ] aggregation-metrics-routes.ts (POST endpoints)
+- [ ] cache-routes.ts (POST/DELETE endpoints)
+- [ ] discourse-routes.ts (POST endpoints)
+- [ ] monitoring-routes.ts (POST endpoints)
+- [ ] price-analytics-routes.ts (POST endpoints)
+- [ ] price-history-routes.ts (POST endpoints)
+- [ ] product-routes.ts (POST/PUT/DELETE endpoints)
+- [ ] retailer-routes.ts (if mutations added)
+- [ ] scraping-routes.ts (POST/PUT/DELETE endpoints)
+- [ ] specification-routes.ts (POST/PUT/DELETE endpoints)
+- [ ] wishlist-routes.ts (already has CSRF - verify)
+- [ ] (health-routes.ts exempt - read-only)
+
+**Pattern to add:**
+```typescript
+import { csrfProtection } from '../middleware/security';
+
+app.post('/api/endpoint', csrfProtection, withAuth(async (req, res) => {
+  // handler
+}));
+```
+
+### Zod Validation Audit
+Files missing Zod schema validation:
+
+- [ ] admin-routes.ts
+- [ ] auth-routes.ts
+- [ ] forum-routes.ts
+- [ ] monitoring-routes.ts
+- [ ] advanced-search-routes.ts
+- [ ] agent-limits-routes.ts
+- [ ] aggregation-metrics-routes.ts
+- [ ] community-routes.ts
+- [ ] discourse-routes.ts
+- [ ] enhanced-forum-routes.ts
+- [ ] notification-routes.ts
+- [ ] smart-alerts-routes.ts
+
+**Pattern:**
+```typescript
+import { z } from 'zod';
+
+const createItemSchema = z.object({
+  name: z.string().min(1).max(255),
+  value: z.number().positive(),
+});
+
+app.post('/api/items', withAuth(async (req, res) => {
+  try {
+    const data = createItemSchema.parse(req.body);
+    // use validated data
+  } catch (error) {
+    sendErrorFromException(res, error, 'CreateItem');
+  }
+}));
+```
+
+---
+
+## Testing Checklist
+
+After each route file migration:
+
+- [ ] Run TypeScript check: `npm run check`
+- [ ] Test all endpoints manually or with Postman
+- [ ] Verify envelope response format:
+  ```json
+  { "success": true, "data": {...} }
+  { "success": false, "error": "message" }
+  ```
+- [ ] Check error responses have correct status codes
+- [ ] Verify CSRF protection on mutations
+- [ ] Test authentication/authorization
+- [ ] Verify input validation rejects invalid data
+- [ ] Check pre-commit hooks pass
+- [ ] Update any affected frontend components
+
+---
+
+## Success Criteria
+
+**100% API Standardization:**
+- ✅ All 217 endpoints use `sendSuccess()/sendError()/sendErrorFromException()`
+- ✅ Zero `res.json()` calls (except health-routes.ts)
+- ✅ Zero `createErrorResponse()` usage
+- ✅ CSRF protection on all mutations
+- ✅ Zod validation on all inputs
+- ✅ Proper status codes (200, 201, 400, 401, 403, 404, 409, 500)
+- ✅ All pre-commit hooks passing
+- ✅ Frontend hooks updated (already done)
+- ✅ Documentation complete (already done)
+
+---
+
+## Quick Start Commands
+
+```bash
+# Continue work on current branch
+git checkout add_scraping
+
+# Check current status
+git status
+git log --oneline -10
+
+# After making changes
+npm run check  # TypeScript validation
+git add <files>
+git commit -m "feat: Migrate <route-name> to standardized API format"
+
+# Push when ready
+git push origin add_scraping
+
+# Create PR
+gh pr create --title "feat: Complete API standardization (Phase 4g)" \
+  --body "Completes migration of all 217 endpoints to standardized envelope format"
+```
+
+---
+
+## Files Reference
+
+**Documentation:**
+- `docs/API_AUDIT_REPORT.md` - Comprehensive audit with detailed analysis
+- `docs/API_PATTERNS.md` - Response pattern documentation
+- `docs/openapi.yaml` - OpenAPI 3.1 specification
+
+**Response Helpers:**
+- `server/utils/api-response.ts` - sendSuccess, sendError, sendErrorFromException
+
+**Client Helpers:**
+- `client/src/lib/queryClient.ts` - apiRequest with envelope unwrapping
+
+**Route Helpers:**
+- `server/routes/helpers.ts` - withAuth, withAdmin middleware
+
+---
+
+## Migration Pattern Template
+
+```typescript
+// OLD PATTERN (❌)
+import { createErrorResponse } from '../utils/error-sanitizer';
+
+app.get('/api/items/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const item = await storage.getItem(id);
+    res.json(item); // ❌ Direct response
+  } catch (error) {
+    const errorResponse = createErrorResponse(error, 'GetItem'); // ❌ Legacy
+    res.status(errorResponse.status).json({ error: errorResponse.error });
+  }
+});
+
+// NEW PATTERN (✅)
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
+import { parseIntSafe } from '../utils/validation-helpers';
+
+app.get('/api/items/:id', async (req, res) => {
+  try {
+    const id = parseIntSafe(req.params.id, 'itemId', { min: 1 }); // ✅ Safe parsing
+    const item = await storage.getItem(id);
+
+    if (!item) {
+      sendError(res, 'Item not found', 404); // ✅ Explicit error
+      return;
+    }
+
+    sendSuccess(res, item); // ✅ Standardized success
+    // Response: { success: true, data: Item }
+  } catch (error) {
+    sendErrorFromException(res, error, 'GetItem'); // ✅ Standardized error
+    // Response: { success: false, error: "message", details?: "..." }
+  }
+});
+```
+
+---
+
+## Contact / Questions
+
+- Review audit report: `docs/API_AUDIT_REPORT.md`
+- Check pattern docs: `docs/API_PATTERNS.md`
+- See completed migrations: Any of the 15 compliant route files
+- Test with OpenAPI spec: `docs/openapi.yaml`
+
+---
+
+**Last Updated:** November 27, 2025
+**Next Review:** After Phase 1 completion
+**Tracking:** This TODO will be deleted when migration reaches 100%

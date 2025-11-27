@@ -193,12 +193,12 @@ export function sendErrorFromException(
   if (error instanceof Error) {
     message = error.message;
 
-    // Determine status code from error message
+    // Determine status code from error message patterns
     const errorMsg = error.message.toLowerCase();
     if (errorMsg.includes('not found')) status = 404;
     else if (errorMsg.includes('unauthorized')) status = 401;
     else if (errorMsg.includes('forbidden')) status = 403;
-    else if (errorMsg.includes('already exists')) status = 409;
+    else if (errorMsg.includes('already exists') || errorMsg.includes('unique')) status = 409;
     else if (errorMsg.includes('invalid') || errorMsg.includes('must be')) status = 400;
 
     if (isDevelopment && error.stack) {
