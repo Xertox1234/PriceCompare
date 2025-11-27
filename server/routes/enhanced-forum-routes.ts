@@ -156,7 +156,10 @@ export function registerEnhancedForumRoutes(app: Express) {
       // Validate mentions array specifically
       const enhancedValidation = createEnhancedPostSchema.safeParse(req.body);
       if (!enhancedValidation.success) {
-        sendError(res, enhancedValidation.error.issues.map((e: { message: string }) => e.message), 400, enhancedValidation.error.issues);
+        const errorMessages = enhancedValidation.error.issues
+          .map((e: { message: string }) => e.message)
+          .join('; ');
+        sendError(res, errorMessages, 400);
         return;
       }
 
