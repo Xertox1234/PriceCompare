@@ -57,7 +57,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const queryParams = weeklyAggregatesQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        sendError(res, 'Invalid query parameters', 400, queryParams.error);
+        sendError(res, 'Invalid query parameters', 400, queryParams.error.message);
         return;
       }
 
@@ -82,7 +82,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const queryParams = monthlyAggregatesQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        sendError(res, 'Invalid query parameters', 400, queryParams.error);
+        sendError(res, 'Invalid query parameters', 400, queryParams.error.message);
         return;
       }
 
@@ -108,7 +108,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const queryParams = weeklyAggregatesQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        sendError(res, 'Invalid query parameters', 400, queryParams.error);
+        sendError(res, 'Invalid query parameters', 400, queryParams.error.message);
         return;
       }
 
@@ -134,7 +134,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const queryParams = monthlyAggregatesQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        sendError(res, 'Invalid query parameters', 400, queryParams.error);
+        sendError(res, 'Invalid query parameters', 400, queryParams.error.message);
         return;
       }
 
@@ -223,7 +223,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
       const queryParams = trendQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        sendError(res, 'Invalid query parameters', 400, queryParams.error);
+        sendError(res, 'Invalid query parameters', 400, queryParams.error.message);
         return;
       }
 

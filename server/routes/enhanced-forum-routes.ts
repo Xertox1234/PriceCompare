@@ -149,7 +149,7 @@ export function registerEnhancedForumRoutes(app: Express) {
       // Validate with both the shared schema and our enhanced schema for mentions
       const baseValidation = validateRequestBody(insertForumPostSchema, req.body);
       if (!baseValidation.success) {
-        sendError(res, baseValidation.errors, 400);
+        sendError(res, baseValidation.errors?.join('; ') || 'Validation failed', 400);
         return;
       }
 
@@ -232,7 +232,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const validation = validateRequestBody(insertPrivateMessageSchema, req.body);
       if (!validation.success) {
-        sendError(res, validation.errors, 400);
+        sendError(res, validation.errors?.join('; ') || 'Validation failed', 400);
         return;
       }
 

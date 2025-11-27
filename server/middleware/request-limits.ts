@@ -79,7 +79,7 @@ export function requestSizeLimiter(limits: RequestSizeLimits = DEFAULT_SIZE_LIMI
       }
     }
 
-    next();
+    return next();
   };
 }
 
