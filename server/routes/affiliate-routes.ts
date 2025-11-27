@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { affiliateLinkService } from '../services/affiliate-link-service';
 import { AffiliateLinkAgent } from '../agents/affiliate-agent';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
 
@@ -50,10 +50,9 @@ export function registerAffiliateRoutes(app: Express): void {
   app.get("/api/admin/retailers/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const retailersWithStats = await storage.getRetailersWithAffiliateStats();
-      res.json(retailersWithStats);
+      sendSuccess(res, retailersWithStats);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetRetailersWithAffiliateStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetRetailersWithAffiliateStats');
     }
   });
 
@@ -74,17 +73,16 @@ export function registerAffiliateRoutes(app: Express): void {
       });
 
       if (!updatedRetailer) {
-        res.status(404).json({ error: 'Retailer not found' });
+        sendError(res, 'Retailer not found', 404);
         return;
       }
 
       // Clear cache after update
       affiliateLinkService.clearCache();
 
-      res.json(updatedRetailer);
+      sendSuccess(res, updatedRetailer);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateRetailerAffiliateConfig');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'UpdateRetailerAffiliateConfig');
     }
   });
 
@@ -105,25 +103,24 @@ export function registerAffiliateRoutes(app: Express): void {
         if (result.success && result.affiliateUrl) {
           const isHealthy = await affiliateLinkService.validateAffiliateLink(result.affiliateUrl);
 
-          res.json({
+          sendSuccess(res, {
             success: true,
             originalUrl: testUrl,
             affiliateUrl: result.affiliateUrl,
             isHealthy,
-          generationTime: new Date().toISOString()
-        });
-      } else {
-        res.json({
-          success: false,
-          originalUrl: testUrl,
-          error: result.error
-        });
+            generationTime: new Date().toISOString()
+          });
+        } else {
+          sendSuccess(res, {
+            success: false,
+            originalUrl: testUrl,
+            error: result.error
+          });
+        }
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'TestAffiliateLink');
       }
-    } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TestAffiliateLink');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
-    }
-  });
+    });
 
   // Generate affiliate links for retailer
   app.post("/api/admin/retailers/:id/generate-affiliate-links", requireAuth, requireAdmin, async (req: Request, res: Response) => {
@@ -135,17 +132,16 @@ export function registerAffiliateRoutes(app: Express): void {
       const limit = validatedData.limit ?? 50;
 
       const agent = await initializeAffiliateAgent();
-      
+
       const result = await agent.processTask({
         action: 'batch_process_retailer',
         retailerId,
         limit
       });
 
-      res.json(result);
+      sendSuccess(res, result);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GenerateAffiliateLinks');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GenerateAffiliateLinks');
     }
   });
 
@@ -159,10 +155,9 @@ export function registerAffiliateRoutes(app: Express): void {
         parseIntOptional(retailerId as string, 'retailerId', { min: 1 })
       );
 
-      res.json(stats);
+      sendSuccess(res, stats);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetAffiliateStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetAffiliateStats');
     }
   });
 
@@ -174,10 +169,9 @@ export function registerAffiliateRoutes(app: Express): void {
 
       await affiliateLinkService.trackLinkClick(offerId);
 
-      res.json({ success: true });
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TrackAffiliateClick');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'TrackAffiliateClick');
     }
   });
 
@@ -186,15 +180,14 @@ export function registerAffiliateRoutes(app: Express): void {
     try {
       const agent = await initializeAffiliateAgent();
       const stats = await agent.getStats();
-      
-      res.json({
+
+      sendSuccess(res, {
         success: true,
         message: 'Affiliate agent started',
         stats
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'StartAffiliateAgent');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'StartAffiliateAgent');
     }
   });
 }

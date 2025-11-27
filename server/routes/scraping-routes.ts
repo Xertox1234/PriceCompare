@@ -1,7 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
-import { sendErrorResponse, ErrorMessages } from '../utils/error-handler';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { requireAuth, requireAdmin } from '../auth';
 import { validateRequest } from '../validation';
 import {
@@ -98,12 +97,12 @@ export function registerScrapingRoutes(app: Express): void {
   app.post("/api/scraping/initialize", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       await agentService.initialize();
-      res.json({
+      sendSuccess(res, {
         success: true,
         message: "AI scraping system initialized successfully"
       });
     } catch (error: unknown) {
-      sendErrorResponse(res, 500, error, 'Scraping Initialization');
+      sendErrorFromException(res, error, 'ScrapingInitialization');
     }
   });
 
@@ -116,13 +115,13 @@ export function registerScrapingRoutes(app: Express): void {
         await coordinationAgent.start();
       }
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         message: "AI agents started successfully",
         status: coordinationAgent.getStatus()
       });
     } catch (error: unknown) {
-      sendErrorResponse(res, 500, error, 'Start AI Agents');
+      sendErrorFromException(res, error, 'StartAIAgents');
     }
   });
 
@@ -145,15 +144,13 @@ export function registerScrapingRoutes(app: Express): void {
           limit
         });
 
-        res.json({
+        sendSuccess(res, {
           success: true,
           message: "Trend discovery completed",
           result
         });
       } catch (error: unknown) {
-        logger.error('Trend discovery failed:', { error: error instanceof Error ? error.message : String(error) });
-        const errorResponse = createErrorResponse(error, 'TrendDiscovery');
-        res.status(errorResponse.status).json({ error: errorResponse.error });
+        sendErrorFromException(res, error, 'TrendDiscovery');
       }
     }
   );
@@ -172,17 +169,15 @@ export function registerScrapingRoutes(app: Express): void {
 
         const products = await storage.getTrendingProducts(status, limit);
 
-      res.json({
-        success: true,
-        products,
-        count: products.length
-      });
-    } catch (error: unknown) {
-      logger.error('Failed to get trending products:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchTrendingProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
-    }
-  });
+        sendSuccess(res, {
+          success: true,
+          products,
+          count: products.length
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'FetchTrendingProducts');
+      }
+    });
 
   // Get system status and metrics
   app.get("/api/scraping/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
@@ -191,16 +186,14 @@ export function registerScrapingRoutes(app: Express): void {
 
       const systemStatus = await coordinationAgent.getSystemStatus();
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         systemStatus,
         agentServiceStatus: agentService.getStatus(),
         timestamp: new Date().toISOString()
       });
     } catch (error: unknown) {
-      logger.error('Failed to get system status:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'FetchSystemStatus');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'FetchSystemStatus');
     }
   });
 
@@ -223,15 +216,13 @@ export function registerScrapingRoutes(app: Express): void {
           retailers
         });
 
-        res.json({
+        sendSuccess(res, {
           success: true,
           searchResults,
           count: searchResults.length
         });
       } catch (error: unknown) {
-        logger.error('Product search failed:', { error: error instanceof Error ? error.message : String(error) });
-        const errorResponse = createErrorResponse(error, 'ProductSearch');
-        res.status(errorResponse.status).json({ error: errorResponse.error });
+        sendErrorFromException(res, error, 'ProductSearch');
       }
     });
 
@@ -248,14 +239,12 @@ export function registerScrapingRoutes(app: Express): void {
         logger.error('Full cycle failed:', { error: error instanceof Error ? error.message : String(error) });
       });
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         message: "Full scraping cycle initiated in background"
       });
     } catch (error: unknown) {
-      logger.error('Failed to start full cycle:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'StartFullCycle');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'StartFullCycle');
     }
   });
 
@@ -263,15 +252,14 @@ export function registerScrapingRoutes(app: Express): void {
   app.get("/api/scraping/google-search/test", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const testResult = await googleSearchService.testConnection();
-      res.json({
+      sendSuccess(res, {
         success: testResult.success,
         message: testResult.message,
         results: testResult.results,
         usage: googleSearchService.getUsageStats()
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TestGoogleSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'TestGoogleSearch');
     }
   });
 
@@ -286,23 +274,20 @@ export function registerScrapingRoutes(app: Express): void {
         const { query, retailers = ['amazon.com', 'walmart.com', 'target.com'], maxResults = 5 } = req.body;
 
       if (!googleSearchService.isConfigured()) {
-        res.status(500).json({ 
-          error: "Google Custom Search API not configured",
-          message: "Please set GOOGLE_CUSTOM_SEARCH_API_KEY and GOOGLE_CUSTOM_SEARCH_ENGINE_ID environment variables"
-        });
+        sendError(res, "Google Custom Search API not configured. Please set GOOGLE_CUSTOM_SEARCH_API_KEY and GOOGLE_CUSTOM_SEARCH_ENGINE_ID environment variables", 500);
         return;
       }
 
-      const results = await googleSearchService.searchMultipleRetailers(query, retailers, { 
-        maxResultsPerRetailer: maxResults 
+      const results = await googleSearchService.searchMultipleRetailers(query, retailers, {
+        maxResultsPerRetailer: maxResults
       });
 
       const totalResults = results.reduce((sum, retailer) => sum + retailer.results.length, 0);
-      const productUrls = results.flatMap(retailer => 
+      const productUrls = results.flatMap(retailer =>
         googleSearchService.extractProductUrls(retailer.results)
       );
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         query,
         totalResults,
@@ -320,9 +305,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Google Custom Search failed:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GoogleCustomSearch');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GoogleCustomSearch');
     }
   });
 
@@ -330,20 +313,19 @@ export function registerScrapingRoutes(app: Express): void {
   app.get("/api/scraping/google-search/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const usage = googleSearchService.getUsageStats();
-      res.json({
+      sendSuccess(res, {
         success: true,
         configured: usage.configured,
         status: {
           apiKey: usage.apiKey ? 'configured' : 'missing',
           searchEngineId: usage.searchEngineId ? 'configured' : 'missing'
         },
-        message: usage.configured 
+        message: usage.configured
           ? 'Google Custom Search API is properly configured'
           : 'Google Custom Search API requires configuration'
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetGoogleSearchStatus');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetGoogleSearchStatus');
     }
   });
 
@@ -353,20 +335,20 @@ export function registerScrapingRoutes(app: Express): void {
       const { url, retailer, searchQuery } = req.body;
 
       if (!url) {
-        res.status(400).json({ error: "Product URL is required" });
+        sendError(res, "Product URL is required", 400);
         return;
       }
 
       // SECURITY: Validate URL to prevent SSRF attacks
       const urlValidation = validateScrapingUrl(url);
       if (!urlValidation.valid) {
-        res.status(400).json({ error: urlValidation.error });
+        sendError(res, urlValidation.error || "Invalid URL", 400);
         return;
       }
 
       // Import the extraction agent dynamically to avoid initialization issues
       const { dataExtractionAgent } = await import('../agents/extraction-agent');
-      
+
       const result = await dataExtractionAgent.processTask({
         action: 'extract_product_data',
         url,
@@ -374,16 +356,14 @@ export function registerScrapingRoutes(app: Express): void {
         searchQuery
       });
 
-      res.json({
+      sendSuccess(res, {
         success: result.success,
         data: result.success ? result.data : undefined,
         message: result.success ? 'Product data extracted successfully' : 'Extraction failed'
       });
 
     } catch (error: unknown) {
-      logger.error('Product extraction failed:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ProductExtraction');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'ProductExtraction');
     }
   });
 
@@ -391,16 +371,16 @@ export function registerScrapingRoutes(app: Express): void {
   app.post("/api/scraping/start-monitoring", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { maxAge = 24 } = req.body;
-      
+
       // Import the monitoring agent dynamically
       const { priceMonitoringAgent } = await import('../agents/monitoring-agent');
-      
+
       // Start monitoring tasks in background
       priceMonitoringAgent.scheduleMonitoringTasks().catch(error => {
         logger.error('Monitoring tasks failed:', { error: error instanceof Error ? error.message : String(error) });
       });
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         message: "Price monitoring initiated",
         monitoring: {
@@ -410,9 +390,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to start monitoring:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'StartMonitoring');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'StartMonitoring');
     }
   });
 
@@ -421,18 +399,16 @@ export function registerScrapingRoutes(app: Express): void {
     try {
       // Import the monitoring agent dynamically
       const { priceMonitoringAgent } = await import('../agents/monitoring-agent');
-      
+
       const stats = await priceMonitoringAgent.getMonitoringStats();
-      
-      res.json({
+
+      sendSuccess(res, {
         success: true,
         stats
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to get monitoring stats:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetMonitoringStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetMonitoringStats');
     }
   });
 
@@ -440,25 +416,25 @@ export function registerScrapingRoutes(app: Express): void {
   app.post("/api/scraping/complete-workflow", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { searchQuery, maxResults = 5 } = req.body;
-      
+
       if (!searchQuery) {
-        res.status(400).json({ error: "Search query is required" });
+        sendError(res, "Search query is required", 400);
         return;
       }
 
       // Step 1: Search for products using Google Custom Search
       const searchResults = await googleSearchService.searchMultipleRetailers(
-        searchQuery, 
-        ['amazon.com', 'walmart.com', 'target.com'], 
+        searchQuery,
+        ['amazon.com', 'walmart.com', 'target.com'],
         { maxResultsPerRetailer: maxResults }
       );
 
-      const productUrls = searchResults.flatMap(retailer => 
+      const productUrls = searchResults.flatMap(retailer =>
         googleSearchService.extractProductUrls(retailer.results)
       );
 
       if (productUrls.length === 0) {
-        res.json({
+        sendSuccess(res, {
           success: false,
           message: "No product URLs found",
           searchResults: searchResults.length
@@ -469,7 +445,7 @@ export function registerScrapingRoutes(app: Express): void {
       // Step 2: Extract product data from found URLs (process first few to avoid timeout)
       const { dataExtractionAgent } = await import('../agents/extraction-agent');
       const extractionResults = [];
-      
+
       for (const url of productUrls.slice(0, 3)) { // Limit to 3 for demo
         try {
           const retailerDomain = new URL(url).hostname;
@@ -479,7 +455,7 @@ export function registerScrapingRoutes(app: Express): void {
             retailer: retailerDomain,
             searchQuery
           });
-          
+
           if (result.success) {
             extractionResults.push({
               url,
@@ -492,7 +468,7 @@ export function registerScrapingRoutes(app: Express): void {
         }
       }
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         searchQuery,
         urlsFound: productUrls.length,
@@ -502,9 +478,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Complete workflow failed:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'CompleteWorkflow');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CompleteWorkflow');
     }
   });
 
@@ -520,7 +494,7 @@ export function registerScrapingRoutes(app: Express): void {
       const queryPing = await queryCache.ping();
       const generalPing = await generalCache.ping();
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         timestamp: new Date().toISOString(),
         queryCache: {
@@ -544,9 +518,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to get cache stats:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'GetCacheStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetCacheStats');
     }
   });
 
@@ -567,7 +539,7 @@ export function registerScrapingRoutes(app: Express): void {
         clearedGeneral = await generalCache.clear();
       }
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         message: `Cache cleared successfully`,
         cleared: {
@@ -577,9 +549,7 @@ export function registerScrapingRoutes(app: Express): void {
       });
 
     } catch (error: unknown) {
-      logger.error('Failed to clear cache:', { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ClearCache');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'ClearCache');
     }
   });
 }
