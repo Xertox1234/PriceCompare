@@ -25,9 +25,15 @@ WHERE a.ctid > b.ctid
   AND a.post_id = b.post_id
   AND a.user_id = b.user_id;
 
--- Add the unique constraint
-ALTER TABLE post_likes
-  ADD CONSTRAINT unique_post_user_like UNIQUE (post_id, user_id);
+-- Add the unique constraint (skip if already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_post_user_like'
+  ) THEN
+    ALTER TABLE post_likes ADD CONSTRAINT unique_post_user_like UNIQUE (post_id, user_id);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 3. Add unique constraint on user_badges to prevent duplicate badge awards
@@ -40,9 +46,15 @@ WHERE a.ctid > b.ctid
   AND a.user_id = b.user_id
   AND a.badge_id = b.badge_id;
 
--- Add the unique constraint
-ALTER TABLE user_badges
-  ADD CONSTRAINT unique_user_badge UNIQUE (user_id, badge_id);
+-- Add the unique constraint (skip if already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_user_badge'
+  ) THEN
+    ALTER TABLE user_badges ADD CONSTRAINT unique_user_badge UNIQUE (user_id, badge_id);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 4. Add unique constraint on topic_tag_relations
@@ -55,9 +67,15 @@ WHERE a.ctid > b.ctid
   AND a.topic_id = b.topic_id
   AND a.tag_id = b.tag_id;
 
--- Add the unique constraint
-ALTER TABLE topic_tag_relations
-  ADD CONSTRAINT unique_topic_tag UNIQUE (topic_id, tag_id);
+-- Add the unique constraint (skip if already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_topic_tag'
+  ) THEN
+    ALTER TABLE topic_tag_relations ADD CONSTRAINT unique_topic_tag UNIQUE (topic_id, tag_id);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 5. Add unique constraint on post_mentions
@@ -70,9 +88,15 @@ WHERE a.ctid > b.ctid
   AND a.post_id = b.post_id
   AND a.mentioned_user_id = b.mentioned_user_id;
 
--- Add the unique constraint
-ALTER TABLE post_mentions
-  ADD CONSTRAINT unique_post_mention UNIQUE (post_id, mentioned_user_id);
+-- Add the unique constraint (skip if already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_post_mention'
+  ) THEN
+    ALTER TABLE post_mentions ADD CONSTRAINT unique_post_mention UNIQUE (post_id, mentioned_user_id);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 6. Add composite index for notification queries (performance)
