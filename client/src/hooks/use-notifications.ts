@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 export interface Notification {
   id: number;
@@ -43,38 +44,26 @@ export function useNotifications(filters?: { isRead?: boolean; type?: string; li
   if (filters?.type) params.append('type', filters.type);
   if (filters?.limit) params.append('limit', filters.limit.toString());
 
-  return useQuery<{ success: boolean; data: Notification[]; count: number }>({
+  return useQuery<{ notifications: Notification[]; count: number }>({
     queryKey: ['/api/notifications', filters],
-    queryFn: async () => {
-      const res = await fetch(`/api/notifications?${params}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch notifications');
-      return res.json();
-    },
+    queryFn: () => apiRequest<{ notifications: Notification[]; count: number }>(`/api/notifications?${params}`),
   });
 }
 
 // Fetch notification stats
 export function useNotificationStats() {
-  return useQuery<{ success: boolean; data: NotificationStats }>({
+  return useQuery<NotificationStats>({
     queryKey: ['/api/notifications/stats'],
-    queryFn: async () => {
-      const res = await fetch('/api/notifications/stats', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch notification stats');
-      return res.json();
-    },
+    queryFn: () => apiRequest<NotificationStats>('/api/notifications/stats'),
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 }
 
 // Fetch notification preferences
 export function useNotificationPreferences() {
-  return useQuery<{ success: boolean; data: NotificationPreferences }>({
+  return useQuery<NotificationPreferences>({
     queryKey: ['/api/notifications/preferences'],
-    queryFn: async () => {
-      const res = await fetch('/api/notifications/preferences', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch preferences');
-      return res.json();
-    },
+    queryFn: () => apiRequest<NotificationPreferences>('/api/notifications/preferences'),
   });
 }
 
