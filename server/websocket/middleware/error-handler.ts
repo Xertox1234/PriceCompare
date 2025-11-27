@@ -27,7 +27,8 @@ export interface SocketErrorContext {
   event: string;
   userId?: number;
   data?: unknown;
-  [key: string]: unknown;
+  // Allow additional custom fields for debugging
+  [key: string]: string | number | unknown | undefined;
 }
 
 /**
@@ -175,14 +176,15 @@ export function withErrorHandling<T = unknown>(
  * Errors are tracked in the monitoring service's error log and can be viewed via the
  * monitoring dashboard API endpoints.
  */
-function trackErrorMetric(errorCode: string, eventName: string): void {
+function trackErrorMetric(errorCode: string, eventName: string | undefined): void {
+  const event = eventName || 'unknown';
   // Log to monitoring service for dashboard visibility
-  monitoringService.logError('error', `WebSocket error: ${errorCode} in ${eventName}`, {
+  monitoringService.logError('error', `WebSocket error: ${errorCode} in ${event}`, {
     errorCode,
-    eventName,
+    eventName: event,
     source: 'websocket',
   });
-  log.debug('Error metric tracked', { errorCode, eventName });
+  log.debug('Error metric tracked', { errorCode, eventName: event });
 }
 
 /**

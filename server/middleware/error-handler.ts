@@ -22,14 +22,12 @@ interface ErrorWithStatusCode extends Error {
   statusCode?: number;
 }
 
-// Extended Request type with optional user
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-    role?: string;
-  };
-}
+// Type for request with optional user (for type casting only)
+type UserInfo = {
+  id: number;
+  email: string;
+  role?: string;
+};
 
 /**
  * Centralized Error Handling Middleware
@@ -81,7 +79,7 @@ export function errorHandler(
   const statusCode = (err as ErrorWithStatusCode).statusCode || 500;
   const isDev = process.env.NODE_ENV === 'development';
 
-  res.status(statusCode).json({
+  return res.status(statusCode).json({
     error: isDev ? err.message : 'Internal server error',
     code: 'INTERNAL_ERROR',
     ...(isDev && {
@@ -121,7 +119,7 @@ export function notFoundHandler(req: Request, res: Response, next: NextFunction)
  */
 function logError(err: Error, req: Request) {
   const isOperational = isOperationalError(err);
-  const authenticatedReq = req as AuthenticatedRequest;
+  const reqWithUser = req as Request & { user?: UserInfo };
   const errorWithStatus = err as ErrorWithStatusCode;
 
   // In production, use proper logging service (e.g., Winston, Pino)
@@ -136,7 +134,7 @@ function logError(err: Error, req: Request) {
     path: req.originalUrl,
     ip: req.ip,
     userAgent: req.get('user-agent'),
-    userId: authenticatedReq.user?.id,
+    userId: reqWithUser.user?.id,
     ...(process.env.NODE_ENV === 'development' && {
       stack: err.stack,
     }),
@@ -151,9 +149,9 @@ function logError(err: Error, req: Request) {
   // Send non-operational errors to Sentry for tracking
   if (!isOperational) {
     captureException(err, {
-      user: authenticatedReq.user ? {
-        id: authenticatedReq.user.id,
-        email: authenticatedReq.user.email,
+      user: reqWithUser.user ? {
+        id: reqWithUser.user.id,
+        email: reqWithUser.user.email,
       } : undefined,
       extra: errorLog,
       tags: {

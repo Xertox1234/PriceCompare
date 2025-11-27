@@ -428,7 +428,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
 
       // Store email in request for use in login handler
       req.loginEmail = email;
-      next();
+      return next();
     })
     .catch(error => {
       log.error('Lockout check error:', {
@@ -436,7 +436,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
       });
       // On error, allow request through (fail open for availability)
       // Security note: This is acceptable because the sync fallback still works
-      next();
+      return next();
     });
 }
 
