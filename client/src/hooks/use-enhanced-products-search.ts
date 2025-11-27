@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { SearchFilters, Product } from '@shared/schema';
+import { SearchFilters, ProductWithOffers } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { useDebounce } from './use-debounce';
 

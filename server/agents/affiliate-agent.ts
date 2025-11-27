@@ -367,11 +367,16 @@ export class AffiliateLinkAgent extends BaseAgent {
   async getStats(): Promise<AffiliateStats | null> {
     try {
       const stats = await affiliateLinkService.getAffiliateLinkStats();
-      const agentStats = this.getStatus();
+      const baseStatus = this.getStatus();
 
       return {
-        agent: agentStats,
-        links: stats,
+        agent: {
+          isRunning: baseStatus.isRunning,
+          taskCount: baseStatus.activeTasks,
+          successCount: 0, // Not tracked in base status
+          errorCount: 0, // Not tracked in base status
+        },
+        links: stats || { total: 0, active: 0, broken: 0, byRetailer: {} },
         timestamp: new Date().toISOString()
       };
     } catch (error) {

@@ -340,22 +340,20 @@ async function seedTestData() {
   // Create test retailer
   const [retailer1] = await db.insert(retailers).values({
     name: 'Test Electronics Store',
-    domain: 'test-electronics.example.com',
-    logoUrl: 'https://via.placeholder.com/150',
+    logo: 'https://via.placeholder.com/150',
   }).returning();
 
   const [retailer2] = await db.insert(retailers).values({
     name: 'Budget Tech Shop',
-    domain: 'budget-tech.example.com',
-    logoUrl: 'https://via.placeholder.com/150',
+    logo: 'https://via.placeholder.com/150',
   }).returning();
 
   // Create test product
   const [product] = await db.insert(products).values({
     name: 'Test Gaming Laptop',
     description: 'High-performance gaming laptop with RTX graphics',
-    imageUrl: 'https://via.placeholder.com/400',
-    categoryId: 1,
+    image: 'https://via.placeholder.com/400',
+    category: 'Electronics',
   }).returning();
 
   // Create offers for the product
