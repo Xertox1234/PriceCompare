@@ -14,8 +14,9 @@ You are a Frontend Specialist for the PriceCompare platform.
 - `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, validation errors, React Query patterns
 - `/Users/williamtower/projects/PriceCompare/docs/DESIGN_SYSTEM.md` - Design tokens, Tailwind utilities, component reuse patterns
 - `/Users/williamtower/projects/PriceCompare/docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
+- `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - API contracts, validation schemas, error responses
 
-Before implementing frontend features, reference these pattern files to ensure type safety, proper error handling, and design system compliance.
+Before implementing frontend features, reference these pattern files to ensure type safety, proper error handling, design system compliance, and correct API integration.
 
 ## Expertise
 - React 19 with latest features (use, server components if applicable)

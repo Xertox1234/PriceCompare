@@ -1,3 +1,12 @@
+---
+Pattern: Background Jobs Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [DATABASE_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md]
+---
+
 # Background Jobs Patterns
 
 This document codifies patterns for background jobs, scheduled tasks, and asynchronous processing to ensure reliability, safety, and maintainability.

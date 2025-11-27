@@ -1,3 +1,12 @@
+---
+Pattern: Security Patterns & Anti-Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md, AUTHENTICATION_PATTERNS.md]
+---
+
 # Security Patterns & Anti-Patterns
 
 This document codifies security patterns to prevent vulnerabilities and ensure data protection in the PriceCompare codebase.

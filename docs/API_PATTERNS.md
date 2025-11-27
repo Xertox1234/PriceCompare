@@ -1,3 +1,12 @@
+---
+Pattern: API & Route Patterns
+Version: 1.0
+Last Updated: 2025-11-26
+Maintainer: Claude Code / Development Team
+Status: Active
+Related Patterns: [SECURITY_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, DATABASE_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md]
+---
+
 # API & Route Patterns
 
 This document codifies API and route patterns to ensure consistent, secure, and maintainable endpoints in the PriceCompare codebase.
