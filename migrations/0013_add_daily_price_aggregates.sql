@@ -7,10 +7,10 @@ ALTER TABLE price_history
   ADD COLUMN IF NOT EXISTS aggregated_at TIMESTAMP;
 
 -- 2. Create index on aggregated_at for efficient cleanup queries
-CREATE INDEX idx_price_history_aggregated_at ON price_history(aggregated_at);
+CREATE INDEX IF NOT EXISTS idx_price_history_aggregated_at ON price_history(aggregated_at);
 
 -- 3. Create price_aggregates_daily table
-CREATE TABLE price_aggregates_daily (
+CREATE TABLE IF NOT EXISTS price_aggregates_daily (
   id SERIAL PRIMARY KEY,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   retailer_id INTEGER NOT NULL REFERENCES retailers(id) ON DELETE CASCADE,
@@ -31,13 +31,13 @@ CREATE TABLE price_aggregates_daily (
 );
 
 -- 4. Create indexes for efficient queries
-CREATE INDEX daily_product_date_idx ON price_aggregates_daily(product_id, date);
-CREATE INDEX daily_retailer_date_idx ON price_aggregates_daily(retailer_id, date);
-CREATE INDEX daily_date_idx ON price_aggregates_daily(date);
-CREATE INDEX daily_created_idx ON price_aggregates_daily(created_at);
+CREATE INDEX IF NOT EXISTS daily_product_date_idx ON price_aggregates_daily(product_id, date);
+CREATE INDEX IF NOT EXISTS daily_retailer_date_idx ON price_aggregates_daily(retailer_id, date);
+CREATE INDEX IF NOT EXISTS daily_date_idx ON price_aggregates_daily(date);
+CREATE INDEX IF NOT EXISTS daily_created_idx ON price_aggregates_daily(created_at);
 
 -- 5. Create unique constraint to prevent duplicate aggregates
-CREATE UNIQUE INDEX unique_product_retailer_date
+CREATE UNIQUE INDEX IF NOT EXISTS unique_product_retailer_date
   ON price_aggregates_daily(product_id, retailer_id, date);
 
 -- 6. Add comment to table
