@@ -1,8 +1,8 @@
 # API Standardization Migration - Remaining Work
 
-**Status:** 64% Complete (139/217 endpoints migrated)
-**Priority:** HIGH
-**Estimated Effort:** 14-21 hours remaining
+**Status:** 83% Complete (181/217 endpoints migrated)
+**Priority:** MEDIUM
+**Estimated Effort:** 6-8 hours remaining
 **Reference:** See `docs/API_AUDIT_REPORT.md` for full audit details
 
 ---
@@ -10,16 +10,20 @@
 ## Current Branch Status
 
 **Branch:** `add_scraping`
-**Commits Ahead:** 17 commits (pending)
-**Clean Working Tree:** No (watchlist-routes.ts modified)
+**Commits Ahead:** 20 commits (pending)
+**Clean Working Tree:** Yes
 
 **Recent Work Completed:**
-- ✅ Phase 1 migration complete (40 endpoints)
-  - ✅ watchlist-routes.ts migrated (9 endpoints) - November 27, 2025
+- ✅ Phase 1 migration complete (40 endpoints) - November 27, 2025
+  - ✅ watchlist-routes.ts migrated (9 endpoints)
   - ✅ auth-routes.ts already migrated (9 endpoints)
   - ✅ product-routes.ts already migrated (18 endpoints)
   - ✅ alert-routes.ts already migrated (4 endpoints)
-- ✅ Backend API standardization (16/25 route files)
+- ✅ Phase 2 migration complete (42 endpoints) - November 27, 2025
+  - ✅ admin-routes.ts migrated (17 endpoints)
+  - ✅ scraping-routes.ts migrated (17 endpoints)
+  - ✅ affiliate-routes.ts migrated (8 endpoints)
+- ✅ Backend API standardization (19/25 route files - 76%)
 - ✅ Frontend React Query hooks with envelope unwrapping
 - ✅ API documentation updated (API_PATTERNS.md)
 - ✅ OpenAPI 3.1 specification created
@@ -125,35 +129,58 @@
 
 ## Phase 2: Admin & Advanced Features (MEDIUM PRIORITY)
 
+**Status:** ✅ COMPLETED (November 27, 2025)
 **Estimated Time:** 6-8 hours
 **Impact:** Admin operations, advanced features
 
-### 5. admin-routes.ts (17 endpoints)
-- [ ] Replace 17 `res.json()` calls with `sendSuccess()`
-- [ ] Replace 16 `createErrorResponse()` calls with `sendErrorFromException()` (HIGHEST COUNT!)
-- [ ] Add response helper imports
-- [ ] Add CSRF protection on mutations
-- [ ] Add Zod validation schemas
-- [ ] Test: User management, system stats, moderation
+### 5. admin-routes.ts (17 endpoints) ✅ COMPLETED
+- [x] Replace 17 `res.json()` calls with `sendSuccess()`
+- [x] Replace 16 `createErrorResponse()` calls with `sendErrorFromException()` (HIGHEST COUNT!)
+- [x] Add response helper imports
+- [x] CSRF protection already present
+- [x] Zod validation already present
+- [x] Test: User management, system stats, moderation
 
-**Critical:** This file has the most legacy error handling (16 occurrences)
+**Status:** ✅ Migrated November 27, 2025 (commit deb5c75)
+**Changes:**
+- Replaced all createErrorResponse with sendErrorFromException
+- Replaced all res.json() with sendSuccess()
+- Replaced manual error responses with sendError()
+- Added proper status codes (201 for POST, 404 for not found)
+- Removed redundant logger.error calls
 
-### 6. scraping-routes.ts (17 endpoints)
-- [ ] Replace 17 `res.json()` calls with `sendSuccess()`
-- [ ] Replace 15 `createErrorResponse()` calls with `sendErrorFromException()`
-- [ ] Add response helper imports
-- [ ] Add CSRF protection
-- [ ] Add Zod validation
-- [ ] Test: URL discovery, product extraction, scraper management
+### 6. scraping-routes.ts (17 endpoints) ✅ COMPLETED
+- [x] Replace 17 `res.json()` calls with `sendSuccess()`
+- [x] Replace 15 `createErrorResponse()` + 2 `sendErrorResponse()` with `sendErrorFromException()`
+- [x] Add response helper imports
+- [x] CSRF protection already present
+- [x] Zod validation already present
+- [x] Test: URL discovery, product extraction, scraper management
 
-### 7. affiliate-routes.ts (8 endpoints)
-- [ ] Replace 8 `res.json()` calls with `sendSuccess()`
-- [ ] Replace 8 `createErrorResponse()` calls with `sendErrorFromException()`
-- [ ] Add response helper imports
-- [ ] Add CSRF protection
-- [ ] Test: Affiliate link generation, tracking
+**Status:** ✅ Migrated November 27, 2025 (commit 9e8ddb1)
+**Changes:**
+- Replaced all createErrorResponse with sendErrorFromException (15 occurrences)
+- Replaced sendErrorResponse with sendErrorFromException (2 occurrences)
+- Replaced all res.json() with sendSuccess()
+- Replaced manual error responses with sendError() (4 occurrences)
+- Added proper status codes (400 for validation, 500 for config errors)
+- Kept intentional logger.error in background job handlers
 
-**Phase 2 Total:** 42 endpoints
+### 7. affiliate-routes.ts (8 endpoints) ✅ COMPLETED
+- [x] Replace 8 `res.json()` calls with `sendSuccess()`
+- [x] Replace 8 `createErrorResponse()` calls with `sendErrorFromException()`
+- [x] Add response helper imports
+- [x] CSRF protection already present via requireAuth/requireAdmin
+- [x] Test: Affiliate link generation, tracking
+
+**Status:** ✅ Migrated November 27, 2025 (commit 9e8ddb1)
+**Changes:**
+- Replaced all createErrorResponse with sendErrorFromException
+- Replaced all res.json() with sendSuccess()
+- Replaced manual error responses with sendError() (1 occurrence)
+- Added proper status codes (404 for not found)
+
+**Phase 2 Total:** 42 endpoints ✅ 100% COMPLETE
 
 ---
 
