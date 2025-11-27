@@ -597,15 +597,15 @@ export interface WatchListExportData {
 export interface WatchListImportData {
   watchLists: Array<{
     name: string;
-    description?: string;
-    color?: string;
-    icon?: string;
-    products: Array<{
+    description?: string | null;
+    color?: string | null;
+    icon?: string | null;
+    products?: Array<{
       productId: number;
-      category?: string;
-      notes?: string;
+      category?: string | null;
+      notes?: string | null;
       priority?: number;
-      targetPrice?: string;
+      targetPrice?: string | null;
     }>;
   }>;
 }

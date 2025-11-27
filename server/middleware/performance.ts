@@ -30,12 +30,9 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
   const originalEnd = res.end;
 
   // Override res.end to capture metrics
-  // Type signature matches Node's ServerResponse.end() overloads
-  res.end = function (
-    chunk?: string | Buffer | Uint8Array,
-    encoding?: BufferEncoding | (() => void),
-    callback?: () => void
-  ): Response {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Type assertion: Response.end() has complex overloads - we're just proxying to original method
+  res.end = function (this: Response, ...args: any[]): Response {
     const duration = Date.now() - startTime;
     const statusCode = res.statusCode;
     const method = req.method;
@@ -67,12 +64,11 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
       );
     }
 
-    // Call original end - use explicit overload matching
-    if (typeof encoding === 'function') {
-      return originalEnd.call(this, chunk, encoding) as Response;
-    }
-    return originalEnd.call(this, chunk, encoding, callback) as Response;
-  };
+    // Call original end with all arguments
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // Type assertion: Spreading args to match Response.end overloads
+    return (originalEnd as any).apply(this, args);
+  } as any;
 
   next();
 }

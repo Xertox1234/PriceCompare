@@ -406,7 +406,7 @@ export function emitToUser<K extends keyof ServerToClientEvents>(
   const room = `user:${userId}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // Type assertion needed for Socket.io's complex generic emit signature with acknowledgements
-  io.to(room).emit(event, data as any);
+  (io.to(room).emit as any)(event, data);
 
   log.debug('Event emitted to user', {
     userId,
