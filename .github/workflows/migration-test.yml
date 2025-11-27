@@ -52,6 +52,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test_db
           NODE_ENV: test
         run: |
+          echo "Installing pgvector extension..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d migration_test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
           echo "Creating base schema..."
           npm run db:push
 

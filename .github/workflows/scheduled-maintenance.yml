@@ -256,6 +256,8 @@ Labels: security, automated`,
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/health_check_db
         run: |
+          echo "Installing pgvector extension..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d health_check_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
           echo "Creating base schema..."
           npm run db:push
           echo "Running migrations..."

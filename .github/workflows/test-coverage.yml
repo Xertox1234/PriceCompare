@@ -61,6 +61,11 @@ jobs:
           echo "DISCOURSE_SSO_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
           echo "NODE_ENV=test" >> $GITHUB_ENV
 
+      - name: Install pgvector extension
+        run: |
+          echo "Creating pgvector extension..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d pricecompare_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
       - name: Setup base schema
         run: npm run db:push
 
