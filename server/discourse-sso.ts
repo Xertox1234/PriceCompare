@@ -180,7 +180,7 @@ export async function completeSSOAfterLogin(req: AuthenticatedRequest, res: Resp
 
   } catch (error) {
     log.error('SSO completion error:', { error });
-    res.status(500).json({ error: 'SSO completion failed' });
+    return res.status(500).json({ error: 'SSO completion failed' });
   }
 }
 
@@ -303,5 +303,5 @@ export function handleSSOCompletion(req: AuthenticatedRequest, res: Response, ne
     // Complete SSO process
     return completeSSOAfterLogin(req, res);
   }
-  next();
+  return next();
 }

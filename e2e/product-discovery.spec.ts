@@ -357,24 +357,22 @@ async function seedTestData() {
   }).returning();
 
   // Create offers for the product
-  await db.insert(productOffers).values([
+  const offers = await db.insert(productOffers).values([
     {
       productId: product.id,
       retailerId: retailer1.id,
       price: '1299.99',
-      currency: 'USD',
-      url: 'https://test-electronics.example.com/laptop',
-      inStock: true,
+      productUrl: 'https://test-electronics.example.com/laptop',
+      availability: 'in_stock',
     },
     {
       productId: product.id,
       retailerId: retailer2.id,
       price: '1249.99',
-      currency: 'USD',
-      url: 'https://budget-tech.example.com/laptop',
-      inStock: true,
+      productUrl: 'https://budget-tech.example.com/laptop',
+      availability: 'in_stock',
     },
-  ]);
+  ]).returning();
 
   // Create price history
   const now = new Date();
@@ -385,6 +383,7 @@ async function seedTestData() {
     date.setDate(date.getDate() - i);
 
     priceHistoryData.push({
+      productOfferId: offers[0].id, // Use first offer's ID
       productId: product.id,
       retailerId: retailer1.id,
       price: (1299.99 - Math.random() * 100).toFixed(2),

@@ -8,7 +8,7 @@
 import * as Sentry from "@sentry/node";
 // Profiling integration is optional - uncomment if @sentry/profiling-node is installed
 // import { nodeProfilingIntegration } from "@sentry/profiling-node";
-import type { Request, Response, NextFunction } from "express";
+import type { Application, Request, Response, NextFunction } from "express";
 import { isOperationalError } from "../utils/errors";
 import { createLogger } from "../utils/logger";
 
@@ -199,37 +199,49 @@ export function setContext(name: string, context: Record<string, unknown>): void
 }
 
 /**
- * Start a new transaction for performance monitoring
+ * Start a new span for performance monitoring
+ * Note: Sentry v10+ uses startSpan instead of startTransaction
  */
 export function startTransaction(
   name: string,
   op: string,
   data?: Record<string, unknown>
-): Sentry.Transaction {
-  return Sentry.startTransaction({
-    name,
-    op,
-    data,
+): void {
+  // In Sentry v10+, use startSpan with callback
+  // Cast data to compatible type since Sentry expects specific attribute types
+  const attributes = data ? Object.fromEntries(
+    Object.entries(data).map(([k, v]) => [k, String(v)])
+  ) : undefined;
+  Sentry.startSpan({ name, op, attributes }, () => {
+    // Span is automatically finished when callback completes
   });
 }
 
 /**
- * Express error handler middleware
+ * Express error handler middleware (Sentry v10+)
  * Place this BEFORE your custom error handler
+ * Note: Call this function and pass your app to set up error handling
  */
-export const sentryErrorHandler = Sentry.Handlers?.errorHandler ? Sentry.Handlers.errorHandler() : ((req: Request, res: Response, next: NextFunction) => next());
+export function setupSentryErrorHandler(app: Application): void {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 /**
- * Express request handler middleware
- * Place this at the beginning of your middleware chain
+ * Express request handler middleware (Sentry v10+)
+ * No-op in v10+ - request tracking is automatic
  */
-export const sentryRequestHandler = Sentry.Handlers?.requestHandler ? Sentry.Handlers.requestHandler() : ((req: Request, res: Response, next: NextFunction) => next());
+export const sentryRequestHandler = (req: Request, res: Response, next: NextFunction) => next();
 
 /**
  * Express tracing handler for performance monitoring
- * Place this after the request handler
+ * Note: In Sentry v10+, tracing is automatic
  */
-export const sentryTracingHandler = Sentry.Handlers?.tracingHandler ? Sentry.Handlers.tracingHandler() : ((req: Request, res: Response, next: NextFunction) => next());
+export const sentryTracingHandler = (req: Request, res: Response, next: NextFunction) => next();
+
+/**
+ * Legacy compatibility: Export as errorHandler for backward compatibility
+ */
+export const sentryErrorHandler = (req: Request, res: Response, next: NextFunction) => next();
 
 /**
  * Close Sentry and flush pending events

@@ -9,6 +9,7 @@
  * Emits events when price monitoring detects changes.
  */
 
+import type { Server } from 'socket.io';
 import type { AuthenticatedSocket } from '../types';
 import { checkRateLimit } from '../middleware/rate-limit';
 import { handleSocketError, withErrorHandling } from '../middleware/error-handler';

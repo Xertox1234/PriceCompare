@@ -419,9 +419,8 @@ async function seedTestData() {
     productId: product.id,
     retailerId: retailer.id,
     price: '1299.99',
-    currency: 'USD',
-    url: 'https://test-store.example.com/laptop',
-    inStock: true,
+    productUrl: 'https://test-store.example.com/laptop',
+    availability: 'in_stock',
   });
 }
 

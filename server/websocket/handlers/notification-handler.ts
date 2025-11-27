@@ -10,6 +10,7 @@
  * Integrates with notification service for database operations.
  */
 
+import type { Server } from 'socket.io';
 import type { AuthenticatedSocket } from '../types';
 import { checkRateLimit } from '../middleware/rate-limit';
 import { handleSocketError, withErrorHandling } from '../middleware/error-handler';

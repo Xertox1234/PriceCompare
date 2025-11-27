@@ -9,6 +9,7 @@
  * Events are emitted from storage layer when watch lists change.
  */
 
+import type { Server } from 'socket.io';
 import type { AuthenticatedSocket } from '../types';
 import { checkRateLimit } from '../middleware/rate-limit';
 import { handleSocketError, withErrorHandling } from '../middleware/error-handler';
