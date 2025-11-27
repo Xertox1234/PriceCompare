@@ -4,7 +4,7 @@
 
 -- 1. Add aggregated_at column to price_history table
 ALTER TABLE price_history
-  ADD COLUMN aggregated_at TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS aggregated_at TIMESTAMP;
 
 -- 2. Create index on aggregated_at for efficient cleanup queries
 CREATE INDEX idx_price_history_aggregated_at ON price_history(aggregated_at);
