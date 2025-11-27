@@ -326,11 +326,11 @@ export class ForumStorage {
         })
         .where(eq(forumTopics.id, post.topicId));
 
-      const post = getFirstResult(result);
-      if (!post) {
+      const createdPost = getFirstResult(result);
+      if (!createdPost) {
         throw new Error('Failed to create post');
       }
-      newPost = post;
+      newPost = createdPost;
     });
 
     return newPost!;

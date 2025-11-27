@@ -26,8 +26,8 @@ export class EnhancedForumStorage {
         role: users.role,
         trustLevel: users.trustLevel,
         isActive: users.isActive,
-        isBanned: users.isBanned,
-        lastLoginAt: users.lastLoginAt,
+        isSuspended: users.isSuspended,
+        lastSeenAt: users.lastSeenAt,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
         postCount: users.postCount,
@@ -63,7 +63,7 @@ export class EnhancedForumStorage {
       badges: userBadgesResult.map(r => ({ ...r.userBadge, badge: r.badge })),
       unreadNotifications: Number(unreadCount?.count) || 0,
       trustLevelName: this.getTrustLevelName(userResult.trustLevel ?? 0)
-    };
+    } as UserWithProfile;
   }
 
   async updateUserStats(userId: number): Promise<void> {
@@ -160,7 +160,7 @@ export class EnhancedForumStorage {
       tags: tagsByTopic[result.topic?.id] || [],
       userCanEdit: userId ? result.topic?.authorId === userId || result.author?.role === 'admin' : false,
       userCanDelete: userId ? result.author?.role === 'admin' || result.author?.role === 'moderator' : false
-    }));
+    } as ForumTopicWithDetails));
   }
 
   async createTopicWithTags(topicData: Omit<InsertForumTopic, 'slug'>, tags: string[]): Promise<ForumTopic> {
@@ -219,7 +219,9 @@ export class EnhancedForumStorage {
       }
 
       // Update user stats
-      await this.updateUserStats(topicData.authorId);
+      if (topicData.authorId) {
+        await this.updateUserStats(topicData.authorId);
+      }
 
       return topic;
     });
@@ -319,13 +321,15 @@ export class EnhancedForumStorage {
 
         for (const mentionedUser of mentionedUsers) {
           // Create mention record
-          await tx
-            .insert(postMentions)
-            .values({
-              postId: post.id,
-              mentionedUserId: mentionedUser.id,
-              mentioningUserId: postData.authorId
-            });
+          if (postData.authorId) {
+            await tx
+              .insert(postMentions)
+              .values({
+                postId: post.id,
+                mentionedUserId: mentionedUser.id,
+                mentioningUserId: postData.authorId
+              });
+          }
 
           // Create notification
           await tx
@@ -352,7 +356,9 @@ export class EnhancedForumStorage {
         .where(eq(forumTopics.id, postData.topicId));
 
       // Update user stats
-      await this.updateUserStats(postData.authorId);
+      if (postData.authorId) {
+        await this.updateUserStats(postData.authorId);
+      }
 
       return post;
     });
@@ -390,7 +396,7 @@ export class EnhancedForumStorage {
           .where(eq(forumPosts.id, postId))
           .limit(1);
 
-        if (post && post.authorId !== userId) {
+        if (post && post.authorId && post.authorId !== userId) {
           await tx
             .insert(notifications)
             .values({

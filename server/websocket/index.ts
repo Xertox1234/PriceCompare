@@ -221,7 +221,6 @@ async function authenticationMiddleware(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as any); // Type assertion: callback signature compatible with NextFunction
 }
-}
 
 /**
  * Rate limiting middleware - prevent connection spam
