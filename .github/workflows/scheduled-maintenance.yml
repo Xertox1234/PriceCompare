@@ -139,7 +139,7 @@ Labels: security, automated`,
 
     services:
       postgres:
-        image: postgres:15
+        image: ankane/pgvector:latest
         env:
           POSTGRES_DB: test_db
           POSTGRES_USER: postgres
@@ -226,7 +226,7 @@ Labels: security, automated`,
 
     services:
       postgres:
-        image: postgres:15
+        image: ankane/pgvector:latest
         env:
           POSTGRES_DB: health_check_db
           POSTGRES_USER: postgres

@@ -19,7 +19,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: ankane/pgvector:latest
         env:
           POSTGRES_DB: migration_test_db
           POSTGRES_USER: postgres
