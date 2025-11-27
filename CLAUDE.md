@@ -97,7 +97,7 @@ The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces co
 ### Warnings (Allow commits, but flag issues):
 - ⚠️ Direct `db` imports in routes (should use `storage.ts`)
 - ⚠️ Hardcoded hex colors (should use design tokens)
-- ⚠️ Missing `createErrorResponse()` for error handling
+- ⚠️ Legacy error handling patterns (should use `sendSuccess/sendError/sendErrorFromException`)
 
 **Bypass hook** (not recommended): `git commit --no-verify`
 
@@ -366,6 +366,59 @@ const result = await executePrompt('search-query-generation', {
 
 **Never hardcode prompts** - always use the registry for version control and A/B testing.
 
+## API Response Standardization (MANDATORY)
+
+**Status:** 87% migrated (188/217 endpoints as of 2025-11-27)
+
+All API routes MUST use standardized response helpers from `server/utils/api-response.ts`:
+
+```typescript
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
+```
+
+### Response Format
+
+**Success responses:**
+```json
+{
+  "success": true,
+  "data": <your_data_here>
+}
+```
+
+**Error responses:**
+```json
+{
+  "success": false,
+  "error": "Human-readable error message",
+  "details": "Additional context (development only)"
+}
+```
+
+### Helper Functions
+
+1. **sendSuccess(res, data, status?)** - Send successful response
+   - Default status: 200
+   - Use 201 for resource creation
+   - Automatically wraps data in envelope
+
+2. **sendError(res, message, status, details?)** - Send explicit error
+   - Use for known error conditions (404, 400, etc.)
+   - Sanitizes error messages in production
+
+3. **sendErrorFromException(res, error, context)** - Send error from caught exception
+   - Handles Zod validation errors (400)
+   - Sanitizes stack traces in production
+   - Logs errors automatically
+   - Use in catch blocks
+
+### Migration Status
+
+See `TODO_API_MIGRATION.md` for remaining unmigrated endpoints. When working with routes:
+- ✅ Use new helpers: `sendSuccess/sendError/sendErrorFromException`
+- ❌ Avoid legacy: `createErrorResponse()` + manual `res.json()`
+- ❌ Never manually create envelope: `res.json({ success: true, data: ... })`
+
 ## Security Patterns (MANDATORY)
 
 ### 1. Never Expose Password Hashes
@@ -395,28 +448,71 @@ const id = parseInt(req.params.id);
 const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
 ```
 
-### 3. Sanitize Errors in Production
+### 3. Use Standardized API Response Helpers (MANDATORY)
+
+**ALL routes must use standardized response helpers** from `server/utils/api-response.ts`:
 
 ```typescript
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 
-// ❌ WRONG - leaks implementation details, verbose
-catch (error) {
-  logger.error('Operation failed:', { error: error instanceof Error ? error.message : String(error) });
-  if (error instanceof Error && error.message.includes('must be')) {
-    return res.status(400).json({ error: error.message });
+// ✅ CORRECT - Standardized success response
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+    const product = await storage.getProductById(id);
+
+    if (!product) {
+      sendError(res, 'Product not found', 404);
+      return;
+    }
+
+    sendSuccess(res, product);
+    // Response: { success: true, data: product }
+  } catch (error) {
+    sendErrorFromException(res, error, 'GetProduct');
+    // Response: { success: false, error: "message", details?: "..." }
   }
-  res.status(500).json({ error: error.message });
-}
+});
 
-// ✅ CORRECT - DRY pattern using createErrorResponse
-catch (error) {
-  const errorResponse = createErrorResponse(error, 'OperationName');
-  res.status(errorResponse.status).json({ error: errorResponse.error });
-}
+// ✅ CORRECT - 201 status for creation
+app.post('/api/products', async (req, res) => {
+  try {
+    const data = insertProductSchema.parse(req.body);
+    const product = await storage.createProduct(data);
+    sendSuccess(res, product, 201);
+  } catch (error) {
+    sendErrorFromException(res, error, 'CreateProduct');
+  }
+});
 ```
 
-**Note**: `createErrorResponse` handles logging, validation error detection (400 vs 500), and error sanitization automatically.
+**Anti-Pattern: Nested Response Wrappers (CRITICAL)**
+
+NEVER manually wrap data with `success` or `data` fields - the helpers provide the envelope:
+
+```typescript
+// ❌ WRONG - Creates double-nested envelope
+sendSuccess(res, {
+  success: true,
+  data: metrics
+});
+// Results in: { success: true, data: { success: true, data: metrics } }
+
+// ✅ CORRECT - Pass data directly
+sendSuccess(res, metrics);
+// Results in: { success: true, data: metrics }
+```
+
+**Legacy Pattern (DEPRECATED):**
+
+The old `createErrorResponse()` pattern is being phased out (87% migrated as of 2025-11-27):
+
+```typescript
+// ⚠️ DEPRECATED - Don't use in new code
+import { createErrorResponse } from '../utils/error-sanitizer';
+const errorResponse = createErrorResponse(error, 'Context');
+res.status(errorResponse.status).json({ error: errorResponse.error });
+```
 
 ### 4. Input Validation with Zod
 
@@ -424,18 +520,15 @@ Every route input must be validated:
 
 ```typescript
 import { insertProductSchema } from '@shared/schema';
+import { sendSuccess, sendErrorFromException } from '../utils/api-response';
 
 app.post('/api/products', csrfProtection, async (req, res) => {
   try {
     const data = insertProductSchema.parse(req.body);
     const product = await storage.createProduct(data);
-    res.json(product);
+    sendSuccess(res, product, 201);
   } catch (error) {
-    const errorResponse = createErrorResponse(error, 'CreateProduct');
-    res.status(errorResponse.status).json({
-      error: errorResponse.error,
-      details: errorResponse.details
-    });
+    sendErrorFromException(res, error, 'CreateProduct');
   }
 });
 ```
