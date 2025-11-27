@@ -1,0 +1,634 @@
+openapi: 3.1.0
+info:
+  title: PriceCompare API
+  version: 1.0.0
+  description: |
+    Price comparison platform API with standardized envelope responses.
+
+    ## Authentication
+    All authenticated endpoints require session-based authentication via cookies.
+
+    ## Response Format
+    All endpoints return standardized envelope responses:
+
+    **Success Response:**
+    ```json
+    {
+      "success": true,
+      "data": <response_data>,
+      "meta": {
+        "timestamp": "2025-11-27T12:00:00Z",
+        "version": "1.0",
+        "requestId": "abc123"
+      }
+    }
+    ```
+
+    **Error Response:**
+    ```json
+    {
+      "success": false,
+      "error": "Error message",
+      "details": "Stack trace (development only)"
+    }
+    ```
+
+    ## Pagination
+    Paginated endpoints include additional metadata:
+    ```json
+    {
+      "success": true,
+      "data": [...],
+      "meta": {
+        "page": 1,
+        "limit": 20,
+        "total": 100,
+        "totalPages": 5,
+        "hasMore": true,
+        "nextPage": 2,
+        "prevPage": null
+      }
+    }
+    ```
+
+servers:
+  - url: http://localhost:5000
+    description: Development server
+  - url: https://api.pricecompare.com
+    description: Production server
+
+components:
+  schemas:
+    # Base response types
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+          description: Discriminator indicating successful response
+        data:
+          description: Response payload (type varies by endpoint)
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+          description: Discriminator indicating error response
+        error:
+          type: string
+          description: Human-readable error message
+        details:
+          type: string
+          description: Detailed error information (development only)
+
+    ResponseMeta:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Response generation timestamp
+        version:
+          type: string
+          description: API version
+        requestId:
+          type: string
+          description: Unique request identifier for tracing
+
+    PaginationMeta:
+      allOf:
+        - $ref: '#/components/schemas/ResponseMeta'
+        - type: object
+          required:
+            - page
+            - limit
+            - total
+            - totalPages
+          properties:
+            page:
+              type: integer
+              minimum: 1
+              description: Current page number
+            limit:
+              type: integer
+              minimum: 1
+              maximum: 100
+              description: Items per page
+            total:
+              type: integer
+              minimum: 0
+              description: Total number of items
+            totalPages:
+              type: integer
+              minimum: 0
+              description: Total number of pages
+            hasMore:
+              type: boolean
+              description: Whether more pages are available
+            nextPage:
+              type: integer
+              nullable: true
+              description: Next page number (null if on last page)
+            prevPage:
+              type: integer
+              nullable: true
+              description: Previous page number (null if on first page)
+
+    # Domain models
+    Product:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: Unique product identifier
+        name:
+          type: string
+          description: Product name
+        brand:
+          type: string
+          nullable: true
+          description: Product brand
+        description:
+          type: string
+          nullable: true
+          description: Product description
+        category:
+          type: string
+          nullable: true
+          description: Product category
+        image:
+          type: string
+          nullable: true
+          description: Product image URL
+        model:
+          type: string
+          nullable: true
+          description: Product model number
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProductOffer:
+      type: object
+      required:
+        - id
+        - productId
+        - retailerId
+        - price
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        retailerId:
+          type: integer
+        price:
+          type: string
+          description: Current price (decimal string)
+        originalPrice:
+          type: string
+          nullable: true
+          description: Original price before discount
+        availability:
+          type: string
+          nullable: true
+          description: Stock availability status
+        rating:
+          type: string
+          nullable: true
+          description: Product rating (decimal string)
+        reviewCount:
+          type: integer
+          nullable: true
+        url:
+          type: string
+          nullable: true
+          description: Direct link to product on retailer site
+        lastUpdated:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProductWithOffers:
+      allOf:
+        - $ref: '#/components/schemas/Product'
+        - type: object
+          required:
+            - offers
+          properties:
+            offers:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductOffer'
+            bestPrice:
+              type: number
+              nullable: true
+              description: Lowest available price across all offers
+
+    Wishlist:
+      type: object
+      required:
+        - id
+        - userId
+        - name
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isPublic:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Notification:
+      type: object
+      required:
+        - id
+        - userId
+        - type
+        - title
+        - isRead
+        - createdAt
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+          enum: [price_drop, price_alert, forum, moderation, system]
+        title:
+          type: string
+        content:
+          type: string
+          nullable: true
+        relatedPostId:
+          type: integer
+          nullable: true
+        relatedTopicId:
+          type: integer
+          nullable: true
+        relatedUserId:
+          type: integer
+          nullable: true
+        relatedProductId:
+          type: integer
+          nullable: true
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Error:
+      $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+      description: Session-based authentication via HTTP-only cookie
+
+paths:
+  # Product endpoints
+  /api/products:
+    get:
+      summary: Get all products
+      description: Returns a list of all products with their offers
+      tags:
+        - Products
+      responses:
+        '200':
+          description: Successful response with product list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProductWithOffers'
+              example:
+                success: true
+                data:
+                  - id: 1
+                    name: "iPhone 15 Pro"
+                    brand: "Apple"
+                    category: "Smartphones"
+                    offers:
+                      - id: 1
+                        retailerId: 1
+                        price: "999.00"
+                        availability: "in_stock"
+                meta:
+                  timestamp: "2025-11-27T12:00:00Z"
+                  version: "1.0"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/products/{id}:
+    get:
+      summary: Get product by ID
+      description: Returns a single product with all its offers
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Product ID
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductWithOffers'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                success: false
+                error: "Product not found"
+
+  /api/products/search:
+    get:
+      summary: Search products
+      description: Search and filter products with pagination
+      tags:
+        - Products
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+          description: Search query
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter by category
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+          description: Minimum price filter
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+          description: Maximum price filter
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Items per page
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [price_low, price_high, rating, name]
+          description: Sort order
+      responses:
+        '200':
+          description: Search results with pagination
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          results:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ProductWithOffers'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  results:
+                    - id: 1
+                      name: "iPhone 15 Pro"
+                      offers: []
+                meta:
+                  page: 1
+                  limit: 20
+                  total: 100
+                  totalPages: 5
+                  hasMore: true
+                  nextPage: 2
+                  prevPage: null
+                  timestamp: "2025-11-27T12:00:00Z"
+                  version: "1.0"
+
+  # Wishlist endpoints
+  /api/wishlists:
+    get:
+      summary: Get user wishlists
+      description: Returns all wishlists for the authenticated user
+      tags:
+        - Wishlists
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: User wishlists
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          wishlists:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Wishlist'
+                          count:
+                            type: integer
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create wishlist
+      description: Create a new wishlist for the authenticated user
+      tags:
+        - Wishlists
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 1000
+                isPublic:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Wishlist created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Wishlist'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Notification endpoints
+  /api/notifications:
+    get:
+      summary: Get user notifications
+      description: Returns notifications for the authenticated user
+      tags:
+        - Notifications
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: isRead
+          in: query
+          schema:
+            type: boolean
+          description: Filter by read/unread status
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [price_drop, price_alert, forum, moderation, system]
+          description: Filter by notification type
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of notifications to return
+      responses:
+        '200':
+          description: User notifications
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          notifications:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Notification'
+                          count:
+                            type: integer
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Products
+    description: Product catalog and search
+  - name: Wishlists
+    description: User wishlist management
+  - name: Notifications
+    description: User notification system
+  - name: Authentication
+    description: User authentication and session management
+  - name: Admin
+    description: Administrative endpoints (admin access only)
