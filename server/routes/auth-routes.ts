@@ -8,8 +8,8 @@ import { passport, createUser, findUserByEmail, findUserById, hashPassword, User
 import { generateCsrfToken } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
 import { validatePassword } from "../utils/validation-helpers";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import {
   createPasswordResetToken,
   validatePasswordResetToken,
@@ -75,16 +75,14 @@ export function registerAuthRoutes(app: Express): void {
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);
       if (!passwordValidation.valid) {
-        res.status(400).json({
-          error: passwordValidation.errors[0]
-        });
+        sendError(res, passwordValidation.errors[0], 400);
         return;
       }
 
       // Check if user already exists
       const existingUser = await findUserByEmail(email);
       if (existingUser) {
-        res.status(400).json({ error: 'User already exists' });
+        sendError(res, 'User already exists', 400);
         return;
       }
 
@@ -111,23 +109,20 @@ export function registerAuthRoutes(app: Express): void {
       req.login(user as Express.User, (err): void => {
         if (err) {
           logger.error('Login after registration failed', { error: err instanceof Error ? err.message : String(err), userId: user.id });
-          const errorResponse = createErrorResponse(err, 'LoginAfterRegistration');
-          res.status(errorResponse.status).json({ error: errorResponse.error });
+          sendErrorFromException(res, err, 'LoginAfterRegistration');
           return;
         }
-        res.json({
-          success: true,
+        sendSuccess(res, {
           user: {
             id: user.id,
             username: user.username,
             email: user.email,
             role: user.role || 'user'
           }
-        });
+        }, 201);
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'Register');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'Register');
     }
   });
 
@@ -153,12 +148,8 @@ export function registerAuthRoutes(app: Express): void {
           }
         });
 
-        return res.status(401).json({
-          error: info?.message || 'Authentication failed',
-          locked: info?.locked,
-          remainingTime: info?.remainingTime,
-          remainingAttempts: info?.remainingAttempts,
-        });
+        sendError(res, info?.message || 'Authentication failed', 401);
+        return;
       }
 
       // Log in the user
@@ -177,8 +168,7 @@ export function registerAuthRoutes(app: Express): void {
           success: true,
         });
 
-        res.json({
-          success: true,
+        sendSuccess(res, {
           user: {
             id: user.id,
             username: user.username,
@@ -198,8 +188,7 @@ export function registerAuthRoutes(app: Express): void {
     req.logout((err): void => {
       if (err) {
         logger.error('Logout error', { error: err instanceof Error ? err.message : String(err), userId: user?.id });
-        const errorResponse = createErrorResponse(err, 'Logout');
-        res.status(errorResponse.status).json({ error: errorResponse.error });
+        sendErrorFromException(res, err, 'Logout');
         return;
       }
 
@@ -213,7 +202,7 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
 
-      res.json({ success: true });
+      sendSuccess(res, { success: true });
     });
   });
 
@@ -235,8 +224,7 @@ export function registerAuthRoutes(app: Express): void {
           logPasswordResetAttempt(req, email, user, false, "Rate limit exceeded");
 
           // SECURITY: Still return success to prevent email enumeration
-          res.json({
-            success: true,
+          sendSuccess(res, {
             message: "If an account exists with this email, a password reset link has been sent.",
           });
           return;
@@ -246,9 +234,7 @@ export function registerAuthRoutes(app: Express): void {
         if (!emailService.isReady()) {
           logPasswordResetAttempt(req, email, user, false, "Email service not configured");
 
-          res.status(503).json({
-            error: "Password reset is temporarily unavailable. Please contact support.",
-          });
+          sendError(res, "Password reset is temporarily unavailable. Please contact support.", 503);
           return;
         }
 
@@ -280,15 +266,13 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       // SECURITY: Always return the same response regardless of whether user exists
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: "If an account exists with this email, a password reset link has been sent.",
       });
     } catch (error: unknown) {
       logger.error("Forgot password error", { error: error instanceof Error ? error.message : String(error) });
       // SECURITY: Don't reveal internal errors
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: "If an account exists with this email, a password reset link has been sent.",
       });
     }
@@ -300,17 +284,14 @@ export function registerAuthRoutes(app: Express): void {
       const { token } = req.params;
 
       if (!token) {
-        res.status(400).json({ error: "Token is required" });
+        sendError(res, "Token is required", 400);
         return;
       }
 
       const tokenRecord = await validatePasswordResetToken(token);
 
       if (!tokenRecord) {
-        res.status(400).json({
-          error: "Invalid or expired password reset token",
-          expired: true,
-        });
+        sendError(res, "Invalid or expired password reset token", 400);
         return;
       }
 
@@ -318,21 +299,17 @@ export function registerAuthRoutes(app: Express): void {
       const user = await getUserByResetToken(token);
 
       if (!user) {
-        res.status(400).json({
-          error: "Invalid password reset token",
-        });
+        sendError(res, "Invalid password reset token", 400);
         return;
       }
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         email: user.email,
         username: user.username,
       });
     } catch (error: unknown) {
       logger.error("Validate reset token error", { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ValidateResetToken');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'ValidateResetToken');
     }
   });
 
@@ -345,9 +322,7 @@ export function registerAuthRoutes(app: Express): void {
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);
       if (!passwordValidation.valid) {
-        res.status(400).json({
-          error: passwordValidation.errors[0],
-        });
+        sendError(res, passwordValidation.errors[0], 400);
         return;
       }
 
@@ -360,9 +335,7 @@ export function registerAuthRoutes(app: Express): void {
           message: "Invalid or expired token",
         });
 
-        res.status(400).json({
-          error: "Invalid or expired password reset token",
-        });
+        sendError(res, "Invalid or expired password reset token", 400);
         return;
       }
 
@@ -407,21 +380,19 @@ export function registerAuthRoutes(app: Express): void {
         );
       }
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: "Password has been reset successfully. You can now log in with your new password.",
       });
     } catch (error: unknown) {
       logger.error("Reset password error", { error: error instanceof Error ? error.message : String(error) });
-      const errorResponse = createErrorResponse(error, 'ResetPassword');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'ResetPassword');
     }
   });
 
   // Get current user
   app.get("/api/auth/user", async (req, res): Promise<void> => {
     if (!isAuthenticated(req)) {
-      res.status(401).json({ error: 'Not authenticated' });
+      sendError(res, 'Not authenticated', 401);
       return;
     }
 
@@ -437,7 +408,7 @@ export function registerAuthRoutes(app: Express): void {
     // SECURITY: Include CSRF token in response for client convenience
     const csrfToken = generateCsrfToken(req);
 
-    res.json({
+    sendSuccess(res, {
       id: user.id,
       username: user.username,
       email: user.email,
