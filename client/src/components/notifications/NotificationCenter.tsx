@@ -109,7 +109,7 @@ export function NotificationCenter() {
 
   // Count unread smart notifications
   const unreadSmartCount = smartNotifications.filter(n => !n.isRead).length;
-  const unreadGeneralCount = stats?.data.unread || 0;
+  const unreadGeneralCount = stats?.unread || 0;
 
   const handleSnooze = (id: number, duration: number) => {
     snoozeNotification.mutate({ id, duration });
@@ -225,14 +225,14 @@ export function NotificationCenter() {
                 <Skeleton key={i} className="h-20 w-full" />
               ))}
             </div>
-          ) : generalData?.data.length === 0 ? (
+          ) : generalData?.notifications.length === 0 ? (
             <div className="text-center py-12 bg-muted/20 rounded-lg">
               <Bell className="w-12 h-12 mx-auto text-muted-foreground mb-3" aria-hidden="true" />
               <p className="text-lg font-medium text-muted-foreground">No notifications</p>
             </div>
           ) : (
             <div className="space-y-2" role="list" aria-label="General notifications">
-              {generalData?.data.map(notification => (
+              {generalData?.notifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`p-4 rounded-lg border ${

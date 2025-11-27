@@ -27,17 +27,17 @@ export function NotificationPreferences() {
   });
 
   useEffect(() => {
-    if (data?.data) {
+    if (data) {
       setPrefs({
-        priceDropEnabled: data.data.priceDropEnabled,
-        priceDropThresholdPercent: data.data.priceDropThresholdPercent,
-        priceDropThresholdAmount: data.data.priceDropThresholdAmount,
-        priceAlertEnabled: data.data.priceAlertEnabled,
-        emailEnabled: data.data.emailEnabled,
-        inAppEnabled: data.data.inAppEnabled,
-        maxDailyNotifications: data.data.maxDailyNotifications,
-        quietHoursStart: data.data.quietHoursStart,
-        quietHoursEnd: data.data.quietHoursEnd,
+        priceDropEnabled: data.priceDropEnabled,
+        priceDropThresholdPercent: data.priceDropThresholdPercent,
+        priceDropThresholdAmount: data.priceDropThresholdAmount,
+        priceAlertEnabled: data.priceAlertEnabled,
+        emailEnabled: data.emailEnabled,
+        inAppEnabled: data.inAppEnabled,
+        maxDailyNotifications: data.maxDailyNotifications,
+        quietHoursStart: data.quietHoursStart,
+        quietHoursEnd: data.quietHoursEnd,
       });
     }
   }, [data]);
