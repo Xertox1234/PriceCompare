@@ -3,7 +3,7 @@ import { logger } from "../utils/logger";
 import { z } from "zod";
 import * as smartAlertsService from "../services/smart-alerts-service";
 import { parseIntSafe, parseFloatSafe } from "../utils/validation-helpers";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { withAuth } from "./helpers";
 import { csrfProtection } from "../middleware/security";
 
@@ -28,7 +28,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         : undefined;
 
       if (!currentPrice) {
-        res.status(400).json({ error: "Current price is required" });
+        sendError(res, "Current price is required", 400);
         return;
       }
 
@@ -37,14 +37,12 @@ export function registerSmartAlertsRoutes(app: Express) {
         currentPrice
       );
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: suggestions,
         count: suggestions.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GenerateSmartSuggestions');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GenerateSmartSuggestions');
     }
   });
 
@@ -57,14 +55,12 @@ export function registerSmartAlertsRoutes(app: Express) {
       const user = req.user!; // Auth verified by withAuth middleware
       const alerts = await smartAlertsService.generatePredictiveAlerts(user.id);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: alerts,
         count: alerts.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GeneratePredictiveAlerts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GeneratePredictiveAlerts');
     }
   }));
 
@@ -77,14 +73,12 @@ export function registerSmartAlertsRoutes(app: Express) {
       const user = req.user!; // Auth verified by withAuth middleware
       const effectiveness = await smartAlertsService.getAlertEffectiveness(user.id);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: effectiveness,
         count: effectiveness.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetAlertEffectiveness');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetAlertEffectiveness');
     }
   }));
 
@@ -97,13 +91,9 @@ export function registerSmartAlertsRoutes(app: Express) {
       const user = req.user!; // Auth verified by withAuth middleware
       const analytics = await smartAlertsService.getAlertAnalytics(user.id);
 
-      res.json({
-        success: true,
-        data: analytics,
-      });
+      sendSuccess(res, analytics);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetAlertAnalytics');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetAlertAnalytics');
     }
   }));
 
@@ -142,17 +132,9 @@ export function registerSmartAlertsRoutes(app: Express) {
         suggestion
       );
 
-      res.json({
-        success: true,
-        data: alert,
-      });
+      sendSuccess(res, alert);
     } catch (error: unknown) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Invalid data", details: error.issues });
-        return;
-      }
-      const errorResponse = createErrorResponse(error, 'CreateSuggestedAlert');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CreateSuggestedAlert');
     }
   }));
 }

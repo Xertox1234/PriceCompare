@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
 import * as communityService from "../services/community-service";
 import { parseIntSafe, parseIntOptional } from "../utils/validation-helpers";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { withAuth } from "./helpers";
 import { csrfProtection } from "../middleware/security";
 import { z } from "zod";
@@ -83,13 +83,9 @@ export function registerCommunityRoutes(app: Express) {
 
       const watch = await communityService.addProductWatch(user.id, productId);
 
-      res.json(watch);
+      sendSuccess(res, watch);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AddProductWatch');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'AddProductWatch');
     }
   }));
 
@@ -105,17 +101,13 @@ export function registerCommunityRoutes(app: Express) {
       const removed = await communityService.removeProductWatch(user.id, productId);
 
       if (!removed) {
-        res.status(404).json({ error: "Watch not found" });
+        sendError(res, "Watch not found", 404);
         return;
       }
 
       res.status(204).send();
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'RemoveProductWatch');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'RemoveProductWatch');
     }
   }));
 
@@ -128,16 +120,12 @@ export function registerCommunityRoutes(app: Express) {
       const user = req.user!; // Auth verified by withAuth middleware
       const productIds = await communityService.getUserWatchedProducts(user.id);
 
-      res.json({
+      sendSuccess(res, {
         productIds,
         count: productIds.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatches');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchWatches');
     }
   }));
 
@@ -151,13 +139,9 @@ export function registerCommunityRoutes(app: Express) {
 
       const count = await communityService.getProductWatchCount(productId);
 
-      res.json({ count });
+      sendSuccess(res, { count });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchCount');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchWatchCount');
     }
   });
 
@@ -172,13 +156,9 @@ export function registerCommunityRoutes(app: Express) {
 
       const isWatching = await communityService.isUserWatchingProduct(user.id, productId);
 
-      res.json({ isWatching });
+      sendSuccess(res, { isWatching });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CheckWatchStatus');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'CheckWatchStatus');
     }
   }));
 
@@ -191,16 +171,12 @@ export function registerCommunityRoutes(app: Express) {
       const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 10;
       const products = await communityService.getMostWatchedProducts(limit);
 
-      res.json({
+      sendSuccess(res, {
         products,
         count: products.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchMostWatched');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchMostWatched');
     }
   });
 
@@ -213,13 +189,9 @@ export function registerCommunityRoutes(app: Express) {
       const user = req.user!; // Auth verified by withAuth middleware
       const reputation = await communityService.getUserReputation(user.id);
 
-      res.json(reputation);
+      sendSuccess(res, reputation);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchReputation');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchReputation');
     }
   }));
 
@@ -232,16 +204,12 @@ export function registerCommunityRoutes(app: Express) {
       const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 10;
       const leaderboard = await communityService.getLeaderboard(limit);
 
-      res.json({
+      sendSuccess(res, {
         leaderboard,
         count: leaderboard.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchLeaderboard');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchLeaderboard');
     }
   });
 
@@ -254,16 +222,12 @@ export function registerCommunityRoutes(app: Express) {
       const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 10;
       const deals = await communityService.getRecentDealSpottings(limit);
 
-      res.json({
+      sendSuccess(res, {
         deals,
         count: deals.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchRecentDeals');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchRecentDeals');
     }
   });
 
@@ -288,10 +252,9 @@ export function registerCommunityRoutes(app: Express) {
         validatedData.icon ?? undefined
       );
 
-      res.status(201).json(watchList);
+      sendSuccess(res, watchList, 201);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateWatchList');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'CreateWatchList');
     }
   }));
 
@@ -304,16 +267,12 @@ export function registerCommunityRoutes(app: Express) {
       const user = req.user!;
       const watchLists = await communityService.getUserWatchLists(user.id);
 
-      res.json({
+      sendSuccess(res, {
         watchLists,
         count: watchLists.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchLists');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchWatchLists');
     }
   }));
 
@@ -329,17 +288,13 @@ export function registerCommunityRoutes(app: Express) {
       const watchList = await communityService.getWatchListById(user.id, listId);
 
       if (!watchList) {
-        res.status(404).json({ error: "Watch list not found" });
+        sendError(res, "Watch list not found", 404);
         return;
       }
 
-      res.json(watchList);
+      sendSuccess(res, watchList);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchWatchList');
     }
   }));
 
@@ -356,14 +311,13 @@ export function registerCommunityRoutes(app: Express) {
       const updated = await communityService.updateWatchList(user.id, listId, validatedData);
 
       if (!updated) {
-        res.status(404).json({ error: "Watch list not found" });
+        sendError(res, "Watch list not found", 404);
         return;
       }
 
-      res.json(updated);
+      sendSuccess(res, updated);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateWatchList');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'UpdateWatchList');
     }
   }));
 
@@ -379,17 +333,13 @@ export function registerCommunityRoutes(app: Express) {
       const deleted = await communityService.deleteWatchList(user.id, listId);
 
       if (!deleted) {
-        res.status(404).json({ error: "Watch list not found or cannot be deleted" });
+        sendError(res, "Watch list not found or cannot be deleted", 404);
         return;
       }
 
       res.status(204).send();
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DeleteWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'DeleteWatchList');
     }
   }));
 
@@ -404,16 +354,12 @@ export function registerCommunityRoutes(app: Express) {
 
       const products = await communityService.getWatchListProducts(user.id, listId);
 
-      res.json({
+      sendSuccess(res, {
         products,
         count: products.length,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'FetchWatchListProducts');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'FetchWatchListProducts');
     }
   }));
 
@@ -430,14 +376,13 @@ export function registerCommunityRoutes(app: Express) {
       const updated = await communityService.updateProductWatch(user.id, watchId, validatedData);
 
       if (!updated) {
-        res.status(404).json({ error: "Product watch not found" });
+        sendError(res, "Product watch not found", 404);
         return;
       }
 
-      res.json(updated);
+      sendSuccess(res, updated);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateProductWatch');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'UpdateProductWatch');
     }
   }));
 
@@ -456,10 +401,9 @@ export function registerCommunityRoutes(app: Express) {
         validatedData.targetListId ?? null
       );
 
-      res.json({ movedCount });
+      sendSuccess(res, { movedCount });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'BulkMoveProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'BulkMoveProducts');
     }
   }));
 
@@ -477,10 +421,9 @@ export function registerCommunityRoutes(app: Express) {
         validatedData.productWatchIds
       );
 
-      res.json({ deletedCount });
+      sendSuccess(res, { deletedCount });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'BulkDeleteProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'BulkDeleteProducts');
     }
   }));
 
@@ -493,13 +436,9 @@ export function registerCommunityRoutes(app: Express) {
       const user = req.user!;
       const exportData = await communityService.exportWatchLists(user.id);
 
-      res.json(exportData);
+      sendSuccess(res, exportData);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ExportWatchLists');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        ...(errorResponse.details && { details: errorResponse.details })
-      });
+      sendErrorFromException(res, error, 'ExportWatchLists');
     }
   }));
 
@@ -514,10 +453,9 @@ export function registerCommunityRoutes(app: Express) {
 
       const result = await communityService.importWatchLists(user.id, validatedData);
 
-      res.json(result);
+      sendSuccess(res, result);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ImportWatchLists');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'ImportWatchLists');
     }
   }));
 }
