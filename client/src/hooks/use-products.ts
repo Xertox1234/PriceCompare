@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ProductWithOffers, SearchFilters } from "@shared/schema";
 import { useDebounce } from "./use-debounce";
+import { apiRequest } from "@/lib/queryClient";
 
 export function useProducts(filters: SearchFilters) {
   // Debounce search query to reduce API calls
@@ -35,6 +36,7 @@ export function useProducts(filters: SearchFilters) {
 
   return useQuery<ProductWithOffers[]>({
     queryKey: [endpoint],
+    queryFn: () => apiRequest<ProductWithOffers[]>(endpoint),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
