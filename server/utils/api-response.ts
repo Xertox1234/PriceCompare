@@ -25,6 +25,12 @@ export interface PaginationMeta {
   prevPage?: number | null;
 }
 
+export interface ApiResponseMeta {
+  timestamp: string;
+  version: string;
+  requestId?: string;
+}
+
 /**
  * Success response helper
  * Sends standardized success response with data
@@ -32,16 +38,34 @@ export interface PaginationMeta {
  * @param res - Express response object
  * @param data - Response data (any type)
  * @param statusCode - HTTP status code (default: 200)
+ * @param meta - Optional additional metadata
  */
 export function sendSuccess<T>(
   res: Response,
   data: T,
-  statusCode: number = 200
+  statusCode: number = 200,
+  meta?: Partial<ApiResponseMeta>
 ): void {
-  res.status(statusCode).json({
+  const response: {
+    success: true;
+    data: T;
+    meta?: ApiResponseMeta;
+  } = {
     success: true,
     data,
-  });
+  };
+
+  // Add metadata if provided or include basic metadata
+  if (meta || res.locals.requestId) {
+    response.meta = {
+      timestamp: new Date().toISOString(),
+      version: '1.0',
+      requestId: res.locals.requestId,
+      ...meta,
+    };
+  }
+
+  res.status(statusCode).json(response);
 }
 
 /**

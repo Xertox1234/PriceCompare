@@ -97,9 +97,6 @@ export function registerProductRoutes(app: Express): void {
         limit: pagination.limit,
         total: pagination.total,
         totalPages: pagination.totalPages,
-        hasMore: pagination.hasMore,
-        nextPage: pagination.nextPage,
-        prevPage: pagination.prevPage,
       });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'SearchProducts');
