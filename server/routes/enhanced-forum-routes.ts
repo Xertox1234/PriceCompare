@@ -11,7 +11,7 @@ import {
 import { z } from "zod";
 import type { AuthenticatedRequest } from "@shared/types";
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { csrfProtection } from "../middleware/security";
 
 // Validation schemas for enhanced forum routes
@@ -61,14 +61,13 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userProfile = await enhancedForumStorage.getUserWithProfile(userId);
       
       if (!userProfile) {
-        res.status(404).json({ error: "User not found" });
+        sendError(res, "User not found", 404);
         return;
       }
 
-      res.json(userProfile);
+      sendSuccess(res, userProfile);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetUserProfile');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetUserProfile');
     }
   });
 
@@ -85,10 +84,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       });
 
       const updatedProfile = await enhancedForumStorage.getUserWithProfile(req.user!.id);
-      res.json(updatedProfile);
+      sendSuccess(res, updatedProfile);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateUserProfile');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'UpdateUserProfile');
     }
   });
 
@@ -101,10 +99,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userId = req.user?.id;
 
       const topics = await enhancedForumStorage.getTopicsWithDetails(categoryId, productId, userId);
-      res.json(topics);
+      sendSuccess(res, topics);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetEnhancedTopics');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetEnhancedTopics');
     }
   });
 
@@ -127,10 +124,9 @@ export function registerEnhancedForumRoutes(app: Express) {
         validatedData.tags
       );
 
-      res.status(201).json(topic);
+      sendSuccess(res, topic, 201);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateEnhancedTopic');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'CreateEnhancedTopic');
     }
   });
 
@@ -142,10 +138,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       const userId = req.user?.id;
 
       const posts = await enhancedForumStorage.getPostsWithDetails(topicId, userId);
-      res.json(posts);
+      sendSuccess(res, posts);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetEnhancedPosts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetEnhancedPosts');
     }
   });
 
@@ -154,17 +149,14 @@ export function registerEnhancedForumRoutes(app: Express) {
       // Validate with both the shared schema and our enhanced schema for mentions
       const baseValidation = validateRequestBody(insertForumPostSchema, req.body);
       if (!baseValidation.success) {
-        res.status(400).json({ error: baseValidation.errors });
+        sendError(res, baseValidation.errors, 400);
         return;
       }
 
       // Validate mentions array specifically
       const enhancedValidation = createEnhancedPostSchema.safeParse(req.body);
       if (!enhancedValidation.success) {
-        res.status(400).json({
-          error: enhancedValidation.error.issues.map((e: { message: string }) => e.message),
-          details: enhancedValidation.error.issues,
-        });
+        sendError(res, enhancedValidation.error.issues.map((e: { message: string }) => e.message), 400, enhancedValidation.error.issues);
         return;
       }
 
@@ -184,10 +176,9 @@ export function registerEnhancedForumRoutes(app: Express) {
         mentions
       );
 
-      res.status(201).json(post);
+      sendSuccess(res, post, 201);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreateEnhancedPost');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'CreateEnhancedPost');
     }
   });
 
@@ -197,10 +188,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       // SECURITY: Safe integer parsing with validation
       const postId = parseIntSafe(req.params.id, 'postId', { min: 1 });
       const result = await enhancedForumStorage.togglePostLike(postId, req.user!.id);
-      res.json(result);
+      sendSuccess(res, result);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TogglePostLike');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'TogglePostLike');
     }
   });
 
@@ -209,10 +199,9 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const unreadOnly = req.query.unreadOnly === 'true';
       const notifications = await enhancedForumStorage.getUserNotifications(req.user!.id, unreadOnly);
-      res.json(notifications);
+      sendSuccess(res, notifications);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetNotifications');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetNotifications');
     }
   });
 
@@ -220,10 +209,9 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const validatedData = markNotificationsReadSchema.parse(req.body);
       await enhancedForumStorage.markNotificationsAsRead(req.user!.id, validatedData.notificationIds);
-      res.json({ success: true });
+      sendSuccess(res, {});
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'MarkNotificationsRead');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'MarkNotificationsRead');
     }
   });
 
@@ -231,10 +219,9 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.get("/api/messages", requireAuth, async (req: Request, res: Response) => {
     try {
       const messages = await enhancedForumStorage.getUserPrivateMessages(req.user!.id);
-      res.json(messages);
+      sendSuccess(res, messages);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetPrivateMessages');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetPrivateMessages');
     }
   });
 
@@ -242,7 +229,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const validation = validateRequestBody(insertPrivateMessageSchema, req.body);
       if (!validation.success) {
-        res.status(400).json({ error: validation.errors });
+        sendError(res, validation.errors, 400);
         return;
       }
 
@@ -251,10 +238,9 @@ export function registerEnhancedForumRoutes(app: Express) {
         senderId: req.user!.id
       });
 
-      res.status(201).json(message);
+      sendSuccess(res, message, 201);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'CreatePrivateMessage');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CreatePrivateMessage');
     }
   });
 
@@ -264,10 +250,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       // SECURITY: Safe integer parsing with validation and cap
       const limit = req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 20;
       const tags = await enhancedForumStorage.getPopularTags(limit);
-      res.json(tags);
+      sendSuccess(res, tags);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetPopularTags');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetPopularTags');
     }
   });
 
@@ -275,15 +260,14 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       const query = req.query.q as string;
       if (!query) {
-        res.status(400).json({ error: "Search query required" });
+        sendError(res, "Search query required", 400);
         return;
       }
 
       const tags = await enhancedForumStorage.searchTags(query);
-      res.json(tags);
+      sendSuccess(res, tags);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SearchTags');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'SearchTags');
     }
   });
 
@@ -292,7 +276,7 @@ export function registerEnhancedForumRoutes(app: Express) {
     try {
       // Only admins can award badges
       if (req.user!.role !== 'admin') {
-        res.status(403).json({ error: "Admin access required" });
+        sendError(res, "Admin access required", 403);
         return;
       }
 
@@ -301,10 +285,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       const validatedData = awardBadgeSchema.parse(req.body);
 
       const userBadge = await enhancedForumStorage.awardBadge(userId, validatedData.badgeId);
-      res.status(201).json(userBadge);
+      sendSuccess(res, userBadge, 201);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'AwardBadge');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'AwardBadge');
     }
   });
 
@@ -316,15 +299,14 @@ export function registerEnhancedForumRoutes(app: Express) {
       const categoryId = parseIntOptional(req.query.categoryId as string, 'categoryId', { min: 1 });
 
       if (!query) {
-        res.status(400).json({ error: "Search query required" });
+        sendError(res, "Search query required", 400);
         return;
       }
 
       const posts = await enhancedForumStorage.searchPosts(query, categoryId);
-      res.json(posts);
+      sendSuccess(res, posts);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SearchPosts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'SearchPosts');
     }
   });
 
@@ -337,10 +319,9 @@ export function registerEnhancedForumRoutes(app: Express) {
 
       // This would require additional storage methods for leaderboard queries
       // For now, return a simple response
-      res.json({ message: "Leaderboard functionality coming soon" });
+      sendSuccess(res, { message: "Leaderboard functionality coming soon" });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetLeaderboard');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetLeaderboard');
     }
   });
 
@@ -348,7 +329,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.put("/api/users/:id/trust-level", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user!.role !== 'admin') {
-        res.status(403).json({ error: "Admin access required" });
+        sendError(res, "Admin access required", 403);
         return;
       }
 
@@ -359,10 +340,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       await storage.updateUserTrustLevel(userId, validatedData.trustLevel);
       const updatedUser = await enhancedForumStorage.getUserWithProfile(userId);
 
-      res.json(updatedUser);
+      sendSuccess(res, updatedUser);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'UpdateTrustLevel');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'UpdateTrustLevel');
     }
   });
 
@@ -370,7 +350,7 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.put("/api/users/:id/suspend", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (!['admin', 'moderator'].includes(req.user!.role ?? '')) {
-        res.status(403).json({ error: "Moderator access required" });
+        sendError(res, "Moderator access required", 403);
         return;
       }
 
@@ -381,10 +361,9 @@ export function registerEnhancedForumRoutes(app: Express) {
       // UX: Storage layer handles transaction for suspension + notification atomically
       await storage.suspendUser(userId, validatedData.reason || 'Your account has been suspended', req.user!.id);
 
-      res.json({ success: true });
+      sendSuccess(res, {});
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'SuspendUser');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'SuspendUser');
     }
   });
 
@@ -392,15 +371,14 @@ export function registerEnhancedForumRoutes(app: Express) {
   app.post("/api/admin/initialize-badges", csrfProtection, requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user!.role !== 'admin') {
-        res.status(403).json({ error: "Admin access required" });
+        sendError(res, "Admin access required", 403);
         return;
       }
 
       await enhancedForumStorage.initializeDefaultBadges();
-      res.json({ success: true, message: "Default badges initialized" });
+      sendSuccess(res, { message: "Default badges initialized" });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'InitializeBadges');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'InitializeBadges');
     }
   });
 }

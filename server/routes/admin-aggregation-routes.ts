@@ -9,7 +9,7 @@ import type { Express, Request, Response } from 'express';
 import { z } from 'zod';
 import { priceAggregationService } from '../services/price-aggregation-service';
 import { logger } from '../utils/logger';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendErrorFromException } from '../utils/api-response';
 import { withAdmin } from './helpers';
 import { productIdSchema } from '../services/aggregation-validation';
 
@@ -80,7 +80,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         true // force re-aggregation
       );
 
-      res.json({
+      sendSuccess(res, {
         daysAggregated,
         message: `Successfully re-aggregated ${daysAggregated} days`,
         startDate: startDate.toISOString().split('T')[0],
@@ -92,11 +92,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         body: req.body,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'ForceAggregation');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'ForceAggregation');
     }
   }));
 
@@ -126,7 +122,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
 
       const gaps = await priceAggregationService.detectGaps(startDate, endDate);
 
-      res.json({
+      sendSuccess(res, {
         gaps,
         count: gaps.length,
         message: gaps.length === 0
@@ -139,11 +135,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         body: req.body,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'DetectGaps');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'DetectGaps');
     }
   }));
 
@@ -173,7 +165,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
 
       const daysFilled = await priceAggregationService.fillGaps(startDate, endDate);
 
-      res.json({
+      sendSuccess(res, {
         daysFilled,
         message: daysFilled === 0
           ? 'No gaps found to fill'
@@ -187,11 +179,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         body: req.body,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'FillGaps');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'FillGaps');
     }
   }));
 
@@ -219,7 +207,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
 
       await priceAggregationService.calculateProductAggregates(productId);
 
-      res.json({
+      sendSuccess(res, {
         message: `Successfully re-aggregated product ${productId}`,
         productId,
       });
@@ -229,11 +217,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
         productId: req.body.productId,
         adminUser: req.user?.username,
       });
-      const errorResponse = createErrorResponse(error, 'SingleProductAggregation');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'SingleProductAggregation');
     }
   }));
 }

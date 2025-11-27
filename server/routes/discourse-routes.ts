@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import crypto from 'crypto';
 import type { User } from '@shared/schema';
 import { requireAuth } from '../auth';
@@ -103,15 +103,15 @@ export function registerDiscourseRoutes(app: Express): void {
   app.get("/discourse/sso", async (req: Request, res: Response) => {
     try {
       const { sso, sig } = req.query;
-      
+
       if (!sso || !sig) {
-        res.status(400).json({ error: 'Missing SSO parameters' });
+        sendError(res, 'Missing SSO parameters', 400);
         return;
       }
 
       // Verify the request signature
       if (!verifySSO(sso as string, sig as string)) {
-        res.status(403).json({ error: 'Invalid SSO signature' });
+        sendError(res, 'Invalid SSO signature', 403);
         return;
       }
 
@@ -129,20 +129,19 @@ export function registerDiscourseRoutes(app: Express): void {
       const returnUrl = params.return_sso_url;
 
       if (!nonce || !returnUrl) {
-        res.status(400).json({ error: 'Missing required SSO parameters' });
+        sendError(res, 'Missing required SSO parameters', 400);
         return;
       }
 
       // Generate SSO response
       const { payload, signature } = generateDiscourseSSO(req.user as User, nonce, returnUrl);
-      
+
       // Redirect back to Discourse with SSO response
       const redirectUrl = `${returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
       res.redirect(redirectUrl);
-      
+
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseSSOLogin');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DiscourseSSOLogin');
     }
   });
 
@@ -157,10 +156,7 @@ export function registerDiscourseRoutes(app: Express): void {
 
       if (!signature) {
         logger.warn('Discourse webhook rejected: Missing signature header');
-        res.status(401).json({
-          error: 'Missing webhook signature',
-          message: 'X-Discourse-Event-Signature header is required'
-        });
+        sendError(res, 'Missing webhook signature - X-Discourse-Event-Signature header is required', 401);
         return;
       }
 
@@ -169,10 +165,7 @@ export function registerDiscourseRoutes(app: Express): void {
           receivedSignature: signature.substring(0, 10) + '...',
           eventType: req.body.event_type,
         });
-        res.status(403).json({
-          error: 'Invalid webhook signature',
-          message: 'Webhook signature verification failed'
-        });
+        sendError(res, 'Invalid webhook signature - Webhook signature verification failed', 403);
         return;
       }
 
@@ -186,10 +179,9 @@ export function registerDiscourseRoutes(app: Express): void {
         logger.info('Discourse user created:', { username: user.username, email: user.email });
       }
 
-      res.json({ success: true, event_type });
+      sendSuccess(res, { event_type });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseWebhook');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DiscourseWebhook');
     }
   });
 
@@ -199,7 +191,7 @@ export function registerDiscourseRoutes(app: Express): void {
   app.get("/api/admin/discourse/test-sso", requireAuth, async (req: Request, res: Response) => {
     try {
       if (req.user?.role !== 'admin') {
-        res.status(403).json({ error: 'Admin access required' });
+        sendError(res, 'Admin access required', 403);
         return;
       }
 
@@ -207,17 +199,15 @@ export function registerDiscourseRoutes(app: Express): void {
       const testReturnUrl = 'http://localhost:3000/session/sso_login';
 
       const { payload, signature } = generateDiscourseSSO(req.user as User, testNonce, testReturnUrl);
-      
-      res.json({
-        success: true,
+
+      sendSuccess(res, {
         test_payload: payload,
         test_signature: signature,
         sso_secret_configured: !!process.env.DISCOURSE_SSO_SECRET,
         discourse_url_configured: !!process.env.DISCOURSE_URL
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseSSOTest');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DiscourseSSOTest');
     }
   });
 
@@ -226,16 +216,12 @@ export function registerDiscourseRoutes(app: Express): void {
    */
   app.get("/api/discourse/health", async (req: Request, res: Response) => {
     try {
-      res.json({
+      sendSuccess(res, {
         status: 'healthy',
         timestamp: new Date().toISOString()
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'DiscourseHealthCheck');
-      res.status(errorResponse.status).json({
-        status: 'unhealthy',
-        error: errorResponse.error
-      });
+      sendErrorFromException(res, error, 'DiscourseHealthCheck');
     }
   });
 }

@@ -22,7 +22,7 @@ import {
 import { logger } from '../utils/logger';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { withAdmin } from './helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendErrorFromException } from '../utils/api-response';
 import { z } from 'zod';
 
 // Validation schema for cache warming options
@@ -53,10 +53,9 @@ export function registerCacheRoutes(app: Express): void {
   app.get('/api/admin/cache/stats', withAdmin(async (req, res) => {
     try {
       const stats = await getCacheStatistics();
-      res.json(stats);
+      sendSuccess(res, stats);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetCacheStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetCacheStats');
     }
   }));
 
@@ -73,15 +72,14 @@ export function registerCacheRoutes(app: Express): void {
 
       const topProducts = await popularityTracker.getTopProducts(limit, window);
 
-      res.json({
+      sendSuccess(res, {
         window,
         limit,
         count: topProducts.length,
         products: topProducts,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetTopProducts');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetTopProducts');
     }
   }));
 
@@ -97,14 +95,13 @@ export function registerCacheRoutes(app: Express): void {
 
       const topSearches = await popularityTracker.getTopSearchQueries(limit);
 
-      res.json({
+      sendSuccess(res, {
         limit,
         count: topSearches.length,
         queries: topSearches,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetTopSearches');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetTopSearches');
     }
   }));
 
@@ -121,7 +118,7 @@ export function registerCacheRoutes(app: Express): void {
       const dailyViews = await popularityTracker.getProductViewCount(productId, 'DAILY');
       const weeklyViews = await popularityTracker.getProductViewCount(productId, 'WEEKLY');
 
-      res.json({
+      sendSuccess(res, {
         productId,
         tier,
         views: {
@@ -131,8 +128,7 @@ export function registerCacheRoutes(app: Express): void {
         },
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetProductPopularity');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetProductPopularity');
     }
   }));
 
@@ -146,14 +142,12 @@ export function registerCacheRoutes(app: Express): void {
 
       const count = await triggerCacheWarming(validatedOptions);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         warmedProducts: count,
         options: validatedOptions,
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TriggerCacheWarming');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'TriggerCacheWarming');
     }
   }));
 
@@ -167,14 +161,12 @@ export function registerCacheRoutes(app: Express): void {
 
       await cacheInvalidation.onProductUpdate(productId);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         productId,
         message: 'Product cache invalidated',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'InvalidateProductCache');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'InvalidateProductCache');
     }
   }));
 
@@ -186,13 +178,11 @@ export function registerCacheRoutes(app: Express): void {
     try {
       await cacheInvalidation.invalidateSearchCaches();
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: 'Search caches invalidated',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'InvalidateSearchCaches');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'InvalidateSearchCaches');
     }
   }));
 
@@ -204,13 +194,11 @@ export function registerCacheRoutes(app: Express): void {
     try {
       await triggerPopularityCleanup();
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: 'Popularity data cleaned up',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'TriggerPopularityCleanup');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'TriggerPopularityCleanup');
     }
   }));
 
@@ -222,13 +210,11 @@ export function registerCacheRoutes(app: Express): void {
     try {
       resetCacheStats();
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: 'Cache statistics reset',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ResetCacheStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'ResetCacheStats');
     }
   }));
 
@@ -243,13 +229,11 @@ export function registerCacheRoutes(app: Express): void {
 
       await clearAllCaches();
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: 'All caches cleared',
       });
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'ClearAllCaches');
-      res.status(errorResponse.status).json({ error: errorResponse.error, details: errorResponse.details });
+      sendErrorFromException(res, error, 'ClearAllCaches');
     }
   }));
 
@@ -301,13 +285,9 @@ export function registerCacheRoutes(app: Express): void {
       );
       health.status = allHealthy ? 'healthy' : 'degraded';
 
-      res.json(health);
+      sendSuccess(res, health);
     } catch (error: unknown) {
-      const errorResponse = createErrorResponse(error, 'GetCacheHealth');
-      res.status(500).json({
-        status: 'error',
-        error: errorResponse.error,
-      });
+      sendErrorFromException(res, error, 'GetCacheHealth');
     }
   }));
 
