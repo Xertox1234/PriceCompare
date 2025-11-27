@@ -4,7 +4,7 @@ import { monitoringService } from '../services/monitoring-service';
 import { alertService } from '../services/alert-service';
 import { logger } from '../utils/logger';
 import { parseIntOptional } from '../utils/validation-helpers';
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 
 /**
  * Monitoring and Dashboard Routes
@@ -21,13 +21,9 @@ export function registerMonitoringRoutes(app: Express): void {
     try {
       const metrics = await monitoringService.getDashboardMetrics();
 
-      res.json({
-        success: true,
-        data: metrics
-      });
+      sendSuccess(res, metrics);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetDashboardMetrics');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetDashboardMetrics');
     }
   });
 
@@ -40,16 +36,12 @@ export function registerMonitoringRoutes(app: Express): void {
       const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
       const errors = monitoringService.getRecentErrors(limit);
 
-      res.json({
-        success: true,
-        data: {
-          errors,
-          count: errors.length
-        }
+      sendSuccess(res, {
+        errors,
+        count: errors.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetRecentErrors');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetRecentErrors');
     }
   });
 
@@ -61,13 +53,11 @@ export function registerMonitoringRoutes(app: Express): void {
     try {
       monitoringService.clearErrors();
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: 'Error logs cleared successfully'
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'ClearErrors');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      sendErrorFromException(res, error, 'ClearErrors');
     }
   });
 
@@ -79,18 +69,13 @@ export function registerMonitoringRoutes(app: Express): void {
     try {
       const metrics = await monitoringService.getDashboardMetrics();
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         status: metrics.health.overall,
         timestamp: metrics.timestamp,
         services: metrics.health.services
       });
     } catch (error) {
-      res.status(503).json({
-        success: false,
-        status: 'unhealthy',
-        error: 'Health check failed'
-      });
+      sendError(res, 'Health check failed', 503);
     }
   });
 
@@ -103,16 +88,12 @@ export function registerMonitoringRoutes(app: Express): void {
       const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
       const alerts = alertService.getAlertHistory(limit);
 
-      res.json({
-        success: true,
-        data: {
-          alerts,
-          count: alerts.length
-        }
+      sendSuccess(res, {
+        alerts,
+        count: alerts.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetAlertHistory');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetAlertHistory');
     }
   });
 
@@ -129,13 +110,11 @@ export function registerMonitoringRoutes(app: Express): void {
         { test: true, triggeredBy: 'manual' }
       );
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: 'Test alert sent successfully'
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'SendTestAlert');
-      res.status(errorResponse.status).json({ success: false, error: errorResponse.error });
+      sendErrorFromException(res, error, 'SendTestAlert');
     }
   });
 }

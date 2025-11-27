@@ -1,6 +1,7 @@
 import { Express } from "express";
 import { storage } from "../storage";
 import { retailerCacheMiddleware } from "../middleware/redis-cache";
+import { sendSuccess, sendErrorFromException } from "../utils/api-response";
 
 /**
  * Retailer Routes
@@ -15,9 +16,9 @@ export function registerRetailerRoutes(app: Express): void {
       res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
 
       const retailers = await storage.getRetailers();
-      res.json(retailers);
+      sendSuccess(res, retailers);
     } catch (error: unknown) {
-      res.status(500).json({ message: "Failed to fetch retailers" });
+      sendErrorFromException(res, error, 'FetchRetailers');
     }
   });
 }
