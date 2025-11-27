@@ -4,7 +4,7 @@ import { withAuth, isAuthenticated } from "./helpers";
 import type { AuthenticatedRequest } from "../../shared/types";
 import { storage } from "../storage";
 import { parseIntSafe } from "../utils/validation-helpers";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { csrfProtection } from "../middleware/security";
 import { logger } from "../utils/logger";
 
@@ -81,14 +81,9 @@ export function registerWatchListRoutes(app: Express): void {
 
       const watchLists = await storage.getUserWatchLists(userId);
 
-      res.json({ watchLists });
+      sendSuccess(res, { watchLists });
     } catch (error: unknown) {
-      console.error('Failed to get watch lists:', error);
-      const errorResponse = createErrorResponse(error, 'GetWatchLists');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetWatchLists');
     }
   }));
 
@@ -114,14 +109,9 @@ export function registerWatchListRoutes(app: Express): void {
       // Create watch list (storage validates max 20 lists per user)
       const watchList = await storage.createWatchList(userId, data);
 
-      res.status(201).json(watchList);
+      sendSuccess(res, watchList, 201);
     } catch (error: unknown) {
-      console.error('Failed to create watch list:', error);
-      const errorResponse = createErrorResponse(error, 'CreateWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'CreateWatchList');
     }
   });
 
@@ -143,14 +133,9 @@ export function registerWatchListRoutes(app: Express): void {
 
       const products = await storage.getWatchedProducts(userId, { sortBy });
 
-      res.json({ products });
+      sendSuccess(res, { products });
     } catch (error: unknown) {
-      console.error('Failed to get watched products:', error);
-      const errorResponse = createErrorResponse(error, 'GetWatchedProducts');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetWatchedProducts');
     }
   }));
 
@@ -174,14 +159,9 @@ export function registerWatchListRoutes(app: Express): void {
 
       const stats = await storage.getWatchListStats(userId);
 
-      res.json(stats);
+      sendSuccess(res, stats);
     } catch (error: unknown) {
-      console.error('Failed to get watch list stats:', error);
-      const errorResponse = createErrorResponse(error, 'GetWatchListStats');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetWatchListStats');
     }
   }));
 
@@ -203,20 +183,13 @@ export function registerWatchListRoutes(app: Express): void {
       const watchList = await storage.getWatchListById(watchListId, userId);
 
       if (!watchList) {
-        res.status(404).json({
-          error: 'Watch list not found or unauthorized'
-        });
+        sendError(res, 'Watch list not found or unauthorized', 404);
         return;
       }
 
-      res.json(watchList);
+      sendSuccess(res, watchList);
     } catch (error: unknown) {
-      console.error('Failed to get watch list:', error);
-      const errorResponse = createErrorResponse(error, 'GetWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'GetWatchList');
     }
   }));
 
@@ -243,14 +216,9 @@ export function registerWatchListRoutes(app: Express): void {
 
       const watchList = await storage.updateWatchList(watchListId, userId, updates);
 
-      res.json(watchList);
+      sendSuccess(res, watchList);
     } catch (error: unknown) {
-      console.error('Failed to update watch list:', error);
-      const errorResponse = createErrorResponse(error, 'UpdateWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'UpdateWatchList');
     }
   });
 
@@ -274,17 +242,12 @@ export function registerWatchListRoutes(app: Express): void {
 
       const deletedWatchList = await storage.deleteWatchList(watchListId, userId);
 
-      res.json({
+      sendSuccess(res, {
         success: true,
         deletedId: deletedWatchList.id
       });
     } catch (error: unknown) {
-      console.error('Failed to delete watch list:', error);
-      const errorResponse = createErrorResponse(error, 'DeleteWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'DeleteWatchList');
     }
   });
 
@@ -316,24 +279,9 @@ export function registerWatchListRoutes(app: Express): void {
         userId
       );
 
-      res.status(201).json(productWatch);
+      sendSuccess(res, productWatch, 201);
     } catch (error: unknown) {
-      console.error('Failed to add product to watch list:', error);
-
-      // Check if it's a validation error (duplicate, max limit, etc.)
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('already in watch list') ||
-          errorMessage.includes('Maximum') ||
-          errorMessage.includes('not found')) {
-        res.status(400).json({ error: errorMessage });
-        return;
-      }
-
-      const errorResponse = createErrorResponse(error, 'AddProductToWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'AddProductToWatchList');
     }
   });
 
@@ -358,14 +306,9 @@ export function registerWatchListRoutes(app: Express): void {
 
       await storage.removeProductFromWatchList(watchListId, productId, userId);
 
-      res.json({ success: true });
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
-      console.error('Failed to remove product from watch list:', error);
-      const errorResponse = createErrorResponse(error, 'RemoveProductFromWatchList');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details
-      });
+      sendErrorFromException(res, error, 'RemoveProductFromWatchList');
     }
   });
 

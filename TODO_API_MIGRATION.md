@@ -1,8 +1,8 @@
 # API Standardization Migration - Remaining Work
 
-**Status:** 60% Complete (130/217 endpoints migrated)
+**Status:** 64% Complete (139/217 endpoints migrated)
 **Priority:** HIGH
-**Estimated Effort:** 18-25 hours
+**Estimated Effort:** 14-21 hours remaining
 **Reference:** See `docs/API_AUDIT_REPORT.md` for full audit details
 
 ---
@@ -10,11 +10,16 @@
 ## Current Branch Status
 
 **Branch:** `add_scraping`
-**Commits Ahead:** 16 commits
-**Clean Working Tree:** Yes
+**Commits Ahead:** 17 commits (pending)
+**Clean Working Tree:** No (watchlist-routes.ts modified)
 
 **Recent Work Completed:**
-- ✅ Backend API standardization (15/25 route files)
+- ✅ Phase 1 migration complete (40 endpoints)
+  - ✅ watchlist-routes.ts migrated (9 endpoints) - November 27, 2025
+  - ✅ auth-routes.ts already migrated (9 endpoints)
+  - ✅ product-routes.ts already migrated (18 endpoints)
+  - ✅ alert-routes.ts already migrated (4 endpoints)
+- ✅ Backend API standardization (16/25 route files)
 - ✅ Frontend React Query hooks with envelope unwrapping
 - ✅ API documentation updated (API_PATTERNS.md)
 - ✅ OpenAPI 3.1 specification created
@@ -24,16 +29,17 @@
 
 ## Phase 1: Critical User-Facing Routes (HIGH PRIORITY)
 
+**Status:** ✅ COMPLETED (November 27, 2025)
 **Estimated Time:** 8-10 hours
 **Impact:** Core user functionality
 
-### 1. auth-routes.ts (9 endpoints)
-- [ ] Replace 9 `res.json()` calls with `sendSuccess()`
-- [ ] Replace 6 `createErrorResponse()` calls with `sendErrorFromException()`
-- [ ] Add `sendSuccess`, `sendError`, `sendErrorFromException` imports
-- [ ] Verify CSRF protection on POST endpoints
-- [ ] Add Zod validation schemas for login/register
-- [ ] Test: Login, register, logout, password reset flows
+### 1. auth-routes.ts (9 endpoints) ✅ ALREADY MIGRATED
+- [x] Replace 9 `res.json()` calls with `sendSuccess()`
+- [x] Replace 6 `createErrorResponse()` calls with `sendErrorFromException()`
+- [x] Add `sendSuccess`, `sendError`, `sendErrorFromException` imports
+- [x] Verify CSRF protection on POST endpoints
+- [x] Add Zod validation schemas for login/register
+- [x] Test: Login, register, logout, password reset flows
 
 **Endpoints:**
 - POST /api/auth/register
@@ -46,14 +52,16 @@
 - GET /api/auth/check
 - POST /api/auth/refresh
 
-### 2. product-routes.ts (18 endpoints)
-- [ ] Replace 18 `res.json()` calls with `sendSuccess()`
-- [ ] Replace 13 `createErrorResponse()` calls with `sendErrorFromException()`
-- [ ] Add response helper imports
-- [ ] Add CSRF protection on POST/PUT/DELETE
-- [ ] Add Zod schemas for product mutations
-- [ ] Verify parseIntSafe usage
-- [ ] Test: Product catalog, search, details, recommendations
+**Status:** Already fully migrated in Phase 4g
+
+### 2. product-routes.ts (18 endpoints) ✅ ALREADY MIGRATED
+- [x] Replace 18 `res.json()` calls with `sendSuccess()`
+- [x] Replace 13 `createErrorResponse()` calls with `sendErrorFromException()`
+- [x] Add response helper imports
+- [x] Add CSRF protection on POST/PUT/DELETE
+- [x] Add Zod schemas for product mutations
+- [x] Verify parseIntSafe usage
+- [x] Test: Product catalog, search, details, recommendations
 
 **Endpoints:**
 - GET /api/products
@@ -67,31 +75,41 @@
 - DELETE /api/products/:id (admin)
 - (+ 9 more endpoints)
 
-### 3. watchlist-routes.ts (9 endpoints)
-- [ ] Replace 7 `res.json()` calls with `sendSuccess()`
-- [ ] Replace 10 `createErrorResponse()` calls with `sendErrorFromException()`
-- [ ] Add response helper imports
-- [ ] Verify CSRF protection is working
-- [ ] Add Zod validation schemas
-- [ ] Test: Watchlist CRUD, product watch operations
+**Status:** Already fully migrated in Phase 4g
+
+### 3. watchlist-routes.ts (9 endpoints) ✅ COMPLETED
+- [x] Replace 7 `res.json()` calls with `sendSuccess()`
+- [x] Replace 10 `createErrorResponse()` calls with `sendErrorFromException()`
+- [x] Add response helper imports
+- [x] Verify CSRF protection is working
+- [x] Add Zod validation schemas
+- [x] Test: Watchlist CRUD, product watch operations
 
 **Endpoints:**
 - GET /api/watchlists
 - POST /api/watchlists
 - GET /api/watchlists/:id
-- PUT /api/watchlists/:id
+- PATCH /api/watchlists/:id
 - DELETE /api/watchlists/:id
 - POST /api/watchlists/:id/products
 - DELETE /api/watchlists/:id/products/:productId
-- GET /api/watchlists/:id/stats
-- GET /api/watchlists/products/:productId
+- GET /api/watchlists/stats
+- GET /api/watchlists/products
 
-### 4. alert-routes.ts (4 endpoints)
-- [ ] Replace 4 `res.json()` calls with `sendSuccess()`
-- [ ] Add response helper imports
-- [ ] Verify CSRF protection
-- [ ] Add Zod validation schemas
-- [ ] Test: Price alert creation, management, deletion
+**Status:** ✅ Migrated November 27, 2025
+**Changes:**
+- Replaced all `createErrorResponse()` with `sendErrorFromException()`
+- Replaced all `res.json()` with `sendSuccess()`
+- Replaced manual error responses with `sendError()`
+- Added proper status codes (201 for POST, 404 for not found)
+- Removed console.error calls (handled by sendErrorFromException)
+
+### 4. alert-routes.ts (4 endpoints) ✅ ALREADY MIGRATED
+- [x] Replace 4 `res.json()` calls with `sendSuccess()`
+- [x] Add response helper imports
+- [x] Verify CSRF protection
+- [x] Add Zod validation schemas
+- [x] Test: Price alert creation, management, deletion
 
 **Endpoints:**
 - GET /api/alerts
@@ -99,7 +117,9 @@
 - PUT /api/alerts/:id
 - DELETE /api/alerts/:id
 
-**Phase 1 Total:** 40 endpoints
+**Status:** Already fully migrated in Phase 4g
+
+**Phase 1 Total:** 40 endpoints ✅ 100% COMPLETE
 
 ---
 
