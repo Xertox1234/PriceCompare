@@ -26,22 +26,25 @@ const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') || proces
 let pool: NeonPool | PgPool;
 let db: NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
-if (isNeonDatabase) {
-  // Use Neon serverless driver for cloud deployment
-  const { Pool: NeonPool, neonConfig } = await import('@neondatabase/serverless');
-  const ws = await import('ws');
-  neonConfig.webSocketConstructor = ws.default;
-  const neonPool = new NeonPool(poolConfig);
-  pool = neonPool;
-  const { drizzle: neonDrizzle } = await import('drizzle-orm/neon-serverless');
-  db = neonDrizzle({ client: neonPool, schema });
-} else {
-  // Use standard pg driver for local PostgreSQL
-  const { Pool: PgPool } = await import('pg');
-  const pgPool = new PgPool(poolConfig);
-  pool = pgPool;
-  const { drizzle: pgDrizzle } = await import('drizzle-orm/node-postgres');
-  db = pgDrizzle({ client: pgPool, schema });
-}
+// Initialize database connection asynchronously
+(async () => {
+  if (isNeonDatabase) {
+    // Use Neon serverless driver for cloud deployment
+    const { Pool: NeonPool, neonConfig } = await import('@neondatabase/serverless');
+    const ws = await import('ws');
+    neonConfig.webSocketConstructor = ws.default;
+    const neonPool = new NeonPool(poolConfig);
+    pool = neonPool;
+    const { drizzle: neonDrizzle } = await import('drizzle-orm/neon-serverless');
+    db = neonDrizzle({ client: neonPool, schema });
+  } else {
+    // Use standard pg driver for local PostgreSQL
+    const { Pool: PgPool } = await import('pg');
+    const pgPool = new PgPool(poolConfig);
+    pool = pgPool;
+    const { drizzle: pgDrizzle } = await import('drizzle-orm/node-postgres');
+    db = pgDrizzle({ client: pgPool, schema });
+  }
+})();
 
 export { pool, db };
