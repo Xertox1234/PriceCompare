@@ -252,10 +252,14 @@ Labels: security, automated`,
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Run migrations
+      - name: Setup database
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/health_check_db
-        run: npm run migrate
+        run: |
+          echo "Creating base schema..."
+          npm run db:push
+          echo "Running migrations..."
+          npm run migrate
 
       - name: Verify foreign key constraints
         env:

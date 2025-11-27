@@ -64,7 +64,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/e2e_test_db
           NODE_ENV: test
-        run: npm run migrate
+        run: |
+          echo "Creating base schema..."
+          npm run db:push
+          echo "Running migrations..."
+          npm run migrate
 
       - name: Build application
         run: npm run build

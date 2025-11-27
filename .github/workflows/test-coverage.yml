@@ -61,6 +61,9 @@ jobs:
           echo "DISCOURSE_SSO_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
           echo "NODE_ENV=test" >> $GITHUB_ENV
 
+      - name: Setup base schema
+        run: npm run db:push
+
       - name: Run database migrations
         run: npm run migrate
 
