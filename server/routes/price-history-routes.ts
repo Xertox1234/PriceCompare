@@ -1,6 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { z } from 'zod';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 import {
@@ -12,6 +12,7 @@ import {
   detectSignificantPriceDrops,
   cleanupOldPriceHistory
 } from '../services/price-history-service';
+import { withAuth, withAdmin } from './helpers';
 import type { AuthenticatedRequest } from '@shared/types';
 
 // Validation schemas
@@ -50,37 +51,6 @@ const priceDropsQuerySchema = z.object({
   hours: z.string().optional().transform(val => val ? parseInt(val) : 24)
 });
 
-// Type predicate to check if request is authenticated
-function isAuthenticated(req: Request): req is AuthenticatedRequest {
-  return !!req.user;
-}
-
-// Wrapper to enforce authentication
-function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) {
-  return async (req: Request, res: Response) => {
-    if (!isAuthenticated(req)) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-    await handler(req, res);
-  };
-}
-
-// Wrapper to enforce admin role
-function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) {
-  return async (req: Request, res: Response) => {
-    if (!isAuthenticated(req)) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-    if (req.user.role !== 'admin') {
-      res.status(403).json({ error: 'Admin access required' });
-      return;
-    }
-    await handler(req, res);
-  };
-}
-
 export function registerPriceHistoryRoutes(app: Express): void {
   /**
    * GET /api/products/:productId/offers/:offerId/price-history
@@ -93,7 +63,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const queryParams = priceHistoryQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        res.status(400).json({ error: 'Invalid query parameters', details: queryParams.error });
+        sendError(res, 'Invalid query parameters', 400);
         return;
       }
 
@@ -102,14 +72,12 @@ export function registerPriceHistoryRoutes(app: Express): void {
         ...queryParams.data
       });
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: history,
         count: history.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetPriceHistory');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetPriceHistory');
     }
   });
 
@@ -124,24 +92,20 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const queryParams = priceStatsSchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        res.status(400).json({ error: 'Invalid query parameters', details: queryParams.error });
+        sendError(res, 'Invalid query parameters', 400);
         return;
       }
 
       const stats = await getPriceStats(productOfferId, queryParams.data.days);
 
       if (!stats) {
-        res.status(404).json({ error: 'Product offer not found' });
+        sendError(res, 'Product offer not found', 404);
         return;
       }
 
-      res.json({
-        success: true,
-        data: stats
-      });
+      sendSuccess(res, stats);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetPriceStats');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetPriceStats');
     }
   });
 
@@ -156,7 +120,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const queryParams = priceSnapshotsQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        res.status(400).json({ error: 'Invalid query parameters', details: queryParams.error });
+        sendError(res, 'Invalid query parameters', 400);
         return;
       }
 
@@ -167,14 +131,12 @@ export function registerPriceHistoryRoutes(app: Express): void {
         queryParams.data.endDate
       );
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: snapshots,
         count: snapshots.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetPriceSnapshots');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetPriceSnapshots');
     }
   });
 
@@ -187,7 +149,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const validationResult = recordPriceSchema.safeParse(req.body);
 
       if (!validationResult.success) {
-        res.status(400).json({ error: 'Invalid request data', details: validationResult.error });
+        sendError(res, 'Invalid request data', 400);
         return;
       }
 
@@ -202,13 +164,9 @@ export function registerPriceHistoryRoutes(app: Express): void {
         metadata
       );
 
-      res.json({
-        success: true,
-        data: result
-      });
+      sendSuccess(res, result);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'RecordPriceChange');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'RecordPriceChange');
     }
   }));
 
@@ -221,21 +179,19 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const validationResult = generateSnapshotsSchema.safeParse(req.body);
 
       if (!validationResult.success) {
-        res.status(400).json({ error: 'Invalid request data', details: validationResult.error });
+        sendError(res, 'Invalid request data', 400);
         return;
       }
 
       const { date } = validationResult.data;
       const count = await generateDailySnapshots(date);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: `Generated ${count} price snapshots`,
         count
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GenerateSnapshots');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GenerateSnapshots');
     }
   }));
 
@@ -248,7 +204,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const queryParams = priceDropsQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        res.status(400).json({ error: 'Invalid query parameters', details: queryParams.error });
+        sendError(res, 'Invalid query parameters', 400);
         return;
       }
 
@@ -257,14 +213,12 @@ export function registerPriceHistoryRoutes(app: Express): void {
         queryParams.data.hours
       );
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: drops,
         count: drops.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'DetectPriceDrops');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'DetectPriceDrops');
     }
   }));
 
@@ -280,14 +234,12 @@ export function registerPriceHistoryRoutes(app: Express): void {
 
       const deletedCount = await cleanupOldPriceHistory(daysToKeep);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         message: `Cleaned up ${deletedCount} old price history records`,
         deletedCount
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CleanupPriceHistory');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'CleanupPriceHistory');
     }
   }));
 
@@ -300,7 +252,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
       const queryParams = priceDropsQuerySchema.safeParse(req.query);
 
       if (!queryParams.success) {
-        res.status(400).json({ error: 'Invalid query parameters', details: queryParams.error });
+        sendError(res, 'Invalid query parameters', 400);
         return;
       }
 
@@ -312,14 +264,12 @@ export function registerPriceHistoryRoutes(app: Express): void {
       // Limit to top 20 for public endpoint
       const limitedDrops = drops.slice(0, 20);
 
-      res.json({
-        success: true,
+      sendSuccess(res, {
         data: limitedDrops,
         count: limitedDrops.length
       });
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'GetRecentPriceDrops');
-      res.status(errorResponse.status).json({ error: errorResponse.error });
+      sendErrorFromException(res, error, 'GetRecentPriceDrops');
     }
   });
 }
