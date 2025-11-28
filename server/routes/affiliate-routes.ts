@@ -12,6 +12,7 @@ import { affiliateLinkService } from '../services/affiliate-link-service';
 import { AffiliateLinkAgent } from '../agents/affiliate-agent';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { csrfProtection } from '../middleware/security';
 
 let affiliateAgent: AffiliateLinkAgent | null = null;
 
@@ -57,7 +58,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Update retailer affiliate configuration
-  app.put("/api/admin/retailers/:id/affiliate", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/retailers/:id/affiliate", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
@@ -89,6 +90,7 @@ export function registerAffiliateRoutes(app: Express): void {
   // Test affiliate link generation for retailer
   app.post(
     "/api/admin/retailers/:id/test-affiliate-link",
+    csrfProtection,
     requireAuth,
     requireAdmin,
     validateRequest(idParamSchema, 'params'),
@@ -123,7 +125,7 @@ export function registerAffiliateRoutes(app: Express): void {
     });
 
   // Generate affiliate links for retailer
-  app.post("/api/admin/retailers/:id/generate-affiliate-links", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/retailers/:id/generate-affiliate-links", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
@@ -161,7 +163,10 @@ export function registerAffiliateRoutes(app: Express): void {
     }
   });
 
-  // Track affiliate link click (public endpoint)
+  // Track affiliate link click (public endpoint - exempted from CSRF)
+  // This endpoint is intentionally public and exempted from CSRF protection
+  // because it's called cross-origin from retailer sites for analytics tracking.
+  // See server/middleware/security.ts CSRF_EXEMPT_PATHS for exemption.
   app.post("/api/affiliate/track-click/:offerId", async (req: Request, res: Response) => {
     try {
       // SECURITY: Safe integer parsing with validation
@@ -176,7 +181,7 @@ export function registerAffiliateRoutes(app: Express): void {
   });
 
   // Start affiliate agent
-  app.post("/api/admin/affiliate-agent/start", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/affiliate-agent/start", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const agent = await initializeAffiliateAgent();
       const stats = await agent.getStats();

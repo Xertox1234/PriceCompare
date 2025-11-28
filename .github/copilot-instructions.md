@@ -64,6 +64,96 @@ Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break
    }
    ```
 
+### CSRF Protection (MANDATORY for All Mutations)
+
+**ALL mutating operations (POST, PATCH, DELETE, PUT) MUST use `csrfProtection` middleware.**
+
+#### Critical CSRF Rules
+
+1. **Apply Per-Route, NOT Globally**
+   ```typescript
+   // ❌ CRITICAL MISTAKE - NEVER do this in server/index.ts!
+   app.use(csrfProtection);  // Causes double-protection, blocks GET requests
+
+   // ✅ CORRECT - Apply per-route in route files
+   import { csrfProtection } from '../middleware/security';
+
+   app.post('/api/products',
+     csrfProtection,  // First middleware
+     withAuth(async (req, res) => {
+       // Handler logic
+     })
+   );
+   ```
+
+2. **Correct Middleware Order: CSRF → Auth → Handler**
+   ```typescript
+   // ✅ CORRECT - CSRF before auth (fast token check fails early)
+   app.post('/api/endpoint',
+     csrfProtection,     // 1. Verify CSRF token (fast)
+     withAuth(async (req, res) => {  // 2. Verify authentication
+       // 3. Execute business logic
+     })
+   );
+
+   // ❌ WRONG - Auth before CSRF (wastes resources)
+   app.post('/api/endpoint',
+     requireAuth,        // ❌ Wastes auth resources on CSRF attacks
+     csrfProtection,
+     async (req, res) => {}
+   );
+   ```
+
+3. **Authentication Endpoints MUST Have CSRF Protection**
+   ```typescript
+   // ✅ CORRECT - Auth endpoints need CSRF too!
+   app.post('/api/auth/register', csrfProtection, async (req, res) => {
+     // Prevents unauthorized account creation
+   });
+
+   app.post('/api/auth/login', csrfProtection, (req, res, next) => {
+     // Prevents login CSRF attacks
+   });
+
+   app.post('/api/auth/forgot-password', csrfProtection, async (req, res) => {
+     // Prevents password reset email spam
+   });
+
+   // Provide token endpoint for unauthenticated clients
+   app.get('/api/csrf-token', (req, res) => {
+     const token = generateCsrfToken(req);
+     sendSuccess(res, { csrfToken: token });
+   });
+   ```
+
+4. **CSRF Exemptions (Rare - Must Be Justified)**
+   ```typescript
+   // ✅ CORRECT - Justified exemption with clear documentation
+   app.post("/api/affiliate/track-click/:offerId", async (req, res) => {
+     // NOTE: This endpoint is intentionally public and exempted from CSRF protection
+     // because it's called cross-origin from retailer sites for analytics tracking.
+     // No user data modified, only logs analytics events.
+     // See server/middleware/security.ts CSRF_EXEMPT_PATHS for exemption.
+     await trackAffiliateClick(offerId);
+     res.json({ success: true });
+   });
+
+   // ❌ WRONG - Invalid exemption reasons
+   // - "Too hard to implement" - NOT ACCEPTABLE
+   // - "Only admins can access" - Still vulnerable to admin CSRF
+   // - "Internal use only" - Still needs protection
+   ```
+
+#### CSRF Quick Checklist
+- [ ] All POST/PUT/PATCH/DELETE endpoints have `csrfProtection`
+- [ ] CSRF middleware placed BEFORE auth middleware
+- [ ] NO global `app.use(csrfProtection)` in server/index.ts
+- [ ] Auth endpoints (`/register`, `/login`, `/forgot-password`, `/reset-password`) protected
+- [ ] `/api/csrf-token` GET endpoint exists for unauthenticated clients
+- [ ] Exemptions documented in both code AND `CSRF_EXEMPT_PATHS`
+
+**See `docs/SECURITY_PATTERNS.md` for complete CSRF implementation guide with attack scenarios and testing strategies.**
+
 ### Database & ORM Patterns
 
 **Drizzle ORM** is used for all database operations - never write raw SQL directly.

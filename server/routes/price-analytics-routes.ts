@@ -1,6 +1,7 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { csrfProtection } from '../middleware/security';
 import { z } from 'zod';
 import { storage } from "../storage";
 import { parseIntSafe } from '../utils/validation-helpers';
@@ -190,7 +191,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    * POST /api/admin/analytics/calculate-weekly
    * Manually trigger weekly aggregation calculation (admin only)
    */
-  app.post('/api/admin/analytics/calculate-weekly', withAdmin(async (req: AuthenticatedRequest, res: Response) => {
+  app.post('/api/admin/analytics/calculate-weekly', csrfProtection, withAdmin(async (req: AuthenticatedRequest, res: Response) => {
     try {
       logger.info(`Admin ${req.user.username} triggered weekly aggregation calculation`);
       const count = await priceAggregationService.calculateWeeklyAggregates();
@@ -204,7 +205,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    * POST /api/admin/analytics/calculate-monthly
    * Manually trigger monthly aggregation calculation (admin only)
    */
-  app.post('/api/admin/analytics/calculate-monthly', withAdmin(async (req: AuthenticatedRequest, res: Response) => {
+  app.post('/api/admin/analytics/calculate-monthly', csrfProtection, withAdmin(async (req: AuthenticatedRequest, res: Response) => {
     try {
       logger.info(`Admin ${req.user.username} triggered monthly aggregation calculation`);
       const count = await priceAggregationService.calculateMonthlyAggregates();
@@ -218,7 +219,7 @@ export function registerPriceAnalyticsRoutes(app: Express): void {
    * POST /api/admin/analytics/analyze-trends
    * Manually trigger trend analysis (admin only)
    */
-  app.post('/api/admin/analytics/analyze-trends', withAdmin(async (req: AuthenticatedRequest, res: Response) => {
+  app.post('/api/admin/analytics/analyze-trends', csrfProtection, withAdmin(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const queryParams = trendQuerySchema.safeParse(req.query);
 

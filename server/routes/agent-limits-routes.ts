@@ -8,6 +8,7 @@ import type { Express } from 'express';
 import { agentQueryLimiter } from '../services/agent-query-limiter';
 import { withAuth, withAdmin } from './helpers';
 import { sendSuccess, sendErrorFromException } from '../utils/api-response';
+import { csrfProtection } from '../middleware/security';
 import { logger } from '../utils/logger';
 
 /**
@@ -58,7 +59,7 @@ export function registerAgentLimitsRoutes(app: Express): void {
    * Reset daily query counter (admin only)
    * Use with caution - mainly for testing or emergency situations
    */
-  app.post('/api/agent-limits/reset', withAdmin(async (req, res) => {
+  app.post('/api/agent-limits/reset', csrfProtection, withAdmin(async (req, res) => {
     try {
       await agentQueryLimiter.resetDailyLimit();
 

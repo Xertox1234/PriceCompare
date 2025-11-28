@@ -69,7 +69,12 @@ npm run check
    - Unsanitized user input (all inputs must go through Zod validation)
    - Error message leakage (use createErrorResponse for all error handling)
    - Missing authentication/authorization checks
-   - CSRF protection on state-changing operations
+   - CSRF protection on state-changing operations (POST/PUT/PATCH/DELETE MUST have csrfProtection middleware)
+   - CSRF middleware order (MUST be csrfProtection BEFORE withAuth/withAdmin, NOT after)
+   - Global CSRF protection (NEVER use app.use(csrfProtection) globally in server/index.ts)
+   - Unprotected auth endpoints (/register, /login, /forgot-password, /reset-password MUST have csrfProtection)
+   - Missing /api/csrf-token endpoint for unauthenticated clients
+   - Conflicting CSRF exemptions (endpoint in CSRF_EXEMPT_PATHS but also has csrfProtection middleware)
    - SQL injection risks (ensure parameterized queries)
    - Improper integer parsing (must use parseIntSafe/parseIntOptional)
    - Raw parseInt() usage (ALWAYS flag - must use parseIntSafe from ../utils/validation-helpers)
@@ -339,6 +344,13 @@ When reviewing files in `server/routes/` directory, **ALWAYS check these first**
    - Never: Direct `db` imports or queries
 
 5. **✓ CSRF Protection**: State-changing operations have csrfProtection middleware
+   - All POST/PUT/PATCH/DELETE endpoints include `csrfProtection` middleware
+   - CSRF middleware is placed BEFORE auth middleware (csrfProtection → withAuth)
+   - Authentication endpoints (`/api/auth/register`, `/api/auth/login`, `/api/auth/forgot-password`, `/api/auth/reset-password`) have CSRF protection
+   - `/api/csrf-token` GET endpoint exists for unauthenticated clients
+   - NO global `app.use(csrfProtection)` in server/index.ts (per-route only)
+   - Exemptions are documented with clear justification and added to CSRF_EXEMPT_PATHS
+   - No conflicting protection (endpoint both exempted AND has csrfProtection middleware)
 
 ## Large File Refactoring Reviews (God Object Decomposition)
 

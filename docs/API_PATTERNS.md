@@ -273,6 +273,108 @@ app.use(Sentry.Handlers.errorHandler());
 app.use(globalErrorHandler);
 ```
 
+### Per-Route Middleware Order (CRITICAL for CSRF)
+
+**CORRECT order for individual routes: `csrfProtection` → `withAuth/withAdmin` → handler**
+
+#### ❌ WRONG - Global CSRF Protection
+```typescript
+// server/index.ts
+// THIS IS A CRITICAL ARCHITECTURAL FLAW!
+app.use(csrfProtection);  // ❌ NEVER apply globally
+
+// Problems with global CSRF:
+// 1. Double protection - routes that also include csrfProtection run it twice
+// 2. GET requests blocked - safe methods incorrectly rejected
+// 3. Token consumption issues - token may be consumed before reaching handler
+// 4. CORS preflight failures - OPTIONS requests fail
+```
+
+#### ✅ CORRECT - Per-Route CSRF Protection
+```typescript
+// server/index.ts
+// NOTE: CSRF protection is applied per-route in individual route files,
+// not globally. This ensures GET requests aren't protected while mutations are.
+// Each POST/PUT/PATCH/DELETE endpoint includes csrfProtection middleware.
+// See server/routes/*.ts files for csrfProtection usage.
+
+// In route files - apply selectively:
+import { csrfProtection } from '../middleware/security';
+import { withAuth, withAdmin } from './helpers';
+
+// ✅ CORRECT - CSRF before auth (fast token check fails early)
+app.post('/api/products',
+  csrfProtection,     // 1. Verify CSRF token (fast, fails early)
+  withAuth(async (req, res) => {  // 2. Verify authentication
+    // 3. Execute business logic
+  })
+);
+
+// ✅ CORRECT - Admin endpoint with CSRF
+app.delete('/api/admin/users/:id',
+  csrfProtection,     // 1. CSRF check first
+  withAdmin(async (req, res) => {  // 2. Admin role check
+    // 3. Delete user
+  })
+);
+
+// ✅ CORRECT - Authentication endpoints also need CSRF
+app.post('/api/auth/register', csrfProtection, async (req, res) => {
+  // Register user
+});
+
+// ✅ CORRECT - GET requests don't need CSRF
+app.get('/api/products', async (req, res) => {
+  // Safe method - no CSRF needed
+});
+```
+
+#### ❌ WRONG - Auth Before CSRF
+```typescript
+// INEFFICIENT and INCONSISTENT with project standards
+app.post('/api/endpoint',
+  requireAuth,        // ❌ Wastes auth resources on CSRF attacks
+  csrfProtection,     // Should be first
+  async (req, res) => {}
+);
+```
+
+**Why CSRF First:**
+- CSRF validation is fast (token comparison with `crypto.timingSafeEqual`)
+- Fails early for invalid requests (rejects before expensive auth operations)
+- Prevents wasting database queries and auth resources on CSRF attacks
+- Consistent with project-wide pattern (48+ endpoints)
+- Matches the documented middleware pipeline order
+
+#### CSRF Exemptions
+```typescript
+// Only exempt public endpoints that:
+// 1. Require no authentication
+// 2. Perform NO user-specific state changes
+// 3. Have alternative protection (signature verification, rate limiting)
+
+app.post("/api/affiliate/track-click/:offerId", async (req, res) => {
+  // NOTE: This endpoint is intentionally public and exempted from CSRF protection
+  // because it's called cross-origin from retailer sites for analytics tracking.
+  // No user data modified, only logs analytics events.
+  // See server/middleware/security.ts CSRF_EXEMPT_PATHS for exemption.
+  await trackAffiliateClick(offerId);
+  res.json({ success: true });
+});
+```
+
+**Exemption Checklist:**
+- [ ] Endpoint is truly public (no authentication required)?
+- [ ] Endpoint performs NO user-specific state changes?
+- [ ] Alternative protection exists (signature verification, rate limiting)?
+- [ ] Exemption documented in code with clear justification?
+- [ ] Security team has approved exemption?
+- [ ] Exemption added to `CSRF_EXEMPT_PATHS` in security.ts?
+
+**When in doubt: ALWAYS apply CSRF protection.**
+
+**See `docs/SECURITY_PATTERNS.md` for complete CSRF implementation guide with attack scenarios.**
+
 ---
 
 ## Request Validation

@@ -7,6 +7,7 @@ import { parseIntSafe } from "../utils/validation-helpers";
 import { getPerformanceStats, getSlowestEndpoints } from "../middleware/performance";
 import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { csrfProtection } from "../middleware/security";
 
 /**
  * Admin Routes
@@ -100,7 +101,7 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
-  app.post("/api/admin/products", withAdmin(async (req, res) => {
+  app.post("/api/admin/products", csrfProtection, withAdmin(async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
       const newProduct = await storage.createAdminProduct(productData);
@@ -110,7 +111,7 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
-  app.put("/api/admin/products/:id", withAdmin(async (req, res) => {
+  app.put("/api/admin/products/:id", csrfProtection, withAdmin(async (req, res) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
@@ -129,7 +130,7 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
-  app.delete("/api/admin/products/:id", withAdmin(async (req, res) => {
+  app.delete("/api/admin/products/:id", csrfProtection, withAdmin(async (req, res) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
@@ -158,7 +159,7 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
-  app.post("/api/admin/retailers", withAdmin(async (req, res) => {
+  app.post("/api/admin/retailers", csrfProtection, withAdmin(async (req, res) => {
     try {
       const retailerData = insertRetailerSchema.parse(req.body);
       const newRetailer = await storage.createAdminRetailer(retailerData);
@@ -168,7 +169,7 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
-  app.put("/api/admin/retailers/:id", withAdmin(async (req, res) => {
+  app.put("/api/admin/retailers/:id", csrfProtection, withAdmin(async (req, res) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
@@ -187,7 +188,7 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
-  app.delete("/api/admin/retailers/:id", withAdmin(async (req, res) => {
+  app.delete("/api/admin/retailers/:id", csrfProtection, withAdmin(async (req, res) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const retailerId = parseIntSafe(req.params.id, 'retailerId', { min: 1 });

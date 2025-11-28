@@ -12,6 +12,7 @@ import { logger } from '../utils/logger';
 import { sendSuccess, sendErrorFromException } from '../utils/api-response';
 import { withAdmin } from './helpers';
 import { productIdSchema } from '../services/aggregation-validation';
+import { csrfProtection } from '../middleware/security';
 
 /**
  * Zod schemas for request validation
@@ -62,7 +63,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { daysAggregated: number, message: string }
    */
-  app.post('/api/admin/aggregation/force-daily', withAdmin(async (req: Request, res: Response) => {
+  app.post('/api/admin/aggregation/force-daily', csrfProtection, withAdmin(async (req: Request, res: Response) => {
     try {
       // Validate request body with Zod
       const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
@@ -109,7 +110,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { gaps: string[], count: number }
    */
-  app.post('/api/admin/aggregation/detect-gaps', withAdmin(async (req: Request, res: Response) => {
+  app.post('/api/admin/aggregation/detect-gaps', csrfProtection, withAdmin(async (req: Request, res: Response) => {
     try {
       // Validate request body with Zod
       const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
@@ -152,7 +153,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { daysFilled: number, message: string }
    */
-  app.post('/api/admin/aggregation/fill-gaps', withAdmin(async (req: Request, res: Response) => {
+  app.post('/api/admin/aggregation/fill-gaps', csrfProtection, withAdmin(async (req: Request, res: Response) => {
     try {
       // Validate request body with Zod
       const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
@@ -195,7 +196,7 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { message: string }
    */
-  app.post('/api/admin/aggregation/single-product', withAdmin(async (req: Request, res: Response) => {
+  app.post('/api/admin/aggregation/single-product', csrfProtection, withAdmin(async (req: Request, res: Response) => {
     try {
       // Validate request body with Zod
       const { productId } = productIdRequestSchema.parse(req.body);

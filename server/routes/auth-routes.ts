@@ -5,7 +5,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import * as schema from "@shared/schema";
 import { passport, createUser, findUserByEmail, findUserById, hashPassword, User, SafeUser } from "../auth";
-import { generateCsrfToken } from "../middleware/security";
+import { generateCsrfToken, csrfProtection } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
 import { logger } from "../utils/logger";
 import { validatePassword } from "../utils/validation-helpers";
@@ -61,8 +61,22 @@ function logPasswordResetAttempt(
  * Handles user registration, login, logout, and password reset functionality.
  */
 export function registerAuthRoutes(app: Express): void {
+  /**
+   * GET /api/csrf-token
+   * Get CSRF token for unauthenticated clients
+   * Required before calling register, login, forgot-password, or reset-password endpoints
+   */
+  app.get("/api/csrf-token", (req, res) => {
+    try {
+      const token = generateCsrfToken(req);
+      sendSuccess(res, { csrfToken: token });
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'GetCsrfToken');
+    }
+  });
+
   // User registration
-  app.post("/api/auth/register", async (req, res): Promise<void> => {
+  app.post("/api/auth/register", csrfProtection, async (req, res): Promise<void> => {
     try {
       // SECURITY: Do not log request bodies in production (may contain sensitive data)
       if (process.env.NODE_ENV === 'development') {
@@ -127,7 +141,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User login
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", csrfProtection, (req, res, next) => {
     // Use custom callback to capture authentication result for logging
     passport.authenticate('local', (err: Error | null, user: User | false, info?: { message?: string; locked?: boolean; remainingTime?: number; remainingAttempts?: number }) => {
       if (err) {
@@ -207,7 +221,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Password reset - Request token
-  app.post("/api/auth/forgot-password", async (req, res): Promise<void> => {
+  app.post("/api/auth/forgot-password", csrfProtection, async (req, res): Promise<void> => {
     try {
       // Validate input with Zod schema
       const { email } = forgotPasswordSchema.parse(req.body);
@@ -314,7 +328,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Password reset - Complete reset
-  app.post("/api/auth/reset-password", async (req, res): Promise<void> => {
+  app.post("/api/auth/reset-password", csrfProtection, async (req, res): Promise<void> => {
     try {
       // Validate input with Zod schema
       const { token, password } = resetPasswordSchema.parse(req.body);

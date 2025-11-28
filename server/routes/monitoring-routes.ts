@@ -5,6 +5,7 @@ import { alertService } from '../services/alert-service';
 import { logger } from '../utils/logger';
 import { parseIntOptional } from '../utils/validation-helpers';
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { csrfProtection } from "../middleware/security";
 
 /**
  * Monitoring and Dashboard Routes
@@ -49,7 +50,7 @@ export function registerMonitoringRoutes(app: Express): void {
    * POST /api/monitoring/errors/clear
    * Clear error logs
    */
-  app.post("/api/monitoring/errors/clear", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/monitoring/errors/clear", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       monitoringService.clearErrors();
 
@@ -101,7 +102,7 @@ export function registerMonitoringRoutes(app: Express): void {
    * POST /api/monitoring/alerts/test
    * Send a test alert (for testing Slack integration)
    */
-  app.post("/api/monitoring/alerts/test", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/monitoring/alerts/test", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       await alertService.sendCustomAlert(
         'info',

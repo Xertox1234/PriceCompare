@@ -23,6 +23,7 @@ import { logger } from '../utils/logger';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { withAdmin } from './helpers';
 import { sendSuccess, sendErrorFromException } from '../utils/api-response';
+import { csrfProtection } from '../middleware/security';
 import { z } from 'zod';
 
 // Validation schema for cache warming options
@@ -136,7 +137,7 @@ export function registerCacheRoutes(app: Express): void {
    * Trigger manual cache warming
    * POST /api/admin/cache/warm
    */
-  app.post('/api/admin/cache/warm', withAdmin(async (req, res) => {
+  app.post('/api/admin/cache/warm', csrfProtection, withAdmin(async (req, res) => {
     try {
       const validatedOptions = cacheWarmingSchema.parse(req.body);
 
@@ -155,7 +156,7 @@ export function registerCacheRoutes(app: Express): void {
    * Invalidate cache for a specific product
    * POST /api/admin/cache/invalidate/product/:id
    */
-  app.post('/api/admin/cache/invalidate/product/:id', withAdmin(async (req, res) => {
+  app.post('/api/admin/cache/invalidate/product/:id', csrfProtection, withAdmin(async (req, res) => {
     try {
       const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
@@ -174,7 +175,7 @@ export function registerCacheRoutes(app: Express): void {
    * Invalidate all search caches
    * POST /api/admin/cache/invalidate/search
    */
-  app.post('/api/admin/cache/invalidate/search', withAdmin(async (req, res) => {
+  app.post('/api/admin/cache/invalidate/search', csrfProtection, withAdmin(async (req, res) => {
     try {
       await cacheInvalidation.invalidateSearchCaches();
 
@@ -190,7 +191,7 @@ export function registerCacheRoutes(app: Express): void {
    * Trigger popularity cleanup
    * POST /api/admin/cache/cleanup/popularity
    */
-  app.post('/api/admin/cache/cleanup/popularity', withAdmin(async (req, res) => {
+  app.post('/api/admin/cache/cleanup/popularity', csrfProtection, withAdmin(async (req, res) => {
     try {
       await triggerPopularityCleanup();
 
@@ -206,7 +207,7 @@ export function registerCacheRoutes(app: Express): void {
    * Reset cache statistics
    * POST /api/admin/cache/stats/reset
    */
-  app.post('/api/admin/cache/stats/reset', withAdmin(async (req, res) => {
+  app.post('/api/admin/cache/stats/reset', csrfProtection, withAdmin(async (req, res) => {
     try {
       resetCacheStats();
 
@@ -222,7 +223,7 @@ export function registerCacheRoutes(app: Express): void {
    * Clear all caches (use with caution!)
    * POST /api/admin/cache/clear
    */
-  app.post('/api/admin/cache/clear', withAdmin(async (req, res) => {
+  app.post('/api/admin/cache/clear', csrfProtection, withAdmin(async (req, res) => {
     try {
       // Validate confirmation with Zod
       clearCachesSchema.parse(req.body);

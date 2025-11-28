@@ -1,6 +1,7 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { csrfProtection } from '../middleware/security';
 import { requireAuth, requireAdmin } from '../auth';
 import { advancedSearchService } from '../services/advanced-search';
 import type { SearchFilters } from '@shared/schema';
@@ -89,7 +90,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
   /**
    * Analyze search query intent
    */
-  app.post("/api/search/analyze", async (req: Request, res: Response) => {
+  app.post("/api/search/analyze", csrfProtection, async (req: Request, res: Response) => {
     try {
       const { query } = req.body;
 
@@ -313,7 +314,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
   /**
    * Clear search caches (admin only)
    */
-  app.post("/api/search/clear-cache", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/search/clear-cache", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       // SECURITY: Using requireAdmin middleware for consistent authorization
 

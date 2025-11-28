@@ -55,6 +55,27 @@ Before starting any security review, reference these pattern files to ensure you
 - [ ] API keys not exposed in client code
 - [ ] Error messages don't leak sensitive info
 
+### 3.1 CSRF Protection (CRITICAL)
+- [ ] ALL POST/PUT/PATCH/DELETE endpoints have `csrfProtection` middleware
+- [ ] CSRF middleware placed BEFORE auth middleware (`csrfProtection, withAuth`)
+- [ ] NO global `app.use(csrfProtection)` in server/index.ts (per-route only)
+- [ ] Authentication endpoints protected:
+  - [ ] `/api/auth/register` has csrfProtection
+  - [ ] `/api/auth/login` has csrfProtection
+  - [ ] `/api/auth/forgot-password` has csrfProtection
+  - [ ] `/api/auth/reset-password` has csrfProtection
+- [ ] `/api/csrf-token` GET endpoint exists for unauthenticated clients
+- [ ] Exemptions justified and documented:
+  - [ ] Endpoint is truly public (no authentication)
+  - [ ] Endpoint performs NO user-specific state changes
+  - [ ] Alternative protection exists (signature verification, rate limiting)
+  - [ ] Added to `CSRF_EXEMPT_PATHS` in server/middleware/security.ts
+  - [ ] Documented in code with clear justification
+- [ ] No conflicting protection (endpoint both exempted AND has csrfProtection middleware)
+- [ ] Token uses timing-safe comparison (`crypto.timingSafeEqual`)
+- [ ] Tokens stored in session, not cookies
+- [ ] Security events logged for CSRF violations
+
 ### 4. Database Security
 - [ ] Parameterized queries (Drizzle ORM ensures this)
 - [ ] Principle of least privilege for database user

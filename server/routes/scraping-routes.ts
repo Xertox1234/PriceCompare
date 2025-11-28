@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { csrfProtection } from '../middleware/security';
 import { requireAuth, requireAdmin } from '../auth';
 import { validateRequest } from '../validation';
 import {
@@ -94,7 +95,7 @@ function validateScrapingUrl(url: string): { valid: boolean; error?: string; par
 
 export function registerScrapingRoutes(app: Express): void {
   // Initialize AI scraping system
-  app.post("/api/scraping/initialize", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/scraping/initialize", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       await agentService.initialize();
       sendSuccess(res, {
@@ -107,7 +108,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Start AI agent coordination
-  app.post("/api/scraping/start-agents", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/scraping/start-agents", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const coordinationAgent = await agentService.getCoordinationAgent();
 
@@ -128,6 +129,7 @@ export function registerScrapingRoutes(app: Express): void {
   // Trigger trend discovery
   app.post(
     "/api/scraping/discover-trends",
+    csrfProtection,
     requireAuth,
     requireAdmin,
     validateRequest(scrapingInitializeSchema, 'body'),
@@ -199,6 +201,7 @@ export function registerScrapingRoutes(app: Express): void {
 
   // Manual product search
   app.post("/api/scraping/search-product",
+    csrfProtection,
     requireAuth,
     requireAdmin,
     validateRequest(productSearchQuerySchema, 'body'),
@@ -227,7 +230,7 @@ export function registerScrapingRoutes(app: Express): void {
     });
 
   // Run full scraping cycle
-  app.post("/api/scraping/full-cycle", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/scraping/full-cycle", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const coordinationAgent = await agentService.getCoordinationAgent();
 
@@ -265,6 +268,7 @@ export function registerScrapingRoutes(app: Express): void {
 
   // Search products using Google Custom Search
   app.post("/api/scraping/google-search",
+    csrfProtection,
     requireAuth,
     requireAdmin,
     validateRequest(googleSearchQuerySchema, 'body'),
@@ -330,7 +334,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Extract product data from specific URLs
-  app.post("/api/scraping/extract-product", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/scraping/extract-product", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { url, retailer, searchQuery } = req.body;
 
@@ -368,7 +372,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Start price monitoring for existing products
-  app.post("/api/scraping/start-monitoring", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/scraping/start-monitoring", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { maxAge = 24 } = req.body;
 
@@ -413,7 +417,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Run complete product discovery and extraction workflow
-  app.post("/api/scraping/complete-workflow", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/scraping/complete-workflow", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { searchQuery, maxResults = 5 } = req.body;
 
@@ -523,7 +527,7 @@ export function registerScrapingRoutes(app: Express): void {
   });
 
   // Clear Redis cache (admin only)
-  app.post("/api/scraping/cache-clear", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/scraping/cache-clear", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { queryCache, generalCache } = await import('../services/redis-cache');
       const { cacheType } = req.body; // 'query', 'general', or 'all'
