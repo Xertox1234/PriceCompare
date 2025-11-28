@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { storage } from '../storage';
 import { withAuth, withAdmin } from './helpers';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
+import { csrfProtection } from '../middleware/security';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { logger } from '../utils/logger';
 
@@ -90,7 +91,7 @@ export function registerSpecificationRoutes(app: Express): void {
   });
 
   // POST /api/admin/specifications - Create a single specification (Admin only)
-  app.post('/api/admin/specifications', withAdmin(async (req, res) => {
+  app.post('/api/admin/specifications', csrfProtection, withAdmin(async (req, res) => {
     try {
       const data = createSpecificationSchema.parse(req.body);
 
@@ -118,7 +119,7 @@ export function registerSpecificationRoutes(app: Express): void {
   }));
 
   // POST /api/admin/specifications/batch - Create multiple specifications (Admin only)
-  app.post('/api/admin/specifications/batch', withAdmin(async (req, res) => {
+  app.post('/api/admin/specifications/batch', csrfProtection, withAdmin(async (req, res) => {
     try {
       const data = createSpecificationsBatchSchema.parse(req.body);
 

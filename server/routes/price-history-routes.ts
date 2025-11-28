@@ -1,6 +1,7 @@
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
+import { csrfProtection } from '../middleware/security';
 import { z } from 'zod';
 import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 import {
@@ -144,7 +145,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
    * POST /api/admin/price-history/record
    * Manually record a price change (admin only)
    */
-  app.post('/api/admin/price-history/record', withAdmin(async (req: AuthenticatedRequest, res: Response) => {
+  app.post('/api/admin/price-history/record', csrfProtection, withAdmin(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const validationResult = recordPriceSchema.safeParse(req.body);
 
@@ -174,7 +175,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
    * POST /api/admin/price-history/generate-snapshots
    * Generate daily price snapshots (admin only)
    */
-  app.post('/api/admin/price-history/generate-snapshots', withAdmin(async (req: AuthenticatedRequest, res: Response) => {
+  app.post('/api/admin/price-history/generate-snapshots', csrfProtection, withAdmin(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const validationResult = generateSnapshotsSchema.safeParse(req.body);
 
@@ -226,7 +227,7 @@ export function registerPriceHistoryRoutes(app: Express): void {
    * DELETE /api/admin/price-history/cleanup
    * Clean up old price history records (admin only)
    */
-  app.delete('/api/admin/price-history/cleanup', withAdmin(async (req: AuthenticatedRequest, res: Response) => {
+  app.delete('/api/admin/price-history/cleanup', csrfProtection, withAdmin(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const daysToKeep = req.query.days
         ? parseIntSafe(req.query.days as string, 'days', { min: 1 })
