@@ -533,7 +533,47 @@ app.post('/api/products', csrfProtection, async (req, res) => {
 });
 ```
 
-### 5. Use Route Helpers for Auth
+### 5. CSRF Protection (MANDATORY)
+
+**ALL mutating operations (POST, PUT, PATCH, DELETE) MUST use `csrfProtection` middleware.**
+
+```typescript
+import { csrfProtection } from '../middleware/security';
+import { withAuth, withAdmin } from './helpers';
+
+// ✅ CORRECT - CSRF before auth (fast token check, fails early)
+app.post('/api/products',
+  csrfProtection,     // 1. Verify CSRF token
+  withAuth(async (req, res) => {  // 2. Verify authentication
+    // 3. Execute business logic
+  })
+);
+
+// ✅ CORRECT - Auth endpoints MUST have CSRF
+app.post('/api/auth/register', csrfProtection, async (req, res) => {
+  // Prevents unauthorized account creation
+});
+
+// ✅ CORRECT - Token endpoint for unauthenticated clients
+app.get('/api/csrf-token', (req, res) => {
+  const token = generateCsrfToken(req);
+  sendSuccess(res, { csrfToken: token });
+});
+
+// ❌ CRITICAL MISTAKE - NEVER use global CSRF
+// In server/index.ts:
+app.use(csrfProtection);  // ❌ Causes double-protection, blocks GET requests
+```
+
+**Key CSRF Rules:**
+- Apply per-route, NOT globally
+- CSRF middleware BEFORE auth middleware (csrfProtection → withAuth)
+- Auth endpoints (/register, /login, /forgot-password, /reset-password) need CSRF
+- Exemptions rare and must be justified (see `docs/SECURITY_PATTERNS.md`)
+
+**See `docs/SECURITY_PATTERNS.md` for complete CSRF implementation guide.**
+
+### 6. Use Route Helpers for Auth
 
 Always use shared helpers from `server/routes/helpers.ts`:
 
@@ -873,7 +913,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
    - Validated at startup in `server/config/env-validation.ts` and `server/index.ts`
    - Development allows fallback with warnings, production exits with error
    - See `REDIS_PRODUCTION_REQUIREMENT.md` for testing guide
-4. **CSRF tokens**: Attached by middleware, client must include in requests
+4. **CSRF Protection**: ALL mutations (POST/PUT/PATCH/DELETE) MUST have `csrfProtection` middleware
+   - Apply per-route, NOT globally (never `app.use(csrfProtection)`)
+   - CSRF before auth middleware (`csrfProtection, withAuth`)
+   - Auth endpoints (/register, /login, /forgot-password, /reset-password) need CSRF
+   - See `docs/SECURITY_PATTERNS.md` for complete guide
 5. **Type safety**: Enable strict mode, avoid `any` types
 6. **Pagination**: Always paginate large datasets using `PAGINATION.DEFAULT_LIMIT`
 7. **Input validation**: Every route input goes through Zod schema first
@@ -886,7 +930,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 ### Core Pattern Files (docs/)
 - **`docs/DATABASE_PATTERNS.md`** - N+1 prevention, transactions, query optimization, foreign keys (CRITICAL)
-- **`docs/SECURITY_PATTERNS.md`** - Password hash exposure, input validation, error sanitization (CRITICAL)
+- **`docs/SECURITY_PATTERNS.md`** - Password hash exposure, CSRF protection, input validation, error sanitization (CRITICAL)
 - **`docs/TYPESCRIPT_PATTERNS.md`** - Type safety, avoiding `any`, Zod integration (CRITICAL)
 - **`docs/ERROR_HANDLING_PATTERNS.md`** - Error sanitization, validation errors, recovery strategies
 - **`docs/API_PATTERNS.md`** - Route organization, middleware pipeline, caching, pagination
