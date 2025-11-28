@@ -13,14 +13,21 @@
     "plugin:@typescript-eslint/recommended-requiring-type-checking"
   ],
   "rules": {
+    // CRITICAL: Block 'any' types - defeats TypeScript purpose
     "@typescript-eslint/no-explicit-any": "error",
-    "@typescript-eslint/no-unsafe-assignment": "warn",
-    "@typescript-eslint/no-unsafe-member-access": "warn",
-    "@typescript-eslint/no-unsafe-call": "warn",
-    "@typescript-eslint/no-unsafe-return": "warn",
+
+    // CRITICAL: Block unsafe type operations - upgraded from warn to error
+    "@typescript-eslint/no-unsafe-assignment": "error",
+    "@typescript-eslint/no-unsafe-member-access": "error",
+    "@typescript-eslint/no-unsafe-call": "error",
+    "@typescript-eslint/no-unsafe-return": "error",
+
+    // Type quality
     "@typescript-eslint/no-unnecessary-type-assertion": "error",
     "@typescript-eslint/prefer-as-const": "error",
     "@typescript-eslint/no-inferrable-types": "warn",
+
+    // Security
     "no-console": "error",
     "no-debugger": "error",
     "no-eval": "error",
@@ -31,7 +38,8 @@
     {
       "files": ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
       "rules": {
-        "@typescript-eslint/no-explicit-any": "off",
+        // REMOVED: no-explicit-any exception - tests need type safety too!
+        // Test files are now held to same standards as production code
         "no-console": "off"
       }
     },

@@ -856,15 +856,155 @@ app.use(rateLimiter({ maxRequests: RATE_LIMIT.MAX_REQUESTS }));
 - `OPENAI_API_KEY` - For AI-powered features
 - `SENTRY_DSN` - Error monitoring and performance tracking
 
-## TypeScript Strict Mode
+## TypeScript Strict Mode & Enforcement
 
-This project uses strict TypeScript:
+**CRITICAL**: This project has **ZERO TOLERANCE** for `any` types. Type safety is enforced at multiple layers.
+
+### Enforcement Layers (Defense in Depth)
+
+#### 1. ESLint (Real-Time - IDE)
+**Location**: `.eslintrc.json`
+
+Blocks `any` types immediately in your editor:
+```json
+{
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-unsafe-assignment": "error",
+    "@typescript-eslint/no-unsafe-member-access": "error",
+    "@typescript-eslint/no-unsafe-call": "error",
+    "@typescript-eslint/no-unsafe-return": "error"
+  }
+}
+```
+
+**IMPORTANT**: Test files get NO exception - they must use proper types too!
+
+#### 2. Pre-Commit Hook (Commit-Time)
+**Location**: `.git/hooks/pre-commit`
+
+Runs on every commit:
+- `npm run check` - TypeScript compiler check
+- `npx eslint` - Lint all staged files for `any` types
+- Custom grep checks - Catches `any` in diffs
+
+**Commits are BLOCKED if any layer fails.**
+
+#### 3. TypeScript Compiler (Build-Time)
+**Location**: `tsconfig.json`
+
+Strict mode configuration:
+- `strict: true` - All strict checks enabled
+- `noImplicitAny: true` - No implicit any
+- `strictNullChecks: true` - Null safety
+- `strictFunctionTypes: true` - Function type safety
+
+#### 4. Claude Code Context (Development-Time)
+**Location**: `.claude/rules.md`
+
+Provides Claude Code with comprehensive type safety rules:
+- Why `any` is forbidden
+- What to use instead (unknown, generics, Record, etc.)
+- Test file requirements
+- Type guard patterns
+- Common scenarios with solutions
+
+### Type Safety Rules
+
+#### ✅ ALWAYS Use These Instead of `any`:
+
+1. **Specific Types from Schema**
+   ```typescript
+   import { type Product, type SafeUser } from '@shared/schema';
+   let product: Product;
+   let user: SafeUser;
+   ```
+
+2. **`unknown` for Truly Unknown Data**
+   ```typescript
+   function handleError(error: unknown) {
+     if (error instanceof Error) {
+       return error.message;
+     }
+     return 'Unknown error';
+   }
+   ```
+
+3. **Generic Types**
+   ```typescript
+   async function fetchData<T>(url: string): Promise<T> {
+     const response = await fetch(url);
+     return response.json();
+   }
+   ```
+
+4. **Record Types**
+   ```typescript
+   const config: Record<string, unknown> = {};
+   const settings: Record<string, string | number> = {};
+   ```
+
+#### ❌ NEVER Do This:
+```typescript
+let data: any;                    // BLOCKED by ESLint
+function process(item: any) {}    // BLOCKED by ESLint
+const items: any[] = [];          // BLOCKED by ESLint
+
+// Test files - NO EXCEPTION!
+describe('Test', () => {
+  let testData: any;  // BLOCKED - use proper types!
+});
+```
+
+### Test File Requirements
+
+**Test files must have same type safety standards as production code.**
+
+```typescript
+// ✅ CORRECT
+import { type Product, type Retailer } from '@shared/schema';
+
+describe('Product API', () => {
+  let testProduct: Product;
+  let testRetailer: Retailer;
+
+  beforeEach(async () => {
+    [testProduct] = await db.insert(products).values({
+      name: 'Test Product',
+      description: 'Test Description',
+    }).returning();
+  });
+});
+```
+
+### Quick Reference
+
+| Situation | Use This | Not This |
+|-----------|----------|----------|
+| API response | `Promise<User>` + validation | `Promise<any>` |
+| Unknown data | `unknown` + type guard | `any` |
+| Test variables | `Product`, `SafeUser` | `any` |
+| Generic function | `<T>` | `any` |
+| Dynamic object | `Record<string, unknown>` | `any` |
+| Error handling | `error: unknown` | `error: any` |
+
+### Why This Matters
+
+1. **`any` defeats TypeScript** - Disables all type checking
+2. **Hides bugs** - Type errors become runtime crashes
+3. **No IntelliSense** - Loses autocomplete and type hints
+4. **Technical debt** - Makes refactoring dangerous
+5. **Late-stage unacceptable** - Finding `any` indicates type discipline gaps
+
+### Additional Strict Mode Settings
+
 - No implicit `any`
 - Strict null checks enabled
 - No unused locals/parameters (warnings, not errors)
 - All catch variables are `unknown` - must type guard
 
-Fix type errors properly - don't use `any` or `@ts-ignore` without comment justification.
+**See `.claude/rules.md` for comprehensive type safety guide.**
+**See `docs/TYPESCRIPT_PATTERNS.md` for detailed patterns and examples.**
 
 ## Chrome Extension Integration
 
