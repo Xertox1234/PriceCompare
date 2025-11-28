@@ -185,6 +185,18 @@ These violations will **FAIL pre-commit hooks** and block commits.
 
 ### 1. Using `any` Type (COMMIT BLOCKER)
 
+**CRITICAL**: `any` types are NEVER acceptable in production code, especially late in development. The pre-commit hook will block any commit containing `any` types.
+
+#### Why `any` is Dangerous
+
+1. **Defeats TypeScript's Purpose**: TypeScript exists to catch errors at compile time. `any` disables all type checking.
+2. **Hides Bugs**: Type errors that would be caught at compile time become runtime crashes.
+3. **No IntelliSense**: IDE loses ability to provide autocomplete and type hints.
+4. **Technical Debt**: Future refactoring becomes dangerous without type safety.
+5. **Late-Stage Unacceptable**: Finding `any` types late in development indicates gaps in type discipline.
+
+#### Common `any` Anti-Patterns
+
 #### ❌ NEVER DO THIS - Using `any`
 ```typescript
 // THIS WILL FAIL PRE-COMMIT HOOK!
@@ -196,7 +208,12 @@ function processItem(item: any): any {
 // Hidden any
 const items = [] as any[];
 const config = {} as any;
-```
+
+// Test file anti-pattern (CRITICAL!)
+describe('My Test', () => {
+  let testData: any;  // ❌ NO! Use proper types even in tests
+  let mockUser: any;  // ❌ NO! Tests need type safety too
+});
 
 #### ✅ CORRECT - Proper Types
 ```typescript
@@ -216,7 +233,169 @@ function processItem(item: FetchData): number {
 // Proper array types
 const items: FetchData[] = [];
 const config: Record<string, string> = {};
+
+// ✅ CORRECT - Test files with proper types
+import { type Product, type Retailer } from '@shared/schema';
+
+describe('My Test', () => {
+  let testProduct: Product;
+  let testRetailer: Retailer;
+
+  beforeEach(() => {
+    // Type-safe test data
+    testProduct = {
+      id: 1,
+      name: 'Test Product',
+      description: 'Test Description',
+      // ... all required fields
+    };
+  });
+});
 ```
+
+### Test File Type Safety (MANDATORY)
+
+**Rule**: Test files must have the same type safety standards as production code.
+
+#### Why Tests Need Types
+
+1. **Catch Breaking Changes**: Type errors in tests reveal API contract violations
+2. **Documentation**: Types document what data structures tests expect
+3. **Refactoring Safety**: Type-safe tests prevent breaking changes during refactors
+4. **Mock Accuracy**: Properly typed mocks ensure test realism
+
+#### ❌ TEST ANTI-PATTERN - Generic `any` Variables
+```typescript
+describe('Product API', () => {
+  let testProduct: any;      // ❌ NO! Type unknown, no safety
+  let testRetailer: any;     // ❌ NO! Defeats type checking
+  let mockData: any;         // ❌ NO! Could be anything
+
+  beforeEach(() => {
+    testProduct = { id: 1 }; // Missing required fields not caught!
+  });
+});
+```
+
+#### ✅ CORRECT - Typed Test Variables
+```typescript
+import { type Product, type Retailer, type User } from '@shared/schema';
+
+describe('Product API', () => {
+  let testProduct: Product;
+  let testRetailer: Retailer;
+  let testUser: User;
+
+  beforeEach(async () => {
+    // TypeScript ensures all required fields present
+    [testProduct] = await db.insert(products).values({
+      name: 'Test Product',
+      description: 'Test Description',
+      // TypeScript error if missing required fields!
+    }).returning();
+
+    [testRetailer] = await db.insert(retailers).values({
+      name: 'Test Retailer',
+      website: 'https://test.com',
+      // Type-safe - catches schema mismatches
+    }).returning();
+  });
+
+  it('should return product details', async () => {
+    // Type-safe assertions
+    expect(testProduct.name).toBe('Test Product');
+    expect(testProduct.id).toBeGreaterThan(0);
+  });
+});
+```
+
+#### Common Test Typing Mistakes
+
+1. **Schema Field Mismatches**
+   ```typescript
+   // ❌ WRONG - Field name doesn't match schema
+   await db.insert(retailers).values({
+     websiteUrl: 'https://test.com',  // Schema has 'website', not 'websiteUrl'!
+   });
+
+   // ✅ CORRECT - TypeScript catches this with proper types
+   await db.insert(retailers).values({
+     website: 'https://test.com',  // Matches schema
+   });
+   ```
+
+2. **Incomplete Mock Objects**
+   ```typescript
+   // ❌ WRONG - Missing required User fields
+   req.user = {
+     id: 1,
+     username: 'admin',
+     email: 'admin@test.com',
+     // Missing: role, trustLevel, isActive, etc.
+   };
+
+   // ✅ CORRECT - Complete SafeUser type
+   req.user = {
+     id: 1,
+     username: 'admin',
+     email: 'admin@test.com',
+     role: 'admin',
+     trustLevel: 4,
+     isActive: true,
+     isSuspended: false,
+     // ... all required SafeUser fields
+   } satisfies SafeUser;
+   ```
+
+3. **Database Query Return Types**
+   ```typescript
+   // ❌ WRONG - Assuming returning() gives full type
+   const [user] = await db.insert(users).values(data).returning();
+   // user includes passwordHash! Security risk!
+
+   // ✅ CORRECT - Explicit field selection
+   const [user] = await db.insert(users).values(data).returning({
+     id: users.id,
+     username: users.username,
+     email: users.email,
+     // SECURITY: passwordHash explicitly excluded
+   });
+   ```
+
+### Late-Stage Development Type Discipline
+
+**Context**: You're past MVP, have established patterns, and should have mature type definitions.
+
+#### Red Flags in Late-Stage Development
+
+1. **`any` in New Code**: Indicates insufficient type modeling
+2. **Schema Mismatches**: Field names out of sync with database
+3. **Incomplete Mock Objects**: Tests not matching production types
+4. **Type Assertion Overuse**: `as Type` hiding type problems
+
+#### Required Actions When `any` Appears Late
+
+When pre-commit hook catches `any` types:
+
+1. **Root Cause Analysis**: Why was `any` used?
+   - Missing type definition?
+   - Schema drift?
+   - Lazy development?
+
+2. **Define Proper Types**:
+   ```typescript
+   // Don't just fix the immediate error
+   let testData: any;  // ❌ Quick fix: Remove 'any'
+   let testData;       // ❌ Still bad: Implicit any
+
+   // Do the proper work
+   import { type Product } from '@shared/schema';
+   let testProduct: Product;  // ✅ Correct: Explicit type
+   ```
+
+3. **Update Documentation**: If new types added, document in schema
+4. **Review Similar Code**: Check for other `any` instances
+5. **Test Thoroughly**: Type changes can reveal bugs
 
 #### ✅ CORRECT - When Type is Truly Unknown
 ```typescript
@@ -1208,16 +1387,30 @@ interface User {
 
 ## TypeScript Checklist
 
-- [ ] **No `any` types** - Use `unknown` or specific types
-- [ ] **No `@ts-ignore`** - Fix the actual issue
+### Pre-Commit Requirements (BLOCKERS)
+- [ ] **No `any` types** - Especially in test files! Use proper types from schema
+- [ ] **No `@ts-ignore`** - Fix the actual issue or document thoroughly
+- [ ] **All TypeScript errors resolved** - Run `npm run check` locally
+
+### Code Quality Standards
 - [ ] **Explicit return types** for public APIs
 - [ ] **Zod schemas** for runtime validation
-- [ ] **Type guards** for unknown data
+- [ ] **Type guards** for unknown data (runtime checks)
+- [ ] **Complete type definitions** - All required fields present
+- [ ] **Schema-aligned types** - No field name mismatches (e.g., `website` vs `websiteUrl`)
+
+### Test File Requirements
+- [ ] **Typed test variables** - Import types from `@shared/schema`
+- [ ] **Complete mock objects** - All required fields for SafeUser, Product, etc.
+- [ ] **Explicit field selection** - Never expose passwordHash in queries
+- [ ] **Type-safe assertions** - Leverage IntelliSense in test expectations
+
+### Advanced Patterns
 - [ ] **Discriminated unions** for state machines
 - [ ] **Generic constraints** for reusable code
 - [ ] **Strict mode** enabled in tsconfig
 - [ ] **Error handling** with unknown type
-- [ ] **Complete interfaces** with all properties
+- [ ] **Utility types** - Leverage Pick, Omit, Partial appropriately
 
 ---
 
