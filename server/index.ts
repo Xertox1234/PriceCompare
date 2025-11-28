@@ -181,9 +181,10 @@ app.use(sanitizeInput);
   // Apply performance monitoring middleware
   app.use(performanceMonitoring);
 
-  // SECURITY: CSRF protection for state-changing operations
-  // Must be after session initialization
-  app.use(csrfProtection);
+  // NOTE: CSRF protection is applied per-route in individual route files,
+  // not globally. This ensures GET requests aren't protected while mutations are.
+  // Each POST/PUT/PATCH/DELETE endpoint includes csrfProtection middleware.
+  // See server/routes/*.ts files for csrfProtection usage.
 
   app.use((req, res, next) => {
     const start = Date.now();

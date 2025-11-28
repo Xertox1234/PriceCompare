@@ -163,8 +163,11 @@ export function registerAffiliateRoutes(app: Express): void {
     }
   });
 
-  // Track affiliate link click (public endpoint)
-  app.post("/api/affiliate/track-click/:offerId", csrfProtection, async (req: Request, res: Response) => {
+  // Track affiliate link click (public endpoint - exempted from CSRF)
+  // This endpoint is intentionally public and exempted from CSRF protection
+  // because it's called cross-origin from retailer sites for analytics tracking.
+  // See server/middleware/security.ts CSRF_EXEMPT_PATHS for exemption.
+  app.post("/api/affiliate/track-click/:offerId", async (req: Request, res: Response) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const offerId = parseIntSafe(req.params.offerId, 'offerId', { min: 1 });
