@@ -2,8 +2,9 @@
 
 **Last Updated**: 2025-11-28
 **Status**: Active Guidelines
+**Migration Progress**: 3/15+ test suites migrated (89/90 tests passing - 98.9%)
 
-This document codifies patterns and anti-patterns discovered during the API standardization testing migration (alert-routes and retailer-routes test suites).
+This document codifies patterns and anti-patterns discovered during the API standardization testing migration. These patterns emerged from real bugs found during testing of alert-routes, retailer-routes, and product-routes test suites.
 
 ## Table of Contents
 
@@ -11,8 +12,10 @@ This document codifies patterns and anti-patterns discovered during the API stan
 2. [Variable Naming Conflicts](#variable-naming-conflicts)
 3. [Test Data Setup](#test-data-setup)
 4. [Common Pitfalls](#common-pitfalls)
-5. [Drizzle ORM Issues](#drizzle-orm-issues)
-6. [Test Structure](#test-structure)
+5. [PostgreSQL Type Handling](#postgresql-type-handling)
+6. [Response Consistency](#response-consistency)
+7. [Drizzle ORM Issues](#drizzle-orm-issues)
+8. [Test Structure](#test-structure)
 
 ---
 
@@ -330,6 +333,170 @@ sendError(res, 'Product with ID 123 does not exist', 404);  // Too verbose
 
 ---
 
+## PostgreSQL Type Handling
+
+### DECIMAL/NUMERIC Values Return as Strings (CRITICAL)
+
+**Problem Found**: PostgreSQL DECIMAL and NUMERIC values return as strings to preserve precision. TypeScript type assertions (`sql<number>`) only affect compile-time, NOT runtime.
+
+```typescript
+// WRONG - Type assertion doesn't convert at runtime!
+const products = await db.select({
+  id: products.id,
+  bestPrice: sql<number>`MIN(${productOffers.price})`  // TypeScript thinks number...
+}).from(products);
+
+// bestPrice is actually a STRING "99.99" at runtime!
+// This causes test failures:
+expect(product.bestPrice).toBeGreaterThanOrEqual(50);  // String comparison!
+```
+
+### Correct Pattern - Convert in Storage/Route Layer
+
+```typescript
+// In storage or route handler
+const products = await db.select({
+  id: products.id,
+  bestPrice: sql<string>`MIN(${productOffers.price})`  // Acknowledge it's string
+}).from(products);
+
+// Convert when building response
+return products.map(row => ({
+  ...row,
+  // Type assertion: PostgreSQL DECIMAL returns string, convert to number for API
+  bestPrice: typeof row.bestPrice === 'string' ? parseFloat(row.bestPrice) : row.bestPrice,
+}));
+```
+
+### Test Pattern for Price Fields
+
+```typescript
+it('should filter by price range', async () => {
+  const response = await request(app)
+    .get('/api/products/search')
+    .query({ minPrice: '50', maxPrice: '150' });
+
+  const { data } = expectPaginatedResponse<{ bestPrice: number }>(response, 200);
+
+  // Verify type conversion happened
+  data.forEach((product: { bestPrice: number }) => {
+    expect(typeof product.bestPrice).toBe('number');  // Verify it's a number, not string
+    expect(product.bestPrice).toBeGreaterThanOrEqual(50);
+    expect(product.bestPrice).toBeLessThanOrEqual(150);
+  });
+});
+```
+
+### Bug Found in Migration
+
+**File**: `server/storage/domains/product-storage.ts:455`
+
+```typescript
+// BEFORE (Bug) - Type assertion only, no conversion
+bestPrice: row.bestPrice,  // Returns string "99.99"
+
+// AFTER (Fix) - Runtime conversion
+bestPrice: typeof row.bestPrice === 'string' ? parseFloat(row.bestPrice) : row.bestPrice,
+```
+
+---
+
+## Response Consistency
+
+### All Code Paths Must Return Same Fields
+
+**Problem Found**: Error/edge case paths often omit fields that success paths return.
+
+```typescript
+// WRONG - Inconsistent fields between code paths
+app.get('/api/products/:id/price-predictions', async (req, res) => {
+  const history = await storage.getPriceHistory(productId);
+
+  if (history.length < 7) {
+    sendSuccess(res, {
+      predictions: [],
+      confidence: 'low',
+      message: 'Not enough historical data'  // Missing basePrice!
+    });
+    return;
+  }
+
+  sendSuccess(res, {
+    predictions: [...],
+    confidence: 'high',
+    basePrice: 99.99  // Present in success path
+  });
+});
+```
+
+### Correct Pattern
+
+```typescript
+// CORRECT - All paths return consistent structure
+app.get('/api/products/:id/price-predictions', async (req, res) => {
+  const history = await storage.getPriceHistory(productId);
+
+  if (history.length < 7) {
+    const lastPrice = history.length > 0 ? parseFloat(history[history.length - 1].price) : 0;
+    sendSuccess(res, {
+      predictions: [],
+      confidence: 'low',
+      basePrice: lastPrice,  // Always include basePrice
+      message: 'Not enough historical data'
+    });
+    return;
+  }
+
+  sendSuccess(res, {
+    predictions: [...],
+    confidence: 'high',
+    basePrice: 99.99
+  });
+});
+```
+
+### Empty Object Anti-Pattern
+
+**Never return empty objects `{}`** - always provide meaningful acknowledgment data:
+
+```typescript
+// WRONG - No meaningful data for client
+app.post('/api/analytics/product-view', async (req, res) => {
+  await trackView(req.body.productId);
+  sendSuccess(res, {});  // Empty object!
+});
+
+// CORRECT - Acknowledge the action
+app.post('/api/analytics/product-view', async (req, res) => {
+  await trackView(req.body.productId);
+  sendSuccess(res, { success: true });  // Meaningful acknowledgment
+});
+```
+
+### Use Correct Response Helper
+
+**Match the helper to the expected response format**:
+
+```typescript
+// WRONG - Using sendSuccess for paginated data
+const { products, pagination } = await storage.searchProducts(filters);
+sendSuccess(res, products);  // Wrong helper!
+// Response: { success: true, data: { products, pagination } }
+
+// CORRECT - Use sendPaginated for paginated data
+const { products, pagination } = await storage.searchProducts(filters);
+sendPaginated(res, products, pagination);
+// Response: { success: true, data: [...], meta: { page, limit, total, totalPages } }
+```
+
+### Bugs Found in Migration
+
+1. **File**: `server/routes/product-routes.ts:359` - Missing `basePrice` in insufficient data path
+2. **File**: `server/routes/product-routes.ts:425` - Empty object `{}` instead of acknowledgment
+3. **File**: `server/routes/product-routes.ts:137-138` - `sendSuccess` instead of `sendPaginated`
+
+---
+
 ## Drizzle ORM Issues
 
 ### Field Selection Bug (Workaround Required)
@@ -545,15 +712,30 @@ When migrating a route test file to use validation helpers:
 
 ### Successful Migrations
 
-1. **alert-routes.test.ts** - 29/30 tests passing (96.7%)
+1. **product-routes.test.ts** - 42/42 tests passing (100%)
+   - Fixed PostgreSQL DECIMAL type conversion (bestPrice string -> number)
+   - Fixed response consistency (missing basePrice in edge case)
+   - Fixed empty object anti-pattern (analytics endpoint)
+   - Fixed wrong response helper (sendSuccess vs sendPaginated)
+
+2. **alert-routes.test.ts** - 29/30 tests passing (96.7%)
    - Discovered Drizzle field selection bug
    - Fixed error message consistency
    - Updated status code expectations (400 vs 500)
 
-2. **retailer-routes.test.ts** - 18/18 tests passing (100%)
+3. **retailer-routes.test.ts** - 18/18 tests passing (100%)
    - Fixed variable naming conflicts (retailers shadowing)
    - Adjusted test expectations for active-only filtering
    - Comprehensive edge case coverage
+
+### Production Bugs Fixed During Migration
+
+| Bug | File | Issue | Fix |
+|-----|------|-------|-----|
+| PostgreSQL DECIMAL | product-storage.ts:455 | Price returned as string | parseFloat() conversion |
+| Missing field | product-routes.ts:359 | basePrice missing in error path | Add basePrice to all paths |
+| Empty object | product-routes.ts:425 | Returned `{}` | Return `{ success: true }` |
+| Wrong helper | product-routes.ts:137 | sendSuccess for paginated | Use sendPaginated |
 
 ### Common Issues Found
 
@@ -562,6 +744,9 @@ When migrating a route test file to use validation helpers:
 3. **Variable shadowing**: Fixed ~8 instances of table import conflicts
 4. **Active filtering**: Updated test expectations to match endpoint behavior
 5. **Drizzle bug**: Workaround for field selection in WHERE clauses
+6. **PostgreSQL types**: DECIMAL/NUMERIC return as strings - must convert
+7. **Response consistency**: All code paths must return same fields
+8. **Empty objects**: Never return `{}` - always provide acknowledgment
 
 ---
 

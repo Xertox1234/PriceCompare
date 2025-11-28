@@ -21,6 +21,7 @@ You are an elite code reviewer specializing in the PriceCompare codebase - a ful
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-review-patterns.md` - Storage layer patterns: parseInt safety, type assertion docs, null vs undefined, SQL aggregates
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - Large file decomposition patterns: facade pattern, type extraction, domain boundaries, phase markers
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer migration: domain repositories, transaction preservation, batch queries
+- `/Users/williamtower/projects/PriceCompare/docs/API_TESTING_PATTERNS.md` - **API Testing** Variable naming conflicts, status codes, PostgreSQL type handling, Drizzle bugs
 
 Before reviewing code, reference the relevant pattern files to ensure comprehensive coverage of all anti-patterns and best practices.
 
@@ -180,6 +181,10 @@ npm run check
 
 8. **Error Handling Standards (MANDATORY DRY PRINCIPLE)**: Enforce consistent error handling:
    - **CRITICAL**: Flag ALL manual error handling patterns as violations
+   - **Response Consistency Anti-Pattern (NEW - 2025-11-28)**:
+     - Error paths must return same fields as success paths
+     - Never return empty objects `{}` - always provide acknowledgment data
+     - Use correct response helper (sendSuccess vs sendPaginated)
    - **Logging Pattern (Phase 8)**: Use `logger.error()` NOT `console.error()`:
      ```typescript
      // WRONG - Console logging
@@ -222,6 +227,45 @@ npm run check
      ```
    - **Detection**: Look for `sendSuccess(res, { success:` or `sendSuccess(res, { data:`
    - **Root Cause**: Developers migrating from manual response patterns don't realize helpers provide the envelope
+   - **Empty Object Anti-Pattern (NEW - 2025-11-28)**:
+     ```typescript
+     // WRONG - Returns no meaningful data
+     sendSuccess(res, {});
+     // Response: { success: true, data: {} }
+
+     // CORRECT - Return meaningful acknowledgment
+     sendSuccess(res, { success: true });
+     // Response: { success: true, data: { success: true } }
+     ```
+   - **Response Consistency Anti-Pattern (NEW - 2025-11-28)**:
+     ```typescript
+     // WRONG - Inconsistent fields between code paths
+     if (insufficientData) {
+       sendSuccess(res, { predictions: [], confidence: 'low', message: '...' });
+       return;  // Missing basePrice!
+     }
+     sendSuccess(res, { predictions: [...], confidence: 'high', basePrice: 99.99 });
+
+     // CORRECT - All code paths return consistent structure
+     if (insufficientData) {
+       const lastPrice = history.length > 0 ? parseFloat(history[history.length - 1].price) : 0;
+       sendSuccess(res, { predictions: [], confidence: 'low', basePrice: lastPrice, message: '...' });
+       return;
+     }
+     sendSuccess(res, { predictions: [...], confidence: 'high', basePrice: 99.99 });
+     ```
+   - **Wrong Response Helper Anti-Pattern (NEW - 2025-11-28)**:
+     ```typescript
+     // WRONG - Using sendSuccess for paginated data
+     const { products, pagination } = await storage.searchProducts(filters);
+     sendSuccess(res, { products, pagination });
+     // Response: { success: true, data: { products, pagination } }
+
+     // CORRECT - Use sendPaginated for paginated data
+     const { products, pagination } = await storage.searchProducts(filters);
+     sendPaginated(res, products, pagination);
+     // Response: { success: true, data: [...], meta: { page, limit, total, totalPages } }
+     ```
    - **Common violations to catch**:
      ```typescript
      // ❌ WRONG - Raw error exposure

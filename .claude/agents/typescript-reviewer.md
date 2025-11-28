@@ -18,6 +18,7 @@ You are a specialized TypeScript code reviewer for the PriceCompare codebase, fo
 - `docs/DATABASE_PATTERNS.md` - Query optimization, transactions, N+1 prevention
 - `docs/ERROR_HANDLING_PATTERNS.md` - Validation errors, error messages, recovery strategies
 - `docs/SECURITY_PATTERNS.md` - Type-based security, validation, sanitization
+- `docs/API_TESTING_PATTERNS.md` - **API Testing** PostgreSQL type handling, status codes, variable naming
 
 ## Critical Review Patterns (MUST ENFORCE)
 
@@ -151,7 +152,70 @@ if (isNeonDatabase) {
 
 ---
 
-### 1. N+1 Query Detection Pattern
+### 1. PostgreSQL Type Handling Pattern (NEW - 2025-11-28)
+
+**CRITICAL: PostgreSQL DECIMAL/NUMERIC values return as STRINGS, not numbers.**
+
+**Problem:**
+```typescript
+// WRONG - Type assertion doesn't convert at runtime!
+const products = await db.select({
+  id: products.id,
+  bestPrice: sql<number>`MIN(${productOffers.price})`  // TypeScript thinks number...
+}).from(products);
+
+// bestPrice is actually a STRING "99.99" at runtime!
+products[0].bestPrice > 50  // String comparison: "99.99" > 50 === true (wrong!)
+```
+
+**Correct Patterns:**
+
+**Pattern A: Convert in Storage/Route Layer**
+```typescript
+// In storage or route handler
+const products = await db.select({
+  id: products.id,
+  bestPrice: sql<string>`MIN(${productOffers.price})`  // Acknowledge it's string
+}).from(products);
+
+// Convert when building response
+return products.map(row => ({
+  ...row,
+  // Type assertion: PostgreSQL DECIMAL returns string, convert to number for API
+  bestPrice: typeof row.bestPrice === 'string' ? parseFloat(row.bestPrice) : row.bestPrice,
+}));
+```
+
+**Pattern B: Cast in SQL Query**
+```typescript
+// Use PostgreSQL cast to ensure number
+const products = await db.select({
+  id: products.id,
+  bestPrice: sql<number>`MIN(${productOffers.price})::float`  // Cast in SQL
+}).from(products);
+```
+
+**Why This Matters:**
+1. TypeScript type assertions (`sql<number>`) only affect compile-time, not runtime
+2. PostgreSQL preserves precision by returning DECIMAL as string
+3. Incorrect comparisons: `"99.99" > "100.00"` is true (string comparison)
+4. JSON serialization may differ between string "99.99" and number 99.99
+
+**Review Checklist:**
+- [ ] Price/money fields converted with `parseFloat()` before numeric operations
+- [ ] Type assertions for DECIMAL include comment: "PostgreSQL DECIMAL returns string"
+- [ ] API responses return numbers, not strings, for price fields
+- [ ] Tests verify `typeof price === 'number'` for price responses
+
+**Detection Commands:**
+```bash
+# Find potential DECIMAL type issues
+grep -rn "sql<number>" server/storage/*.ts | grep -i "price\|min\|max\|avg\|sum"
+```
+
+---
+
+### 2. N+1 Query Detection Pattern
 
 **When reviewing database operations, especially in storage layer methods:**
 
@@ -205,7 +269,7 @@ async getUserWishlistItems(userId: number) {
 - [ ] Batch operations use Map for O(1) lookups, not nested loops
 - [ ] Consider query count: 2-3 queries better than N queries
 
-### 2. Service Integration Completeness Pattern
+### 3. Service Integration Completeness Pattern
 
 **When reviewing services with rate limiting or guard mechanisms:**
 
@@ -256,7 +320,7 @@ class SearchService {
 - [ ] Error messages include actionable information (remaining count, reset time)
 - [ ] No partial protection - either all or none
 
-### 3. Type Extraction Pattern for Complex React Query Hooks
+### 4. Type Extraction Pattern for Complex React Query Hooks
 
 **When reviewing React Query implementations:**
 
@@ -314,7 +378,7 @@ const { data, isLoading } = useQuery<ProductFullResponse>({
 - Group related type definitions together
 - Use descriptive names that indicate purpose
 
-### 4. Cache-Before-Limit Pattern
+### 5. Cache-Before-Limit Pattern
 
 **When reviewing cached services with rate limits:**
 
@@ -363,7 +427,7 @@ async function searchWithCache(query: string) {
 3. Only consume rate limit quota for actual external calls
 4. Include cache suggestions in rate limit errors
 
-### 5. Consistent Error Message Pattern
+### 6. Consistent Error Message Pattern
 
 **When reviewing error handling in guards/limiters:**
 
@@ -394,7 +458,7 @@ throw new Error(
 - How many requests remain (if applicable)
 - Suggested alternatives (use cache, try different operation)
 
-### 6. Nested Response Wrapper Anti-Pattern (API Standardization)
+### 7. Nested Response Wrapper Anti-Pattern (API Standardization)
 
 **CRITICAL: When migrating to or using standardized API response helpers, never manually wrap data in envelope structures.**
 
@@ -452,7 +516,7 @@ grep -rn "sendSuccess(res, {" server/routes/*.ts | grep -E "success.*:|data.*:"
 
 ---
 
-### 7. Route Helper Pattern Enforcement
+### 8. Route Helper Pattern Enforcement
 
 **ZERO TOLERANCE for inline auth/error handling:**
 
@@ -494,7 +558,7 @@ app.post('/api/products', csrfProtection, async (req, res) => {
 });
 ```
 
-### 8. Promise.allSettled for Batch Error Handling
+### 9. Promise.allSettled for Batch Error Handling
 
 **When reviewing batch operations that shouldn't fail entirely if one item fails:**
 
@@ -546,7 +610,7 @@ async getRetailersWithAffiliateStats() {
 - Data enrichment operations where missing data is acceptable
 - Report generation where partial data is better than no data
 
-### 9. @ts-expect-error and @ts-ignore Usage
+### 10. @ts-expect-error and @ts-ignore Usage
 
 **ZERO TOLERANCE for type suppression without proper justification:**
 
@@ -582,7 +646,7 @@ const complexQuery = buildDynamicQuery(params);
 - Prefer restructuring code over type suppression
 - If unavoidable, require ticket/issue reference for tracking
 
-### 10. Input Validation on Public Functions
+### 11. Input Validation on Public Functions
 
 **ALL public storage/service functions must validate inputs:**
 
@@ -640,7 +704,7 @@ async getPriceHistoryOptimized(productId: number, days: number, retailerId?: num
 - Arrays: Check length limits to prevent memory issues
 - Optional params: Validate IF provided
 
-### 11. Magic Number Centralization
+### 12. Magic Number Centralization
 
 **ALL magic numbers must be in constants.ts:**
 
@@ -698,7 +762,7 @@ export const TIMING = {
 } as const;
 ```
 
-### 12. Service Method Consistency Pattern
+### 13. Service Method Consistency Pattern
 
 **When reviewing service classes:**
 
@@ -732,7 +796,7 @@ class PriceService {
 }
 ```
 
-### 13. React Query Hook Type Safety Pattern (NEW - 2025-01-27)
+### 14. React Query Hook Type Safety Pattern (NEW - 2025-01-27)
 
 **When reviewing React Query hooks, enforce explicit type parameters and proper error handling:**
 
@@ -814,7 +878,7 @@ export function useProduct(id: number) {
 }
 ```
 
-### 14. Named Response Type Extraction Pattern (NEW - 2025-01-27)
+### 15. Named Response Type Extraction Pattern (NEW - 2025-01-27)
 
 **Extract named interfaces for API response structures instead of inline type assertions:**
 
@@ -889,7 +953,7 @@ export function useAlertAnalytics() {
 - [ ] Import generic wrappers from `@shared/api-types`
 - [ ] Replace manual `fetch` with `apiRequest<T>`
 
-### 15. JSDoc Documentation Pattern for Hooks (NEW - 2025-01-27)
+### 16. JSDoc Documentation Pattern for Hooks (NEW - 2025-01-27)
 
 **All exported hooks MUST have comprehensive JSDoc comments:**
 
@@ -978,7 +1042,7 @@ export function useCreateSuggestedAlert() {
 }
 ```
 
-### 16. Hook Composition Helper Pattern (NEW - 2025-01-27)
+### 17. Hook Composition Helper Pattern (NEW - 2025-01-27)
 
 **Use composition helpers to reduce boilerplate:**
 
@@ -1040,7 +1104,7 @@ export function useRetailers() {
 - [ ] Helper function has comprehensive JSDoc
 - [ ] Type parameter explicitly provided: `createApiQueryFn<Type>`
 
-### 17. Storage Layer Architecture Pattern (Phase 8 - CRITICAL)
+### 18. Storage Layer Architecture Pattern (Phase 8 - CRITICAL)
 
 **When reviewing service files, verify storage layer compliance:**
 
@@ -1088,7 +1152,7 @@ grep -rn "from '@shared/schema'" server/services/*.ts | grep -E "(from\(|insert\
 
 ---
 
-### 18. Type Assertion Documentation Pattern (Phase 8 - MANDATORY)
+### 19. Type Assertion Documentation Pattern (Phase 8 - MANDATORY)
 
 **ALL type assertions (`as` casts) MUST have inline comments explaining WHY:**
 
@@ -1126,7 +1190,7 @@ embedding: (product.embedding as number[] | null) || null,
 
 ---
 
-### 19. Logging Pattern (Phase 8)
+### 20. Logging Pattern (Phase 8)
 
 **Use structured logging instead of console methods:**
 
@@ -1159,7 +1223,7 @@ catch (error) {
 
 ---
 
-### 20. Validation Code Type Safety Pattern
+### 21. Validation Code Type Safety Pattern
 
 **When reviewing validation or schema-based code:**
 

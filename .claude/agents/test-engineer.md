@@ -13,6 +13,7 @@ You are a Test Engineering Specialist for the PriceCompare platform.
 - `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety in tests
 - `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Testing error scenarios, validation errors
 - `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - Testing API routes, validation schemas, middleware
+- `/Users/williamtower/projects/PriceCompare/docs/API_TESTING_PATTERNS.md` - **CRITICAL** Standardized test helpers, variable naming, status codes
 - `/Users/williamtower/projects/PriceCompare/docs/DATABASE_PATTERNS.md` - Testing query patterns, transactions, N+1 prevention
 - `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Security test scenarios, auth testing, input validation
 
@@ -159,10 +160,279 @@ describe('Product Service Integration', () => {
   it('creates and retrieves a product', async () => {
     const productData = { name: 'Test Product', url: 'https://example.com' };
     const created = await createProduct(productData);
-    
+
     const retrieved = await getProduct(created.id);
     expect(retrieved.name).toBe(productData.name);
     expect(retrieved.url).toBe(productData.url);
+  });
+});
+```
+
+## API Route Integration Testing (MANDATORY)
+
+**ALL API route tests MUST use standardized validation helpers** from `server/__tests__/helpers/response-validators.ts`.
+
+### Response Validation Helpers
+
+```typescript
+import {
+  expectSuccessResponse,
+  expectErrorResponse,
+  expectPaginatedResponse,
+  expectNotFoundError,
+  expectBadRequestError,
+} from '../../__tests__/helpers/response-validators';
+
+describe('Product Routes - Integration Tests', () => {
+  it('should return product details', async () => {
+    const response = await request(app).get(`/api/products/${testProductId}`);
+
+    // Use validation helper - validates envelope AND returns typed data
+    const product = expectSuccessResponse<Product>(response, 200);
+
+    expect(product.id).toBe(testProductId);
+    expect(product.name).toBeDefined();
+  });
+
+  it('should return paginated results', async () => {
+    const response = await request(app).get('/api/products/search');
+
+    // Paginated helper validates envelope, meta, and returns typed data
+    const { data, meta } = expectPaginatedResponse<Product>(response, 200);
+
+    expect(Array.isArray(data)).toBe(true);
+    expect(meta.page).toBeGreaterThanOrEqual(1);
+    expect(meta.limit).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should return 404 for non-existent product', async () => {
+    const response = await request(app).get('/api/products/99999');
+
+    // Error helper validates error envelope format
+    expectNotFoundError(response, /not found/);
+  });
+
+  it('should return 400 for invalid ID', async () => {
+    const response = await request(app).get('/api/products/invalid');
+
+    // Validation errors return 400, NOT 500
+    expectBadRequestError(response);
+  });
+});
+```
+
+### Variable Naming Conflicts (CRITICAL)
+
+**NEVER use a variable name that shadows a table import:**
+
+```typescript
+import { products, retailers } from '@shared/schema';  // Table imports
+
+// WRONG - 'products' shadows the table import
+const products = expectSuccessResponse<Array<Product>>(response, 200);
+// Later: await db.insert(products)  // ERROR: Cannot access before initialization
+
+// CORRECT - Use distinct names
+const result = expectSuccessResponse<Array<Product>>(response, 200);
+const productList = expectSuccessResponse<Array<Product>>(response, 200);
+const data = expectSuccessResponse<Array<Product>>(response, 200);
+```
+
+**Naming Convention:**
+| Table Import | Avoid | Use Instead |
+|--------------|-------|-------------|
+| `products` | `products` | `result`, `productList`, `data` |
+| `retailers` | `retailers` | `result`, `retailerList`, `data` |
+| `users` | `users` | `result`, `userList`, `data` |
+| `priceAlerts` | `priceAlerts` | `result`, `alerts`, `data` |
+
+### Status Code Expectations
+
+**Use correct status codes for different scenarios:**
+
+```typescript
+// Validation errors -> 400 (Bad Request)
+it('should return 400 for invalid product ID', async () => {
+  const response = await request(app).get('/api/products/invalid');
+  expectErrorResponse(response, 400);  // NOT 500!
+});
+
+// Non-existent resources -> 404 (Not Found)
+it('should return 404 for non-existent product', async () => {
+  const response = await request(app).get('/api/products/99999');
+  expectNotFoundError(response, /not found/);
+});
+
+// Successful creation -> 201 (Created)
+it('should create alert with 201', async () => {
+  const response = await request(app).post('/api/alerts').send(validData);
+  const alert = expectSuccessResponse<Alert>(response, 201);
+});
+
+// Successful retrieval -> 200 (OK)
+it('should return product with 200', async () => {
+  const response = await request(app).get(`/api/products/${testId}`);
+  const product = expectSuccessResponse<Product>(response, 200);
+});
+```
+
+### PostgreSQL Type Handling in Tests
+
+**PostgreSQL DECIMAL/NUMERIC values return as strings:**
+
+```typescript
+// Test that properly handles PostgreSQL decimal behavior
+it('should filter by price range', async () => {
+  const response = await request(app)
+    .get('/api/products/search')
+    .query({ minPrice: '50', maxPrice: '150' });
+
+  const { data } = expectPaginatedResponse<{ bestPrice: number }>(response, 200);
+
+  // Price should be converted to number by the API
+  data.forEach((product: { bestPrice: number }) => {
+    expect(typeof product.bestPrice).toBe('number');  // Verify type conversion
+    expect(product.bestPrice).toBeGreaterThanOrEqual(50);
+    expect(product.bestPrice).toBeLessThanOrEqual(150);
+  });
+});
+```
+
+**Pattern for Production Code:**
+```typescript
+// In storage/route handlers - convert DECIMAL to number
+bestPrice: typeof row.bestPrice === 'string' ? parseFloat(row.bestPrice) : row.bestPrice,
+```
+
+### Test Data Setup Pattern
+
+```typescript
+describe('Route Integration Tests', () => {
+  let app: Express;
+  let testProductId: number;
+  let testRetailerId: number;
+
+  beforeEach(async () => {
+    // 1. Set test environment
+    process.env.NODE_ENV = 'test';
+
+    // 2. Create fresh Express app
+    app = express();
+    app.use(express.json());
+    app.use(session({ /* config */ }));
+    app.use(passport.initialize());
+    app.use(passport.session());
+
+    // 3. Register routes
+    registerRoutes(app);
+
+    // 4. Clean database (in dependency order)
+    await db.delete(priceHistory);
+    await db.delete(productOffers);
+    await db.delete(products);
+    await db.delete(retailers);
+
+    // 5. Create test data
+    const [retailer] = await db.insert(retailers).values({
+      name: 'Test Retailer',
+      website: 'https://test.com',
+      isActive: true,
+    }).returning();
+    testRetailerId = retailer.id;
+
+    const [product] = await db.insert(products).values({
+      name: 'Test Product',
+      category: 'Electronics',
+    }).returning();
+    testProductId = product.id;
+  });
+
+  afterEach(async () => {
+    // Clean up in reverse order of dependencies
+    await db.delete(priceHistory);
+    await db.delete(productOffers);
+    await db.delete(products);
+    await db.delete(retailers);
+  });
+});
+```
+
+### Common Mocks for Route Tests
+
+```typescript
+// Mock Redis cache middleware
+vi.mock('../../middleware/redis-cache', () => ({
+  productCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
+  searchCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
+  redisCacheMiddleware: () => (req: unknown, res: unknown, next: () => void) => next(),
+}));
+
+// Mock logger
+vi.mock('../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+// Mock CSRF protection for tests
+vi.mock('../../middleware/security', () => ({
+  csrfProtection: (req: unknown, res: unknown, next: () => void) => next(),
+}));
+```
+
+### Drizzle ORM Field Selection Bug Workaround
+
+**Issue**: Drizzle may throw "Cannot convert undefined or null to object" with field selection.
+
+```typescript
+// PROBLEMATIC - May throw with complex WHERE
+const alerts = await db
+  .select({
+    id: priceAlerts.id,
+    productId: priceAlerts.productId,
+  })
+  .from(priceAlerts)
+  .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.isActive, true)));
+
+// WORKAROUND - Use .select() without field specification
+const alerts = await db
+  .select()  // No explicit fields
+  .from(priceAlerts)
+  .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.isActive, true)));
+// NOTE: Using .select() without field specification to avoid Drizzle bug
+```
+
+### Test Organization by Category
+
+```typescript
+describe('Product Routes - Integration Tests', () => {
+  // Happy Path Tests
+  describe('GET /api/products/:id - Happy Path', () => {
+    it('should return product with offers');
+    it('should include retailer details');
+    it('should include discussion count');
+  });
+
+  // Error Handling Tests
+  describe('GET /api/products/:id - Error Handling', () => {
+    it('should return 404 for non-existent product');
+    it('should return 400 for invalid ID');
+    it('should return 400 for negative ID');
+  });
+
+  // Data Validation Tests
+  describe('GET /api/products/:id - Data Validation', () => {
+    it('should return valid product schema');
+    it('should not expose sensitive fields');
+  });
+
+  // Edge Cases
+  describe('GET /api/products/:id - Edge Cases', () => {
+    it('should return empty offers array when no offers');
+    it('should handle products without images');
   });
 });
 ```
