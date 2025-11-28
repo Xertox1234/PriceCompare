@@ -243,7 +243,6 @@ export function registerWatchListRoutes(app: Express): void {
       const deletedWatchList = await storage.deleteWatchList(watchListId, userId);
 
       sendSuccess(res, {
-        success: true,
         deletedId: deletedWatchList.id
       });
     } catch (error: unknown) {

@@ -3,6 +3,7 @@ import express from 'express';
 import { storage } from "../storage";
 import { getRedisClient, getRedisSessionClient } from '../config/redis';
 import { createLogger } from '../utils/logger';
+import { sendSuccess } from '../utils/api-response';
 
 const cspLog = createLogger('CSP');
 
@@ -12,7 +13,10 @@ const cspLog = createLogger('CSP');
  * Provides health and readiness endpoints for monitoring.
  */
 export function registerHealthRoutes(app: Express): void {
-  // Basic health check
+  // Basic health check (infrastructure endpoint)
+  // NOTE: This endpoint uses raw JSON format (not standardized envelope)
+  // for compatibility with orchestration systems (Kubernetes, Docker, load balancers)
+  // that expect simple { status: "ok" } responses
   app.get("/health", async (req, res) => {
     res.status(200).json({
       status: "ok",
@@ -78,13 +82,13 @@ export function registerHealthRoutes(app: Express): void {
 
     const statusCode = overallStatus === "error" ? 503 : 200;
 
-    res.status(statusCode).json({
+    sendSuccess(res, {
       status: overallStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
       checks
-    });
+    }, statusCode);
   });
 
   // CSP Violation Report Endpoint

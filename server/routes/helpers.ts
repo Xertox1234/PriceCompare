@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import type { AuthenticatedRequest } from "@shared/types";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendError, sendErrorFromException } from "../utils/api-response";
 
 // SECURITY: Express.User type is properly defined in server/auth.ts as SafeUser
 // This ensures passwordHash is never exposed in req.user throughout the application
@@ -19,7 +19,7 @@ export function isAuthenticated(req: Request): req is AuthenticatedRequest {
 export function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendError(res, 'Authentication required', 401);
       return;
     }
     // req is now typed as AuthenticatedRequest
@@ -33,11 +33,11 @@ export function withAuth(handler: (req: AuthenticatedRequest, res: Response) => 
 export function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendError(res, 'Authentication required', 401);
       return;
     }
     if (req.user.role !== 'admin') {
-      res.status(403).json({ error: 'Admin access required' });
+      sendError(res, 'Admin access required', 403);
       return;
     }
     // req is now typed as AuthenticatedRequest with admin role
@@ -46,24 +46,25 @@ export function withAdmin(handler: (req: AuthenticatedRequest, res: Response) =>
 }
 
 /**
- * Standardized error response handler for routes
- * Uses createErrorResponse to sanitize errors and provide consistent format
+ * @deprecated Use sendErrorFromException() from '../utils/api-response' instead
+ *
+ * Legacy error response handler - maintained for backwards compatibility
+ * New code should use: sendErrorFromException(res, error, operationName)
  */
 export function handleRouteError(
   res: Response,
   error: unknown,
-  operationName: string,
-  statusCode?: number
+  operationName: string
 ): void {
-  const errorResponse = createErrorResponse(error, operationName);
-  res.status(statusCode || errorResponse.status).json({
-    error: errorResponse.error
-  });
+  sendErrorFromException(res, error, operationName);
 }
 
 /**
- * Standardized 404 not found response
+ * @deprecated Use sendError(res, `${resource} not found`, 404) instead
+ *
+ * Legacy 404 response helper - maintained for backwards compatibility
+ * New code should use: sendError(res, 'Resource not found', 404)
  */
 export function notFound(res: Response, resource: string): void {
-  res.status(404).json({ error: `${resource} not found` });
+  sendError(res, `${resource} not found`, 404);
 }
