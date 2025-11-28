@@ -1,10 +1,13 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 1.0
-Last Updated: 2025-11-26
+Version: 2.0
+Last Updated: 2025-11-27
 Maintainer: Claude Code / Development Team
 Status: Active
 Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md, AUTHENTICATION_PATTERNS.md]
+Changelog:
+  - 2.0 (2025-11-27): Major CSRF protection expansion - added critical anti-patterns, auth endpoint requirements, exemption guidelines
+  - 1.0 (2025-11-26): Initial security patterns
 ---
 
 # Security Patterns & Anti-Patterns
@@ -633,18 +636,225 @@ app.post('/api/affiliate/track-click', async (req, res) => {
 });
 ```
 
-### Middleware Order for CSRF
+### Middleware Order for CSRF (CRITICAL)
+
+**CORRECT order: `csrfProtection` → `withAuth/withAdmin` → handler**
+
+#### ✅ CORRECT - CSRF Before Auth
 ```typescript
-// CORRECT order: auth → csrf → handler
+import { csrfProtection } from '../middleware/security';
+import { withAuth, withAdmin } from './helpers';
+
+// Standard authenticated endpoint
 app.post('/api/endpoint',
-  requireAuth,        // 1. Verify user is authenticated
-  csrfProtection,     // 2. Verify CSRF token
-  validateRequest(),  // 3. Validate input
-  async (req, res) => {
-    // 4. Execute business logic
-  }
+  csrfProtection,     // 1. Verify CSRF token (fast, fails early)
+  withAuth(async (req, res) => {  // 2. Verify authentication
+    // 3. Execute business logic
+  })
+);
+
+// Admin-only endpoint
+app.post('/api/admin/products',
+  csrfProtection,     // 1. Verify CSRF token
+  withAdmin(async (req, res) => {  // 2. Verify admin role
+    // 3. Execute business logic
+  })
 );
 ```
+
+#### ❌ WRONG - Auth Before CSRF
+```typescript
+// INEFFICIENT - authenticates before checking CSRF
+app.post('/api/endpoint',
+  requireAuth,        // ❌ Wastes resources on invalid CSRF requests
+  csrfProtection,
+  async (req, res) => {}
+);
+
+// INCONSISTENT - doesn't match project standard
+app.post('/api/notifications/:id/read',
+  requireAuth,        // ❌ Should be csrfProtection first
+  csrfProtection,
+  async (req, res) => {}
+);
+```
+
+**Why CSRF First:**
+- CSRF validation is fast (token comparison)
+- Fails early for invalid requests
+- Prevents wasting auth resources on CSRF attacks
+- Consistent with project-wide pattern (44+ endpoints)
+
+### CRITICAL ANTI-PATTERN: Global CSRF Protection
+
+**NEVER apply `csrfProtection` globally** - use per-route protection instead.
+
+#### ❌ CRITICAL MISTAKE - Global CSRF Middleware
+```typescript
+// server/index.ts
+// THIS WILL CAUSE DOUBLE-PROTECTION CONFLICTS!
+app.use(csrfProtection);  // ❌ WRONG - applies to ALL routes
+
+// Then in route files:
+app.post('/api/admin/products', csrfProtection, withAdmin(async (req, res) => {
+  // ❌ csrfProtection runs TWICE - causes token consumption issues
+}));
+```
+
+**Problems with Global CSRF:**
+1. **Double Protection** - Token validated twice, consumed twice
+2. **GET Request Rejection** - Safe methods incorrectly blocked
+3. **CORS Issues** - Preflight OPTIONS requests fail
+4. **Token Exhaustion** - Tokens may become invalid after first use
+5. **Violates Middleware Pipeline** - Conflicts with documented order
+
+#### ✅ CORRECT - Per-Route Protection
+```typescript
+// server/index.ts
+// NOTE: CSRF protection is applied per-route in individual route files,
+// not globally. This ensures GET requests aren't protected while mutations are.
+// Each POST/PUT/PATCH/DELETE endpoint includes csrfProtection middleware.
+// See server/routes/*.ts files for csrfProtection usage.
+
+// In route files - apply selectively:
+app.post('/api/admin/products', csrfProtection, withAdmin(async (req, res) => {
+  // ✅ CSRF runs once, only on mutations
+}));
+
+app.get('/api/products', async (req, res) => {
+  // ✅ No CSRF - GET is safe method
+});
+```
+
+### Authentication Endpoints MUST Have CSRF Protection
+
+**ALL authentication endpoints need CSRF protection** - they are high-value targets.
+
+#### ❌ CRITICAL VULNERABILITY - Unprotected Auth Endpoints
+```typescript
+// THIS IS A CRITICAL SECURITY VULNERABILITY!
+app.post('/api/auth/register', async (req, res) => {
+  // ❌ No CSRF - attacker can create fake accounts from malicious site
+  const user = await createUser(req.body);
+  res.json(user);
+});
+
+app.post('/api/auth/login', (req, res, next) => {
+  // ❌ No CSRF - attacker can force user login to attacker's account
+  passport.authenticate('local')(req, res, next);
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  // ❌ No CSRF - attacker can spam password reset emails
+  await sendPasswordResetEmail(req.body.email);
+});
+```
+
+**Attack Scenarios Without CSRF:**
+- **Account Creation**: Attacker tricks user into creating accounts
+- **Login CSRF**: Force-login user to attacker's account for data harvesting
+- **Password Reset Spam**: Flood users with reset emails
+- **Session Fixation**: Establish attacker's session in user's browser
+
+#### ✅ CORRECT - Protected Auth Endpoints
+```typescript
+import { csrfProtection, generateCsrfToken } from '../middleware/security';
+
+// Provide token endpoint for unauthenticated clients
+app.get('/api/csrf-token', (req, res) => {
+  const token = generateCsrfToken(req);
+  sendSuccess(res, { csrfToken: token });
+});
+
+// Protect all auth mutations
+app.post('/api/auth/register', csrfProtection, async (req, res) => {
+  // ✅ CSRF required - prevents unauthorized registration
+  const user = await createUser(req.body);
+  res.json(user);
+});
+
+app.post('/api/auth/login', csrfProtection, (req, res, next) => {
+  // ✅ CSRF required - prevents login CSRF attacks
+  passport.authenticate('local')(req, res, next);
+});
+
+app.post('/api/auth/forgot-password', csrfProtection, async (req, res) => {
+  // ✅ CSRF required - prevents reset email spam
+  await sendPasswordResetEmail(req.body.email);
+});
+
+app.post('/api/auth/reset-password', csrfProtection, async (req, res) => {
+  // ✅ CSRF required - prevents unauthorized password changes
+  await resetPassword(req.body.token, req.body.password);
+});
+```
+
+**Token Flow for Unauthenticated Clients:**
+1. Client calls `GET /api/csrf-token` to obtain token
+2. Token stored in session (server-side)
+3. Client includes token in subsequent auth requests
+4. Token header: `X-CSRF-Token: <token>` or body: `_csrf: <token>`
+
+### CSRF Exemptions (Rare - Requires Security Review)
+
+**Most endpoints should NOT be exempted.** Only exempt for specific, justified use cases.
+
+#### Valid Exemption Scenarios
+
+1. **Public Analytics/Tracking** - Cross-origin read-only tracking
+2. **Webhook Callbacks** - External services with signature verification
+3. **Health Checks** - Monitoring endpoints with no state changes
+
+#### ✅ CORRECT - Justified Exemption with Documentation
+```typescript
+// server/middleware/security.ts
+const CSRF_EXEMPT_PATHS = [
+  '/api/health',                    // Public health check - no auth, no state change
+  '/api/affiliate/track-click',     // Public click tracking - analytics only
+  '/api/webhooks/stripe',           // Webhook with signature verification
+];
+
+// In route file - clearly document why exempt
+app.post("/api/affiliate/track-click/:offerId", async (req, res) => {
+  // NOTE: This endpoint is intentionally public and exempted from CSRF protection
+  // because it's called cross-origin from retailer sites for analytics tracking.
+  // No user data modified, only logs analytics events.
+  // See server/middleware/security.ts CSRF_EXEMPT_PATHS for exemption.
+  await trackAffiliateClick(offerId);
+  res.json({ success: true });
+});
+```
+
+#### ❌ WRONG - Invalid Exemption Reasons
+```typescript
+// ❌ BAD: "Too hard to implement" - NOT ACCEPTABLE
+app.post("/api/admin/products", async (req, res) => {
+  // No CSRF because "client doesn't support tokens yet"
+  // THIS IS A CRITICAL SECURITY VULNERABILITY!
+});
+
+// ❌ BAD: "Only internal use" - STILL VULNERABLE
+app.delete("/api/admin/users/:id", async (req, res) => {
+  // No CSRF because "only admins can access"
+  // Attacker can trick admin into visiting malicious site!
+});
+
+// ❌ BAD: Conflicting protection and exemption
+app.post("/api/endpoint", csrfProtection, async (req, res) => {
+  // Endpoint is ALSO in CSRF_EXEMPT_PATHS
+  // Redundant and confusing - choose one approach
+});
+```
+
+**Exemption Checklist:**
+- [ ] Endpoint is truly public (no authentication required)?
+- [ ] Endpoint performs NO user-specific state changes?
+- [ ] Alternative protection exists (signature verification, rate limiting)?
+- [ ] Exemption documented in code with clear justification?
+- [ ] Security team has approved exemption?
+- [ ] Exemption added to `CSRF_EXEMPT_PATHS` in security.ts?
+
+**When in doubt: ALWAYS apply CSRF protection.**
 
 ### Token Management
 
@@ -704,6 +914,48 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
   next();
 }
 ```
+
+### CSRF Implementation Checklist
+
+Use this checklist when implementing or reviewing CSRF protection:
+
+#### Server-Side Implementation
+- [ ] All POST/PUT/PATCH/DELETE endpoints have `csrfProtection` middleware
+- [ ] CSRF middleware is placed BEFORE auth middleware (`csrfProtection, withAuth`)
+- [ ] NO global `app.use(csrfProtection)` in server/index.ts
+- [ ] Auth endpoints (`/register`, `/login`, `/forgot-password`, `/reset-password`) protected
+- [ ] `/api/csrf-token` GET endpoint exists for unauthenticated clients
+- [ ] `csrfProtection` middleware uses timing-safe comparison (`crypto.timingSafeEqual`)
+- [ ] CSRF tokens generated with crypto.randomBytes (32+ bytes)
+- [ ] Tokens stored in session, not cookies
+- [ ] Exemptions documented in both code AND `CSRF_EXEMPT_PATHS`
+- [ ] Security events logged for CSRF violations
+
+#### Client-Side Implementation
+- [ ] Client fetches CSRF token before auth operations (`GET /api/csrf-token`)
+- [ ] Token included in request headers (`X-CSRF-Token: <token>`)
+- [ ] Token included in request body (`_csrf: <token>`) as fallback
+- [ ] Token refreshed on session changes
+- [ ] 403 CSRF errors handled gracefully (show user-friendly message)
+
+#### Testing & Validation
+- [ ] Test: Valid token allows mutation
+- [ ] Test: Missing token returns 403
+- [ ] Test: Invalid token returns 403
+- [ ] Test: GET/HEAD/OPTIONS requests don't require token
+- [ ] Test: Exempted paths bypass protection
+- [ ] Test: Auth endpoints require token
+- [ ] Test: Token from one session doesn't work in another
+- [ ] Code review: All mutations have `csrfProtection`
+- [ ] Security scan: No unprotected mutations found
+
+#### Documentation
+- [ ] CSRF protection mentioned in API documentation
+- [ ] Client integration guide includes CSRF token handling
+- [ ] Exemptions justified and documented
+- [ ] Security event logging configured for CSRF violations
+
+**Reference Implementation:** See `CSRF_PROTECTION_AUDIT.md` for complete implementation details covering 48 endpoints.
 
 ---
 
