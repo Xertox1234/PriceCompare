@@ -1,0 +1,307 @@
+/**
+ * ⚠️ DOCUMENTATION EXAMPLE ONLY - DO NOT RUN AS TEST ⚠️
+ *
+ * This file is intentionally named with .skip extension to prevent execution.
+ * It serves as a reference/template for migrating existing route tests to use
+ * the new response validation helpers.
+ *
+ * STATUS: Example tests intentionally fail because auth routes haven't been
+ * migrated to standardized response format yet. This demonstrates that the
+ * validation helpers work correctly by catching non-standard responses.
+ *
+ * TO USE THIS FILE:
+ * 1. Copy patterns to actual route test files
+ * 2. Update imports and test structure as needed
+ * 3. Ensure routes being tested use standardized response helpers
+ * 4. Remove .skip extension and rename if you want to run it
+ *
+ * MIGRATION GUIDE: See docs/API_TESTING_CONTINUATION_PLAN.md
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import request from 'supertest';
+import express, { type Express } from 'express';
+import session from 'express-session';
+import { db } from '../../db';
+import { users, products, retailers, priceAlerts } from '@shared/schema';
+import { passport } from '../../auth';
+import { registerAlertRoutes } from '../alert-routes';
+import { registerAuthRoutes } from '../auth-routes';
+import { sql, eq } from 'drizzle-orm';
+import {
+  expectSuccessResponse,
+  expectErrorResponse,
+  expectCreatedResponse,
+  expectUnauthorizedError,
+  expectNotFoundError,
+  alertSchema,
+} from '../../__tests__/helpers/response-validators';
+import { z } from 'zod';
+
+/**
+ * Example: Route Tests with Envelope Validation
+ *
+ * This file demonstrates how to use the new response validation helpers
+ * to ensure all API responses follow the standardized envelope format.
+ *
+ * Key differences from old tests:
+ * - ❌ OLD: expect(response.body.alert).toBeDefined()
+ * - ✅ NEW: const alert = expectSuccessResponse(response, 200)
+ *
+ * Benefits:
+ * 1. Validates envelope structure ({ success: true, data: ... })
+ * 2. Validates HTTP status codes
+ * 3. Validates data schemas with Zod
+ * 4. Returns typed data for further assertions
+ */
+
+// Mock dependencies (same as original test)
+vi.mock('../../services/email-service', () => ({
+  emailService: {
+    isReady: vi.fn().mockReturnValue(true),
+    sendPasswordResetEmail: vi.fn().mockResolvedValue(true),
+  },
+}));
+
+vi.mock('../../utils/security-logger', () => ({
+  logSecurityEvent: vi.fn(),
+  SecurityEventType: {
+    REGISTER: 'REGISTER',
+    LOGIN_SUCCESS: 'LOGIN_SUCCESS',
+  },
+}));
+
+vi.mock('../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  })),
+}));
+
+vi.mock('../../middleware/security', () => ({
+  generateCsrfToken: vi.fn(() => 'test-csrf-token'),
+  csrfProtection: (req: unknown, res: unknown, next: () => void) => next(),
+}));
+
+describe('Alert Routes - WITH Envelope Validation (Example)', () => {
+  let app: Express;
+  let authCookie: string;
+  let testUserId: number;
+  let testProductId: number;
+  let testAlertId: number;
+
+  beforeEach(async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.ENCRYPTION_KEY = 'a'.repeat(64);
+
+    app = express();
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: false }));
+
+    app.use(
+      session({
+        secret: 'test-secret-key-for-testing-only',
+        resave: false,
+        saveUninitialized: false,
+        cookie: { httpOnly: true, secure: false, maxAge: 24 * 60 * 60 * 1000 },
+      })
+    );
+
+    app.use(passport.initialize());
+    app.use(passport.session());
+
+    app.use((req, res, next) => {
+      req.csrfToken = () => 'test-csrf-token';
+      next();
+    });
+
+    registerAuthRoutes(app);
+    registerAlertRoutes(app);
+
+    await db.delete(priceAlerts);
+    await db.delete(products);
+    await db.delete(retailers);
+    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        email: 'testuser@example.com',
+        username: 'testuser',
+        password: 'SecurePass123',
+      });
+
+    testUserId = registerRes.body.user.id;
+    authCookie = registerRes.headers['set-cookie'];
+
+    const [product] = await db.insert(products).values({
+      name: 'Test Product for Alerts',
+      category: 'Electronics',
+      brand: 'TestBrand',
+      model: 'ALERT-001',
+    }).returning();
+    testProductId = product.id;
+
+    const [alert] = await db.insert(priceAlerts).values({
+      userId: testUserId,
+      productId: testProductId,
+      targetPrice: '79.99',
+      isActive: true,
+      notifyForum: false,
+    }).returning();
+    testAlertId = alert.id;
+
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await db.delete(priceAlerts);
+    await db.delete(products);
+    await db.delete(retailers);
+    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+  });
+
+  describe('✅ NEW PATTERN: With Envelope Validation', () => {
+    it('should create alert with validated response', async () => {
+      const response = await request(app)
+        .post('/api/price-alerts')
+        .set('Cookie', authCookie)
+        .send({
+          productId: testProductId,
+          targetPrice: '89.99',
+          notifyForum: false,
+        });
+
+      // ✅ NEW: Validates envelope, status, and returns typed data
+      const data = expectSuccessResponse<{ alert: z.infer<typeof alertSchema> }>(response, 200);
+
+      // Now we can make assertions on the validated data
+      expect(data.alert.userId).toBe(testUserId);
+      expect(data.alert.productId).toBe(testProductId);
+      expect(data.alert.targetPrice).toBe('89.99');
+      expect(data.alert.isActive).toBe(true);
+    });
+
+    it('should reject unauthenticated request with validated error', async () => {
+      const response = await request(app)
+        .post('/api/price-alerts')
+        .send({
+          productId: testProductId,
+          targetPrice: '89.99',
+        });
+
+      // ✅ NEW: Validates error envelope and status
+      const error = expectUnauthorizedError(response, /Authentication required/);
+
+      expect(error.success).toBe(false);
+      expect(error.error).toContain('Authentication required');
+    });
+
+    it('should return 404 for non-existent alert with validated error', async () => {
+      const response = await request(app)
+        .patch('/api/price-alerts/99999')
+        .set('Cookie', authCookie)
+        .send({ targetPrice: '69.99' });
+
+      // ✅ NEW: Validates 404 error envelope
+      const error = expectNotFoundError(response, /not found or unauthorized/);
+
+      expect(error.success).toBe(false);
+    });
+
+    it('should get alerts with validated array response', async () => {
+      const response = await request(app)
+        .get('/api/price-alerts')
+        .set('Cookie', authCookie);
+
+      // ✅ NEW: Validates success response and returns typed array
+      const alerts = expectSuccessResponse<z.infer<typeof alertSchema>[]>(response, 200);
+
+      expect(Array.isArray(alerts)).toBe(true);
+      expect(alerts.length).toBeGreaterThanOrEqual(1);
+      expect(alerts[0].userId).toBe(testUserId);
+    });
+  });
+
+  describe('❌ OLD PATTERN: Without Envelope Validation (for comparison)', () => {
+    it('OLD: create alert - does not validate envelope', async () => {
+      const response = await request(app)
+        .post('/api/price-alerts')
+        .set('Cookie', authCookie)
+        .send({
+          productId: testProductId,
+          targetPrice: '89.99',
+          notifyForum: false,
+        });
+
+      // ❌ OLD: Only checks status, doesn't validate envelope
+      expect(response.status).toBe(200);
+
+      // ❌ OLD: Assumes structure without validation
+      expect(response.body.success).toBe(true);
+      expect(response.body.alert).toMatchObject({
+        userId: testUserId,
+        productId: testProductId,
+      });
+
+      // Problems:
+      // 1. Doesn't validate envelope structure
+      // 2. Could pass if response is { success: true, alert: {...} } (missing 'data' wrapper)
+      // 3. No runtime type safety
+    });
+
+    it('OLD: unauthenticated - does not validate error envelope', async () => {
+      const response = await request(app)
+        .post('/api/price-alerts')
+        .send({ productId: testProductId, targetPrice: '89.99' });
+
+      // ❌ OLD: Manual status and error checks
+      expect(response.status).toBe(401);
+      expect(response.body.error).toContain('Authentication required');
+
+      // Problems:
+      // 1. Doesn't validate { success: false, error: '...' } structure
+      // 2. Could pass with wrong envelope format
+      // 3. No type safety
+    });
+  });
+
+  describe('📊 Comparison: Before and After', () => {
+    it('demonstrates the difference in validation', async () => {
+      const response = await request(app)
+        .get('/api/price-alerts')
+        .set('Cookie', authCookie);
+
+      // ========================================
+      // ❌ OLD WAY (no envelope validation)
+      // ========================================
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      // ^^ This passes even if response is: [{ id: 1 }]
+      //    (missing { success: true, data: [...] } envelope!)
+
+      // ========================================
+      // ✅ NEW WAY (with envelope validation)
+      // ========================================
+      const alerts = expectSuccessResponse<z.infer<typeof alertSchema>[]>(response, 200);
+      // ^^ This validates:
+      //    1. response.status === 200
+      //    2. response.body has { success: true, data: [...] }
+      //    3. Returns typed data for further assertions
+
+      expect(Array.isArray(alerts)).toBe(true);
+      if (alerts.length > 0) {
+        expect(alerts[0]).toHaveProperty('id');
+        expect(alerts[0]).toHaveProperty('userId');
+      }
+    });
+  });
+});

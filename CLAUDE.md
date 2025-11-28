@@ -1074,7 +1074,8 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - **`docs/TYPESCRIPT_PATTERNS.md`** - Type safety, avoiding `any`, Zod integration (CRITICAL)
 - **`docs/ERROR_HANDLING_PATTERNS.md`** - Error sanitization, validation errors, recovery strategies
 - **`docs/API_PATTERNS.md`** - Route organization, middleware pipeline, caching, pagination
-- **`docs/SERVICE_INTEGRATION_PATTERNS.md`** - Guard completeness, cache-before-limit, type extraction (NEW)
+- **`docs/API_TESTING_PATTERNS.md`** - Test standardization, validation helpers, variable naming, Drizzle bugs (NEW)
+- **`docs/SERVICE_INTEGRATION_PATTERNS.md`** - Guard completeness, cache-before-limit, type extraction
 
 ### Additional Documentation
 - `ARCHITECTURE.md` - System overview, diagrams, data flows, ADRs, caching strategy

@@ -134,8 +134,8 @@ export function registerProductRoutes(app: Express): void {
       const filters: SearchFilters = {
         sortBy: "popularity",
       };
-      const products = await storage.searchProducts(filters);
-      sendSuccess(res, products);
+      const { products, pagination } = await storage.searchProducts(filters);
+      sendPaginated(res, products, pagination);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'FetchProducts');
     }
@@ -352,9 +352,11 @@ export function registerProductRoutes(app: Express): void {
 
       if (history.length < 7) {
         // Not enough data for predictions
+        const lastPrice = history.length > 0 ? parseFloat(history[history.length - 1].price) : 0;
         sendSuccess(res, {
           predictions: [],
           confidence: 'low',
+          basePrice: lastPrice,
           message: 'Not enough historical data for predictions'
         });
         return;
@@ -420,7 +422,7 @@ export function registerProductRoutes(app: Express): void {
 
       // In the future, you could store this in a database table for analytics
       // For now, just acknowledge receipt
-      sendSuccess(res, {});
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
       logger.error('Error tracking product view', { error: error instanceof Error ? error.message : String(error), productId: req.body.productId });
       sendErrorFromException(res, error, 'TrackProductView');

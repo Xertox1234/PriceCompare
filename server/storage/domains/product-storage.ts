@@ -416,7 +416,18 @@ export class ProductStorage extends BaseStorage {
       // Minimal post-processing: just parse JSON and format
       // No filtering, no aggregation, no sorting - all done in database!
       const productsWithOffers: ProductWithOffers[] = results.map(row => {
-        const offers = JSON.parse(row.topOffers || '[]');
+        // Handle topOffers which might be JSON string, object, or null
+        let offers: Array<ProductOffer & { retailer: Retailer }> = [];
+        if (row.topOffers) {
+          if (typeof row.topOffers === 'string') {
+            offers = JSON.parse(row.topOffers) as Array<ProductOffer & { retailer: Retailer }>;
+          } else if (Array.isArray(row.topOffers)) {
+            offers = row.topOffers as Array<ProductOffer & { retailer: Retailer }>;
+          } else {
+            // If it's an object (Drizzle sometimes returns the parsed JSON directly)
+            offers = [];
+          }
+        }
 
         // Database subquery already limits to 3 offers; slice is defensive fallback only
         const top3Offers = offers.slice(0, 3);
@@ -440,7 +451,8 @@ export class ProductStorage extends BaseStorage {
           embeddingUpdatedAt: row.embeddingUpdatedAt,
           searchVector: row.searchVector,
           createdAt: row.createdAt,
-          bestPrice: row.bestPrice,
+          // Convert bestPrice from string (PostgreSQL DECIMAL) to number
+          bestPrice: typeof row.bestPrice === 'string' ? parseFloat(row.bestPrice) : row.bestPrice,
           savings: savings || undefined,
           savingsPercentage: savingsPercentage || undefined,
           offers: top3Offers,

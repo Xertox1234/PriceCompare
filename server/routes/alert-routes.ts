@@ -50,7 +50,7 @@ export function registerAlertRoutes(app: Express): void {
 
       const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
       if (!updatedAlert) {
-        sendError(res, 'Alert not found', 404);
+        sendError(res, 'Alert not found or unauthorized', 404);
         return;
       }
 
@@ -68,7 +68,7 @@ export function registerAlertRoutes(app: Express): void {
 
       const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
       if (!deleted) {
-        sendError(res, 'Alert not found', 404);
+        sendError(res, 'Alert not found or unauthorized', 404);
         return;
       }
 

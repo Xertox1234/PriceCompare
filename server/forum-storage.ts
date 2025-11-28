@@ -346,8 +346,12 @@ export class ForumStorage {
     return newAlert;
   }
 
-  async getUserPriceAlerts(userId: number): Promise<PriceAlert[]> {
-    return db.select().from(priceAlerts)
+  async getUserPriceAlerts(userId: number) {
+    // NOTE: Using .select() without field specification to avoid Drizzle field selection bug
+    // that causes "Cannot convert undefined or null to object" error
+    return await db
+      .select()
+      .from(priceAlerts)
       .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.isActive, true)));
   }
 

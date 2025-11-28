@@ -7,6 +7,10 @@ import { users, retailers } from '@shared/schema';
 import { passport } from '../../auth';
 import { registerRetailerRoutes } from '../retailer-routes';
 import { sql } from 'drizzle-orm';
+import {
+  expectSuccessResponse,
+  expectErrorResponse,
+} from '../../__tests__/helpers/response-validators';
 
 /**
  * Retailer Routes Integration Test Suite
@@ -106,19 +110,19 @@ describe('Retailer Routes - Integration Tests', () => {
   });
 
   describe('GET /api/retailers - List All Retailers', () => {
-    it('should return all retailers', async () => {
+    it('should return all active retailers', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBe(4); // 3 active + 1 inactive
+      const result = expectSuccessResponse<Array<{ id: number; name: string }>>(response, 200);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(3); // Only active retailers
     });
 
     it('should include retailer details', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
-      expect(response.body[0]).toMatchObject({
+      const result = expectSuccessResponse<Array<{ id: number; name: string; website: string; isActive: boolean }>>(response, 200);
+      expect(result[0]).toMatchObject({
         id: expect.any(Number),
         name: expect.any(String),
         website: expect.any(String),
@@ -129,31 +133,35 @@ describe('Retailer Routes - Integration Tests', () => {
     it('should include affiliate information if configured', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ name: string; affiliateId?: string; affiliateProgram?: string; affiliateStatus?: string; commissionRate?: string }>>(response, 200);
 
       // Find Amazon retailer (has affiliate config)
-      const amazon = response.body.find((r: { name: string }) => r.name === 'Amazon');
+      const amazon = result.find((r) => r.name === 'Amazon');
       expect(amazon).toBeDefined();
-      expect(amazon.affiliateId).toBe('amazon-123');
-      expect(amazon.affiliateProgram).toBe('Amazon Associates');
-      expect(amazon.affiliateStatus).toBe('active');
-      expect(amazon.commissionRate).toBeDefined();
+      expect(amazon!.affiliateId).toBe('amazon-123');
+      expect(amazon!.affiliateProgram).toBe('Amazon Associates');
+      expect(amazon!.affiliateStatus).toBe('active');
+      expect(amazon!.commissionRate).toBeDefined();
     });
 
-    it('should include inactive retailers', async () => {
+    it('should not include inactive retailers', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ isActive: boolean; name: string }>>(response, 200);
 
-      const inactiveRetailer = response.body.find((r: { isActive: boolean }) => !r.isActive);
-      expect(inactiveRetailer).toBeDefined();
-      expect(inactiveRetailer.name).toBe('Inactive Retailer');
+      // Verify all returned retailers are active
+      const allActive = result.every((r) => r.isActive === true);
+      expect(allActive).toBe(true);
+
+      // Verify inactive retailer is not in results
+      const inactiveRetailer = result.find((r) => r.name === 'Inactive Retailer');
+      expect(inactiveRetailer).toBeUndefined();
     });
 
     it('should set cache control headers', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      expectSuccessResponse(response, 200);
       expect(response.headers['cache-control']).toBeDefined();
       expect(response.headers['cache-control']).toContain('public');
       expect(response.headers['cache-control']).toContain('max-age=3600'); // 1 hour
@@ -166,8 +174,8 @@ describe('Retailer Routes - Integration Tests', () => {
 
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual([]);
+      const result = expectSuccessResponse<Array<unknown>>(response, 200);
+      expect(result).toEqual([]);
     });
 
     it('should handle database errors gracefully', async () => {
@@ -186,20 +194,20 @@ describe('Retailer Routes - Integration Tests', () => {
       const response1 = await request(app).get('/api/retailers');
       const response2 = await request(app).get('/api/retailers');
 
-      expect(response1.status).toBe(200);
-      expect(response2.status).toBe(200);
+      const result1 = expectSuccessResponse<Array<{ id: number }>>(response1, 200);
+      const result2 = expectSuccessResponse<Array<{ id: number }>>(response2, 200);
 
       // Order should be consistent (typically by ID)
-      expect(response1.body.map((r: { id: number }) => r.id))
-        .toEqual(response2.body.map((r: { id: number }) => r.id));
+      expect(result1.map((r) => r.id))
+        .toEqual(result2.map((r) => r.id));
     });
 
     it('should not expose sensitive internal fields', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<Record<string, unknown>>>(response, 200);
 
-      response.body.forEach((retailer: Record<string, unknown>) => {
+      result.forEach((retailer) => {
         // Verify no internal database fields exposed
         expect(retailer).not.toHaveProperty('passwordHash');
         expect(retailer).not.toHaveProperty('internalNotes');
@@ -223,11 +231,11 @@ describe('Retailer Routes - Integration Tests', () => {
 
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ name: string; website: string }>>(response, 200);
 
-      const specialRetailer = response.body.find((r: { name: string }) => r.name === "O'Reilly & Sons");
+      const specialRetailer = result.find((r) => r.name === "O'Reilly & Sons");
       expect(specialRetailer).toBeDefined();
-      expect(specialRetailer.website).toBe('https://example.com/path?query=value&other=data');
+      expect(specialRetailer!.website).toBe('https://example.com/path?query=value&other=data');
     });
   });
 
@@ -239,14 +247,14 @@ describe('Retailer Routes - Integration Tests', () => {
 
       const duration = Date.now() - startTime;
 
-      expect(response.status).toBe(200);
+      expectSuccessResponse(response, 200);
       expect(duration).toBeLessThan(500);
     });
 
     it('should set appropriate cache headers for long-lived data', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      expectSuccessResponse(response, 200);
 
       // Retailers change infrequently, so cache should be longer
       const cacheControl = response.headers['cache-control'];
@@ -258,9 +266,7 @@ describe('Retailer Routes - Integration Tests', () => {
     it('should return valid retailer schema', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
-
-      response.body.forEach((retailer: {
+      const result = expectSuccessResponse<Array<{
         id: number;
         name: string;
         website: string | null;
@@ -272,7 +278,9 @@ describe('Retailer Routes - Integration Tests', () => {
         commissionRate: string | null;
         affiliateStatus: string | null;
         affiliateConfig: string | null;
-      }) => {
+      }>>(response, 200);
+
+      result.forEach((retailer) => {
         // Required fields
         expect(typeof retailer.id).toBe('number');
         expect(typeof retailer.name).toBe('string');
@@ -317,21 +325,21 @@ describe('Retailer Routes - Integration Tests', () => {
 
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ id: number; name: string }>>(response, 200);
 
-      const minimalRetailer = response.body.find((r: { name: string }) => r.name === 'Minimal Retailer');
+      const minimalRetailer = result.find((r) => r.name === 'Minimal Retailer');
       expect(minimalRetailer).toBeDefined();
-      expect(minimalRetailer.id).toBeDefined();
-      expect(minimalRetailer.name).toBe('Minimal Retailer');
+      expect(minimalRetailer!.id).toBeDefined();
+      expect(minimalRetailer!.name).toBe('Minimal Retailer');
     });
 
     it('should handle retailers with all fields populated', async () => {
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ name: string; id: number; website: string; logo: string; isActive: boolean; affiliateId: string; affiliateProgram: string; baseAffiliateUrl: string; commissionRate: string; affiliateStatus: string }>>(response, 200);
 
       // Find Amazon (has all affiliate fields)
-      const amazon = response.body.find((r: { name: string }) => r.name === 'Amazon');
+      const amazon = result.find((r) => r.name === 'Amazon');
       expect(amazon).toMatchObject({
         id: expect.any(Number),
         name: 'Amazon',
@@ -357,11 +365,11 @@ describe('Retailer Routes - Integration Tests', () => {
 
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ name: string }>>(response, 200);
 
-      const longNameRetailer = response.body.find((r: { name: string }) => r.name === longName);
+      const longNameRetailer = result.find((r) => r.name === longName);
       expect(longNameRetailer).toBeDefined();
-      expect(longNameRetailer.name.length).toBe(255);
+      expect(longNameRetailer!.name.length).toBe(255);
     });
 
     it('should handle retailers with unicode characters', async () => {
@@ -372,11 +380,11 @@ describe('Retailer Routes - Integration Tests', () => {
 
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ name: string; website: string | null }>>(response, 200);
 
-      const unicodeRetailer = response.body.find((r: { name: string }) => r.name === '日本ストア');
+      const unicodeRetailer = result.find((r) => r.name === '日本ストア');
       expect(unicodeRetailer).toBeDefined();
-      expect(unicodeRetailer.website).toBe('https://日本.jp');
+      expect(unicodeRetailer!.website).toBe('https://日本.jp');
     });
 
     it('should handle null values correctly', async () => {
@@ -389,13 +397,13 @@ describe('Retailer Routes - Integration Tests', () => {
 
       const response = await request(app).get('/api/retailers');
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<Array<{ name: string; website: string | null; logo: string | null; affiliateId: string | null }>>(response, 200);
 
-      const nullRetailer = response.body.find((r: { name: string }) => r.name === 'Null Test Retailer');
+      const nullRetailer = result.find((r) => r.name === 'Null Test Retailer');
       expect(nullRetailer).toBeDefined();
-      expect(nullRetailer.website).toBeNull();
-      expect(nullRetailer.logo).toBeNull();
-      expect(nullRetailer.affiliateId).toBeNull();
+      expect(nullRetailer!.website).toBeNull();
+      expect(nullRetailer!.logo).toBeNull();
+      expect(nullRetailer!.affiliateId).toBeNull();
     });
   });
 });
