@@ -197,14 +197,11 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       }
 
       if (warnings.length > 0) {
-        res.status(503).json({
-          success: true,
-          data: {
-            status: 'degraded',
-            warnings,
-            stats: allStats,
-          }
-        });
+        sendSuccess(res, {
+          status: 'degraded',
+          warnings,
+          stats: allStats,
+        }, 503);
         return;
       }
 

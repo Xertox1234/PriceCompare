@@ -25,7 +25,7 @@ import { logger } from "../utils/logger";
  */
 function requireAuth(req: Request, res: Response, next: () => void) {
   if (!isAuthenticated(req)) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 'Authentication required', 401);
     return;
   }
   next();

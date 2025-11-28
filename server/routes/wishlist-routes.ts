@@ -11,6 +11,7 @@ import { withAuth } from './helpers';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { logger } from '../utils/logger';
+import { csrfProtection } from '../middleware/security';
 
 // Validation schemas
 const createWishlistSchema = z.object({
@@ -70,7 +71,7 @@ export function registerWishlistRoutes(app: Express): void {
   }));
 
   // POST /api/wishlists - Create a new wishlist
-  app.post('/api/wishlists', withAuth(async (req, res) => {
+  app.post('/api/wishlists', csrfProtection, withAuth(async (req, res) => {
     try {
       const userId = req.user!.id;
       const data = createWishlistSchema.parse(req.body);
@@ -109,7 +110,7 @@ export function registerWishlistRoutes(app: Express): void {
   }));
 
   // PATCH /api/wishlists/:id - Update wishlist
-  app.patch('/api/wishlists/:id', withAuth(async (req, res) => {
+  app.patch('/api/wishlists/:id', csrfProtection, withAuth(async (req, res) => {
     try {
       const userId = req.user!.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
@@ -128,7 +129,7 @@ export function registerWishlistRoutes(app: Express): void {
   }));
 
   // DELETE /api/wishlists/:id - Delete wishlist
-  app.delete('/api/wishlists/:id', withAuth(async (req, res) => {
+  app.delete('/api/wishlists/:id', csrfProtection, withAuth(async (req, res) => {
     try {
       const userId = req.user!.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
@@ -147,7 +148,7 @@ export function registerWishlistRoutes(app: Express): void {
   }));
 
   // POST /api/wishlists/:id/items - Add product to wishlist
-  app.post('/api/wishlists/:id/items', withAuth(async (req, res) => {
+  app.post('/api/wishlists/:id/items', csrfProtection, withAuth(async (req, res) => {
     try {
       const userId = req.user!.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
@@ -177,7 +178,7 @@ export function registerWishlistRoutes(app: Express): void {
   }));
 
   // DELETE /api/wishlists/:id/items/:productId - Remove product from wishlist
-  app.delete('/api/wishlists/:id/items/:productId', withAuth(async (req, res) => {
+  app.delete('/api/wishlists/:id/items/:productId', csrfProtection, withAuth(async (req, res) => {
     try {
       const userId = req.user!.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });

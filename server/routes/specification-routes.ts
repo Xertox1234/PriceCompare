@@ -148,7 +148,7 @@ export function registerSpecificationRoutes(app: Express): void {
   }));
 
   // PATCH /api/admin/specifications/:id - Update specification (Admin only)
-  app.patch('/api/admin/specifications/:id', withAdmin(async (req, res) => {
+  app.patch('/api/admin/specifications/:id', csrfProtection, withAdmin(async (req, res) => {
     try {
       const specId = parseIntSafe(req.params.id, 'specId', { min: 1 });
       const updates = updateSpecificationSchema.parse(req.body);
@@ -166,7 +166,7 @@ export function registerSpecificationRoutes(app: Express): void {
   }));
 
   // DELETE /api/admin/specifications/:id - Delete single specification (Admin only)
-  app.delete('/api/admin/specifications/:id', withAdmin(async (req, res) => {
+  app.delete('/api/admin/specifications/:id', csrfProtection, withAdmin(async (req, res) => {
     try {
       const specId = parseIntSafe(req.params.id, 'specId', { min: 1 });
 
@@ -184,7 +184,7 @@ export function registerSpecificationRoutes(app: Express): void {
   }));
 
   // DELETE /api/admin/products/:productId/specifications - Delete all specs for product (Admin only)
-  app.delete('/api/admin/products/:productId/specifications', withAdmin(async (req, res) => {
+  app.delete('/api/admin/products/:productId/specifications', csrfProtection, withAdmin(async (req, res) => {
     try {
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 

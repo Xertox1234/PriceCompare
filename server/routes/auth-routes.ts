@@ -195,7 +195,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User logout
-  app.post("/api/auth/logout", (req, res): void => {
+  app.post("/api/auth/logout", csrfProtection, (req, res): void => {
     // Capture user before logout (may or may not be authenticated)
     const user = isAuthenticated(req) ? req.user : undefined;
 
