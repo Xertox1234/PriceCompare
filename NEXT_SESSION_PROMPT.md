@@ -1,117 +1,129 @@
-# Next Session Prompt
+# Next Session: Auth Routes API Testing Migration
 
-## Quick Start Command
+## Quick Start Prompt
 
-Copy and paste this prompt to continue where we left off:
+```
+Continue the API testing migration. Migrate auth-routes.test.ts to use standardized validation helpers and achieve 100% test pass rate.
+
+Current Progress:
+- ✅ 3/15+ test suites completed (98.9% passing - 89/90 tests)
+- ✅ 9 production bugs fixed across 3 suites
+- ✅ Patterns codified into reviewer agents
+
+Next Target: server/routes/__tests__/auth-routes.test.ts
+
+Context Files:
+- TODO_API_TESTING_MIGRATION.md - Migration status and patterns
+- docs/API_TESTING_PATTERNS.md - Testing patterns reference
+- server/__tests__/helpers/response-validators.ts - Validation helpers
+
+Goal: Migrate auth-routes.test.ts to use expectSuccessResponse/expectErrorResponse and achieve 100% test pass rate.
+```
 
 ---
 
-**Context:** I'm working on adding CSRF protection to the PriceCompare API as part of a critical security remediation. This is Day 2 of the work.
+## Context
 
-**Current Status:**
-- Working in branch: `feat/api-standardization-final`
-- Worktree: `/Users/williamtower/projects/PriceCompare/.worktrees/api-standardization`
-- Progress: 12/50 endpoints protected (24%)
-- Files completed: 3/11
-- Tests: 31 written, 20 passing (64%)
+### What Was Completed
 
-**What's Been Done:**
-1. ✅ Security audit completed (see `CSRF_PROTECTION_AUDIT.md`)
-2. ✅ CSRF protection added to 3 files:
-   - `server/routes/admin-aggregation-routes.ts` (4 endpoints)
-   - `server/routes/admin-routes.ts` (6 endpoints)
-   - `server/routes/monitoring-routes.ts` (2 endpoints)
-3. ✅ Comprehensive test suite created (`server/routes/__tests__/csrf-protection.test.ts`)
-4. ✅ Documentation written (3 files, 34KB total)
+#### Test Suite Migrations (3/15+)
+1. ✅ **alert-routes.test.ts** - 29/30 passing (96.7%)
+   - 1 test skipped due to Drizzle field selection bug
+   - Fixed invalid ID handling, error message consistency
 
-**What Needs to Be Done:**
+2. ✅ **retailer-routes.test.ts** - 18/18 passing (100%)
+   - Fixed variable naming conflicts (8 instances)
+   - Updated test expectations for active-only filtering
 
-**Priority 1 - Critical Files (High Risk):**
-1. `server/routes/cache-routes.ts` - 7 POST endpoints (cache manipulation)
-2. `server/routes/price-history-routes.ts` - 3 endpoints (data integrity)
-3. `server/routes/scraping-routes.ts` - 11 POST endpoints (system operations)
-4. `server/routes/affiliate-routes.ts` - 6 endpoints (financial impact)
+3. ✅ **product-routes.test.ts** - 42/42 passing (100%)
+   - Fixed PostgreSQL DECIMAL type conversion
+   - Fixed missing basePrice in error response
+   - Fixed empty object anti-pattern
+   - Fixed wrong response helper usage
 
-**Priority 2 - Medium Priority Files:**
-5. `server/routes/price-analytics-routes.ts` - 3 POST endpoints
-6. `server/routes/advanced-search-routes.ts` - 2 POST endpoints
-7. `server/routes/agent-limits-routes.ts` - 1 POST endpoint
-8. `server/routes/specification-routes.ts` - 1 POST endpoint
+#### Production Bugs Fixed (9 total)
+- 4 bugs in product-routes (session just completed)
+- 3 bugs in alert-routes (previous session)
+- 2 bugs in retailer-routes (previous session)
 
-**Next Steps:**
+#### Patterns Codified
+All learnings from 3 test suite migrations have been embedded into:
+- `typescript-reviewer.md` - PostgreSQL type handling (Pattern #1)
+- `code-review-specialist.md` - Response anti-patterns (3 new)
+- `test-engineer.md` - API testing patterns (comprehensive)
 
-**Option A - Continue CSRF Protection (Recommended):**
-Continue adding CSRF protection to the remaining files. Start with cache-routes.ts (highest impact). The pattern is well-established:
-```typescript
-// 1. Add import
-import { csrfProtection } from '../middleware/security';
+### Current Statistics
 
-// 2. Add to each POST/PUT/PATCH/DELETE
-app.post('/api/endpoint', csrfProtection, withAuth(async (req, res) => {
-```
+- **Test Suites Completed**: 3/15+ (20%)
+- **Overall Pass Rate**: 98.9% (89/90 tests)
+- **Tests Skipped**: 1 (Drizzle bug)
+- **Bugs Fixed**: 9 distinct production issues
+- **Documentation**: Comprehensive guides created
 
-**Option B - Fix Failing Tests First:**
-Fix the 11 failing tests by adding proper storage layer mocks. All failures are 500 errors due to missing mocks, not logic issues.
+---
 
-**Option C - Commit Current Work:**
-Create a commit with current progress before continuing:
+## Next Target: auth-routes.test.ts
+
+### Priority: HIGH (Critical Security Functionality)
+
+### Expected Scope
+Authentication routes typically include:
+- User registration (POST /api/auth/register)
+- User login (POST /api/auth/login)
+- User logout (POST /api/auth/logout)
+- Password reset request (POST /api/auth/forgot-password)
+- Password reset confirmation (POST /api/auth/reset-password)
+- Session validation (GET /api/auth/session)
+- Profile retrieval (GET /api/auth/me)
+
+### Expected Challenges
+
+1. **CSRF Protection Testing**
+   - All mutating operations require CSRF tokens
+   - Mock implementation in tests
+   - Verify token validation
+
+2. **Session Management**
+   - Session creation on login
+   - Session destruction on logout
+   - Session persistence across requests
+   - Mock session store behavior
+
+3. **Password Hashing**
+   - Never expose passwordHash in responses
+   - Verify bcrypt/argon2 usage
+   - Test password validation
+
+4. **Security-Sensitive Error Messages**
+   - Don't reveal whether email exists
+   - Generic error messages for security
+   - "Invalid credentials" vs "Email not found"
+
+5. **Rate Limiting**
+   - Login attempts should be rate-limited
+   - Password reset requests rate-limited
+   - May need to mock rate limiter
+
+---
+
+## Success Criteria
+
+- [ ] All tests in auth-routes.test.ts passing (100% or near-100%)
+- [ ] No security vulnerabilities introduced
+- [ ] No passwordHash exposure in tests or responses
+- [ ] CSRF protection verified on all mutations
+- [ ] Session management tested correctly
+- [ ] Error messages don't reveal sensitive information
+- [ ] Documentation updated
+- [ ] Changes committed and pushed to GitHub
+
+---
+
+## Testing Command
+
 ```bash
-git add -A
-git commit -m "feat: Add CSRF protection to 12 critical endpoints (24% complete)
-
-SECURITY: Protect against Cross-Site Request Forgery attacks
-
-Protected endpoints:
-- Admin aggregation operations (4 endpoints)
-- Product/Retailer CRUD operations (6 endpoints)
-- Monitoring operations (2 endpoints)
-
-Includes:
-- Comprehensive security audit documentation
-- Test suite with 20 passing tests
-- Implementation guide for remaining work
-
-Remaining: 38 endpoints across 8 files
-See CSRF_PROTECTION_AUDIT.md for complete details"
+# Run auth routes tests
+npm test server/routes/__tests__/auth-routes.test.ts
 ```
 
-**Files to Reference:**
-- `CSRF_PROTECTION_AUDIT.md` - Complete technical audit
-- `API_SECURITY_IMPROVEMENTS.md` - Executive summary
-- `WORK_SUMMARY.md` - Day 1 progress report
-- `server/routes/__tests__/csrf-protection.test.ts` - Test patterns
-
-**Command to Resume:**
-```bash
-cd /Users/williamtower/projects/PriceCompare/.worktrees/api-standardization
-git status
-# Review current changes
-# Continue with your chosen option
-```
-
-**My Recommendation:** Start with **Option C** (commit current work), then continue with **Option A** (cache-routes.ts next). This creates a checkpoint and allows for incremental progress.
-
-What would you like to do?
-
----
-
-## Alternate Shorter Prompt
-
-If you prefer a shorter prompt:
-
----
-
-Continue adding CSRF protection to PriceCompare API endpoints. We're in the worktree at `/Users/williamtower/projects/PriceCompare/.worktrees/api-standardization` on branch `feat/api-standardization-final`.
-
-**Completed:** 12/50 endpoints (24%) across 3 files
-**Next file:** `server/routes/cache-routes.ts` (7 POST endpoints)
-
-**Pattern:**
-```typescript
-import { csrfProtection } from '../middleware/security';
-app.post('/endpoint', csrfProtection, withAuth(async (req, res) => {
-```
-
-See `CSRF_PROTECTION_AUDIT.md` for details. Continue adding protection to remaining files.
-
----
+Ready to start the next migration! 🚀
