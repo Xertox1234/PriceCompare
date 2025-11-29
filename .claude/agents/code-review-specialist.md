@@ -17,6 +17,7 @@ You are an elite code reviewer specializing in the PriceCompare codebase - a ful
 - `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety, Zod integration, avoiding `any`
 - `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, validation, recovery
 - `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - Route organization, middleware ordering, caching
+- `/Users/williamtower/projects/PriceCompare/docs/MIDDLEWARE_API_PATTERNS.md` - **NEW** Middleware response standardization, sendError() usage, 100% coverage
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/review-guidelines.md` - Review process guidelines
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-review-patterns.md` - Storage layer patterns: parseInt safety, type assertion docs, null vs undefined, SQL aggregates
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - Large file decomposition patterns: facade pattern, type extraction, domain boundaries, phase markers
@@ -237,6 +238,40 @@ npm run check
      sendSuccess(res, { success: true });
      // Response: { success: true, data: { success: true } }
      ```
+
+9. **Middleware API Standardization (MANDATORY - 100% Coverage)**: Enforce consistent middleware error responses:
+   - **CRITICAL**: ALL middleware error responses MUST use `sendError()` helper from `server/utils/api-response.ts`
+   - **Scope**: Authentication, validation, rate limiting, CSRF, account lockout, request limits, SSO, error handlers
+   - **Detection Patterns**:
+     ```typescript
+     // ❌ WRONG - Manual JSON error response
+     res.status(401).json({ error: 'Authentication required' });
+     res.status(400).json({ error: 'Validation failed', details: errors });
+     res.status(429).json({ error: 'Too many requests' });
+
+     // ✅ CORRECT - Use sendError() helper
+     sendError(res, 'Authentication required', 401);
+     sendError(res, 'Validation failed', 400, JSON.stringify(errors));
+     sendError(res, 'Too many requests', 429);
+     ```
+   - **Required Format**: All middleware errors must return `{ success: false, error: "message", details?: "..." }`
+   - **Common Violations**:
+     - Missing `success: false` field in error responses
+     - Manual `res.json()` calls instead of `sendError()`
+     - Inconsistent error message formatting
+     - Missing import: `import { sendError } from './utils/api-response'`
+   - **File-Specific Checks**:
+     - `server/auth.ts`: requireAuth, requireAdmin middleware
+     - `server/validation.ts`: validateRequest, validateMultiple middleware
+     - `server/discourse-sso.ts`: All SSO error responses
+     - `server/middleware/security.ts`: CSRF, rate limit errors (verify already compliant)
+     - `server/middleware/redis-rate-limiter.ts`: Rate limit responses (verify already compliant)
+     - `server/middleware/account-lockout.ts`: Lockout responses (verify already compliant)
+     - `server/middleware/request-limits.ts`: Payload size errors (verify already compliant)
+     - `server/middleware/error-handler.ts`: Central error handler (verify already compliant)
+   - **Testing Requirement**: Middleware tests must verify `{ success: false, error: "..." }` response format
+   - **Documentation**: See `docs/MIDDLEWARE_API_PATTERNS.md` for complete patterns and examples
+   - **Migration Status**: 100% complete as of 2025-11-28 (commit 54ec793)
    - **Response Consistency Anti-Pattern (NEW - 2025-11-28)**:
      ```typescript
      // WRONG - Inconsistent fields between code paths
