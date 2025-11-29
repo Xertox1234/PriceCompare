@@ -30,14 +30,15 @@ Successfully standardized all API endpoints AND middleware layers to use consist
 - **Error sanitization** - Development-only stack traces via `sendErrorFromException()`
 - **TypeScript strict mode** - Full compliance with no implicit any types
 
-### Middleware Standardization (NEW)
-- **security.ts** - Rate limiter error responses now include `success: false` field
-- **security.ts** - CSRF protection error responses standardized
-- **redis-rate-limiter.ts** - Rate limit exceeded responses standardized
-- **account-lockout.ts** - Account lockout error responses standardized
-- **request-limits.ts** - Payload size error responses standardized
-- **error-handler.ts** - Central error handler responses standardized (Zod, database, unknown errors)
-- **error-handler.ts** - 404 Not Found handler response standardized
+### Middleware Standardization (LATEST - November 28, 2025)
+- **auth.ts** - requireAuth and requireAdmin middleware now use `sendError()` (3 locations)
+- **validation.ts** - Validation error responses now use `sendError()` (4 locations)
+- **discourse-sso.ts** - All SSO error responses now use `sendError()` (7 locations)
+- **security.ts** - Already compliant with `success: false` in all error responses ✅
+- **redis-rate-limiter.ts** - Already compliant with `success: false` in rate limit responses ✅
+- **account-lockout.ts** - Already compliant with `success: false` in lockout responses ✅
+- **request-limits.ts** - Already compliant with `success: false` in payload size errors ✅
+- **error-handler.ts** - Already compliant with `success: false` in all error handlers ✅
 
 ## Commits
 
@@ -50,13 +51,11 @@ Successfully standardized all API endpoints AND middleware layers to use consist
    - Fixed watchlist nested wrapper
    - Updated health endpoint format
 
-3. **[CURRENT]** - feat: Complete middleware layer API standardization
-   - Fixed security.ts rate limiter responses (2 locations)
-   - Fixed security.ts CSRF protection responses (4 locations)
-   - Fixed redis-rate-limiter.ts rate limit response
-   - Fixed account-lockout.ts lockout response
-   - Fixed request-limits.ts payload size errors (2 locations)
-   - Fixed error-handler.ts central error handler (4 locations)
+3. **2db3363** - feat: Complete API standardization - Middleware layer (100%)
+   - Fixed auth.ts requireAuth and requireAdmin middleware (3 locations)
+   - Fixed validation.ts error responses (4 locations)
+   - Fixed discourse-sso.ts SSO error responses (7 locations)
+   - Verified security.ts, redis-rate-limiter.ts, account-lockout.ts, request-limits.ts, error-handler.ts already compliant
    - All middleware now returns standardized `{ success: false, error: "..." }` format
 
 ## Files Modified
@@ -70,12 +69,15 @@ Successfully standardized all API endpoints AND middleware layers to use consist
 - `server/routes/watchlist-routes.ts`
 - `server/routes/wishlist-routes.ts`
 
-**Middleware Files (NEW):**
-- `server/middleware/security.ts`
-- `server/middleware/redis-rate-limiter.ts`
-- `server/middleware/account-lockout.ts`
-- `server/middleware/request-limits.ts`
-- `server/middleware/error-handler.ts`
+**Middleware Files (LATEST):**
+- `server/auth.ts` - Fixed requireAuth and requireAdmin (3 locations)
+- `server/validation.ts` - Fixed validation error responses (4 locations)
+- `server/discourse-sso.ts` - Fixed SSO error responses (7 locations)
+- `server/middleware/security.ts` - Already compliant ✅
+- `server/middleware/redis-rate-limiter.ts` - Already compliant ✅
+- `server/middleware/account-lockout.ts` - Already compliant ✅
+- `server/middleware/request-limits.ts` - Already compliant ✅
+- `server/middleware/error-handler.ts` - Already compliant ✅
 
 **Documentation:**
 - `todos/archive/034-completed-p2-inconsistent-api-responses.md`

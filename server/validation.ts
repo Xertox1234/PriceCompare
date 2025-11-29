@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
+import { sendError } from './utils/api-response';
 
 export interface ValidationResult<T> {
   success: boolean;
@@ -39,10 +40,7 @@ export function validateRequest(schema: z.ZodSchema, source: 'body' | 'query' | 
           code: err.code,
         }));
 
-        res.status(400).json({
-          error: 'Validation failed',
-          details: errors,
-        });
+        sendError(res, 'Validation failed', 400, JSON.stringify(errors));
         return;
       }
 
@@ -57,10 +55,12 @@ export function validateRequest(schema: z.ZodSchema, source: 'body' | 'query' | 
 
       next();
     } catch (error) {
-      res.status(500).json({
-        error: 'Validation error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
+      sendError(
+        res,
+        'Validation error',
+        500,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
   };
 }
@@ -120,19 +120,18 @@ export function validateMultiple(schemas: {
       }
 
       if (errors.length > 0) {
-        res.status(400).json({
-          error: 'Validation failed',
-          details: errors,
-        });
+        sendError(res, 'Validation failed', 400, JSON.stringify(errors));
         return;
       }
 
       next();
     } catch (error) {
-      res.status(500).json({
-        error: 'Validation error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
+      sendError(
+        res,
+        'Validation error',
+        500,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
   };
 }

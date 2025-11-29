@@ -14,6 +14,7 @@ import {
   isAccountLockedAsync,
 } from './middleware/account-lockout';
 import { logSecurityEvent, SecurityEventType } from './utils/security-logger';
+import { sendError } from './utils/api-response';
 
 // Export the User type for use elsewhere
 export type User = DatabaseUser;
@@ -267,7 +268,7 @@ export async function findUserById(id: number): Promise<SafeUser | null> {
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 'Authentication required', 401);
     return;
   }
   next();
@@ -278,12 +279,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
-    res.status(401).json({ error: 'Authentication required' });
+    sendError(res, 'Authentication required', 401);
     return;
   }
 
   if (req.user.role !== 'admin') {
-    res.status(403).json({ error: 'Admin access required' });
+    sendError(res, 'Admin access required', 403);
     return;
   }
 

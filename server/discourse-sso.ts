@@ -6,6 +6,7 @@ import { eq, and, lt, gt } from 'drizzle-orm';
 import type { SharedUser, SharedUserWithDiscourse } from '../shared/auth-schema';
 import { getRequiredEnv, getOptionalEnv } from './config/env-validation';
 import { createLogger } from './utils/logger';
+import { sendError } from './utils/api-response';
 
 const log = createLogger('DiscourseSSO');
 
@@ -78,12 +79,14 @@ export async function handleDiscourseSSO(req: RequestWithUser, res: Response) {
     const { sso, sig } = req.query;
     
     if (!sso || !sig) {
-      return res.status(400).json({ error: 'Missing SSO parameters' });
+      sendError(res, 'Missing SSO parameters', 400);
+      return;
     }
     
     // Verify the request signature
     if (!verifySSO(sso as string, sig as string)) {
-      return res.status(403).json({ error: 'Invalid SSO signature' });
+      sendError(res, 'Invalid SSO signature', 403);
+      return;
     }
     
     // Check if user is authenticated
@@ -109,7 +112,8 @@ export async function handleDiscourseSSO(req: RequestWithUser, res: Response) {
     const returnUrl = params.return_sso_url;
     
     if (!nonce || !returnUrl) {
-      return res.status(400).json({ error: 'Missing required SSO parameters' });
+      sendError(res, 'Missing required SSO parameters', 400);
+      return;
     }
     
     // Create/update Discourse user mapping
@@ -124,7 +128,7 @@ export async function handleDiscourseSSO(req: RequestWithUser, res: Response) {
 
   } catch (error) {
     log.error('Discourse SSO error:', { error });
-    res.status(500).json({ error: 'SSO authentication failed' });
+    sendError(res, 'SSO authentication failed', 500);
   }
 }
 
@@ -136,7 +140,8 @@ export async function completeSSOAfterLogin(req: RequestWithUser, res: Response)
     const { sso_token } = req.query;
     
     if (!sso_token || !req.user) {
-      return res.status(400).json({ error: 'Invalid SSO completion request' });
+      sendError(res, 'Invalid SSO completion request', 400);
+      return;
     }
     
     // Find the stored SSO token
@@ -150,7 +155,8 @@ export async function completeSSOAfterLogin(req: RequestWithUser, res: Response)
       .limit(1);
     
     if (!tokenRecord) {
-      return res.status(400).json({ error: 'Invalid or expired SSO token' });
+      sendError(res, 'Invalid or expired SSO token', 400);
+      return;
     }
     
     // Update token with user ID
@@ -178,7 +184,8 @@ export async function completeSSOAfterLogin(req: RequestWithUser, res: Response)
 
   } catch (error) {
     log.error('SSO completion error:', { error });
-    return res.status(500).json({ error: 'SSO completion failed' });
+    sendError(res, 'SSO completion failed', 500);
+    return;
   }
 }
 
