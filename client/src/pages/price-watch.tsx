@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { SharedNavigation } from '@/components/shared-navigation';
 import { WatchedProductCard } from '@/components/price-watch/WatchedProductCard';
 import { WatchlistStats } from '@/components/price-watch/WatchlistStats';
@@ -27,6 +28,7 @@ import {
   useWatchListStats,
   useCreateWatchList,
   useRemoveProductFromWatchList,
+  type WatchedProduct,
 } from '@/hooks/useWatchList';
 import {
   Plus,
@@ -55,8 +57,31 @@ export default function PriceWatchPage() {
   const [newListDescription, setNewListDescription] = useState('');
 
   // Queries
-  const { data: products = [], isLoading: productsLoading, error: productsError } = useWatchedProducts({ sortBy });
+  const {
+    data,
+    isLoading: productsLoading,
+    error: productsError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useWatchedProducts({ sortBy });
   const { data: stats, isLoading: statsLoading, error: statsError } = useWatchListStats();
+
+  // Flatten paginated products
+  const products = useMemo(() => {
+    if (!data || !data.pages) return [];
+    return data.pages.flatMap((page: { products: WatchedProduct[] }) => page.products);
+  }, [data]);
+
+  // Infinite scroll trigger
+  const { ref: infiniteScrollRef } = useInView({
+    threshold: 0.1,
+    onChange: (inView) => {
+      if (inView && hasNextPage && !isFetchingNextPage) {
+        void fetchNextPage();
+      }
+    },
+  });
 
   // Mutations
   const createWatchList = useCreateWatchList();
@@ -68,13 +93,13 @@ export default function PriceWatchPage() {
 
     // Apply alert status filter
     if (filterBy !== 'all') {
-      filtered = filtered.filter((p) => p.alertStatus === filterBy);
+      filtered = filtered.filter((p: WatchedProduct) => p.alertStatus === filterBy);
     }
 
     // Apply search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((p) =>
+      filtered = filtered.filter((p: WatchedProduct) =>
         p.productName.toLowerCase().includes(query)
       );
     }
@@ -288,16 +313,32 @@ export default function PriceWatchPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => (
-              <WatchedProductCard
-                key={product.productId}
-                product={product}
-                watchListId={product.watchListId}
-                onRemove={() => handleRemoveProduct(product.productId, product.watchListId)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product: WatchedProduct) => (
+                <WatchedProductCard
+                  key={product.productId}
+                  product={product}
+                  watchListId={product.watchListId}
+                  onRemove={() => void handleRemoveProduct(product.productId, product.watchListId)}
+                />
+              ))}
+            </div>
+
+            {/* Infinite scroll trigger and loading indicator */}
+            {hasNextPage && (
+              <div ref={infiniteScrollRef} className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            )}
+
+            {/* Loading next page indicator */}
+            {isFetchingNextPage && !hasNextPage && (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -346,7 +387,7 @@ export default function PriceWatchPage() {
               Cancel
             </Button>
             <Button
-              onClick={handleCreateWatchList}
+              onClick={() => void handleCreateWatchList()}
               disabled={createWatchList.isPending || !newListName.trim()}
             >
               {createWatchList.isPending && (

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 
 // Types
@@ -109,15 +109,20 @@ export function useWatchListStats() {
 export function useWatchedProducts(options?: {
   sortBy?: 'priceDropPercent' | 'savings' | 'dateAdded';
 }) {
-  // Use dedicated server endpoint for optimized querying
-  return useQuery<WatchedProduct[]>({
-    queryKey: ['/api/watchlists/products', options?.sortBy],
-    queryFn: async () => {
+  // Use dedicated server endpoint with cursor-based pagination for infinite scroll
+  return useInfiniteQuery({
+    queryKey: ['/api/watchlists/products', options?.sortBy || 'priceDropPercent'],
+    queryFn: async ({ pageParam }: { pageParam: number | null }) => {
       const sortBy = options?.sortBy || 'priceDropPercent';
-      const url = `/api/watchlists/products${sortBy ? `?sortBy=${sortBy}` : ''}`;
-      const response = await apiRequest<{ products: WatchedProduct[] }>(url);
-      return response.products;
+      const params = new URLSearchParams({ sortBy });
+      if (pageParam !== null) {
+        params.append('cursor', String(pageParam));
+      }
+      const url = `/api/watchlists/products?${params.toString()}`;
+      return apiRequest<{ products: WatchedProduct[]; hasMore: boolean; nextCursor: number | null }>(url);
     },
+    initialPageParam: null as number | null,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
   });
@@ -136,8 +141,8 @@ export function useCreateWatchList() {
     },
     onSuccess: () => {
       // Invalidate watch lists query to refetch
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
     },
   });
 }
@@ -154,9 +159,9 @@ export function useUpdateWatchList() {
     },
     onSuccess: (data) => {
       // Invalidate both list and detail queries
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', data.id] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
     },
   });
 }
@@ -172,9 +177,9 @@ export function useDeleteWatchList() {
     },
     onSuccess: () => {
       // Invalidate watch lists query
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/products'] });
     },
   });
 }
@@ -191,9 +196,9 @@ export function useAddProductToWatchList() {
     },
     onSuccess: (_, variables) => {
       // Invalidate specific watch list and stats
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists', variables.watchListId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', variables.watchListId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/products'] });
     },
   });
 }
@@ -209,9 +214,9 @@ export function useRemoveProductFromWatchList() {
     },
     onSuccess: (_, variables) => {
       // Invalidate specific watch list and stats
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists', variables.watchListId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists/products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', variables.watchListId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/products'] });
     },
   });
 }
