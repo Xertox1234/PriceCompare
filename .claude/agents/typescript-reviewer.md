@@ -215,7 +215,107 @@ grep -rn "sql<number>" server/storage/*.ts | grep -i "price\|min\|max\|avg\|sum"
 
 ---
 
-### 2. N+1 Query Detection Pattern
+### 2. Stale Object Reference After UPDATE (PRODUCTION BUG - 2025-11-28)
+
+**CRITICAL**: When reviewing transaction code that INSERTs then UPDATEs the same record, verify the UPDATE uses `.returning()`:
+
+```typescript
+// ❌ WRONG - Returns stale object with postCount=0
+async createTopicWithFirstPost(topicData, postData) {
+  return await db.transaction(async (tx) => {
+    const [topic] = await tx.insert(forumTopics).values(topicData).returning();
+    // topic.postCount is 0 (default)
+
+    await tx.insert(forumPosts).values({ topicId: topic.id, ...postData });
+
+    // Update WITHOUT .returning()
+    await tx.update(forumTopics)
+      .set({ postCount: 1 })
+      .where(eq(forumTopics.id, topic.id));
+
+    return topic;  // BUG: Still has postCount=0!
+  });
+}
+
+// ✅ CORRECT - Capture updated values
+const [updatedTopic] = await tx.update(forumTopics)
+  .set({ postCount: 1 })
+  .where(eq(forumTopics.id, topic.id))
+  .returning();  // <-- CRITICAL
+
+return updatedTopic;
+```
+
+**Review Checklist:**
+- [ ] Transactions with INSERT + UPDATE on same table use `.returning()` on UPDATE
+- [ ] Return variable is from UPDATE result, not original INSERT
+- [ ] Tests verify updated values (e.g., `expect(result.postCount).toBe(1)`)
+
+---
+
+### 3. Derived Field Truncation (PRODUCTION BUG - 2025-11-28)
+
+**CRITICAL**: When reviewing code that generates derived fields (slugs, codes), verify truncation to fit database constraints:
+
+```typescript
+// ❌ WRONG - No truncation
+const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+// 500-char title creates 500-char slug, but slug VARCHAR(255)!
+
+// ✅ CORRECT - Truncate to fit constraint
+const MAX_SLUG_LENGTH = 250;
+const slug = title
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .substring(0, MAX_SLUG_LENGTH);  // <-- CRITICAL
+```
+
+**Review Checklist:**
+- [ ] String transformations include `.substring()` or `.slice()` before INSERT
+- [ ] Magic numbers for max length are documented with constraint reference
+- [ ] Tests include edge cases with maximum-length inputs
+
+---
+
+### 4. Drizzle Error Code Detection (PRODUCTION BUG - 2025-11-28)
+
+**CRITICAL**: When reviewing retry/error-handling logic for Drizzle, verify it checks `error.cause.code`:
+
+```typescript
+// ❌ WRONG - Only checks message, misses Drizzle-wrapped errors
+export const isRetryableError = (error: unknown): boolean => {
+  return error.message.includes('could not serialize');
+};
+
+// ✅ CORRECT - Check PostgreSQL error codes from error.cause
+export const isTransientDatabaseError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+
+  // Check Drizzle-wrapped PostgreSQL error codes
+  const cause = (error as unknown as { cause?: { code?: string } }).cause;
+  if (cause?.code && ['40001', '40P01'].includes(cause.code)) {
+    return true;  // 40001=serialization_failure, 40P01=deadlock
+  }
+
+  // Fallback to message patterns
+  return error.message.toLowerCase().includes('could not serialize');
+};
+```
+
+**PostgreSQL Error Codes:**
+- `40001` - serialization_failure (SERIALIZABLE conflict) - RETRY
+- `40P01` - deadlock_detected - RETRY
+- `23505` - unique_violation - DO NOT RETRY
+- `23503` - foreign_key_violation - DO NOT RETRY
+
+**Review Checklist:**
+- [ ] Retry logic checks `error.cause.code` for PostgreSQL codes
+- [ ] Both retryable and non-retryable codes are handled appropriately
+- [ ] Type assertion pattern: `(error as unknown as { cause?: { code?: string } }).cause`
+
+---
+
+### 5. N+1 Query Detection Pattern
 
 **When reviewing database operations, especially in storage layer methods:**
 

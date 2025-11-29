@@ -239,6 +239,258 @@ const count = typeof result[0]?.count === 'number' ? result[0].count : Number(re
 
 ---
 
+---
+
+### 5. Stale Object Reference After UPDATE (CRITICAL - Production Bug #1)
+
+**Date Added**: 2025-11-28
+**Context**: Bug discovered during forum storage API testing migration
+
+**Rule**: When you UPDATE a record within a transaction and need to return the updated values, you MUST use `.returning()` and reassign the variable. Never return a stale object captured before the UPDATE.
+
+**Anti-Pattern**:
+```typescript
+// ❌ WRONG - Returns stale object with old values
+async createTopicWithFirstPost(topicData: TopicInsert, postData: PostInsert): Promise<Topic> {
+  return await db.transaction(async (tx) => {
+    // Step 1: Create topic
+    const [topic] = await tx.insert(forumTopics).values(topicData).returning();
+    // topic.postCount is 0 here (default value)
+
+    // Step 2: Create post
+    await tx.insert(forumPosts).values({ topicId: topic.id, ...postData });
+
+    // Step 3: Update the topic's postCount
+    await tx.update(forumTopics)
+      .set({ postCount: 1, lastPostAt: new Date() })
+      .where(eq(forumTopics.id, topic.id));
+    // NO .returning() - the update is applied to DB but not captured!
+
+    // ❌ BUG: Returns original 'topic' object with postCount=0
+    return topic;
+  });
+}
+```
+
+**Correct Pattern**:
+```typescript
+// ✅ CORRECT - Use .returning() and reassign variable
+async createTopicWithFirstPost(topicData: TopicInsert, postData: PostInsert): Promise<Topic> {
+  return await db.transaction(async (tx) => {
+    // Step 1: Create topic
+    let [topic] = await tx.insert(forumTopics).values(topicData).returning();
+
+    // Step 2: Create post
+    await tx.insert(forumPosts).values({ topicId: topic.id, ...postData });
+
+    // Step 3: Update AND CAPTURE the updated topic
+    // BUG FIX: Use .returning() to get the updated values
+    const [updatedTopic] = await tx.update(forumTopics)
+      .set({ postCount: 1, lastPostAt: new Date() })
+      .where(eq(forumTopics.id, topic.id))
+      .returning();  // <-- CRITICAL: Capture updated values
+
+    // ✅ Return the updated topic with correct postCount=1
+    return updatedTopic;
+  });
+}
+```
+
+**Why This Happens**:
+- JavaScript objects are captured by reference at assignment time
+- Drizzle's `.returning()` returns the row state at INSERT time
+- Subsequent UPDATEs modify the database but not the captured object
+- Without `.returning()` on UPDATE, you return stale data
+
+**Detection Rule for Code Review**:
+- Flag: Any transaction that does INSERT + UPDATE on same table but returns the INSERT result
+- Flag: `await tx.update(...).set(...).where(...)` without `.returning()` when the result is needed
+- Pattern to look for: Variable from INSERT returned after UPDATE on same record
+
+**Test Verification Pattern**:
+```typescript
+it('should return topic with postCount=1 after creation', async () => {
+  const result = await storage.createTopicWithFirstPost(topicData, postData);
+
+  // This test catches the stale object bug
+  expect(result.postCount).toBe(1);  // Would fail with 0 if bug exists
+});
+```
+
+---
+
+### 6. Derived Field Truncation for Database Constraints (CRITICAL - Production Bug #2)
+
+**Date Added**: 2025-11-28
+**Context**: Bug discovered when creating forum topic with 500-character title
+
+**Rule**: When generating derived fields (slugs, codes, identifiers) from user input, ALWAYS truncate to fit database constraints BEFORE insertion. Never assume user input will naturally fit within field limits.
+
+**Anti-Pattern**:
+```typescript
+// ❌ WRONG - No truncation, will fail for long titles
+async createTopic(topicData: TopicInsert): Promise<Topic> {
+  // Generate slug from title
+  const slug = topicData.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  // ❌ BUG: 500-char title creates 500-char slug
+  // Database constraint: slug VARCHAR(255)
+  // This INSERT will fail with constraint violation!
+  const [topic] = await db.insert(forumTopics).values({
+    ...topicData,
+    slug,  // Could be 500 characters!
+  }).returning();
+
+  return topic;
+}
+```
+
+**Correct Pattern**:
+```typescript
+// ✅ CORRECT - Truncate slug to fit constraint
+async createTopic(topicData: TopicInsert): Promise<Topic> {
+  // Generate slug from title
+  // Truncate to ensure it fits in VARCHAR(255) database constraint
+  const MAX_SLUG_LENGTH = 250;  // Leave room for random suffix if needed
+  const slug = topicData.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, MAX_SLUG_LENGTH);  // <-- CRITICAL: Truncate
+
+  const [topic] = await db.insert(forumTopics).values({
+    ...topicData,
+    slug,  // Guaranteed to fit in VARCHAR(255)
+  }).returning();
+
+  return topic;
+}
+```
+
+**Common Derived Fields to Check**:
+- **Slugs**: Generated from titles/names (truncate to 250-255)
+- **Username/handle**: May be derived or sanitized (truncate to column limit)
+- **Reference codes**: Generated from multiple fields (check combined length)
+- **File paths**: Concatenated directory + filename (check OS limits too)
+- **Search keys**: Generated from multiple fields (truncate to index limit)
+
+**Detection Rule for Code Review**:
+- Flag: Any `.replace()` or transformation chain without `.substring()` or `.slice()`
+- Flag: String concatenation used in INSERT without length validation
+- Check: What's the VARCHAR limit on the target column?
+
+**Related Schema Pattern**:
+```typescript
+// In schema.ts - Document the constraint
+export const forumTopics = pgTable('forum_topics', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 500 }),  // Up to 500 chars
+  slug: varchar('slug', { length: 255 }),    // NOTE: Must truncate derived slug!
+  // ...
+});
+```
+
+---
+
+### 7. Drizzle ORM Error Code Detection (CRITICAL - Production Bug #3)
+
+**Date Added**: 2025-11-28
+**Context**: SERIALIZABLE transaction retries failing because error codes were not detected
+
+**Rule**: When implementing retry logic for Drizzle ORM database errors, check BOTH `error.message` patterns AND `error.cause.code` for PostgreSQL error codes. Drizzle wraps PostgreSQL errors in a cause property.
+
+**Anti-Pattern**:
+```typescript
+// ❌ WRONG - Only checks error message, misses wrapped PostgreSQL error codes
+export const isRetryableError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+
+  // This pattern misses Drizzle-wrapped errors!
+  return message.includes('could not serialize') ||
+         message.includes('deadlock detected');
+};
+```
+
+**Correct Pattern**:
+```typescript
+// ✅ CORRECT - Check both message patterns AND PostgreSQL error codes
+export const isTransientDatabaseError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+
+  // Step 1: Check PostgreSQL error codes from error.cause (Drizzle wrapping)
+  const cause = (error as unknown as { cause?: { code?: string } }).cause;
+  if (cause?.code) {
+    const pgErrorCode = cause.code;
+    // PostgreSQL error codes for retryable errors:
+    // 40001 = serialization_failure (SERIALIZABLE transaction conflict)
+    // 40P01 = deadlock_detected
+    // 08000-08999 = connection errors
+    // 53000-53999 = insufficient resources
+    const retryableCodes = ['40001', '40P01'];
+    if (retryableCodes.includes(pgErrorCode)) {
+      return true;
+    }
+  }
+
+  // Step 2: Also check message patterns as fallback
+  const message = error.message.toLowerCase();
+  const transientPatterns = [
+    'could not serialize',
+    'deadlock detected',
+    'connection refused',
+    'connection terminated',
+    // ... other patterns
+  ];
+
+  return transientPatterns.some(pattern => message.includes(pattern));
+};
+```
+
+**PostgreSQL Error Code Reference**:
+| Code | Name | When Retryable |
+|------|------|----------------|
+| 40001 | serialization_failure | SERIALIZABLE transaction conflict - RETRY |
+| 40P01 | deadlock_detected | Deadlock - RETRY |
+| 08000-08999 | connection errors | Connection issues - RETRY |
+| 23505 | unique_violation | Data conflict - DO NOT RETRY |
+| 23503 | foreign_key_violation | Data integrity - DO NOT RETRY |
+
+**Why Drizzle Wraps Errors**:
+- Drizzle ORM catches PostgreSQL errors and wraps them in JavaScript Error objects
+- The original PostgreSQL error is preserved in `error.cause`
+- `error.message` may be transformed/simplified by Drizzle
+- `error.cause.code` contains the raw PostgreSQL SQLSTATE error code
+
+**Detection Rule for Code Review**:
+- Flag: Retry logic that only checks `error.message` without checking `error.cause`
+- Flag: `isRetryable` functions without PostgreSQL error code handling
+- Pattern to verify: Uses `(error as unknown as { cause?: { code?: string } }).cause?.code`
+
+**Test Pattern for Retry Logic**:
+```typescript
+it('should retry on SERIALIZABLE conflict (error code 40001)', async () => {
+  // Simulate Drizzle-wrapped PostgreSQL error
+  const serialError = new Error('database error');
+  (serialError as { cause?: { code: string } }).cause = { code: '40001' };
+
+  expect(isTransientDatabaseError(serialError)).toBe(true);
+});
+
+it('should not retry on unique violation (error code 23505)', async () => {
+  const uniqueError = new Error('unique constraint violation');
+  (uniqueError as { cause?: { code: string } }).cause = { code: '23505' };
+
+  expect(isTransientDatabaseError(uniqueError)).toBe(false);
+});
+```
+
+---
+
 ## Session Context
 
 **Issue**: PR #128 - Fix TypeScript errors in server/storage.ts
@@ -251,3 +503,27 @@ const count = typeof result[0]?.count === 'number' ? result[0].count : Number(re
 4. Standardized null vs undefined (7 method signatures + implementations)
 
 **Key Learning**: Systematic code review caught critical issues that would have caused runtime errors and maintenance nightmares. The duplicate interface issue alone could have caused massive confusion during refactoring.
+
+---
+
+## Production Bugs Fixed (2025-11-28)
+
+**Context**: Forum storage API testing migration discovered 3 critical production bugs.
+
+### Bug #1: postCount Remaining at 0
+- **File**: server/storage/domains/forum-storage.ts:209-219
+- **Root Cause**: Stale object reference - variable captured pre-UPDATE state
+- **Fix**: Use `.returning()` on UPDATE and reassign variable
+- **Pattern**: Section 5 above
+
+### Bug #2: Long Title/Slug Handling
+- **File**: server/storage/domains/forum-storage.ts:164-171
+- **Root Cause**: No truncation of generated slugs before database insertion
+- **Fix**: Truncate slug to MAX_SLUG_LENGTH (250 chars)
+- **Pattern**: Section 6 above
+
+### Bug #3: SERIALIZABLE Transaction Retry
+- **File**: server/utils/retry-with-backoff.ts:75-88
+- **Root Cause**: Retry logic only checked error.message, not error.cause.code
+- **Fix**: Added PostgreSQL error code detection for Drizzle-wrapped errors
+- **Pattern**: Section 7 above

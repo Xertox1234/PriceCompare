@@ -457,6 +457,96 @@ Mark passwordHash usage with `// SECURITY: NEVER expose` to pass pre-commit hook
 - Validate data with Zod before database insertion
 - Use `.returning()` when you need inserted/updated records
 
+## Critical Anti-Pattern: Stale Object Reference After UPDATE (PRODUCTION BUG)
+
+**Date Added**: 2025-11-28
+**Severity**: CRITICAL - Causes silent data inconsistency
+
+When you UPDATE a record within a transaction and need to return the updated values, you MUST use `.returning()` and reassign the variable:
+
+```typescript
+// ❌ WRONG - Returns stale object with old values
+async createTopicWithFirstPost(topicData, postData) {
+  return await db.transaction(async (tx) => {
+    const [topic] = await tx.insert(forumTopics).values(topicData).returning();
+    // topic.postCount is 0 here (default value)
+
+    await tx.insert(forumPosts).values({ topicId: topic.id, ...postData });
+
+    // Update without .returning() - DB is updated but variable is stale!
+    await tx.update(forumTopics)
+      .set({ postCount: 1 })
+      .where(eq(forumTopics.id, topic.id));
+
+    return topic;  // ❌ BUG: Returns postCount=0, not 1!
+  });
+}
+
+// ✅ CORRECT - Use .returning() and capture updated values
+async createTopicWithFirstPost(topicData, postData) {
+  return await db.transaction(async (tx) => {
+    let [topic] = await tx.insert(forumTopics).values(topicData).returning();
+
+    await tx.insert(forumPosts).values({ topicId: topic.id, ...postData });
+
+    // BUG FIX: Use .returning() to get updated values
+    const [updatedTopic] = await tx.update(forumTopics)
+      .set({ postCount: 1 })
+      .where(eq(forumTopics.id, topic.id))
+      .returning();  // <-- CRITICAL
+
+    return updatedTopic;  // ✅ Returns correct postCount=1
+  });
+}
+```
+
+## Critical Anti-Pattern: Derived Field Truncation (PRODUCTION BUG)
+
+**Date Added**: 2025-11-28
+**Severity**: CRITICAL - Causes database constraint violations
+
+When generating derived fields (slugs, codes) from user input, ALWAYS truncate to fit database constraints:
+
+```typescript
+// ❌ WRONG - No truncation, fails for long inputs
+const slug = title
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-');
+// 500-char title creates 500-char slug, but slug VARCHAR(255)!
+
+// ✅ CORRECT - Truncate to fit constraint
+const MAX_SLUG_LENGTH = 250;  // Leave room for random suffix
+const slug = title
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .substring(0, MAX_SLUG_LENGTH);  // <-- CRITICAL
+```
+
+## Drizzle Error Code Detection for Retry Logic
+
+When implementing retry logic for Drizzle errors, check BOTH `error.message` AND `error.cause.code`:
+
+```typescript
+// ✅ CORRECT - Check Drizzle-wrapped PostgreSQL error codes
+export const isTransientDatabaseError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+
+  // Check PostgreSQL error codes from error.cause (Drizzle wrapping)
+  const cause = (error as unknown as { cause?: { code?: string } }).cause;
+  if (cause?.code) {
+    // 40001 = serialization_failure, 40P01 = deadlock
+    if (['40001', '40P01'].includes(cause.code)) {
+      return true;
+    }
+  }
+
+  // Also check message patterns as fallback
+  const message = error.message.toLowerCase();
+  return message.includes('could not serialize') ||
+         message.includes('deadlock detected');
+};
+```
+
 ## Critical Anti-Patterns to Avoid
 
 ### N+1 Queries (NEVER DO THIS)

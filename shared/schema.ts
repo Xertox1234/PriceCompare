@@ -257,7 +257,7 @@ export const forumCategories = pgTable("forum_categories", {
 // Forum topics (discussion threads)
 export const forumTopics = pgTable("forum_topics", {
   id: serial("id").primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
+  title: text("title").notNull(), // Changed from VARCHAR(255) to TEXT to support long titles
   slug: varchar("slug", { length: 255 }).notNull(),
   content: text("content"), // Initial post content
   categoryId: integer("category_id").references(() => forumCategories.id, { onDelete: 'set null' }),

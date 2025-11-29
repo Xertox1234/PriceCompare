@@ -152,15 +152,23 @@ export class ForumStorage extends BaseStorage {
       this.validateProductId(topicData.productId);
     }
 
+    // Validate title
+    if (!topicData.title || topicData.title.trim().length === 0) {
+      throw new Error('Title is required');
+    }
+
     let topic: ForumTopic;
 
     try {
       await this.db.transaction(async (tx) => {
         // Generate slug from title
+        // Truncate to ensure it fits in VARCHAR(255) database constraint
+        const MAX_SLUG_LENGTH = 250; // Leave room for random suffix
         let slug = topicData.title
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '');
+          .replace(/^-|-$/g, '')
+          .substring(0, MAX_SLUG_LENGTH);
 
         // Check for existing slug and append random suffix if needed
         const existing = await tx
@@ -199,13 +207,19 @@ export class ForumStorage extends BaseStorage {
         });
 
         // Update topic post count and last post time
-        await tx
+        // BUG FIX: Set postCount directly to 1 (not +1 from default 0)
+        // The topic was just created with default postCount = 0, so incrementing gives 0 not 1
+        const updatedTopics = await tx
           .update(forumTopics)
           .set({
-            postCount: sql`${forumTopics.postCount} + 1`,
+            postCount: 1,
             lastPostAt: new Date(),
           })
-          .where(eq(forumTopics.id, topic.id));
+          .where(eq(forumTopics.id, topic.id))
+          .returning();
+
+        // Use the updated topic with correct postCount
+        topic = updatedTopics[0];
       });
 
       this.logSuccess('createTopicWithFirstPost', { topicId: topic!.id });
@@ -298,6 +312,9 @@ export class ForumStorage extends BaseStorage {
       this.logSuccess('createForumPost', { postId: post!.id, topicId });
       return { post: post! };
     } catch (error) {
+      // DEBUG: Log full error details
+      console.error('createForumPost ERROR:', JSON.stringify(error, null, 2));
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
       this.handleError(error, 'createForumPost');
     }
   }

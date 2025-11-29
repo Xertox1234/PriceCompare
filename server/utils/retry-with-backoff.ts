@@ -72,6 +72,21 @@ export const isTransientDatabaseError = (error: unknown): boolean => {
 
   const message = error.message.toLowerCase();
 
+  // Check PostgreSQL error codes (from error.cause for Drizzle errors)
+  const cause = (error as unknown as { cause?: { code?: string } }).cause;
+  if (cause?.code) {
+    const pgErrorCode = cause.code;
+    // PostgreSQL error codes for retryable errors:
+    // 40001 = serialization_failure (SERIALIZABLE transaction conflict)
+    // 40P01 = deadlock_detected
+    // 08000-08999 = connection errors
+    // 53000-53999 = insufficient resources
+    const retryableCodes = ['40001', '40P01'];
+    if (retryableCodes.includes(pgErrorCode)) {
+      return true;
+    }
+  }
+
   // PostgreSQL transient errors
   const transientPatterns = [
     'connection refused',

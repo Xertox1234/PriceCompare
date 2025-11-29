@@ -285,6 +285,7 @@ export class ForumStorage {
         topicId: forumPosts.topicId,
         authorId: forumPosts.authorId,
         content: forumPosts.content,
+        postNumber: forumPosts.postNumber,
         isFirstPost: forumPosts.isFirstPost,
         createdAt: forumPosts.createdAt,
         updatedAt: forumPosts.updatedAt,

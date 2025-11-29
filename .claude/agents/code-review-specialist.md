@@ -359,6 +359,80 @@ When reviewing service classes with external API integrations:
    - Only check rate limit for actual external calls
    - Log cache hits for monitoring
 
+## Storage Layer Critical Patterns (PRODUCTION BUGS - 2025-11-28)
+
+When reviewing storage layer code or transaction operations, **ALWAYS check for these patterns**:
+
+### Pattern 1: Stale Object Reference After UPDATE
+
+**CRITICAL**: When you UPDATE a record within a transaction and return it, verify `.returning()` is used:
+
+```typescript
+// ❌ WRONG - Returns stale object with old values
+async createTopicWithFirstPost(topicData, postData) {
+  return await db.transaction(async (tx) => {
+    const [topic] = await tx.insert(forumTopics).values(topicData).returning();
+
+    await tx.insert(forumPosts).values({ topicId: topic.id, ...postData });
+
+    // Update WITHOUT .returning() - variable is stale!
+    await tx.update(forumTopics)
+      .set({ postCount: 1 })
+      .where(eq(forumTopics.id, topic.id));
+
+    return topic;  // BUG: Returns postCount=0!
+  });
+}
+
+// ✅ CORRECT - Use .returning() and capture updated values
+const [updatedTopic] = await tx.update(forumTopics)
+  .set({ postCount: 1 })
+  .where(eq(forumTopics.id, topic.id))
+  .returning();  // <-- CRITICAL
+
+return updatedTopic;
+```
+
+**Detection**: Flag any transaction with INSERT + UPDATE on same table that returns INSERT result.
+
+### Pattern 2: Derived Field Truncation for Database Constraints
+
+**CRITICAL**: When generating derived fields from user input, verify truncation to fit constraints:
+
+```typescript
+// ❌ WRONG - No truncation, fails for long inputs
+const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+// 500-char title creates 500-char slug, but slug VARCHAR(255)!
+
+// ✅ CORRECT - Truncate to fit constraint
+const MAX_SLUG_LENGTH = 250;
+const slug = title
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .substring(0, MAX_SLUG_LENGTH);  // <-- CRITICAL
+```
+
+**Detection**: Flag any `.replace()` chain without `.substring()` or `.slice()` when used in INSERT.
+
+### Pattern 3: Drizzle Error Code Detection for Retry Logic
+
+**CRITICAL**: Retry logic must check BOTH `error.message` AND `error.cause.code`:
+
+```typescript
+// ❌ WRONG - Only checks message, misses Drizzle-wrapped errors
+return error.message.includes('could not serialize');
+
+// ✅ CORRECT - Check PostgreSQL error codes from error.cause
+const cause = (error as unknown as { cause?: { code?: string } }).cause;
+if (cause?.code && ['40001', '40P01'].includes(cause.code)) {
+  return true;  // Retryable error
+}
+```
+
+**Detection**: Flag retry/error-handling code that only checks `error.message`.
+
+---
+
 ## Special Checklist for Route Files (server/routes/*.ts)
 
 When reviewing files in `server/routes/` directory, **ALWAYS check these first**:

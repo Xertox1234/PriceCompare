@@ -305,7 +305,7 @@ export function registerWatchListRoutes(app: Express): void {
 
       await storage.removeProductFromWatchList(watchListId, productId, userId);
 
-      sendSuccess(res, {});
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'RemoveProductFromWatchList');
     }

@@ -20,6 +20,16 @@ export function parseIntSafe(
     throw new Error(`${fieldName} is required`);
   }
 
+  // SECURITY: Validate string format before parsing to prevent SQL injection
+  // Reject any string that isn't strictly a valid integer format
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    // Only allow optional +/- sign followed by digits
+    if (!/^[+-]?\d+$/.test(trimmed)) {
+      throw new Error(`${fieldName} must be a valid integer`);
+    }
+  }
+
   const parsed = typeof value === 'number' ? value : parseInt(value, 10);
 
   if (isNaN(parsed)) {

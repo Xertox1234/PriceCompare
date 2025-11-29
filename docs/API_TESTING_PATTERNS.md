@@ -736,6 +736,69 @@ When migrating a route test file to use validation helpers:
 | Missing field | product-routes.ts:359 | basePrice missing in error path | Add basePrice to all paths |
 | Empty object | product-routes.ts:425 | Returned `{}` | Return `{ success: true }` |
 | Wrong helper | product-routes.ts:137 | sendSuccess for paginated | Use sendPaginated |
+| **Stale object** | forum-storage.ts:209-219 | postCount=0 after UPDATE | Use .returning() on UPDATE |
+| **Slug overflow** | forum-storage.ts:164-171 | 500-char slug for VARCHAR(255) | Truncate with substring() |
+| **Retry miss** | retry-with-backoff.ts:75-88 | SERIALIZABLE errors not retried | Check error.cause.code |
+
+### Forum Storage Bugs (2025-11-28)
+
+Three critical bugs discovered during forum-routes test migration:
+
+#### Bug #1: Stale Object Reference in Transactions
+
+**Problem**: `createTopicWithFirstPost()` returned topic with `postCount=0` even though UPDATE set it to 1.
+
+**Root Cause**: The variable captured the INSERT result, then UPDATE modified the DB without capturing the updated values.
+
+**Test That Caught It**:
+```typescript
+it('should return topic with postCount=1', async () => {
+  const result = await storage.createTopicWithFirstPost(topicData, postData);
+  expect(result.postCount).toBe(1);  // FAILED: Got 0
+});
+```
+
+**Fix**: Use `.returning()` on UPDATE and return that result.
+
+#### Bug #2: Long Title/Slug Constraint Violation
+
+**Problem**: Creating topic with 500-char title failed with constraint violation on `slug VARCHAR(255)`.
+
+**Root Cause**: Slug generation had no truncation.
+
+**Test That Caught It**:
+```typescript
+it('should handle maximum length title', async () => {
+  const longTitle = 'a'.repeat(500);
+  const result = await storage.createTopicWithFirstPost(
+    { title: longTitle, ...otherData },
+    postData
+  );
+  // FAILED: Constraint violation on slug
+});
+```
+
+**Fix**: Truncate slug to `MAX_SLUG_LENGTH = 250` before INSERT.
+
+#### Bug #3: SERIALIZABLE Retry Not Triggered
+
+**Problem**: SERIALIZABLE transaction conflicts returned 500 instead of being retried.
+
+**Root Cause**: `isTransientDatabaseError()` only checked `error.message`, not `error.cause.code`.
+
+**Test That Caught It**:
+```typescript
+it('should retry on serialization failure', async () => {
+  const error = new Error('db error');
+  (error as { cause?: { code: string } }).cause = { code: '40001' };
+
+  expect(isTransientDatabaseError(error)).toBe(true);  // FAILED: Got false
+});
+```
+
+**Fix**: Check PostgreSQL error codes in `error.cause.code`.
+
+---
 
 ### Common Issues Found
 
