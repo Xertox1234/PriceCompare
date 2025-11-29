@@ -6,6 +6,7 @@ import { parseIntOptional, parseIntSafe } from "../utils/validation-helpers";
 import { logger } from "../utils/logger";
 import { csrfProtection } from "../middleware/security";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { sanitizeForumPost } from "../utils/sanitization";
 
 /**
  * Forum Routes
@@ -94,7 +95,7 @@ export function registerForumRoutes(app: Express): void {
 
       logger.info("Topic created", { topicId: result.topic.id, title: result.topic.title });
 
-      sendSuccess(res, result.topic, 201);
+      sendSuccess(res, result, 201);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'CreateForumTopic');
     }
@@ -107,13 +108,12 @@ export function registerForumRoutes(app: Express): void {
       const user = req.user;
 
       // SECURITY: Sanitize forum post content with DOMPurify
-      const { sanitizeForumPost } = require('../utils/sanitization');
       const { html: sanitizedContent } = sanitizeForumPost(content);
 
       // RACE CONDITION: Storage layer handles SERIALIZABLE transaction with retry
       const result = await storage.createForumPost(topicId, user.id, sanitizedContent, content);
 
-      sendSuccess(res, result.post, 201);
+      sendSuccess(res, result, 201);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'CreateForumPost');
     }

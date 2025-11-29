@@ -8,6 +8,10 @@ import { passport } from '../../auth';
 import { registerForumRoutes } from '../forum-routes';
 import { registerAuthRoutes } from '../auth-routes';
 import { sql, eq } from 'drizzle-orm';
+import {
+  expectSuccessResponse,
+  expectErrorResponse,
+} from '../../__tests__/helpers/response-validators';
 
 /**
  * Forum Routes Integration Test Suite
@@ -58,6 +62,7 @@ vi.mock('../../utils/logger', () => ({
 
 vi.mock('../../middleware/security', () => ({
   generateCsrfToken: vi.fn(() => 'test-csrf-token'),
+  csrfProtection: vi.fn((req, res, next) => next()),
 }));
 
 // Mock sanitization to avoid requiring DOMPurify
@@ -125,7 +130,7 @@ describe('Forum Routes - Integration Tests', () => {
         password: 'SecurePass123',
       });
 
-    testUserId = registerRes.body.user.id;
+    testUserId = registerRes.body.data.user.id;
     authCookie = registerRes.headers['set-cookie'];
 
     // Create test category
@@ -182,16 +187,16 @@ describe('Forum Routes - Integration Tests', () => {
     it('should return all categories', async () => {
       const response = await request(app).get('/api/forum/categories');
 
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
+      const categories = expectSuccessResponse<Array<unknown>>(response, 200);
+      expect(Array.isArray(categories)).toBe(true);
+      expect(categories.length).toBeGreaterThan(0);
     });
 
     it('should include category details', async () => {
       const response = await request(app).get('/api/forum/categories');
 
-      expect(response.status).toBe(200);
-      expect(response.body[0]).toMatchObject({
+      const categories = expectSuccessResponse<Array<{id: number, name: string, slug: string, description: string}>>(response, 200);
+      expect(categories[0]).toMatchObject({
         id: testCategoryId,
         name: 'General Discussion',
         slug: 'general',
@@ -202,7 +207,7 @@ describe('Forum Routes - Integration Tests', () => {
     it('should not require authentication', async () => {
       const response = await request(app).get('/api/forum/categories');
 
-      expect(response.status).toBe(200);
+      expectSuccessResponse(response, 200);
     });
 
     it('should return empty array when no categories exist', async () => {
@@ -212,8 +217,8 @@ describe('Forum Routes - Integration Tests', () => {
 
       const response = await request(app).get('/api/forum/categories');
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual([]);
+      const categories = expectSuccessResponse<Array<unknown>>(response, 200);
+      expect(categories).toEqual([]);
     });
   });
 
@@ -221,16 +226,16 @@ describe('Forum Routes - Integration Tests', () => {
     it('should return all topics', async () => {
       const response = await request(app).get('/api/forum/topics');
 
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
+      const result = expectSuccessResponse<{topics: Array<unknown>}>(response, 200);
+      expect(Array.isArray(result.topics)).toBe(true);
+      expect(result.topics.length).toBeGreaterThan(0);
     });
 
     it('should include topic details with author info', async () => {
       const response = await request(app).get('/api/forum/topics');
 
-      expect(response.status).toBe(200);
-      expect(response.body[0]).toMatchObject({
+      const result = expectSuccessResponse<{topics: Array<{id: number, title: string, slug: string, postCount: number}>}>(response, 200);
+      expect(result.topics[0]).toMatchObject({
         id: testTopicId,
         title: 'Test Topic',
         slug: 'test-topic',
@@ -256,8 +261,8 @@ describe('Forum Routes - Integration Tests', () => {
         .get('/api/forum/topics')
         .query({ categoryId: testCategoryId.toString() });
 
-      expect(response.status).toBe(200);
-      expect(response.body.every((t: { categoryId: number }) => t.categoryId === testCategoryId)).toBe(true);
+      const result = expectSuccessResponse<{topics: Array<{categoryId: number}>}>(response, 200);
+      expect(result.topics.every((t) => t.categoryId === testCategoryId)).toBe(true);
     });
 
     it('should filter by product', async () => {
@@ -273,8 +278,8 @@ describe('Forum Routes - Integration Tests', () => {
         .get('/api/forum/topics')
         .query({ productId: testProductId.toString() });
 
-      expect(response.status).toBe(200);
-      expect(response.body.every((t: { productId: number }) => t.productId === testProductId)).toBe(true);
+      const result = expectSuccessResponse<{topics: Array<{productId: number}>}>(response, 200);
+      expect(result.topics.every((t) => t.productId === testProductId)).toBe(true);
     });
 
     it('should reject invalid categoryId', async () => {
@@ -282,8 +287,7 @@ describe('Forum Routes - Integration Tests', () => {
         .get('/api/forum/topics')
         .query({ categoryId: 'invalid' });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('must be');
+      expectErrorResponse(response, 400, 'must be');
     });
 
     it('should reject invalid productId', async () => {
@@ -291,14 +295,13 @@ describe('Forum Routes - Integration Tests', () => {
         .get('/api/forum/topics')
         .query({ productId: 'invalid' });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('must be');
+      expectErrorResponse(response, 400, 'must be');
     });
 
     it('should not require authentication', async () => {
       const response = await request(app).get('/api/forum/topics');
 
-      expect(response.status).toBe(200);
+      expectSuccessResponse(response, 200);
     });
   });
 
@@ -306,8 +309,8 @@ describe('Forum Routes - Integration Tests', () => {
     it('should return topic with details', async () => {
       const response = await request(app).get(`/api/forum/topics/${testTopicId}`);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
+      const topicDetails = expectSuccessResponse<{id: number, title: string, slug: string, postCount: number}>(response, 200);
+      expect(topicDetails).toMatchObject({
         id: testTopicId,
         title: 'Test Topic',
         slug: 'test-topic',
@@ -318,27 +321,25 @@ describe('Forum Routes - Integration Tests', () => {
     it('should return 404 for non-existent topic', async () => {
       const response = await request(app).get('/api/forum/topics/99999');
 
-      expect(response.status).toBe(404);
-      expect(response.body.error).toContain('not found');
+      expectErrorResponse(response, 404, 'not found');
     });
 
     it('should reject invalid topic ID', async () => {
       const response = await request(app).get('/api/forum/topics/invalid');
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('must be');
+      expectErrorResponse(response, 400, 'must be');
     });
 
     it('should reject negative topic ID', async () => {
       const response = await request(app).get('/api/forum/topics/-1');
 
-      expect(response.status).toBe(400);
+      expectErrorResponse(response, 400);
     });
 
     it('should not require authentication', async () => {
       const response = await request(app).get(`/api/forum/topics/${testTopicId}`);
 
-      expect(response.status).toBe(200);
+      expectSuccessResponse(response, 200);
     });
   });
 
@@ -346,16 +347,16 @@ describe('Forum Routes - Integration Tests', () => {
     it('should return posts for topic', async () => {
       const response = await request(app).get(`/api/forum/topics/${testTopicId}/posts`);
 
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBe(1);
+      const postList = expectSuccessResponse<Array<unknown>>(response, 200);
+      expect(Array.isArray(postList)).toBe(true);
+      expect(postList.length).toBe(1);
     });
 
     it('should include post details with author', async () => {
       const response = await request(app).get(`/api/forum/topics/${testTopicId}/posts`);
 
-      expect(response.status).toBe(200);
-      expect(response.body[0]).toMatchObject({
+      const postList = expectSuccessResponse<Array<{topicId: number, content: string, postNumber: number, isFirstPost: boolean}>>(response, 200);
+      expect(postList[0]).toMatchObject({
         topicId: testTopicId,
         content: 'First post content',
         postNumber: 1,
@@ -384,13 +385,13 @@ describe('Forum Routes - Integration Tests', () => {
 
       const response = await request(app).get(`/api/forum/topics/${testTopicId}/posts`);
 
-      expect(response.status).toBe(200);
-      expect(response.body.length).toBe(3);
+      const postList = expectSuccessResponse<Array<{postNumber: number}>>(response, 200);
+      expect(postList.length).toBe(3);
 
       // Verify order
-      expect(response.body[0].postNumber).toBe(1);
-      expect(response.body[1].postNumber).toBe(2);
-      expect(response.body[2].postNumber).toBe(3);
+      expect(postList[0].postNumber).toBe(1);
+      expect(postList[1].postNumber).toBe(2);
+      expect(postList[2].postNumber).toBe(3);
     });
 
     it('should return 404 for non-existent topic', async () => {
@@ -398,20 +399,20 @@ describe('Forum Routes - Integration Tests', () => {
 
       // Current implementation returns 200 with empty array for non-existent topics
       // This could be improved to return 404
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual([]);
+      const postList = expectSuccessResponse<Array<unknown>>(response, 200);
+      expect(postList).toEqual([]);
     });
 
     it('should reject invalid topic ID', async () => {
       const response = await request(app).get('/api/forum/topics/invalid/posts');
 
-      expect(response.status).toBe(400);
+      expectErrorResponse(response, 400);
     });
 
     it('should not require authentication', async () => {
       const response = await request(app).get(`/api/forum/topics/${testTopicId}/posts`);
 
-      expect(response.status).toBe(200);
+      expectSuccessResponse(response, 200);
     });
   });
 
@@ -426,9 +427,8 @@ describe('Forum Routes - Integration Tests', () => {
           categoryId: testCategoryId,
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.topic).toMatchObject({
+      const result = expectSuccessResponse<{topic: {id: number, title: string, slug: string, authorId: number, categoryId: number, postCount: number}}>(response, 201);
+      expect(result.topic).toMatchObject({
         title: 'New Topic',
         slug: expect.stringContaining('new-topic'),
         authorId: testUserId,
@@ -437,9 +437,9 @@ describe('Forum Routes - Integration Tests', () => {
       });
 
       // Verify first post was created
-      const posts = await db.select().from(forumPosts).where(eq(forumPosts.topicId, response.body.topic.id));
-      expect(posts.length).toBe(1);
-      expect(posts[0]).toMatchObject({
+      const postList = await db.select().from(forumPosts).where(eq(forumPosts.topicId, result.topic.id));
+      expect(postList.length).toBe(1);
+      expect(postList[0]).toMatchObject({
         content: 'First post of new topic',
         isFirstPost: true,
         postNumber: 1,
@@ -456,8 +456,8 @@ describe('Forum Routes - Integration Tests', () => {
           productId: testProductId,
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.topic.productId).toBe(testProductId);
+      const result = expectSuccessResponse<{topic: {productId: number}}>(response, 201);
+      expect(result.topic.productId).toBe(testProductId);
     });
 
     it('should generate unique slug', async () => {
@@ -479,12 +479,12 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Second topic content',
         });
 
-      expect(response1.status).toBe(200);
-      expect(response2.status).toBe(200);
+      const result1 = expectSuccessResponse<{topic: {slug: string}}>(response1, 201);
+      const result2 = expectSuccessResponse<{topic: {slug: string}}>(response2, 201);
 
       // Slugs should be different
-      expect(response1.body.topic.slug).not.toBe(response2.body.topic.slug);
-      expect(response2.body.topic.slug).toMatch(/duplicate-title-[a-f0-9]{8}/);
+      expect(result1.topic.slug).not.toBe(result2.topic.slug);
+      expect(result2.topic.slug).toMatch(/duplicate-title-[a-f0-9]{8}/);
     });
 
     it('should reject unauthenticated request', async () => {
@@ -495,8 +495,7 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Content',
         });
 
-      expect(response.status).toBe(401);
-      expect(response.body.error).toContain('Authentication required');
+      expectErrorResponse(response, 401, 'Authentication required');
     });
 
     it('should reject empty title', async () => {
@@ -508,8 +507,7 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Content',
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Title is required');
+      expectErrorResponse(response, 400, 'Title is required');
     });
 
     it('should reject whitespace-only title', async () => {
@@ -521,8 +519,7 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Content',
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Title is required');
+      expectErrorResponse(response, 400, 'Title is required');
     });
 
     it('should reject missing title', async () => {
@@ -533,8 +530,7 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Content',
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Title is required');
+      expectErrorResponse(response, 400, 'Title is required');
     });
 
     it('should allow empty content (topic without first post content)', async () => {
@@ -546,8 +542,8 @@ describe('Forum Routes - Integration Tests', () => {
           content: '',
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
+      const result = expectSuccessResponse<{topic: unknown}>(response, 201);
+      expect(result.topic).toBeDefined();
     });
 
     it('should use transaction for atomic topic + post creation', async () => {
@@ -560,15 +556,15 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Atomic content',
         });
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<{topic: {id: number}}>(response, 201);
 
       // Verify both topic and post exist
-      const topics = await db.select().from(forumTopics).where(eq(forumTopics.id, response.body.topic.id));
-      const posts = await db.select().from(forumPosts).where(eq(forumPosts.topicId, response.body.topic.id));
+      const topicRecords = await db.select().from(forumTopics).where(eq(forumTopics.id, result.topic.id));
+      const postRecords = await db.select().from(forumPosts).where(eq(forumPosts.topicId, result.topic.id));
 
-      expect(topics.length).toBe(1);
-      expect(posts.length).toBe(1);
-      expect(topics[0].postCount).toBe(1);
+      expect(topicRecords.length).toBe(1);
+      expect(postRecords.length).toBe(1);
+      expect(topicRecords[0].postCount).toBe(1);
     });
   });
 
@@ -582,9 +578,8 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Reply to topic',
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.post).toMatchObject({
+      const result = expectSuccessResponse<{post: {topicId: number, authorId: number, content: string, isFirstPost: boolean, postNumber: number}}>(response, 201);
+      expect(result.post).toMatchObject({
         topicId: testTopicId,
         authorId: testUserId,
         content: 'Reply to topic',
@@ -603,8 +598,8 @@ describe('Forum Routes - Integration Tests', () => {
         });
 
       // Check topic post count
-      const topics = await db.select().from(forumTopics).where(eq(forumTopics.id, testTopicId));
-      expect(topics[0].postCount).toBe(2);
+      const topicRecords = await db.select().from(forumTopics).where(eq(forumTopics.id, testTopicId));
+      expect(topicRecords[0].postCount).toBe(2);
     });
 
     it('should update topic lastPostAt timestamp', async () => {
@@ -643,8 +638,11 @@ describe('Forum Routes - Integration Tests', () => {
         .set('Cookie', authCookie)
         .send({ topicId: testTopicId, content: 'Post 3' });
 
-      expect(response1.body.post.postNumber).toBe(2);
-      expect(response2.body.post.postNumber).toBe(3);
+      const result1 = expectSuccessResponse<{post: {postNumber: number}}>(response1, 201);
+      const result2 = expectSuccessResponse<{post: {postNumber: number}}>(response2, 201);
+
+      expect(result1.post.postNumber).toBe(2);
+      expect(result2.post.postNumber).toBe(3);
     });
 
     it('should sanitize post content', async () => {
@@ -656,9 +654,9 @@ describe('Forum Routes - Integration Tests', () => {
           content: '<p>Safe HTML</p>',
         });
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<{post: {content: string}}>(response, 201);
       // Sanitization mock returns same content, but in real implementation would strip dangerous HTML
-      expect(response.body.post.content).toBeDefined();
+      expect(result.post.content).toBeDefined();
     });
 
     it('should store raw content separately', async () => {
@@ -672,11 +670,11 @@ describe('Forum Routes - Integration Tests', () => {
           content: rawContent,
         });
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<{post: {id: number}}>(response, 201);
 
       // Verify raw content stored
-      const posts = await db.select().from(forumPosts).where(eq(forumPosts.id, response.body.post.id));
-      expect(posts[0].rawContent).toBe(rawContent);
+      const postRecords = await db.select().from(forumPosts).where(eq(forumPosts.id, result.post.id));
+      expect(postRecords[0].rawContent).toBe(rawContent);
     });
 
     it('should reject unauthenticated request', async () => {
@@ -687,8 +685,7 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Unauthorized post',
         });
 
-      expect(response.status).toBe(401);
-      expect(response.body.error).toContain('Authentication required');
+      expectErrorResponse(response, 401, 'Authentication required');
     });
 
     it('should use SERIALIZABLE transaction to prevent race conditions', async () => {
@@ -711,10 +708,15 @@ describe('Forum Routes - Integration Tests', () => {
       const responses = await Promise.all(promises);
 
       // All should succeed
-      responses.forEach(res => expect(res.status).toBe(200));
+      responses.forEach(res => {
+        expectSuccessResponse(res, 201);
+      });
 
       // Post numbers should be unique and sequential
-      const postNumbers = responses.map(r => r.body.post.postNumber).sort((a, b) => a - b);
+      const postNumbers = responses.map(r => {
+        const result = expectSuccessResponse<{post: {postNumber: number}}>(r, 201);
+        return result.post.postNumber;
+      }).sort((a, b) => a - b);
       expect(postNumbers).toEqual([2, 3, 4]);
     });
   });
@@ -731,8 +733,8 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Content',
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.topic.title).toBe(longTitle);
+      const result = expectSuccessResponse<{topic: {title: string}}>(response, 201);
+      expect(result.topic.title).toBe(longTitle);
     });
 
     it('should handle unicode in topic titles and content', async () => {
@@ -744,8 +746,8 @@ describe('Forum Routes - Integration Tests', () => {
           content: '中文内容',
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.topic.title).toBe('日本語のタイトル');
+      const result = expectSuccessResponse<{topic: {title: string}}>(response, 201);
+      expect(result.topic.title).toBe('日本語のタイトル');
     });
 
     it('should handle special characters in slugs', async () => {
@@ -757,9 +759,9 @@ describe('Forum Routes - Integration Tests', () => {
           content: 'Content',
         });
 
-      expect(response.status).toBe(200);
+      const result = expectSuccessResponse<{topic: {slug: string}}>(response, 201);
       // Slug should have special chars replaced
-      expect(response.body.topic.slug).toMatch(/^[a-z0-9-]+$/);
+      expect(result.topic.slug).toMatch(/^[a-z0-9-]+$/);
     });
 
     it('should prevent SQL injection in topic search', async () => {
@@ -767,7 +769,7 @@ describe('Forum Routes - Integration Tests', () => {
         .get('/api/forum/topics')
         .query({ categoryId: "1'; DROP TABLE forum_topics; --" });
 
-      expect(response.status).toBe(400);
+      expectErrorResponse(response, 400);
     });
 
     it('should maintain referential integrity when creating posts', async () => {
@@ -781,7 +783,7 @@ describe('Forum Routes - Integration Tests', () => {
         });
 
       // Should fail due to foreign key constraint
-      expect(response.status).toBe(500);
+      expectErrorResponse(response, 500);
     });
   });
 });
