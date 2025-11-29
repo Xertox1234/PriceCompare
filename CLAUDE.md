@@ -432,9 +432,9 @@ const result = await executePrompt('search-query-generation', {
 
 ## API Response Standardization (MANDATORY)
 
-**Status:** 87% migrated (188/217 endpoints as of 2025-11-27)
+**Status:** 100% migrated (217/217 endpoints + all middleware as of 2025-11-28)
 
-All API routes MUST use standardized response helpers from `server/utils/api-response.ts`:
+All API routes AND middleware MUST use standardized response helpers from `server/utils/api-response.ts`:
 
 ```typescript
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
@@ -478,10 +478,44 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 
 ### Migration Status
 
-See `TODO_API_MIGRATION.md` for remaining unmigrated endpoints. When working with routes:
+**COMPLETE** - All routes and middleware migrated. When working with routes OR middleware:
 - ✅ Use new helpers: `sendSuccess/sendError/sendErrorFromException`
 - ❌ Avoid legacy: `createErrorResponse()` + manual `res.json()`
 - ❌ Never manually create envelope: `res.json({ success: true, data: ... })`
+
+### Middleware Error Responses (MANDATORY - 100% Coverage)
+
+**ALL middleware error responses MUST use `sendError()` helper:**
+
+```typescript
+// ❌ WRONG - Manual JSON error response in middleware
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  next();
+}
+
+// ✅ CORRECT - Use sendError() helper
+import { sendError } from './utils/api-response';
+
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    sendError(res, 'Authentication required', 401);
+    return;
+  }
+  next();
+}
+```
+
+**Applies to all middleware types:**
+- Authentication (`server/auth.ts` - requireAuth, requireAdmin)
+- Validation (`server/validation.ts` - validateRequest, validateMultiple)
+- SSO (`server/discourse-sso.ts` - all error responses)
+- Rate limiting, CSRF, account lockout, request limits, error handlers
+
+**See `docs/MIDDLEWARE_API_PATTERNS.md` for complete patterns and examples.**
 
 ## Security Patterns (MANDATORY)
 
@@ -1136,7 +1170,9 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - **`docs/DATABASE_PATTERNS.md`** - N+1 prevention, transactions, query optimization, foreign keys (CRITICAL)
 - **`docs/SECURITY_PATTERNS.md`** - Password hash exposure, CSRF protection, input validation, error sanitization (CRITICAL)
 - **`docs/TYPESCRIPT_PATTERNS.md`** - Type safety, avoiding `any`, Zod integration (CRITICAL)
-- **`docs/ESLINT_ENFORCEMENT.md`** - ESLint enforcement guide, common errors, fixes (NEW)
+- **`docs/MIDDLEWARE_API_PATTERNS.md`** - Middleware response standardization, sendError() usage, 100% coverage (NEW)
+- **`docs/ESLINT_SETUP.md`** - ESLint installation, configuration, troubleshooting (NEW)
+- **`docs/ESLINT_ENFORCEMENT.md`** - ESLint enforcement guide, common errors, fixes
 - **`docs/ERROR_HANDLING_PATTERNS.md`** - Error sanitization, validation errors, recovery strategies
 - **`docs/API_PATTERNS.md`** - Route organization, middleware pipeline, caching, pagination
 - **`docs/API_TESTING_PATTERNS.md`** - Test standardization, validation helpers, variable naming, Drizzle bugs
