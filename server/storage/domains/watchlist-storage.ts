@@ -16,7 +16,7 @@
  * Phase 3C: Watch List Domain Extraction - 30 methods migrated from monolithic storage.ts
  */
 
-import { and, eq, desc, asc, sql, inArray, gte, count } from "drizzle-orm";
+import { and, eq, desc, asc, sql, inArray, count } from "drizzle-orm";
 import {
   watchLists,
   productWatches,
@@ -24,7 +24,6 @@ import {
   productOffers,
   priceHistory,
   priceAlerts,
-  users,
   notifications,
   type WatchList,
   type ProductWatch,
@@ -259,20 +258,13 @@ export class WatchListStorage extends BaseStorage {
         throw new Error('Maximum watch list limit reached (20 lists per user)');
       }
 
-      // Validate name length
-      if (!data.name || data.name.trim().length === 0) {
-        throw new Error('Watch list name is required');
-      }
-      if (data.name.length > 100) {
-        throw new Error('Watch list name must be 100 characters or less');
-      }
-
+      // VALIDATION: Name trimming and validation now handled by Zod schema in routes
       const [result] = await this.db
         .insert(watchLists)
         .values({
           userId,
-          name: data.name.trim(),
-          description: data.description?.trim() || null,
+          name: data.name, // Already trimmed by Zod
+          description: data.description || null,
         })
         .returning();
 
@@ -317,27 +309,18 @@ export class WatchListStorage extends BaseStorage {
       this.validateWatchListId(watchListId);
       this.validateUserId(userId);
 
-      // Validate updates
-      if (updates.name !== undefined) {
-        if (updates.name.trim().length === 0) {
-          throw new Error('Watch list name cannot be empty');
-        }
-        if (updates.name.length > 100) {
-          throw new Error('Watch list name must be 100 characters or less');
-        }
-      }
-
+      // VALIDATION: Name and description trimming/validation now handled by Zod schema in routes
       // Build update object with only provided fields
       const updateData: Partial<typeof watchLists.$inferInsert> = {
         updatedAt: new Date(),
       };
 
       if (updates.name !== undefined) {
-        updateData.name = updates.name.trim();
+        updateData.name = updates.name; // Already trimmed by Zod
       }
 
       if (updates.description !== undefined) {
-        updateData.description = updates.description.trim() || null;
+        updateData.description = updates.description || null;
       }
 
       const [result] = await this.db
@@ -919,7 +902,31 @@ export class WatchListStorage extends BaseStorage {
       }
 
       return result.result;
-    } catch (error) {
+    } catch (error: unknown) {
+      // Handle constraint violation errors
+      if (error instanceof Error && 'code' in error) {
+        const dbError = error as { code?: string; constraint?: string };
+
+        if (dbError.code === '23505') { // Unique violation
+          // Check multiple ways constraint info might be provided (defensive)
+          const constraintName = (dbError.constraint || '').toLowerCase();
+          const errorMsg = error.message.toLowerCase();
+
+          if (constraintName.includes('unique_user_product') ||
+              errorMsg.includes('unique_user_product') ||
+              constraintName.includes('product_watch')) {
+            logger.warn('Duplicate product watch detected', {
+              userId,
+              watchListId,
+              productId,
+              constraint: dbError.constraint
+            });
+            // Return 400 validation error instead of 500
+            throw new Error('Product already added to this watch list');
+          }
+        }
+      }
+
       this.handleError(error, 'addProductToWatchList');
     }
   }

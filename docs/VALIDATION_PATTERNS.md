@@ -383,9 +383,117 @@ throw new Error(`Invalid userId: ${userId}. Must be a positive integer.`);
 
 ---
 
+## Validation Layer Separation (Phase 0 Pattern)
+
+**CRITICAL**: Validation should happen at the **route layer** using Zod, NOT in the storage layer.
+
+### The Problem: Order-of-Operations Bugs
+
+When validation lives in storage, it runs AFTER route-layer transformations, leading to bugs:
+
+```typescript
+// ANTI-PATTERN: Storage layer validation
+async createWatchList(data: { name: string }) {
+  // Problem: By now, Zod may have already trimmed the input
+  // Or worse: validation checks BEFORE trimming!
+  if (!data.name || data.name.length === 0) {  // "   " passes! (length 3)
+    throw new Error('Name is required');
+  }
+}
+```
+
+### Solution: Route-Layer Zod Validation
+
+All input validation belongs in the route layer. Storage assumes valid data.
+
+#### Route Layer (Zod)
+```typescript
+// Order matters: .trim() BEFORE .min()
+const createWatchListSchema = z.object({
+  name: z.string()
+    .trim()      // Transform FIRST - "   " becomes ""
+    .min(1, "Name is required")  // Validate SECOND - "" fails
+    .max(100, "Name must be 100 characters or less"),
+  description: z.string()
+    .max(500, "Description must be 500 characters or less")
+    .optional()
+});
+
+app.post("/api/watchlists", requireAuth, csrfProtection, async (req, res) => {
+  try {
+    // Validate at route layer
+    const data = createWatchListSchema.parse(req.body);
+    const watchList = await storage.createWatchList(userId, data);
+    sendSuccess(res, watchList, 201);
+  } catch (error) {
+    sendErrorFromException(res, error, 'CreateWatchList');
+  }
+});
+```
+
+#### Storage Layer (Business Rules Only)
+```typescript
+async createWatchList(userId: number, data: { name: string; description?: string }) {
+  // Validate IDs only (defensive)
+  this.validateUserId(userId);
+
+  // Business rules that need database state
+  const count = await this.db.select({ count: count() })...;
+  if (count >= 20) {
+    throw new Error('Maximum watch list limit reached (20 lists per user)');
+  }
+
+  // Data already validated by Zod - proceed
+  return await this.db.insert(watchLists).values({
+    userId,
+    name: data.name,  // Already trimmed
+    description: data.description || null,
+  }).returning();
+}
+```
+
+### Transform Order Matters!
+
+```typescript
+// WRONG - validates then transforms
+name: z.string().min(1).trim()
+// Input "   " -> min(1) sees length 3 -> PASSES -> trim() -> ""
+// Result: Empty string saved to database!
+
+// CORRECT - transforms then validates
+name: z.string().trim().min(1)
+// Input "   " -> trim() produces "" -> min(1) sees length 0 -> FAILS
+// Result: Validation error returned to user
+```
+
+### Validation Location Reference
+
+| Layer | Validates | Examples |
+|-------|-----------|----------|
+| **Route (Zod)** | Input format, types, lengths, required fields | `.trim().min(1).max(100)` |
+| **Storage** | IDs are positive integers (defensive) | `validateUserId(userId)` |
+| **Storage** | Business rules needing DB state | Max 20 lists, no duplicates |
+
+### Detection Rule for Code Review
+
+```bash
+# Find validation that should be in routes
+grep -rn "\.trim()\|\.length === 0\|name.length" server/storage*.ts
+
+# Find Zod schemas with wrong transform order
+grep -rn "min(1).*\.trim()\|min(.\+).*\.trim()" server/routes/
+```
+
+### Reference Implementation
+
+See `server/routes/watchlist-routes.ts` for correct pattern.
+
+---
+
 ## Resources
 
 - **Phase 1 Completion Report**: `docs/storage-layer/PHASE1_COMPLETION_REPORT.md`
+- **Phase 0 Patterns**: `docs/PHASE0_WATCHLIST_PATTERNS.md` - Validation layer separation
 - **Pattern Files**:
   - `docs/DATABASE_PATTERNS.md` - Input validation section
   - `docs/SECURITY_PATTERNS.md` - Safe integer parsing

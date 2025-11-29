@@ -1,14 +1,14 @@
 # Master Pattern Index
 
-**Last Updated**: 2025-11-27
+**Last Updated**: 2025-11-28
 **Purpose**: Central reference for all pattern documentation and subagent access mapping
 
 This index provides a complete overview of all pattern files, their relationships, and which subagents reference them.
 
 ## Quick Stats
 
-- **Total Pattern Files**: 19 files (10 in docs/, 9 in .claude/knowledge/)
-- **Total Lines**: ~12,562 lines of pattern documentation
+- **Total Pattern Files**: 20 files (11 in docs/, 9 in .claude/knowledge/)
+- **Total Lines**: ~14,000 lines of pattern documentation
 - **Subagents with Pattern Access**: 10 agents
 - **Average Patterns per Subagent**: 4-6 patterns
 
@@ -30,9 +30,10 @@ This index provides a complete overview of all pattern files, their relationship
 | SERVICE_INTEGRATION_PATTERNS.md | 1.0 | 492 | Backend/Services | 2025-11-26 | Active |
 | PATTERNS.md | 1.0 | 450 | Backend/General | 2025-11-16 | Active |
 | AUTHENTICATION_PATTERNS.md | 1.0 | 262 | Backend/Auth | 2025-11-17 | Active |
-| VALIDATION_PATTERNS.md | 1.0 | 403 | Cross-cutting | 2025-11-25 | Active |
+| VALIDATION_PATTERNS.md | 1.1 | 520 | Cross-cutting | 2025-11-28 | Active |
+| PHASE0_WATCHLIST_PATTERNS.md | 1.0 | 450 | Cross-cutting | 2025-11-28 | **NEW** |
 
-**Subtotal**: 8,270 lines
+**Subtotal**: ~9,700 lines
 
 ### Subagent Knowledge (/.claude/knowledge)
 
@@ -135,17 +136,19 @@ This index provides a complete overview of all pattern files, their relationship
 **Domain**: Code quality/architecture review
 
 **Patterns**:
-- DATABASE_PATTERNS.md - Query patterns
+- DATABASE_PATTERNS.md - Query patterns, **NULL-safe unique constraints (Phase 0)**
 - SECURITY_PATTERNS.md - Security violations
 - TYPESCRIPT_PATTERNS.md - Type safety
-- ERROR_HANDLING_PATTERNS.md - Error patterns
+- ERROR_HANDLING_PATTERNS.md - Error patterns, **PostgreSQL error code classification (Phase 0)**
 - API_PATTERNS.md - Route patterns
+- VALIDATION_PATTERNS.md - Input validation, **validation layer separation (Phase 0)**
+- PHASE0_WATCHLIST_PATTERNS.md - **NEW** Phase 0: NULL-safe constraints, validation separation, config centralization, error classification, middleware ordering *(Added 2025-11-28)*
 - review-guidelines.md - Review process
 - storage-review-patterns.md - Storage layer review
 - storage-refactoring-patterns.md - Refactoring patterns
 - phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
 
-**Coverage**: 9 patterns | **Status**: Exceptional
+**Coverage**: 11 patterns | **Status**: Exceptional
 
 ---
 
@@ -276,18 +279,19 @@ ERROR_HANDLING_PATTERNS.md (Cross-cutting)
 
 | Pattern | v1.0 Release | Latest Version | Last Updated | Recent Changes |
 |---------|--------------|----------------|--------------|----------------|
-| DATABASE_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-24 | Foreign key cascade rules |
+| DATABASE_PATTERNS.md | 2025-11-01 | 1.1 | 2025-11-28 | **Phase 0**: NULL-safe unique constraints with partial indexes |
 | API_PATTERNS.md | 2025-11-01 | 1.1 | 2025-11-27 | **Nested response wrapper anti-pattern** |
 | TYPESCRIPT_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-25 | Validation code type safety |
-| ERROR_HANDLING_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-26 | createErrorResponse patterns |
+| ERROR_HANDLING_PATTERNS.md | 2025-11-01 | 1.1 | 2025-11-28 | **Phase 0**: PostgreSQL error code classification (23505, 23503) |
 | SECURITY_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | CSRF token attachment |
 | SERVICE_INTEGRATION_PATTERNS.md | 2025-11-23 | 1.0 | 2025-11-26 | Added version header, storage layer |
-| VALIDATION_PATTERNS.md | 2025-11-25 | 1.0 | 2025-11-25 | Moved from storage-layer/ |
+| VALIDATION_PATTERNS.md | 2025-11-25 | 1.1 | 2025-11-28 | **Phase 0**: Validation layer separation (route vs storage) |
 | FRONTEND_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | React Query patterns |
 | BACKGROUND_JOBS_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | Distributed locking |
 | AUTHENTICATION_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-17 | Session management |
 | PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-16 | General backend overview |
-| phase-8-storage-migration-patterns.md | 2025-11-27 | 1.0 | 2025-11-27 | **NEW** Storage layer migration, transactions, batch queries |
+| phase-8-storage-migration-patterns.md | 2025-11-27 | 1.0 | 2025-11-27 | Storage layer migration, transactions, batch queries |
+| PHASE0_WATCHLIST_PATTERNS.md | 2025-11-28 | 1.0 | 2025-11-28 | **NEW** Phase 0: Comprehensive patterns from watchlist bug fixes |
 
 ---
 

@@ -433,6 +433,113 @@ async function createProduct(data: ProductInput) {
 
 ## Database Error Handling
 
+### PostgreSQL Error Code Classification (Phase 0 Pattern)
+
+**CRITICAL**: Database constraint violations should return 400-level errors, not 500s.
+
+#### PostgreSQL Error Codes Reference
+
+| Code | Name | User Message | HTTP Status |
+|------|------|--------------|-------------|
+| `23505` | unique_violation | "This item already exists" | 400 or 409 |
+| `23503` | foreign_key_violation | "Referenced item not found" | 400 |
+| `23502` | not_null_violation | "Required field missing" | 400 |
+| `23514` | check_violation | "Invalid value provided" | 400 |
+| `40001` | serialization_failure | (Retry internally) | - |
+| `40P01` | deadlock_detected | (Retry internally) | - |
+
+#### Implementation Pattern
+
+```typescript
+catch (error: unknown) {
+  // Check if this is a database error with PostgreSQL error code
+  if (error instanceof Error && 'code' in error) {
+    const dbError = error as { code?: string; constraint?: string };
+
+    // Unique violation (23505)
+    if (dbError.code === '23505') {
+      // DEFENSIVE: Check multiple sources for constraint info
+      // Different drivers may provide info differently
+      const constraintName = (dbError.constraint || '').toLowerCase();
+      const errorMsg = error.message.toLowerCase();
+
+      // Check BOTH constraint name AND error message
+      if (constraintName.includes('unique_user_product') ||
+          errorMsg.includes('unique_user_product') ||
+          constraintName.includes('product_watch')) {
+
+        // Log with context for debugging
+        logger.warn('Duplicate detected', {
+          userId,
+          productId,
+          constraint: dbError.constraint,
+          code: dbError.code
+        });
+
+        // Return user-friendly 400 error (not 500!)
+        throw new Error('Product already added to this watch list');
+      }
+    }
+
+    // Foreign key violation (23503)
+    if (dbError.code === '23503') {
+      logger.warn('Foreign key violation', { constraint: dbError.constraint });
+      throw new Error('Referenced item not found');
+    }
+  }
+
+  // Unknown error - use standard handler
+  this.handleError(error, 'operation');
+}
+```
+
+#### Why Multi-Source Detection
+
+```typescript
+// Different database drivers provide constraint info differently:
+
+// pg driver
+{ code: '23505', constraint: 'unique_user_product_list' }
+
+// Drizzle-wrapped errors
+{ code: '23505', message: 'duplicate key...unique_user_product_list...' }
+
+// Some drivers
+{ code: '23505' }  // No constraint field!
+
+// Solution: Check ALL sources
+const constraintName = (dbError.constraint || '').toLowerCase();
+const errorMsg = error.message.toLowerCase();
+const matches = ['unique_user_product', 'product_watch'];
+
+if (matches.some(m => constraintName.includes(m) || errorMsg.includes(m))) {
+  // Handle constraint violation
+}
+```
+
+#### Anti-Pattern: Returning 500 for Constraint Violations
+
+```typescript
+// WRONG - Returns 500 for all database errors
+catch (error) {
+  console.error('Database error:', error);
+  res.status(500).json({ error: 'Internal server error' });
+}
+// Result: User sees "Internal server error" when trying to add duplicate
+
+// CORRECT - Classify error and return appropriate status
+catch (error) {
+  if (error instanceof Error && 'code' in error) {
+    const dbError = error as { code?: string };
+    if (dbError.code === '23505') {
+      sendError(res, 'Product already added', 400);
+      return;
+    }
+  }
+  sendErrorFromException(res, error, 'Operation');
+}
+```
+
 ### Transaction Error Handling
 
 #### ✅ CORRECT - Rollback on Error

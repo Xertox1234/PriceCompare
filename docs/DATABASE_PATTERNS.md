@@ -1040,6 +1040,106 @@ orders: {
 
 ---
 
+## NULL-Safe UNIQUE Constraints (Phase 0 Pattern)
+
+### The Problem: PostgreSQL NULL Semantics
+
+PostgreSQL treats NULL as distinct in UNIQUE constraints. This means `UNIQUE(user_id, product_id, watch_list_id)` allows **multiple rows** with the same `user_id` and `product_id` when `watch_list_id` is NULL.
+
+```sql
+-- PostgreSQL allows BOTH inserts (NULL != NULL)
+INSERT INTO product_watches (user_id, product_id, watch_list_id) VALUES (1, 100, NULL);
+INSERT INTO product_watches (user_id, product_id, watch_list_id) VALUES (1, 100, NULL);
+-- Result: Data integrity violation - duplicate products for same user!
+```
+
+### Solution: Dual Constraint Architecture
+
+Use a **partial unique index** for the NULL case combined with a **standard unique constraint** for the non-NULL case.
+
+#### ✅ CORRECT - Dual Constraint Pattern
+```sql
+-- Step 1: Drop flawed three-column constraint
+ALTER TABLE product_watches DROP CONSTRAINT IF EXISTS unique_user_product_list;
+
+-- Step 2: Partial unique index for NULL case
+CREATE UNIQUE INDEX unique_user_product_no_list
+  ON product_watches(user_id, product_id)
+  WHERE watch_list_id IS NULL;
+
+-- Step 3: Standard constraint for non-NULL case
+ALTER TABLE product_watches
+  ADD CONSTRAINT unique_user_product_list
+  UNIQUE(user_id, product_id, watch_list_id);
+
+-- Step 4: Document the purpose
+COMMENT ON INDEX unique_user_product_no_list IS
+  'Prevents duplicate products when not assigned to a list';
+COMMENT ON CONSTRAINT unique_user_product_list ON product_watches IS
+  'Prevents duplicate products within the same watch list';
+```
+
+#### ❌ WRONG - Simple Unique Constraint with Nullable Column
+```sql
+-- This DOES NOT prevent duplicates when watch_list_id IS NULL
+ALTER TABLE product_watches
+  ADD CONSTRAINT unique_watch
+  UNIQUE(user_id, product_id, watch_list_id);
+```
+
+### When to Apply This Pattern
+
+Apply dual constraint architecture when:
+- A UNIQUE constraint includes **nullable foreign keys**
+- **Optional relationships** need uniqueness enforcement
+- A **parent record is optional** but duplicates should still be prevented
+- Table has columns like `parent_id`, `list_id`, `group_id` that can be NULL
+
+### Detection Rule for Code Review
+
+Flag any UNIQUE constraint that includes nullable columns:
+
+```typescript
+// REVIEW FLAG: Nullable column in unique constraint
+watchListId: integer("watch_list_id")
+  .references(() => watchLists.id, { onDelete: 'set null' })
+  // WARNING: If this is in a unique constraint, partial index needed
+
+// Check schema for unique constraints with nullable columns
+grep -rn "unique.*Id.*null\|UNIQUE.*_id.*NULL" shared/schema.ts migrations/
+```
+
+### Error Handling for Constraint Violations
+
+When the dual constraints catch violations, handle them gracefully:
+
+```typescript
+catch (error: unknown) {
+  if (error instanceof Error && 'code' in error) {
+    const dbError = error as { code?: string; constraint?: string };
+
+    if (dbError.code === '23505') { // Unique violation
+      // Check multiple sources (defensive - driver differences)
+      const constraintName = (dbError.constraint || '').toLowerCase();
+      const errorMsg = error.message.toLowerCase();
+
+      if (constraintName.includes('unique_user_product') ||
+          errorMsg.includes('unique_user_product')) {
+        logger.warn('Duplicate detected', { userId, productId });
+        throw new Error('Product already added');  // Return 400, not 500
+      }
+    }
+  }
+  this.handleError(error, 'operation');
+}
+```
+
+### Reference Implementation
+
+See `migrations/0019_fix_product_watches_unique_constraint.sql` for complete example.
+
+---
+
 ## Field Selection Security
 
 ### Storage Layer Pattern

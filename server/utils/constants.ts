@@ -64,6 +64,23 @@ export const RATE_LIMIT_TIERS = {
 } as const;
 
 /**
+ * Watchlist-specific rate limiting configuration
+ * Applied per-user (based on authenticated userId)
+ */
+export const WATCHLIST_RATE_LIMITS = {
+  CREATE: {
+    windowMs: 60 * 1000,  // 1 minute
+    maxRequests: 10,
+    message: 'Too many watch list creation attempts. Please try again later.'
+  },
+  PRODUCT_ADD: {
+    windowMs: 60 * 1000,  // 1 minute
+    maxRequests: 30,
+    message: 'Too many product add attempts. Please try again later.'
+  }
+} as const;
+
+/**
  * Session constants
  */
 export const SESSION = {

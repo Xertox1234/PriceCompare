@@ -58,3 +58,6 @@ drizzle/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Scripts (ad-hoc migration scripts with loose typing)
+scripts/

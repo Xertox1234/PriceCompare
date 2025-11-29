@@ -1,9 +1,40 @@
 import { Express } from "express";
+import { z } from "zod";
 import { forumStorage } from "../forum-storage";
-import { withAuth, handleRouteError, notFound } from "./helpers";
+import { storage } from "../storage";
+import { withAuth } from "./helpers";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { csrfProtection } from "../middleware/security";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+
+/**
+ * Schema for creating a new price alert
+ * VALIDATION: productId required (positive), targetPrice required (positive, decimal)
+ */
+const createPriceAlertSchema = z.object({
+  productId: z.number()
+    .int('Product ID must be an integer')
+    .min(1, 'Product ID must be positive'),
+  targetPrice: z.number()
+    .positive('Target price must be positive')
+    .multipleOf(0.01, 'Price must have maximum 2 decimal places'),
+  notifyForum: z.boolean().optional().default(false),
+});
+
+/**
+ * Schema for updating a price alert
+ * VALIDATION: All fields optional (partial update)
+ */
+const updatePriceAlertSchema = z.object({
+  targetPrice: z.number()
+    .positive('Target price must be positive')
+    .multipleOf(0.01, 'Price must have maximum 2 decimal places')
+    .optional(),
+  isActive: z.boolean().optional(),
+  notifyForum: z.boolean().optional(),
+}).refine(data => Object.keys(data).length > 0, {
+  message: 'At least one field must be provided for update',
+});
 
 /**
  * Price Alert Routes
@@ -14,14 +45,22 @@ export function registerAlertRoutes(app: Express): void {
   // Create a new price alert
   app.post("/api/price-alerts", csrfProtection, withAuth(async (req, res) => {
     try {
-      const { productId, targetPrice, notifyForum } = req.body;
+      // PHASE 0 PATTERN: Validation at route layer with Zod
+      const validatedData = createPriceAlertSchema.parse(req.body);
       const user = req.user;
+
+      // Verify product exists (prevents FK constraint failure)
+      const product = await storage.getProductById(validatedData.productId);
+      if (!product) {
+        sendError(res, 'Product not found', 404);
+        return;
+      }
 
       const alert = await forumStorage.createPriceAlert({
         userId: user.id,
-        productId,
-        targetPrice,
-        notifyForum: notifyForum || false,
+        productId: validatedData.productId,
+        targetPrice: validatedData.targetPrice.toFixed(2), // Convert to string for decimal field
+        notifyForum: validatedData.notifyForum,
       });
 
       sendSuccess(res, alert, 201);
@@ -46,7 +85,15 @@ export function registerAlertRoutes(app: Express): void {
     try {
       const user = req.user;
       const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
-      const updates = req.body;
+
+      // PHASE 0 PATTERN: Validation at route layer with Zod
+      const validatedData = updatePriceAlertSchema.parse(req.body);
+
+      // Convert targetPrice to string if present (for decimal field)
+      const updates = {
+        ...validatedData,
+        targetPrice: validatedData.targetPrice?.toFixed(2),
+      };
 
       const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
       if (!updatedAlert) {

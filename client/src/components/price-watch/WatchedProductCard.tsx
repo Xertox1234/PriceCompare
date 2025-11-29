@@ -5,6 +5,8 @@ import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { TrendingDown, X, ExternalLink, Bell, BellOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants';
+import { CreatePriceAlertDialog } from '../watchlist/create-price-alert-dialog';
+import { useState } from 'react';
 
 interface WatchedProductCardProps {
   product: {
@@ -23,7 +25,8 @@ interface WatchedProductCardProps {
   onRemove?: () => void;
 }
 
-export function WatchedProductCard({ product, watchListId, onRemove }: WatchedProductCardProps) {
+export function WatchedProductCard({ product, watchListId: _watchListId, onRemove }: WatchedProductCardProps) {
+  const [showAlertDialog, setShowAlertDialog] = useState(false);
   const hasPriceDrop = product.priceDropPercent > 0;
   const hasSavings = product.savingsPotential > 0;
 
@@ -142,6 +145,30 @@ export function WatchedProductCard({ product, watchListId, onRemove }: WatchedPr
             View Details
           </Button>
         </div>
+
+        {/* Set Price Alert Button (only show if no alert exists) */}
+        {product.alertStatus === 'none' && (
+          <div className="mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setShowAlertDialog(true)}
+            >
+              <Bell className="w-4 h-4 mr-2" />
+              Set Price Alert
+            </Button>
+          </div>
+        )}
+
+        {/* Price Alert Dialog */}
+        <CreatePriceAlertDialog
+          productId={product.productId}
+          productName={product.productName}
+          currentPrice={product.currentPrice}
+          open={showAlertDialog}
+          onOpenChange={setShowAlertDialog}
+        />
 
         {/* Added date */}
         <div className="mt-2">

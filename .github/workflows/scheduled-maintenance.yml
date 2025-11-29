@@ -68,29 +68,33 @@ jobs:
             const high = audit.metadata?.vulnerabilities?.high || 0;
 
             if (critical > 0 || high > 0) {
+              const body = [
+                '## Security Vulnerabilities Detected',
+                '',
+                `**Weekly security scan on ${new Date().toLocaleDateString()} found:**`,
+                '',
+                `- 🔴 Critical: ${critical}`,
+                `- 🟠 High: ${high}`,
+                '',
+                '**Action Required:**',
+                'Run `npm audit fix` to automatically fix vulnerabilities, or review manually:',
+                '',
+                '```bash',
+                'npm audit',
+                'npm audit fix',
+                'npm audit fix --force  # Use with caution - may break dependencies',
+                '```',
+                '',
+                `**See full report:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                '',
+                'Labels: security, automated'
+              ].join('\n');
+
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: `🔒 Security Alert: ${critical} critical, ${high} high vulnerabilities detected`,
-                body: `## Security Vulnerabilities Detected
-
-**Weekly security scan on ${new Date().toLocaleDateString()} found:**
-
-- 🔴 Critical: ${critical}
-- 🟠 High: ${high}
-
-**Action Required:**
-Run \`npm audit fix\` to automatically fix vulnerabilities, or review manually:
-
-\`\`\`bash
-npm audit
-npm audit fix
-npm audit fix --force  # Use with caution - may break dependencies
-\`\`\`
-
-**See full report:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
-
-Labels: security, automated`,
+                body: body,
                 labels: ['security', 'automated', 'priority-high']
               });
             }

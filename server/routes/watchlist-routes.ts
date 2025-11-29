@@ -7,6 +7,8 @@ import { parseIntSafe } from "../utils/validation-helpers";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { csrfProtection } from "../middleware/security";
 import { logger } from "../utils/logger";
+import { createRateLimiter } from "../middleware/redis-rate-limiter";
+import { WATCHLIST_RATE_LIMITS } from "../utils/constants";
 
 /**
  * Watchlist Routes
@@ -40,7 +42,10 @@ function requireAuth(req: Request, res: Response, next: () => void) {
  * VALIDATION: Name required (1-100 chars), description optional (max 500 chars)
  */
 const createWatchListSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
+  name: z.string()
+    .trim()  // Trim FIRST before validation
+    .min(1, "Name is required")
+    .max(100, "Name must be 100 characters or less"),
   description: z.string().max(500, "Description must be 500 characters or less").optional()
 });
 
@@ -49,7 +54,11 @@ const createWatchListSchema = z.object({
  * VALIDATION: At least one field must be provided, same constraints as create
  */
 const updateWatchListSchema = z.object({
-  name: z.string().min(1, "Name cannot be empty").max(100, "Name must be 100 characters or less").optional(),
+  name: z.string()
+    .trim()  // Trim FIRST before validation
+    .min(1, "Name cannot be empty")
+    .max(100, "Name must be 100 characters or less")
+    .optional(),
   description: z.string().max(500, "Description must be 500 characters or less").optional()
 }).refine(data => data.name !== undefined || data.description !== undefined, {
   message: "At least one field (name or description) must be provided"
@@ -62,6 +71,22 @@ const updateWatchListSchema = z.object({
 const addProductSchema = z.object({
   productId: z.number().int().positive("Product ID must be a positive integer")
 });
+
+// ============================================================================
+// Rate Limiters
+// ============================================================================
+
+/**
+ * Rate limiter for watch list creation
+ * Configuration: WATCHLIST_RATE_LIMITS.CREATE from constants.ts
+ */
+const watchlistCreateLimiter = createRateLimiter(WATCHLIST_RATE_LIMITS.CREATE);
+
+/**
+ * Rate limiter for adding products to watch lists
+ * Configuration: WATCHLIST_RATE_LIMITS.PRODUCT_ADD from constants.ts
+ */
+const productAddLimiter = createRateLimiter(WATCHLIST_RATE_LIMITS.PRODUCT_ADD);
 
 // ============================================================================
 // Route Handlers
@@ -96,7 +121,7 @@ export function registerWatchListRoutes(app: Express): void {
    * @security CSRF protection required
    * @security User ID taken from authenticated session (req.user.id)
    */
-  app.post("/api/watchlists", requireAuth, csrfProtection, async (req: Request, res: Response) => {
+  app.post("/api/watchlists", requireAuth, watchlistCreateLimiter, csrfProtection, async (req: Request, res: Response) => {
     try {
       // Type assertion safe after requireAuth middleware
       const userId = (req as AuthenticatedRequest).user.id;
@@ -261,7 +286,7 @@ export function registerWatchListRoutes(app: Express): void {
    * @security Ownership verification in storage layer
    * @note Storage validates: product exists, not duplicate, max 100 products/list
    */
-  app.post("/api/watchlists/:id/products", requireAuth, csrfProtection, async (req: Request, res: Response) => {
+  app.post("/api/watchlists/:id/products", requireAuth, productAddLimiter, csrfProtection, async (req: Request, res: Response) => {
     try {
       // Type assertion safe after requireAuth middleware
       const userId = (req as AuthenticatedRequest).user.id;
@@ -280,6 +305,11 @@ export function registerWatchListRoutes(app: Express): void {
 
       sendSuccess(res, productWatch, 201);
     } catch (error: unknown) {
+      // Check for validation errors (duplicate product)
+      if (error instanceof Error && error.message.includes('already added')) {
+        sendError(res, error.message, 400);
+        return;
+      }
       sendErrorFromException(res, error, 'AddProductToWatchList');
     }
   });

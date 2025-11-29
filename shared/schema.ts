@@ -1,8 +1,6 @@
 import { pgTable, text, serial, integer, boolean, decimal, timestamp, varchar, type AnyPgColumn, customType, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import path from "path";
-import { fileURLToPath } from "url";
 
 // Custom vector type for pgvector extension
 const vector = customType<{ data: number[]; driverData: string }>({
@@ -13,6 +11,7 @@ const vector = customType<{ data: number[]; driverData: string }>({
     return JSON.stringify(value);
   },
   fromDriver(value: string): number[] {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return JSON.parse(value);
   },
 });
@@ -64,6 +63,7 @@ function getEncryptionModule() {
       // Load production encryption from standard path
       // Fail fast with clear error if module can't be loaded
       try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
         encryptionModule = require('../server/utils/encryption');
       } catch (error) {
         throw new Error(
@@ -485,6 +485,8 @@ export const productWatches = pgTable("product_watches", {
   userIdIdx: index("product_watches_user_id_idx").on(table.userId),
   productIdIdx: index("product_watches_product_id_idx").on(table.productId),
   watchListIdIdx: index("product_watches_watch_list_id_idx").on(table.watchListId),
+  // CONSTRAINT: unique_user_product_list enforces uniqueness for (user_id, product_id, watch_list_id)
+  // CONSTRAINT: unique_user_product_no_list enforces uniqueness for (user_id, product_id) when watch_list_id IS NULL
 }));
 
 // User reputation for gamification
@@ -1274,7 +1276,7 @@ export interface SearchSuggestion {
 }
 
 export interface QueryAnalysis {
-  intent: 'product_search' | 'price_comparison' | 'brand_search' | 'category_browse' | string;
+  intent: string; // Common values: 'product_search', 'price_comparison', 'brand_search', 'category_browse'
   confidence: number;
   suggestions?: string[];
   category?: string;
