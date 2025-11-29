@@ -162,7 +162,7 @@ export function successResponse(dataSchema: OpenAPISchema, meta?: boolean): Open
 /**
  * Generate error response schema
  */
-export function errorResponse(includeDetails: boolean = false): OpenAPISchema {
+export function errorResponse(includeDetails = false): OpenAPISchema {
   const properties: Record<string, unknown> = {
     success: {
       type: 'boolean',
@@ -468,7 +468,7 @@ export function generateProductEndpointsSpec(): Record<string, unknown> {
  * const spec = generateOpenAPISpec({ ... });
  * writeOpenAPISpec(spec, 'openapi.json');
  */
-export function writeOpenAPISpec(spec: Record<string, unknown>, filename: string = 'openapi.json'): void {
+export function writeOpenAPISpec(spec: Record<string, unknown>, filename = 'openapi.json'): void {
   // BUILD-TIME ONLY: Dynamic require acceptable for build scripts
   const fs = require('fs');
   const path = require('path');

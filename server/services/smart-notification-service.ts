@@ -213,7 +213,7 @@ async function getSmartNotificationCount(userId: number, period: 'today'): Promi
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  return await storage.getNotificationCountByType(userId, 'smart_alert', today);
+  return storage.getNotificationCountByType(userId, 'smart_alert', today);
 }
 
 /**

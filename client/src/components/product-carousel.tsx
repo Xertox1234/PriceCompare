@@ -24,13 +24,13 @@ interface ProductCarouselProps {
  * - Peek next card to indicate more content
  * - Responsive: 4 cards desktop, 2.5 tablet, 1.5 mobile
  */
-export const ProductCarousel = memo(function ProductCarousel({
+export const ProductCarousel = memo(({
   title,
   emoji,
   seeAllLink,
   children,
   className,
-}: ProductCarouselProps) {
+}: ProductCarouselProps) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);

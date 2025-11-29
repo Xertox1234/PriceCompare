@@ -105,13 +105,13 @@ export class PriceMonitoringAgent extends BaseAgent {
   async processTask(task: MonitoringTask): Promise<MonitorPriceChangesResult | CheckAlertsResult | RefreshOffersResult> {
     switch (task.action) {
       case 'monitor_price_changes':
-        return await this.monitorPriceChanges(task.maxAge);
+        return this.monitorPriceChanges(task.maxAge);
       case 'check_alerts':
-        return await this.checkPriceAlerts();
+        return this.checkPriceAlerts();
       case 'refresh_offers':
-        return await this.refreshStaleOffers(task.maxAge);
+        return this.refreshStaleOffers(task.maxAge);
       default:
-        throw new Error(`Unknown monitoring task: ${(task as MonitoringTask).action}`);
+        throw new Error(`Unknown monitoring task: ${(task).action}`);
     }
   }
 

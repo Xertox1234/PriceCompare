@@ -11,10 +11,10 @@
 export class AppError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 500,
+    public statusCode = 500,
     public code?: string,
     public metadata?: Record<string, unknown>,
-    public isOperational: boolean = true
+    public isOperational = true
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -49,7 +49,7 @@ export class ValidationError extends AppError {
  * Used when user is not authenticated
  */
 export class AuthenticationError extends AppError {
-  constructor(message: string = 'Authentication required', metadata?: Record<string, unknown>) {
+  constructor(message = 'Authentication required', metadata?: Record<string, unknown>) {
     super(message, 401, 'AUTHENTICATION_ERROR', metadata);
   }
 }
@@ -59,7 +59,7 @@ export class AuthenticationError extends AppError {
  * Used when user doesn't have permission
  */
 export class AuthorizationError extends AppError {
-  constructor(message: string = 'Access denied', metadata?: Record<string, unknown>) {
+  constructor(message = 'Access denied', metadata?: Record<string, unknown>) {
     super(message, 403, 'AUTHORIZATION_ERROR', metadata);
   }
 }
@@ -89,7 +89,7 @@ export class ConflictError extends AppError {
  * Used when rate limit is exceeded
  */
 export class RateLimitError extends AppError {
-  constructor(message: string = 'Too many requests', metadata?: Record<string, unknown>) {
+  constructor(message = 'Too many requests', metadata?: Record<string, unknown>) {
     super(message, 429, 'RATE_LIMIT_ERROR', metadata);
   }
 }

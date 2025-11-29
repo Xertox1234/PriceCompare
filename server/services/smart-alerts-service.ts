@@ -491,5 +491,5 @@ export async function createSuggestedAlert(
     lastTriggeredAt: null,
   };
 
-  return await storage.createPriceAlert(alert);
+  return storage.createPriceAlert(alert);
 }

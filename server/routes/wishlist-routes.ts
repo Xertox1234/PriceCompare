@@ -39,7 +39,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists - Get all user wishlists
   app.get('/api/wishlists', withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const wishlists = await storage.getUserWishlists(userId);
       sendSuccess(res, { wishlists, count: wishlists.length });
     } catch (error) {
@@ -50,7 +50,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists/items - Get all wishlist items for user (flat list)
   app.get('/api/wishlists/items', withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const items = await storage.getUserWishlistItems(userId);
       sendSuccess(res, { items, count: items.length });
     } catch (error) {
@@ -61,7 +61,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists/check/:productId - Check if product is in any wishlist
   app.get('/api/wishlists/check/:productId', withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
       const isInWishlist = await storage.isInWishlist(userId, productId);
       sendSuccess(res, { isInWishlist });
@@ -73,7 +73,7 @@ export function registerWishlistRoutes(app: Express): void {
   // POST /api/wishlists - Create a new wishlist
   app.post('/api/wishlists', csrfProtection, withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const data = createWishlistSchema.parse(req.body);
 
       // Check user doesn't have too many wishlists (limit to 10)
@@ -94,7 +94,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists/:id - Get specific wishlist with items
   app.get('/api/wishlists/:id', withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
 
       const wishlist = await storage.getWishlistById(wishlistId, userId);
@@ -112,7 +112,7 @@ export function registerWishlistRoutes(app: Express): void {
   // PATCH /api/wishlists/:id - Update wishlist
   app.patch('/api/wishlists/:id', csrfProtection, withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
       const updates = updateWishlistSchema.parse(req.body);
 
@@ -131,7 +131,7 @@ export function registerWishlistRoutes(app: Express): void {
   // DELETE /api/wishlists/:id - Delete wishlist
   app.delete('/api/wishlists/:id', csrfProtection, withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
 
       const deleted = await storage.deleteWishlist(wishlistId, userId);
@@ -150,7 +150,7 @@ export function registerWishlistRoutes(app: Express): void {
   // POST /api/wishlists/:id/items - Add product to wishlist
   app.post('/api/wishlists/:id/items', csrfProtection, withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
       const data = addToWishlistSchema.parse(req.body);
 
@@ -180,7 +180,7 @@ export function registerWishlistRoutes(app: Express): void {
   // DELETE /api/wishlists/:id/items/:productId - Remove product from wishlist
   app.delete('/api/wishlists/:id/items/:productId', csrfProtection, withAuth(async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user.id;
       const wishlistId = parseIntSafe(req.params.id, 'wishlistId', { min: 1 });
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 

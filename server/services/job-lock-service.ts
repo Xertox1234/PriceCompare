@@ -32,7 +32,7 @@ export class JobLockService {
    * @param ttlSeconds - Lock time-to-live in seconds (default: 3600 = 1 hour)
    * @returns true if lock acquired, false if already locked by another instance
    */
-  async acquireLock(jobName: string, ttlSeconds: number = 3600): Promise<boolean> {
+  async acquireLock(jobName: string, ttlSeconds = 3600): Promise<boolean> {
     try {
       // Clean up expired locks first
       await this.cleanupExpiredLocks();
@@ -188,7 +188,7 @@ export class JobLockService {
   async withLock<T>(
     jobName: string,
     jobFn: () => Promise<T>,
-    ttlSeconds: number = 3600
+    ttlSeconds = 3600
   ): Promise<T | null> {
     const acquired = await this.acquireLock(jobName, ttlSeconds);
 

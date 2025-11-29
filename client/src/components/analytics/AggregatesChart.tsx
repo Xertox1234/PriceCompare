@@ -28,11 +28,11 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
         const isWeekly = "week" in item;
         const label = isWeekly
           ? `W${item.week} ${item.year}`
-          : `${getMonthName((item as MonthlyAggregate).month)} ${item.year}`;
+          : `${getMonthName((item).month)} ${item.year}`;
 
         return {
           label,
-          period: isWeekly ? item.week : (item as MonthlyAggregate).month,
+          period: isWeekly ? item.week : (item).month,
           year: item.year,
           min: parseFloat(item.minPrice),
           max: parseFloat(item.maxPrice),
@@ -43,8 +43,8 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
             ? item.weekOverWeekChange
               ? parseFloat(item.weekOverWeekChange)
               : null
-            : (item as MonthlyAggregate).monthOverMonthChange
-            ? parseFloat((item as MonthlyAggregate).monthOverMonthChange!)
+            : (item).monthOverMonthChange
+            ? parseFloat((item).monthOverMonthChange)
             : null,
         };
       })
@@ -153,9 +153,9 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
               }`}
             >
               {chartData[chartData.length - 1]?.change !== null && chartData[chartData.length - 1]?.change !== undefined
-                ? `${chartData[chartData.length - 1]!.change! > 0 ? "+" : ""}${chartData[
+                ? `${chartData[chartData.length - 1].change! > 0 ? "+" : ""}${chartData[
                     chartData.length - 1
-                  ]!.change!.toFixed(2)}%`
+                  ].change!.toFixed(2)}%`
                 : "N/A"}
             </div>
           </div>
@@ -163,7 +163,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
             <div className="text-sm text-muted-foreground">Volatility</div>
             <div className="text-lg font-bold">
               {chartData[chartData.length - 1]?.volatility !== null && chartData[chartData.length - 1]?.volatility !== undefined
-                ? `${chartData[chartData.length - 1]!.volatility!.toFixed(2)}%`
+                ? `${chartData[chartData.length - 1].volatility!.toFixed(2)}%`
                 : "N/A"}
             </div>
           </div>

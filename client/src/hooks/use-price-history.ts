@@ -129,7 +129,7 @@ export function usePriceHistory(
 export function usePriceStats(
   productId: number | undefined,
   offerId: number | undefined,
-  days: number = 90
+  days = 90
 ) {
   return useQuery<PriceStats>({
     queryKey: ['priceStats', productId, offerId, days],
@@ -245,7 +245,7 @@ export function usePriceSnapshots(
  * }
  * ```
  */
-export function useRecentPriceDrops(thresholdPercent: number = 10, hours: number = 24) {
+export function useRecentPriceDrops(thresholdPercent = 10, hours = 24) {
   return useQuery<PriceDrop[]>({
     queryKey: ['recentPriceDrops', thresholdPercent, hours],
     queryFn: async () => {

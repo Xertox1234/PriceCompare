@@ -190,7 +190,7 @@ export class PriceSnapshotService {
    * - Pattern classification (drop, increase, volatile, stable)
    */
   async analyzeSignificantChanges(
-    thresholdPercentage: number = 10
+    thresholdPercentage = 10
   ): Promise<PriceChange[]> {
     try {
       logger.info(

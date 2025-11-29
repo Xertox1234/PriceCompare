@@ -247,7 +247,7 @@ export const sentryErrorHandler = (req: Request, res: Response, next: NextFuncti
  * Close Sentry and flush pending events
  * Call this on graceful shutdown
  */
-export async function closeSentry(timeout: number = 2000): Promise<void> {
+export async function closeSentry(timeout = 2000): Promise<void> {
   log.info('Closing Sentry connection...');
   await Sentry.close(timeout);
   log.info('Sentry connection closed');

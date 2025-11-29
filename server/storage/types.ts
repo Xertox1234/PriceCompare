@@ -131,6 +131,8 @@ export interface WatchedProductInfo {
   savingsPotential: number;
   last7Days: Array<{ date: string; price: number }>;
   alertStatus: 'active' | 'triggered' | 'none';
+  alertId: number | null; // Price alert ID for editing
+  alertTargetPrice: number | null; // Price alert target price
 }
 
 export interface WatchListStats {

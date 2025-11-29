@@ -267,7 +267,7 @@ class AlertService {
   /**
    * Get alert history
    */
-  getAlertHistory(limit: number = 20): Alert[] {
+  getAlertHistory(limit = 20): Alert[] {
     return this.alertHistory.slice(0, limit);
   }
 

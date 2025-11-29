@@ -159,7 +159,7 @@ export async function triggerMonthlyAggregation(): Promise<number> {
 /**
  * Manually trigger trend analysis (for testing)
  */
-export async function triggerTrendAnalysis(analysisPeriodDays: number = 30): Promise<number> {
+export async function triggerTrendAnalysis(analysisPeriodDays = 30): Promise<number> {
   logger.info(`Manually triggering trend analysis (${analysisPeriodDays} days)...`);
   const count = await trendAnalysisService.analyzeTrendsForAllProducts(analysisPeriodDays);
   logger.info(`Manual trend analysis completed: ${count} trends analyzed`);

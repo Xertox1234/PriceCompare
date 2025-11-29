@@ -27,12 +27,12 @@ export abstract class BaseAgent extends EventEmitter {
   protected config: AgentConfig;
   protected sessionId: string;
   protected dbSessionId: number | null = null;
-  protected isRunning: boolean = false;
+  protected isRunning = false;
   protected activeTasks: Map<string, Promise<TaskResult>> = new Map();
   protected startTime: Date;
-  protected taskCount: number = 0;
-  protected successCount: number = 0;
-  protected errorCount: number = 0;
+  protected taskCount = 0;
+  protected successCount = 0;
+  protected errorCount = 0;
 
   constructor(config: AgentConfig) {
     super();

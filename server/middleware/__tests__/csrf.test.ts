@@ -282,7 +282,7 @@ describe('CSRF Protection Middleware', () => {
 
       // Get token
       const tokenResponse = await agent.get('/api/safe');
-      const token = tokenResponse.headers['x-csrf-token'] as string;
+      const token = tokenResponse.headers['x-csrf-token'];
 
       // Try uppercase version
       const uppercaseToken = token.toUpperCase();

@@ -447,7 +447,7 @@ export class ProductStorage extends BaseStorage {
           brand: row.brand,
           model: row.model,
           // Type assertion: JSON field from Drizzle query, cast to vector array type
-          embedding: row.embedding as number[] | null,
+          embedding: row.embedding,
           embeddingUpdatedAt: row.embeddingUpdatedAt,
           searchVector: row.searchVector,
           createdAt: row.createdAt,

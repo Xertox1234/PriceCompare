@@ -173,7 +173,7 @@ export class PopularityTracker {
   /**
    * Get top N products by view count
    */
-  async getTopProducts(limit: number = 100, window: keyof typeof TRACKING_WINDOWS = 'HOURLY'): Promise<number[]> {
+  async getTopProducts(limit = 100, window: keyof typeof TRACKING_WINDOWS = 'HOURLY'): Promise<number[]> {
     try {
       const redisClient = getRedisClient();
       if (!redisClient) {
@@ -214,7 +214,7 @@ export class PopularityTracker {
   /**
    * Get top search queries
    */
-  async getTopSearchQueries(limit: number = 100): Promise<Array<{ query: string; count: number }>> {
+  async getTopSearchQueries(limit = 100): Promise<Array<{ query: string; count: number }>> {
     try {
       const redisClient = getRedisClient();
       if (!redisClient) {

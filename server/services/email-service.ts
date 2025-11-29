@@ -60,7 +60,7 @@ interface EmailOptions {
 class EmailService {
   private transporter: Transporter | null = null;
   private fromAddress: string;
-  private isConfigured: boolean = false;
+  private isConfigured = false;
 
   constructor() {
     this.fromAddress = process.env.SMTP_FROM_ADDRESS || 'noreply@pricecompare.com';

@@ -41,7 +41,7 @@ import {
  */
 export function expectSuccessResponse<T = unknown>(
   response: { status: number; body: unknown },
-  expectedStatus: number = 200
+  expectedStatus = 200
 ): T {
   // Check HTTP status
   expect(response.status).toBe(expectedStatus);
@@ -101,7 +101,7 @@ export function expectErrorResponse(
  */
 export function expectPaginatedResponse<T = unknown>(
   response: { status: number; body: unknown },
-  expectedStatus: number = 200
+  expectedStatus = 200
 ): { data: T[]; meta: PaginatedResponse['meta'] } {
   // Check HTTP status
   expect(response.status).toBe(expectedStatus);
@@ -131,7 +131,7 @@ export function expectPaginatedResponse<T = unknown>(
 export function expectValidatedResponse<T extends z.ZodTypeAny>(
   response: { status: number; body: unknown },
   dataSchema: T,
-  expectedStatus: number = 200
+  expectedStatus = 200
 ): z.infer<T> {
   // Check HTTP status
   expect(response.status).toBe(expectedStatus);
@@ -151,7 +151,7 @@ export function expectValidatedResponse<T extends z.ZodTypeAny>(
 export function expectValidatedPaginatedResponse<T extends z.ZodTypeAny>(
   response: { status: number; body: unknown },
   itemSchema: T,
-  expectedStatus: number = 200
+  expectedStatus = 200
 ): {
   items: z.infer<T>[];
   meta: PaginatedResponse['meta'];

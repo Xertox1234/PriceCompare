@@ -275,6 +275,6 @@ export function withRetry<TArgs extends unknown[], TReturn>(
   options: RetryOptions = {}
 ): (...args: TArgs) => Promise<TReturn> {
   return async (...args: TArgs) => {
-    return await retryWithBackoff(() => fn(...args), options);
+    return retryWithBackoff(() => fn(...args), options);
   };
 }

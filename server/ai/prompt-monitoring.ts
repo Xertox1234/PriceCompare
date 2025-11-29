@@ -247,7 +247,7 @@ class PromptMonitor {
   /**
    * Get recent failures for debugging
    */
-  getRecentFailures(limit: number = 10): PromptExecutionMetrics[] {
+  getRecentFailures(limit = 10): PromptExecutionMetrics[] {
     return this.metrics
       .filter(m => !m.success)
       .slice(-limit)

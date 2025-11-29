@@ -1,12 +1,16 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
-import { TrendingDown, X, ExternalLink, Bell, BellOff } from 'lucide-react';
+import { TrendingDown, X, ExternalLink, Bell, BellOff, Edit2, Check, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants';
 import { CreatePriceAlertDialog } from '../watchlist/create-price-alert-dialog';
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface WatchedProductCardProps {
   product: {
@@ -20,6 +24,8 @@ interface WatchedProductCardProps {
     last7Days: Array<{ date: string; price: number }>;
     alertStatus: 'active' | 'triggered' | 'none';
     addedAt: string;
+    alertId: number | null; // Price alert ID for inline editing
+    alertTargetPrice: number | null; // Price alert target price
   };
   watchListId: number;
   onRemove?: () => void;
@@ -27,8 +33,78 @@ interface WatchedProductCardProps {
 
 export function WatchedProductCard({ product, watchListId: _watchListId, onRemove }: WatchedProductCardProps) {
   const [showAlertDialog, setShowAlertDialog] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedPrice, setEditedPrice] = useState<number>(product.alertTargetPrice || 0);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const hasPriceDrop = product.priceDropPercent > 0;
   const hasSavings = product.savingsPotential > 0;
+
+  // Mutation for updating alert target price
+  const updateAlertMutation = useMutation({
+    mutationFn: async (newTargetPrice: number) => {
+      if (!product.alertId) {
+        throw new Error('No alert ID available');
+      }
+      return apiRequest<{ id: number }>(`/api/price-alerts/${product.alertId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ targetPrice: newTargetPrice }),
+      });
+    },
+    onSuccess: () => {
+      // Invalidate ALL relevant queries
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists/products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
+
+      toast({
+        title: "Target price updated",
+        description: `New target: $${editedPrice.toFixed(2)}`,
+      });
+
+      setIsEditing(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update price",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveEdit = () => {
+    // Client-side validation
+    if (editedPrice <= 0) {
+      toast({
+        title: "Invalid price",
+        description: "Target price must be greater than $0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editedPrice >= product.currentPrice) {
+      toast({
+        title: "Invalid price",
+        description: "Target price should be lower than current price",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateAlertMutation.mutate(editedPrice);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedPrice(product.alertTargetPrice || 0);
+    setIsEditing(false);
+  };
+
+  const handleStartEdit = () => {
+    setEditedPrice(product.alertTargetPrice || 0);
+    setIsEditing(true);
+  };
 
   // Format chart data for Recharts
   const chartData = product.last7Days.map((point) => ({
@@ -145,6 +221,86 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
             View Details
           </Button>
         </div>
+
+        {/* Alert Target Price (show when alert exists) */}
+        {(product.alertStatus === 'active' || product.alertStatus === 'triggered') && product.alertTargetPrice !== null && (
+          <div className="mt-3 pt-3 border-t border-border">
+            {isEditing ? (
+              // Editing mode
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground min-w-[80px]">Target Price:</span>
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className="text-lg font-medium text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={product.currentPrice}
+                      value={editedPrice}
+                      onChange={(e) => setEditedPrice(parseFloat(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                      autoFocus
+                      disabled={updateAlertMutation.isPending}
+                    />
+                  </div>
+                </div>
+                {/* Real-time savings calculation */}
+                {editedPrice > 0 && editedPrice < product.currentPrice && (
+                  <p className="text-xs text-muted-foreground">
+                    Save ${ (product.currentPrice - editedPrice).toFixed(2)} ({Math.round(((product.currentPrice - editedPrice) / product.currentPrice) * 100)}% off)
+                  </p>
+                )}
+                {/* Save/Cancel buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveEdit}
+                    disabled={updateAlertMutation.isPending || editedPrice <= 0 || editedPrice >= product.currentPrice}
+                    className="flex items-center gap-1"
+                  >
+                    <Check className="w-3 h-3" />
+                    {updateAlertMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={updateAlertMutation.isPending}
+                    className="flex items-center gap-1"
+                  >
+                    <XCircle className="w-3 h-3" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // Display mode
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Target:</span>
+                  <span className="text-lg font-bold text-primary">
+                    ${product.alertTargetPrice.toFixed(2)}
+                  </span>
+                  {product.currentPrice <= product.alertTargetPrice && (
+                    <Badge className="bg-green-600 text-white dark:bg-green-500 text-xs">
+                      TARGET MET!
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleStartEdit}
+                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                  aria-label="Edit target price"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Set Price Alert Button (only show if no alert exists) */}
         {product.alertStatus === 'none' && (

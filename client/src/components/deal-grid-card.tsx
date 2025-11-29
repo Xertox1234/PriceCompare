@@ -27,7 +27,7 @@ export interface DealGridCardProps {
 // Main Component
 // ============================================================================
 
-export const DealGridCard = memo(function DealGridCard({
+export const DealGridCard = memo(({
   title,
   products,
   seeMoreLink,
@@ -36,7 +36,7 @@ export const DealGridCard = memo(function DealGridCard({
   customBadges,
   onProductClick,
   className,
-}: DealGridCardProps) {
+}: DealGridCardProps) => {
   // Take only the first 4 products
   const displayProducts = useMemo(() => products.slice(0, 4), [products]);
 

@@ -98,7 +98,7 @@ export function useEnhancedProductsSearch({
       });
       
       // apiRequest already returns parsed JSON
-      return await apiRequest<EnhancedSearchResults>(`${endpoint}?${searchParams.toString()}`);
+      return apiRequest<EnhancedSearchResults>(`${endpoint}?${searchParams.toString()}`);
     },
     onSuccess: (data, variables) => {
       // Update search history
@@ -126,7 +126,7 @@ export function useEnhancedProductsSearch({
       if (!debouncedQuery.trim()) {
         // Return default products when no query
         // apiRequest already returns parsed JSON
-        return await apiRequest('/api/products/search');
+        return apiRequest('/api/products/search');
       }
       
       // Use the search mutation's function for consistency
@@ -158,7 +158,7 @@ export function useEnhancedProductsSearch({
       });
 
       // apiRequest already returns parsed JSON
-      return await apiRequest<EnhancedSearchResults>(`/api/products/search?${searchParams.toString()}`);
+      return apiRequest<EnhancedSearchResults>(`/api/products/search?${searchParams.toString()}`);
     },
     enabled: !autoSearch || !debouncedQuery.trim(),
     staleTime: 5 * 60 * 1000, // 5 minutes

@@ -46,6 +46,8 @@ interface WatchedProduct {
   last7Days: Array<{ date: string; price: number }>;
   alertStatus: 'active' | 'triggered' | 'none';
   addedAt: string;
+  alertId: number | null; // Price alert ID for editing
+  alertTargetPrice: number | null; // Price alert target price
 }
 
 interface WatchListWithProducts extends WatchList {

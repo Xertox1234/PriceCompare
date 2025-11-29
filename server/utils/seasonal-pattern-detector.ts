@@ -252,7 +252,7 @@ function generateRecommendation(
   const currentMonth = new Date().getMonth();
   const monthsUntilBest = (bestMonth.month - currentMonth + 12) % 12;
 
-  let timeframe = bestMonth.monthName;
+  const timeframe = bestMonth.monthName;
   let reason = `Historically, prices are lowest in ${bestMonth.monthName}`;
 
   if (monthsUntilBest === 0) {

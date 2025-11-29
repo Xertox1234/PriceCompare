@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 
-export function cacheMiddleware(duration: number = 300) {
+export function cacheMiddleware(duration = 300) {
   return (req: Request, res: Response, next: NextFunction) => {
     // Only cache GET requests
     if (req.method !== 'GET') {

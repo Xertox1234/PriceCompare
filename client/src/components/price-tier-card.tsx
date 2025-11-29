@@ -34,10 +34,10 @@ interface PriceTierItemProps {
   onClick?: (tier: PriceTier) => void;
 }
 
-const PriceTierItem = memo(function PriceTierItem({
+const PriceTierItem = memo(({
   tier,
   onClick,
-}: PriceTierItemProps) {
+}: PriceTierItemProps) => {
   const handleClick = useCallback(() => {
     onClick?.(tier);
   }, [onClick, tier]);
@@ -104,14 +104,14 @@ PriceTierItem.displayName = "PriceTierItem";
 // Main Component
 // ============================================================================
 
-export const PriceTierCard = memo(function PriceTierCard({
+export const PriceTierCard = memo(({
   title,
   tiers,
   seeAllLink,
   seeAllText = "Shop all",
   onTierClick,
   className,
-}: PriceTierCardProps) {
+}: PriceTierCardProps) => {
   // Take only the first 4 tiers
   const displayTiers = tiers.slice(0, 4);
 

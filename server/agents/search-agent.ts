@@ -366,7 +366,7 @@ OUTPUT CONSTRAINTS:
     const queryWords = query.toLowerCase().split(' ');
     
     let score = 0;
-    let totalWords = queryWords.length;
+    const totalWords = queryWords.length;
     
     for (const word of queryWords) {
       if (text.includes(word)) {

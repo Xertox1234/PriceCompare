@@ -78,7 +78,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post("/api/community/watch/:productId", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const watch = await communityService.addProductWatch(user.id, productId);
@@ -95,7 +95,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.delete("/api/community/watch/:productId", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const removed = await communityService.removeProductWatch(user.id, productId);
@@ -117,7 +117,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watches", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const productIds = await communityService.getUserWatchedProducts(user.id);
 
       sendSuccess(res, {
@@ -151,7 +151,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/is-watching/:productId", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
       const isWatching = await communityService.isUserWatchingProduct(user.id, productId);
@@ -186,7 +186,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/reputation", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const reputation = await communityService.getUserReputation(user.id);
 
       sendSuccess(res, reputation);
@@ -241,7 +241,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post("/api/community/watch-lists", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const validatedData = createWatchListSchema.parse(req.body);
 
       const watchList = await communityService.createWatchList(
@@ -264,7 +264,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watch-lists", withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const watchLists = await communityService.getUserWatchLists(user.id);
 
       sendSuccess(res, {
@@ -282,7 +282,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watch-lists/:listId", withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
 
       const watchList = await communityService.getWatchListById(user.id, listId);
@@ -304,7 +304,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.patch("/api/community/watch-lists/:listId", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
       const validatedData = updateWatchListSchema.parse(req.body);
 
@@ -327,7 +327,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.delete("/api/community/watch-lists/:listId", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
 
       const deleted = await communityService.deleteWatchList(user.id, listId);
@@ -349,7 +349,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watch-lists/:listId/products", withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const listId = parseIntSafe(req.params.listId, 'listId', { min: 1 });
 
       const products = await communityService.getWatchListProducts(user.id, listId);
@@ -369,7 +369,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.patch("/api/community/product-watches/:watchId", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const watchId = parseIntSafe(req.params.watchId, 'watchId', { min: 1 });
       const validatedData = updateProductWatchSchema.parse(req.body);
 
@@ -392,7 +392,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post("/api/community/product-watches/bulk-move", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const validatedData = bulkMoveProductsSchema.parse(req.body);
 
       const movedCount = await communityService.moveProductsToWatchList(
@@ -413,7 +413,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post("/api/community/product-watches/bulk-delete", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const validatedData = bulkDeleteProductsSchema.parse(req.body);
 
       const deletedCount = await communityService.bulkRemoveProductWatches(
@@ -433,7 +433,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get("/api/community/watch-lists/export", withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const exportData = await communityService.exportWatchLists(user.id);
 
       sendSuccess(res, exportData);
@@ -448,7 +448,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post("/api/community/watch-lists/import", csrfProtection, withAuth(async (req, res) => {
     try {
-      const user = req.user!;
+      const user = req.user;
       const validatedData = importWatchListsSchema.parse(req.body);
 
       const result = await communityService.importWatchLists(user.id, validatedData);

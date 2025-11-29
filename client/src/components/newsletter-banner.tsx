@@ -29,9 +29,9 @@ type SubmissionState = 'idle' | 'loading' | 'success' | 'error';
  * - Icons for visual appeal
  * - Centered layout with max-width container
  */
-export const NewsletterBanner = memo(function NewsletterBanner({
+export const NewsletterBanner = memo(({
   className,
-}: NewsletterBannerProps) {
+}: NewsletterBannerProps) => {
   const [email, setEmail] = useState('');
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');

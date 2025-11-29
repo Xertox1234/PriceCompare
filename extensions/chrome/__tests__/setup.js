@@ -53,7 +53,7 @@ document.createElement = vi.fn((tag) => {
         this[key] = value;
       }
     }),
-    getAttribute: vi.fn(function(key) {
+    getAttribute: vi.fn((key) => {
       return attributes[key] || null;
     }),
     addEventListener: vi.fn(),

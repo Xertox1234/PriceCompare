@@ -563,7 +563,7 @@ export class AdvancedSearchService {
   /**
    * Get search suggestions and auto-completions
    */
-  async getSearchSuggestions(query: string, limit: number = 5): Promise<SearchSuggestion[]> {
+  async getSearchSuggestions(query: string, limit = 5): Promise<SearchSuggestion[]> {
     const suggestions: SearchSuggestion[] = [];
     const queryLower = query.toLowerCase();
 

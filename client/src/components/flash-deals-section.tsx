@@ -25,9 +25,9 @@ interface FlashDealsSectionProps {
  * - Displays flash deal products using ProductDealCard with variant="flash"
  * - Urgency messaging for time-limited offers
  */
-export const FlashDealsSection = memo(function FlashDealsSection({
+export const FlashDealsSection = memo(({
   className,
-}: FlashDealsSectionProps) {
+}: FlashDealsSectionProps) => {
   const flashDeals = getFlashDeals();
 
   // Handle view deal action

@@ -112,7 +112,7 @@ export async function triggerSnapshotGeneration(): Promise<number> {
 /**
  * Manually trigger cleanup (for testing)
  */
-export async function triggerCleanup(daysToKeep: number = 90): Promise<number> {
+export async function triggerCleanup(daysToKeep = 90): Promise<number> {
   logger.info(`Manually triggering cleanup (keeping ${daysToKeep} days)...`);
   const deletedCount = await cleanupOldPriceHistory(daysToKeep);
   logger.info(`Manual cleanup completed: ${deletedCount} records removed`);

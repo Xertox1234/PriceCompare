@@ -405,20 +405,20 @@ export default function PriceHistoryPage() {
             <div className="grid lg:grid-cols-2 gap-6">
               {/* Price Insights Widget */}
               <PriceInsightsWidget
-                productId={productId!}
+                productId={productId}
                 offerId={selectedOfferId}
               />
 
               {/* Price Alerts Manager */}
               <PriceAlertsManager
-                productId={productId!}
+                productId={productId}
                 currentPrice={chartData.currentPrice}
               />
 
               {/* Deal Tracker (full width) */}
               <div className="lg:col-span-2">
                 <DealTracker
-                  productId={productId!}
+                  productId={productId}
                   offerId={selectedOfferId}
                 />
               </div>

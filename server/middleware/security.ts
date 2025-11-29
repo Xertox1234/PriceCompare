@@ -334,7 +334,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   // Sanitize body (most user input comes through body)
   if (req.body) {
-    req.body = sanitizeObject(req.body, SanitizationContext.PLAIN_TEXT) as typeof req.body;
+    req.body = sanitizeObject(req.body, SanitizationContext.PLAIN_TEXT);
   }
 
   // Sanitize query params (used for search, filters, etc.)

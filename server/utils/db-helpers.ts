@@ -44,7 +44,7 @@ export async function executeQueryForOne<T>(queryPromise: Promise<T[]>): Promise
  * @returns All results (empty array if none)
  */
 export async function executeQueryForMany<T>(queryPromise: Promise<T[]>): Promise<T[]> {
-  return await queryPromise;
+  return queryPromise;
 }
 
 /**
@@ -55,7 +55,7 @@ export async function executeQueryForMany<T>(queryPromise: Promise<T[]>): Promis
  */
 export function getCountFromResult(
   results: Array<{ count: number | string | null | undefined }>,
-  defaultValue: number = 0
+  defaultValue = 0
 ): number {
   const result = results.at(0);
   if (!result) return defaultValue;

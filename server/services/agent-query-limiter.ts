@@ -89,7 +89,7 @@ class AgentQueryLimiter {
    * Check if a query is allowed and increment counter if so
    * @returns QueryResult with allowed status and remaining queries
    */
-  async checkAndIncrement(queryType: AgentQueryType, count: number = 1): Promise<QueryResult> {
+  async checkAndIncrement(queryType: AgentQueryType, count = 1): Promise<QueryResult> {
     const redis = getRedisClient();
 
     // Fallback to in-memory if Redis unavailable (for development)
@@ -293,7 +293,7 @@ export const agentQueryLimiter = new AgentQueryLimiter();
 export async function withQueryLimit<T>(
   queryType: AgentQueryType,
   operation: () => Promise<T>,
-  queryCount: number = 1
+  queryCount = 1
 ): Promise<T> {
   const result = await agentQueryLimiter.checkAndIncrement(queryType, queryCount);
 

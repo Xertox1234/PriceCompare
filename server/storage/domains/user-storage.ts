@@ -204,7 +204,7 @@ export class UserStorage extends BaseStorage {
     passwordHash: string // SECURITY: NEVER expose
   ): Promise<{ user: SafeUser; isFirstUser: boolean }> {
     let user: SafeUser;
-    let isFirstUser: boolean = false;
+    let isFirstUser = false;
 
     try {
       await retryWithBackoff(

@@ -58,7 +58,7 @@ class LRUCache<T> {
   private maxSize: number;
   private ttl: number; // milliseconds
 
-  constructor(maxSize: number = 1000, ttlSeconds: number = 60) {
+  constructor(maxSize = 1000, ttlSeconds = 60) {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.ttl = ttlSeconds * 1000;
@@ -254,7 +254,7 @@ export class AdvancedCacheService {
   /**
    * Get value from cache with L1 -> L2 fallback
    */
-  async get<T>(key: string, useL1: boolean = true): Promise<T | null> {
+  async get<T>(key: string, useL1 = true): Promise<T | null> {
     try {
       // Try L1 cache first
       if (useL1) {
@@ -297,7 +297,7 @@ export class AdvancedCacheService {
     key: string,
     value: unknown,
     tier: CacheTier = CacheTier.WARM,
-    useL1: boolean = true
+    useL1 = true
   ): Promise<void> {
     try {
       const ttl = TIER_TTL[tier];
@@ -325,7 +325,7 @@ export class AdvancedCacheService {
     key: string,
     fetchFn: () => Promise<T>,
     tier: CacheTier = CacheTier.WARM,
-    useL1: boolean = true
+    useL1 = true
   ): Promise<T> {
     // Try to get from cache
     const cached = await this.get<T>(key, useL1);
@@ -496,7 +496,7 @@ export class AdvancedCacheService {
   /**
    * Publish cache invalidation event to other instances
    */
-  private async publishInvalidation(key: string, isPattern: boolean = false): Promise<void> {
+  private async publishInvalidation(key: string, isPattern = false): Promise<void> {
     try {
       const redis = this.getRedis();
       await redis.publish(
@@ -589,7 +589,7 @@ export const advancedCache = new AdvancedCacheService();
 /**
  * Cache product details with automatic tier selection
  */
-export async function cacheProductDetail(productId: number, data: unknown, isPopular: boolean = false) {
+export async function cacheProductDetail(productId: number, data: unknown, isPopular = false) {
   const key = AdvancedCacheService.generateKey(CachePrefix.PRODUCT_DETAIL, productId);
   const tier = isPopular ? CacheTier.HOT : CacheTier.WARM;
   await advancedCache.set(key, data, tier, isPopular);

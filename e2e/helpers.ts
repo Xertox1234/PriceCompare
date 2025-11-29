@@ -181,7 +181,7 @@ export async function isLoggedIn(page: Page): Promise<boolean> {
 /**
  * Generate unique test email
  */
-export function generateTestEmail(prefix: string = 'test'): string {
+export function generateTestEmail(prefix = 'test'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(7);
   return `${prefix}-${timestamp}-${random}@example.com`;
@@ -190,7 +190,7 @@ export function generateTestEmail(prefix: string = 'test'): string {
 /**
  * Generate unique test username
  */
-export function generateTestUsername(prefix: string = 'user'): string {
+export function generateTestUsername(prefix = 'user'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(7);
   return `${prefix}_${timestamp}_${random}`;

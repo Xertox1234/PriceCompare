@@ -11,7 +11,7 @@ export class TrendAnalysisService {
    * Reduces ~100 queries to 2 queries + batch processing
    * TRANSACTIONAL: All trend updates committed atomically
    */
-  async analyzeTrendsForAllProducts(analysisPeriodDays: number = 30): Promise<number> {
+  async analyzeTrendsForAllProducts(analysisPeriodDays = 30): Promise<number> {
     logger.info(`[TrendAnalysis] Starting trend analysis for all products (${analysisPeriodDays} days)`);
 
     const cutoffDate = new Date();

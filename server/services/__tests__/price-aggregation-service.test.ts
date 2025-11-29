@@ -90,7 +90,7 @@ describe('PriceAggregationService', () => {
             }),
           });
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       const count = await service.calculateDailyAggregates();
@@ -111,7 +111,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       const count = await service.calculateDailyAggregates();
@@ -161,7 +161,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();
@@ -227,7 +227,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();
@@ -279,7 +279,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();
@@ -297,7 +297,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await expect(service.calculateDailyAggregates()).rejects.toThrow('Database error');
@@ -345,7 +345,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();
@@ -395,7 +395,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();
@@ -452,7 +452,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       const count = await service.aggregateToDaily(startDate, endDate);
@@ -477,7 +477,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       const count = await service.aggregateToDaily(startDate, endDate);
@@ -537,7 +537,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       const count = await service.aggregateToDaily(startDate, endDate);
@@ -596,7 +596,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       const count = await service.aggregateToDaily(startDate, endDate);
@@ -661,7 +661,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();
@@ -713,7 +713,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();
@@ -769,7 +769,7 @@ describe('PriceAggregationService', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await service.calculateDailyAggregates();

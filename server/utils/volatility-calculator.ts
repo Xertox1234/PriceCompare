@@ -120,7 +120,7 @@ function getRecommendation(
  */
 export function calculateVolatilityTrend(
   priceHistory: PriceData[],
-  recentDays: number = 30
+  recentDays = 30
 ): { trend: 'increasing' | 'decreasing' | 'stable'; change: number } | null {
   if (!priceHistory || priceHistory.length < 4) {
     return null;

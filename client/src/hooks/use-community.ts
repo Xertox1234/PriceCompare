@@ -139,7 +139,7 @@ export function useIsWatching(productId: number) {
 }
 
 // Get most watched products
-export function useMostWatchedProducts(limit: number = 10) {
+export function useMostWatchedProducts(limit = 10) {
   return useQuery<{ data: WatchStats[] }>({
     queryKey: ['/api/community/most-watched', limit],
     queryFn: async () => {
@@ -177,7 +177,7 @@ export function useUserReputation() {
 }
 
 // Get leaderboard
-export function useLeaderboard(limit: number = 10) {
+export function useLeaderboard(limit = 10) {
   return useQuery<{ data: LeaderboardEntry[] }>({
     queryKey: ['/api/community/leaderboard', limit],
     queryFn: async () => {
@@ -196,7 +196,7 @@ export function useLeaderboard(limit: number = 10) {
 }
 
 // Get recent deal spottings
-export function useRecentDeals(limit: number = 10) {
+export function useRecentDeals(limit = 10) {
   return useQuery<{ data: RecentDeal[] }>({
     queryKey: ['/api/community/recent-deals', limit],
     queryFn: async () => {

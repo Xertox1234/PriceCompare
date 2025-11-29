@@ -331,7 +331,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
   }
 
   async getStoredTrendingProducts(limit = 50) {
-    return await db.select()
+    return db.select()
       .from(trendingProducts)
       .where(eq(trendingProducts.status, 'discovered'))
       .orderBy(desc(trendingProducts.trendScore))

@@ -140,7 +140,7 @@ export class PriceAggregationService {
       conditions.push(eq(priceHistory.productId, productId));
     }
 
-    return await tx
+    return tx
       .select({
         productId: priceHistory.productId,
         retailerId: priceHistory.retailerId,
@@ -240,9 +240,9 @@ export class PriceAggregationService {
 
     logger.info(`[PriceAggregation] Calculating weekly aggregates for year ${year}, week ${week}`);
 
-    return await measureAggregation(
+    return measureAggregation(
       'weekly',
-      async () => await retryWithBackoff(
+      async () => retryWithBackoff(
         async () => db.transaction(async (tx) => {
           const { startDate, endDate } = this.getWeekDateRange(year, week);
           const priceData = await this.fetchPriceData(tx, startDate, endDate);
@@ -351,9 +351,9 @@ export class PriceAggregationService {
 
     logger.info(`[PriceAggregation] Calculating monthly aggregates for year ${year}, month ${month}`);
 
-    return await measureAggregation(
+    return measureAggregation(
       'monthly',
-      async () => await retryWithBackoff(
+      async () => retryWithBackoff(
         async () => db.transaction(async (tx) => {
           const startDate = new Date(year, month - 1, 1);
           const endDate = new Date(year, month, 0, 23, 59, 59);
@@ -537,9 +537,9 @@ export class PriceAggregationService {
 
     logger.info(`[PriceAggregation] Calculating daily aggregates for ${dateStr}`);
 
-    return await measureAggregation(
+    return measureAggregation(
       'daily',
-      async () => await retryWithBackoff(
+      async () => retryWithBackoff(
         async () => db.transaction(async (tx) => {
           const { startDate, endDate } = this.getDayDateRange(year, month, day);
           const priceData = await this.fetchPriceData(tx, startDate, endDate);
@@ -684,7 +684,7 @@ export class PriceAggregationService {
    * const count = await priceAggregationService.aggregateToDaily(start, end, true);
    * console.log(`Re-aggregated ${count} days (forced update)`);
    */
-  async aggregateToDaily(startDate: Date, endDate: Date, force: boolean = false): Promise<number> {
+  async aggregateToDaily(startDate: Date, endDate: Date, force = false): Promise<number> {
     // Validate date range
     try {
       const validated = dateRangeSchema.parse({ startDate, endDate });
@@ -1209,7 +1209,7 @@ export class PriceAggregationService {
     startDate: Date,
     endDate: Date
   ): Promise<{ retailerId: number | null; prices: string; recordCount: number }[]> {
-    return await db
+    return db
       .select({
         retailerId: priceHistory.retailerId,
         prices: sql<string>`array_agg(${priceHistory.price}::numeric ORDER BY ${priceHistory.recordedAt})`,

@@ -96,7 +96,7 @@ export class CoordinationAgent extends BaseAgent {
   async processTask(taskData: unknown): Promise<unknown> {
     const taskId = `coordinator_${Date.now()}`;
 
-    return await this.executeTask(
+    return this.executeTask(
       taskId,
       () => this.coordinateWorkflow(taskData),
       {
@@ -145,7 +145,7 @@ export class CoordinationAgent extends BaseAgent {
       });
 
       // The result should be an array of TrendData
-      const trends = (result as TrendData[]) || [];
+      const trends = (result) || [];
 
       logger.info(`Discovered ${trends.length} trending products`);
 

@@ -58,8 +58,8 @@ export async function recordPriceChange(
   productOfferId: number,
   price: number,
   originalPrice?: number,
-  source: string = 'scraper',
-  confidence: number = 1.0,
+  source = 'scraper',
+  confidence = 1.0,
   metadata?: Record<string, unknown>
 ): Promise<PriceChangeResult> {
   try {
@@ -200,7 +200,7 @@ export interface NormalizedPricePoint {
  */
 export async function getPriceHistoryOptimized(
   productId: number,
-  days: number = 30,
+  days = 30,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
   // Input validation
@@ -441,7 +441,7 @@ function getDateFromWeek(year: number, week: number): Date {
  */
 export async function getPriceStats(
   productOfferId: number,
-  days: number = 90
+  days = 90
 ): Promise<PriceStats | null> {
   try {
     const startDate = new Date();
@@ -666,7 +666,7 @@ export async function getPriceSnapshots(
  * @param daysToKeep - Number of days of granular data to keep (default: 90)
  * @returns Number of records deleted
  */
-export async function cleanupOldPriceHistory(daysToKeep: number = 90): Promise<number> {
+export async function cleanupOldPriceHistory(daysToKeep = 90): Promise<number> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
@@ -689,8 +689,8 @@ export async function cleanupOldPriceHistory(daysToKeep: number = 90): Promise<n
  * @returns Array of product offers with significant price drops
  */
 export async function detectSignificantPriceDrops(
-  thresholdPercent: number = 10,
-  hours: number = 24
+  thresholdPercent = 10,
+  hours = 24
 ): Promise<Array<{ productOfferId: number; previousPrice: number; currentPrice: number; dropPercent: number }>> {
   try {
     const cutoffDate = new Date();

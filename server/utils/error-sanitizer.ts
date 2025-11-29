@@ -8,7 +8,7 @@
  * In production, generic messages are returned to prevent information disclosure
  * In development, full error details are provided for debugging
  */
-export function sanitizeErrorMessage(error: unknown, genericMessage: string = 'An error occurred'): string {
+export function sanitizeErrorMessage(error: unknown, genericMessage = 'An error occurred'): string {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   if (isDevelopment) {
@@ -68,7 +68,7 @@ export interface ErrorResponse {
   details?: string;
 }
 
-export function createErrorResponse(error: unknown, context: string = 'Operation'): ErrorResponse {
+export function createErrorResponse(error: unknown, context = 'Operation'): ErrorResponse {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const status = getErrorStatus(error);
   const message = sanitizeErrorMessage(error, `${context} failed`);

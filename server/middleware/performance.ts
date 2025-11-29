@@ -132,7 +132,7 @@ export function getPerformanceStats() {
 /**
  * Get slowest endpoints
  */
-export function getSlowestEndpoints(limit: number = 10) {
+export function getSlowestEndpoints(limit = 10) {
   const stats = getPerformanceStats();
   return Object.entries(stats.endpointStats)
     .map(([endpoint, data]) => ({ endpoint, ...data }))

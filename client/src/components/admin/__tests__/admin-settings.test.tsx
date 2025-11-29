@@ -35,23 +35,23 @@ describe('AdminSettings', () => {
   it('should display default platform settings', () => {
     render(<AdminSettings />, { wrapper: createWrapper() });
 
-    const platformNameInput = screen.getByLabelText('Platform Name') as HTMLInputElement;
-    expect(platformNameInput.value).toBe('PriceCompare Community');
+    const platformNameInput = screen.getByLabelText('Platform Name');
+    expect((platformNameInput as HTMLInputElement).value).toBe('PriceCompare Community');
   });
 
   it('should update platform name input', () => {
     render(<AdminSettings />, { wrapper: createWrapper() });
 
-    const platformNameInput = screen.getByLabelText('Platform Name') as HTMLInputElement;
+    const platformNameInput = screen.getByLabelText('Platform Name');
     fireEvent.change(platformNameInput, { target: { value: 'New Platform Name' } });
 
-    expect(platformNameInput.value).toBe('New Platform Name');
+    expect((platformNameInput as HTMLInputElement).value).toBe('New Platform Name');
   });
 
   it('should show unsaved changes badge when platform settings change', async () => {
     render(<AdminSettings />, { wrapper: createWrapper() });
 
-    const platformNameInput = screen.getByLabelText('Platform Name') as HTMLInputElement;
+    const platformNameInput = screen.getByLabelText('Platform Name');
     fireEvent.change(platformNameInput, { target: { value: 'Changed Name' } });
 
     await waitFor(() => {
@@ -62,7 +62,7 @@ describe('AdminSettings', () => {
   it('should enable save button when changes are made', async () => {
     render(<AdminSettings />, { wrapper: createWrapper() });
 
-    const platformNameInput = screen.getByLabelText('Platform Name') as HTMLInputElement;
+    const platformNameInput = screen.getByLabelText('Platform Name');
     fireEvent.change(platformNameInput, { target: { value: 'Changed Name' } });
 
     await waitFor(() => {
@@ -74,7 +74,7 @@ describe('AdminSettings', () => {
   it('should enable reset button when changes are made', async () => {
     render(<AdminSettings />, { wrapper: createWrapper() });
 
-    const platformNameInput = screen.getByLabelText('Platform Name') as HTMLInputElement;
+    const platformNameInput = screen.getByLabelText('Platform Name');
     fireEvent.change(platformNameInput, { target: { value: 'Changed Name' } });
 
     await waitFor(() => {
@@ -86,14 +86,14 @@ describe('AdminSettings', () => {
   it('should reset platform settings when reset button is clicked', async () => {
     render(<AdminSettings />, { wrapper: createWrapper() });
 
-    const platformNameInput = screen.getByLabelText('Platform Name') as HTMLInputElement;
+    const platformNameInput = screen.getByLabelText('Platform Name');
     fireEvent.change(platformNameInput, { target: { value: 'Changed Name' } });
 
     const resetButtons = screen.getAllByText('Reset');
     fireEvent.click(resetButtons[0]);
 
     await waitFor(() => {
-      expect(platformNameInput.value).toBe('PriceCompare Community');
+      expect((platformNameInput as HTMLInputElement).value).toBe('PriceCompare Community');
     });
   });
 

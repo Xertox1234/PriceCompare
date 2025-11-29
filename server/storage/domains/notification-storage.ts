@@ -404,7 +404,7 @@ export class NotificationStorage extends BaseStorage {
     // RACE CONDITION: Use transaction with SERIALIZABLE isolation for check + create/update
     // Without transaction, concurrent updates could both try to create defaults (constraint violation)
     // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
-    return await retryWithBackoff(
+    return retryWithBackoff(
       async () => this.db.transaction(async (tx) => {
         // Check if preferences exist within transaction
         const existing = await tx
@@ -465,7 +465,7 @@ export class NotificationStorage extends BaseStorage {
    */
   async getRecentPriceDrops(
     userId: number,
-    days: number = 7
+    days = 7
   ): Promise<Notification[]> {
     try {
       const since = new Date();
@@ -494,7 +494,7 @@ export class NotificationStorage extends BaseStorage {
    */
   async getRecentPriceAlerts(
     userId: number,
-    days: number = 7
+    days = 7
   ): Promise<Notification[]> {
     try {
       const since = new Date();

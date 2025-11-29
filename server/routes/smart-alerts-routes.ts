@@ -52,7 +52,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/predictive", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const alerts = await smartAlertsService.generatePredictiveAlerts(user.id);
 
       sendSuccess(res, {
@@ -70,7 +70,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/effectiveness", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const effectiveness = await smartAlertsService.getAlertEffectiveness(user.id);
 
       sendSuccess(res, {
@@ -88,7 +88,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get("/api/smart-alerts/analytics", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const analytics = await smartAlertsService.getAlertAnalytics(user.id);
 
       sendSuccess(res, analytics);
@@ -103,7 +103,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.post("/api/smart-alerts/create-suggested", csrfProtection, withAuth(async (req, res): Promise<void> => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
 
       const schema = z.object({
         productId: z.number(),

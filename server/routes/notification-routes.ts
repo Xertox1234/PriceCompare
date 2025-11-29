@@ -29,7 +29,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
 
       const filterSchema = z.object({
         isRead: z.enum(['true', 'false']).optional().transform(val => val === 'true'),
@@ -57,7 +57,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/stats", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const stats = await notificationService.getNotificationStats(user.id);
 
       sendSuccess(res, stats);
@@ -150,7 +150,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/preferences", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const preferences = await notificationService.getUserPreferences(user.id);
 
       sendSuccess(res, preferences);
@@ -196,7 +196,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/price-drops", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const days = req.query.days
         ? parseIntSafe(req.query.days as string, 'days', { min: 1, max: 365 })
         : 7;
@@ -218,7 +218,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/price-alerts", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
       const days = req.query.days
         ? parseIntSafe(req.query.days as string, 'days', { min: 1, max: 365 })
         : 7;
@@ -240,7 +240,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get("/api/notifications/smart", withAuth(async (req, res) => {
     try {
-      const user = req.user!; // Auth verified by withAuth middleware
+      const user = req.user; // Auth verified by withAuth middleware
 
       const filterSchema = z.object({
         urgency: z.enum(['low', 'medium', 'high', 'critical']).optional(),

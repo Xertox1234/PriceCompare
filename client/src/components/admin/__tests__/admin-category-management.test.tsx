@@ -140,13 +140,13 @@ describe('AdminCategoryManagement', () => {
       { wrapper: createWrapper() }
     );
 
-    const nameInput = screen.getByLabelText('Name') as HTMLInputElement;
-    const descriptionInput = screen.getByLabelText('Description') as HTMLTextAreaElement;
+    const nameInput = screen.getByLabelText('Name');
+    const descriptionInput = screen.getByLabelText('Description');
 
     fireEvent.change(nameInput, { target: { value: 'New Category' } });
     fireEvent.change(descriptionInput, { target: { value: 'A new category description' } });
 
-    expect(nameInput.value).toBe('New Category');
-    expect(descriptionInput.value).toBe('A new category description');
+    expect((nameInput as HTMLInputElement).value).toBe('New Category');
+    expect((descriptionInput as HTMLInputElement).value).toBe('A new category description');
   });
 });

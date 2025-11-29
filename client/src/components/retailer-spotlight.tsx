@@ -96,11 +96,11 @@ const defaultBrandConfig: RetailerBrandConfig = {
  * - "Shop All [Retailer] Deals" CTA button
  * - Uses ProductDealCard for the mini carousel items
  */
-export const RetailerSpotlight = memo(function RetailerSpotlight({
+export const RetailerSpotlight = memo(({
   retailerId,
   tagline,
   className,
-}: RetailerSpotlightProps) {
+}: RetailerSpotlightProps) => {
   // Get retailer products
   const retailerProducts = useMemo(() => {
     const numericId = parseInt(retailerId, 10);

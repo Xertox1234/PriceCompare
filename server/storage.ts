@@ -1,5 +1,5 @@
 import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, notificationPreferences, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
-import type { WatchListImportData } from './storage/types';
+import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchedProductInfo, WatchListStats } from './storage/types';
 import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
@@ -77,7 +77,7 @@ export interface IStorage {
   deleteWatchList(watchListId: number, userId: number): Promise<WatchList>;
   addProductToWatchList(watchListId: number, productId: number, userId: number): Promise<ProductWatch>;
   removeProductFromWatchList(watchListId: number, productId: number, userId: number): Promise<ProductWatch>;
-  getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductInfo[]>;
+  getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductsResult>;
   getWatchListStats(userId: number): Promise<WatchListStats>;
 
   // Users - Basic operations
@@ -767,7 +767,7 @@ export class MemStorage implements IStorage {
       // Type assertion: filter() removes nulls, TypeScript needs explicit cast to number[]
       const originalPrices = offers
         .map(offer => offer.originalPrice ? parseFloat(offer.originalPrice) : null)
-        .filter(price => price !== null) as number[];
+        .filter(price => price !== null);
       const avgOriginalPrice = originalPrices.length > 0 ?
         originalPrices.reduce((sum, price) => sum + price, 0) / originalPrices.length : null;
 
@@ -1016,8 +1016,8 @@ export class MemStorage implements IStorage {
     throw new Error('Watch lists not supported in memory storage');
   }
 
-  async getWatchedProducts(_userId: number, _options?: WatchedProductsOptions): Promise<WatchedProductInfo[]> {
-    return [];
+  async getWatchedProducts(_userId: number, _options?: WatchedProductsOptions): Promise<WatchedProductsResult> {
+    return { products: [], hasMore: false, nextCursor: null };
   }
 
   async getWatchListStats(_userId: number): Promise<WatchListStats> {
@@ -2159,7 +2159,7 @@ export class DatabaseStorage implements IStorage {
   async getWatchedProducts(
     userId: number,
     options?: WatchedProductsOptions
-  ): Promise<WatchedProductInfo[]> {
+  ): Promise<WatchedProductsResult> {
     return this.watchListStorage.getWatchedProducts(userId, options);
   }
 
@@ -2187,7 +2187,7 @@ export class DatabaseStorage implements IStorage {
 
   // Admin Product/Retailer Management
   async getAdminProducts(): Promise<AdminProduct[]> {
-    return await db.select({
+    return db.select({
       id: products.id,
       name: products.name,
       description: products.description,
@@ -3191,7 +3191,7 @@ export class DatabaseStorage implements IStorage {
   /**
    * Get most watched products
    */
-  async getMostWatchedProductStats(limit: number = 10): Promise<CommunityWatchStats[]> {
+  async getMostWatchedProductStats(limit = 10): Promise<CommunityWatchStats[]> {
     return this.watchListStorage.getMostWatchedProductStats(limit);
   }
 
@@ -3296,7 +3296,7 @@ export class DatabaseStorage implements IStorage {
   /**
    * Get community leaderboard of top users
    */
-  async getCommunityLeaderboard(limit: number = 10): Promise<CommunityLeaderboardEntry[]> {
+  async getCommunityLeaderboard(limit = 10): Promise<CommunityLeaderboardEntry[]> {
     if (limit <= 0 || limit > 100) {
       throw new Error('limit must be between 1 and 100');
     }
@@ -3349,7 +3349,7 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
 
-    return await db
+    return db
       .select()
       .from(badges)
       .where(inArray(badges.name, names));
@@ -3483,12 +3483,12 @@ export class DatabaseStorage implements IStorage {
   /**
    * Get recent deal spottings
    */
-  async getRecentDealSpottingsData(limit: number = 10): Promise<DealSpotting[]> {
+  async getRecentDealSpottingsData(limit = 10): Promise<DealSpotting[]> {
     if (limit <= 0 || limit > 100) {
       throw new Error('limit must be between 1 and 100');
     }
 
-    return await db
+    return db
       .select()
       .from(dealSpottings)
       .orderBy(desc(dealSpottings.createdAt))
@@ -4249,46 +4249,6 @@ export interface WatchListWithProducts {
     lowestHistoricalPrice: number;
     priceDropPercent: number;
   }>;
-}
-
-export interface WatchedProductsOptions {
-  sortBy?: 'priceDropPercent' | 'savings' | 'dateAdded';
-  limit?: number;
-}
-
-export interface WatchedProductInfo {
-  productId: number;
-  watchListId: number | null;
-  watchListName: string;
-  productName: string;
-  imageUrl: string;
-  addedAt: Date;
-  currentPrice: number;
-  lowestPrice: number;
-  averagePrice: number;
-  priceDropPercent: number;
-  savingsPotential: number;
-  last7Days: Array<{ date: string; price: number }>;
-  alertStatus: 'active' | 'triggered' | 'none';
-}
-
-export interface WatchListStats {
-  totalWatchLists: number;
-  totalProducts: number;
-  totalPotentialSavings: number;
-  activeAlerts: number;
-  triggeredAlerts: number;
-  bestDeals: Array<{
-    productId: number;
-    productName: string;
-    currentPrice: number;
-    lowestPrice: number;
-    discountPercent: number;
-  }>;
-  weeklyStats: {
-    newDeals: number;
-    triggeredAlerts: number;
-  };
 }
 
 // Forum Types

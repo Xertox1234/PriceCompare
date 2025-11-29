@@ -74,7 +74,7 @@ interface StarRatingProps {
   reviewCount: number;
 }
 
-const StarRating = memo(function StarRating({ rating, reviewCount }: StarRatingProps) {
+const StarRating = memo(({ rating, reviewCount }: StarRatingProps) => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 >= 0.5;
 
@@ -123,14 +123,14 @@ function formatTimeAgo(date: Date): string {
 // Main Component
 // ============================================================================
 
-export const ProductDealCard = memo(function ProductDealCard({
+export const ProductDealCard = memo(({
   product,
   variant = "default",
   onViewDeal,
   onWatchlist,
   isInWatchlist = false,
   className,
-}: ProductDealCardProps) {
+}: ProductDealCardProps) => {
   const [isWatchlisted, setIsWatchlisted] = useState(isInWatchlist);
 
   // Sync with prop changes

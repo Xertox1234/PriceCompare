@@ -34,7 +34,7 @@ export async function getUserNotifications(
   userId: number,
   filters: NotificationFilters = {}
 ): Promise<Notification[]> {
-  return await storage.getUserNotifications(userId, filters);
+  return storage.getUserNotifications(userId, filters);
 }
 
 /**
@@ -42,7 +42,7 @@ export async function getUserNotifications(
  * Uses database aggregation for optimal performance
  */
 export async function getNotificationStats(userId: number): Promise<NotificationStats> {
-  return await storage.getNotificationStats(userId);
+  return storage.getNotificationStats(userId);
 }
 
 /**
@@ -52,14 +52,14 @@ export async function markAsRead(
   userId: number,
   notificationIds: number | number[]
 ): Promise<number> {
-  return await storage.markAsRead(userId, notificationIds);
+  return storage.markAsRead(userId, notificationIds);
 }
 
 /**
  * Mark all notifications as read for a user
  */
 export async function markAllAsRead(userId: number): Promise<number> {
-  return await storage.markAllAsRead(userId);
+  return storage.markAllAsRead(userId);
 }
 
 /**
@@ -69,14 +69,14 @@ export async function deleteNotification(
   userId: number,
   notificationId: number
 ): Promise<boolean> {
-  return await storage.deleteNotification(userId, notificationId);
+  return storage.deleteNotification(userId, notificationId);
 }
 
 /**
  * Delete all notifications for a user
  */
 export async function deleteAllNotifications(userId: number): Promise<number> {
-  return await storage.deleteAllNotifications(userId);
+  return storage.deleteAllNotifications(userId);
 }
 
 /**
@@ -162,7 +162,7 @@ export async function getUserPreferences(userId: number): Promise<NotificationPr
 
   if (!prefs) {
     // Create default preferences if they don't exist
-    return await createDefaultPreferences(userId);
+    return createDefaultPreferences(userId);
   }
 
   return prefs;
@@ -176,7 +176,7 @@ export async function getUserPreferences(userId: number): Promise<NotificationPr
 export async function createDefaultPreferences(
   userId: number
 ): Promise<NotificationPreferences> {
-  return await storage.createDefaultPreferences(userId);
+  return storage.createDefaultPreferences(userId);
 }
 
 /**
@@ -186,7 +186,7 @@ export async function updateUserPreferences(
   userId: number,
   updates: Partial<InsertNotificationPreferences>
 ): Promise<NotificationPreferences> {
-  return await storage.updateUserPreferences(userId, updates);
+  return storage.updateUserPreferences(userId, updates);
 }
 
 /**
@@ -194,9 +194,9 @@ export async function updateUserPreferences(
  */
 export async function getRecentPriceDrops(
   userId: number,
-  days: number = 7
+  days = 7
 ): Promise<Notification[]> {
-  return await storage.getRecentPriceDrops(userId, days);
+  return storage.getRecentPriceDrops(userId, days);
 }
 
 /**
@@ -204,7 +204,7 @@ export async function getRecentPriceDrops(
  */
 export async function getRecentPriceAlerts(
   userId: number,
-  days: number = 7
+  days = 7
 ): Promise<Notification[]> {
-  return await storage.getRecentPriceAlerts(userId, days);
+  return storage.getRecentPriceAlerts(userId, days);
 }

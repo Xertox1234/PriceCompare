@@ -64,7 +64,7 @@ export class GoogleCustomSearchService {
   /**
    * Generate cache key from search parameters
    */
-  private getCacheKey(query: string, retailerDomain: string = '', options: Record<string, unknown> = {}): string {
+  private getCacheKey(query: string, retailerDomain = '', options: Record<string, unknown> = {}): string {
     return JSON.stringify({ query, retailerDomain, ...options });
   }
 
@@ -174,7 +174,7 @@ export class GoogleCustomSearchService {
       }
     });
 
-    return await Promise.all(searchPromises);
+    return Promise.all(searchPromises);
   }
 
   /**

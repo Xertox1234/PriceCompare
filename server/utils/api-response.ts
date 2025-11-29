@@ -43,7 +43,7 @@ export interface ApiResponseMeta {
 export function sendSuccess<T>(
   res: Response,
   data: T,
-  statusCode: number = 200,
+  statusCode = 200,
   meta?: Partial<ApiResponseMeta>
 ): void {
   const response: {
@@ -80,7 +80,7 @@ export function sendSuccess<T>(
 export function sendError(
   res: Response,
   error: string,
-  statusCode: number = 500,
+  statusCode = 500,
   details?: string
 ): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -115,7 +115,7 @@ export function sendPaginated<T>(
   res: Response,
   data: T[],
   meta: PaginationMeta,
-  statusCode: number = 200
+  statusCode = 200
 ): void {
   res.status(statusCode).json({
     success: true,
@@ -180,7 +180,7 @@ export function normalizeResponse<T>(legacyData: unknown): T {
 export function sendErrorFromException(
   res: Response,
   error: unknown,
-  context: string = 'Operation'
+  context = 'Operation'
 ): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 

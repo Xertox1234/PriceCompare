@@ -15,7 +15,7 @@ import { PASSWORD } from './constants';
  */
 export function parseIntSafe(
   value: string | number | undefined,
-  fieldName: string = 'value',
+  fieldName = 'value',
   options?: { min?: number; max?: number }
 ): number {
   if (value === undefined) {
@@ -63,7 +63,7 @@ export function parseIntSafe(
  */
 export function parseIntOptional(
   value: string | number | undefined,
-  fieldName: string = 'value',
+  fieldName = 'value',
   options?: { min?: number; max?: number }
 ): number | undefined {
   if (value === undefined || value === null || value === '') {
@@ -124,7 +124,7 @@ export function validatePassword(password: string): PasswordValidationResult {
  */
 export function parseFloatSafe(
   value: string | number | undefined,
-  fieldName: string = 'value',
+  fieldName = 'value',
   options?: { min?: number; max?: number }
 ): number {
   if (value === undefined) {

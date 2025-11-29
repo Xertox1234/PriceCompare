@@ -69,13 +69,13 @@ export class AffiliateLinkAgent extends BaseAgent {
 
     switch (action) {
       case 'generate_affiliate_links':
-        return await this.generateAffiliateLinks(params);
+        return this.generateAffiliateLinks(params);
       case 'health_check_links':
-        return await this.healthCheckLinks(params as LinkHealthCheckTask);
+        return this.healthCheckLinks(params as LinkHealthCheckTask);
       case 'update_single_offer':
-        return await this.updateSingleOffer(params as AffiliateLinkTask);
+        return this.updateSingleOffer(params as AffiliateLinkTask);
       case 'batch_process_retailer':
-        return await this.batchProcessRetailer(params as { retailerId: number });
+        return this.batchProcessRetailer(params as { retailerId: number });
       default:
         throw new Error(`Unknown affiliate task action: ${action}`);
     }
@@ -305,7 +305,7 @@ export class AffiliateLinkAgent extends BaseAgent {
       };
     }
 
-    return await this.processOfferAffiliateLink(offer);
+    return this.processOfferAffiliateLink(offer);
   }
 
   /**
@@ -329,7 +329,7 @@ export class AffiliateLinkAgent extends BaseAgent {
     }
 
     // Process all offers for this retailer
-    return await this.generateAffiliateLinks({ retailerId, limit: 1000 });
+    return this.generateAffiliateLinks({ retailerId, limit: 1000 });
   }
 
   /**

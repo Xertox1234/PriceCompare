@@ -108,7 +108,7 @@ export function createAuthenticatedSocket(
 export function waitForEvent<T = any>(
   socket: ClientSocket,
   eventName: string,
-  timeout: number = 5000
+  timeout = 5000
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -133,7 +133,7 @@ export function waitForEvent<T = any>(
 export async function waitForEvents(
   socket: ClientSocket,
   eventNames: string[],
-  timeout: number = 5000
+  timeout = 5000
 ): Promise<any[]> {
   const results = await Promise.all(
     eventNames.map((event) => waitForEvent(socket, event, timeout))
@@ -146,7 +146,7 @@ export async function waitForEvents(
  */
 export function waitForConnection(
   socket: ClientSocket,
-  timeout: number = 5000
+  timeout = 5000
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     if (socket.connected) {
@@ -299,8 +299,8 @@ export function spyOnSocketEvent(socket: ClientSocket, eventName: string) {
  */
 export async function waitForCondition(
   condition: () => boolean,
-  timeout: number = 5000,
-  interval: number = 100
+  timeout = 5000,
+  interval = 100
 ): Promise<void> {
   const startTime = Date.now();
 

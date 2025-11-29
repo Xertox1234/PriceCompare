@@ -121,7 +121,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
         return;
       }
 
-      let optimizedFilters: SearchFilters = { query };
+      const optimizedFilters: SearchFilters = { query };
       
       // Optimize filters based on intent
       switch (intent) {
@@ -186,7 +186,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
       const analysis = await advancedSearchService.analyzeQueryIntent(query);
       
       // Build optimized filters based on intent
-      let filters: SearchFilters = { query };
+      const filters: SearchFilters = { query };
       
       switch (analysis.intent) {
         case 'price_comparison':

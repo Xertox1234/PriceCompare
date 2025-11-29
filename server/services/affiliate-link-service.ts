@@ -252,7 +252,7 @@ export class AffiliateLinkService {
   async updateOfferWithAffiliateLink(
     offerId: number,
     affiliateUrl: string,
-    isHealthy: boolean = true
+    isHealthy = true
   ): Promise<void> {
     try {
       await storage.updateProductOfferAffiliateLink(offerId, {

@@ -37,11 +37,11 @@ const defaultCategories: Category[] = [
  * - Click handler to filter content
  * - Gradient fade on edges to indicate scroll
  */
-export const CategoryPillsBar = memo(function CategoryPillsBar({
+export const CategoryPillsBar = memo(({
   selectedCategory = 'all',
   onCategoryChange,
   className,
-}: CategoryPillsBarProps) {
+}: CategoryPillsBarProps) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -93,7 +93,7 @@ export const CategoryPillsBar = memo(function CategoryPillsBar({
 
     const selectedButton = container.querySelector(
       `[data-category="${selectedCategory}"]`
-    ) as HTMLElement | null;
+    );
 
     if (selectedButton) {
       // Scroll the selected button into view with some padding

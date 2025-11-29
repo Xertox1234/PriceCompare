@@ -297,7 +297,7 @@ export function validateOutput(
 function validateObject(
   obj: unknown,
   schema: Record<string, unknown>,
-  path: string = 'root'
+  path = 'root'
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -342,7 +342,7 @@ function validateObject(
           errors.push({
             field: fieldPath,
             message: VALIDATION_MESSAGES.TYPE_MISMATCH,
-            expected: propSchema.type as string,
+            expected: propSchema.type,
             received: actualType
           });
           return;

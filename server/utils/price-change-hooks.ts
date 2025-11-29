@@ -194,7 +194,7 @@ export async function onBulkProductOfferPriceChange(
 export function isSignificantPriceChange(
   oldPrice: number,
   newPrice: number,
-  thresholdPercent: number = 5
+  thresholdPercent = 5
 ): boolean {
   if (oldPrice === 0) return true;
 

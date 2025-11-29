@@ -17,12 +17,12 @@ export interface MiniProductCardProps {
 // Main Component
 // ============================================================================
 
-export const MiniProductCard = memo(function MiniProductCard({
+export const MiniProductCard = memo(({
   product,
   badgeText,
   onClick,
   className,
-}: MiniProductCardProps) {
+}: MiniProductCardProps) => {
   // Determine badge display text
   const displayBadge = badgeText ?? `${product.savingsPercent}% off`;
 

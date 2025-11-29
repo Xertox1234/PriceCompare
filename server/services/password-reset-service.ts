@@ -93,8 +93,8 @@ export async function cleanupExpiredTokens(): Promise<number> {
  */
 export async function isRateLimitExceeded(
   userId: number,
-  windowMinutes: number = 15,
-  maxAttempts: number = 3
+  windowMinutes = 15,
+  maxAttempts = 3
 ): Promise<boolean> {
   const since = new Date(Date.now() - windowMinutes * 60 * 1000);
   const count = await storage.getPasswordResetAttemptCount(userId, since);
@@ -109,7 +109,7 @@ export async function isRateLimitExceeded(
  */
 export async function getResetAttemptCount(
   userId: number,
-  windowMinutes: number = 15
+  windowMinutes = 15
 ): Promise<number> {
   const since = new Date(Date.now() - windowMinutes * 60 * 1000);
   return storage.getPasswordResetAttemptCount(userId, since);

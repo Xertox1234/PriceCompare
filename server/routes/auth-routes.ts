@@ -112,12 +112,12 @@ export function registerAuthRoutes(app: Express): void {
 
       // SECURITY: Log successful registration
       logSecurityEvent(SecurityEventType.REGISTER, req, {
-        userId: user!.id,
-        username: user!.username,
-        email: user!.email,
+        userId: user.id,
+        username: user.username,
+        email: user.email,
         success: true,
         metadata: {
-          role: user!.role,
+          role: user.role,
           isFirstUser,
         }
       });

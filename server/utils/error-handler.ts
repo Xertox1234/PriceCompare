@@ -139,9 +139,9 @@ export class AppError extends Error {
 
   constructor(
     message: string,
-    statusCode: number = 500,
-    code: string = 'INTERNAL_ERROR',
-    isOperational: boolean = true
+    statusCode = 500,
+    code = 'INTERNAL_ERROR',
+    isOperational = true
   ) {
     super(message);
     this.statusCode = statusCode;

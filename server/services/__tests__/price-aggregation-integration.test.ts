@@ -73,7 +73,7 @@ describe('Price Aggregation Integration Tests', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       // Run daily aggregation
@@ -127,7 +127,7 @@ describe('Price Aggregation Integration Tests', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await aggregationService.calculateDailyAggregates();
@@ -203,7 +203,7 @@ describe('Price Aggregation Integration Tests', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       const count = await aggregationService.aggregateToDaily(startDate, endDate);
@@ -486,7 +486,7 @@ describe('Price Aggregation Integration Tests', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await aggregationService.calculateDailyAggregates();
@@ -538,7 +538,7 @@ describe('Price Aggregation Integration Tests', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await aggregationService.calculateDailyAggregates();
@@ -589,7 +589,7 @@ describe('Price Aggregation Integration Tests', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       // Run multiple aggregations concurrently
@@ -651,7 +651,7 @@ describe('Price Aggregation Integration Tests', () => {
           }),
         };
 
-        return await callback(mockTx as any);
+        return callback(mockTx as any);
       });
 
       await aggregationService.aggregateToDaily(startDate, endDate);

@@ -662,6 +662,25 @@ export class WatchListStorage extends BaseStorage {
                 AND ${priceAlerts.lastTriggeredAt} >= NOW() - INTERVAL '7 days'
             )
           `.as('has_triggered_alert'),
+          // Alert details (for inline editing)
+          alertId: sql<number | null>`
+            (
+              SELECT id FROM ${priceAlerts}
+              WHERE ${priceAlerts.productId} = ${products.id}
+                AND ${priceAlerts.userId} = ${userId}
+              ORDER BY ${priceAlerts.createdAt} DESC
+              LIMIT 1
+            )
+          `.as('alert_id'),
+          alertTargetPrice: sql<string | null>`
+            (
+              SELECT ${priceAlerts.targetPrice} FROM ${priceAlerts}
+              WHERE ${priceAlerts.productId} = ${products.id}
+                AND ${priceAlerts.userId} = ${userId}
+              ORDER BY ${priceAlerts.createdAt} DESC
+              LIMIT 1
+            )
+          `.as('alert_target_price'),
         })
         .from(productWatches)
         .innerJoin(products, eq(productWatches.productId, products.id))
@@ -713,6 +732,9 @@ export class WatchListStorage extends BaseStorage {
           savingsPotential,
           last7Days,
           alertStatus,
+          alertId: r.alertId || null,
+          // Type assertion: Drizzle returns numeric fields as strings, convert to number for API response
+          alertTargetPrice: r.alertTargetPrice ? parseFloat(r.alertTargetPrice) : null,
         };
       });
 
@@ -1641,7 +1663,7 @@ export class WatchListStorage extends BaseStorage {
    * Used for: Community trending products
    * DATABASE AGGREGATION: Use GROUP BY with ORDER BY aggregated count
    */
-  async getMostWatchedProductStats(limit: number = 10): Promise<CommunityWatchStats[]> {
+  async getMostWatchedProductStats(limit = 10): Promise<CommunityWatchStats[]> {
     try {
       if (limit <= 0 || limit > 100) {
         throw new Error('limit must be between 1 and 100');

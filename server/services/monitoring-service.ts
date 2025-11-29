@@ -469,7 +469,7 @@ class MonitoringService {
   /**
    * Get recent error logs
    */
-  getRecentErrors(limit: number = 20): ErrorLog[] {
+  getRecentErrors(limit = 20): ErrorLog[] {
     return this.errorLogs.slice(0, limit);
   }
 

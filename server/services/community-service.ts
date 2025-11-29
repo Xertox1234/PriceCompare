@@ -65,28 +65,28 @@ export async function removeProductWatch(
   userId: number,
   productId: number
 ): Promise<boolean> {
-  return await storage.removeProductWatchRecord(userId, productId);
+  return storage.removeProductWatchRecord(userId, productId);
 }
 
 /**
  * Get user's watched products
  */
 export async function getUserWatchedProducts(userId: number): Promise<number[]> {
-  return await storage.getUserProductWatchIds(userId);
+  return storage.getUserProductWatchIds(userId);
 }
 
 /**
  * Get watch count for a product
  */
 export async function getProductWatchCount(productId: number): Promise<number> {
-  return await storage.getProductWatchCountByProduct(productId);
+  return storage.getProductWatchCountByProduct(productId);
 }
 
 /**
  * Get most watched products
  */
-export async function getMostWatchedProducts(limit: number = 10): Promise<WatchStats[]> {
-  return await storage.getMostWatchedProductStats(limit);
+export async function getMostWatchedProducts(limit = 10): Promise<WatchStats[]> {
+  return storage.getMostWatchedProductStats(limit);
 }
 
 /**
@@ -96,14 +96,14 @@ export async function isUserWatchingProduct(
   userId: number,
   productId: number
 ): Promise<boolean> {
-  return await storage.isUserWatchingProductCheck(userId, productId);
+  return storage.isUserWatchingProductCheck(userId, productId);
 }
 
 /**
  * Get user's reputation
  */
 export async function getUserReputation(userId: number): Promise<UserReputation> {
-  return await storage.getOrCreateUserReputation(userId);
+  return storage.getOrCreateUserReputation(userId);
 }
 
 /**
@@ -241,8 +241,8 @@ export async function recordDealSpotting(
 /**
  * Get leaderboard of top users
  */
-export async function getLeaderboard(limit: number = 10): Promise<LeaderboardEntry[]> {
-  return await storage.getCommunityLeaderboard(limit);
+export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
+  return storage.getCommunityLeaderboard(limit);
 }
 
 /**
@@ -276,8 +276,8 @@ export async function autoPostPriceDropToForum(
 /**
  * Get recent deal spottings
  */
-export async function getRecentDealSpottings(limit: number = 10): Promise<DealSpotting[]> {
-  return await storage.getRecentDealSpottingsData(limit);
+export async function getRecentDealSpottings(limit = 10): Promise<DealSpotting[]> {
+  return storage.getRecentDealSpottingsData(limit);
 }
 
 /**
@@ -302,7 +302,7 @@ export async function createWatchList(
   // Get the current max sort order for the user
   const nextOrder = await storage.getNextWatchListSortOrder(userId);
 
-  return await storage.createWatchListRecord({
+  return storage.createWatchListRecord({
     userId,
     name,
     description,
@@ -316,7 +316,7 @@ export async function createWatchList(
  * Get all watch lists for a user
  */
 export async function getUserWatchLists(userId: number): Promise<WatchListWithStats[]> {
-  return await storage.getWatchListsWithStats(userId);
+  return storage.getWatchListsWithStats(userId);
 }
 
 /**
@@ -326,7 +326,7 @@ export async function getWatchListById(
   userId: number,
   listId: number
 ): Promise<WatchListWithStats | null> {
-  return await storage.getWatchListByIdWithStats(userId, listId);
+  return storage.getWatchListByIdWithStats(userId, listId);
 }
 
 /**
@@ -343,7 +343,7 @@ export async function updateWatchList(
     sortOrder?: number;
   }
 ): Promise<WatchList | null> {
-  return await storage.updateWatchListRecord(userId, listId, updates);
+  return storage.updateWatchListRecord(userId, listId, updates);
 }
 
 /**
@@ -353,7 +353,7 @@ export async function deleteWatchList(
   userId: number,
   listId: number
 ): Promise<boolean> {
-  return await storage.deleteWatchListRecord(userId, listId);
+  return storage.deleteWatchListRecord(userId, listId);
 }
 
 /**
@@ -363,7 +363,7 @@ export async function getWatchListProducts(
   userId: number,
   listId: number
 ): Promise<Array<ProductWatch & { productName?: string; productImage?: string }>> {
-  return await storage.getWatchListProductsWithDetails(userId, listId);
+  return storage.getWatchListProductsWithDetails(userId, listId);
 }
 
 /**
@@ -380,7 +380,7 @@ export async function updateProductWatch(
     watchListId?: number | null;
   }
 ): Promise<ProductWatch | null> {
-  return await storage.updateProductWatchRecord(userId, watchId, updates);
+  return storage.updateProductWatchRecord(userId, watchId, updates);
 }
 
 /**
@@ -391,7 +391,7 @@ export async function moveProductsToWatchList(
   productWatchIds: number[],
   targetListId: number | null
 ): Promise<number> {
-  return await storage.moveProductWatchesBulk(userId, productWatchIds, targetListId);
+  return storage.moveProductWatchesBulk(userId, productWatchIds, targetListId);
 }
 
 /**
@@ -401,21 +401,21 @@ export async function bulkRemoveProductWatches(
   userId: number,
   productWatchIds: number[]
 ): Promise<number> {
-  return await storage.deleteProductWatchesBulk(userId, productWatchIds);
+  return storage.deleteProductWatchesBulk(userId, productWatchIds);
 }
 
 /**
  * Get user's default watch list
  */
 export async function getUserDefaultWatchList(userId: number): Promise<WatchList | null> {
-  return await storage.getUserDefaultWatchListRecord(userId);
+  return storage.getUserDefaultWatchListRecord(userId);
 }
 
 /**
  * Export user's watch lists and products as JSON
  */
 export async function exportWatchLists(userId: number): Promise<import('../storage').WatchListExportData> {
-  return await storage.exportUserWatchListsData(userId);
+  return storage.exportUserWatchListsData(userId);
 }
 
 /**
@@ -425,5 +425,5 @@ export async function importWatchLists(
   userId: number,
   importData: import('../storage').WatchListImportData
 ): Promise<{ created: number; skipped: number }> {
-  return await storage.importWatchListsData(userId, importData);
+  return storage.importWatchListsData(userId, importData);
 }

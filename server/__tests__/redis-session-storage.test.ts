@@ -250,12 +250,12 @@ describe('Redis Session Storage Integration', () => {
     });
 
     // Check TTL in Redis (should be ~86400 seconds / 24 hours)
-    const ttl = await redisSessionClient!.ttl(`sess:${testSessionId}`);
+    const ttl = await redisSessionClient.ttl(`sess:${testSessionId}`);
     expect(ttl).toBeGreaterThan(86300); // Allow small margin
     expect(ttl).toBeLessThanOrEqual(86400);
 
     // Clean up
-    await redisSessionClient!.del(`sess:${testSessionId}`);
+    await redisSessionClient.del(`sess:${testSessionId}`);
   });
 
   test('should handle concurrent sessions for different users', async () => {
