@@ -63,6 +63,14 @@ npm run test:watch       # Watch mode
 npm run test:coverage    # Generate coverage report
 npm run test:security    # Security-specific tests only
 npm run test:ai          # AI service tests only
+npm run test:e2e         # E2E tests with Playwright
+npm run test:e2e:headed  # E2E tests with visible browser
+npm run test:e2e:ui      # Playwright UI mode for debugging
+
+# Linting (NEW - enforced in CI/CD)
+npm run lint             # Run ESLint on all files (zero warnings tolerance)
+npm run lint:fix         # Auto-fix ESLint issues where possible
+npm run lint:security    # Security-specific ESLint rules
 
 # Building
 npm run build            # Production build (Vite + esbuild)
@@ -89,21 +97,77 @@ npm run security:full    # Run all security checks + tests
 The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces code quality standards:
 
 ### Commit Blockers (Will FAIL commits):
+- ❌ TypeScript errors (must pass `npm run check`)
+- ❌ ESLint errors (must pass `npm run lint`)
 - ❌ `any` types in new code - Must use proper TypeScript types
 - ❌ `console.log` in production code - Must use `log()` function or remove
 - ❌ N+1 query patterns - Queries inside loops are forbidden
 - ❌ passwordHash exposure - Never expose in database queries
+- ❌ Floating promises - All promises must be awaited or handled
+- ❌ Foreign keys without cascade rules - Must specify onDelete behavior
 
 ### Warnings (Allow commits, but flag issues):
 - ⚠️ Direct `db` imports in routes (should use `storage.ts`)
 - ⚠️ Hardcoded hex colors (should use design tokens)
 - ⚠️ Legacy error handling patterns (should use `sendSuccess/sendError/sendErrorFromException`)
+- ⚠️ Missing transaction boundaries for multi-step operations
+- ⚠️ Missing CSRF protection on mutating routes
 
 **Bypass hook** (not recommended): `git commit --no-verify`
 
 ### Claude Code Hooks
 
 Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent to review commits made through Claude Code.
+
+## ESLint Enforcement (NEW)
+
+**ESLint is STRICTLY enforced** with **zero warnings tolerance** at multiple layers:
+
+### Enforcement Layers
+
+1. **Pre-Commit Hook** - Blocks commits with ESLint errors
+2. **GitHub Actions** - Blocks PR merges with ESLint errors or warnings
+3. **IDE Integration** (recommended) - Shows errors as you type
+
+### Strict Rules Enforced
+
+**Type Safety (ERRORS):**
+- `@typescript-eslint/no-explicit-any` - No `any` types allowed
+- `@typescript-eslint/no-unsafe-*` - No unsafe type operations
+- `@typescript-eslint/no-floating-promises` - Must await/catch all promises
+- `@typescript-eslint/no-misused-promises` - No promises in conditions
+- `@typescript-eslint/await-thenable` - Only await actual promises
+
+**Code Quality (ERRORS):**
+- `@typescript-eslint/no-unused-vars` - Clean up unused variables
+- `no-var` - Use const/let, never var
+- `prefer-const` - Use const for immutable values
+- `eqeqeq` - Strict equality (===) required
+- `no-throw-literal` - Throw Error objects only
+
+**Security (ERRORS):**
+- `no-console` - Use structured logger from utils/logger.ts
+- `no-debugger` - No debugger statements
+- `no-eval` - No eval() or Function() constructor
+
+### Common ESLint Fixes
+
+**Floating Promises:**
+```typescript
+// ❌ WRONG - Promise not awaited
+emailService.sendWelcome(user.email);
+
+// ✅ CORRECT - Await it
+await emailService.sendWelcome(user.email);
+
+// ✅ ALSO CORRECT - Handle errors explicitly
+emailService.sendWelcome(user.email).catch(err => log.error(err));
+
+// ✅ ALSO CORRECT - Explicit fire-and-forget
+void emailService.sendWelcome(user.email);
+```
+
+**See `docs/ESLINT_ENFORCEMENT.md` for complete guide with examples and fixes.**
 
 ## Design System (MANDATORY for UI Work)
 
@@ -1072,13 +1136,15 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - **`docs/DATABASE_PATTERNS.md`** - N+1 prevention, transactions, query optimization, foreign keys (CRITICAL)
 - **`docs/SECURITY_PATTERNS.md`** - Password hash exposure, CSRF protection, input validation, error sanitization (CRITICAL)
 - **`docs/TYPESCRIPT_PATTERNS.md`** - Type safety, avoiding `any`, Zod integration (CRITICAL)
+- **`docs/ESLINT_ENFORCEMENT.md`** - ESLint enforcement guide, common errors, fixes (NEW)
 - **`docs/ERROR_HANDLING_PATTERNS.md`** - Error sanitization, validation errors, recovery strategies
 - **`docs/API_PATTERNS.md`** - Route organization, middleware pipeline, caching, pagination
-- **`docs/API_TESTING_PATTERNS.md`** - Test standardization, validation helpers, variable naming, Drizzle bugs (NEW)
+- **`docs/API_TESTING_PATTERNS.md`** - Test standardization, validation helpers, variable naming, Drizzle bugs
 - **`docs/SERVICE_INTEGRATION_PATTERNS.md`** - Guard completeness, cache-before-limit, type extraction
 
 ### Additional Documentation
 - `ARCHITECTURE.md` - System overview, diagrams, data flows, ADRs, caching strategy
+- `.github/WORKFLOWS.md` - GitHub Actions workflows, CI/CD pipeline documentation (NEW)
 - `.github/copilot-instructions.md` - Comprehensive development patterns (mirrors core patterns)
 - `docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
 - `docs/API_DOCUMENTATION.md` - Complete API endpoint reference

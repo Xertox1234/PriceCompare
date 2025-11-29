@@ -145,7 +145,7 @@ describe('Authentication Routes', () => {
         .send({
           email: 'test@example.com',
           username: 'testuser',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       // Debug: log error if test fails
@@ -182,7 +182,7 @@ describe('Authentication Routes', () => {
         .send({
           email: 'first@example.com',
           username: 'firstuser',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       const result = expectSuccessResponse<{ user: { role: string } }>(response, 201);
@@ -194,14 +194,14 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'first@example.com',
         username: 'firstuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       // Create second user
       const response = await request(app).post('/api/auth/register').send({
         email: 'second@example.com',
         username: 'seconduser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       const result = expectSuccessResponse<{ user: { role: string } }>(response, 201);
@@ -213,14 +213,14 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'duplicate@example.com',
         username: 'user1',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       // Attempt duplicate registration
       const response = await request(app).post('/api/auth/register').send({
         email: 'duplicate@example.com',
         username: 'user2',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       expectBadRequestError(response, 'User already exists');
@@ -231,7 +231,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/register')
         .send({
           username: 'testuser',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       // Zod validation error - just verify it's a 400 error
@@ -243,7 +243,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'test@example.com',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       // Zod validation error - just verify it's a 400 error
@@ -262,13 +262,13 @@ describe('Authentication Routes', () => {
       expectErrorResponse(response, 400);
     });
 
-    it('should reject password shorter than 8 characters', async () => {
+    it('should reject password shorter than 12 characters', async () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({
           email: 'test@example.com',
           username: 'testuser',
-          password: 'Short1',
+          password: 'Short1!',
         });
 
       // Zod validates length first - just verify 400 error
@@ -281,7 +281,7 @@ describe('Authentication Routes', () => {
         .send({
           email: 'test@example.com',
           username: 'testuser',
-          password: 'NOLOWERCASE123',
+          password: 'NOLOWERCASE123!',
         });
 
       expectBadRequestError(response, 'Password must contain at least one lowercase letter');
@@ -293,7 +293,7 @@ describe('Authentication Routes', () => {
         .send({
           email: 'test@example.com',
           username: 'testuser',
-          password: 'nouppercase123',
+          password: 'nouppercase123!',
         });
 
       expectBadRequestError(response, 'Password must contain at least one uppercase letter');
@@ -305,10 +305,22 @@ describe('Authentication Routes', () => {
         .send({
           email: 'test@example.com',
           username: 'testuser',
-          password: 'NoNumbersHere',
+          password: 'NoNumbersHere!',
         });
 
       expectBadRequestError(response, 'Password must contain at least one number');
+    });
+
+    it('should reject password without special character', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'NoSpecialChar123',
+        });
+
+      expectBadRequestError(response, 'Password must contain at least one special character');
     });
 
     it('should create session on successful registration', async () => {
@@ -319,7 +331,7 @@ describe('Authentication Routes', () => {
         .send({
           email: 'test@example.com',
           username: 'testuser',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       expectSuccessResponse(response, 201);
@@ -331,7 +343,7 @@ describe('Authentication Routes', () => {
     });
 
     it('should hash password before storing', async () => {
-      const password = 'SecurePass123';
+      const password = 'SecurePass123!';
 
       await request(app)
         .post('/api/auth/register')
@@ -354,7 +366,7 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
     });
 
@@ -363,7 +375,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       const result = expectSuccessResponse<{ user: { email: string; username: string } }>(response, 200);
@@ -382,7 +394,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'WrongPassword123',
+          password: 'WrongPassword123!',
         });
 
       expectUnauthorizedError(response, 'Invalid email or password');
@@ -393,7 +405,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'nonexistent@example.com',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       expectUnauthorizedError(response, 'Invalid email or password');
@@ -406,7 +418,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       expectSuccessResponse(loginResponse, 200);
@@ -422,7 +434,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       expectSuccessResponse(response, 200);
@@ -461,7 +473,7 @@ describe('Authentication Routes', () => {
           .post('/api/auth/login')
           .send({
             email: 'test@example.com',
-            password: 'WrongPassword123',
+            password: 'WrongPassword123!',
           });
       }
 
@@ -470,7 +482,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'WrongPassword123',
+          password: 'WrongPassword123!',
         });
 
       // Account should be locked - just verify 401 error
@@ -494,7 +506,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       expectSuccessResponse(successResponse, 200);
@@ -516,7 +528,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'TEST@EXAMPLE.COM', // Uppercase
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         });
 
       expectSuccessResponse(response, 200);
@@ -528,7 +540,7 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
     });
 
@@ -538,7 +550,7 @@ describe('Authentication Routes', () => {
       // Login first
       await agent.post('/api/auth/login').send({
         email: 'test@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       // Logout
@@ -555,7 +567,7 @@ describe('Authentication Routes', () => {
 
       await agent.post('/api/auth/login').send({
         email: 'test@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       const response = await agent.post('/api/auth/logout');
@@ -579,7 +591,7 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
     });
 
@@ -670,7 +682,7 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       await request(app)
@@ -739,7 +751,7 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'OldPassword123',
+        password: 'OldPassword123!',
       });
 
       await request(app)
@@ -755,7 +767,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       const result = expectSuccessResponse<{ message: string }>(response, 200);
@@ -773,7 +785,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       // Try logging in with new password
@@ -781,7 +793,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       expectSuccessResponse(loginResponse, 200);
@@ -793,7 +805,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       // Try logging in with old password
@@ -801,7 +813,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'OldPassword123',
+          password: 'OldPassword123!',
         });
 
       expectUnauthorizedError(loginResponse, 'Invalid email or password');
@@ -812,7 +824,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: 'invalid-token',
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       expectBadRequestError(response, 'Invalid or expired');
@@ -824,7 +836,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       // Try using same token again
@@ -832,7 +844,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'AnotherPassword123',
+          password: 'AnotherPassword123!',
         });
 
       expectBadRequestError(response, 'Invalid or expired');
@@ -843,17 +855,17 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'short', // Too short, no uppercase, no number
+          password: 'short', // Too short, no uppercase, no number, no special char
         });
 
-      expectBadRequestError(response, 'at least 8 characters');
+      expectBadRequestError(response, 'at least 12 characters');
     });
 
     it('should reject reset with missing token', async () => {
       const response = await request(app)
         .post('/api/auth/reset-password')
         .send({
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       // Zod validation error - just verify it's a 400 error
@@ -876,7 +888,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       expect(emailService.sendPasswordResetConfirmationEmail).toHaveBeenCalledWith(
@@ -891,7 +903,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/reset-password')
         .send({
           token: validToken,
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
 
       expectSuccessResponse(response, 200);
@@ -905,7 +917,7 @@ describe('Authentication Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'NewPassword123',
+          password: 'NewPassword123!',
         });
       expectSuccessResponse(loginResponse, 200);
     });
@@ -916,7 +928,7 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
     });
 
@@ -925,7 +937,7 @@ describe('Authentication Routes', () => {
 
       await agent.post('/api/auth/login').send({
         email: 'test@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       const response = await agent.get('/api/auth/user');
@@ -959,7 +971,7 @@ describe('Authentication Routes', () => {
 
       await agent.post('/api/auth/login').send({
         email: 'test@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       const response = await agent.get('/api/auth/user');
@@ -975,7 +987,7 @@ describe('Authentication Routes', () => {
       // Login
       const loginResponse = await agent.post('/api/auth/login').send({
         email: 'test@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       const loginData = expectSuccessResponse<{ user: { id: number } }>(loginResponse, 200);
@@ -999,7 +1011,7 @@ describe('Authentication Routes', () => {
 
       await agent.post('/api/auth/login').send({
         email: 'test@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       const response = await agent.get('/api/auth/user');
@@ -1020,7 +1032,7 @@ describe('Authentication Routes', () => {
       const registerResponse = await request(app).post('/api/auth/register').send({
         email: 'security@example.com',
         username: 'securitytest',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
       const registerData = expectSuccessResponse<{ user: unknown }>(registerResponse, 201);
       expect(registerData).not.toHaveProperty('passwordHash');
@@ -1029,7 +1041,7 @@ describe('Authentication Routes', () => {
       // Login
       const loginResponse = await request(app).post('/api/auth/login').send({
         email: 'security@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
       const loginData = expectSuccessResponse<{ user: unknown }>(loginResponse, 200);
       expect(loginData).not.toHaveProperty('passwordHash');
@@ -1039,7 +1051,7 @@ describe('Authentication Routes', () => {
       const agent = request.agent(app);
       await agent.post('/api/auth/login').send({
         email: 'security@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
       const userResponse = await agent.get('/api/auth/user');
       const userData = expectSuccessResponse(userResponse, 200);
@@ -1053,12 +1065,12 @@ describe('Authentication Routes', () => {
         request(app).post('/api/auth/register').send({
           email: 'user1@example.com',
           username: 'user1',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         }),
         request(app).post('/api/auth/register').send({
           email: 'user2@example.com',
           username: 'user2',
-          password: 'SecurePass123',
+          password: 'SecurePass123!',
         }),
       ];
 
@@ -1082,7 +1094,7 @@ describe('Authentication Routes', () => {
       await request(app).post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       // Rapid failed attempts
@@ -1110,7 +1122,7 @@ describe('Authentication Routes', () => {
       await agent.post('/api/auth/register').send({
         email: 'test@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!',
       });
 
       // Session should be active

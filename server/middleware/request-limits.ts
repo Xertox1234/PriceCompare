@@ -72,6 +72,7 @@ export function requestSizeLimiter(limits: RequestSizeLimits = DEFAULT_SIZE_LIMI
 
       if (sizeInBytes > limitInBytes) {
         return res.status(413).json({
+          success: false,
           error: 'Request payload too large',
           maxSize: limit,
           receivedSize: formatBytes(sizeInBytes)
@@ -131,6 +132,7 @@ export function rejectOversizedRequests(maxSize: number = 10 * 1024 * 1024) {
       if (receivedBytes > maxSize) {
         req.pause();
         res.status(413).json({
+          success: false,
           error: 'Request entity too large',
           maxSize: formatBytes(maxSize)
         });

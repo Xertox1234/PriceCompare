@@ -383,6 +383,7 @@ export function createRateLimiter(options: RateLimitOptions) {
         });
 
         res.status(429).json({
+          success: false,
           error: message,
           retryAfter: Math.ceil((info.reset - Date.now()) / 1000),
         });

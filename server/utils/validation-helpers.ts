@@ -3,6 +3,8 @@
  * SECURITY: Prevents type confusion and NaN injection attacks
  */
 
+import { PASSWORD } from './constants';
+
 /**
  * Safely parse an integer from a string, with validation
  * @param value - The value to parse
@@ -81,26 +83,32 @@ export interface PasswordValidationResult {
 
 /**
  * Validate password strength requirements
+ * Uses centralized PASSWORD constants from constants.ts
  * @param password - The password to validate
  * @returns Object with valid flag and array of error messages
  */
 export function validatePassword(password: string): PasswordValidationResult {
   const errors: string[] = [];
 
-  if (password.length < 8) {
-    errors.push('Password must be at least 8 characters long');
+  if (password.length < PASSWORD.MIN_LENGTH) {
+    errors.push(`Password must be at least ${PASSWORD.MIN_LENGTH} characters long`);
   }
 
-  if (!/[a-z]/.test(password)) {
+  if (PASSWORD.REQUIRE_LOWERCASE && !/[a-z]/.test(password)) {
     errors.push('Password must contain at least one lowercase letter');
   }
 
-  if (!/[A-Z]/.test(password)) {
+  if (PASSWORD.REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) {
     errors.push('Password must contain at least one uppercase letter');
   }
 
-  if (!/[0-9]/.test(password)) {
+  if (PASSWORD.REQUIRE_NUMBER && !/[0-9]/.test(password)) {
     errors.push('Password must contain at least one number');
+  }
+
+  // SECURITY: Require special characters to increase password strength
+  if (PASSWORD.REQUIRE_SPECIAL && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    errors.push('Password must contain at least one special character');
   }
 
   return { valid: errors.length === 0, errors };

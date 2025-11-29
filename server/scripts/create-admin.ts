@@ -3,12 +3,34 @@ import { db } from '../db';
 import { users } from '../../shared/schema';
 import bcrypt from 'bcrypt';
 import { createLogger } from '../utils/logger';
+import { PASSWORD } from '../utils/constants';
 
 const log = createLogger('CreateAdmin');
 
 async function createAdmin() {
   try {
-    const hashedPassword = await bcrypt.hash('Admin123!', 12);
+    // SECURITY: Read admin password from environment variable instead of hardcoding
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminPassword) {
+      log.error('ADMIN_PASSWORD environment variable is required');
+      log.error('Please set ADMIN_PASSWORD before running this script');
+      log.error('Example: ADMIN_PASSWORD="YourSecurePassword123!" npm run create-admin');
+      process.exit(1);
+    }
+
+    // Validate password meets security requirements
+    const { validatePassword } = await import('../utils/validation-helpers');
+    const passwordValidation = validatePassword(adminPassword);
+
+    if (!passwordValidation.valid) {
+      log.error('Admin password does not meet security requirements:', {
+        errors: passwordValidation.errors
+      });
+      process.exit(1);
+    }
+
+    const hashedPassword = await bcrypt.hash(adminPassword, PASSWORD.BCRYPT_ROUNDS);
 
     const result = await db.insert(users).values({
       email: 'admin@pricecompare.com',
@@ -22,7 +44,7 @@ async function createAdmin() {
       username: 'admin',
       role: 'admin'
     });
-    log.info('Default password: Admin123! (please change after first login)');
+    log.warn('Please save your admin password securely - it cannot be recovered');
     process.exit(0);
   } catch (error: unknown) {
     if (error && typeof error === 'object' && 'code' in error && error.code === '23505') { // Unique constraint violation

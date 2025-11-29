@@ -58,6 +58,7 @@ export function errorHandler(
   if (err.name === 'ZodError') {
     const zodError = err as ZodError;
     return res.status(400).json({
+      success: false,
       error: 'Validation failed',
       code: 'VALIDATION_ERROR',
       details: zodError.errors,
@@ -67,6 +68,7 @@ export function errorHandler(
   // Handle database errors
   if (isDatabaseError(err)) {
     return res.status(500).json({
+      success: false,
       error: 'Database error occurred',
       code: 'DATABASE_ERROR',
       ...(process.env.NODE_ENV === 'development' && {
@@ -80,6 +82,7 @@ export function errorHandler(
   const isDev = process.env.NODE_ENV === 'development';
 
   return res.status(statusCode).json({
+    success: false,
     error: isDev ? err.message : 'Internal server error',
     code: 'INTERNAL_ERROR',
     ...(isDev && {
@@ -107,6 +110,7 @@ export function asyncHandler(
  */
 export function notFoundHandler(req: Request, res: Response, next: NextFunction) {
   res.status(404).json({
+    success: false,
     error: 'Route not found',
     code: 'NOT_FOUND',
     path: req.originalUrl,

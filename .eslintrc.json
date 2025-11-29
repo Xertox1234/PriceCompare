@@ -21,18 +21,42 @@
     "@typescript-eslint/no-unsafe-member-access": "error",
     "@typescript-eslint/no-unsafe-call": "error",
     "@typescript-eslint/no-unsafe-return": "error",
+    "@typescript-eslint/no-unsafe-argument": "error",
 
     // Type quality
     "@typescript-eslint/no-unnecessary-type-assertion": "error",
     "@typescript-eslint/prefer-as-const": "error",
     "@typescript-eslint/no-inferrable-types": "warn",
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+
+    // Async/Promise best practices
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/no-misused-promises": "error",
+    "@typescript-eslint/await-thenable": "error",
+    "@typescript-eslint/require-await": "warn",
+
+    // Code quality
+    "@typescript-eslint/no-unused-vars": ["error", {
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_",
+      "caughtErrorsIgnorePattern": "^_"
+    }],
+    "no-var": "error",
+    "prefer-const": "error",
+    "prefer-arrow-callback": "warn",
+    "no-throw-literal": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
 
     // Security
     "no-console": "error",
     "no-debugger": "error",
     "no-eval": "error",
     "no-implied-eval": "error",
-    "no-new-func": "error"
+    "no-new-func": "error",
+    "no-return-await": "off", // Turned off in favor of @typescript-eslint/return-await
+    "@typescript-eslint/return-await": ["error", "in-try-catch"]
   },
   "overrides": [
     {

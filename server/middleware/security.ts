@@ -74,6 +74,7 @@ export function rateLimiter(options: {
     if (currentSize >= MAX_RATE_LIMIT_ENTRIES && !rateLimitStore[ip]) {
       // When at capacity, reject new IPs with rate limit error
       res.status(429).json({
+        success: false,
         error: 'Service temporarily unavailable due to high load',
         retryAfter: 60
       });
@@ -100,6 +101,7 @@ export function rateLimiter(options: {
 
     if (record.count >= maxRequests) {
       res.status(429).json({
+        success: false,
         error: message,
         retryAfter: Math.ceil((record.resetTime - now) / 1000)
       });
@@ -177,6 +179,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     });
 
     res.status(403).json({
+      success: false,
       error: 'CSRF token missing',
       message: 'CSRF token is required for this request'
     });
@@ -202,7 +205,10 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
         }
       });
 
-      res.status(403).json({ error: 'Invalid CSRF token' });
+      res.status(403).json({
+        success: false,
+        error: 'Invalid CSRF token'
+      });
       return;
     }
   } catch (error) {
@@ -218,7 +224,10 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
       }
     });
 
-    res.status(403).json({ error: 'Invalid CSRF token' });
+    res.status(403).json({
+      success: false,
+      error: 'Invalid CSRF token'
+    });
     return;
   }
 
@@ -426,7 +435,10 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
       res.status(204).send();
     } else {
       // Reject preflight for disallowed origins
-      res.status(403).json({ error: 'Origin not allowed' });
+      res.status(403).json({
+        success: false,
+        error: 'Origin not allowed'
+      });
     }
     return;
   }

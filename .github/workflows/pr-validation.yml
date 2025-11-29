@@ -4,6 +4,13 @@ on:
   pull_request:
     branches: [main, develop, add_scraping]
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - 'LICENSE'
+      - '.gitignore'
 
 # Cancel in-progress runs for the same PR
 concurrency:
@@ -27,8 +34,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
+
+      - name: ESLint
+        run: npm run lint -- --max-warnings 0
+        continue-on-error: false
 
       - name: TypeScript type checking
         run: npm run check
@@ -95,33 +114,56 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Run test suite
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379
-          NODE_ENV: test
-          SESSION_SECRET: test-secret-key-for-ci
-          CSRF_SECRET: test-csrf-secret-for-ci
-        run: npm test
+      - name: Setup environment variables
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
+          echo "SESSION_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "CSRF_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> $GITHUB_ENV
+          echo "DISCOURSE_SSO_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
 
-      - name: Generate coverage report
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379
-          NODE_ENV: test
-          SESSION_SECRET: test-secret-key-for-ci
-          CSRF_SECRET: test-csrf-secret-for-ci
+      - name: Install pgvector extension
+        run: |
+          echo "Creating pgvector extension..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+      - name: Setup base schema
+        run: npm run db:push
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Run test suite with coverage
         run: npm run test:coverage
+        env:
+          CI: true
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/coverage-final.json
+          files: ./coverage/lcov.info
+          flags: unittests
           fail_ci_if_error: false
+
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ./coverage/lcov.info
 
       - name: Comment coverage on PR
         uses: romeovs/lcov-reporter-action@v0.3.1
@@ -130,6 +172,14 @@ jobs:
           lcov-file: ./coverage/lcov.info
           github-token: ${{ secrets.GITHUB_TOKEN }}
           delete-old-comments: true
+
+      - name: Archive coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
 
   # Job 3: Security Checks
   security:
@@ -146,6 +196,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -176,6 +234,14 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
@@ -199,7 +265,7 @@ jobs:
         with:
           name: dist
           path: dist/
-          retention-days: 7
+          retention-days: 3
 
   # Job 5: Pre-commit Hook Simulation
   pre-commit:
@@ -218,6 +284,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps

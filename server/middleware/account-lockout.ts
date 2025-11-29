@@ -417,7 +417,13 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
     .then(lockStatus => {
       if (lockStatus.locked) {
         const minutes = Math.ceil((lockStatus.remainingTime || 0) / 60);
+        const retryAfterSeconds = Math.ceil((lockStatus.remainingTime || 0) / 1000);
+
+        // Set Retry-After header for HTTP-standard lockout signaling
+        res.setHeader('Retry-After', retryAfterSeconds);
+
         return res.status(429).json({
+          success: false,
           error: 'Account temporarily locked due to too many failed login attempts',
           locked: true,
           remainingTime: lockStatus.remainingTime,

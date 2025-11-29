@@ -37,6 +37,127 @@ Before starting any security review, reference these pattern files to ensure you
 - [ ] API endpoints have proper auth middleware
 - [ ] Role-based access control (if applicable)
 
+### 1.1 Password Security (CRITICAL - 2025-11-28 Audit)
+
+**ALL password validation MUST use centralized PASSWORD constants from `server/utils/constants.ts`.**
+
+#### Password Constants Checklist:
+- [ ] Password validation uses `PASSWORD.MIN_LENGTH` (12 characters)
+- [ ] Password validation uses `PASSWORD.MAX_LENGTH` (128 characters)
+- [ ] Password hashing uses `PASSWORD.BCRYPT_ROUNDS` (12 rounds)
+- [ ] All PASSWORD requirement flags are enforced:
+  - [ ] `PASSWORD.REQUIRE_UPPERCASE` - Uppercase letter check
+  - [ ] `PASSWORD.REQUIRE_LOWERCASE` - Lowercase letter check
+  - [ ] `PASSWORD.REQUIRE_NUMBER` - Number check
+  - [ ] `PASSWORD.REQUIRE_SPECIAL` - Special character check
+
+#### ❌ CRITICAL Anti-Patterns to Flag:
+
+**1. Hardcoded Password Lengths (INCONSISTENCY RISK)**
+```typescript
+// ❌ WRONG - Hardcoded length creates inconsistency
+const registerSchema = z.object({
+  password: z.string().min(8),  // Should be PASSWORD.MIN_LENGTH (12)
+});
+
+const resetPasswordSchema = z.object({
+  password: z.string().min(8),  // Different from validation-helpers.ts!
+});
+
+// ✅ CORRECT - Use centralized constants
+import { PASSWORD } from "../utils/constants";
+
+const registerSchema = z.object({
+  password: z.string()
+    .min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`)
+    .max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
+});
+```
+
+**2. Missing Password Requirement Enforcement (SECURITY VULNERABILITY)**
+```typescript
+// ❌ WRONG - Ignoring REQUIRE_SPECIAL constant
+export function validatePassword(password: string) {
+  // Missing special character check even though PASSWORD.REQUIRE_SPECIAL = true!
+  if (PASSWORD.REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) { ... }
+  if (PASSWORD.REQUIRE_LOWERCASE && !/[a-z]/.test(password)) { ... }
+  if (PASSWORD.REQUIRE_NUMBER && !/[0-9]/.test(password)) { ... }
+  // ❌ MISSING: if (PASSWORD.REQUIRE_SPECIAL && !/[!@#$%^&*...]/.test(password)) { ... }
+}
+
+// ✅ CORRECT - All requirements enforced
+export function validatePassword(password: string) {
+  if (PASSWORD.REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) { ... }
+  if (PASSWORD.REQUIRE_LOWERCASE && !/[a-z]/.test(password)) { ... }
+  if (PASSWORD.REQUIRE_NUMBER && !/[0-9]/.test(password)) { ... }
+  if (PASSWORD.REQUIRE_SPECIAL && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) { ... }
+}
+```
+
+**3. Hardcoded Bcrypt Rounds (CONFIGURATION DRIFT)**
+```typescript
+// ❌ WRONG - Magic number for bcrypt rounds
+const hashedPassword = await bcrypt.hash(password, 12);
+
+// ✅ CORRECT - Use centralized constant
+import { PASSWORD } from '../utils/constants';
+const hashedPassword = await bcrypt.hash(password, PASSWORD.BCRYPT_ROUNDS);
+```
+
+**4. Hardcoded Passwords in Scripts (CREDENTIAL LEAK RISK)**
+```typescript
+// ❌ CRITICAL - Hardcoded password in script
+async function createAdmin() {
+  const hashedPassword = await bcrypt.hash('AdminPassword123!', 12);
+  await db.insert(users).values({
+    email: 'admin@example.com',
+    passwordHash: hashedPassword,
+  });
+}
+
+// ✅ CORRECT - Environment variable with validation
+async function createAdmin() {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    console.error('ADMIN_PASSWORD environment variable is required');
+    process.exit(1);
+  }
+
+  // Validate password meets requirements
+  const { validatePassword } = await import('../utils/validation-helpers');
+  const validation = validatePassword(adminPassword);
+  if (!validation.valid) {
+    console.error('Password does not meet requirements:', validation.errors);
+    process.exit(1);
+  }
+
+  const hashedPassword = await bcrypt.hash(adminPassword, PASSWORD.BCRYPT_ROUNDS);
+  // ...
+}
+```
+
+#### Detection Rules:
+```bash
+# Find hardcoded password lengths
+grep -rn "\.min(8" server/routes/ | grep -i password
+grep -rn "\.min(12" server/routes/ | grep -v PASSWORD
+
+# Find hardcoded bcrypt rounds
+grep -rn "bcrypt.hash.*[0-9]\+)" server/ | grep -v PASSWORD.BCRYPT_ROUNDS
+
+# Find missing special character validation
+grep -rn "REQUIRE_UPPERCASE\|REQUIRE_LOWERCASE\|REQUIRE_NUMBER" server/ | grep -v REQUIRE_SPECIAL
+
+# Find hardcoded passwords in scripts
+grep -rn "bcrypt.hash.*['\"]\w" server/scripts/
+```
+
+#### Test Data Requirements:
+- [ ] All test passwords meet actual validation requirements (12+ chars with special characters)
+- [ ] Tests cover each password requirement (uppercase, lowercase, number, special)
+- [ ] Tests verify error messages match validation rules
+
 ### 2. Input Validation
 - [ ] All user inputs validated with Zod schemas
 - [ ] SQL injection prevention (using Drizzle ORM parameterized queries)

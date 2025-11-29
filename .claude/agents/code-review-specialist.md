@@ -339,6 +339,110 @@ const batch = items.splice(0, BATCH_PROCESSING.DEFAULT_BATCH_SIZE);
 await sleep(TIMING.BATCH_DELAY_MS);
 ```
 
+## Password Validation Patterns (CRITICAL - 2025-11-28 Audit)
+
+**ALL password validation MUST use centralized PASSWORD constants** from `server/utils/constants.ts`.
+
+### Password Security Checklist:
+- [ ] Zod schemas use `PASSWORD.MIN_LENGTH` and `PASSWORD.MAX_LENGTH` (not hardcoded)
+- [ ] `validatePassword()` enforces ALL PASSWORD requirements (uppercase, lowercase, number, special)
+- [ ] Bcrypt hashing uses `PASSWORD.BCRYPT_ROUNDS` constant
+- [ ] No hardcoded passwords anywhere (scripts, tests use proper format, production uses env vars)
+- [ ] Test passwords meet actual validation requirements (12+ chars with special characters)
+- [ ] Dynamic error messages include actual constant values
+
+### ❌ Password Anti-Patterns to Flag:
+
+**1. Hardcoded Password Lengths in Zod Schemas**
+```typescript
+// ❌ WRONG - Creates inconsistency between Zod and validatePassword()
+const registerSchema = z.object({
+  password: z.string().min(8),  // Hardcoded! Should be PASSWORD.MIN_LENGTH
+});
+
+// ✅ CORRECT - Use centralized constants
+import { PASSWORD } from "../utils/constants";
+const registerSchema = z.object({
+  password: z.string()
+    .min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`)
+    .max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
+});
+```
+
+**2. Incomplete Password Validation**
+```typescript
+// ❌ WRONG - Missing special character check (constant ignored!)
+function validatePassword(password: string) {
+  // REQUIRE_SPECIAL is true but not enforced!
+  if (PASSWORD.REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) { ... }
+  if (PASSWORD.REQUIRE_LOWERCASE && !/[a-z]/.test(password)) { ... }
+  if (PASSWORD.REQUIRE_NUMBER && !/[0-9]/.test(password)) { ... }
+  // Missing: REQUIRE_SPECIAL check
+}
+
+// ✅ CORRECT - All constants enforced
+if (PASSWORD.REQUIRE_SPECIAL && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  errors.push('Password must contain at least one special character');
+}
+```
+
+**3. Magic Numbers for Bcrypt Rounds**
+```typescript
+// ❌ WRONG - Magic number
+const hash = await bcrypt.hash(password, 12);
+
+// ✅ CORRECT - Use constant
+import { PASSWORD } from '../utils/constants';
+const hash = await bcrypt.hash(password, PASSWORD.BCRYPT_ROUNDS);
+```
+
+**4. Hardcoded Passwords in Scripts**
+```typescript
+// ❌ CRITICAL - Security vulnerability in scripts
+const hashedPassword = await bcrypt.hash('AdminPassword123!', 12);
+
+// ✅ CORRECT - Environment variable with validation
+const adminPassword = process.env.ADMIN_PASSWORD;
+if (!adminPassword) {
+  console.error('ADMIN_PASSWORD environment variable is required');
+  process.exit(1);
+}
+const validation = validatePassword(adminPassword);
+if (!validation.valid) {
+  console.error('Password requirements:', validation.errors);
+  process.exit(1);
+}
+```
+
+**5. Test Passwords Not Meeting Requirements**
+```typescript
+// ❌ WRONG - Test password doesn't meet actual requirements
+const response = await request(app)
+  .post('/api/auth/register')
+  .send({
+    password: 'Test123',  // Only 7 chars, no special character!
+  });
+
+// ✅ CORRECT - Test passwords meet actual requirements
+const response = await request(app)
+  .post('/api/auth/register')
+  .send({
+    password: 'SecurePass123!',  // 14 chars, has special char
+  });
+```
+
+### Detection Checklist:
+```bash
+# Find hardcoded password lengths in schemas
+grep -rn "\.min(8\|\.min(12" server/routes/ | grep -i password | grep -v PASSWORD
+
+# Find hardcoded bcrypt rounds
+grep -rn "bcrypt.hash.*,\s*[0-9]" server/ | grep -v PASSWORD.BCRYPT_ROUNDS
+
+# Find hardcoded passwords
+grep -rn "bcrypt.hash.*['\"]" server/scripts/
+```
+
 ## Service Integration Patterns (CRITICAL)
 
 When reviewing service classes with external API integrations:

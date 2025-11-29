@@ -25,6 +25,8 @@
     "security:fix": "npm audit fix",
     "security:check": "bash scripts/security-checks.sh",
     "security:full": "npm run security:check && npm run test:security",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false npx eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "ESLINT_USE_FLAT_CONFIG=false npx eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "lint:security": "eslint --config eslint.security.config.mjs server/**/*.ts",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
   },
