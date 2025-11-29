@@ -57,10 +57,11 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
     for (const { userId } of usersWithWatches) {
       try {
         // Get user's watched products with current pricing
-        const watchedProducts = await storage.getWatchedProducts(userId, {
+        const result = await storage.getWatchedProducts(userId, {
           sortBy: 'priceDropPercent',
           limit: 50 // Process top 50 products per user
         });
+        const watchedProducts = result.products;
 
         log.debug(`User ${userId} has ${watchedProducts.length} watched products`);
 
@@ -141,7 +142,7 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
 /**
  * Process notification jobs
  */
-notificationQueue.process('check-watched-products', async (job) => {
+void notificationQueue.process('check-watched-products', async (job) => {
   log.info(`Processing notification job ${job.id} at ${new Date().toISOString()}`);
 
   try {
@@ -158,8 +159,8 @@ notificationQueue.process('check-watched-products', async (job) => {
 });
 
 // Handle job completion
-notificationQueue.on("completed", (job, result) => {
-  log.info(`Notification job ${job.id} completed`, result);
+notificationQueue.on("completed", (job, result: unknown) => {
+  log.info(`Notification job ${job.id} completed`, result as Record<string, unknown>);
 });
 
 // Handle job failures

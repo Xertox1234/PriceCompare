@@ -16,7 +16,7 @@
  * Phase 3C: Watch List Domain Extraction - 30 methods migrated from monolithic storage.ts
  */
 
-import { and, eq, desc, asc, sql, inArray, count } from "drizzle-orm";
+import { and, eq, desc, asc, sql, inArray, count, gt } from "drizzle-orm";
 import {
   watchLists,
   productWatches,
@@ -37,7 +37,7 @@ import type {
   WatchListWithCount,
   WatchListWithProducts,
   WatchedProductsOptions,
-  WatchedProductInfo,
+  WatchedProductsResult,
   WatchListStats,
   WatchListWithStats,
   CreateWatchListData,
@@ -568,13 +568,18 @@ export class WatchListStorage extends BaseStorage {
    * Get all watched products with enriched data
    * Used for: Combined product view across all lists
    * PERFORMANCE: Complex aggregations with price history for sparkline data
+   * PAGINATION: Cursor-based pagination using product watch ID
    */
-  async getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductInfo[]> {
+  async getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductsResult> {
     try {
       this.validateUserId(userId);
 
       const sortBy = options?.sortBy || 'priceDropPercent';
       const limit = Math.min(options?.limit || 50, 100);
+      const cursor = options?.cursor;
+
+      // Fetch limit + 1 to check if more products exist
+      const fetchLimit = limit + 1;
 
       // Get 7 days ago for sparkline data
       const sevenDaysAgo = new Date();
@@ -583,6 +588,7 @@ export class WatchListStorage extends BaseStorage {
       // Build complex query with price aggregations
       const results = await this.db
         .select({
+          id: productWatches.id, // For cursor pagination
           productId: productWatches.productId,
           watchListId: productWatches.watchListId,
           watchListName: watchLists.name,
@@ -660,8 +666,15 @@ export class WatchListStorage extends BaseStorage {
         .from(productWatches)
         .innerJoin(products, eq(productWatches.productId, products.id))
         .innerJoin(watchLists, eq(productWatches.watchListId, watchLists.id))
-        .where(eq(productWatches.userId, userId))
-        .limit(limit);
+        .where(
+          cursor
+            ? and(
+                eq(productWatches.userId, userId),
+                gt(productWatches.id, cursor)
+              )
+            : eq(productWatches.userId, userId)
+        )
+        .limit(fetchLimit);
 
       // Post-process to calculate derived values and sort
       const enrichedResults = results.map(r => {
@@ -686,6 +699,7 @@ export class WatchListStorage extends BaseStorage {
         const last7Days = (r.last7Days as unknown as Array<{ date: string; price: number }>) || [];
 
         return {
+          id: r.id, // Include ID for cursor pagination
           productId: r.productId,
           watchListId: r.watchListId,
           watchListName: r.watchListName,
@@ -716,7 +730,18 @@ export class WatchListStorage extends BaseStorage {
         }
       });
 
-      return enrichedResults;
+      // Check if more products exist beyond the requested limit
+      const hasMore = enrichedResults.length > limit;
+      const resultProducts = hasMore ? enrichedResults.slice(0, limit) : enrichedResults;
+      const nextCursor = hasMore && resultProducts.length > 0
+        ? resultProducts[resultProducts.length - 1].id
+        : null;
+
+      return {
+        products: resultProducts,
+        hasMore,
+        nextCursor,
+      };
     } catch (error) {
       this.handleError(error, 'getWatchedProducts');
     }

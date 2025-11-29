@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../db';
 import { users, watchLists, productWatches, products, productOffers, priceHistory, retailers } from '@shared/schema';
 import { storage } from '../storage';
@@ -136,7 +136,7 @@ describe('Watchlist Storage Layer', () => {
         description: 'Test description',
       }).returning();
 
-      const [list2] = await db.insert(watchLists).values({
+      const [_list2] = await db.insert(watchLists).values({
         userId: testUserId,
         name: 'My Second List',
       }).returning();
@@ -406,11 +406,11 @@ describe('Watchlist Storage Layer', () => {
     });
 
     it('should return products with pricing data', async () => {
-      const watchedProducts = await storage.getWatchedProducts(testUserId);
+      const result = await storage.getWatchedProducts(testUserId);
 
-      expect(watchedProducts.length).toBeGreaterThan(0);
+      expect(result.products.length).toBeGreaterThan(0);
 
-      const product = watchedProducts.find(p => p.productId === testProductId);
+      const product = result.products.find((p: { productId: number }) => p.productId === testProductId);
       expect(product).toBeDefined();
       expect(product!.productName).toBe('Test Product 1');
       expect(product!.currentPrice).toBeDefined();
@@ -420,9 +420,10 @@ describe('Watchlist Storage Layer', () => {
     });
 
     it('should support sorting by priceDropPercent', async () => {
-      const watchedProducts = await storage.getWatchedProducts(testUserId, {
+      const result = await storage.getWatchedProducts(testUserId, {
         sortBy: 'priceDropPercent',
       });
+      const watchedProducts = result.products;
 
       // Verify sorted in descending order
       for (let i = 0; i < watchedProducts.length - 1; i++) {
@@ -433,9 +434,10 @@ describe('Watchlist Storage Layer', () => {
     });
 
     it('should support sorting by savings', async () => {
-      const watchedProducts = await storage.getWatchedProducts(testUserId, {
+      const result = await storage.getWatchedProducts(testUserId, {
         sortBy: 'savings',
       });
+      const watchedProducts = result.products;
 
       // Verify sorted in descending order
       for (let i = 0; i < watchedProducts.length - 1; i++) {
@@ -446,9 +448,10 @@ describe('Watchlist Storage Layer', () => {
     });
 
     it('should support sorting by dateAdded', async () => {
-      const watchedProducts = await storage.getWatchedProducts(testUserId, {
+      const result = await storage.getWatchedProducts(testUserId, {
         sortBy: 'dateAdded',
       });
+      const watchedProducts = result.products;
 
       // Verify sorted by most recent first
       for (let i = 0; i < watchedProducts.length - 1; i++) {
@@ -459,9 +462,9 @@ describe('Watchlist Storage Layer', () => {
     });
 
     it('should return 7-day sparkline data', async () => {
-      const watchedProducts = await storage.getWatchedProducts(testUserId);
+      const result = await storage.getWatchedProducts(testUserId);
 
-      const product = watchedProducts.find(p => p.productId === testProductId);
+      const product = result.products.find((p: { productId: number }) => p.productId === testProductId);
       expect(product).toBeDefined();
       expect(product!.last7Days).toBeDefined();
       expect(Array.isArray(product!.last7Days)).toBe(true);

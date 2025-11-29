@@ -107,9 +107,17 @@ export interface WatchListWithProducts {
 export interface WatchedProductsOptions {
   sortBy?: 'priceDropPercent' | 'savings' | 'dateAdded';
   limit?: number;
+  cursor?: number; // Last product watch ID from previous page
+}
+
+export interface WatchedProductsResult {
+  products: WatchedProductInfo[];
+  hasMore: boolean;
+  nextCursor: number | null;
 }
 
 export interface WatchedProductInfo {
+  id: number; // Product watch ID for cursor pagination
   productId: number;
   watchListId: number | null;
   watchListName: string;

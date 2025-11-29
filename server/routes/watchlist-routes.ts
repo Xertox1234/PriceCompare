@@ -145,7 +145,9 @@ export function registerWatchListRoutes(app: Express): void {
    * Get all watched products across all user's watch lists
    *
    * @query sortBy - Sort order: 'priceDropPercent' | 'savings' | 'dateAdded'
-   * @returns Array of watched products with pricing data and mini-chart data
+   * @query cursor - Cursor for pagination (last product watch ID)
+   * @query limit - Number of products per page (default: 50, max: 100)
+   * @returns Paginated watched products with pricing data and mini-chart data
    * @note IMPORTANT: This route MUST be registered BEFORE /api/watchlists/:id
    *       to avoid Express matching "products" as an ID parameter
    */
@@ -153,12 +155,18 @@ export function registerWatchListRoutes(app: Express): void {
     try {
       const userId = req.user.id;
       const sortBy = req.query.sortBy as 'priceDropPercent' | 'savings' | 'dateAdded' | undefined;
+      const cursor = req.query.cursor
+        ? parseIntSafe(req.query.cursor as string, 'cursor', { min: 1 })
+        : undefined;
+      const limit = req.query.limit
+        ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 })
+        : 50;
 
-      logger.info(`Fetching watched products for user ${userId} (sortBy: ${sortBy || 'priceDropPercent'})`);
+      logger.info(`Fetching watched products for user ${userId} (sortBy: ${sortBy || 'priceDropPercent'}, cursor: ${cursor || 'none'}, limit: ${limit})`);
 
-      const products = await storage.getWatchedProducts(userId, { sortBy });
+      const result = await storage.getWatchedProducts(userId, { sortBy, cursor, limit });
 
-      sendSuccess(res, { products });
+      sendSuccess(res, result); // Returns { products, hasMore, nextCursor }
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'GetWatchedProducts');
     }
