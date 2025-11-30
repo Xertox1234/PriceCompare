@@ -113,7 +113,7 @@ export interface ErrorLog {
   timestamp: string;
   level: 'error' | 'warn';
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 class MonitoringService {
@@ -450,7 +450,7 @@ class MonitoringService {
   /**
    * Log an error for the dashboard
    */
-  logError(level: 'error' | 'warn', message: string, context?: Record<string, any>): void {
+  logError(level: 'error' | 'warn', message: string, context?: Record<string, unknown>): void {
     const errorLog: ErrorLog = {
       timestamp: new Date().toISOString(),
       level,

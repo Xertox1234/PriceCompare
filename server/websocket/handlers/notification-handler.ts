@@ -195,7 +195,7 @@ export function emitNewNotification(
     title: string;
     content: string;
     priority: string;
-    metadata?: Record<string, any> | null;
+    metadata?: Record<string, unknown> | null;
   },
   unreadCount: number
 ): void {

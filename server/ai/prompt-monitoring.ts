@@ -29,7 +29,7 @@ export interface PromptExecutionMetrics {
   qualityScore?: number;
   validationPassed?: boolean;
   validationErrors?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PromptMetricsSummary {
@@ -71,7 +71,7 @@ class PromptMonitor {
     promptName: string,
     promptVersion: string,
     model: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): string {
     const executionId = `${promptName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 

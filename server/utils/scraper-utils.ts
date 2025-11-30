@@ -92,7 +92,7 @@ export class ScraperUtils {
   /**
    * Generate cache key for requests
    */
-  static generateCacheKey(url: string, params?: Record<string, any>): string {
+  static generateCacheKey(url: string, params?: Record<string, unknown>): string {
     const paramString = params ? JSON.stringify(params) : '';
     return `scraper_${Buffer.from(url + paramString).toString('base64')}`;
   }
