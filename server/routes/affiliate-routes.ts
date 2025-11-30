@@ -95,7 +95,8 @@ export function registerAffiliateRoutes(app: Express): void {
     validateRequest(testAffiliateLinkSchema, 'body'),
     async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
+        // SECURITY: Safe integer parsing with validation
+        const id = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
         const { testUrl } = req.body as { testUrl: string };
 
         const result = await affiliateLinkService.generateAffiliateLink(id, testUrl);
