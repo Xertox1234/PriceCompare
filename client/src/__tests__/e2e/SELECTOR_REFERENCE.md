@@ -29,10 +29,9 @@ page.getByRole('button', { name: 'Sign out' })
 // Main navigation
 page.getByRole('link', { name: 'Home' })
 page.getByRole('link', { name: 'Products' })
-page.getByRole('link', { name: 'Community Forum' })
 
 // Brand
-page.getByText('PriceCompare Community')
+page.getByText('PriceCompare')
 ```
 
 ### Search

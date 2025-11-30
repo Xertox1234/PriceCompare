@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, forumTopics, forumPosts, forumCategories, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, notificationPreferences, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type ForumTopic, type ForumPost, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
+import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, notificationPreferences, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
 import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchedProductInfo, WatchListStats } from './storage/types';
 import { db } from "./db";
 import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
@@ -9,7 +9,6 @@ import { UserStorage } from "./storage/domains/user-storage";
 import { ProductStorage } from "./storage/domains/product-storage";
 import { PriceStorage } from "./storage/domains/price-storage";
 import { WatchListStorage } from "./storage/domains/watchlist-storage";
-import { ForumStorage } from "./storage/domains/forum-storage";
 import { RetailerStorage } from "./storage/domains/retailer-storage";
 import { JobLockStorage } from "./storage/domains/job-lock-storage";
 import { NotificationStorage } from "./storage/domains/notification-storage";
@@ -134,16 +133,6 @@ export interface IStorage {
   getRecentPriceDrops(userId: number, days?: number): Promise<Notification[]>;
   getRecentPriceAlerts(userId: number, days?: number): Promise<Notification[]>;
 
-  // Forum Operations (with transactions)
-  createTopicWithFirstPost(topicData: {
-    title: string;
-    authorId: number;
-    categoryId?: number | null;
-    productId?: number | null;
-  }, content: string): Promise<ForumTopicResult>;
-
-  createForumPost(topicId: number, authorId: number, content: string, rawContent: string): Promise<ForumPostResult>;
-
   // Admin Product/Retailer Management
   getAdminProducts(): Promise<AdminProduct[]>;
   getAdminProductById(id: number): Promise<AdminProductWithOffers | null>;
@@ -168,8 +157,8 @@ export interface IStorage {
   getAllUsers(): Promise<AdminUser[]>;
   getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview>;
   getUserGrowthData(): Promise<UserGrowthData[]>;
-  getForumActivityData(): Promise<ForumActivityData[]>;
-  getTopCategories(limit: number): Promise<TopCategory[]>;
+  getProductActivityData(): Promise<{ date: string; count: number }[]>;
+  getTopProductCategories(limit: number): Promise<TopCategory[]>;
 
   // User Registration (transactional with first-admin logic)
   // SECURITY: passwordHash handled internally, NEVER exposed in return value
@@ -256,6 +245,8 @@ export interface IStorage {
   getUserPriceAlertsForEffectiveness(userId: number): Promise<PriceAlert[]>;
   getUserPriceAlerts(userId: number): Promise<PriceAlert[]>;
   createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert>;
+  updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean }): Promise<PriceAlert | null>;
+  deletePriceAlert(alertId: number, userId: number): Promise<boolean>;
 
   // Phase 8B: Price History Service Support
   getRawPriceHistoryWithRetailers(
@@ -317,16 +308,15 @@ export interface IStorage {
   updateUserReputationAtomic(userId: number, points: number, reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'): Promise<UserReputation>;
   getCommunityLeaderboard(limit: number): Promise<CommunityLeaderboardEntry[]>;
 
+  // Deal Spotting Operations
+  createDealSpottingWithReputation(data: CreateDealSpottingData): Promise<DealSpotting>;
+
   // Badge Operations
   getBadgeByName(name: string): Promise<Badge | null>;
   getBadgesByNames(names: string[]): Promise<Badge[]>; // Batch query for N+1 prevention
   checkUserHasBadge(userId: number, badgeId: number): Promise<boolean>;
   getUserBadgeIds(userId: number): Promise<number[]>; // Batch query for N+1 prevention
   awardBadgeWithNotification(userId: number, badgeId: number, badgeName: string): Promise<void>;
-
-  // Deal Spotting Operations
-  createDealSpottingWithReputation(data: CreateDealSpottingData): Promise<DealSpotting>;
-  getRecentDealSpottingsData(limit: number): Promise<DealSpotting[]>;
 
   // Watch List Operations
   getNextWatchListSortOrder(userId: number): Promise<number>;
@@ -343,9 +333,7 @@ export interface IStorage {
   exportUserWatchListsData(userId: number): Promise<WatchListExportData>;
   importWatchListsData(userId: number, data: WatchListImportData): Promise<{ created: number; skipped: number }>;
 
-  // Forum Auto-Post Operations
-  getRecentTopicForProduct(productId: number, daysAgo: number): Promise<ForumTopic | null>;
-  createPriceDropForumPostTransaction(data: PriceDropForumPostData): Promise<number | null>;
+  // Product Watcher Operations
   getWatchersForProduct(productId: number): Promise<number[]>;
   notifyProductWatchers(productId: number, notification: WatcherNotificationData): Promise<void>;
 
@@ -1099,18 +1087,18 @@ export class MemStorage implements IStorage {
   }
 
   async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
-    return { totalUsers: 0, totalTopics: 0, totalPosts: 0, totalCategories: 0 };
+    return { totalUsers: 0, totalProducts: 0, totalRetailers: 0, totalAlerts: 0 };
   }
 
   async getUserGrowthData(): Promise<UserGrowthData[]> {
     return [];
   }
 
-  async getForumActivityData(): Promise<ForumActivityData[]> {
+  async getProductActivityData(): Promise<{ date: string; count: number }[]> {
     return [];
   }
 
-  async getTopCategories(_limit: number): Promise<TopCategory[]> {
+  async getTopProductCategories(_limit: number): Promise<TopCategory[]> {
     return [];
   }
 
@@ -1186,20 +1174,6 @@ export class MemStorage implements IStorage {
 
   async getPasswordResetAttemptCount(_userId: number, _sinceDate: Date): Promise<number> {
     return 0;
-  }
-
-  // Forum Operations (stub implementations)
-  async createTopicWithFirstPost(_topicData: {
-    title: string;
-    authorId: number;
-    categoryId?: number | null;
-    productId?: number | null;
-  }, _content: string): Promise<ForumTopicResult> {
-    throw new Error('Forum operations not supported in memory storage');
-  }
-
-  async createForumPost(_topicId: number, _authorId: number, _content: string, _rawContent: string): Promise<ForumPostResult> {
-    throw new Error('Forum operations not supported in memory storage');
   }
 
   // Admin Product/Retailer Management (stub implementations)
@@ -1339,6 +1313,12 @@ export class MemStorage implements IStorage {
   async createPriceAlert(_alert: InsertPriceAlert): Promise<PriceAlert> {
     throw new Error('Not supported in memory storage');
   }
+  async updatePriceAlert(_alertId: number, _userId: number, _updates: { targetPrice?: string; isActive?: boolean }): Promise<PriceAlert | null> {
+    return null;
+  }
+  async deletePriceAlert(_alertId: number, _userId: number): Promise<boolean> {
+    return false;
+  }
 
   // Phase 8B: Price History Service Support - STUBS
   async getRawPriceHistoryWithRetailers(
@@ -1436,6 +1416,9 @@ export class MemStorage implements IStorage {
   async getCommunityLeaderboard(_limit: number): Promise<CommunityLeaderboardEntry[]> {
     throw new Error('Not supported in memory storage');
   }
+  async createDealSpottingWithReputation(_data: CreateDealSpottingData): Promise<DealSpotting> {
+    throw new Error('Not supported in memory storage');
+  }
   async getBadgeByName(_name: string): Promise<Badge | null> {
     throw new Error('Not supported in memory storage');
   }
@@ -1449,12 +1432,6 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
   async awardBadgeWithNotification(_userId: number, _badgeId: number, _badgeName: string): Promise<void> {
-    throw new Error('Not supported in memory storage');
-  }
-  async createDealSpottingWithReputation(_data: CreateDealSpottingData): Promise<DealSpotting> {
-    throw new Error('Not supported in memory storage');
-  }
-  async getRecentDealSpottingsData(_limit: number): Promise<DealSpotting[]> {
     throw new Error('Not supported in memory storage');
   }
   async getNextWatchListSortOrder(_userId: number): Promise<number> {
@@ -1494,12 +1471,6 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
   async importWatchListsData(_userId: number, _data: WatchListImportData): Promise<{ created: number; skipped: number }> {
-    throw new Error('Not supported in memory storage');
-  }
-  async getRecentTopicForProduct(_productId: number, _daysAgo: number): Promise<ForumTopic | null> {
-    throw new Error('Not supported in memory storage');
-  }
-  async createPriceDropForumPostTransaction(_data: PriceDropForumPostData): Promise<number | null> {
     throw new Error('Not supported in memory storage');
   }
   async getWatchersForProduct(_productId: number): Promise<number[]> {
@@ -1822,7 +1793,6 @@ export class DatabaseStorage implements IStorage {
   private productStorage: ProductStorage;
   private priceStorage: PriceStorage;
   private watchListStorage: WatchListStorage;
-  private forumStorage: ForumStorage;
   private retailerStorage: RetailerStorage;
   private jobLockStorage: JobLockStorage;
   private notificationStorage: NotificationStorage;
@@ -1832,7 +1802,6 @@ export class DatabaseStorage implements IStorage {
     this.productStorage = new ProductStorage(db);
     this.priceStorage = new PriceStorage(db);
     this.watchListStorage = new WatchListStorage(db);
-    this.forumStorage = new ForumStorage(db);
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
     this.notificationStorage = new NotificationStorage(db);
@@ -2171,20 +2140,6 @@ export class DatabaseStorage implements IStorage {
     return this.watchListStorage.getWatchListStats(userId);
   }
 
-  // Forum Operations (with transactions)
-  async createTopicWithFirstPost(topicData: {
-    title: string;
-    authorId: number;
-    categoryId?: number | null;
-    productId?: number | null;
-  }, content: string): Promise<ForumTopicResult> {
-    return this.forumStorage.createTopicWithFirstPost(topicData, content);
-  }
-
-  async createForumPost(topicId: number, authorId: number, content: string, rawContent: string): Promise<ForumPostResult> {
-    return this.forumStorage.createForumPost(topicId, authorId, content, rawContent);
-  }
-
   // Admin Product/Retailer Management
   async getAdminProducts(): Promise<AdminProduct[]> {
     return db.select({
@@ -2352,12 +2307,33 @@ export class DatabaseStorage implements IStorage {
     return this.userStorage.getUserGrowthData();
   }
 
-  async getForumActivityData(): Promise<ForumActivityData[]> {
-    return this.forumStorage.getForumActivityData();
+  async getProductActivityData(): Promise<{ date: string; count: number }[]> {
+    // Return product creation activity by day
+    const result = await db
+      .select({
+        date: sql<string>`DATE(${products.createdAt})`.as('date'),
+        count: sql<number>`count(*)`.as('count'),
+      })
+      .from(products)
+      .where(sql`${products.createdAt} >= NOW() - INTERVAL '30 days'`)
+      .groupBy(sql`DATE(${products.createdAt})`)
+      .orderBy(sql`DATE(${products.createdAt})`);
+    return result.map(r => ({ date: String(r.date), count: Number(r.count) }));
   }
 
-  async getTopCategories(limit: number): Promise<TopCategory[]> {
-    return this.forumStorage.getTopCategories(limit);
+  async getTopProductCategories(limit: number): Promise<TopCategory[]> {
+    // Return top product categories by count
+    const result = await db
+      .select({
+        categoryName: products.category,
+        productCount: sql<number>`count(*)`.as('productCount'),
+      })
+      .from(products)
+      .where(sql`${products.category} IS NOT NULL`)
+      .groupBy(products.category)
+      .orderBy(sql`count(*) DESC`)
+      .limit(limit);
+    return result.map(r => ({ categoryName: r.categoryName || 'Uncategorized', productCount: Number(r.productCount) }));
   }
 
   async checkDatabaseHealth(): Promise<boolean> {
@@ -3090,6 +3066,21 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.createPriceAlert(alert);
   }
 
+  async updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean }): Promise<PriceAlert | null> {
+    const [updated] = await db.update(priceAlerts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
+      .returning();
+    return updated || null;
+  }
+
+  async deletePriceAlert(alertId: number, userId: number): Promise<boolean> {
+    const [deleted] = await db.delete(priceAlerts)
+      .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
+      .returning();
+    return !!deleted;
+  }
+
   // Phase 8B: Price History Service Support
   async getRawPriceHistoryWithRetailers(
     productId: number,
@@ -3447,7 +3438,6 @@ export class DatabaseStorage implements IStorage {
       productId: data.productId,
       priceDropPercent: data.priceDropPercent.toFixed(2),
       priceDropAmount: data.priceDropAmount.toFixed(2),
-      forumPostId: data.forumPostId || null,
       reputationAwarded: data.reputationAwarded,
     };
 
@@ -3603,21 +3593,6 @@ export class DatabaseStorage implements IStorage {
     data: WatchListImportData
   ): Promise<{ created: number; skipped: number }> {
     return this.watchListStorage.importWatchListsData(userId, data);
-  }
-
-  /**
-   * Get recent forum topic for a product
-   */
-  async getRecentTopicForProduct(productId: number, daysAgo: number): Promise<ForumTopic | null> {
-    return this.forumStorage.getRecentTopicForProduct(productId, daysAgo);
-  }
-
-  /**
-   * Create price drop forum post with notification (transactional)
-   * DATA INTEGRITY: Topic, post, and notifications must all succeed or rollback
-   */
-  async createPriceDropForumPostTransaction(data: PriceDropForumPostData): Promise<number | null> {
-    return this.forumStorage.createPriceDropForumPostTransaction(data);
   }
 
   /**
@@ -3853,7 +3828,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTrendingProductCategories(limit: number): Promise<ProductCategoryCount[]> {
-    return this.forumStorage.getTrendingProductCategories(limit);
+    // Query trending products grouped by category
+    const result = await db
+      .select({
+        category: trendingProducts.category,
+        count: count(),
+      })
+      .from(trendingProducts)
+      .where(isNotNull(trendingProducts.category))
+      .groupBy(trendingProducts.category)
+      .orderBy(desc(count()))
+      .limit(limit);
+
+    return result.map(row => ({
+      category: row.category || 'Unknown',
+      count: Number(row.count),
+    }));
   }
 
   async getProductSearchSuggestions(searchTerm: string, limit: number): Promise<ProductSuggestion[]> {
@@ -4251,15 +4241,6 @@ export interface WatchListWithProducts {
   }>;
 }
 
-// Forum Types
-export interface ForumTopicResult {
-  topic: ForumTopic;
-}
-
-export interface ForumPostResult {
-  post: ForumPost;
-}
-
 // Admin Types
 export interface AdminProduct {
   id: number;
@@ -4328,9 +4309,9 @@ export interface AdminUser {
 
 export interface AdminAnalyticsOverview {
   totalUsers: number;
-  totalTopics: number;
-  totalPosts: number;
-  totalCategories: number;
+  totalProducts: number;
+  totalRetailers: number;
+  totalAlerts: number;
 }
 
 export interface UserGrowthData {
@@ -4338,14 +4319,9 @@ export interface UserGrowthData {
   count: number;
 }
 
-export interface ForumActivityData {
-  date: string;
-  count: number;
-}
-
 export interface TopCategory {
   categoryName: string;
-  topicCount: number;
+  productCount: number;
 }
 
 // Safe user type (excludes passwordHash for security)
@@ -4689,26 +4665,11 @@ export interface WatchListExportData {
 // WatchListImportData type is now imported from storage/types.ts to avoid duplication
 export type { WatchListImportData } from './storage/types';
 
-export interface PriceDropForumPostData {
-  dealPost: {
-    productId: number;
-    productName: string;
-    oldPrice: number;
-    newPrice: number;
-    dropPercent: number;
-    dropAmount: number;
-    retailer: string;
-  };
-  userId?: number;
-}
-
 export interface WatcherNotificationData {
   type: string;
   title: string;
   content: string;
   relatedProductId?: number;
-  relatedTopicId?: number;
-  relatedPostId?: number;
 }
 
 // ============================================================================

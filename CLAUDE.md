@@ -254,9 +254,9 @@ app.get('/api/products/:id', async (req, res) => {
    - Relationship is ownership-based (e.g., watchLists → users)
 
 2. **Use SET NULL when:**
-   - Child should persist for historical/audit purposes (e.g., forumPosts → users)
+   - Child should persist for historical/audit purposes (e.g., priceHistory → products)
    - Child has independent value (e.g., notifications → relatedPost)
-   - You want to anonymize rather than delete (e.g., forumTopics → authorId)
+   - You want to anonymize rather than delete (e.g., reviews → authorId)
 
 3. **Examples from schema.ts:**
    ```typescript
@@ -292,7 +292,6 @@ All routes are consolidated in `server/routes/` and registered via `server/route
 - `retailer-routes.ts` - Retailer management
 - `alert-routes.ts` - Price alerts
 - `admin-routes.ts` - Admin panel
-- `forum-routes.ts` - Forum functionality
 - `health-routes.ts` - Health checks
 - `watchlist-routes.ts` - Watch list and product watch management
 - `helpers.ts` - Shared middleware: `withAuth`, `withAdmin`, `isAuthenticated`
@@ -306,9 +305,7 @@ All routes are consolidated in `server/routes/` and registered via `server/route
 - `notification-routes.ts` - User notifications
 - `smart-alerts-routes.ts` - Advanced price alerting
 - `community-routes.ts` - Community features
-- `enhanced-forum-routes.ts` - Enhanced forum capabilities
 - `advanced-search-routes.ts` - Advanced product search
-- `discourse-routes.ts` - Discourse SSO integration
 - `aggregation-metrics-routes.ts` - Price aggregation metrics
 - `admin-aggregation-routes.ts` - Admin aggregation endpoints
 - `cache-routes.ts` - Cache management
@@ -512,7 +509,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 **Applies to all middleware types:**
 - Authentication (`server/auth.ts` - requireAuth, requireAdmin)
 - Validation (`server/validation.ts` - validateRequest, validateMultiple)
-- SSO (`server/discourse-sso.ts` - all error responses)
 - Rate limiting, CSRF, account lockout, request limits, error handlers
 
 **See `docs/MIDDLEWARE_API_PATTERNS.md` for complete patterns and examples.**
@@ -749,8 +745,8 @@ const priceData = await db
 
 Use transactions whenever you perform 2+ related database operations that must succeed or fail together:
 
-1. **Create + Related Records**: Topic + first post, product + offers, user + profile
-2. **Update + Related Updates**: Post creation + topic stats update, suspension + notification
+1. **Create + Related Records**: Product + offers, user + profile, watchlist + items
+2. **Update + Related Updates**: Price update + history record, suspension + notification
 3. **Delete + Cascading Deletes**: Alert deletion + notification cleanup
 4. **Check-Then-Act**: User count check + admin creation (race condition prevention)
 5. **Import Operations**: Batch imports that should be all-or-nothing
@@ -761,18 +757,18 @@ Use transactions whenever you perform 2+ related database operations that must s
 // ✅ CORRECT - Atomic multi-step operation
 await db.transaction(async (tx) => {
   // Step 1: Create main record
-  const [topic] = await tx.insert(forumTopics).values(topicData).returning();
+  const [product] = await tx.insert(products).values(productData).returning();
 
-  // Step 2: Create related record - must succeed or rollback topic
-  await tx.insert(forumPosts).values({
-    topicId: topic.id,
-    ...postData
+  // Step 2: Create related record - must succeed or rollback product
+  await tx.insert(productOffers).values({
+    productId: product.id,
+    ...offerData
   });
 
   // Step 3: Update stats - must succeed or rollback all
-  await tx.update(forumTopics)
-    .set({ postCount: sql`${forumTopics.postCount} + 1` })
-    .where(eq(forumTopics.id, topic.id));
+  await tx.update(retailers)
+    .set({ productCount: sql`${retailers.productCount} + 1` })
+    .where(eq(retailers.id, offerData.retailerId));
 });
 ```
 
@@ -940,7 +936,6 @@ app.use(rateLimiter({ maxRequests: RATE_LIMIT.MAX_REQUESTS }));
 **Required in ALL environments** (generate with `openssl rand -base64 32`):
 - `SESSION_SECRET` - Express session encryption
 - `CSRF_SECRET` - CSRF token generation
-- `DISCOURSE_SSO_SECRET` - Forum SSO integration
 - `DATABASE_URL` - PostgreSQL connection string
 
 **Required in PRODUCTION** (app will exit if missing):
@@ -1166,17 +1161,19 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 **ALWAYS consult these pattern files before implementing features** - they codify lessons learned and prevent repeated mistakes:
 
-### Core Pattern Files (docs/)
-- **`docs/DATABASE_PATTERNS.md`** - N+1 prevention, transactions, query optimization, foreign keys (CRITICAL)
-- **`docs/SECURITY_PATTERNS.md`** - Password hash exposure, CSRF protection, input validation, error sanitization (CRITICAL)
-- **`docs/TYPESCRIPT_PATTERNS.md`** - Type safety, avoiding `any`, Zod integration (CRITICAL)
-- **`docs/MIDDLEWARE_API_PATTERNS.md`** - Middleware response standardization, sendError() usage, 100% coverage (NEW)
-- **`docs/ESLINT_SETUP.md`** - ESLint installation, configuration, troubleshooting (NEW)
-- **`docs/ESLINT_ENFORCEMENT.md`** - ESLint enforcement guide, common errors, fixes
-- **`docs/ERROR_HANDLING_PATTERNS.md`** - Error sanitization, validation errors, recovery strategies
-- **`docs/API_PATTERNS.md`** - Route organization, middleware pipeline, caching, pagination
-- **`docs/API_TESTING_PATTERNS.md`** - Test standardization, validation helpers, variable naming, Drizzle bugs
-- **`docs/SERVICE_INTEGRATION_PATTERNS.md`** - Guard completeness, cache-before-limit, type extraction
+### Core Pattern Files (docs/) - CONSOLIDATED 2025-11-29
+
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files. Use ONLY these:**
+
+1. **`docs/01_TYPESCRIPT_PATTERNS.md`** - Type safety, async/await, floating promises, `void` operator, Zod integration (CRITICAL)
+2. **`docs/02_DATABASE_PATTERNS.md`** - N+1 prevention, transactions, storage layer, schema design, query optimization (CRITICAL)
+3. **`docs/03_API_PATTERNS.md`** - Routes, middleware pipeline, testing, service integration, error handling (CRITICAL)
+4. **`docs/04_SECURITY_PATTERNS.md`** - Auth, CSRF protection (SINGLE SOURCE OF TRUTH), validation, password security (CRITICAL)
+5. **`docs/05_FRONTEND_PATTERNS.md`** - React, React Query, forms, pagination, state management
+6. **`docs/06_ERROR_HANDLING_PATTERNS.md`** - Error responses, PostgreSQL error codes, sanitization, recovery
+7. **`docs/07_BACKGROUND_JOBS_PATTERNS.md`** - Bull queues, cron jobs, distributed locking
+
+**Each pattern has ONE canonical location. Old files (PHASE0, PHASE1, etc.) have been merged and archived.**
 
 ### Additional Documentation
 - `ARCHITECTURE.md` - System overview, diagrams, data flows, ADRs, caching strategy

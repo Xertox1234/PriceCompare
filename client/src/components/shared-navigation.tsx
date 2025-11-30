@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { MessageSquare, Search, Home, User, LogOut, Bell, Settings, Menu, X, ExternalLink } from 'lucide-react';
+import { Search, Home, User, LogOut, Bell, Settings, Menu, X, ExternalLink } from 'lucide-react';
 import { useAuth, useLogout } from '@/hooks/use-auth';
 import { useState } from 'react';
 import { AuthModal } from './auth/auth-modal';
 import { ThemeToggle } from './theme-toggle';
 
 interface SharedNavigationProps {
-  currentPage?: 'home' | 'forum' | 'admin' | 'price-watch';
+  currentPage?: 'home' | 'admin' | 'price-watch';
 }
 
 export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps) {
@@ -63,16 +63,6 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
             >
               <Search className="h-4 w-4 mr-2" />
               Products
-            </Button>
-          </Link>
-          
-          <Link href="/forum" onClick={() => setMobileMenuOpen(false)}>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Community Forum
             </Button>
           </Link>
           
@@ -179,20 +169,9 @@ export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps
           size="sm"
           asChild
         >
-          <Link href="/products">
+<Link href="/products">
             <Search className="h-4 w-4 mr-2" />
             Products
-          </Link>
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          asChild
-        >
-          <Link href="/forum">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Community Forum
           </Link>
         </Button>
         

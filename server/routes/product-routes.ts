@@ -1,6 +1,5 @@
 import { Express } from "express";
 import { storage } from "../storage";
-import { forumStorage } from "../forum-storage";
 import type { SearchFilters } from "@shared/schema";
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from "../utils/validation-helpers";
 import {
@@ -81,18 +80,8 @@ export function registerProductRoutes(app: Express): void {
 
       const { products, pagination } = await storage.searchProducts(filters);
 
-      // Add discussion counts to products (batch query to avoid N+1 problem)
-      const productIds = products.map(p => p.id);
-      const discussionCounts = await forumStorage.getProductDiscussionCounts(productIds);
-
-      const productsWithDiscussions = products.map(product => ({
-        ...product,
-        discussionCount: discussionCounts.get(product.id) || 0,
-        hasActiveDiscussion: (discussionCounts.get(product.id) || 0) > 0,
-      }));
-
       // Return standardized paginated response
-      sendPaginated(res, productsWithDiscussions, {
+      sendPaginated(res, products, {
         page: pagination.page,
         limit: pagination.limit,
         total: pagination.total,
@@ -115,14 +104,7 @@ export function registerProductRoutes(app: Express): void {
         return;
       }
 
-      const discussionCount = await forumStorage.getProductDiscussionCount(id);
-      const productWithDiscussions = {
-        ...product,
-        discussionCount,
-        hasActiveDiscussion: discussionCount > 0,
-      };
-
-      sendSuccess(res, productWithDiscussions);
+      sendSuccess(res, product);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'FetchProduct');
     }

@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,7 +25,6 @@ interface PriceAlert {
   productId: number;
   targetPrice: string;
   isActive: boolean;
-  notifyForum: boolean;
   createdAt: string;
 }
 
@@ -229,9 +227,6 @@ function AlertItem({
             ) : (
               <Badge variant="secondary" className="text-xs">Paused</Badge>
             )}
-            {alert.notifyForum && (
-              <Badge variant="outline" className="text-xs">Forum Post</Badge>
-            )}
           </div>
           {isTriggered && (
             <div className="flex items-center gap-1 text-green-700 text-sm font-medium">
@@ -304,10 +299,9 @@ function CreateEditAlertDialog({
   onError: (error: Error, action: string) => void;
 }) {
   const [targetPrice, setTargetPrice] = useState(alert?.targetPrice || '');
-  const [notifyForum, setNotifyForum] = useState(alert?.notifyForum || false);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { productId: number; targetPrice: number; notifyForum: boolean }) => {
+    mutationFn: async (data: { productId: number; targetPrice: number }) => {
       const res = await fetch('/api/price-alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -325,7 +319,7 @@ function CreateEditAlertDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { targetPrice: number; notifyForum: boolean }) => {
+    mutationFn: async (data: { targetPrice: number }) => {
       const res = await fetch(`/api/price-alerts/${alert?.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -349,9 +343,9 @@ function CreateEditAlertDialog({
     }
 
     if (alert) {
-      updateMutation.mutate({ targetPrice: price, notifyForum });
+      updateMutation.mutate({ targetPrice: price });
     } else {
-      createMutation.mutate({ productId, targetPrice: price, notifyForum });
+      createMutation.mutate({ productId, targetPrice: price });
     }
   };
 
@@ -410,17 +404,6 @@ function CreateEditAlertDialog({
             </div>
           </div>
         )}
-
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="notifyForum"
-            checked={notifyForum}
-            onCheckedChange={setNotifyForum}
-          />
-          <Label htmlFor="notifyForum" className="text-sm cursor-pointer">
-            Post to forum when alert triggers
-          </Label>
-        </div>
 
         <DialogFooter>
           <Button

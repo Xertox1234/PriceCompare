@@ -24,7 +24,7 @@ import NotificationsPage from "@/pages/notifications";
 import NotFound from "@/pages/not-found";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
-import { LazyAdminPage, LazyForumPage, LazyAdvancedSearchPage, LazyPriceHistoryPage, LazyAnalyticsPage, LazyWatchListManager } from "@/components/lazy";
+import { LazyAdminPage, LazyAdvancedSearchPage, LazyPriceHistoryPage, LazyAnalyticsPage, LazyWatchListManager } from "@/components/lazy";
 import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
 import { useRealtimeNotifications } from "@/hooks/useSmartNotifications";
 import { ConnectionStatus } from "@/components/connection-status";
@@ -83,13 +83,6 @@ function Router() {
                 <RouteErrorBoundary>
                   <Suspense fallback={<LoadingFallback />}>
                     <LazyAdvancedSearchPage />
-                  </Suspense>
-                </RouteErrorBoundary>
-              </Route>
-              <Route path="/forum">
-                <RouteErrorBoundary>
-                  <Suspense fallback={<LoadingFallback />}>
-                    <LazyForumPage />
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>

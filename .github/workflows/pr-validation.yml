@@ -132,7 +132,6 @@ jobs:
           echo "SESSION_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
           echo "CSRF_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
           echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> $GITHUB_ENV
-          echo "DISCOURSE_SSO_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
           echo "NODE_ENV=test" >> $GITHUB_ENV
 
       - name: Install pgvector extension

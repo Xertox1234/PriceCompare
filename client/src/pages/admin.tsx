@@ -1,26 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import type { AnalyticsOverview, UserGrowthData, ForumActivityData, TopCategoryData } from '@shared/types';
+import type { AnalyticsOverview, UserGrowthData, ProductActivityData, TopCategoryData } from '@shared/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SharedNavigation } from '@/components/shared-navigation';
 import { ProductManagement } from '@/components/product-management';
 import { RetailerManagement } from '@/components/retailer-management';
 import { AdminDashboard } from '@/components/admin/admin-dashboard';
-import { AdminCategoryManagement } from '@/components/admin/admin-category-management';
 import { AdminUserManagement } from '@/components/admin/admin-user-management';
 import { AdminSettings } from '@/components/admin/admin-settings';
-import { Settings, BarChart3, Package, Store, MessageSquare } from 'lucide-react';
-
-interface ForumCategory {
-  id: number;
-  name: string;
-  slug: string;
-  description?: string;
-  color: string;
-  icon?: string;
-  isActive: boolean;
-  sortOrder: number;
-}
+import { Settings, BarChart3, Package, Store, Bell } from 'lucide-react';
 
 interface User {
   id: number;
@@ -33,11 +21,6 @@ interface User {
 }
 
 export default function AdminPage() {
-  // Fetch categories
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ForumCategory[]>({
-    queryKey: ['/api/admin/categories'],
-  });
-
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
@@ -52,8 +35,8 @@ export default function AdminPage() {
     queryKey: ['/api/admin/analytics/user-growth'],
   });
 
-  const { data: forumActivityData = [] } = useQuery<ForumActivityData[]>({
-    queryKey: ['/api/admin/analytics/forum-activity'],
+  const { data: productActivityData = [] } = useQuery<ProductActivityData[]>({
+    queryKey: ['/api/admin/analytics/product-activity'],
   });
 
   const { data: topCategoriesData = [] } = useQuery<TopCategoryData[]>({
@@ -71,7 +54,7 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-1">
               <BarChart3 className="h-4 w-4" />
               Dashboard
@@ -79,7 +62,6 @@ export default function AdminPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="retailers">Retailers</TabsTrigger>
-            <TabsTrigger value="categories">Forum Categories</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
@@ -88,7 +70,7 @@ export default function AdminPage() {
             <AdminDashboard
               overviewData={overviewData}
               userGrowthData={userGrowthData}
-              forumActivityData={forumActivityData}
+              productActivityData={productActivityData}
               topCategoriesData={topCategoriesData}
             />
           </TabsContent>
@@ -107,30 +89,30 @@ export default function AdminPage() {
               
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <MessageSquare className="h-8 w-8 text-success" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Forum Categories</p>
-                    <p className="text-2xl font-bold">{categories.length}</p>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="flex items-center p-6">
-                  <Package className="h-8 w-8 text-secondary" />
+                  <Package className="h-8 w-8 text-success" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-muted-foreground">Products</p>
-                    <p className="text-2xl font-bold">-</p>
+                    <p className="text-2xl font-bold">{overviewData?.totalProducts || '-'}</p>
                   </div>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <Store className="h-8 w-8 text-warning" />
+                  <Store className="h-8 w-8 text-secondary" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-muted-foreground">Retailers</p>
-                    <p className="text-2xl font-bold">-</p>
+                    <p className="text-2xl font-bold">{overviewData?.totalRetailers || '-'}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="flex items-center p-6">
+                  <Bell className="h-8 w-8 text-warning" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-muted-foreground">Price Alerts</p>
+                    <p className="text-2xl font-bold">{overviewData?.totalAlerts || '-'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -140,12 +122,12 @@ export default function AdminPage() {
               <CardHeader>
                 <CardTitle>Recent Activity</CardTitle>
                 <CardDescription>
-                  Latest forum and platform activity
+                  Latest platform activity
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-8 text-muted-foreground">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No recent activity to display</p>
                 </div>
               </CardContent>
@@ -160,15 +142,9 @@ export default function AdminPage() {
             <RetailerManagement />
           </TabsContent>
 
-          <TabsContent value="categories" className="space-y-6">
-            <AdminCategoryManagement categories={categories} isLoading={categoriesLoading} />
-          </TabsContent>
-
           <TabsContent value="users" className="space-y-6">
             <AdminUserManagement users={users} isLoading={usersLoading} />
           </TabsContent>
-
-
 
           <TabsContent value="settings" className="space-y-6">
             <AdminSettings />

@@ -1,6 +1,5 @@
 import { storage } from "../storage";
 import { createLogger } from "../utils/logger";
-import { FORUM } from "../utils/constants";
 import type {
   ProductWatch,
   WatchList,
@@ -212,8 +211,7 @@ export async function recordDealSpotting(
   userId: number,
   productId: number,
   priceDropPercent: number,
-  priceDropAmount: number,
-  forumPostId?: number
+  priceDropAmount: number
 ): Promise<DealSpotting> {
   // Calculate reputation to award (more significant drops = more points)
   let reputationAwarded = 10; // Base points
@@ -227,7 +225,6 @@ export async function recordDealSpotting(
     productId,
     priceDropPercent,
     priceDropAmount,
-    forumPostId,
     reputationAwarded,
   });
 
@@ -243,41 +240,6 @@ export async function recordDealSpotting(
  */
 export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
   return storage.getCommunityLeaderboard(limit);
-}
-
-/**
- * Auto-post a major price drop to the forum
- */
-export async function autoPostPriceDropToForum(
-  dealPost: DealPost,
-  userId?: number
-): Promise<number | null> {
-  try {
-    // Only auto-post drops of 20% or more
-    if (dealPost.dropPercent < 20) {
-      return null;
-    }
-
-    // Storage layer handles transactional topic+post+notification creation
-    const postId = await storage.createPriceDropForumPostTransaction({
-      dealPost,
-      userId,
-    });
-
-    return postId;
-  } catch (error: unknown) {
-    log.error('Error auto-posting price drop to forum:', {
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return null;
-  }
-}
-
-/**
- * Get recent deal spottings
- */
-export async function getRecentDealSpottings(limit = 10): Promise<DealSpotting[]> {
-  return storage.getRecentDealSpottingsData(limit);
 }
 
 /**

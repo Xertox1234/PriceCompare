@@ -1,5 +1,4 @@
 import { Express } from "express";
-import { forumStorage } from "../forum-storage";
 import { storage } from "../storage";
 import { withAdmin } from "./helpers";
 import { insertProductSchema, insertRetailerSchema } from "@shared/schema";
@@ -16,16 +15,6 @@ import { csrfProtection } from "../middleware/security";
  * and performance monitoring.
  */
 export function registerAdminRoutes(app: Express): void {
-  // Get forum categories
-  app.get("/api/admin/categories", withAdmin(async (req, res) => {
-    try {
-      const categories = await forumStorage.getCategories();
-      sendSuccess(res, Array.isArray(categories) ? categories : []);
-    } catch (error: unknown) {
-      sendErrorFromException(res, error, 'FetchCategories');
-    }
-  }));
-
   // Get all users
   app.get("/api/admin/users", withAdmin(async (req, res) => {
     try {
@@ -55,18 +44,18 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
-  app.get("/api/admin/analytics/forum-activity", withAdmin(async (req, res) => {
+  app.get("/api/admin/analytics/product-activity", withAdmin(async (req, res) => {
     try {
-      const postActivity = await storage.getForumActivityData();
-      sendSuccess(res, postActivity);
+      const productActivity = await storage.getProductActivityData();
+      sendSuccess(res, productActivity);
     } catch (error: unknown) {
-      sendErrorFromException(res, error, 'FetchForumActivity');
+      sendErrorFromException(res, error, 'FetchProductActivity');
     }
   }));
 
   app.get("/api/admin/analytics/top-categories", withAdmin(async (req, res) => {
     try {
-      const topCategories = await storage.getTopCategories(10);
+      const topCategories = await storage.getTopProductCategories(10);
       sendSuccess(res, topCategories);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'FetchTopCategories');

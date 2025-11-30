@@ -1711,8 +1711,6 @@ export class WatchListStorage extends BaseStorage {
           title: notification.title,
           content: notification.content,
           relatedProductId: notification.relatedProductId || null,
-          relatedTopicId: notification.relatedTopicId || null,
-          relatedPostId: notification.relatedPostId || null,
         }));
 
         await this.db.insert(notifications).values(notificationList);

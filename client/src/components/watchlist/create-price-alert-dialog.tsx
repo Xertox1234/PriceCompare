@@ -19,7 +19,6 @@ interface CreatePriceAlertDialogProps {
 interface CreateAlertInput {
   productId: number;
   targetPrice: number;
-  notifyForum?: boolean;
 }
 
 export function CreatePriceAlertDialog({
@@ -87,7 +86,6 @@ export function CreatePriceAlertDialog({
     createAlert.mutate({
       productId,
       targetPrice,
-      notifyForum: false,
     });
   };
 

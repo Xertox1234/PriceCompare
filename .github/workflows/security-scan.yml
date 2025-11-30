@@ -161,40 +161,6 @@ jobs:
           echo "Checking DOMPurify sanitization test coverage..."
           npm run test:coverage -- server/__tests__/security/sanitization.test.ts
 
-  docker-security:
-    name: Docker Image Scan
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build Docker image (if Dockerfile exists)
-        run: |
-          if [ -f "Dockerfile.app" ]; then
-            docker build -f Dockerfile.app -t pricecompare:${{ github.sha }} .
-          else
-            echo "⚠️ No Dockerfile.app found, skipping Docker scan"
-            exit 0
-          fi
-
-      - name: Run Trivy vulnerability scanner
-        if: hashFiles('Dockerfile.app') != ''
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'pricecompare:${{ github.sha }}'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Upload Trivy results to GitHub Security
-        if: hashFiles('Dockerfile.app') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-
   codeql-analysis:
     name: CodeQL Security Analysis
     runs-on: ubuntu-latest

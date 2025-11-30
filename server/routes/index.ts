@@ -1,11 +1,9 @@
 import { Express } from "express";
 import { createServer, type Server } from "http";
-import { forumStorage } from "../forum-storage";
 
 // Core routes
 import { registerHealthRoutes } from "./health-routes";
 import { registerAuthRoutes } from "./auth-routes";
-import { registerForumRoutes } from "./forum-routes";
 import { registerAlertRoutes } from "./alert-routes";
 import { registerRetailerRoutes } from "./retailer-routes";
 import { registerProductRoutes } from "./product-routes";
@@ -18,8 +16,6 @@ import { registerAdminAggregationRoutes } from "./admin-aggregation-routes";
 import { registerScrapingRoutes } from "./scraping-routes";
 import { registerMonitoringRoutes } from "./monitoring-routes";
 import { registerAffiliateRoutes } from "./affiliate-routes";
-import { registerDiscourseRoutes } from "./discourse-routes";
-import { registerEnhancedForumRoutes } from "./enhanced-forum-routes";
 import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
 import { registerPriceHistoryRoutes } from "./price-history-routes";
 import { registerPriceAnalyticsRoutes } from "./price-analytics-routes";
@@ -39,7 +35,6 @@ import { registerAgentLimitsRoutes } from "./agent-limits-routes";
  * Route organization:
  * - health-routes: Health check endpoints
  * - auth-routes: Authentication (register, login, logout, password reset)
- * - forum-routes: Forum functionality (categories, topics, posts)
  * - alert-routes: Price alerts management
  * - watchlist-routes: Watch list and product watch management
  * - retailer-routes: Retailer data
@@ -48,8 +43,6 @@ import { registerAgentLimitsRoutes } from "./agent-limits-routes";
  * - scraping-routes: AI-powered web scraping
  * - monitoring-routes: System monitoring dashboard
  * - affiliate-routes: Affiliate link generation
- * - discourse-routes: Discourse SSO integration
- * - enhanced-forum-routes: Enhanced forum capabilities
  * - advanced-search-routes: Advanced product search
  * - price-history-routes: Historical price data
  * - price-analytics-routes: Price trends and aggregations
@@ -63,13 +56,9 @@ import { registerAgentLimitsRoutes } from "./agent-limits-routes";
  * - admin-aggregation-routes: Admin aggregation management
  */
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize forum categories (ensure defaults exist)
-  await forumStorage.initializeDefaultCategories();
-
   // Register core route modules
   registerHealthRoutes(app);
   registerAuthRoutes(app);
-  registerForumRoutes(app);
   registerAlertRoutes(app);
   registerWatchListRoutes(app);
   registerRetailerRoutes(app);
@@ -82,8 +71,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerScrapingRoutes(app);
   registerMonitoringRoutes(app);
   registerAffiliateRoutes(app);
-  registerDiscourseRoutes(app);
-  registerEnhancedForumRoutes(app);
   registerAdvancedSearchRoutes(app);
   registerPriceHistoryRoutes(app);
   registerPriceAnalyticsRoutes(app);

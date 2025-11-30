@@ -214,24 +214,6 @@ export function registerCommunityRoutes(app: Express) {
   });
 
   /**
-   * GET /api/community/recent-deals
-   * Get recent deal spottings
-   */
-  app.get("/api/community/recent-deals", async (req, res) => {
-    try {
-      const limit = parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 10;
-      const deals = await communityService.getRecentDealSpottings(limit);
-
-      sendSuccess(res, {
-        deals,
-        count: deals.length,
-      });
-    } catch (error: unknown) {
-      sendErrorFromException(res, error, 'FetchRecentDeals');
-    }
-  });
-
-  /**
    * WATCH LIST MANAGEMENT ROUTES
    */
 

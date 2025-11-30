@@ -23,7 +23,6 @@ Based on your codebase, here's what you have:
 - **Sign out button**: `<Button>Sign out</Button>` (shown when logged in)
 - **Home link**: `<Link href="/">Home</Link>`
 - **Products link**: `<Link href="/products">Products</Link>`
-- **Forum link**: `<Link href="/forum">Community Forum</Link>`
 
 ### Authentication (`client/src/components/auth/auth-modal.tsx` + `login-form.tsx`)
 - **Auth Modal**: Opens when clicking Sign In or Sign Up
@@ -86,12 +85,11 @@ test.describe('Homepage', () => {
 
   test('should display navigation elements', async ({ page }) => {
     // Check navigation brand
-    await expect(page.getByText('PriceCompare Community')).toBeVisible();
+    await expect(page.getByText('PriceCompare')).toBeVisible();
     
     // Desktop navigation links (visible on desktop)
     await expect(page.getByRole('link', { name: 'Home' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Products' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Community Forum' })).toBeVisible();
   });
 
   test('should have authentication buttons', async ({ page }) => {

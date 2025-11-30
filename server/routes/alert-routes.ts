@@ -1,6 +1,5 @@
 import { Express } from "express";
 import { z } from "zod";
-import { forumStorage } from "../forum-storage";
 import { storage } from "../storage";
 import { withAuth } from "./helpers";
 import { parseIntSafe } from "../utils/validation-helpers";
@@ -18,7 +17,6 @@ const createPriceAlertSchema = z.object({
   targetPrice: z.number()
     .positive('Target price must be positive')
     .multipleOf(0.01, 'Price must have maximum 2 decimal places'),
-  notifyForum: z.boolean().optional().default(false),
 });
 
 /**
@@ -31,7 +29,6 @@ const updatePriceAlertSchema = z.object({
     .multipleOf(0.01, 'Price must have maximum 2 decimal places')
     .optional(),
   isActive: z.boolean().optional(),
-  notifyForum: z.boolean().optional(),
 }).refine(data => Object.keys(data).length > 0, {
   message: 'At least one field must be provided for update',
 });
@@ -56,11 +53,10 @@ export function registerAlertRoutes(app: Express): void {
         return;
       }
 
-      const alert = await forumStorage.createPriceAlert({
+      const alert = await storage.createPriceAlert({
         userId: user.id,
         productId: validatedData.productId,
         targetPrice: validatedData.targetPrice.toFixed(2), // Convert to string for decimal field
-        notifyForum: validatedData.notifyForum,
       });
 
       sendSuccess(res, alert, 201);
@@ -73,7 +69,7 @@ export function registerAlertRoutes(app: Express): void {
   app.get("/api/price-alerts", withAuth(async (req, res) => {
     try {
       const user = req.user;
-      const alerts = await forumStorage.getUserPriceAlerts(user.id);
+      const alerts = await storage.getUserPriceAlerts(user.id);
       sendSuccess(res, alerts);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'GetPriceAlerts');
@@ -95,7 +91,7 @@ export function registerAlertRoutes(app: Express): void {
         targetPrice: validatedData.targetPrice?.toFixed(2),
       };
 
-      const updatedAlert = await forumStorage.updatePriceAlert(alertId, user.id, updates);
+      const updatedAlert = await storage.updatePriceAlert(alertId, user.id, updates);
       if (!updatedAlert) {
         sendError(res, 'Alert not found or unauthorized', 404);
         return;
@@ -113,7 +109,7 @@ export function registerAlertRoutes(app: Express): void {
       const user = req.user;
       const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
 
-      const deleted = await forumStorage.deletePriceAlert(alertId, user.id);
+      const deleted = await storage.deletePriceAlert(alertId, user.id);
       if (!deleted) {
         sendError(res, 'Alert not found or unauthorized', 404);
         return;

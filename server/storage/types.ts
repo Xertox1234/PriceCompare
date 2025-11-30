@@ -19,8 +19,6 @@ import type {
   Product,
   ProductOffer,
   WatchList,
-  ForumTopic,
-  ForumPost,
   InsertPriceHistory,
   ProductWatch,
 } from "@shared/schema";
@@ -155,18 +153,6 @@ export interface WatchListStats {
 }
 
 // ============================================================================
-// Forum Types
-// ============================================================================
-
-export interface ForumTopicResult {
-  topic: ForumTopic;
-}
-
-export interface ForumPostResult {
-  post: ForumPost;
-}
-
-// ============================================================================
 // Admin Types
 // ============================================================================
 
@@ -243,9 +229,9 @@ export interface AdminUser {
 
 export interface AdminAnalyticsOverview {
   totalUsers: number;
-  totalTopics: number;
-  totalPosts: number;
-  totalCategories: number;
+  totalProducts: number;
+  totalRetailers: number;
+  totalAlerts: number;
 }
 
 export interface UserGrowthData {
@@ -253,14 +239,9 @@ export interface UserGrowthData {
   count: number;
 }
 
-export interface ForumActivityData {
-  date: string;
-  count: number;
-}
-
 export interface TopCategory {
   categoryName: string;
-  topicCount: number;
+  productCount: number;
 }
 
 // ============================================================================
@@ -546,7 +527,6 @@ export interface CreateDealSpottingData {
   productId: number;
   priceDropPercent: number;
   priceDropAmount: number;
-  forumPostId?: number;
   reputationAwarded: number;
 }
 
@@ -620,26 +600,11 @@ export interface WatchListImportData {
   }>;
 }
 
-export interface PriceDropForumPostData {
-  dealPost: {
-    productId: number;
-    productName: string;
-    oldPrice: number;
-    newPrice: number;
-    dropPercent: number;
-    dropAmount: number;
-    retailer: string;
-  };
-  userId?: number;
-}
-
 export interface WatcherNotificationData {
   type: string;
   title: string;
   content: string;
   relatedProductId?: number;
-  relatedTopicId?: number;
-  relatedPostId?: number;
 }
 
 // ============================================================================

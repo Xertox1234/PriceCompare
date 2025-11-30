@@ -29,9 +29,9 @@ export interface AuthResponse {
 // Analytics data types
 export interface AnalyticsOverview {
   totalUsers: string;
-  totalTopics: string;
-  totalPosts: string;
-  totalCategories: string;
+  totalProducts: string;
+  totalRetailers: string;
+  totalAlerts: string;
 }
 
 export interface UserGrowthData {
@@ -39,14 +39,14 @@ export interface UserGrowthData {
   count: number;
 }
 
-export interface ForumActivityData {
+export interface ProductActivityData {
   date: string;
   count: number;
 }
 
 export interface TopCategoryData {
   categoryName: string;
-  topicCount: number;
+  productCount: number;
 }
 
 // Form data types

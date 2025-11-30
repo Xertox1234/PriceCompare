@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { AdminDashboard } from '../admin-dashboard';
-import type { AnalyticsOverview, UserGrowthData, ForumActivityData, TopCategoryData } from '@shared/types';
+import type { AnalyticsOverview, UserGrowthData, ProductActivityData, TopCategoryData } from '@shared/types';
 
 describe('AdminDashboard', () => {
   const mockOverviewData: AnalyticsOverview = {
     totalUsers: '150',
-    totalTopics: '45',
-    totalPosts: '320',
-    totalCategories: '8',
+    totalProducts: '45',
+    totalRetailers: '12',
+    totalAlerts: '320',
   };
 
   const mockUserGrowthData: UserGrowthData[] = [
@@ -15,14 +15,14 @@ describe('AdminDashboard', () => {
     { date: '2024-01-02', count: 15 },
   ];
 
-  const mockForumActivityData: ForumActivityData[] = [
+  const mockProductActivityData: ProductActivityData[] = [
     { date: '2024-01-01', count: 20 },
     { date: '2024-01-02', count: 25 },
   ];
 
   const mockTopCategoriesData: TopCategoryData[] = [
-    { categoryName: 'General', topicCount: 30 },
-    { categoryName: 'Support', topicCount: 15 },
+    { categoryName: 'Electronics', productCount: 30 },
+    { categoryName: 'Home', productCount: 15 },
   ];
 
   it('should render analytics metrics correctly', () => {
@@ -30,15 +30,15 @@ describe('AdminDashboard', () => {
       <AdminDashboard
         overviewData={mockOverviewData}
         userGrowthData={mockUserGrowthData}
-        forumActivityData={mockForumActivityData}
+        productActivityData={mockProductActivityData}
         topCategoriesData={mockTopCategoriesData}
       />
     );
 
     expect(screen.getByText('150')).toBeInTheDocument();
     expect(screen.getByText('45')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('320')).toBeInTheDocument();
-    expect(screen.getByText('8')).toBeInTheDocument();
   });
 
   it('should render metric labels', () => {
@@ -46,15 +46,15 @@ describe('AdminDashboard', () => {
       <AdminDashboard
         overviewData={mockOverviewData}
         userGrowthData={mockUserGrowthData}
-        forumActivityData={mockForumActivityData}
+        productActivityData={mockProductActivityData}
         topCategoriesData={mockTopCategoriesData}
       />
     );
 
     expect(screen.getByText('Total Users')).toBeInTheDocument();
-    expect(screen.getByText('Forum Topics')).toBeInTheDocument();
-    expect(screen.getByText('Forum Posts')).toBeInTheDocument();
-    expect(screen.getByText('Categories')).toBeInTheDocument();
+    expect(screen.getByText('Products')).toBeInTheDocument();
+    expect(screen.getByText('Retailers')).toBeInTheDocument();
+    expect(screen.getByText('Price Alerts')).toBeInTheDocument();
   });
 
   it('should handle undefined overview data gracefully', () => {
@@ -62,7 +62,7 @@ describe('AdminDashboard', () => {
       <AdminDashboard
         overviewData={undefined}
         userGrowthData={mockUserGrowthData}
-        forumActivityData={mockForumActivityData}
+        productActivityData={mockProductActivityData}
         topCategoriesData={mockTopCategoriesData}
       />
     );
@@ -75,14 +75,14 @@ describe('AdminDashboard', () => {
       <AdminDashboard
         overviewData={mockOverviewData}
         userGrowthData={mockUserGrowthData}
-        forumActivityData={mockForumActivityData}
+        productActivityData={mockProductActivityData}
         topCategoriesData={mockTopCategoriesData}
       />
     );
 
     expect(screen.getByText('User Growth')).toBeInTheDocument();
-    expect(screen.getByText('Forum Activity')).toBeInTheDocument();
-    expect(screen.getByText('Most Active Categories')).toBeInTheDocument();
+    expect(screen.getByText('Product Activity')).toBeInTheDocument();
+    expect(screen.getByText('Top Product Categories')).toBeInTheDocument();
   });
 
   it('should render with empty data arrays', () => {
@@ -90,12 +90,12 @@ describe('AdminDashboard', () => {
       <AdminDashboard
         overviewData={mockOverviewData}
         userGrowthData={[]}
-        forumActivityData={[]}
+        productActivityData={[]}
         topCategoriesData={[]}
       />
     );
 
     expect(screen.getByText('User Growth')).toBeInTheDocument();
-    expect(screen.getByText('Forum Activity')).toBeInTheDocument();
+    expect(screen.getByText('Product Activity')).toBeInTheDocument();
   });
 });

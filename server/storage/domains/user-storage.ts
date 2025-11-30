@@ -14,14 +14,13 @@
 
 import { db } from "../../db";
 import { eq, sql } from "drizzle-orm";
-import { users, notifications, passwordResetTokens, forumTopics, forumPosts, forumCategories } from "@shared/schema";
+import { users, notifications, passwordResetTokens, products, retailers, priceAlerts } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
 import type {
   SafeUser,
   AdminUser,
   AdminAnalyticsOverview,
   UserGrowthData,
-  ForumActivityData,
   TopCategory,
 } from "../types";
 import { retryWithBackoff, isTransientDatabaseError } from "../../utils/retry-with-backoff";
@@ -387,18 +386,18 @@ export class UserStorage extends BaseStorage {
    */
   async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
     try {
-      const [userCount, topicCount, postCount, categoryCount] = await Promise.all([
+      const [userCount, productCount, retailerCount, alertCount] = await Promise.all([
         this.db.select({ count: sql`count(*)` }).from(users),
-        this.db.select({ count: sql`count(*)` }).from(forumTopics),
-        this.db.select({ count: sql`count(*)` }).from(forumPosts),
-        this.db.select({ count: sql`count(*)` }).from(forumCategories)
+        this.db.select({ count: sql`count(*)` }).from(products),
+        this.db.select({ count: sql`count(*)` }).from(retailers),
+        this.db.select({ count: sql`count(*)` }).from(priceAlerts)
       ]);
 
       return {
         totalUsers: Number(userCount[0]?.count || 0),
-        totalTopics: Number(topicCount[0]?.count || 0),
-        totalPosts: Number(postCount[0]?.count || 0),
-        totalCategories: Number(categoryCount[0]?.count || 0)
+        totalProducts: Number(productCount[0]?.count || 0),
+        totalRetailers: Number(retailerCount[0]?.count || 0),
+        totalAlerts: Number(alertCount[0]?.count || 0)
       };
     } catch (error) {
       this.handleError(error, 'getAdminAnalyticsOverview');
@@ -424,53 +423,6 @@ export class UserStorage extends BaseStorage {
       return result.map(row => ({ date: String(row.date), count: Number(row.count) }));
     } catch (error) {
       this.handleError(error, 'getUserGrowthData');
-    }
-  }
-
-  /**
-   * Get forum activity data (posts per day)
-   * Used for: Admin dashboard charts, engagement analytics
-   *
-   * @returns Array of {date, count} objects ordered by date
-   */
-  async getForumActivityData(): Promise<ForumActivityData[]> {
-    try {
-      const result = await this.db.select({
-        date: sql<string>`DATE(${forumPosts.createdAt})`.as('date'),
-        count: sql<number>`count(*)`.as('count')
-      })
-      .from(forumPosts)
-      .groupBy(sql`DATE(${forumPosts.createdAt})`)
-      .orderBy(sql`DATE(${forumPosts.createdAt})`);
-
-      return result.map(row => ({ date: String(row.date), count: Number(row.count) }));
-    } catch (error) {
-      this.handleError(error, 'getForumActivityData');
-    }
-  }
-
-  /**
-   * Get top forum categories by topic count
-   * Used for: Admin dashboard, category analytics
-   *
-   * @param limit - Maximum number of categories to return
-   * @returns Array of {categoryName, topicCount} objects ordered by topic count (descending)
-   */
-  async getTopCategories(limit: number): Promise<TopCategory[]> {
-    try {
-      const result = await this.db.select({
-        categoryName: forumCategories.name,
-        topicCount: sql<number>`count(${forumTopics.id})`.as('topicCount')
-      })
-      .from(forumCategories)
-      .leftJoin(forumTopics, eq(forumCategories.id, forumTopics.categoryId))
-      .groupBy(forumCategories.id, forumCategories.name)
-      .orderBy(sql`count(${forumTopics.id}) DESC`)
-      .limit(limit);
-
-      return result.map(row => ({ categoryName: row.categoryName, topicCount: Number(row.topicCount) }));
-    } catch (error) {
-      this.handleError(error, 'getTopCategories');
     }
   }
 }

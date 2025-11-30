@@ -1,19 +1,19 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, MessageSquare, Edit, PieChart as PieChartIcon, TrendingUp, Activity } from 'lucide-react';
+import { Users, Package, Store, Bell, TrendingUp, Activity } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import type { AnalyticsOverview, UserGrowthData, ForumActivityData, TopCategoryData } from '@shared/types';
+import type { AnalyticsOverview, UserGrowthData, ProductActivityData, TopCategoryData } from '@shared/types';
 
 interface AdminDashboardProps {
   overviewData?: AnalyticsOverview;
   userGrowthData: UserGrowthData[];
-  forumActivityData: ForumActivityData[];
+  productActivityData: ProductActivityData[];
   topCategoriesData: TopCategoryData[];
 }
 
 export function AdminDashboard({
   overviewData,
   userGrowthData,
-  forumActivityData,
+  productActivityData,
   topCategoriesData
 }: AdminDashboardProps) {
   return (
@@ -27,40 +27,40 @@ export function AdminDashboard({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overviewData?.totalUsers || 0}</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
+            <p className="text-xs text-muted-foreground">Registered users</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Forum Topics</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overviewData?.totalTopics || 0}</div>
-            <p className="text-xs text-muted-foreground">+8% from last month</p>
+            <div className="text-2xl font-bold">{overviewData?.totalProducts || 0}</div>
+            <p className="text-xs text-muted-foreground">Tracked products</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Forum Posts</CardTitle>
-            <Edit className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Retailers</CardTitle>
+            <Store className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overviewData?.totalPosts || 0}</div>
-            <p className="text-xs text-muted-foreground">+23% from last month</p>
+            <div className="text-2xl font-bold">{overviewData?.totalRetailers || 0}</div>
+            <p className="text-xs text-muted-foreground">Connected retailers</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Categories</CardTitle>
-            <PieChartIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Price Alerts</CardTitle>
+            <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overviewData?.totalCategories || 0}</div>
-            <p className="text-xs text-muted-foreground">+2 this month</p>
+            <div className="text-2xl font-bold">{overviewData?.totalAlerts || 0}</div>
+            <p className="text-xs text-muted-foreground">Active alerts</p>
           </CardContent>
         </Card>
       </div>
@@ -89,18 +89,18 @@ export function AdminDashboard({
           </CardContent>
         </Card>
 
-        {/* Forum Activity Chart */}
+        {/* Product Activity Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Forum Activity
+              Product Activity
             </CardTitle>
-            <CardDescription>Daily post creation activity</CardDescription>
+            <CardDescription>Daily product tracking activity</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={forumActivityData}>
+              <BarChart data={productActivityData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -116,10 +116,10 @@ export function AdminDashboard({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <PieChartIcon className="h-5 w-5" />
-            Most Active Categories
+            <Package className="h-5 w-5" />
+            Top Product Categories
           </CardTitle>
-          <CardDescription>Categories with the most topics</CardDescription>
+          <CardDescription>Categories with the most products</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -128,7 +128,7 @@ export function AdminDashboard({
               <XAxis type="number" />
               <YAxis type="category" dataKey="categoryName" width={120} />
               <Tooltip />
-              <Bar dataKey="topicCount" fill="hsl(var(--warning))" />
+              <Bar dataKey="productCount" fill="hsl(var(--warning))" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
