@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { Transporter } from 'nodemailer';
 
 /**
  * Email Service Test Suite
@@ -377,12 +376,12 @@ describe('Email Service', () => {
     it('should include timestamp of password change', async () => {
       const { emailService } = await import('../email-service');
 
-      const beforeTime = new Date();
+      const _beforeTime = new Date();
       await emailService.sendPasswordResetConfirmationEmail(
         'user@example.com',
         'TestUser'
       );
-      const afterTime = new Date();
+      const _afterTime = new Date();
 
       const emailCall = mockSendMail.mock.calls[0][0];
 

@@ -12,7 +12,6 @@
  * Phase 3B: Price & PriceHistory Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { db } from "../../db";
 import { eq, and, gte, lte, inArray, sql, desc, asc, isNotNull } from "drizzle-orm";
 import {
   priceHistory,

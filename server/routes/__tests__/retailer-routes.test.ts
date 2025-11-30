@@ -3,13 +3,12 @@ import request from 'supertest';
 import express, { type Express } from 'express';
 import session from 'express-session';
 import { db } from '../../db';
-import { users, retailers } from '@shared/schema';
+import { retailers } from '@shared/schema';
 import { passport } from '../../auth';
 import { registerRetailerRoutes } from '../retailer-routes';
 import { sql } from 'drizzle-orm';
 import {
   expectSuccessResponse,
-  expectErrorResponse,
 } from '../../__tests__/helpers/response-validators';
 
 /**
@@ -35,7 +34,8 @@ vi.mock('../../middleware/redis-cache', () => ({
 
 describe('Retailer Routes - Integration Tests', () => {
   let app: Express;
-  let testRetailerId: number;
+  // testRetailerId is assigned for potential future use in individual retailer tests
+  let _testRetailerId: number;
 
   beforeEach(async () => {
     // Set test environment
@@ -79,7 +79,7 @@ describe('Retailer Routes - Integration Tests', () => {
       commissionRate: '4.00',
       affiliateStatus: 'active',
     }).returning();
-    testRetailerId = retailer1.id;
+    _testRetailerId = retailer1.id;
 
     await db.insert(retailers).values([
       {

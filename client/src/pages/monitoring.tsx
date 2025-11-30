@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, AlertCircle, CheckCircle2, Database, Server, TrendingUp, AlertTriangle } from "lucide-react";
+import { Activity, AlertCircle, CheckCircle2, Database, Server, AlertTriangle } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import { createLogger } from "@/utils/logger";
 
@@ -97,7 +97,7 @@ interface Alert {
 export default function MonitoringDashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [_socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const { toast } = useToast();

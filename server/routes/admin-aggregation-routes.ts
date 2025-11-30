@@ -11,7 +11,6 @@ import { priceAggregationService } from '../services/price-aggregation-service';
 import { logger } from '../utils/logger';
 import { sendSuccess, sendErrorFromException } from '../utils/api-response';
 import { withAdmin } from './helpers';
-import { productIdSchema } from '../services/aggregation-validation';
 import { csrfProtection } from '../middleware/security';
 
 /**

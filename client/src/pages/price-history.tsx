@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +36,7 @@ export default function PriceHistoryPage() {
   // 1. Fetch the product first to get offers
   // 2. Allow user to select which offer to view
   // 3. Or show aggregated data across all offers
-  const [selectedOfferId, setSelectedOfferId] = useState<number | undefined>();
+  const [selectedOfferId, _setSelectedOfferId] = useState<number | undefined>();
 
   const { data: history, isLoading: historyLoading, error: historyError } = usePriceHistory(
     productId,
@@ -50,7 +50,7 @@ export default function PriceHistoryPage() {
     365
   );
 
-  const { data: snapshots, isLoading: snapshotsLoading } = usePriceSnapshots(
+  const { data: _snapshots, isLoading: snapshotsLoading } = usePriceSnapshots(
     productId,
     { startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) }
   );

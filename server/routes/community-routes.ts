@@ -1,5 +1,4 @@
-import type { Express, Request, Response } from "express";
-import { logger } from "../utils/logger";
+import type { Express } from "express";
 import * as communityService from "../services/community-service";
 import { parseIntSafe, parseIntOptional } from "../utils/validation-helpers";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";

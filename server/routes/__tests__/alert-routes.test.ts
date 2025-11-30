@@ -3,7 +3,7 @@ import request from 'supertest';
 import express, { type Express } from 'express';
 import session from 'express-session';
 import { db } from '../../db';
-import { users, products, retailers, priceAlerts } from '@shared/schema';
+import { products, retailers, priceAlerts } from '@shared/schema';
 import { passport } from '../../auth';
 import { registerAlertRoutes } from '../alert-routes';
 import { registerAuthRoutes } from '../auth-routes';

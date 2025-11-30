@@ -1,8 +1,8 @@
 import { BaseAgent } from './base-agent';
 import { dataExtractionAgent } from './extraction-agent';
 import { db } from '../db';
-import { productOffers, priceAlerts, products, retailers } from '@shared/schema';
-import { eq, lt, and, desc, gte, isNotNull, sql, count } from 'drizzle-orm';
+import { productOffers, priceAlerts } from '@shared/schema';
+import { eq, lt, desc, sql, count } from 'drizzle-orm';
 import { ScraperUtils } from '../utils/scraper-utils';
 import type { MonitoringTask, MonitoringStats } from './types';
 import { logger } from '../utils/logger';

@@ -9,7 +9,6 @@
  */
 
 import { Express } from 'express';
-import { advancedCache } from '../services/advanced-cache';
 import { popularityTracker } from '../services/popularity-tracker';
 import { cacheInvalidation } from '../services/cache-invalidation';
 import {

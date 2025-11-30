@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +18,7 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [_error, setError] = useState<string>('');
   const queryClient = useQueryClient();
 
   const loginMutation = useMutation<AuthResponse, Error, LoginFormData>({
@@ -153,7 +152,7 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [_error, setError] = useState<string>('');
   const queryClient = useQueryClient();
 
   const registerMutation = useMutation<AuthResponse, Error, RegisterFormData>({

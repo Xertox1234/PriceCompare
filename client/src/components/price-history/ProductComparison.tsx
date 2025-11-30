@@ -72,7 +72,7 @@ export function ProductComparison({
 
   // Add initial products
   useEffect(() => {
-    initialProducts.forEach((product) => {
+    initialProducts.forEach((_product) => {
       // This would call addProduct from the hook
       // For now, we'll handle it differently
     });
@@ -120,7 +120,7 @@ export function ProductComparison({
     }
     const allDataByDate = new Map<string, ChartDataPoint>();
 
-    products.forEach((product, productIndex) => {
+    products.forEach((product, _productIndex) => {
       const data = priceHistoryData[product.id] || [];
 
       data.forEach((item) => {
@@ -150,7 +150,7 @@ export function ProductComparison({
     return Array.from(allDataByDate.values())
       .sort((a, b) => a.timestamp - b.timestamp)
       .map((item) => {
-        const { timestamp, ...rest } = item;
+        const { timestamp: _timestamp, ...rest } = item;
         return rest;
       });
   };
@@ -265,7 +265,7 @@ export function ProductComparison({
             Price Insights
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {insights.map((insight, index) => {
+            {insights.map((insight, _index) => {
               if (!insight) return null;
 
               return (

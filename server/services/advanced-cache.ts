@@ -21,7 +21,7 @@
  */
 
 import type { Redis } from 'ioredis';
-import { getRedisClient, redisClient } from '../config/redis';
+import { redisClient } from '../config/redis';
 import { logger } from '../utils/logger';
 
 /**

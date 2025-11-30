@@ -6,8 +6,6 @@ import { requireAuth, requireAdmin } from '../auth';
 import { validateRequest } from '../validation';
 import {
   scrapingInitializeSchema,
-  scrapingSearchSchema,
-  paginationSchema,
   trendingProductsQuerySchema,
   productSearchQuerySchema,
   googleSearchQuerySchema,

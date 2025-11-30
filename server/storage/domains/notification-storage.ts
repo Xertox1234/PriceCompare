@@ -8,17 +8,14 @@
  * Phase 8A: Notification Service Migration (Extended)
  */
 
-import { db } from "../../db";
 import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
 import {
   notifications,
   notificationPreferences,
-  users,
   type Notification,
   type NotificationPreferences,
   type InsertNotification,
   type InsertNotificationPreferences,
-  type SafeUser
 } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
 import { getFirstResult } from "../../utils/db-helpers";

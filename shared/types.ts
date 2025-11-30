@@ -77,7 +77,7 @@ export interface QueryResult<T> {
 }
 
 // Mutation types
-export interface MutationOptions<TData, TVariables> {
+export interface MutationOptions<TData, _TVariables> {
   onSuccess?: (data: TData) => void;
   onError?: (error: Error) => void;
   onSettled?: () => void;

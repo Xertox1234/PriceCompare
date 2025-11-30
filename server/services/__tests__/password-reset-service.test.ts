@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../../db';
 import { users, passwordResetTokens } from '@shared/schema';
-import { sql, eq, and } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import {
   createPasswordResetToken,
@@ -200,7 +200,7 @@ describe.sequential('Password Reset Service', () => {
     it('should maintain atomicity - if token creation fails, old tokens remain', async () => {
       // This test verifies the transaction boundary
       // Create a token
-      const token = await createPasswordResetToken(testUserId);
+      const _token = await createPasswordResetToken(testUserId);
 
       // Verify token exists
       const tokensBefore = await db.query.passwordResetTokens.findMany({
@@ -433,7 +433,7 @@ describe.sequential('Password Reset Service', () => {
     });
 
     it('should return 0 when no expired tokens exist', async () => {
-      const validToken = await createPasswordResetToken(testUserId);
+      const _validToken = await createPasswordResetToken(testUserId);
 
       const deletedCount = await cleanupExpiredTokens();
 

@@ -20,7 +20,7 @@ import {
   waitForEvent,
   disconnectSockets,
   spyOnSocketEvent,
-  TEST_PORT,
+  TEST_PORT as _TEST_PORT,
 } from './test-utils';
 import { getSocketIO } from '../index';
 import { handleSocketError } from '../middleware/error-handler';
@@ -54,13 +54,13 @@ vi.mock('../../services/notification-service', () => ({
 }));
 
 describe('WebSocket Error Handling Tests', () => {
-  let app: Express;
+  let _app: Express;
   let httpServer: HTTPServer;
   let port: number;
 
   beforeAll(async () => {
     const server = await createTestServer();
-    app = server.app;
+    _app = server.app;
     httpServer = server.httpServer;
     port = server.port;
   });
@@ -136,7 +136,7 @@ describe('WebSocket Error Handling Tests', () => {
       try {
         await waitForEvent(client, 'connect');
 
-        const errorSpy = spyOnSocketEvent(client, 'error');
+        const _errorSpy = spyOnSocketEvent(client, 'error');
 
         // Mock an error by sending invalid data
         // Note: This tests the error handling middleware
@@ -345,7 +345,7 @@ describe('WebSocket Error Handling Tests', () => {
       try {
         await waitForEvent(client, 'connect');
 
-        const errorSpy = spyOnSocketEvent(client, 'error');
+        const _errorSpy = spyOnSocketEvent(client, 'error');
 
         // Send malformed data
         client.emit('price:subscribe' as any, {
@@ -395,7 +395,7 @@ describe('WebSocket Error Handling Tests', () => {
       try {
         await waitForEvent(client, 'connect');
 
-        const errorSpy = spyOnSocketEvent(client, 'error');
+        const _errorSpy = spyOnSocketEvent(client, 'error');
 
         // Spam subscription requests to trigger rate limit
         for (let i = 0; i < 15; i++) {

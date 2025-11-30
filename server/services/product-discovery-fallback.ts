@@ -1,5 +1,4 @@
 import { storage } from '../storage';
-import type { ProductCategoryCount, ProductSuggestion } from '../storage';
 import type { Product, ProductOffer, Retailer } from '@shared/schema';
 
 /** Product with offers from query result */

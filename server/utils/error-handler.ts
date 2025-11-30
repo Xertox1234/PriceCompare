@@ -201,7 +201,7 @@ export function errorHandlerMiddleware(
   error: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void {
   if (error instanceof AppError) {
     // Handle known application errors

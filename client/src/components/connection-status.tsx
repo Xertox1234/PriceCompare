@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useWebSocket } from '@/hooks/use-websocket';
 
 export function ConnectionStatus() {
-  const { connectionState, isConnected } = useWebSocket();
+  const { connectionState, isConnected: _isConnected } = useWebSocket();
 
   // Hide when connected - no need to show success state
   if (connectionState === 'connected') {

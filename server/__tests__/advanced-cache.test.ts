@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AdvancedCacheService, CacheTier, CachePrefix } from '../services/advanced-cache';
+import { AdvancedCacheService, CacheTier } from '../services/advanced-cache';
 
 // Mock Redis client
 vi.mock('../config/redis', () => ({

@@ -1,4 +1,4 @@
-import { X, Trash2, Star, TrendingDown, TrendingUp, ExternalLink } from 'lucide-react';
+import { X, Trash2, Star } from 'lucide-react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/context/shop-context';

@@ -1,4 +1,4 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { BaseAgent, AgentConfig } from './base-agent';
 import { db } from '../db';
 import { trendingProducts } from '../../shared/schema';
 import { eq, desc } from 'drizzle-orm';

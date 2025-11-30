@@ -7,13 +7,11 @@ import { useAlertAnalytics, useAlertEffectiveness, usePredictiveAlerts, Predicti
 import {
   Bell,
   TrendingDown,
-  TrendingUp,
   DollarSign,
   Clock,
   Target,
   Award,
   Sparkles,
-  AlertTriangle,
   Info,
 } from 'lucide-react';
 

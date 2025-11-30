@@ -3,7 +3,7 @@
  * Tests the validation logic added in Phase 1 of Storage Layer Improvement Roadmap
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { DatabaseStorage } from '../storage';
 
 describe('Storage Layer Validation Helpers', () => {

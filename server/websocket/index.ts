@@ -21,7 +21,6 @@ import type {
   AuthenticatedSocket,
   ServerToClientEvents,
   ClientToServerEvents,
-  RateLimitData,
 } from './types';
 
 /**
@@ -259,7 +258,7 @@ async function rateLimitMiddleware(
       }
     } else {
       // In-memory rate limiting (single server)
-      const now = Date.now();
+      const _now = Date.now();
       const currentCount = connectionCount.get(ip) || 0;
 
       if (currentCount >= RATE_LIMIT.MAX_CONNECTIONS_PER_MINUTE) {

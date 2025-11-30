@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAdvancedSearch } from "@/hooks/use-advanced-search";
 import { SearchFilters, SearchSuggestion } from "@shared/schema";
-import { cn } from "@/lib/utils";
 
 interface EnhancedSearchHeaderProps {
   onSearch: (query: string, filters?: SearchFilters) => void;
@@ -37,7 +36,7 @@ export function EnhancedSearchHeader({
     suggestionsLoading,
     analysisLoading,
     searchHistory,
-    quickSearch
+    quickSearch: _quickSearch
   } = useAdvancedSearch({ mode: searchMode, autoSearch: false });
 
   // Keyboard navigation

@@ -8,7 +8,7 @@ import { useComparison } from "@/hooks/use-comparison";
 import { SearchFilters } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Filter, X } from "lucide-react";
+import { Filter } from "lucide-react";
 
 export default function Products() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -20,10 +20,10 @@ export default function Products() {
     setFilters,
     search,
     products,
-    metadata,
+    metadata: _metadata,
     isLoading,
     error,
-    isSearching,
+    isSearching: _isSearching,
     autoSearchResults,
     defaultProductsQuery,
   } = useEnhancedProductsSearch({

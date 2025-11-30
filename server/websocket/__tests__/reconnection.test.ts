@@ -11,13 +11,12 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Server as HTTPServer } from 'http';
 import type { Express } from 'express';
-import { io as ioClient, Socket as ClientSocket } from 'socket.io-client';
+import { io as ioClient } from 'socket.io-client';
 import {
   createTestServer,
   closeTestServer,
   waitForEvent,
   waitForCondition,
-  TEST_PORT,
 } from './test-utils';
 import { getSocketIO, shutdownWebSocket } from '../index';
 
@@ -36,13 +35,13 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 describe('WebSocket Reconnection Tests', () => {
-  let app: Express;
+  let _app: Express;
   let httpServer: HTTPServer;
   let port: number;
 
   beforeAll(async () => {
     const server = await createTestServer();
-    app = server.app;
+    _app = server.app;
     httpServer = server.httpServer;
     port = server.port;
   });

@@ -1,10 +1,8 @@
 import { Express, Request, Response } from 'express';
-import { logger } from "../utils/logger";
 import { storage } from '../storage';
 import { requireAuth, requireAdmin } from '../auth';
 import { validateRequest } from '../validation';
 import {
-  affiliateConfigUpdateSchema,
   idParamSchema,
 } from '../validation/admin-schemas';
 import { z } from 'zod';

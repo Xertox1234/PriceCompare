@@ -84,7 +84,7 @@ export class AffiliateLinkService {
   private async transformUrl(
     retailer: Retailer,
     productUrl: string,
-    metadata?: Record<string, unknown>
+    _metadata?: Record<string, unknown>
   ): Promise<string | null> {
     const config = this.parseAffiliateConfig(retailer.affiliateConfig);
     const productId = this.extractProductId(retailer.name.toLowerCase(), productUrl);

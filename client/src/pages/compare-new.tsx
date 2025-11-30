@@ -4,7 +4,7 @@ import { ChevronRight, X, ShoppingCart, BarChart2, Check, Star, Trash2, Plus, Ex
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
 import { CartSidebar } from '@/components/template/cart-sidebar';
-import { CartModal, MobileMenu, SearchModal } from '@/components/template/modals';
+import { MobileMenu, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

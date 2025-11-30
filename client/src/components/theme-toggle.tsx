@@ -11,7 +11,7 @@ import {
 import { useTheme } from './theme-provider';
 
 export function ThemeToggle() {
-  const { theme, contrastMode, setTheme, setContrastMode, resolvedTheme } = useTheme();
+  const { theme, contrastMode, setTheme, setContrastMode, resolvedTheme: _resolvedTheme } = useTheme();
 
   return (
     <DropdownMenu>

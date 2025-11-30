@@ -53,14 +53,12 @@ import express, { type Express } from 'express';
 import session from 'express-session';
 import { db } from '../../db';
 import { users, products, retailers, type Product, type Retailer } from '@shared/schema';
-import { eq, sql } from 'drizzle-orm';
 import { registerAdminAggregationRoutes } from '../admin-aggregation-routes';
 import { registerAdminRoutes } from '../admin-routes';
 import { registerMonitoringRoutes } from '../monitoring-routes';
 import { priceAggregationService } from '../../services/price-aggregation-service';
 import { monitoringService } from '../../services/monitoring-service';
 import { alertService } from '../../services/alert-service';
-import { csrfProtection } from '../../middleware/security';
 import { logSecurityEvent } from '../../utils/security-logger';
 import * as crypto from 'crypto';
 
@@ -156,7 +154,7 @@ describe('CSRF Protection', () => {
 
     // Create admin user
     // SECURITY: NEVER expose passwordHash in queries - this is test setup only
-    const [admin] = await db
+    const [_admin] = await db
       .insert(users)
       .values({
         username: 'admin',

@@ -1,9 +1,8 @@
 import { Express, Request, Response } from 'express';
-import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { csrfProtection } from '../middleware/security';
 import { z } from 'zod';
-import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
+import { parseIntSafe } from '../utils/validation-helpers';
 import {
   recordPriceChange,
   getPriceHistory,
@@ -13,7 +12,7 @@ import {
   detectSignificantPriceDrops,
   cleanupOldPriceHistory
 } from '../services/price-history-service';
-import { withAuth, withAdmin } from './helpers';
+import { withAdmin } from './helpers';
 import type { AuthenticatedRequest } from '@shared/types';
 
 // Validation schemas

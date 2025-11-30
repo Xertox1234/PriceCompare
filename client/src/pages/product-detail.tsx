@@ -29,7 +29,6 @@ import { cn } from '@/lib/utils';
 import {
   bestSellerProducts,
   dealOfTheDayProducts,
-  type TemplateProduct
 } from '@/data/template-data';
 
 // Mock product data with more details

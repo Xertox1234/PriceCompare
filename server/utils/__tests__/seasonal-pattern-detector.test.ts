@@ -237,7 +237,7 @@ describe('seasonal-pattern-detector', () => {
     });
 
     it('should return advice when data is available', () => {
-      const currentMonth = new Date().getMonth();
+      const _currentMonth = new Date().getMonth();
       const data = createMonthlyData(12, 100, 20);
       const analysis = detectSeasonalPatterns(data);
 

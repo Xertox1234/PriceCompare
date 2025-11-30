@@ -8,7 +8,7 @@
  * Related to: https://github.com/Xertox1234/PriceCompare/issues/55
  */
 import { describe, test, expect } from 'vitest';
-import { inArray, sql } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 
 /**
  * These tests verify that Drizzle ORM's inArray() helper properly

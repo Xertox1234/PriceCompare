@@ -278,7 +278,7 @@ export class GoogleCustomSearchService {
 
     return scoredResults
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .map(({ relevanceScore, ...result }) => result);
+      .map(({ relevanceScore: _relevanceScore, ...result }) => result);
   }
 
   private calculateRelevanceScore(result: GoogleSearchResult, queryWords: string[]): number {

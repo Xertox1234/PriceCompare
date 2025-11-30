@@ -6,7 +6,6 @@ import { agentSessions, scrapingJobs } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import type {
   AgentSession,
-  InsertAgentSession,
   ScrapingJob,
   InsertScrapingJob
 } from '../../shared/schema';

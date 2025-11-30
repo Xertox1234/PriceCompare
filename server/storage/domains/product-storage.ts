@@ -11,7 +11,6 @@
  * Phase 3A: Core Product Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { db } from "../../db";
 import { eq, and, gte, lte, inArray, sql, desc, asc, like } from "drizzle-orm";
 import {
   retailers,
@@ -26,9 +25,6 @@ import {
   type ProductWithOffers
 } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
-import type {
-  AffiliateLinkStats,
-} from "../types";
 
 /**
  * ProductStorage - Domain repository for product operations

@@ -1,5 +1,4 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { logger } from "../utils/logger";
 import { z } from "zod";
 import * as notificationService from "../services/notification-service";
 import { csrfProtection } from "../middleware/security";

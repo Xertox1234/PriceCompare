@@ -15,7 +15,6 @@ import {
   initializeCacheJobs,
   startCacheMaintenanceJobs,
 } from './jobs/cache-maintenance-jobs';
-import { cacheInvalidation } from './services/cache-invalidation';
 import { logger } from './utils/logger';
 import type { Express } from 'express';
 

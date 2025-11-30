@@ -8,7 +8,6 @@ import { passport } from '../auth';
 import { registerWatchListRoutes } from '../routes/watchlist-routes';
 import { registerAuthRoutes } from '../routes/auth-routes';
 import { sql } from 'drizzle-orm';
-import { csrfProtection } from '../middleware/security';
 import {
   expectSuccessResponse,
   expectErrorResponse,

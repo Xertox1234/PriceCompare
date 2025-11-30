@@ -60,13 +60,13 @@ async function measureLatency(operation: () => Promise<void>): Promise<number> {
 }
 
 describe('WebSocket Load Tests', () => {
-  let app: Express;
+  let _app: Express;
   let httpServer: HTTPServer;
   let port: number;
 
   beforeAll(async () => {
     const server = await createTestServer();
-    app = server.app;
+    _app = server.app;
     httpServer = server.httpServer;
     port = server.port;
   });

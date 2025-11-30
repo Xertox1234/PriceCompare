@@ -4,7 +4,6 @@ import { withAdmin } from "./helpers";
 import { insertProductSchema, insertRetailerSchema } from "@shared/schema";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { getPerformanceStats, getSlowestEndpoints } from "../middleware/performance";
-import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { csrfProtection } from "../middleware/security";
 

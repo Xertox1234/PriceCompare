@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { X, Trash2, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import type { ProductWithOffers } from "@shared/schema";
 import { MAX_COMPARISON_ITEMS } from "@/lib/constants";
 import { useLocation } from "wouter";

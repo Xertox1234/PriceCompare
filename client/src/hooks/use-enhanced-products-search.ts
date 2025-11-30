@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SearchFilters, ProductWithOffers } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
@@ -113,7 +113,7 @@ export function useEnhancedProductsSearch({
         data
       );
     },
-    onError: (error) => {
+    onError: (_error) => {
       // Error is handled by React Query and displayed via UI
       // Additional error reporting could be added here if needed
     }

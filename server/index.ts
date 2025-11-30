@@ -7,7 +7,7 @@ import { initializeSentry, sentryRequestHandler, sentryTracingHandler, sentryErr
 // Initialize Sentry error monitoring
 initializeSentry();
 
-import express, { type Request, Response, NextFunction } from "express";
+import express from "express";
 import compression from "compression";
 import session from "express-session";
 import { registerRoutes } from "./routes";
@@ -15,15 +15,15 @@ import { setupVite, serveStatic, log } from "./vite";
 import { websocketService } from "./services/websocket-service";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
-import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrfToken, csrfProtection } from "./middleware/security";
+import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrfToken } from "./middleware/security";
 import { createRateLimiter as redisRateLimiter } from "./middleware/redis-rate-limiter";
-import { performanceMonitoring, getPerformanceStats, getSlowestEndpoints } from "./middleware/performance";
+import { performanceMonitoring } from "./middleware/performance";
 import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
 import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-limits";
 import { initializeRedis, getRedisSessionClient, closeRedis } from "./config/redis";
 import { createSessionStore } from "./config/session-store";
 import { cleanupExpiredTokens } from "./services/password-reset-service";
-import { initializePriceSnapshotScheduler, triggerManualSnapshot } from "./jobs/price-snapshot-queue";
+import { initializePriceSnapshotScheduler } from "./jobs/price-snapshot-queue";
 import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
 import { startPriceAnalyticsJobs } from "./jobs/price-analytics-jobs";
 import { startPriceAggregationJobs } from "./jobs/price-aggregation-job";

@@ -1,16 +1,16 @@
 import { useState, useMemo } from 'react';
-import { useLocation, useSearch } from 'wouter';
+import { useSearch } from 'wouter';
 import { ChevronRight, ChevronDown, Star, X, SlidersHorizontal, Grid3X3, LayoutList, ChevronLeft, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
 import { ProductCard, type ProductData } from '@/components/template/product-card';
-import { CartModal, MobileMenu, CompareModal, SearchModal, QuickviewModal } from '@/components/template/modals';
+import { MobileMenu, CompareModal, SearchModal, QuickviewModal } from '@/components/template/modals';
 import { CartSidebar } from '@/components/template/cart-sidebar';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { cn } from '@/lib/utils';
 import { useProducts } from '@/hooks/use-products';
-import { useRetailers, transformProduct } from '@/hooks/use-home-data';
+import { transformProduct } from '@/hooks/use-home-data';
 import { categories } from '@/data/template-data';
 
 // Filter options
@@ -48,7 +48,7 @@ interface Filters {
 }
 
 function ProductsContent() {
-  const { toggleWishlist, isInWishlist, toggleCompare, openCart, isCartOpen, closeCart } = useShop();
+  const { toggleWishlist, isInWishlist, toggleCompare, openCart, isCartOpen: _isCartOpen, closeCart: _closeCart } = useShop();
   const searchParams = useSearch();
   const urlParams = new URLSearchParams(searchParams);
   const initialCategory = urlParams.get('category');

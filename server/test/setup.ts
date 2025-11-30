@@ -7,7 +7,7 @@
  * - Global mocks and utilities
  */
 
-import { beforeAll, afterAll, vi } from 'vitest';
+import { beforeAll, afterAll } from 'vitest';
 
 // Set up required environment variables for tests BEFORE any imports
 // Encryption is now handled via NODE_ENV='test' check in schema.ts (no-op encryption)

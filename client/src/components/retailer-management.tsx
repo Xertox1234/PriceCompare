@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+// Textarea import removed - not currently used
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -13,7 +13,6 @@ import {
   Store,
   Plus,
   Edit,
-  Trash2,
   Search,
   Globe,
   Key,
@@ -78,7 +77,7 @@ export function RetailerManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
+  const [_selectedRetailer, _setSelectedRetailer] = useState<Retailer | null>(null);
 
   // Debounce search query for better performance
   const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.STANDARD);
@@ -105,7 +104,7 @@ export function RetailerManagement() {
   });
 
   // Fetch retailer capabilities
-  const { data: capabilities = [], isLoading: capabilitiesLoading } = useQuery({
+  const { data: _capabilities = [], isLoading: _capabilitiesLoading } = useQuery({
     queryKey: ['/api/hybrid/retailers/capabilities'],
     enabled: true
   });
@@ -204,7 +203,7 @@ export function RetailerManagement() {
     testConnectionMutation.mutate(retailerId);
   };
 
-  const handleSwitchSource = (retailerId: number, source: string) => {
+  const _handleSwitchSource = (retailerId: number, source: string) => {
     switchSourceMutation.mutate({ retailerId, source });
   };
 

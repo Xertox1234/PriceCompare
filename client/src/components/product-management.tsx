@@ -15,8 +15,6 @@ import {
   Edit,
   Trash2,
   Search,
-  DollarSign,
-  Star,
   Eye,
   Filter,
   Download,

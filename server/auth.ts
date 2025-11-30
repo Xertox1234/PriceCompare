@@ -4,16 +4,13 @@ import bcrypt from 'bcrypt';
 import type { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { users } from '../shared/schema';
-import { sharedUsers } from '../shared/auth-schema';
 import { eq, sql } from 'drizzle-orm';
 import type { User as DatabaseUser } from '../shared/schema';
-import type { SharedUser } from '../shared/auth-schema';
 import {
   recordFailedLoginAsync,
   clearFailedLoginsAsync,
   isAccountLockedAsync,
 } from './middleware/account-lockout';
-import { logSecurityEvent, SecurityEventType } from './utils/security-logger';
 import { sendError } from './utils/api-response';
 
 // Export the User type for use elsewhere

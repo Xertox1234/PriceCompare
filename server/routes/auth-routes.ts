@@ -4,7 +4,7 @@ import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
 import * as schema from "@shared/schema";
-import { passport, createUser, findUserByEmail, findUserById, hashPassword, User, SafeUser } from "../auth";
+import { passport, findUserByEmail, findUserById, hashPassword, User, SafeUser } from "../auth";
 import { generateCsrfToken, csrfProtection } from "../middleware/security";
 import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
 import { logger } from "../utils/logger";
@@ -13,7 +13,6 @@ import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-res
 import {
   createPasswordResetToken,
   validatePasswordResetToken,
-  markTokenAsUsed,
   getUserByResetToken,
   isRateLimitExceeded
 } from "../services/password-reset-service";

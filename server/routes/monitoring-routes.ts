@@ -2,7 +2,6 @@ import type { Express, Request, Response } from "express";
 import { requireAuth, requireAdmin } from '../auth';
 import { monitoringService } from '../services/monitoring-service';
 import { alertService } from '../services/alert-service';
-import { logger } from '../utils/logger';
 import { parseIntOptional } from '../utils/validation-helpers';
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { csrfProtection } from "../middleware/security";

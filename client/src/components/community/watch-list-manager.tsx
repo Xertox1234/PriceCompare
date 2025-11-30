@@ -9,7 +9,7 @@ import {
   useWatchListProducts,
   useBulkRemoveProductWatches,
 } from '@/hooks/use-community';
-import { Plus, FolderOpen, Trash2 } from 'lucide-react';
+import { Plus, FolderOpen } from 'lucide-react';
 import { WatchListCard } from './watch-list-card';
 import { WatchListProductCard } from './watch-list-product-card';
 import { CreateWatchListDialog } from './create-watch-list-dialog';
@@ -24,7 +24,7 @@ export function WatchListManager() {
   const { toast } = useToast();
 
   const watchLists = watchListsData?.data || [];
-  const selectedList = watchLists.find(list => list.id === selectedListId);
+  const _selectedList = watchLists.find(list => list.id === selectedListId);
 
   // Auto-select first list if none selected
   if (!selectedListId && watchLists.length > 0 && !isLoading) {
@@ -186,7 +186,7 @@ export function WatchListManager() {
                           onSelectAll={handleSelectAll}
                           onClearSelection={handleClearSelection}
                           onDelete={handleBulkDelete}
-                          onMove={(targetListId) => {
+                          onMove={(_targetListId) => {
                             // Will be implemented via BulkActionToolbar
                           }}
                           watchLists={watchLists}

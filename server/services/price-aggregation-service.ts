@@ -57,20 +57,15 @@ import {
   priceAggregatesWeekly,
   priceAggregatesMonthly,
   priceAggregatesDaily,
-  products,
-  retailers
 } from "../../shared/schema";
-import { eq, and, gte, lte, lt, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import {
   validatePricesArray,
   validateProductRetailer,
-  validateNotFutureDate,
   validateReasonableDateRange,
   dateRangeSchema,
   productIdSchema,
-  AggregationError,
   ValidationError,
-  DataQualityError,
 } from "./aggregation-validation";
 import {
   retryWithBackoff,
@@ -90,7 +85,7 @@ function filterNullish<T>(array: (T | null | undefined)[]): T[] {
 // AGGREGATION TYPES AND HELPERS
 // ============================================================================
 
-type PeriodType = 'daily' | 'weekly' | 'monthly';
+type _PeriodType = 'daily' | 'weekly' | 'monthly';
 
 interface PriceDataRow {
   productId: number | null;

@@ -59,7 +59,7 @@ export function aggregatePriceData(
   // Aggregate each retailer's data
   const aggregated: PriceDataPoint[] = [];
 
-  retailerGroups.forEach((points, retailerId) => {
+  retailerGroups.forEach((points, _retailerId) => {
     const grouped = new Map<string, PriceDataPoint[]>();
 
     points.forEach((point) => {

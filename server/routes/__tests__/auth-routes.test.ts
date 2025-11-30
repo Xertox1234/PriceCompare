@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock dependencies before imports
 vi.mock('../../services/email-service', () => ({
@@ -52,7 +52,7 @@ import { registerAuthRoutes } from '../auth-routes';
 import { emailService } from '../../services/email-service';
 import { resetFailedAttempts } from '../../middleware/account-lockout';
 import { eq, sql } from 'drizzle-orm';
-import * as crypto from 'crypto';
+import * as _crypto from 'crypto';
 import {
   expectSuccessResponse,
   expectErrorResponse,

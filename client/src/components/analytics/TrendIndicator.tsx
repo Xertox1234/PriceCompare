@@ -23,7 +23,7 @@ export function TrendIndicator({ trend, showDetails = false, className }: TrendI
     }
   };
 
-  const getTrendBadgeVariant = (direction: string) => {
+  const _getTrendBadgeVariant = (direction: string) => {
     switch (direction) {
       case "uptrend":
         return "destructive";

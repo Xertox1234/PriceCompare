@@ -4,7 +4,7 @@
  * Comprehensive tests for server-side XSS prevention and input sanitization
  * using isomorphic-dompurify for context-aware HTML sanitization.
  */
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import {
   sanitizeString,
   sanitizeObject,

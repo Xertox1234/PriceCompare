@@ -1,21 +1,17 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { BaseAgent, AgentConfig } from './base-agent';
 import { ProductDiscoveryAgent } from './discovery-agent';
 import { SearchOrchestrationAgent } from './search-agent';
-import { DataExtractionAgent } from './extraction-agent';
-import { PriceMonitoringAgent } from './monitoring-agent';
 // TODO: Migrate to storage layer - direct db access violates architecture pattern (see CLAUDE.md)
 import { db } from '../db';
 import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema';
 import { eq, and, lt } from 'drizzle-orm';
 import type {
   ScrapingJob,
-  InsertScrapingJob,
   TrendingProduct,
   InsertProduct,
-  InsertProductOffer,
   Product
 } from '../../shared/schema';
-import type { CoordinatorTask, SystemStatus, TrendData } from './types';
+import type { SystemStatus, TrendData } from './types';
 import { logger } from '../utils/logger';
 import { jobLockService } from '../services/job-lock-service';
 
@@ -321,7 +317,7 @@ export class CoordinationAgent extends BaseAgent {
     await db.insert(scrapingJobs).values(jobData);
   }
 
-  private async runFullCycle(params: Record<string, unknown>): Promise<void> {
+  private async runFullCycle(_params: Record<string, unknown>): Promise<void> {
     logger.info('Starting full scraping cycle...');
 
     // Step 1: Discover trends

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush, ReferenceLine, ReferenceArea } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush, ReferenceLine } from "recharts";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -159,7 +159,7 @@ export function PriceHistoryChart({
   const chartData = Array.from(dataByDate.values())
     .sort((a, b) => a.timestamp - b.timestamp)
     .map((item) => {
-      const { timestamp, ...rest } = item;
+      const { timestamp: _timestamp, ...rest } = item;
       return rest;
     });
 

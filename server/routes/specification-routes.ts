@@ -7,7 +7,7 @@
 import type { Express } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
-import { withAuth, withAdmin } from './helpers';
+import { withAdmin } from './helpers';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { csrfProtection } from '../middleware/security';
 import { parseIntSafe } from '../utils/validation-helpers';

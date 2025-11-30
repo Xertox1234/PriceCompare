@@ -142,7 +142,7 @@ function analyzeDropPattern(
   const prices = history.map(h => parseFloat(h.price));
   const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
   const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
+  const _maxPrice = Math.max(...prices);
 
   // Clearance: dropped below previous minimum significantly
   if (newPrice < minPrice * 0.85) {
@@ -283,7 +283,7 @@ export async function createPriceDropNotification(
  */
 export async function getUsersToNotify(
   productId: number,
-  dropPercentage: number
+  _dropPercentage: number
 ): Promise<number[]> {
   // For now, get all users with active alerts for this product
   // In the future, this would also check user preferences

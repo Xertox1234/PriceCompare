@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 import {
   cleanDatabase,
   registerUser,
-  loginUser,
+  loginUser as _loginUser,
   waitForApiResponse,
   generateTestEmail,
   generateTestUsername,

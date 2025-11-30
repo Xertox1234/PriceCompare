@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { TrendingDown, TrendingUp, Minus, Info } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { usePriceStats } from "@/hooks/use-price-history";

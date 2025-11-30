@@ -1,5 +1,4 @@
 import type { Express, Request, Response } from "express";
-import { logger } from "../utils/logger";
 import { z } from "zod";
 import * as smartAlertsService from "../services/smart-alerts-service";
 import { parseIntSafe, parseFloatSafe } from "../utils/validation-helpers";

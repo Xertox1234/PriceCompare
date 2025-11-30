@@ -3,10 +3,10 @@ import request from 'supertest';
 import express, { type Express } from 'express';
 import session from 'express-session';
 import { db } from '../../db';
-import { users, products, retailers, productOffers, priceHistory } from '@shared/schema';
+import { products, retailers, productOffers, priceHistory } from '@shared/schema';
 import { passport } from '../../auth';
 import { registerProductRoutes } from '../product-routes';
-import { sql, eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import {
   expectSuccessResponse,
   expectErrorResponse,

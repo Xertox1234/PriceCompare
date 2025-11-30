@@ -340,7 +340,7 @@ function calculateDealData(history: DealCalculationHistory[], stats: DealCalcula
   const priceData = history.map(h => parseFloat(h.price));
   const avgPrice = priceData.reduce((sum, p) => sum + p, 0) / priceData.length;
 
-  history.forEach((entry, index) => {
+  history.forEach((entry, _index) => {
     const price = parseFloat(entry.price);
     const originalPrice = entry.originalPrice ? parseFloat(entry.originalPrice) : null;
     const dateValue = entry.recordedAt || entry.createdAt || new Date();

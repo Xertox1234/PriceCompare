@@ -342,7 +342,7 @@ function generateBuyRecommendation(stats: LocalPriceStats | undefined, history: 
   const currentPrice = stats.currentPrice;
   const lowestPrice = stats.lowestPrice;
   const averagePrice = stats.averagePrice;
-  const highestPrice = stats.highestPrice;
+  const _highestPrice = stats.highestPrice;
 
   const percentOfLowest = (currentPrice / lowestPrice - 1) * 100;
   const percentOfAverage = (currentPrice / averagePrice - 1) * 100;

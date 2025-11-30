@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'wouter';
-import { ChevronRight, X, ShoppingCart, Trash2, Check, Heart, Bell, TrendingDown, TrendingUp, Minus, ExternalLink } from 'lucide-react';
+import { ChevronRight, X, ShoppingCart, Check, Heart, Bell, TrendingDown, Minus, ExternalLink } from 'lucide-react';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
 import { CartSidebar } from '@/components/template/cart-sidebar';
-import { CartModal, MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
+import { MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,7 +19,7 @@ function WishlistContent() {
     toggleWishlist,
     addSimpleToCart,
     openCart,
-    isCartOpen,
+    isCartOpen: _isCartOpen,
     isInCart,
   } = useShop();
 

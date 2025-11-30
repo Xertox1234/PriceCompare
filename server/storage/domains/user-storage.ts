@@ -12,7 +12,6 @@
  * Phase 2: User Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { db } from "../../db";
 import { eq, sql } from "drizzle-orm";
 import { users, notifications, passwordResetTokens, products, retailers, priceAlerts } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
@@ -21,7 +20,6 @@ import type {
   AdminUser,
   AdminAnalyticsOverview,
   UserGrowthData,
-  TopCategory,
 } from "../types";
 import { retryWithBackoff, isTransientDatabaseError } from "../../utils/retry-with-backoff";
 import { USER_CONSTANTS } from "../../utils/constants";

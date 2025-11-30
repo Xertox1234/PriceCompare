@@ -1,9 +1,9 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { BaseAgent, AgentConfig } from './base-agent';
 import { affiliateLinkService } from '../services/affiliate-link-service';
 import { db } from '../db';
 import { productOffers, retailers } from '../../shared/schema';
 import { eq, and, isNull, lt } from 'drizzle-orm';
-import type { ProductOffer, Retailer } from '../../shared/schema';
+import type { ProductOffer, Retailer as _Retailer } from '../../shared/schema';
 import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types';
 import { logger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
@@ -285,7 +285,7 @@ export class AffiliateLinkAgent extends BaseAgent {
    * Update affiliate link for a single offer
    */
   private async updateSingleOffer(params: AffiliateLinkTask): Promise<UpdateOfferResult | ProcessOfferResult> {
-    const { offerId, retailerId, productUrl, forceRegenerate } = params;
+    const { offerId, retailerId: _retailerId, productUrl: _productUrl, forceRegenerate } = params;
 
     const [offer] = await db.select()
       .from(productOffers)

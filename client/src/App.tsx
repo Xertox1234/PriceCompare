@@ -17,7 +17,6 @@ import Products from "@/pages/products";
 import ProductsNew from "@/pages/products-new";
 import WishlistNew from "@/pages/wishlist-new";
 import CompareNew from "@/pages/compare-new";
-import ComparisonPage from "@/pages/comparison";
 import MonitoringDashboard from "@/pages/monitoring";
 import PriceWatch from "@/pages/price-watch";
 import NotificationsPage from "@/pages/notifications";

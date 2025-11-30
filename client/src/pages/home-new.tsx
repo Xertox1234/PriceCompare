@@ -42,7 +42,7 @@ function HomeNewContent() {
   const [quickviewProduct, setQuickviewProduct] = useState<ProductData | null>(null);
 
   // Fetch real data from API
-  const { products, isLoading, error } = useHomePageData();
+  const { products, isLoading, error: _error } = useHomePageData();
 
   // Add watchlist status to products
   const addWatchlistStatus = (productList: typeof products.all) =>

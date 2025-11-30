@@ -249,7 +249,7 @@ export function registerAdvancedSearchRoutes(app: Express): void {
    */
   app.get("/api/search/facets", async (req: Request, res: Response) => {
     try {
-      const query = req.query.query as string;
+      const _query = req.query.query as string;
       
       // This would typically aggregate from search results
       // For now, return common facets

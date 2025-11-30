@@ -20,7 +20,6 @@ import { MobileMenu, CompareModal, SearchModal } from '@/components/template/mod
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import {
   bestSellerProducts,
   type TemplateProduct,

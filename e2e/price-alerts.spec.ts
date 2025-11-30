@@ -8,7 +8,7 @@ import {
   cleanDatabase,
   registerUser,
   waitForApiResponse,
-  waitForToast,
+  waitForToast as _waitForToast,
   generateTestEmail,
   generateTestUsername,
 } from './helpers';

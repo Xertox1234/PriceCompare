@@ -288,7 +288,7 @@ describe('Encryption Utilities (GDPR Compliance)', () => {
         notificationContent: 'You have a new notification',
       };
 
-      Object.entries(piiFields).forEach(([field, value]) => {
+      Object.entries(piiFields).forEach(([_field, value]) => {
         const encrypted = encrypt(value);
         const decrypted = decrypt(encrypted);
 

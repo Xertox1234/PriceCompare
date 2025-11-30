@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import express, { type Express } from 'express';
 import session from 'express-session';
 import request from 'supertest';
-import { csrfProtection, generateCsrfToken, attachCsrfToken } from '../security';
+import { csrfProtection, attachCsrfToken } from '../security';
 
 /**
  * CSRF Protection Middleware Test Suite

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { TrendingUp, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube, Linkedin, Send, CreditCard, Shield, Truck, Clock } from 'lucide-react';
+import { TrendingUp, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube, Linkedin, CreditCard, Shield, Truck, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 export function TemplateFooter() {
   const currentYear = new Date().getFullYear();

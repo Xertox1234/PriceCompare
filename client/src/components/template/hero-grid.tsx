@@ -123,7 +123,7 @@ export function HeroGrid({
   }, [isPaused, handleNext]);
 
   // The active slide is always the second item (index 1) due to the animation pattern
-  const activeSlide = items[1] || items[0];
+  const _activeSlide = items[1] || items[0];
 
   return (
     <section className="py-5">

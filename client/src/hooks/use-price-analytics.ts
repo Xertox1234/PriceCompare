@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import type { UseQueryOptions } from "@tanstack/react-query";
 
 // Types for analytics data
 export interface WeeklyAggregate {

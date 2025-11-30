@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Filter, Sparkles, TrendingUp, Target, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
 import { useDebounce } from '@/hooks/use-debounce';
 import type { ProductWithOffers, SearchFilters, SearchSuggestion, QueryAnalysis } from '@shared/schema';

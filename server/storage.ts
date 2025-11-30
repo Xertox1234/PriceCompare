@@ -1,10 +1,10 @@
-import { retailers, products, productOffers, priceHistory, watchLists, productWatches, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceAggregatesDaily, priceSnapshots, priceTrends, jobLocks, notifications, notificationPreferences, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertWatchList, type InsertProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type User, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertWishlistItem, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
-import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchedProductInfo, WatchListStats } from './storage/types';
+import { retailers, products, productOffers, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
+import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchListStats } from './storage/types';
 import { db } from "./db";
-import { eq, and, gte, lte, lt, inArray, sql, desc, asc, isNull, isNotNull, or, like, count } from "drizzle-orm";
+import { eq, and, gte, lt, inArray, sql, desc, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
 import { logger } from "./utils/logger";
-import { USER_CONSTANTS, PRODUCT_CONSTANTS, JOB_LOCK_CONSTANTS, ALERT_CONSTANTS } from "./utils/constants";
+import { USER_CONSTANTS, PRODUCT_CONSTANTS } from "./utils/constants";
 import { UserStorage } from "./storage/domains/user-storage";
 import { ProductStorage } from "./storage/domains/product-storage";
 import { PriceStorage } from "./storage/domains/price-storage";
@@ -784,14 +784,16 @@ export class MemStorage implements IStorage {
             return (a.bestPrice || 0) - (b.bestPrice || 0);
           case "price_high":
             return (b.bestPrice || 0) - (a.bestPrice || 0);
-          case "rating":
+          case "rating": {
             const aRating = Math.max(...a.offers.map(offer => parseFloat(offer.rating || "0")));
             const bRating = Math.max(...b.offers.map(offer => parseFloat(offer.rating || "0")));
             return bRating - aRating;
-          case "popularity":
+          }
+          case "popularity": {
             const aReviews = Math.max(...a.offers.map(offer => offer.reviewCount || 0));
             const bReviews = Math.max(...b.offers.map(offer => offer.reviewCount || 0));
             return bReviews - aReviews;
+          }
           default:
             return 0;
         }

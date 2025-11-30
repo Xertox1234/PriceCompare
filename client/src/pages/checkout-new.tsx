@@ -13,7 +13,6 @@ import {
   Home,
   Building2,
   Check,
-  ChevronDown,
 } from 'lucide-react';
 import { TemplateHeader, TemplateFooter } from '@/components/template';
 import { CartSidebar } from '@/components/template/cart-sidebar';

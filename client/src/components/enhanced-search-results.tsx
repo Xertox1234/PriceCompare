@@ -1,10 +1,9 @@
 import { useState, memo, useMemo, useCallback } from 'react';
 import { Star, TrendingUp, Zap, Search, Target, Hash } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { LazyImage } from './optimized/lazy-image';
 import type { ProductWithOffers } from '@shared/schema';
 

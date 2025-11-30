@@ -1,6 +1,4 @@
 import { storage } from "../storage";
-import { notifications, products, productOffers, priceHistory } from "../../shared/schema";
-import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { getRedisClient } from "../config/redis";
 import { createNotification, getUserPreferences } from "./notification-service";
 import { websocketService } from "./websocket-service";
@@ -209,7 +207,7 @@ function isInQuietHours(currentHour: number, start: number, end: number): boolea
 /**
  * Get count of smart notifications sent today
  */
-async function getSmartNotificationCount(userId: number, period: 'today'): Promise<number> {
+async function getSmartNotificationCount(userId: number, _period: 'today'): Promise<number> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

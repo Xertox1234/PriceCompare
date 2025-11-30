@@ -196,7 +196,7 @@ describe('SeasonalPatterns', () => {
     });
 
     it('should mark best season', () => {
-      const { container } = render(<SeasonalPatterns data={mockDataWithPattern} />);
+      const { container: _container } = render(<SeasonalPatterns data={mockDataWithPattern} />);
       const bestBadge = screen.getByText('Best');
       expect(bestBadge).toBeInTheDocument();
     });

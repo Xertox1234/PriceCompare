@@ -44,7 +44,7 @@ export function errorHandler(
   err: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) {
   // Log the error
   logError(err, req);
@@ -108,7 +108,7 @@ export function asyncHandler(
  * 404 Not Found handler
  * Should be placed before error handler middleware
  */
-export function notFoundHandler(req: Request, res: Response, next: NextFunction) {
+export function notFoundHandler(req: Request, res: Response, _next: NextFunction) {
   res.status(404).json({
     success: false,
     error: 'Route not found',

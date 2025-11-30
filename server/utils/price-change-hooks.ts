@@ -79,7 +79,7 @@ export async function onProductOfferPriceChange(
  * @param productOfferId - ID of the product offer
  * @param newPrice - The new price
  */
-async function checkAndNotifyPriceAlerts(productOfferId: number, newPrice: number): Promise<void> {
+async function _checkAndNotifyPriceAlerts(productOfferId: number, newPrice: number): Promise<void> {
   try {
     // Get the product ID from the offer
     const [offer] = await db

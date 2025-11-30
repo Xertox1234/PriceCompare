@@ -5,7 +5,7 @@ import { ScraperUtils } from '../utils/scraper-utils';
 import { db } from '../db';
 import { products, productOffers, retailers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import type { ExtractedProductData, ExtractionTask, TaskResult } from './types';
+import type { ExtractedProductData, ExtractionTask } from './types';
 import { logger } from '../utils/logger';
 import type { AxiosResponse } from 'axios';
 

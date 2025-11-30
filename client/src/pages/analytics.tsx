@@ -1,4 +1,4 @@
-import { useState } from "react";
+// React hooks
 import { useRoute, Link } from "wouter";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +39,7 @@ export default function AnalyticsPage() {
 
   const { data: trends, isLoading: trendsLoading, error: trendsError } = useProductTrends(productId);
 
-  const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview();
+  const { data: overview, isLoading: _overviewLoading } = useAnalyticsOverview();
 
   const isLoading = weeklyLoading || monthlyLoading || trendsLoading;
   const hasError = weeklyError || monthlyError || trendsError;

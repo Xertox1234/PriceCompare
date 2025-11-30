@@ -2,8 +2,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Thumbs, FreeMode } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
 import {
   Flame,
@@ -11,7 +9,6 @@ import {
   Eye,
   GitCompare,
   ShoppingCart,
-  ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type ProductData } from './product-card';
@@ -98,7 +95,7 @@ function FeaturedDealCard({
   onCompare?: (product: ProductData) => void;
   onQuickView?: (product: ProductData) => void;
 }) {
-  const [thumbsSwiper, setThumbsSwiper] = useState<SwiperType | null>(null);
+  const [_thumbsSwiper, _setThumbsSwiper] = useState<SwiperType | null>(null);
   const [activeImage, setActiveImage] = useState(0);
 
   // Generate images array from product data

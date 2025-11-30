@@ -5,7 +5,7 @@ import { test as setup } from '@playwright/test';
  * Runs once before all tests
  */
 
-const authFile = '.auth/user.json';
+const _authFile = '.auth/user.json';
 
 setup('authenticate', async ({ page }) => {
   // This is an example setup for authenticated tests

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Search, Home, User, LogOut, Bell, Settings, Menu, X, ExternalLink } from 'lucide-react';
+import { Search, Home, User, LogOut, Bell, Settings, Menu } from 'lucide-react';
 import { useAuth, useLogout } from '@/hooks/use-auth';
 import { useState } from 'react';
 import { AuthModal } from './auth/auth-modal';
@@ -13,7 +13,7 @@ interface SharedNavigationProps {
   currentPage?: 'home' | 'admin' | 'price-watch';
 }
 
-export function SharedNavigation({ currentPage = 'home' }: SharedNavigationProps) {
+export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedNavigationProps) {
   const { data: user, isLoading } = useAuth();
   const logoutMutation = useLogout();
   const [showAuthModal, setShowAuthModal] = useState(false);

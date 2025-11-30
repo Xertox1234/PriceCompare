@@ -9,10 +9,9 @@
  * - Price alert flow
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Server as HTTPServer } from 'http';
 import type { Express } from 'express';
-import type { Socket as ClientSocket } from 'socket.io-client';
 import {
   createTestServer,
   closeTestServer,
@@ -20,7 +19,6 @@ import {
   waitForEvent,
   disconnectSockets,
   spyOnSocketEvent,
-  emitServerEvent,
 } from './test-utils';
 import { getSocketIO } from '../index';
 import { emitWatchListUpdate, emitProductAdded, emitProductRemoved } from '../handlers/watch-list-handler';
@@ -51,13 +49,13 @@ vi.mock('../../services/notification-service', () => ({
 }));
 
 describe('WebSocket Integration Tests', () => {
-  let app: Express;
+  let _app: Express;
   let httpServer: HTTPServer;
   let port: number;
 
   beforeAll(async () => {
     const server = await createTestServer();
-    app = server.app;
+    _app = server.app;
     httpServer = server.httpServer;
     port = server.port;
   });

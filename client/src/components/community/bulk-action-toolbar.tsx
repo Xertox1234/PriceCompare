@@ -39,7 +39,7 @@ export function BulkActionToolbar({
   onSelectAll,
   onClearSelection,
   onDelete,
-  onMove,
+  onMove: _onMove,
   watchLists,
   currentListId,
 }: BulkActionToolbarProps) {

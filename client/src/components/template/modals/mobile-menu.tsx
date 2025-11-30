@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { X, ChevronRight, ChevronDown, Home, Package, Tag, Users, Mail, Search, Heart, User } from 'lucide-react';
+import { X, ChevronDown, Home, Package, Tag, Users, Mail, Search, Heart, User } from 'lucide-react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/context/shop-context';
 import { cn } from '@/lib/utils';
-import { menuItems, categories } from '@/data/template-data';
+import { categories } from '@/data/template-data';
 
 interface MobileMenuProps {
   isOpen: boolean;

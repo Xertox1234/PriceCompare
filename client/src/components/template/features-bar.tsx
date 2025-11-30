@@ -1,4 +1,4 @@
-import { TrendingDown, Bell, Shield, Clock, Headphones, RefreshCw } from 'lucide-react';
+import { TrendingDown, Bell, Shield, Headphones, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Feature {
@@ -101,7 +101,7 @@ function FeatureItem({ icon: Icon, title, description }: Feature) {
   );
 }
 
-function FeatureCompact({ icon: Icon, title, description }: Feature) {
+function FeatureCompact({ icon: Icon, title, description: _description }: Feature) {
   return (
     <div className="flex items-center gap-3 whitespace-nowrap">
       <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-lg flex items-center justify-center">

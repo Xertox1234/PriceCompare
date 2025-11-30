@@ -4,8 +4,7 @@
  * Tests the getRateLimitForUser() function with different user roles
  * and validates tier constant definitions.
  */
-import { describe, it, expect, vi } from 'vitest';
-import { Request } from 'express';
+import { describe, it, expect } from 'vitest';
 import { RATE_LIMIT_TIERS } from '../../utils/constants';
 
 // Import the internal function for testing (we'll need to export it or use type assertion)
@@ -168,7 +167,7 @@ describe('getRateLimitForUser logic (indirect testing)', () => {
     });
 
     it('should normalize role case sensitivity', () => {
-      const roles = ['ADMIN', 'Admin', 'admin', 'AdMiN'];
+      const _roles = ['ADMIN', 'Admin', 'admin', 'AdMiN'];
       // All should be treated as 'admin' tier
       const expectedLimit = 100 * RATE_LIMIT_TIERS.admin.multiplier;
       expect(expectedLimit).toBe(10000);

@@ -3,14 +3,14 @@
  *
  * Tests user registration, login, logout, and password management
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   cleanDatabase,
   registerUser,
   loginUser,
   logoutUser,
   waitForApiResponse,
-  waitForToast,
+  waitForToast as _waitForToast,
   isLoggedIn,
   generateTestEmail,
   generateTestUsername,

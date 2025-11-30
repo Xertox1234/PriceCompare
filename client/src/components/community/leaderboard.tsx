@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLeaderboard } from '@/hooks/use-community';
-import { Trophy, Medal, Award, TrendingUp, Users, Info } from 'lucide-react';
+import { Trophy, Medal, Award, TrendingUp, Info } from 'lucide-react';
 
 interface LeaderboardProps {
   limit?: number;

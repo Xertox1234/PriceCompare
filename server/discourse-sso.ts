@@ -13,7 +13,7 @@ const log = createLogger('DiscourseSSO');
 // SECURITY: These values are required for SSO to function securely
 // Never use default values for SSO secrets in production
 const DISCOURSE_SSO_SECRET = getRequiredEnv('DISCOURSE_SSO_SECRET');
-const DISCOURSE_URL = getOptionalEnv('DISCOURSE_URL', 'http://localhost:3000');
+const _DISCOURSE_URL = getOptionalEnv('DISCOURSE_URL', 'http://localhost:3000');
 
 /**
  * Generate Discourse SSO payload and signature

@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
+import { getRedisClient, REDIS_KEYS } from '../config/redis';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';

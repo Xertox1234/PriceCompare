@@ -9,7 +9,6 @@ import {
   assertPaginatedResponse,
   validateSuccessResponse,
   validatePaginatedResponse,
-  type SuccessResponse,
   type ErrorResponse,
   type PaginatedResponse,
 } from '../../utils/api-response-schemas';

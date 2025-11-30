@@ -135,7 +135,7 @@ declare global {
 
 const CSRF_TOKEN_LENGTH = 32;
 // SECURITY: Required for secure CSRF token generation - never use fallback values
-const CSRF_SECRET = getRequiredEnv('CSRF_SECRET');
+const _CSRF_SECRET = getRequiredEnv('CSRF_SECRET');
 
 /**
  * List of public endpoints that don't require CSRF protection

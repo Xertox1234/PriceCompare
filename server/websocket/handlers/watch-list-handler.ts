@@ -12,7 +12,7 @@
 import type { Server } from 'socket.io';
 import type { AuthenticatedSocket } from '../types';
 import { checkRateLimit } from '../middleware/rate-limit';
-import { handleSocketError, withErrorHandling } from '../middleware/error-handler';
+import { withErrorHandling } from '../middleware/error-handler';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('WebSocket:WatchList');

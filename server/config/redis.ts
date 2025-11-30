@@ -180,7 +180,7 @@ export const REDIS_KEYS = {
  * Mock Redis client for when Redis is not available
  * Provides same interface but stores in memory
  */
-class InMemoryRedis {
+class _InMemoryRedis {
   private store = new Map<string, { value: string; expiry: number | null }>();
 
   async get(key: string): Promise<string | null> {

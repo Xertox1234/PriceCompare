@@ -1,9 +1,9 @@
-import { BaseAgent, AgentConfig, TaskResult } from './base-agent';
+import { BaseAgent, AgentConfig } from './base-agent';
 import { db } from '../db';
-import { searchQueries, trendingProducts } from '../../shared/schema';
+import { searchQueries } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
-import type { InsertSearchQuery, TrendingProduct } from '../../shared/schema';
-import type { SearchTaskData, SearchResult, RetailerConfig as RetailerConfigType } from './types';
+import type { InsertSearchQuery } from '../../shared/schema';
+import type { SearchTaskData, SearchResult } from './types';
 import OpenAI from 'openai';
 import { googleSearchService } from '../services/google-search';
 import type { GoogleSearchResult } from '../services/google-search';
@@ -294,7 +294,7 @@ OUTPUT CONSTRAINTS:
   private async searchRetailer(
     query: string, 
     retailerName: string, 
-    config: RetailerConfig
+    _config: RetailerConfig
   ): Promise<SearchResult[]> {
     try {
       if (!googleSearchService.isConfigured()) {

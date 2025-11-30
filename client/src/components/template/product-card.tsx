@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link } from 'wouter';
-import { Heart, BarChart2, Eye, TrendingDown, TrendingUp, Minus, Star, ExternalLink } from 'lucide-react';
+import { Heart, BarChart2, Eye, TrendingDown, TrendingUp, Minus, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -90,7 +90,7 @@ export function ProductCard({
     return () => clearTimeout(timeoutId);
   }, [hasHoverImage]);
 
-  const currentImage = showHoverImage && product.hoverImage ? product.hoverImage : product.image;
+  const _currentImage = showHoverImage && product.hoverImage ? product.hoverImage : product.image;
 
   // Default variant - Expandable card style
   return (
@@ -309,7 +309,7 @@ function HorizontalProductCard({ product, onWatchlist, className }: Omit<Product
   );
 }
 
-function CompactProductCard({ product, onWatchlist, className }: Omit<ProductCardProps, 'variant'>) {
+function CompactProductCard({ product, onWatchlist: _onWatchlist, className }: Omit<ProductCardProps, 'variant'>) {
   return (
     <Link href={`/product/${product.id}`}>
       <div className={cn(

@@ -48,7 +48,7 @@ function formatTimeUntilReset(resetTimestamp: number): string {
  */
 export function RateLimitBanner() {
   const rateLimit = useRateLimit();
-  const { data: user } = useAuth();
+  const { data: _user } = useAuth();
   const [isDismissed, setIsDismissed] = useState(false);
   const [countdown, setCountdown] = useState('');
 

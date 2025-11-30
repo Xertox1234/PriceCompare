@@ -94,7 +94,7 @@ export async function generateSmartThresholdSuggestions(
 
   const prices = history.map(h => parseFloat(h.price));
   const lowestPrice = Math.min(...prices);
-  const highestPrice = Math.max(...prices);
+  const _highestPrice = Math.max(...prices);
   const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
 
   // Suggestion 1: Historical Low (if current price > lowest)

@@ -16,17 +16,17 @@ interface AdvancedSearchResult {
 }
 
 export function AdvancedSearchPage() {
-  const [selectedProduct, setSelectedProduct] = useState<ProductWithOffers | null>(null);
+  const [_selectedProduct, setSelectedProduct] = useState<ProductWithOffers | null>(null);
   const [searchResults, setSearchResults] = useState<AdvancedSearchResult[]>([]);
 
   const {
     query,
     setQuery,
-    filters,
-    setFilters,
-    search,
-    suggestions,
-    analysis,
+    filters: _filters,
+    setFilters: _setFilters,
+    search: _search,
+    suggestions: _suggestions,
+    analysis: _analysis,
     results,
     metadata,
     isSearching,
