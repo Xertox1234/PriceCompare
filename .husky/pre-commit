@@ -1,9 +1,23 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-echo "🔒 Running pre-commit security checks..."
+echo "🔍 Running TypeScript type check..."
+npm run type-check || {
+  echo ""
+  echo "❌ TypeScript type check failed. Please fix the errors above."
+  echo "   To bypass (NOT RECOMMENDED): git commit --no-verify"
+  exit 1
+}
 
-# Run security checks
+echo "📝 Running lint-staged..."
+npx lint-staged || {
+  echo ""
+  echo "❌ Linting failed. Please fix the errors above."
+  echo "   To bypass (NOT RECOMMENDED): git commit --no-verify"
+  exit 1
+}
+
+echo "🔒 Running pre-commit security checks..."
 npm run security:check || {
   echo ""
   echo "❌ Security checks failed. Please fix the issues above before committing."

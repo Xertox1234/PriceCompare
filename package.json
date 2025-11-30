@@ -8,9 +8,11 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
+    "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --reporter=verbose --coverage",
     "test:ai": "vitest run server/ai/__tests__",
     "test:security": "vitest run server/__tests__/security",
     "test:e2e": "playwright test",
@@ -29,6 +31,15 @@
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false npx eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "lint:security": "eslint --config eslint.security.config.mjs server/**/*.ts",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -166,6 +177,7 @@
     "drizzle-kit": "^0.31.7",
     "esbuild": "^0.27.0",
     "eslint": "^8.57.1",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.7.1",
     "supertest": "^7.1.4",
