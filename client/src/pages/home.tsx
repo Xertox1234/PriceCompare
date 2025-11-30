@@ -15,6 +15,9 @@ import {
   getProductsByPriceRange,
   MockProduct,
 } from '@/lib/mock-deals';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('Home');
 
 /**
  * Home Page - "Busy Hub" Experience
@@ -46,7 +49,7 @@ export default function Home() {
   // Handle watchlist toggle for all carousels
   const handleWatchlist = useCallback((product: MockProduct) => {
     // Toggle watchlist status - integrates with actual watchlist state in future
-    console.info(`Toggled watchlist for product: ${product.id}`);
+    log.info(`Toggled watchlist for product: ${product.id}`);
   }, []);
 
   // Handle category change from pills bar

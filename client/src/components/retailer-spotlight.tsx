@@ -1,6 +1,9 @@
 import { memo, useCallback, useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('RetailerSpotlight');
 import { Card } from '@/components/ui/card';
 import { ProductDealCard } from './product-deal-card';
 import { getProductsByRetailer, retailers, MockProduct } from '@/lib/mock-deals';
@@ -132,7 +135,7 @@ export const RetailerSpotlight = memo(({
 
   // Handle watchlist toggle
   const handleWatchlist = useCallback((product: MockProduct) => {
-    console.info(`Toggled watchlist for product: ${product.id}`);
+    log.info(`Toggled watchlist for product: ${product.id}`);
   }, []);
 
   // Don't render if no products available

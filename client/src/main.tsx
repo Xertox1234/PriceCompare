@@ -5,6 +5,9 @@ import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./index.css";
 import "./styles/mobile-optimizations.css";
+import { createLogger } from "@/utils/logger";
+
+const log = createLogger('Main');
 
 /**
  * Sentry Error Monitoring Initialization
@@ -16,7 +19,7 @@ const environment = import.meta.env.MODE; // 'development' or 'production'
 const isProduction = environment === 'production';
 
 if (dsn) {
-  console.log(`🔍 Initializing Sentry error monitoring (${environment})...`);
+  log.info(`Initializing Sentry error monitoring (${environment})...`);
 
   Sentry.init({
     dsn,
@@ -94,13 +97,13 @@ if (dsn) {
     maxBreadcrumbs: 50,
   });
 
-  console.log('✅ Sentry initialized successfully');
+  log.info('Sentry initialized successfully');
 } else {
   if (isProduction) {
-    console.warn('⚠️  WARNING: VITE_SENTRY_DSN not configured in production!');
-    console.warn('   Frontend error tracking is disabled.');
+    log.warn('WARNING: VITE_SENTRY_DSN not configured in production!');
+    log.warn('Frontend error tracking is disabled.');
   } else {
-    console.log('ℹ️  Sentry not configured (VITE_SENTRY_DSN missing) - error tracking disabled');
+    log.info('Sentry not configured (VITE_SENTRY_DSN missing) - error tracking disabled');
   }
 }
 

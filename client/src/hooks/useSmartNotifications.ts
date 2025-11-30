@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { toast } from '@/hooks/use-toast';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('SmartNotifications');
 
 /**
  * Smart Notification Interface
@@ -175,16 +178,16 @@ export function useRealtimeNotifications() {
     // Connection event handlers
     socketInstance.on('connect', () => {
       setIsConnected(true);
-      console.log('WebSocket connected');
+      log.info('WebSocket connected');
     });
 
     socketInstance.on('disconnect', () => {
       setIsConnected(false);
-      console.log('WebSocket disconnected');
+      log.info('WebSocket disconnected');
     });
 
     socketInstance.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
+      log.error(`WebSocket connection error: ${error.message}`);
       setIsConnected(false);
     });
 

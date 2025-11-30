@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('ShopContext');
 import type { TemplateProduct } from '@/data/template-data';
 
 // =============================================================================
@@ -247,7 +250,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'LOAD_STATE', payload: parsed });
       }
     } catch (error) {
-      console.error('Failed to load shop state:', error);
+      log.error('Failed to load shop state', { error: error instanceof Error ? error.message : String(error) });
     }
   }, []);
 
@@ -256,7 +259,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
-      console.error('Failed to save shop state:', error);
+      log.error('Failed to save shop state', { error: error instanceof Error ? error.message : String(error) });
     }
   }, [state]);
 

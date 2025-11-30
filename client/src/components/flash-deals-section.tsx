@@ -3,6 +3,9 @@ import { ProductCarousel } from './product-carousel';
 import { ProductDealCard } from './product-deal-card';
 import { getFlashDeals, MockProduct } from '@/lib/mock-deals';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('FlashDeals');
 
 // ============================================================================
 // Type Definitions
@@ -39,7 +42,7 @@ export const FlashDealsSection = memo(({
   // Handle watchlist toggle
   const handleWatchlist = useCallback((product: MockProduct) => {
     // Toggle watchlist status - would integrate with actual watchlist state
-    console.info(`Toggled watchlist for product: ${product.id}`);
+    log.info(`Toggled watchlist for product: ${product.id}`);
   }, []);
 
   // Don't render if no flash deals available

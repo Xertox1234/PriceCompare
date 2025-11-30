@@ -3,6 +3,9 @@ import {
   type PriceHistory,
   type InsertNotification
 } from "@shared/schema";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger('PriceDropDetection');
 
 /**
  * Price Drop Detection Service
@@ -242,7 +245,7 @@ export async function checkPriceAlertsForDrop(
         }
       } catch (error) {
         // Don't fail the operation if WebSocket emit fails
-        console.error('Failed to emit price alert event:', error);
+        logger.error('Failed to emit price alert event', { error: String(error) });
       }
     }
 

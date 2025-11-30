@@ -47,7 +47,7 @@ function playNotificationSound() {
     oscillator.stop(audioContext.currentTime + 0.1);
   } catch (error) {
     // Silent fail - notification sounds are nice-to-have
-    console.debug('Could not play notification sound:', error);
+    // No logging needed for this expected edge case
   }
 }
 

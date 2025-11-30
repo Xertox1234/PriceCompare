@@ -16,6 +16,9 @@
 
 import { io, Socket } from 'socket.io-client';
 import type { ServerToClientEvents, ClientToServerEvents } from '@shared/websocket-types';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('WebSocketClient');
 
 // Connection states
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -66,23 +69,23 @@ export class WebSocketClient {
 
       // Connection successful
       this.socket.on('connect', () => {
-        console.log('✅ WebSocket connected');
+        log.info('WebSocket connected');
         this.reconnectAttempts = 0; // Reset reconnect counter
         this.setConnectionState('connected');
       });
 
       // Handle authenticated event from server
       this.socket.on('authenticated', (data) => {
-        console.log(`🔐 WebSocket authenticated for user ${data.userId}`);
+        log.info(`WebSocket authenticated for user ${data.userId}`);
       });
 
       // Connection error
       this.socket.on('connect_error', (error) => {
-        console.error('❌ WebSocket connection error:', error.message);
+        log.error(`WebSocket connection error: ${error.message}`);
 
         // Handle authentication errors (401)
         if (error.message.includes('401') || error.message.includes('unauthorized')) {
-          console.warn('⚠️  WebSocket authentication failed - user may not be logged in');
+          log.warn('WebSocket authentication failed - user may not be logged in');
           this.disconnect(); // Don't retry on auth errors
           return;
         }
@@ -93,7 +96,7 @@ export class WebSocketClient {
 
       // Disconnection (server-initiated or network issue)
       this.socket.on('disconnect', (reason) => {
-        console.warn('⚠️  WebSocket disconnected:', reason);
+        log.warn(`WebSocket disconnected: ${reason}`);
 
         // Don't reconnect if intentional disconnect or server initiated
         if (this.isIntentionalDisconnect || reason === 'io server disconnect') {
@@ -105,11 +108,11 @@ export class WebSocketClient {
 
       // Server error event
       this.socket.on('error', (data) => {
-        console.error('❌ WebSocket server error:', data.message, data.details);
+        log.error(`WebSocket server error: ${data.message}`, { details: data.details });
       });
 
     } catch (error) {
-      console.error('❌ Failed to create WebSocket connection:', error);
+      log.error('Failed to create WebSocket connection', { error: error instanceof Error ? error.message : String(error) });
       this.handleDisconnect();
     }
   }
@@ -146,7 +149,7 @@ export class WebSocketClient {
     handler: ServerToClientEvents[E]
   ): void {
     if (!this.socket) {
-      console.warn(`⚠️  Cannot subscribe to '${String(event)}' - socket not connected`);
+      log.warn(`Cannot subscribe to '${String(event)}' - socket not connected`);
       return;
     }
 
@@ -190,7 +193,7 @@ export class WebSocketClient {
     ...args: Parameters<ClientToServerEvents[E]>
   ): void {
     if (!this.socket || !this.socket.connected) {
-      console.warn(`⚠️  Cannot emit '${String(event)}' - socket not connected`);
+      log.warn(`Cannot emit '${String(event)}' - socket not connected`);
       return;
     }
 
@@ -240,7 +243,7 @@ export class WebSocketClient {
 
     // Check if we've exceeded max reconnect attempts
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('❌ Max reconnection attempts reached. Giving up.');
+      log.error('Max reconnection attempts reached. Giving up.');
       this.setConnectionState('disconnected');
       return;
     }
@@ -261,7 +264,7 @@ export class WebSocketClient {
       30000 // Maximum 30 seconds
     );
 
-    console.log(`🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
+    log.info(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++;
@@ -274,7 +277,7 @@ export class WebSocketClient {
    * @private
    */
   private handleOnline(): void {
-    console.log('🌐 Network online - reconnecting WebSocket...');
+    log.info('Network online - reconnecting WebSocket...');
     this.reconnectAttempts = 0; // Reset counter on network restore
 
     if (!this.socket?.connected && !this.isIntentionalDisconnect) {
@@ -287,7 +290,7 @@ export class WebSocketClient {
    * @private
    */
   private handleOffline(): void {
-    console.warn('📡 Network offline - WebSocket connection lost');
+    log.warn('Network offline - WebSocket connection lost');
     this.setConnectionState('disconnected');
   }
 
@@ -301,14 +304,14 @@ export class WebSocketClient {
     }
 
     this.connectionState = state;
-    console.log(`📡 WebSocket state: ${state}`);
+    log.debug(`WebSocket state: ${state}`);
 
     // Notify all listeners
     this.stateListeners.forEach(listener => {
       try {
         listener(state);
       } catch (error) {
-        console.error('Error in state listener:', error);
+        log.error('Error in state listener', { error: error instanceof Error ? error.message : String(error) });
       }
     });
   }

@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, ApiError } from '@/lib/queryClient';
 import type { User } from '@shared/schema';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('Auth');
 
 /**
  * Fetch the currently authenticated user
@@ -38,16 +41,16 @@ export function useAuth() {
             return null;
           }
           // Log unexpected API errors for debugging
-          console.warn('Auth check failed with unexpected status:', {
+          log.warn('Auth check failed with unexpected status', {
             status: error.status,
             message: error.message,
             details: error.details,
           });
         } else if (error instanceof Error) {
           // Log network or other errors
-          console.warn('Auth check failed:', error.message);
+          log.warn(`Auth check failed: ${error.message}`);
         } else {
-          console.warn('Auth check failed with unknown error:', error);
+          log.warn('Auth check failed with unknown error', { error: String(error) });
         }
 
         // Re-throw unexpected errors so React Query can retry
