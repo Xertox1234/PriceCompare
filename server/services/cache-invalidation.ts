@@ -259,7 +259,7 @@ export class CacheInvalidationService {
     }
     const subscriber = redisClient.duplicate();
 
-    subscriber.subscribe(this.INVALIDATION_CHANNEL, (err) => {
+    void subscriber.subscribe(this.INVALIDATION_CHANNEL, (err) => {
       if (err) {
         logger.error('Failed to subscribe to invalidation events:', { error: err.message });
       } else {

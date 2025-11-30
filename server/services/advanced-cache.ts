@@ -519,7 +519,7 @@ export class AdvancedCacheService {
     const redis = this.getRedis();
     this.subscriber = redis.duplicate();
 
-    this.subscriber.subscribe(this.PUBSUB_CHANNEL, (err) => {
+    void this.subscriber.subscribe(this.PUBSUB_CHANNEL, (err) => {
       if (err) {
         logger.error('Failed to subscribe to cache invalidations:', { error: err instanceof Error ? err.message : String(err) });
       } else {

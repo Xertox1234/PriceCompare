@@ -133,22 +133,22 @@ export function stopPriceAggregationJobs(): void {
   logger.info('Stopping price aggregation scheduled jobs...');
 
   if (dailyAggregationJob) {
-    dailyAggregationJob.stop();
+    void dailyAggregationJob.stop();
     dailyAggregationJob = null;
   }
 
   if (weeklyAggregationJob) {
-    weeklyAggregationJob.stop();
+    void weeklyAggregationJob.stop();
     weeklyAggregationJob = null;
   }
 
   if (monthlyAggregationJob) {
-    monthlyAggregationJob.stop();
+    void monthlyAggregationJob.stop();
     monthlyAggregationJob = null;
   }
 
   if (cleanupJob) {
-    cleanupJob.stop();
+    void cleanupJob.stop();
     cleanupJob = null;
   }
 

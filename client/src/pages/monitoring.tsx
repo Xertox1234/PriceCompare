@@ -103,8 +103,8 @@ export default function MonitoringDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch initial metrics
-    fetchMetrics();
+    // Fetch initial metrics (fire-and-forget)
+    void fetchMetrics();
 
     // Connect to WebSocket
     const socketInstance = io(window.location.origin, {

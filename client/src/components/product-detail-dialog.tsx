@@ -51,7 +51,7 @@ export function ProductDetailDialog({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
     },
   });
 

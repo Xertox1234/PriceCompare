@@ -47,7 +47,7 @@ export function registerNotificationHandlers(socket: AuthenticatedSocket): void 
 
       // Join notification room
       const notificationRoom = `notifications:${socket.userId}`;
-      socket.join(notificationRoom);
+      void socket.join(notificationRoom);
 
       log.info('Client subscribed to notifications', {
         userId: socket.userId,
@@ -85,7 +85,7 @@ export function registerNotificationHandlers(socket: AuthenticatedSocket): void 
     'notification:unsubscribe',
     withErrorHandling(socket, 'notification:unsubscribe', async () => {
       const notificationRoom = `notifications:${socket.userId}`;
-      socket.leave(notificationRoom);
+      void socket.leave(notificationRoom);
 
       log.info('Client unsubscribed from notifications', {
         userId: socket.userId,

@@ -118,8 +118,8 @@ export function RetailerManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/retailers'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/hybrid/status'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/admin/retailers'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/hybrid/status'] });
       setShowCreateForm(false);
       setNewRetailer({
         name: "",
@@ -178,7 +178,7 @@ export function RetailerManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/retailers'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/admin/retailers'] });
       toast({
         title: "Data Source Updated",
         description: "Retailer data source has been switched successfully.",

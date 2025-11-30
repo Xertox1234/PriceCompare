@@ -79,12 +79,12 @@ class WebSocketService {
         clientIP: socket.handshake.address
       });
 
-      // Send initial metrics immediately
-      this.sendMetricsToClient(socket);
+      // Send initial metrics immediately (fire-and-forget)
+      void this.sendMetricsToClient(socket);
 
       // Handle client events
       socket.on('request:metrics', () => {
-        this.sendMetricsToClient(socket);
+        void this.sendMetricsToClient(socket);
       });
 
       socket.on('request:errors', () => {

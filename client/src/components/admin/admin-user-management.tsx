@@ -33,7 +33,7 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       toast({ title: 'User role updated successfully!' });
     },
     onError: () => {

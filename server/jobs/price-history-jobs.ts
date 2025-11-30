@@ -74,12 +74,12 @@ export function stopPriceHistoryJobs(): void {
   logger.info('Stopping price history scheduled jobs...');
 
   if (snapshotJob) {
-    snapshotJob.stop();
+    void snapshotJob.stop();
     snapshotJob = null;
   }
 
   if (cleanupJob) {
-    cleanupJob.stop();
+    void cleanupJob.stop();
     cleanupJob = null;
   }
 

@@ -89,7 +89,7 @@ export function registerPriceUpdateHandlers(socket: AuthenticatedSocket): void {
       const rooms: string[] = [];
       validIds.forEach((productId) => {
         const room = `price:${productId}`;
-        socket.join(room);
+        void socket.join(room);
         rooms.push(room);
         currentSubscriptions.add(productId);
       });
@@ -134,7 +134,7 @@ export function registerPriceUpdateHandlers(socket: AuthenticatedSocket): void {
       productIds.forEach((productId) => {
         if (typeof productId === 'number' && productId > 0) {
           const room = `price:${productId}`;
-          socket.leave(room);
+          void socket.leave(room);
           currentSubscriptions.delete(productId);
         }
       });

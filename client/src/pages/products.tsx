@@ -50,9 +50,9 @@ export default function Products() {
   // Retry handler for error states
   const handleRetry = useCallback(() => {
     if (query.trim()) {
-      autoSearchResults.refetch();
+      void autoSearchResults.refetch();
     } else {
-      defaultProductsQuery.refetch();
+      void defaultProductsQuery.refetch();
     }
   }, [query, autoSearchResults, defaultProductsQuery]);
 

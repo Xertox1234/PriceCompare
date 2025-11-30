@@ -19,7 +19,7 @@ export const priceSnapshotQueue = typeof redisConfig === 'string'
 
 // Process price snapshot jobs with explicit concurrency limit
 // Concurrency of 5 balances throughput with resource usage
-priceSnapshotQueue.process(5, async (job) => {
+void priceSnapshotQueue.process(5, async (job) => {
   logger.info(`[PriceSnapshotQueue] Processing job ${job.id} at ${new Date().toISOString()}`);
 
   try {

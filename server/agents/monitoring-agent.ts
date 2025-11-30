@@ -386,17 +386,17 @@ export class PriceMonitoringAgent extends BaseAgent {
     
     // Schedule price change monitoring
     setTimeout(() => {
-      this.processTask({ action: 'monitor_price_changes', maxAge: 12 });
+      void this.processTask({ action: 'monitor_price_changes', maxAge: 12 });
     }, 1000);
 
     // Schedule alert checking
     setTimeout(() => {
-      this.processTask({ action: 'check_alerts' });
+      void this.processTask({ action: 'check_alerts' });
     }, 5000);
 
     // Schedule periodic refresh
     setTimeout(() => {
-      this.processTask({ action: 'refresh_offers', maxAge: 48 });
+      void this.processTask({ action: 'refresh_offers', maxAge: 48 });
     }, 10000);
   }
 }

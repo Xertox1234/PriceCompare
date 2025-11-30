@@ -70,12 +70,12 @@ export function stopCacheMaintenanceJobs(): void {
   logger.info('Stopping cache maintenance scheduled jobs...');
 
   if (cleanupJob) {
-    cleanupJob.stop();
+    void cleanupJob.stop();
     cleanupJob = null;
   }
 
   if (statsJob) {
-    statsJob.stop();
+    void statsJob.stop();
     statsJob = null;
   }
 

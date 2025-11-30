@@ -30,8 +30,8 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
     },
     onSuccess: () => {
       // Invalidate auth queries to update authentication state without page reload
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      void queryClient.invalidateQueries({ queryKey: ['user'] });
       onSuccess?.();
     },
     onError: (error: Error) => {
@@ -164,8 +164,8 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
     },
     onSuccess: () => {
       // Invalidate auth queries to update authentication state without page reload
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      void queryClient.invalidateQueries({ queryKey: ['user'] });
       onSuccess?.();
     },
     onError: (error: Error) => {

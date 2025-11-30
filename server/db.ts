@@ -27,7 +27,7 @@ let pool: NeonPool | PgPool;
 let db: NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
 // Initialize database connection asynchronously
-(async () => {
+void (async () => {
   if (isNeonDatabase) {
     // Use Neon serverless driver for cloud deployment
     const { Pool: NeonPool, neonConfig } = await import('@neondatabase/serverless');

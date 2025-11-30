@@ -81,8 +81,8 @@ export function useMarkAsRead() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
     },
   });
 }
@@ -101,8 +101,8 @@ export function useMarkAllAsRead() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
     },
   });
 }
@@ -121,8 +121,8 @@ export function useDeleteNotification() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
     },
   });
 }
@@ -143,7 +143,7 @@ export function useUpdateNotificationPreferences() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/preferences'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/preferences'] });
     },
   });
 }

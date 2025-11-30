@@ -104,17 +104,17 @@ export function stopPriceAnalyticsJobs(): void {
   logger.info('Stopping price analytics scheduled jobs...');
 
   if (weeklyAggregationJob) {
-    weeklyAggregationJob.stop();
+    void weeklyAggregationJob.stop();
     weeklyAggregationJob = null;
   }
 
   if (monthlyAggregationJob) {
-    monthlyAggregationJob.stop();
+    void monthlyAggregationJob.stop();
     monthlyAggregationJob = null;
   }
 
   if (trendAnalysisJob) {
-    trendAnalysisJob.stop();
+    void trendAnalysisJob.stop();
     trendAnalysisJob = null;
   }
 

@@ -98,7 +98,7 @@ export function ProductManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
       setShowCreateForm(false);
       setNewProduct({
         name: "",
@@ -132,7 +132,7 @@ export function ProductManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
       setEditingProduct(null);
       toast({
         title: "Product Updated",
@@ -157,7 +157,7 @@ export function ProductManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
       toast({
         title: "Product Deleted",
         description: "Product has been removed from catalog.",

@@ -38,7 +38,7 @@ export default function ResetPassword() {
     }
 
     setToken(tokenParam);
-    validateToken(tokenParam);
+    void validateToken(tokenParam);
   }, []);
 
   const validateToken = async (tokenValue: string) => {

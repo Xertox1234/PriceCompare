@@ -173,8 +173,8 @@ export function useEnhancedProductsSearch({
     const mode = customMode || searchMode;
     
     if (!searchQuery.trim()) {
-      // Clear search results and show default products
-      queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
+      // Clear search results and show default products (fire-and-forget)
+      void queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
       return;
     }
 

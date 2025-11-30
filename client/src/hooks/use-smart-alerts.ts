@@ -275,8 +275,8 @@ export function useCreateSuggestedAlert() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/smart-alerts'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/smart-alerts'] });
     },
   });
 }

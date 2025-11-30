@@ -89,7 +89,7 @@ export function ChartExport({
 
   const handleCopyLink = () => {
     const link = generateShareLink(productId, timeRange);
-    navigator.clipboard.writeText(link);
+    void navigator.clipboard.writeText(link);
     setCopied(true);
     toast({
       title: 'Link Copied',
@@ -116,7 +116,7 @@ export function ChartExport({
           Export as CSV
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleCopyImage} disabled={isExporting}>
+        <DropdownMenuItem onClick={() => void handleCopyImage()} disabled={isExporting}>
           {copied ? (
             <Check className="h-4 w-4 mr-2 text-green-600" />
           ) : (

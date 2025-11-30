@@ -38,11 +38,11 @@ export function registerWatchListHandlers(socket: AuthenticatedSocket): void {
 
       // Join user-specific room (already done in connection handler, but ensure)
       const userRoom = `user:${socket.userId}`;
-      socket.join(userRoom);
+      void socket.join(userRoom);
 
       // Join watch list room for targeted updates
       const watchListRoom = `watchlist:${socket.userId}`;
-      socket.join(watchListRoom);
+      void socket.join(watchListRoom);
 
       log.info('Client subscribed to watch list updates', {
         userId: socket.userId,
@@ -65,7 +65,7 @@ export function registerWatchListHandlers(socket: AuthenticatedSocket): void {
     'unsubscribe:watchlists',
     withErrorHandling(socket, 'unsubscribe:watchlists', async () => {
       const watchListRoom = `watchlist:${socket.userId}`;
-      socket.leave(watchListRoom);
+      void socket.leave(watchListRoom);
 
       log.info('Client unsubscribed from watch list updates', {
         userId: socket.userId,

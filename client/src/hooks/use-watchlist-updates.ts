@@ -42,9 +42,9 @@ export function useWatchListUpdates() {
       productCount?: number;
       timestamp: string;
     }) => {
-      // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
+      // Invalidate queries to refetch data (fire-and-forget)
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
 
       // Show toast notification based on action
       switch (data.action) {
@@ -81,9 +81,9 @@ export function useWatchListUpdates() {
       };
       timestamp: string;
     }) => {
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
+      // Invalidate queries (fire-and-forget)
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
 
       // Show toast
       toast({
@@ -98,9 +98,9 @@ export function useWatchListUpdates() {
       productId: number;
       timestamp: string;
     }) => {
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
+      // Invalidate queries (fire-and-forget)
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
 
       // Don't show toast for removals - less intrusive
     };
