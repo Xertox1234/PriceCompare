@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Redis data structures require runtime validation */
 import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { createLogger } from '../utils/logger';

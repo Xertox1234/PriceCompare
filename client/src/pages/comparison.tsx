@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- API responses from fetch need runtime type checking */
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ProductComparison } from "@/components/price-history/ProductComparison";

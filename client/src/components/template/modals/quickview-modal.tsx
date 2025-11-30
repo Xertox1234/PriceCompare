@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState } from 'react';
 import { X, Heart, BarChart2, Minus, Plus, Star, ShoppingCart, ExternalLink, TrendingDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'wouter';

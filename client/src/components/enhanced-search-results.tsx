@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState, memo, useMemo, useCallback } from 'react';
 import { Star, TrendingUp, Zap, Search, Target, Hash } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';

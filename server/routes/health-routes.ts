@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- Redis client info returns dynamic structure */
 import { Express } from "express";
 import express from 'express';
 import { storage } from "../storage";

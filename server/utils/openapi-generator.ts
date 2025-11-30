@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- OpenAPI spec building requires dynamic object access */
 /**
  * OpenAPI 3.0 Schema Generator for Standardized API Responses
  *

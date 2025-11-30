@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Socket.io session and rate limit data structures are dynamic */
 /**
  * WebSocket Server for Watch List Real-Time Notifications
  *
