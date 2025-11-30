@@ -17,7 +17,8 @@ export default defineConfig({
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
       '**/download_package/**',
       '**/attached_assets/**',
-      '**/docs/**'
+      '**/docs/**',
+      '**/.worktrees/**'
     ],
     css: true,
     coverage: {
