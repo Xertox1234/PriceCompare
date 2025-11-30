@@ -119,7 +119,7 @@ export function BulkActionToolbar({
                 </Select>
                 <Button
                   size="sm"
-                  onClick={handleMove}
+                  onClick={() => void handleMove()}
                   disabled={!targetListId || moveProducts.isPending}
                 >
                   <FolderInput className="w-4 h-4 mr-2" />

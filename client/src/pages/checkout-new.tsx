@@ -623,7 +623,7 @@ function CheckoutContent() {
                     Back to Payment
                   </Button>
                   <Button
-                    onClick={handlePlaceOrder}
+                    onClick={() => void handlePlaceOrder()}
                     disabled={isProcessing}
                     className="flex-1 py-6 bg-primary hover:bg-primary-hover"
                   >

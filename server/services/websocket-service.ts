@@ -122,8 +122,8 @@ class WebSocketService {
       clearInterval(this.updateInterval);
     }
 
-    this.updateInterval = setInterval(async () => {
-      await this.broadcastMetrics();
+    this.updateInterval = setInterval(() => {
+      void this.broadcastMetrics();
     }, this.UPDATE_FREQUENCY);
 
     // Register with cleanup manager

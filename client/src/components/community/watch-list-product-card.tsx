@@ -265,7 +265,7 @@ export function WatchListProductCard({
               </Button>
               <Button
                 size="sm"
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={!hasChanges || updateWatch.isPending}
               >
                 <Save className="w-4 h-4 mr-2" />

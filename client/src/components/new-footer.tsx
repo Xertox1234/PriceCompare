@@ -42,7 +42,7 @@ export function NewFooter() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div>
             <h4 className="font-bold text-lg mb-4">Be in touch</h4>
-            <form className="flex" onSubmit={handleFooterSubmit}>
+            <form className="flex" onSubmit={(e) => void handleFooterSubmit(e)}>
               <input
                 type="email"
                 placeholder="Your Email"

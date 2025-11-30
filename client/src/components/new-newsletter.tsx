@@ -55,7 +55,7 @@ export function NewNewsletter() {
             <span className="font-medium">Thanks for subscribing! Check your inbox to confirm.</span>
           </div>
         ) : (
-          <form className="flex" onSubmit={handleSubmit}>
+          <form className="flex" onSubmit={(e) => void handleSubmit(e)}>
             <input
               type="email"
               placeholder="Enter your email"

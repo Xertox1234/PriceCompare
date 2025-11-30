@@ -267,15 +267,17 @@ app.use(sanitizeInput);
 
   // Password reset token cleanup - run every hour
   const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
-  const tokenCleanupInterval = setInterval(async () => {
-    try {
-      const deletedCount = await cleanupExpiredTokens();
-      if (deletedCount > 0) {
-        log(`Cleaned up ${deletedCount} expired password reset token(s)`);
+  const tokenCleanupInterval = setInterval(() => {
+    void (async () => {
+      try {
+        const deletedCount = await cleanupExpiredTokens();
+        if (deletedCount > 0) {
+          log(`Cleaned up ${deletedCount} expired password reset token(s)`);
+        }
+      } catch (error) {
+        log(`Error cleaning up expired tokens: ${error}`, 'error');
       }
-    } catch (error) {
-      log(`Error cleaning up expired tokens: ${error}`, 'error');
-    }
+    })();
   }, CLEANUP_INTERVAL);
   cleanupManager.addInterval('token-cleanup', tokenCleanupInterval);
 
@@ -364,5 +366,5 @@ async function gracefulShutdown(signal: string) {
 }
 
 // Handle termination signals
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'));

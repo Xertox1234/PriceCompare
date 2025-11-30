@@ -107,7 +107,7 @@ export function ChartExport({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onClick={handleExportPNG} disabled={isExporting}>
+        <DropdownMenuItem onClick={() => void handleExportPNG()} disabled={isExporting}>
           <Image className="h-4 w-4 mr-2" />
           Export as PNG
         </DropdownMenuItem>

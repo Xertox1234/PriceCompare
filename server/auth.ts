@@ -39,6 +39,7 @@ passport.use(new LocalStrategy(
     usernameField: 'email',
     passwordField: 'password'
   },
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Passport supports async verify callbacks
   async (email, password, done) => {
     try {
       // Check if account is locked before attempting authentication (Redis-backed)
@@ -117,6 +118,7 @@ passport.serializeUser((user: Express.User, done) => {
   done(null, user.id);
 });
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises -- Passport supports async deserialize callbacks
 passport.deserializeUser(async (id: number, done) => {
   try {
     const userResult = await db

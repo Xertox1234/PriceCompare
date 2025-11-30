@@ -79,7 +79,7 @@ export function WatchButton({
       <Button
         variant={isWatching ? 'default' : variant}
         size={size}
-        onClick={handleToggleWatch}
+        onClick={() => void handleToggleWatch()}
         disabled={addWatch.isPending || removeWatch.isPending}
         className="flex items-center gap-2"
       >

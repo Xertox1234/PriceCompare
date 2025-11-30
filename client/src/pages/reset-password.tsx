@@ -224,7 +224,7 @@ export default function ResetPassword() {
             {userInfo && `Resetting password for ${userInfo.username}`}
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => void handleSubmit(e)}>
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">

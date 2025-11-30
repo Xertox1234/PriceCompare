@@ -95,9 +95,11 @@ export function initializeWebSocket(
   setupRedisAdapter();
 
   // Setup authentication middleware
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Socket.io supports async middleware
   io.use(authenticationMiddleware);
 
   // Setup rate limiting middleware
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Socket.io supports async middleware
   io.use(rateLimitMiddleware);
 
   // Handle connections

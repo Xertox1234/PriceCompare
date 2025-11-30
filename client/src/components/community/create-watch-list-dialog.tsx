@@ -83,7 +83,7 @@ export function CreateWatchListDialog({ open, onOpenChange }: CreateWatchListDia
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => void handleSubmit(e)}>
           <DialogHeader>
             <DialogTitle>Create Watch List</DialogTitle>
             <DialogDescription>

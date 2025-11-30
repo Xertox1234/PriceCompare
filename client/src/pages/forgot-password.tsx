@@ -121,7 +121,7 @@ export default function ForgotPassword() {
             Enter your email address and we'll send you a link to reset your password
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => void handleSubmit(e)}>
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">

@@ -185,7 +185,7 @@ export function WatchListManager() {
                           totalCount={products.length}
                           onSelectAll={handleSelectAll}
                           onClearSelection={handleClearSelection}
-                          onDelete={handleBulkDelete}
+                          onDelete={() => void handleBulkDelete()}
                           onMove={(_targetListId) => {
                             // Will be implemented via BulkActionToolbar
                           }}

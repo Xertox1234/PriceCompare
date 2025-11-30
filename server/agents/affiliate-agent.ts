@@ -337,26 +337,30 @@ export class AffiliateLinkAgent extends BaseAgent {
    */
   async scheduleMaintenance(): Promise<void> {
     // Health check links every 6 hours
-    const healthCheckInterval = setInterval(async () => {
-      try {
-        await this.processTask({ action: 'health_check_links' });
-      } catch (error) {
-        logger.error('Scheduled health check failed', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+    const healthCheckInterval = setInterval(() => {
+      void (async () => {
+        try {
+          await this.processTask({ action: 'health_check_links' });
+        } catch (error) {
+          logger.error('Scheduled health check failed', {
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      })();
     }, 6 * 60 * 60 * 1000);
     cleanupManager.addInterval('affiliate-health-check', healthCheckInterval);
 
     // Generate missing affiliate links every hour
-    const affiliateGenInterval = setInterval(async () => {
-      try {
-        await this.processTask({ action: 'generate_affiliate_links', limit: 25 });
-      } catch (error) {
-        logger.error('Scheduled affiliate generation failed', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+    const affiliateGenInterval = setInterval(() => {
+      void (async () => {
+        try {
+          await this.processTask({ action: 'generate_affiliate_links', limit: 25 });
+        } catch (error) {
+          logger.error('Scheduled affiliate generation failed', {
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      })();
     }, 60 * 60 * 1000);
     cleanupManager.addInterval('affiliate-generation', affiliateGenInterval);
   }
