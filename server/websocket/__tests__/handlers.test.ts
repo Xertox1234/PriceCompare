@@ -5,6 +5,8 @@
  * Full integration tests will be written by test-engineer.
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Socket.io mock objects require flexible typing for event handlers */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { AuthenticatedSocket } from '../types';
 import { checkRateLimit } from '../middleware/rate-limit';

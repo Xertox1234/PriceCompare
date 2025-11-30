@@ -139,7 +139,7 @@ export function PriceHistoryChart({
 
   // Transform data for Recharts
   // Group by date and create a data point for each date with all retailers
-  const dataByDate = new Map<string, any>();
+  const dataByDate = new Map<string, Record<string, string | number>>();
 
   data.forEach((item) => {
     const date = typeof item.recordedAt === 'string'
@@ -157,7 +157,7 @@ export function PriceHistoryChart({
 
   // Convert to array and sort by date
   const chartData = Array.from(dataByDate.values())
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .sort((a, b) => (a.timestamp as number) - (b.timestamp as number))
     .map((item) => {
       const { timestamp: _timestamp, ...rest } = item;
       return rest;

@@ -7,6 +7,9 @@
  *
  * Related to: https://github.com/Xertox1234/PriceCompare/issues/55
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- Security tests intentionally use mock columns and injection payloads */
+
 import { describe, test, expect } from 'vitest';
 import { inArray } from 'drizzle-orm';
 

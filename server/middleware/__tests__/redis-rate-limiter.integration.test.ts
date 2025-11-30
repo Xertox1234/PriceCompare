@@ -6,6 +6,9 @@
  *
  * NOTE: Each test uses a unique key to avoid shared state in the in-memory store.
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- Express Request.user type requires casting for test mocks */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';

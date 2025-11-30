@@ -82,6 +82,7 @@ describe('useNotificationUpdates', () => {
   });
 
   it('should initialize unread count from subscription confirmation', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let subscribedHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:subscribed') {
@@ -106,6 +107,7 @@ describe('useNotificationUpdates', () => {
   });
 
   it('should update unread count on new notification', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:new') {
@@ -145,6 +147,7 @@ describe('useNotificationUpdates', () => {
       toasts: []
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:new') {
@@ -187,6 +190,7 @@ describe('useNotificationUpdates', () => {
       toasts: []
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:new') {
@@ -225,6 +229,7 @@ describe('useNotificationUpdates', () => {
       toasts: []
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:new') {
@@ -260,6 +265,7 @@ describe('useNotificationUpdates', () => {
   it('should update count when notification is marked as read', async () => {
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let readHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:read') {
@@ -283,6 +289,7 @@ describe('useNotificationUpdates', () => {
   });
 
   it('should handle count update events', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let countHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:count_updated') {
@@ -307,6 +314,7 @@ describe('useNotificationUpdates', () => {
   it('should invalidate queries on new notification', async () => {
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:new') {
@@ -349,6 +357,7 @@ describe('useNotificationUpdates', () => {
   });
 
   it('should track unread count through multiple events', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handlers for test simulation
     const handlers: Record<string, any> = {};
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       handlers[event] = handler;
@@ -415,6 +424,7 @@ describe('useNotificationUpdates', () => {
       toasts: []
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let newNotificationHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'notification:new') {

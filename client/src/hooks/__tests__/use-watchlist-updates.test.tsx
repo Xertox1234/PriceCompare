@@ -84,6 +84,7 @@ describe('useWatchListUpdates', () => {
   it('should invalidate queries on watch list update', async () => {
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let updateHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'watchlist:update') {
@@ -119,6 +120,7 @@ describe('useWatchListUpdates', () => {
       toasts: []
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let updateHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'watchlist:update') {
@@ -155,6 +157,7 @@ describe('useWatchListUpdates', () => {
       toasts: []
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let updateHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'watchlist:update') {
@@ -191,6 +194,7 @@ describe('useWatchListUpdates', () => {
       toasts: []
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let updateHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'watchlist:update') {
@@ -229,6 +233,7 @@ describe('useWatchListUpdates', () => {
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let productAddedHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'watchlist:product_added') {
@@ -272,6 +277,7 @@ describe('useWatchListUpdates', () => {
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
     let productRemovedHandler: any = null;
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       if (event === 'watchlist:product_removed') {
@@ -350,6 +356,7 @@ describe('useWatchListUpdates', () => {
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handlers for test simulation
     const handlers: Record<string, any> = {};
     vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
       handlers[event] = handler;

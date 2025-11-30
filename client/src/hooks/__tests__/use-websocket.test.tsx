@@ -63,7 +63,8 @@ function createUseUserMock(user: unknown, isLoading = false) {
       fetchStatus: 'idle' as const,
       refetch: vi.fn(),
       promise: Promise.resolve(user),
-    } as any; // Use any to bypass strict React Query type checking in tests
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- React Query mock requires 20+ properties; full typing impractical for tests
+    } as any;
   }
 
   return {
@@ -94,7 +95,8 @@ function createUseUserMock(user: unknown, isLoading = false) {
     fetchStatus: 'idle' as const,
     refetch: vi.fn(),
     promise: Promise.resolve(user),
-  } as any; // Use any to bypass strict React Query type checking in tests
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- React Query mock requires 20+ properties; full typing impractical for tests
+  } as any;
 }
 
 describe('useWebSocket', () => {

@@ -107,6 +107,7 @@ describe('WebSocket Error Handling Tests', () => {
       });
 
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.io connect_error event returns any type
         const errorReceived = new Promise<any>((resolve) => {
           client.on('connect_error', resolve);
         });
@@ -348,6 +349,7 @@ describe('WebSocket Error Handling Tests', () => {
         const _errorSpy = spyOnSocketEvent(client, 'error');
 
         // Send malformed data
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentionally testing with invalid payload types
         client.emit('price:subscribe' as any, {
           productIds: 'not-an-array', // Should be array
         });
@@ -373,6 +375,7 @@ describe('WebSocket Error Handling Tests', () => {
         await waitForEvent(client, 'notification:subscribed');
 
         // Send invalid notification ID
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentionally testing with invalid payload types
         client.emit('notification:mark-read' as any, {
           notificationId: 'invalid', // Should be number
         });

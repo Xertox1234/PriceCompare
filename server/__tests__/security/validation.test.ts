@@ -39,6 +39,7 @@ describe('Integer Parsing Security', () => {
     });
 
     test('requires value', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentionally testing undefined input behavior
       expect(() => parseIntSafe(undefined as any, 'id')).toThrow('is required');
     });
   });
@@ -47,6 +48,7 @@ describe('Integer Parsing Security', () => {
     test('returns undefined for missing values', () => {
       expect(parseIntOptional(undefined, 'id')).toBeUndefined();
       expect(parseIntOptional('', 'id')).toBeUndefined();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentionally testing null input behavior
       expect(parseIntOptional(null as any, 'id')).toBeUndefined();
     });
 

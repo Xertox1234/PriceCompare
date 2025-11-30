@@ -26,7 +26,7 @@ describe('RateLimitBanner', () => {
       data: null,
       isLoading: false,
       error: null,
-    } as any);
+    } as ReturnType<typeof useAuthHook.useAuth>);
   });
 
   describe('Visibility conditions', () => {
@@ -150,7 +150,7 @@ describe('RateLimitBanner', () => {
         data: null,
         isLoading: false,
         error: null,
-      } as any);
+      } as ReturnType<typeof useAuthHook.useAuth>);
 
       render(<RateLimitBanner />);
 

@@ -144,6 +144,7 @@ describe('Storage Layer Validation Helpers', () => {
 
       for (const { method, args } of invalidInputs) {
         await expect(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic method invocation requires any cast
           (storage as any)[method](...args)
         ).rejects.toThrow(/Invalid.*Must be a positive integer/);
       }

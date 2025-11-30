@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle query builder mocks require complex chain typing */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PriceAggregationService } from '../price-aggregation-service';
 import { PriceSnapshotService } from '../price-snapshot-service';

@@ -45,7 +45,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'premium',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -68,7 +68,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -91,7 +91,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -112,7 +112,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'moderator',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -135,7 +135,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'admin',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -157,7 +157,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -175,7 +175,7 @@ describe('useRateLimit', () => {
         return new Response('{}', {
           headers: {}, // No rate limit headers
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -197,7 +197,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': '',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -223,7 +223,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -244,7 +244,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -265,7 +265,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -286,7 +286,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -308,7 +308,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -370,7 +370,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'anonymous',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -393,7 +393,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'free',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -415,7 +415,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'premium',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -437,7 +437,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'admin',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -465,7 +465,7 @@ describe('useRateLimit', () => {
             'X-RateLimit-Tier': 'user',
           },
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 
@@ -493,7 +493,7 @@ describe('useRateLimit', () => {
         return new Response('{}', {
           headers: {}, // No rate limit headers
         });
-      }) as any;
+      }) as typeof fetch;
 
       const { result } = renderHook(() => useRateLimit());
 

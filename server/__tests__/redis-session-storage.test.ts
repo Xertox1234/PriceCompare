@@ -243,6 +243,7 @@ describe('Redis Session Storage Integration', () => {
     };
 
     await new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Session store type mismatch with express-session types
       sessionStore!.set(testSessionId, testSessionData as any, (err?: Error) => {
         if (err) reject(err);
         else resolve(true);

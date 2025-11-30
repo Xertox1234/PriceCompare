@@ -28,6 +28,7 @@ vi.mock('../utils/logger', () => ({
 
 describe('AdvancedCacheService', () => {
   let cacheService: AdvancedCacheService;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mock Redis client with dynamic method stubs
   let mockRedis: any;
 
   beforeEach(async () => {

@@ -92,7 +92,7 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
   // Prepare chart data
   const chartData = useMemo(() => {
     // Combine all data points by date
-    const dateMap = new Map<string, Record<string, any>>();
+    const dateMap = new Map<string, Record<string, string | number>>();
 
     filteredData.forEach(point => {
       const dateStr = new Date(point.date).toLocaleDateString();
@@ -110,7 +110,7 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
     });
 
     return Array.from(dateMap.values()).sort((a, b) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime()
+      new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
     );
   }, [filteredData]);
 

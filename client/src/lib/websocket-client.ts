@@ -151,7 +151,7 @@ export class WebSocketClient {
 
     // Socket.io typed sockets handle event typing through the generic parameter.
     // The handler type matches ServerToClientEvents[E] which Socket.io expects.
-    // Use any to bypass Socket.IO's overly strict listener type checking
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO's listener type is overly strict, requiring cast for typed handlers
     this.socket.on(event, handler as any);
   }
 
@@ -171,7 +171,7 @@ export class WebSocketClient {
 
     if (handler) {
       // Socket.io typed sockets handle event typing through the generic parameter.
-      // Use any to bypass Socket.IO's overly strict listener type checking
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO's listener type is overly strict, requiring cast for typed handlers
       this.socket.off(event, handler as any);
     } else {
       this.socket.off(event);

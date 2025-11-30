@@ -26,6 +26,7 @@ vi.mock('../utils/logger', () => ({
 
 describe('PopularityTracker', () => {
   let tracker: PopularityTracker;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mock Redis client with dynamic method stubs
   let mockRedis: any;
 
   beforeEach(async () => {

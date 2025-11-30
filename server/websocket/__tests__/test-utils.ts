@@ -105,6 +105,7 @@ export function createAuthenticatedSocket(
  * @param timeout Timeout in milliseconds (default: 5000)
  * @returns Promise resolving to event data
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Generic default `any` needed for flexible event data typing
 export function waitForEvent<T = any>(
   socket: ClientSocket,
   eventName: string,
@@ -115,6 +116,7 @@ export function waitForEvent<T = any>(
       reject(new Error(`Timeout waiting for event: ${eventName}`));
     }, timeout);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.io typed events require cast for dynamic event names
     socket.once(eventName as any, (data: T) => {
       clearTimeout(timer);
       resolve(data);
@@ -134,6 +136,7 @@ export async function waitForEvents(
   socket: ClientSocket,
   eventNames: string[],
   timeout = 5000
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Event data types vary by event name
 ): Promise<any[]> {
   const results = await Promise.all(
     eventNames.map((event) => waitForEvent(socket, event, timeout))
@@ -173,6 +176,7 @@ export function waitForConnection(
 /**
  * Create a mock session for testing
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express session mock with variable shape
 export function createMockSession(userId: number): any {
   return {
     id: `session-${userId}`,
@@ -286,6 +290,7 @@ export function disconnectSockets(sockets: ClientSocket[]): void {
  */
 export function spyOnSocketEvent(socket: ClientSocket, eventName: string) {
   const spy = vi.fn();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.io typed events require cast for dynamic event names
   socket.on(eventName as any, spy);
   return spy;
 }
@@ -326,8 +331,7 @@ export function emitServerEvent<K extends keyof ServerToClientEvents>(
   }
 
   const room = `user:${userId}`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // Type assertion needed for Socket.io's complex generic emit signature with acknowledgements
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.io emit signature with acknowledgements requires cast
   (io.to(room).emit as any)(event, data);
 }
 

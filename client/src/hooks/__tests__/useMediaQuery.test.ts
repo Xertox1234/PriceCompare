@@ -28,7 +28,7 @@ describe('useMediaQuery', () => {
 
   beforeEach(() => {
     matchMediaMock = createMatchMediaMock(false);
-    window.matchMedia = matchMediaMock as any;
+    window.matchMedia = matchMediaMock as typeof window.matchMedia;
   });
 
   afterEach(() => {
@@ -37,7 +37,7 @@ describe('useMediaQuery', () => {
 
   it('should return false when media query does not match', () => {
     matchMediaMock = createMatchMediaMock(false);
-    window.matchMedia = matchMediaMock as any;
+    window.matchMedia = matchMediaMock as typeof window.matchMedia;
 
     const { result } = renderHook(() => useMediaQuery('(max-width: 767px)'));
     expect(result.current).toBe(false);
@@ -45,7 +45,7 @@ describe('useMediaQuery', () => {
 
   it('should return true when media query matches', () => {
     matchMediaMock = createMatchMediaMock(true);
-    window.matchMedia = matchMediaMock as any;
+    window.matchMedia = matchMediaMock as typeof window.matchMedia;
 
     const { result } = renderHook(() => useMediaQuery('(max-width: 767px)'));
     expect(result.current).toBe(true);
@@ -71,7 +71,7 @@ describe('useMediaQuery', () => {
       dispatchEvent: vi.fn(),
     };
 
-    window.matchMedia = vi.fn().mockReturnValue(mockMedia) as any;
+    window.matchMedia = vi.fn().mockReturnValue(mockMedia) as typeof window.matchMedia;
 
     renderHook(() => useMediaQuery('(max-width: 767px)'));
 
@@ -91,7 +91,7 @@ describe('useMediaQuery', () => {
       dispatchEvent: vi.fn(),
     };
 
-    window.matchMedia = vi.fn().mockReturnValue(mockMedia) as any;
+    window.matchMedia = vi.fn().mockReturnValue(mockMedia) as typeof window.matchMedia;
 
     const { unmount } = renderHook(() => useMediaQuery('(max-width: 767px)'));
     unmount();
@@ -102,20 +102,20 @@ describe('useMediaQuery', () => {
 
 describe('useIsMobile', () => {
   it('should return true for mobile viewport', () => {
-    window.matchMedia = createMatchMediaMock(true) as any;
+    window.matchMedia = createMatchMediaMock(true) as typeof window.matchMedia;
     const { result } = renderHook(() => useIsMobile());
     expect(result.current).toBe(true);
   });
 
   it('should return false for non-mobile viewport', () => {
-    window.matchMedia = createMatchMediaMock(false) as any;
+    window.matchMedia = createMatchMediaMock(false) as typeof window.matchMedia;
     const { result } = renderHook(() => useIsMobile());
     expect(result.current).toBe(false);
   });
 
   it('should use correct max-width query', () => {
     const matchMediaSpy = createMatchMediaMock(false);
-    window.matchMedia = matchMediaSpy as any;
+    window.matchMedia = matchMediaSpy as typeof window.matchMedia;
 
     renderHook(() => useIsMobile());
 
@@ -125,20 +125,20 @@ describe('useIsMobile', () => {
 
 describe('useIsTablet', () => {
   it('should return true for tablet viewport', () => {
-    window.matchMedia = createMatchMediaMock(true) as any;
+    window.matchMedia = createMatchMediaMock(true) as typeof window.matchMedia;
     const { result } = renderHook(() => useIsTablet());
     expect(result.current).toBe(true);
   });
 
   it('should return false for non-tablet viewport', () => {
-    window.matchMedia = createMatchMediaMock(false) as any;
+    window.matchMedia = createMatchMediaMock(false) as typeof window.matchMedia;
     const { result } = renderHook(() => useIsTablet());
     expect(result.current).toBe(false);
   });
 
   it('should use correct range query', () => {
     const matchMediaSpy = createMatchMediaMock(false);
-    window.matchMedia = matchMediaSpy as any;
+    window.matchMedia = matchMediaSpy as typeof window.matchMedia;
 
     renderHook(() => useIsTablet());
 
@@ -148,20 +148,20 @@ describe('useIsTablet', () => {
 
 describe('useIsDesktop', () => {
   it('should return true for desktop viewport', () => {
-    window.matchMedia = createMatchMediaMock(true) as any;
+    window.matchMedia = createMatchMediaMock(true) as typeof window.matchMedia;
     const { result } = renderHook(() => useIsDesktop());
     expect(result.current).toBe(true);
   });
 
   it('should return false for non-desktop viewport', () => {
-    window.matchMedia = createMatchMediaMock(false) as any;
+    window.matchMedia = createMatchMediaMock(false) as typeof window.matchMedia;
     const { result } = renderHook(() => useIsDesktop());
     expect(result.current).toBe(false);
   });
 
   it('should use correct min-width query', () => {
     const matchMediaSpy = createMatchMediaMock(false);
-    window.matchMedia = matchMediaSpy as any;
+    window.matchMedia = matchMediaSpy as typeof window.matchMedia;
 
     renderHook(() => useIsDesktop());
 
@@ -180,6 +180,7 @@ describe('useIsTouchDevice', () => {
     const { result } = renderHook(() => useIsTouchDevice());
     expect(result.current).toBe(true);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- window.ontouchstart doesn't exist in standard types
     delete (window as any).ontouchstart;
   });
 
@@ -221,7 +222,7 @@ describe('useBreakpoint', () => {
         removeListener: vi.fn(),
         dispatchEvent: vi.fn(),
       };
-    }) as any;
+    }) as typeof window.matchMedia;
 
     const { result } = renderHook(() => useBreakpoint());
     expect(result.current).toBe('mobile');
@@ -241,7 +242,7 @@ describe('useBreakpoint', () => {
         removeListener: vi.fn(),
         dispatchEvent: vi.fn(),
       };
-    }) as any;
+    }) as typeof window.matchMedia;
 
     const { result } = renderHook(() => useBreakpoint());
     expect(result.current).toBe('tablet');
@@ -249,7 +250,7 @@ describe('useBreakpoint', () => {
 
   it('should return "desktop" for desktop viewport', () => {
     // Both mobile and tablet checks return false
-    window.matchMedia = createMatchMediaMock(false) as any;
+    window.matchMedia = createMatchMediaMock(false) as typeof window.matchMedia;
 
     const { result } = renderHook(() => useBreakpoint());
     expect(result.current).toBe('desktop');
@@ -271,6 +272,7 @@ describe('Edge Cases', () => {
       dispatchEvent: vi.fn(),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Legacy MediaQueryList without addEventListener
     window.matchMedia = vi.fn().mockReturnValue(mockMedia) as any;
 
     const { unmount } = renderHook(() => useMediaQuery('(max-width: 767px)'));
@@ -283,7 +285,7 @@ describe('Edge Cases', () => {
   });
 
   it('should handle multiple breakpoint hooks', () => {
-    window.matchMedia = createMatchMediaMock(false) as any;
+    window.matchMedia = createMatchMediaMock(false) as typeof window.matchMedia;
 
     const { result: mobileResult } = renderHook(() => useIsMobile());
     const { result: tabletResult } = renderHook(() => useIsTablet());

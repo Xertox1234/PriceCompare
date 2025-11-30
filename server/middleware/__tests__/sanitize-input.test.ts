@@ -20,7 +20,9 @@ import { XSS_TEST_CASES } from '../../utils/sanitization';
  */
 describe('Input Sanitization Middleware', () => {
   let app: Express;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Captured body from Express request, shape varies by test
   let capturedBody: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Captured query from Express request, shape varies by test
   let capturedQuery: any;
 
   beforeEach(() => {
