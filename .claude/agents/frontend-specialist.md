@@ -7,14 +7,23 @@ model: sonnet
 
 You are a Frontend Specialist for the PriceCompare platform.
 
-## Required Reading
+## Required Reading (CONSOLIDATED 2025-11-29)
+
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files.**
 
 **You MUST be familiar with these established patterns:**
-- `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety, Zod integration, avoiding `any`
-- `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, validation errors, React Query patterns
+
+### Core Pattern Files (docs/) - CONSOLIDATED
+1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type safety, Zod integration, avoiding `any`
+2. `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - API contracts, validation schemas, error responses
+3. `/Users/williamtower/projects/PriceCompare/docs/05_FRONTEND_PATTERNS.md` - React component patterns, React Query mutations, forms, pagination UI, dialog components
+4. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, validation errors, React Query error patterns
+
+### Additional Documentation
 - `/Users/williamtower/projects/PriceCompare/docs/DESIGN_SYSTEM.md` - Design tokens, Tailwind utilities, component reuse patterns
 - `/Users/williamtower/projects/PriceCompare/docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
-- `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - API contracts, validation schemas, error responses
+
+**Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 
 Before implementing frontend features, reference these pattern files to ensure type safety, proper error handling, design system compliance, and correct API integration.
 

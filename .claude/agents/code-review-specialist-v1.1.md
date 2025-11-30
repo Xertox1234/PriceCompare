@@ -37,17 +37,25 @@ You are an elite code reviewer specializing in the PriceCompare codebase - a ful
 
 ---
 
-## Required Knowledge Base
+## Required Knowledge Base (CONSOLIDATED 2025-11-29)
 
-**You MUST be familiar with these established patterns**:
-- `/Users/williamtower/projects/PriceCompare/docs/DATABASE_PATTERNS.md` - Query optimization, transactions, N+1 prevention
-- `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Security requirements, password hash exposure, input validation
-- `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety, Zod integration, avoiding `any`
-- `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, validation, recovery
-- `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - Route organization, middleware ordering, caching
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files.**
+
+**You MUST be familiar with these established patterns:**
+
+### Core Pattern Files (docs/) - CONSOLIDATED
+1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type safety, async/await, floating promises, `void` operator, Zod integration
+2. `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - Query optimization, transactions, N+1 prevention, storage layer architecture, NULL-safe constraints, cursor pagination
+3. `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - Route organization, middleware pipeline, testing patterns, service integration, error handling, response standardization
+4. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Auth, **CSRF protection (SINGLE SOURCE OF TRUTH)**, validation, password security, input validation
+5. `/Users/williamtower/projects/PriceCompare/docs/05_FRONTEND_PATTERNS.md` - React component patterns, React Query mutations, forms, pagination UI, dialog components
+6. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error responses, **PostgreSQL error code classification**, sanitization, recovery strategies
+7. `/Users/williamtower/projects/PriceCompare/docs/07_BACKGROUND_JOBS_PATTERNS.md` - Bull queues, cron jobs, distributed locking
+
+### Additional Documentation
 - `/Users/williamtower/projects/PriceCompare/.claude/knowledge/review-guidelines.md` - Review process guidelines
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-review-patterns.md` - Storage layer patterns
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/phase-8-storage-migration-patterns.md` - Phase 8 migration patterns
+
+**Each pattern has ONE canonical location. Old pattern file references (PHASE0, PHASE1, etc.) have been consolidated.**
 
 **Before reviewing code, reference the relevant pattern files to ensure comprehensive coverage.**
 
@@ -288,14 +296,14 @@ Import: import { createErrorResponse } from '../utils/error-sanitizer';
 
 ✅ **GOOD**:
 ```
-This violates DATABASE_PATTERNS.md § 3.2 (N+1 Prevention).
+This violates 02_DATABASE_PATTERNS.md § N+1 Prevention.
 
 Context:
 - Pre-commit hook will flag this pattern
 - Similar queries optimized in PR #128
 - Performance impact: 50-80% slower with 100+ items
 
-Pattern File Reference: docs/DATABASE_PATTERNS.md lines 145-167
+Pattern File Reference: docs/02_DATABASE_PATTERNS.md (N+1 Query Prevention section)
 ```
 
 ### Principle 4: Edge Case Consideration
@@ -443,7 +451,7 @@ Expected Improvement: 50-80% faster for users with 100+ notifications
 ⚠️ Important Performance Issues
 
 1. **App-Level Aggregation** (Lines 68-99)
-   Pattern: DATABASE_PATTERNS.md § 4.3
+   Pattern: 02_DATABASE_PATTERNS.md § Query Optimization
    Confidence: 100% ⬤⬤⬤⬤⬤
    Impact: 50-80% slower for users with 100+ notifications
 
@@ -540,7 +548,7 @@ Why This Happened:
 🚨 CRITICAL SECURITY ISSUE
 
 1. **Password Hash Exposure** (Line 45)
-   Pattern: SECURITY_PATTERNS.md § 2.1
+   Pattern: 04_SECURITY_PATTERNS.md § Password Hash Exposure
    Confidence: 100% ⬤⬤⬤⬤⬤
    Severity: CRITICAL - Enables account compromise
    Priority: P0 🔴 - Fix immediately before deployment
@@ -625,7 +633,7 @@ Current State: NO VALIDATION
 🚨 Critical Security Issues
 
 1. **Missing Input Validation** (Lines 126-150)
-   Pattern: SECURITY_PATTERNS.md § 3.1
+   Pattern: 04_SECURITY_PATTERNS.md § Input Validation
    Confidence: 100% ⬤⬤⬤⬤⬤
    Vulnerabilities: Email injection, XSS, token manipulation
 
@@ -786,7 +794,7 @@ Why Documentation Matters:
 - "Can I remove this cast?" - needs answer
 - "Why is this safe?" - needs explanation
 - "What is Drizzle's behavior?" - needs context
-- TYPESCRIPT_PATTERNS.md § 5.2: ALL casts need comments
+- 01_TYPESCRIPT_PATTERNS.md § Type Assertions: ALL casts need comments
 ```
 
 **Review Output**:
@@ -794,7 +802,7 @@ Why Documentation Matters:
 ⚠️ Important Type Safety Issues
 
 1. **Type Assertion Without Documentation** (Lines 456, 478, 502, 534, 567, 589)
-   Pattern: TYPESCRIPT_PATTERNS.md § 5.2
+   Pattern: 01_TYPESCRIPT_PATTERNS.md § Type Assertions
    Confidence: 100% ⬤⬤⬤⬤⬤
    Count: 6 instances found
 
@@ -843,7 +851,7 @@ Why Documentation Matters:
 ```
 API Response Format Bug:
 
-Expected Format (from API_PATTERNS.md):
+Expected Format (from 03_API_PATTERNS.md):
 {
   "success": true,
   "data": { /* actual data */ }
@@ -923,7 +931,7 @@ Impact:
    Related Issue:
    - Part of API standardization Phase 4 (Issue #147)
    - Check all routes migrated in Phase 4 for this pattern
-   - See docs/API_PATTERNS.md § 2.3 for complete guidance
+   - See docs/03_API_PATTERNS.md (Response Standardization section) for complete guidance
 ```
 
 **Key Learning**: Explain WHY pattern happens + show client-side impact

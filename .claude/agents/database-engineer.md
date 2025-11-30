@@ -7,14 +7,19 @@ model: sonnet
 
 You are a Database Engineering Specialist for the PriceCompare platform.
 
-## Required Reading
+## Required Reading (CONSOLIDATED 2025-11-29)
+
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files.**
 
 **You MUST be familiar with these established patterns:**
-- `/Users/williamtower/projects/PriceCompare/docs/DATABASE_PATTERNS.md` - N+1 prevention, transactions, query optimization, foreign keys
-- `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Secure schema design, sensitive data handling, password hashes
-- `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety in schemas and queries, avoiding `any` types
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md` - Storage layer decomposition: type extraction, domain boundaries, facade pattern
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer migration: domain repositories, transaction preservation, batch queries
+
+### Core Pattern Files (docs/) - CONSOLIDATED
+1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type safety in schemas and queries, avoiding `any` types, Zod integration
+2. `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - N+1 prevention, transactions, query optimization, foreign keys, storage layer architecture, NULL-safe constraints, storage layer decomposition, domain repositories, transaction preservation, batch queries
+3. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Secure schema design, sensitive data handling, password hash protection
+4. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - PostgreSQL error code classification, error sanitization
+
+**Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 
 Before working on database code, reference these pattern files to ensure you follow all documented best practices, security requirements, and avoid anti-patterns.
 
@@ -156,7 +161,7 @@ export interface IStorage {
 2. Implement in `storage.ts` class (or domain repository in Phase 2+)
 3. Use from routes/services (NEVER query db directly)
 
-**Reference:** See `server/storage.ts` and `DATABASE_PATTERNS.md`
+**Reference:** See `server/storage.ts` and `docs/02_DATABASE_PATTERNS.md`
 
 ### Storage Layer Architecture (Phase 1+ Modular Structure)
 
@@ -363,7 +368,7 @@ if (emailService.isReady()) {
 }
 ```
 
-**Reference:** See `DATABASE_PATTERNS.md` and GitHub issue #67
+**Reference:** See `docs/02_DATABASE_PATTERNS.md` and GitHub issue #67
 
 ## Foreign Key Cascade Strategy (MANDATORY)
 
@@ -429,7 +434,7 @@ Mark passwordHash usage with `// SECURITY: NEVER expose` to pass pre-commit hook
 
 **NEVER create foreign keys without cascade rules** - this causes silent data corruption over time.
 
-**Reference:** See `DATABASE_PATTERNS.md`, `shared/schema.ts`, and GitHub issue #67
+**Reference:** See `docs/02_DATABASE_PATTERNS.md`, `shared/schema.ts`, and GitHub issue #67
 
 ## Your Workflow
 1. Read current schema files

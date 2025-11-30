@@ -1,363 +1,171 @@
 # Master Pattern Index
 
-**Last Updated**: 2025-11-28
-**Purpose**: Central reference for all pattern documentation and subagent access mapping
+**Last Updated**: 2025-11-29
+**Purpose**: Central reference for consolidated pattern documentation
 
-This index provides a complete overview of all pattern files, their relationships, and which subagents reference them.
+## CONSOLIDATION COMPLETE (2025-11-29)
 
-## Quick Stats
+**Pattern files were consolidated from 21 files (16,449 lines) into 7 domain-specific files (~10,000 lines).**
 
-- **Total Pattern Files**: 20 files (11 in docs/, 9 in .claude/knowledge/)
-- **Total Lines**: ~14,000 lines of pattern documentation
-- **Subagents with Pattern Access**: 10 agents
-- **Average Patterns per Subagent**: 4-6 patterns
+### Before Consolidation
+- ❌ 21 pattern files scattered across docs/ and .claude/knowledge/
+- ❌ 16,449 total lines with massive duplication
+- ❌ CSRF in 8 files, floating promises in 9 files
+- ❌ Phase-based organization (PHASE0, PHASE1)
+- ❌ Hidden patterns in .claude/knowledge/
+
+### After Consolidation
+- ✅ 7 consolidated, domain-specific files
+- ✅ ~10,000 lines (39% reduction via deduplication)
+- ✅ ONE canonical location per pattern
+- ✅ Domain-based organization (TypeScript, Database, API, etc.)
+- ✅ All patterns visible in docs/
 
 ---
 
-## All Pattern Files by Location
+## Core Pattern Files (docs/)
 
-### Primary Patterns (/docs)
+| # | File | Domain | Version | Status |
+|---|------|--------|---------|--------|
+| 1 | `01_TYPESCRIPT_PATTERNS.md` | Type Safety | 2.0 | ✅ Active |
+| 2 | `02_DATABASE_PATTERNS.md` | Database/Drizzle | 2.0 | ✅ Active |
+| 3 | `03_API_PATTERNS.md` | Routes/Middleware | 2.0 | ✅ Active |
+| 4 | `04_SECURITY_PATTERNS.md` | Security/Auth | 2.0 | ✅ Active |
+| 5 | `05_FRONTEND_PATTERNS.md` | React/UI | 2.0 | ✅ Active |
+| 6 | `06_ERROR_HANDLING_PATTERNS.md` | Errors/Recovery | 2.0 | ✅ Active |
+| 7 | `07_BACKGROUND_JOBS_PATTERNS.md` | Jobs/Queues | 1.0 | ✅ Active |
 
-| File | Version | Lines | Domain | Last Updated | Status |
-|------|---------|-------|--------|--------------|--------|
-| DATABASE_PATTERNS.md | 1.0 | 1,243 | Backend/Data | 2025-11-24 | Active |
-| API_PATTERNS.md | 1.0 | 1,167 | Backend/Routes | 2025-11-20 | Active |
-| TYPESCRIPT_PATTERNS.md | 1.0 | 1,064 | Universal | 2025-11-25 | Active |
-| ERROR_HANDLING_PATTERNS.md | 1.0 | 1,032 | Cross-cutting | 2025-11-26 | Active |
-| SECURITY_PATTERNS.md | 1.0 | 973 | Backend/Security | 2025-11-20 | Active |
-| BACKGROUND_JOBS_PATTERNS.md | 1.0 | 614 | Backend/Jobs | 2025-11-20 | Active |
-| FRONTEND_PATTERNS.md | 1.0 | 570 | Frontend | 2025-11-20 | Active |
-| SERVICE_INTEGRATION_PATTERNS.md | 1.0 | 492 | Backend/Services | 2025-11-26 | Active |
-| PATTERNS.md | 1.0 | 450 | Backend/General | 2025-11-16 | Active |
-| AUTHENTICATION_PATTERNS.md | 1.0 | 262 | Backend/Auth | 2025-11-17 | Active |
-| VALIDATION_PATTERNS.md | 1.1 | 520 | Cross-cutting | 2025-11-28 | Active |
-| PHASE0_WATCHLIST_PATTERNS.md | 1.0 | 450 | Cross-cutting | 2025-11-28 | **NEW** |
+---
 
-**Subtotal**: ~9,700 lines
+## What Got Merged Where
 
-### Subagent Knowledge (/.claude/knowledge)
+### 01_TYPESCRIPT_PATTERNS.md
+**Migrated From:**
+- docs/TYPESCRIPT_PATTERNS.md (v1.0)
+- docs/PHASE1_WATCHLIST_PATTERNS.md (Pattern 9: Async handlers)
 
-| File | Version | Lines | Purpose | Last Updated |
-|------|---------|-------|---------|--------------|
-| claude-code-subagent-setup-guide.md | 1.0 | 1,581 | Subagent system guide | 2025-11-20 |
-| storage-refactoring-patterns.md | 1.0 | 1,071 | Large file refactoring | 2025-11-25 |
-| phase-8-storage-migration-patterns.md | 1.0 | 664 | **Phase 8** Storage layer migration | 2025-11-27 |
-| subagent-architecture-guide.md | 1.0 | 650 | Architecture patterns | 2025-11-20 |
-| phase-2-lessons-learned.md | 1.0 | 424 | Project history | 2025-11-18 |
-| route-error-handling-patterns.md | 1.0 | 340 | Route error patterns | 2025-11-20 |
-| storage-review-patterns.md | 1.0 | 253 | Storage review guide | 2025-11-25 |
-| subagent-quick-reference.md | 1.0 | 250 | Quick reference | 2025-11-20 |
-| review-guidelines.md | 1.0 | 196 | Review process | 2025-11-20 |
-| route-file-review-checklist.md | 1.0 | 193 | Route review | 2025-11-20 |
+**Key Sections:**
+- Type safety, avoiding `any`
+- Async/Promise patterns (floating promises, `void` operator)
+- Zod integration
 
-**Subtotal**: 5,622 lines
+### 02_DATABASE_PATTERNS.md
+**Migrated From:**
+- docs/DATABASE_PATTERNS.md
+- .claude/knowledge/storage-refactoring-patterns.md
+- .claude/knowledge/phase-8-storage-migration-patterns.md
+- .claude/knowledge/storage-review-patterns.md
+- docs/PHASE0_WATCHLIST_PATTERNS.md (NULL-safe constraints)
+- docs/PHASE1_WATCHLIST_PATTERNS.md (pagination)
 
-**Grand Total**: 13,892 lines of pattern documentation
+**Key Sections:**
+- Storage layer architecture
+- N+1 query prevention
+- Transaction patterns
+- Production bugs catalog
+
+### 03_API_PATTERNS.md
+**Migrated From:**
+- docs/API_PATTERNS.md
+- docs/API_TESTING_PATTERNS.md
+- docs/SERVICE_INTEGRATION_PATTERNS.md
+- docs/MIDDLEWARE_API_PATTERNS.md
+- .claude/knowledge/route-error-handling-patterns.md
+- docs/PATTERNS.md (route sections)
+
+**Key Sections:**
+- Route organization
+- Middleware pipeline
+- Testing patterns
+- Service integration
+
+### 04_SECURITY_PATTERNS.md
+**Migrated From:**
+- docs/SECURITY_PATTERNS.md
+- docs/VALIDATION_PATTERNS.md
+- docs/AUTHENTICATION_PATTERNS.md
+- docs/PHASE0_WATCHLIST_PATTERNS.md (validation layer)
+
+**Key Sections:**
+- **CSRF Protection (SINGLE SOURCE OF TRUTH)** - deduplicated from 8 files
+- Authentication & authorization
+- Input validation
+- Password security
+
+### 05_FRONTEND_PATTERNS.md
+**Migrated From:**
+- docs/FRONTEND_PATTERNS.md
+- docs/PHASE1_WATCHLIST_PATTERNS.md (React Query patterns)
+
+**Key Sections:**
+- React component patterns
+- React Query
+- Form handling
+- Pagination UI
+
+### 06_ERROR_HANDLING_PATTERNS.md
+**Migrated From:**
+- docs/ERROR_HANDLING_PATTERNS.md
+- docs/PHASE0_WATCHLIST_PATTERNS.md (PostgreSQL error codes)
+
+**Key Sections:**
+- Error response standardization
+- PostgreSQL error code classification
+- Validation errors
+- Recovery strategies
 
 ---
 
 ## Subagent → Pattern Mapping
 
-### backend-architect
-**Domain**: Node.js/TypeScript/Express backend development
+**All subagents now reference the 7 consolidated files only.**
 
-**Patterns**:
-- API_PATTERNS.md - Route organization, middleware, validation
-- DATABASE_PATTERNS.md - Query optimization, transactions
-- SERVICE_INTEGRATION_PATTERNS.md - Guard patterns, storage layer
-- ERROR_HANDLING_PATTERNS.md - Error responses, recovery
-- SECURITY_PATTERNS.md - Auth, validation, sanitization
-- TYPESCRIPT_PATTERNS.md - Type safety, Zod integration
-- storage-refactoring-patterns.md - Large file decomposition
-- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
-
-**Coverage**: 8 patterns | **Status**: Comprehensive
+Old pattern file references should be updated to:
+- ~~DATABASE_PATTERNS.md~~ → `02_DATABASE_PATTERNS.md`
+- ~~API_PATTERNS.md~~ → `03_API_PATTERNS.md`
+- ~~SECURITY_PATTERNS.md~~ → `04_SECURITY_PATTERNS.md`
+- ~~PHASE0_WATCHLIST_PATTERNS.md~~ → Merged into core files
+- ~~PHASE1_WATCHLIST_PATTERNS.md~~ → Merged into core files
 
 ---
 
-### frontend-specialist
-**Domain**: React 19/Vite/UI development
+## Pattern Location Quick Reference
 
-**Patterns**:
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety, Zod integration
-- ✅ ERROR_HANDLING_PATTERNS.md - Error sanitization, React Query
-- ✅ DESIGN_SYSTEM.md - Design tokens, styling
-- ✅ COMPONENT_GUIDE.md - React component architecture
-- ✅ API_PATTERNS.md - API contracts, validation schemas *(Added 2025-11-26)*
-
-**Coverage**: 5 patterns | **Status**: Complete ✅
-
----
-
-### database-engineer
-**Domain**: PostgreSQL/Drizzle/schema design
-
-**Patterns**:
-- DATABASE_PATTERNS.md - Query optimization, transactions, N+1 prevention
-- SECURITY_PATTERNS.md - Field selection security, password hashes
-- TYPESCRIPT_PATTERNS.md - Type safety in queries
-- storage-refactoring-patterns.md - Large file refactoring
-- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
-
-**Coverage**: 5 patterns | **Status**: Comprehensive
-
----
-
-### test-engineer
-**Domain**: Vitest/Playwright/testing
-
-**Patterns**:
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety in tests
-- ✅ ERROR_HANDLING_PATTERNS.md - Error test cases
-- ✅ API_PATTERNS.md - Route testing patterns
-- ✅ DATABASE_PATTERNS.md - Query test patterns
-- ✅ SECURITY_PATTERNS.md - Security test cases
-
-**Coverage**: 5 patterns | **Status**: Comprehensive ✅
-
----
-
-### security-auditor
-**Domain**: Security/auth/vulnerability assessment
-
-**Patterns**:
-- SECURITY_PATTERNS.md - Auth, CSRF, validation
-- ERROR_HANDLING_PATTERNS.md - Error sanitization
-- TYPESCRIPT_PATTERNS.md - Type-based security
-- API_PATTERNS.md - Route security
-- DATABASE_PATTERNS.md - Query security
-- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer architecture compliance *(Added 2025-11-27)*
-
-**Coverage**: 6 patterns | **Status**: Excellent
-
----
-
-### code-review-specialist
-**Domain**: Code quality/architecture review
-
-**Patterns**:
-- DATABASE_PATTERNS.md - Query patterns, **NULL-safe unique constraints (Phase 0)**
-- SECURITY_PATTERNS.md - Security violations
-- TYPESCRIPT_PATTERNS.md - Type safety
-- ERROR_HANDLING_PATTERNS.md - Error patterns, **PostgreSQL error code classification (Phase 0)**
-- API_PATTERNS.md - Route patterns
-- VALIDATION_PATTERNS.md - Input validation, **validation layer separation (Phase 0)**
-- PHASE0_WATCHLIST_PATTERNS.md - **NEW** Phase 0: NULL-safe constraints, validation separation, config centralization, error classification, middleware ordering *(Added 2025-11-28)*
-- review-guidelines.md - Review process
-- storage-review-patterns.md - Storage layer review
-- storage-refactoring-patterns.md - Refactoring patterns
-- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
-
-**Coverage**: 11 patterns | **Status**: Exceptional
-
----
-
-### typescript-reviewer
-**Domain**: TypeScript/service pattern review
-
-**Patterns**:
-- storage-review-patterns.md - Storage layer patterns
-- TYPESCRIPT_PATTERNS.md - Type safety, Zod
-- DATABASE_PATTERNS.md - Query optimization
-- ERROR_HANDLING_PATTERNS.md - Validation errors *(Added 2025-11-26)*
-- SECURITY_PATTERNS.md - Type-based security *(Added 2025-11-26)*
-- phase-8-storage-migration-patterns.md - **Phase 8** Storage layer migration *(Added 2025-11-27)*
-
-**Coverage**: 6 patterns | **Status**: Complete
-
----
-
-### orchestrator
-**Domain**: Task coordination/delegation
-
-**Patterns**:
-- ✅ DATABASE_PATTERNS.md - Database operations
-- ✅ SECURITY_PATTERNS.md - Security concerns
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety
-- ✅ ERROR_HANDLING_PATTERNS.md - Error handling
-- ✅ API_PATTERNS.md - API design
-
-**Coverage**: 5 patterns | **Status**: Excellent ✅
-
----
-
-### scraper-expert
-**Domain**: Playwright/web scraping
-
-**Patterns**:
-- ✅ ERROR_HANDLING_PATTERNS.md - Error recovery, retries
-- ✅ SECURITY_PATTERNS.md - Input validation, sanitization
-- ✅ API_PATTERNS.md - Rate limiting, caching
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety in scrapers *(Added 2025-11-26)*
-
-**Coverage**: 4 patterns | **Status**: Complete ✅
-
----
-
-### extension-builder
-**Domain**: Chrome Extension MV3
-
-**Patterns**:
-- ✅ TYPESCRIPT_PATTERNS.md - Type safety for extensions
-- ✅ ERROR_HANDLING_PATTERNS.md - Error recovery in extensions
-- ✅ SECURITY_PATTERNS.md - CSP compliance, validation
-- ✅ DESIGN_SYSTEM.md - Design tokens, UI consistency *(Added 2025-11-26)*
-- ✅ COMPONENT_GUIDE.md - React component architecture *(Added 2025-11-26)*
-
-**Coverage**: 5 patterns | **Status**: Complete ✅
-
----
-
-## Pattern Dependencies
-
-Understanding how patterns reference each other:
-
-```
-SECURITY_PATTERNS.md (Core Security)
-├── DATABASE_PATTERNS.md (password hash exposure, field selection)
-├── API_PATTERNS.md (CSRF middleware, input validation)
-└── ERROR_HANDLING_PATTERNS.md (error sanitization)
-
-DATABASE_PATTERNS.md (Core Data)
-├── SECURITY_PATTERNS.md (preventing data exposure)
-├── API_PATTERNS.md (route query optimization)
-└── SERVICE_INTEGRATION_PATTERNS.md (storage layer abstraction)
-
-API_PATTERNS.md (Core Routes)
-├── SECURITY_PATTERNS.md (CSRF, authentication)
-├── ERROR_HANDLING_PATTERNS.md (route error responses)
-├── DATABASE_PATTERNS.md (preventing N+1 in routes)
-└── SERVICE_INTEGRATION_PATTERNS.md (guard completeness)
-
-TYPESCRIPT_PATTERNS.md (Universal)
-└── Referenced by ALL other patterns (cross-cutting type safety)
-
-SERVICE_INTEGRATION_PATTERNS.md (Service Layer)
-├── API_PATTERNS.md (route integration)
-├── SECURITY_PATTERNS.md (guard mechanisms)
-├── ERROR_HANDLING_PATTERNS.md (service errors)
-└── DATABASE_PATTERNS.md (storage layer)
-
-ERROR_HANDLING_PATTERNS.md (Cross-cutting)
-├── API_PATTERNS.md (route error handling)
-├── SECURITY_PATTERNS.md (error sanitization)
-└── SERVICE_INTEGRATION_PATTERNS.md (service error patterns)
-```
-
----
-
-## Pattern Coverage by Concern
-
-### Security Patterns
-- **Primary**: SECURITY_PATTERNS.md
-- **Supporting**: DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md
-- **Subagents**: security-auditor, code-review-specialist, all backend agents
-
-### Type Safety Patterns
-- **Primary**: TYPESCRIPT_PATTERNS.md
-- **Supporting**: DATABASE_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md
-- **Subagents**: typescript-reviewer, all development agents
-
-### Performance Patterns
-- **Primary**: DATABASE_PATTERNS.md (N+1 prevention, query optimization)
-- **Supporting**: API_PATTERNS.md (caching), SERVICE_INTEGRATION_PATTERNS.md (cache-before-limit)
-- **Subagents**: database-engineer, backend-architect, code-review-specialist
-
-### Error Handling Patterns
-- **Primary**: ERROR_HANDLING_PATTERNS.md
-- **Supporting**: API_PATTERNS.md, SECURITY_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md
-- **Subagents**: All agents
-
-### UI/UX Patterns
-- **Primary**: FRONTEND_PATTERNS.md, DESIGN_SYSTEM.md, COMPONENT_GUIDE.md
-- **Supporting**: ERROR_HANDLING_PATTERNS.md (React Query), TYPESCRIPT_PATTERNS.md
-- **Subagents**: frontend-specialist, extension-builder
-
----
-
-## Version History
-
-| Pattern | v1.0 Release | Latest Version | Last Updated | Recent Changes |
-|---------|--------------|----------------|--------------|----------------|
-| DATABASE_PATTERNS.md | 2025-11-01 | 1.1 | 2025-11-28 | **Phase 0**: NULL-safe unique constraints with partial indexes |
-| API_PATTERNS.md | 2025-11-01 | 1.1 | 2025-11-27 | **Nested response wrapper anti-pattern** |
-| TYPESCRIPT_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-25 | Validation code type safety |
-| ERROR_HANDLING_PATTERNS.md | 2025-11-01 | 1.1 | 2025-11-28 | **Phase 0**: PostgreSQL error code classification (23505, 23503) |
-| SECURITY_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | CSRF token attachment |
-| SERVICE_INTEGRATION_PATTERNS.md | 2025-11-23 | 1.0 | 2025-11-26 | Added version header, storage layer |
-| VALIDATION_PATTERNS.md | 2025-11-25 | 1.1 | 2025-11-28 | **Phase 0**: Validation layer separation (route vs storage) |
-| FRONTEND_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | React Query patterns |
-| BACKGROUND_JOBS_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-20 | Distributed locking |
-| AUTHENTICATION_PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-17 | Session management |
-| PATTERNS.md | 2025-11-01 | 1.0 | 2025-11-16 | General backend overview |
-| phase-8-storage-migration-patterns.md | 2025-11-27 | 1.0 | 2025-11-27 | Storage layer migration, transactions, batch queries |
-| PHASE0_WATCHLIST_PATTERNS.md | 2025-11-28 | 1.0 | 2025-11-28 | **NEW** Phase 0: Comprehensive patterns from watchlist bug fixes |
+| Looking For | File |
+|-------------|------|
+| Type safety, `any` types, async/await | 01_TYPESCRIPT_PATTERNS.md |
+| N+1 queries, transactions, storage layer | 02_DATABASE_PATTERNS.md |
+| Routes, middleware, testing | 03_API_PATTERNS.md |
+| CSRF, auth, validation | 04_SECURITY_PATTERNS.md |
+| React, forms, pagination UI | 05_FRONTEND_PATTERNS.md |
+| Error responses, PostgreSQL errors | 06_ERROR_HANDLING_PATTERNS.md |
+| Bull queues, cron jobs | 07_BACKGROUND_JOBS_PATTERNS.md |
 
 ---
 
 ## Usage Guidelines
 
 ### For Developers
-
-1. **Before Starting Work**: Review core patterns (DATABASE, SECURITY, TYPESCRIPT)
-2. **During Development**: Reference domain-specific patterns
-3. **Before Committing**: Check pre-commit hook requirements
-4. **During Code Review**: Use patterns as checklist
+1. Use numeric prefixes for ordering (01 → 07)
+2. One canonical location per pattern
+3. Cross-references between files, no duplication
 
 ### For Subagents
-
-Subagents automatically have access to their configured patterns. When working with a subagent:
-
-1. Reference specific pattern sections in your prompts
-2. Ask subagents to verify compliance with patterns
-3. Use pattern terminology (e.g., "cache-before-limit", "guard completeness")
-
-### For Code Reviewers
-
-1. Use `.claude/PATTERN_INDEX.md` to find relevant patterns
-2. Reference pattern file and section in review comments
-3. Check if new code introduces patterns worth documenting
-4. Ensure pattern compliance before approval
-
----
-
-## Maintenance
-
-### Adding New Patterns
-
-1. Create pattern file in `/docs` with version header
-2. Update `PATTERNS_INDEX.md` in docs/
-3. Update this `.claude/PATTERN_INDEX.md`
-4. Add to relevant subagent configurations
-5. Update related pattern cross-references
-6. Test pre-commit hooks if adding enforcement
-
-### Updating Existing Patterns
-
-1. Increment version number (minor for additions, major for breaking changes)
-2. Update "Last Updated" date
-3. Update version history table in this file
-4. Notify affected subagents if behavior changes
-
-### Deprecating Patterns
-
-1. Mark as "Deprecated" in status column
-2. Add deprecation notice to pattern file
-3. Document migration path to replacement pattern
-4. Remove from subagent configurations after grace period
+- Reference patterns by number and name
+- All 7 files accessible to all subagents
+- No more .claude/knowledge/ hidden patterns
 
 ---
 
 ## Related Documentation
 
-- **[docs/PATTERNS_INDEX.md](../docs/PATTERNS_INDEX.md)** - User-facing pattern index
-- **[docs/README.md](../docs/README.md)** - General documentation index
-- **[CLAUDE.md](../CLAUDE.md)** - Main project guidelines
-- **[.claude/knowledge/](./knowledge/)** - Subagent-specific patterns
-- **[ARCHITECTURE.md](../docs/ARCHITECTURE.md)** - System architecture
+- **CLAUDE.md** - Main project guidelines (references 7 core files)
+- **PATTERN_CONSOLIDATION_PLAN.md** - Detailed consolidation strategy
+- **docs/archive/sessions/** - Historical completion reports
+- **docs/backup-2025-11-29/** - Original files (for rollback)
 
 ---
 
-**Maintained By**: PriceCompare Development Team + Claude Code
-**Update Frequency**: As patterns evolve
-**Next Review**: 2025-12-26 (monthly)
+**Maintained By**: Development Team + Claude Code
+**Next Review**: 2025-12-29 (monthly)
+**Consolidation Date**: 2025-11-29

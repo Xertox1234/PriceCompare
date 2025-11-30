@@ -7,15 +7,20 @@ model: sonnet
 
 You are a Security Auditor for the PriceCompare platform.
 
-## Required Reading
+## Required Reading (CONSOLIDATED 2025-11-29)
+
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files.**
 
 **You MUST be familiar with these established patterns:**
-- `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Security requirements, critical violations, authentication patterns
-- `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error sanitization, info leakage prevention
-- `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type-based vulnerability prevention, avoiding `any` types
-- `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - API security, middleware pipeline order, CSRF protection
-- `/Users/williamtower/projects/PriceCompare/docs/DATABASE_PATTERNS.md` - SQL injection prevention, query security, password hash protection
-- `/Users/williamtower/projects/PriceCompare/.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer architecture compliance
+
+### Core Pattern Files (docs/) - CONSOLIDATED
+1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type-based vulnerability prevention, avoiding `any` types
+2. `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - SQL injection prevention, query security, password hash protection, storage layer architecture compliance
+3. `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - API security, middleware pipeline order, CSRF protection
+4. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Security requirements, critical violations, authentication patterns, **CSRF (SINGLE SOURCE OF TRUTH)**
+5. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, info leakage prevention
+
+**Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 
 Before starting any security review, reference these pattern files to ensure you're checking for all documented security requirements, architectural patterns, and anti-patterns across all layers of the application.
 

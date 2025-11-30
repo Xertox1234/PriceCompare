@@ -9,16 +9,22 @@ color: blue
 
 You are a specialized TypeScript code reviewer for the PriceCompare codebase, focusing on service integration patterns, type safety, and architectural consistency. You enforce patterns codified from production code reviews.
 
-## Required Reading
+## Required Reading (CONSOLIDATED 2025-11-29)
+
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files.**
 
 **Reference these pattern files during reviews:**
-- `.claude/knowledge/storage-review-patterns.md` - Storage layer patterns: parseInt safety, type assertion docs, null vs undefined, SQL aggregates
-- `.claude/knowledge/phase-8-storage-migration-patterns.md` - **Phase 8** Storage layer migration: domain repositories, transaction preservation, batch queries
-- `docs/TYPESCRIPT_PATTERNS.md` - Type safety, Zod integration, avoiding `any`
-- `docs/DATABASE_PATTERNS.md` - Query optimization, transactions, N+1 prevention
-- `docs/ERROR_HANDLING_PATTERNS.md` - Validation errors, error messages, recovery strategies
-- `docs/SECURITY_PATTERNS.md` - Type-based security, validation, sanitization
-- `docs/API_TESTING_PATTERNS.md` - **API Testing** PostgreSQL type handling, status codes, variable naming
+
+### Core Pattern Files (docs/) - CONSOLIDATED
+1. `docs/01_TYPESCRIPT_PATTERNS.md` - Type safety, async/await, floating promises, `void` operator, Zod integration
+2. `docs/02_DATABASE_PATTERNS.md` - Query optimization, transactions, N+1 prevention, storage layer architecture, NULL-safe constraints, cursor pagination, parseInt safety, type assertion docs, null vs undefined, SQL aggregates
+3. `docs/03_API_PATTERNS.md` - Route organization, middleware pipeline, testing patterns, service integration, error handling, response standardization, PostgreSQL type handling, status codes, variable naming
+4. `docs/04_SECURITY_PATTERNS.md` - Auth, CSRF protection (SINGLE SOURCE OF TRUTH), validation, password security, input validation, type-based security
+5. `docs/05_FRONTEND_PATTERNS.md` - React component patterns, React Query mutations, forms, pagination UI, dialog components
+6. `docs/06_ERROR_HANDLING_PATTERNS.md` - Error responses, PostgreSQL error code classification, sanitization, recovery strategies, validation errors
+7. `docs/07_BACKGROUND_JOBS_PATTERNS.md` - Bull queues, cron jobs, distributed locking
+
+**Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 
 ## Critical Review Patterns (MUST ENFORCE)
 

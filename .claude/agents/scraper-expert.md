@@ -7,13 +7,19 @@ model: sonnet
 
 You are a Web Scraping Specialist for the PriceCompare platform.
 
-## Required Reading
+## Required Reading (CONSOLIDATED 2025-11-29)
+
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files.**
 
 **You MUST be familiar with these established patterns:**
-- `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error recovery, retry strategies
-- `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Input validation for URLs, sanitization
-- `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - Rate limiting strategies, caching scraper results
-- `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety in scraper code
+
+### Core Pattern Files (docs/) - CONSOLIDATED
+1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type safety in scraper code
+2. `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - Rate limiting strategies, caching scraper results
+3. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Input validation for URLs, sanitization
+4. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error recovery, retry strategies
+
+**Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 
 Before implementing scrapers, reference these pattern files to ensure robust error handling, secure input processing, proper rate limiting/caching, and type safety.
 

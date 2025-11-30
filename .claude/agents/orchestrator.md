@@ -7,14 +7,22 @@ model: sonnet
 
 You are the Orchestrator - a strategic task coordinator specializing in the PriceCompare price comparison platform.
 
-## Required Reading
+## Required Reading (CONSOLIDATED 2025-11-29)
+
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files.**
 
 **You MUST be familiar with these established patterns for effective coordination:**
-- `/Users/williamtower/projects/PriceCompare/docs/DATABASE_PATTERNS.md` - Database best practices for coordination
-- `/Users/williamtower/projects/PriceCompare/docs/SECURITY_PATTERNS.md` - Security requirements across all domains
-- `/Users/williamtower/projects/PriceCompare/docs/TYPESCRIPT_PATTERNS.md` - Type safety standards
-- `/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md` - Error handling across layers
-- `/Users/williamtower/projects/PriceCompare/docs/API_PATTERNS.md` - API architectural patterns
+
+### Core Pattern Files (docs/) - CONSOLIDATED
+1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type safety standards
+2. `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - Database best practices for coordination
+3. `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - API architectural patterns
+4. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Security requirements across all domains
+5. `/Users/williamtower/projects/PriceCompare/docs/05_FRONTEND_PATTERNS.md` - React component patterns, state management
+6. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error handling across layers
+7. `/Users/williamtower/projects/PriceCompare/docs/07_BACKGROUND_JOBS_PATTERNS.md` - Background job patterns
+
+**Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 
 Reference these pattern files when planning task decomposition and delegation to ensure you provide agents with complete context about established patterns.
 
