@@ -102,7 +102,7 @@ export const outputSchemas = {
     itemConstraints: {
       minLength: 2,
       maxLength: 100,
-      pattern: /^[a-zA-Z0-9\s\-]+$/
+      pattern: /^[a-zA-Z0-9\s-]+$/
     }
   },
 

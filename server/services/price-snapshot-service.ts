@@ -26,6 +26,7 @@ export class PriceSnapshotService {
 
       logger.info(`[PriceSnapshot] Starting batch price snapshot with batch size ${batchSize}`);
 
+      // eslint-disable-next-line no-constant-condition -- Intentional infinite loop with break condition
       while (true) {
         // Fetch offers in batches to maintain stable memory usage
         const batch = await storage.getProductOffersForSnapshot(batchSize, offset);

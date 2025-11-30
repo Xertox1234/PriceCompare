@@ -72,7 +72,7 @@ export function useIsTouchDevice(): boolean {
     const hasTouch =
       'ontouchstart' in window ||
       navigator.maxTouchPoints > 0 ||
-      // @ts-ignore - for older browsers
+      // @ts-expect-error - for older browsers that have msMaxTouchPoints
       navigator.msMaxTouchPoints > 0;
 
     setIsTouch(hasTouch);

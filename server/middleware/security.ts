@@ -127,6 +127,7 @@ declare module 'express-session' {
 }
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Required for Express type augmentation
   namespace Express {
     interface Request {
       csrfToken?: () => string;

@@ -28,6 +28,7 @@ interface ExtendedVerifyOptions extends IVerifyOptions {
 
 // Extend Express types to include our User type (without passwordHash for security)
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Required for Express type augmentation
   namespace Express {
     interface User extends SafeUser {}
   }

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- OpenAPI spec building requires dynamic object access */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call -- OpenAPI spec building requires dynamic object access */
 /**
  * OpenAPI 3.0 Schema Generator for Standardized API Responses
  *
@@ -471,12 +471,15 @@ export function generateProductEndpointsSpec(): Record<string, unknown> {
  */
 export function writeOpenAPISpec(spec: Record<string, unknown>, filename = 'openapi.json'): void {
   // BUILD-TIME ONLY: Dynamic require acceptable for build scripts
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const fs = require('fs');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const path = require('path');
 
   const outputPath = path.join(process.cwd(), 'docs', filename);
   fs.writeFileSync(outputPath, JSON.stringify(spec, null, 2), 'utf-8');
 
   // BUILD-TIME ONLY: console.log acceptable for build script output
+  // eslint-disable-next-line no-console
   console.log(`OpenAPI spec written to: ${outputPath}`);
 }

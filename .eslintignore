@@ -61,3 +61,9 @@ pnpm-lock.yaml
 
 # Scripts (ad-hoc migration scripts with loose typing)
 scripts/
+
+# Config files (not in tsconfig.json project)
+vitest.config.ts
+tailwind.config.ts
+playwright.config.ts
+drizzle.config.ts

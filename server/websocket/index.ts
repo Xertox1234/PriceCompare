@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Socket.io session and rate limit data structures are dynamic */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call -- Socket.io session and rate limit data structures are dynamic */
 /**
  * WebSocket Server for Watch List Real-Time Notifications
  *
@@ -352,8 +352,11 @@ function handleConnection(socket: Socket): void {
  */
 function setupEventHandlers(socket: AuthenticatedSocket): void {
   // Import handler registration functions
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { registerWatchListHandlers } = require('./handlers/watch-list-handler');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { registerNotificationHandlers } = require('./handlers/notification-handler');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { registerPriceUpdateHandlers } = require('./handlers/price-update-handler');
 
   // Register all event handlers

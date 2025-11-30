@@ -16,6 +16,7 @@ const log = createLogger('AccountLockout');
 
 // Extend Express Request type to avoid 'any' usage
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Required for Express type augmentation
   namespace Express {
     interface Request {
       loginEmail?: string;
