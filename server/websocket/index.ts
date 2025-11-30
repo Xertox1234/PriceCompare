@@ -305,7 +305,7 @@ function handleConnection(socket: Socket): void {
 
   // Join user to their personal room for targeted messaging
   const userRoom = `user:${userId}`;
-  socket.join(userRoom);
+  void socket.join(userRoom);
 
   log.info('WebSocket client connected', {
     userId,
@@ -435,7 +435,7 @@ export async function shutdownWebSocket(): Promise<void> {
   log.info('Shutting down WebSocket server...');
 
   // Close all connections
-  io.close(() => {
+  void io.close(() => {
     log.info('WebSocket server closed');
   });
 

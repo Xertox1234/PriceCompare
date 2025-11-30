@@ -387,11 +387,11 @@ export class CoordinationAgent extends BaseAgent {
       // Calculate next interval based on current queue size
       const interval = await this.calculateSchedulingInterval();
 
-      setTimeout(scheduleNext, interval);
+      setTimeout(() => void scheduleNext(), interval);
     };
 
     // Start the scheduler
-    scheduleNext();
+    void scheduleNext();
     logger.info('Dynamic job processor started with adaptive scheduling');
   }
 

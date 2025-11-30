@@ -47,10 +47,10 @@ export function useAddProductWatch() {
     },
     onSuccess: (_, productId) => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/community/watch-count/${productId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/community/is-watching/${productId}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/most-watched'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/community/watch-count/${productId}`] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/community/is-watching/${productId}`] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/most-watched'] });
     },
   });
 }
@@ -75,10 +75,10 @@ export function useRemoveProductWatch() {
     },
     onSuccess: (_, productId) => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/community/watch-count/${productId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/community/is-watching/${productId}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/most-watched'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/community/watch-count/${productId}`] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/community/is-watching/${productId}`] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/most-watched'] });
     },
   });
 }
@@ -256,7 +256,7 @@ export function useCreateWatchList() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
     },
   });
 }
@@ -334,8 +334,8 @@ export function useUpdateWatchList() {
       return response.json();
     },
     onSuccess: (_, { listId }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists', listId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists', listId] });
     },
   });
 }
@@ -359,8 +359,8 @@ export function useDeleteWatchList() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
     },
   });
 }
@@ -421,12 +421,12 @@ export function useUpdateProductWatch() {
     },
     onSuccess: (data, { updates }) => {
       // Invalidate watch lists
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
 
       // If moving to a different list, invalidate that list's products
       if (updates.watchListId !== undefined) {
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ['/api/community/watch-lists', updates.watchListId, 'products']
         });
       }
@@ -464,8 +464,8 @@ export function useMoveProductsToWatchList() {
     },
     onSuccess: () => {
       // Invalidate all watch list queries
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
     },
   });
 }
@@ -494,9 +494,9 @@ export function useBulkRemoveProductWatches() {
     },
     onSuccess: () => {
       // Invalidate all watch list queries
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/most-watched'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/most-watched'] });
     },
   });
 }
@@ -574,8 +574,8 @@ export function useImportWatchLists() {
     },
     onSuccess: () => {
       // Invalidate all watch list queries
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
     },
   });
 }

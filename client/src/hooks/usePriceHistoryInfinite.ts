@@ -116,7 +116,7 @@ export function usePriceHistoryInfinite({
   useEffect(() => {
     if (!enabled) return;
 
-    fetchPriceHistory(initialDays);
+    void fetchPriceHistory(initialDays);
 
     // Cleanup
     return () => {

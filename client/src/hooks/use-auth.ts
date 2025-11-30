@@ -95,7 +95,7 @@ export function useLogout() {
     },
     onSuccess: () => {
       queryClient.setQueryData(['auth', 'user'], null);
-      queryClient.invalidateQueries({ queryKey: ['auth'] });
+      void queryClient.invalidateQueries({ queryKey: ['auth'] });
       // Refresh the page to reset all state
       window.location.reload();
     },

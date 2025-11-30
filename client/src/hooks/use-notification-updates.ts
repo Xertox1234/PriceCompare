@@ -83,7 +83,7 @@ export function useNotificationUpdates() {
       setUnreadCount(data.unreadCount);
 
       // Update notification cache
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
 
       // Show toast for high priority notifications
       if (data.notification.priority === 'high') {
@@ -111,7 +111,7 @@ export function useNotificationUpdates() {
       unreadCount: number;
     }) => {
       setUnreadCount(data.unreadCount);
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     };
 
     // Handle unread count update

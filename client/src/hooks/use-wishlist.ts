@@ -76,7 +76,7 @@ export function useCreateWishlist() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
     },
   });
 }
@@ -100,8 +100,8 @@ export function useUpdateWishlist() {
       return response.json();
     },
     onSuccess: (_, { wishlistId }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists', wishlistId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists', wishlistId] });
     },
   });
 }
@@ -123,7 +123,7 @@ export function useDeleteWishlist() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
     },
   });
 }
@@ -147,10 +147,10 @@ export function useAddToWishlist() {
       return response.json();
     },
     onSuccess: (_, { wishlistId, productId }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists', wishlistId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists/items'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists/check', productId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists', wishlistId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists/items'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists/check', productId] });
     },
   });
 }
@@ -172,10 +172,10 @@ export function useRemoveFromWishlist() {
       return response.json();
     },
     onSuccess: (_, { wishlistId, productId }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists', wishlistId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists/items'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists/check', productId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists', wishlistId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists/items'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists/check', productId] });
     },
   });
 }
@@ -214,7 +214,7 @@ export function useToggleWishlist() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
     },
   });
 }

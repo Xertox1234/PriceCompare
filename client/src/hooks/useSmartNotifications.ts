@@ -95,7 +95,7 @@ export function useSnoozeNotification() {
     },
     onSuccess: (data, variables) => {
       // Invalidate smart notifications query to refetch
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/smart'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/smart'] });
 
       // Show success toast
       toast({
@@ -135,11 +135,11 @@ export function useDismissNotification() {
     },
     onSuccess: () => {
       // Invalidate smart notifications query to refetch
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/smart'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/smart'] });
 
       // Also invalidate general notifications
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
     },
     onError: (error: Error) => {
       toast({
@@ -217,7 +217,7 @@ export function useRealtimeNotifications() {
       );
 
       // Invalidate queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
 
       // Show toast for high or critical urgency
       const urgency = notification.metadata?.urgency;

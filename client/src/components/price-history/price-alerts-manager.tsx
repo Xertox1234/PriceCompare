@@ -57,7 +57,7 @@ export function PriceAlertsManager({ productId, currentPrice, className }: Price
   const activeAlerts = alerts.filter(a => a.isActive);
 
   const handleSuccess = (message: string) => {
-    queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
+    void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
     toast({ title: "Success", description: message });
     setIsDialogOpen(false);
     setEditingAlert(null);
@@ -193,7 +193,7 @@ function AlertItem({
       if (!res.ok) throw new Error('Failed to delete alert');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
       onDelete();
     },
     onError: (error: Error) => onError(error, 'delete alert'),
@@ -210,7 +210,7 @@ function AlertItem({
       if (!res.ok) throw new Error('Failed to update alert');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
       onToggle();
     },
     onError: (error: Error) => onError(error, 'update alert'),
