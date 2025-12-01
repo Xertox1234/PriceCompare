@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { Express } from "express";
 import { storage } from "../storage";
 import type { SearchFilters } from "@shared/schema";
@@ -385,9 +384,13 @@ export function registerProductRoutes(app: Express): void {
   });
 
   // Track product view (analytics for browser extension)
-  app.post("/api/analytics/product-view", csrfProtection, async (req, res) => {
+  app.post("/api/analytics/product-view", csrfProtection, (req, res) => {
     try {
-      const { productId, source, retailer } = req.body;
+      // Safely extract from req.body with type checking
+      const body = req.body as Record<string, unknown> | undefined;
+      const productId = body?.productId != null ? String(body.productId) : undefined;
+      const source = body?.source != null ? String(body.source) : undefined;
+      const retailer = body?.retailer != null ? String(body.retailer) : undefined;
 
       if (!productId) {
         sendError(res, "productId is required", 400);
@@ -407,7 +410,8 @@ export function registerProductRoutes(app: Express): void {
       // For now, just acknowledge receipt
       sendSuccess(res, { success: true });
     } catch (error: unknown) {
-      logger.error('Error tracking product view', { error: error instanceof Error ? error.message : String(error), productId: req.body.productId });
+      const body = req.body as Record<string, unknown> | undefined;
+      logger.error('Error tracking product view', { error: error instanceof Error ? error.message : String(error), productId: body?.productId });
       sendErrorFromException(res, error, 'TrackProductView');
     }
   });

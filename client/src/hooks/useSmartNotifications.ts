@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- API responses from fetch need runtime type checking */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
@@ -6,6 +5,27 @@ import { toast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
 
 const log = createLogger('SmartNotifications');
+
+// Type-safe error extraction from unknown JSON response
+interface ApiErrorResponse {
+  error?: string;
+  message?: string;
+}
+
+function extractErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === 'object' && data !== null) {
+    const obj = data as ApiErrorResponse;
+    if (typeof obj.error === 'string') return obj.error;
+    if (typeof obj.message === 'string') return obj.message;
+  }
+  return fallback;
+}
+
+// Type-safe JSON parsing helper
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
 
 /**
  * Smart Notification Interface
@@ -66,7 +86,7 @@ export function useSmartNotifications(filters?: SmartNotificationFilters) {
         throw new Error('Failed to fetch smart notifications');
       }
 
-      return res.json();
+      return parseJsonResponse<SmartNotificationsResponse>(res);
     },
     refetchInterval: 30000, // Poll every 30 seconds
     staleTime: 10000, // Consider data stale after 10 seconds
@@ -81,8 +101,12 @@ export function useSmartNotifications(filters?: SmartNotificationFilters) {
 export function useSnoozeNotification() {
   const queryClient = useQueryClient();
 
+  interface SnoozeResponse {
+    message?: string;
+  }
+
   return useMutation({
-    mutationFn: async ({ id, duration }: { id: number; duration: number }) => {
+    mutationFn: async ({ id, duration }: { id: number; duration: number }): Promise<SnoozeResponse> => {
       const res = await fetch(`/api/notifications/smart/${id}/snooze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -91,11 +115,11 @@ export function useSnoozeNotification() {
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to snooze notification');
+        const errorData: unknown = await res.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to snooze notification'));
       }
 
-      return res.json();
+      return parseJsonResponse<SnoozeResponse>(res);
     },
     onSuccess: (data, variables) => {
       // Invalidate smart notifications query to refetch
@@ -131,11 +155,11 @@ export function useDismissNotification() {
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to dismiss notification');
+        const errorData: unknown = await res.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to dismiss notification'));
       }
 
-      return res.json();
+      return parseJsonResponse<{ success: boolean }>(res);
     },
     onSuccess: () => {
       // Invalidate smart notifications query to refetch

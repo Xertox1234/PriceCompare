@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Advanced Multi-Tier Caching Service
  *
@@ -531,7 +530,11 @@ export class AdvancedCacheService {
     this.subscriber.on('message', (channel, message) => {
       if (channel === this.PUBSUB_CHANNEL) {
         try {
-          const { key, isPattern = false } = JSON.parse(message);
+          const parsed: unknown = JSON.parse(message);
+          // Type guard for the expected message shape
+          const invalidationMsg = parsed as { key?: unknown; isPattern?: unknown };
+          const key = typeof invalidationMsg.key === 'string' ? invalidationMsg.key : '';
+          const isPattern = Boolean(invalidationMsg.isPattern);
 
           // Only invalidate L1 cache (L2 is already invalidated by publisher)
           if (isPattern) {

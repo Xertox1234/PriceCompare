@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import axios from 'axios';
 import { ScraperUtils, RateLimiter } from '../utils/scraper-utils';
 import { createLogger } from '../utils/logger';
@@ -147,7 +146,8 @@ export class GoogleCustomSearchService {
         } else if (error.response?.status === 403) {
           throw new Error('Google Custom Search API quota exceeded or invalid credentials');
         } else if (error.response?.status === 400) {
-          throw new Error(`Invalid search parameters: ${error.response.data.error?.message || 'Unknown error'}`);
+          const responseData = error.response.data as { error?: { message?: string } } | undefined;
+          throw new Error(`Invalid search parameters: ${responseData?.error?.message || 'Unknown error'}`);
         }
       }
 

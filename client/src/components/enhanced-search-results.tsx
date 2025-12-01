@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState, memo, useMemo, useCallback } from 'react';
 import { Star, TrendingUp, Zap, Search, Target, Hash } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -106,7 +105,7 @@ export const EnhancedSearchResults = memo(({
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
+        {Array.from({ length: 3 }, (_, i) => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-6">
               <div className="flex gap-4">

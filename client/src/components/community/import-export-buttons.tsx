@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- API responses from fetch need runtime type checking */
 import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,6 +9,24 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useExportWatchLists, useImportWatchLists } from '@/hooks/use-community';
 import { Download, Upload, FileJson } from 'lucide-react';
+
+// Type for imported watch list data
+// Must match WatchListImportData in use-community.ts
+interface WatchListImportFile {
+  watchLists?: Array<{
+    name: string;
+    description?: string;
+    color?: string;
+    icon?: string;
+    products?: Array<{
+      productId: number;
+      notes?: string;
+      priority?: number;
+      targetPrice?: string;
+    }>;
+  }>;
+  [key: string]: unknown;
+}
 
 export function ImportExportButtons() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,14 +60,18 @@ export function ImportExportButtons() {
 
     try {
       const text = await file.text();
-      const data = JSON.parse(text);
+      const data: unknown = JSON.parse(text);
 
-      // Validate the import data structure
-      if (!data.watchLists || !Array.isArray(data.watchLists)) {
+      // Validate the import data structure with type guard
+      if (typeof data !== 'object' || data === null) {
+        throw new Error('Invalid watch list file format');
+      }
+      const typedData = data as WatchListImportFile;
+      if (!typedData.watchLists || !Array.isArray(typedData.watchLists)) {
         throw new Error('Invalid watch list file format');
       }
 
-      const result = await importLists.mutateAsync(data);
+      const result = await importLists.mutateAsync(typedData);
 
       toast({
         title: 'Import successful',

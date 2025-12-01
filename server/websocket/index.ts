@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call -- Socket.io session and rate limit data structures are dynamic */
 /**
  * WebSocket Server for Watch List Real-Time Notifications
  *
@@ -323,8 +322,14 @@ function handleConnection(socket: Socket): void {
     timestamp: new Date().toISOString(),
   });
 
-  // Handle client events
-  setupEventHandlers(authSocket);
+  // Handle client events (async handler registration)
+  void setupEventHandlers(authSocket).catch((err: unknown) => {
+    log.error('Failed to setup event handlers', {
+      userId,
+      socketId: socket.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
 
   // Handle disconnection
   socket.on('disconnect', (reason) => {
@@ -350,14 +355,17 @@ function handleConnection(socket: Socket): void {
 /**
  * Setup event handlers for authenticated client
  */
-function setupEventHandlers(socket: AuthenticatedSocket): void {
-  // Import handler registration functions
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { registerWatchListHandlers } = require('./handlers/watch-list-handler');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { registerNotificationHandlers } = require('./handlers/notification-handler');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { registerPriceUpdateHandlers } = require('./handlers/price-update-handler');
+async function setupEventHandlers(socket: AuthenticatedSocket): Promise<void> {
+  // Dynamic imports to avoid circular dependency issues during server initialization
+  const [
+    { registerWatchListHandlers },
+    { registerNotificationHandlers },
+    { registerPriceUpdateHandlers }
+  ] = await Promise.all([
+    import('./handlers/watch-list-handler'),
+    import('./handlers/notification-handler'),
+    import('./handlers/price-update-handler')
+  ]);
 
   // Register all event handlers
   registerWatchListHandlers(socket);
@@ -412,9 +420,11 @@ export function emitToUser<K extends keyof ServerToClientEvents>(
   }
 
   const room = `user:${userId}`;
-  // Type assertion needed for Socket.io's complex generic emit signature with acknowledgements
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (io.to(room).emit as any)(event, data);
+  // Socket.IO's BroadcastOperator.emit() has complex generic signatures with acknowledgements
+  // that don't align with our simpler ServerToClientEvents type. Using 'as unknown' chain
+  // to safely cast to the expected function signature while preserving type safety for callers.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO emit type incompatibility with room broadcast
+  (io.to(room).emit as unknown as (event: K, data: Parameters<ServerToClientEvents[K]>[0]) => void)(event, data);
 
   log.debug('Event emitted to user', {
     userId,

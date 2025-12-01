@@ -11,7 +11,7 @@ const vector = customType<{ data: number[]; driverData: string }>({
     return JSON.stringify(value);
   },
   fromDriver(value: string): number[] {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- JSON.parse returns any for vector data from pgvector extension
     return JSON.parse(value);
   },
 });
@@ -63,7 +63,7 @@ function getEncryptionModule() {
       // Load production encryption from standard path
       // Fail fast with clear error if module can't be loaded
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+        // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment -- Dynamic require for encryption module needed at runtime
         encryptionModule = require('../server/utils/encryption');
       } catch (error) {
         throw new Error(

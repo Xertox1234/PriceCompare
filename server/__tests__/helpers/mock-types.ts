@@ -115,6 +115,6 @@ export interface MockSocket {
  * Usage: const mockFn = createMockFn<(arg: string) => Promise<number>>();
  */
 export function createMockFn<T extends (...args: never[]) => unknown>(): Mock<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vi.fn() returns any type, cast at call site
   return vi.fn();
 }

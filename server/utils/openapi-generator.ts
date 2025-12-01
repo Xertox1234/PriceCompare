@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call -- OpenAPI spec building requires dynamic object access */
 /**
  * OpenAPI 3.0 Schema Generator for Standardized API Responses
  *
@@ -470,16 +469,17 @@ export function generateProductEndpointsSpec(): Record<string, unknown> {
  * writeOpenAPISpec(spec, 'openapi.json');
  */
 export function writeOpenAPISpec(spec: Record<string, unknown>, filename = 'openapi.json'): void {
-  // BUILD-TIME ONLY: Dynamic require acceptable for build scripts
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fs = require('fs');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const path = require('path');
+  // BUILD-TIME ONLY: Dynamic imports for Node.js built-ins
+  // Using require() instead of import for build-time scripts that may run outside the ESM context
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- Build script uses CommonJS require for fs/path
+  const fs = require('fs') as typeof import('fs');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- Build script uses CommonJS require for fs/path
+  const path = require('path') as typeof import('path');
 
-  const outputPath = path.join(process.cwd(), 'docs', filename);
+  const outputPath: string = path.join(process.cwd(), 'docs', filename);
   fs.writeFileSync(outputPath, JSON.stringify(spec, null, 2), 'utf-8');
 
   // BUILD-TIME ONLY: console.log acceptable for build script output
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console -- Build script output
   console.log(`OpenAPI spec written to: ${outputPath}`);
 }

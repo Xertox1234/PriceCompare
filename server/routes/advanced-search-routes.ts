@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { Express, Request, Response } from 'express';
 import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
@@ -93,7 +92,8 @@ export function registerAdvancedSearchRoutes(app: Express): void {
    */
   app.post("/api/search/analyze", csrfProtection, async (req: Request, res: Response) => {
     try {
-      const { query } = req.body;
+      const body = req.body as { query?: unknown };
+      const query = typeof body.query === 'string' ? body.query : '';
 
       if (!query) {
         sendError(res, "Query is required", 400);

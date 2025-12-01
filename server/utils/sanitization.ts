@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Enhanced Input Sanitization with DOMPurify
  *
@@ -183,11 +182,13 @@ export function sanitizeObject<T extends Record<string, unknown>>(
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item =>
-      typeof item === 'object' ? sanitizeObject(item as Record<string, unknown>, context) :
+    const sanitizedArray: unknown[] = obj.map((item: unknown) =>
+      typeof item === 'object' && item !== null ? sanitizeObject(item as Record<string, unknown>, context) :
       typeof item === 'string' ? sanitizeString(item, context) :
       item
-    ) as unknown as T;
+    );
+    // Type assertion needed: array is structurally compatible with T after sanitization
+    return sanitizedArray as unknown as T;
   }
 
   const sanitized: Record<string, unknown> = {};

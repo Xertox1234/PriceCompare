@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush, ReferenceLine } from "recharts";
 import { format } from "date-fns";
@@ -261,11 +260,11 @@ export function PriceHistoryChart({
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(value) => format(new Date(value), "MMM d")}
+                tickFormatter={(value: string | number | Date) => format(new Date(value), "MMM d")}
                 className="text-xs"
               />
               <YAxis
-                tickFormatter={(value) => `$${value.toFixed(2)}`}
+                tickFormatter={(value: number) => `$${value.toFixed(2)}`}
                 className="text-xs"
               />
               <Tooltip
@@ -315,7 +314,7 @@ export function PriceHistoryChart({
                 dataKey="date"
                 height={30}
                 stroke="#3b82f6"
-                tickFormatter={(value) => format(new Date(value), "MMM d")}
+                tickFormatter={(value: string | number | Date) => format(new Date(value), "MMM d")}
                 startIndex={brushStartIndex}
                 endIndex={brushEndIndex}
                 onChange={(range) => {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { BaseAgent, AgentConfig } from './base-agent';
 import { db } from '../db';
 import { trendingProducts } from '../../shared/schema';
@@ -252,7 +251,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
       // Parse and validate AI response with Zod schema
       let aiAnalysis: AITrendAnalysis[];
       try {
-        const parsed = JSON.parse(rawResponse);
+        const parsed: unknown = JSON.parse(rawResponse);
         const validationResult = safeTrendAnalysis(parsed);
 
         if (!validationResult.success) {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -358,11 +357,11 @@ export function ProductComparison({
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(value) => format(new Date(value), "MMM d")}
+                    tickFormatter={(value: string | number | Date) => format(new Date(value), "MMM d")}
                     className="text-xs"
                   />
                   <YAxis
-                    tickFormatter={(value) => `$${value.toFixed(0)}`}
+                    tickFormatter={(value: number) => `$${value.toFixed(0)}`}
                     className="text-xs"
                   />
                   <Tooltip

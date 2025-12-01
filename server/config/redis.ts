@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Redis Configuration
  *
@@ -75,8 +74,9 @@ export async function initializeRedis(redisUrl?: string): Promise<Redis | null> 
       const { createClient } = await import('redis');
       redisSessionClient = createClient({ url });
 
-      redisSessionClient.on('error', (error) => {
-        log.error('Redis session client error:', { message: error.message });
+      redisSessionClient.on('error', (error: unknown) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log.error('Redis session client error:', { message: errorMessage });
 
         // CRITICAL: In production, session client errors are fatal
         if (isProduction) {

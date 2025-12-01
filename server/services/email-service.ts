@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { logger } from '../utils/logger';
@@ -107,15 +106,15 @@ class EmailService {
     }
 
     try {
-      const info = await this.transporter.sendMail({
+      const info: { messageId?: string } = await this.transporter.sendMail({
         from: this.fromAddress,
         to: options.to,
         subject: options.subject,
         text: options.text,
         html: options.html,
-      });
+      }) as { messageId?: string };
 
-      logger.info(`Email sent successfully to ${options.to}: ${info.messageId}`);
+      logger.info(`Email sent successfully to ${options.to}: ${info.messageId ?? 'unknown'}`);
       return true;
     } catch (error) {
       logger.error(`Failed to send email to ${options.to}: ${error}`);

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { Express, Request } from "express";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -82,8 +81,10 @@ export function registerAuthRoutes(app: Express): void {
   app.post("/api/auth/register", csrfProtection, async (req, res): Promise<void> => {
     try {
       // SECURITY: Do not log request bodies in production (may contain sensitive data)
+      // Use type guard to safely access email for logging
+      const hasEmail = typeof req.body === 'object' && req.body !== null && 'email' in req.body;
       if (process.env.NODE_ENV === 'development') {
-        logger.debug('Registration request', { hasEmail: !!req.body.email });
+        logger.debug('Registration request', { hasEmail });
       }
 
       // Validate input with Zod schema
@@ -146,7 +147,9 @@ export function registerAuthRoutes(app: Express): void {
   // User login
   app.post("/api/auth/login", csrfProtection, (req, res, next) => {
     // Use custom callback to capture authentication result for logging
-    passport.authenticate('local', (err: Error | null, user: User | false, info?: { message?: string; locked?: boolean; remainingTime?: number; remainingAttempts?: number }) => {
+    // Type the authenticate callback properly
+    type AuthInfo = { message?: string; locked?: boolean; remainingTime?: number; remainingAttempts?: number };
+    const authenticateCallback = (err: Error | null, user: User | false, info?: AuthInfo) => {
       if (err) {
         logger.error('Login error', { error: err.message || String(err) });
         return next(err);
@@ -154,10 +157,14 @@ export function registerAuthRoutes(app: Express): void {
 
       if (!user) {
         // SECURITY: Log failed login attempt
+        // Safely extract email from request body for logging
+        const loginEmail = typeof req.body === 'object' && req.body !== null && 'email' in req.body
+          ? String((req.body as { email?: unknown }).email ?? '')
+          : '';
         logSecurityEvent(SecurityEventType.LOGIN_FAILED, req, {
-          email: req.body.email,
+          email: loginEmail,
           success: false,
-          message: info?.message || 'Authentication failed',
+          message: info?.message ?? 'Authentication failed',
           metadata: {
             reason: info?.message,
             locked: info?.locked,
@@ -165,15 +172,15 @@ export function registerAuthRoutes(app: Express): void {
           }
         });
 
-        sendError(res, info?.message || 'Authentication failed', 401);
+        sendError(res, info?.message ?? 'Authentication failed', 401);
         return;
       }
 
       // Log in the user
-      req.login(user, (err): void => {
-        if (err) {
-          logger.error('Session creation error', { error: err.message, userId: user.id });
-          next(err);
+      req.login(user, (loginErr: Error | null): void => {
+        if (loginErr) {
+          logger.error('Session creation error', { error: loginErr.message, userId: user.id });
+          next(loginErr);
           return;
         }
 
@@ -194,7 +201,12 @@ export function registerAuthRoutes(app: Express): void {
           }
         });
       });
-    })(req, res, next);
+    };
+
+    // Call passport.authenticate with the typed callback
+    // passport.authenticate() returns (req, res, next) => void but types as 'any' in some @types/passport versions
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- passport.authenticate returns untyped middleware
+    passport.authenticate('local', authenticateCallback)(req, res, next);
   });
 
   // User logout

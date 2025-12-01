@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- API responses from fetch need runtime type checking */
 import { useState, useMemo } from 'react';
 import { Link } from 'wouter';
 import { ChevronRight, X, ShoppingCart, BarChart2, Check, Star, Trash2, Plus, ExternalLink, TrendingDown } from 'lucide-react';
@@ -13,6 +12,14 @@ import {
   allProducts,
   type TemplateProduct,
 } from '@/data/template-data';
+
+/**
+ * Creates a typed array of undefined values for iteration purposes.
+ * Alternative to [...Array(n)] which creates 'any' typed elements.
+ */
+function createFillerArray(length: number): undefined[] {
+  return Array.from({ length });
+}
 
 // Spec labels for comparison
 const specLabels = [
@@ -135,7 +142,7 @@ function CompareContent() {
                         </Link>
                       </td>
                     ))}
-                    {[...Array(emptySlots)].map((_, i) => (
+                    {createFillerArray(emptySlots).map((_, i) => (
                       <td key={`empty-name-${i}`} className="p-4 min-w-[200px]">
                         <div className="text-muted-foreground text-sm">-</div>
                       </td>
@@ -160,7 +167,7 @@ function CompareContent() {
                         </Link>
                       </td>
                     ))}
-                    {[...Array(emptySlots)].map((_, i) => (
+                    {createFillerArray(emptySlots).map((_, i) => (
                       <td key={`empty-img-${i}`} className="p-4">
                         <div className="w-32 h-32 mx-auto rounded-xl border-2 border-dashed border-border flex items-center justify-center">
                           <Link href="/shop">
@@ -206,7 +213,7 @@ function CompareContent() {
                         </td>
                       );
                     })}
-                    {[...Array(emptySlots)].map((_, i) => (
+                    {createFillerArray(emptySlots).map((_, i) => (
                       <td key={`empty-price-${i}`} className="p-4 text-center text-muted-foreground">-</td>
                     ))}
                   </tr>
@@ -219,7 +226,7 @@ function CompareContent() {
                     {compareItems.map((product) => (
                       <td key={product.id} className="p-4 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          {[...Array(5)].map((_, i) => (
+                          {createFillerArray(5).map((_, i) => (
                             <Star
                               key={i}
                               className={cn(
@@ -236,7 +243,7 @@ function CompareContent() {
                         </p>
                       </td>
                     ))}
-                    {[...Array(emptySlots)].map((_, i) => (
+                    {createFillerArray(emptySlots).map((_, i) => (
                       <td key={`empty-rating-${i}`} className="p-4 text-center text-muted-foreground">-</td>
                     ))}
                   </tr>
@@ -259,7 +266,7 @@ function CompareContent() {
                           </td>
                         );
                       })}
-                      {[...Array(emptySlots)].map((_, i) => (
+                      {createFillerArray(emptySlots).map((_, i) => (
                         <td key={`empty-${spec.key}-${i}`} className="p-4 text-center text-muted-foreground">-</td>
                       ))}
                     </tr>
@@ -284,7 +291,7 @@ function CompareContent() {
                         )}
                       </td>
                     ))}
-                    {[...Array(emptySlots)].map((_, i) => (
+                    {createFillerArray(emptySlots).map((_, i) => (
                       <td key={`empty-stock-${i}`} className="p-4 text-center text-muted-foreground">-</td>
                     ))}
                   </tr>
@@ -323,7 +330,7 @@ function CompareContent() {
                         </td>
                       );
                     })}
-                    {[...Array(emptySlots)].map((_, i) => (
+                    {createFillerArray(emptySlots).map((_, i) => (
                       <td key={`empty-action-${i}`} className="p-4 text-center">
                         <Link href="/shop">
                           <Button variant="outline" className="w-full max-w-[180px]">

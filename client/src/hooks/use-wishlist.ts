@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- API responses from fetch need runtime type checking */
 /**
  * Wishlist Hooks
  *
@@ -8,6 +7,27 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Wishlist, WishlistItem, Product, ProductWithOffers } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+
+// Type-safe error extraction from unknown JSON response
+interface ApiErrorResponse {
+  error?: string;
+  message?: string;
+}
+
+function extractErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === 'object' && data !== null) {
+    const obj = data as ApiErrorResponse;
+    if (typeof obj.error === 'string') return obj.error;
+    if (typeof obj.message === 'string') return obj.message;
+  }
+  return fallback;
+}
+
+// Type-safe JSON parsing helper
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
 
 // Types
 export interface WishlistWithItems extends Wishlist {
@@ -63,7 +83,7 @@ export function useCreateWishlist() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string; description?: string; isPublic?: boolean }) => {
+    mutationFn: async (data: { name: string; description?: string; isPublic?: boolean }): Promise<WishlistWithItems> => {
       const response = await fetch('/api/wishlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -71,10 +91,10 @@ export function useCreateWishlist() {
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create wishlist');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to create wishlist'));
       }
-      return response.json();
+      return parseJsonResponse<WishlistWithItems>(response);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -95,10 +115,10 @@ export function useUpdateWishlist() {
         body: JSON.stringify(updates),
       });
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update wishlist');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to update wishlist'));
       }
-      return response.json();
+      return parseJsonResponse<Wishlist>(response);
     },
     onSuccess: (_, { wishlistId }) => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -118,10 +138,10 @@ export function useDeleteWishlist() {
         credentials: 'include',
       });
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete wishlist');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to delete wishlist'));
       }
-      return response.json();
+      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -142,10 +162,10 @@ export function useAddToWishlist() {
         body: JSON.stringify({ productId, notes, priority }),
       });
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to add to wishlist');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to add to wishlist'));
       }
-      return response.json();
+      return parseJsonResponse<WishlistItem>(response);
     },
     onSuccess: (_, { wishlistId, productId }) => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -167,10 +187,10 @@ export function useRemoveFromWishlist() {
         credentials: 'include',
       });
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to remove from wishlist');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to remove from wishlist'));
       }
-      return response.json();
+      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: (_, { wishlistId, productId }) => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -209,9 +229,10 @@ export function useToggleWishlist() {
         if (wishlistWithProduct) {
           return removeMutation.mutateAsync({ wishlistId: wishlistWithProduct.id, productId });
         }
+        return undefined;
       } else {
-        // Add to default wishlist
-        return addMutation.mutateAsync({ wishlistId: defaultWishlist!.id, productId });
+        // Add to default wishlist - defaultWishlist is guaranteed to exist here
+        return addMutation.mutateAsync({ wishlistId: defaultWishlist.id, productId });
       }
     },
     onSuccess: () => {

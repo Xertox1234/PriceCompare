@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Smart Cache Invalidation Service
  *
@@ -271,7 +270,8 @@ export class CacheInvalidationService {
     subscriber.on('message', (channel, message) => {
       if (channel === this.INVALIDATION_CHANNEL) {
         try {
-          const payload: InvalidationPayload = JSON.parse(message);
+          const parsed: unknown = JSON.parse(message);
+          const payload = parsed as InvalidationPayload;
           logger.debug('Received invalidation event:', { event: payload.event, productId: payload.productId });
 
           // Additional processing can be added here

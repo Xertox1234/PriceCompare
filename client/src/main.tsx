@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { createRoot } from "react-dom/client";
 import React from "react";
 import * as Sentry from "@sentry/react";
@@ -14,8 +13,9 @@ const log = createLogger('Main');
  * Captures frontend errors, performance metrics, and user sessions
  * Matches backend Sentry configuration in server/config/sentry.ts
  */
-const dsn = import.meta.env.VITE_SENTRY_DSN;
-const environment = import.meta.env.MODE; // 'development' or 'production'
+// Type assertion needed because ESLint doesn't pick up vite/client types in this context
+const dsn = String(import.meta.env.VITE_SENTRY_DSN ?? '');
+const environment = String(import.meta.env.MODE ?? 'development');
 const isProduction = environment === 'production';
 
 if (dsn) {
@@ -85,7 +85,7 @@ if (dsn) {
     },
 
     // Set release version from package.json
-    release: import.meta.env.VITE_SENTRY_RELEASE || '1.0.0',
+    release: (import.meta.env.VITE_SENTRY_RELEASE as string | undefined) || '1.0.0',
 
     // Enable debug mode in development
     debug: !isProduction,
@@ -107,4 +107,8 @@ if (dsn) {
   }
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+createRoot(rootElement).render(<App />);

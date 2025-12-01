@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- Redis client info returns dynamic structure */
 import { Express } from "express";
 import express from 'express';
 import { storage } from "../storage";
@@ -7,6 +6,26 @@ import { createLogger } from '../utils/logger';
 import { sendSuccess } from '../utils/api-response';
 
 const cspLog = createLogger('CSP');
+
+/**
+ * CSP Violation Report structure
+ * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP#violation_report_syntax
+ */
+interface CspReport {
+  'document-uri'?: string;
+  'violated-directive'?: string;
+  'blocked-uri'?: string;
+  'source-file'?: string;
+  'line-number'?: number;
+  'column-number'?: number;
+  'status-code'?: number;
+  'original-policy'?: string;
+  'effective-directive'?: string;
+}
+
+interface CspReportRequest {
+  'csp-report'?: CspReport;
+}
 
 /**
  * Health Check Routes
@@ -99,7 +118,12 @@ export function registerHealthRoutes(app: Express): void {
     express.json({ type: ['application/json', 'application/csp-report'] }),
     (req, res) => {
       // Browser sends violations in 'csp-report' wrapper
-      const report = req.body['csp-report'] || req.body;
+      // Type assertion safe since content-type is validated by express.json middleware
+      const body = req.body as CspReportRequest | CspReport;
+      // Extract report from wrapper if present, otherwise use body directly
+      const report: CspReport = ('csp-report' in body && body['csp-report'] !== undefined) 
+        ? body['csp-report'] 
+        : (body as CspReport);
 
       // Log violation with structured data for analysis
       cspLog.warn('CSP Violation Detected', {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { X, Trash2, Star } from 'lucide-react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
@@ -223,7 +222,7 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                       <td key={product.id} className="p-3 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <div className="flex">
-                            {[...Array(5)].map((_, i) => (
+                            {Array.from({ length: 5 }, (_, i) => (
                               <Star
                                 key={i}
                                 className={cn(

@@ -32,4 +32,21 @@ declare global {
   }
 }
 
+/**
+ * Vite Environment Variables
+ * Type-safe declarations for import.meta.env variables
+ */
+interface ImportMetaEnv {
+  readonly VITE_SENTRY_DSN?: string;
+  readonly VITE_SENTRY_RELEASE?: string;
+  readonly MODE: 'development' | 'production' | 'test';
+  readonly DEV: boolean;
+  readonly PROD: boolean;
+  readonly SSR: boolean;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 export {};

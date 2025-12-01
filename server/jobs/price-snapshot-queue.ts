@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import Queue from "bull";
 import cron from "node-cron";
 import { priceSnapshotService } from "../services/price-snapshot-service";
@@ -35,13 +34,15 @@ void priceSnapshotQueue.process(5, async (job) => {
 });
 
 // Handle job completion
-priceSnapshotQueue.on("completed", (job, result) => {
-  logger.info(`[PriceSnapshotQueue] Job ${job.id} completed successfully:`, result);
+priceSnapshotQueue.on("completed", (job, result: unknown) => {
+  const resultInfo = result as { success?: boolean; count?: number } | undefined;
+  logger.info(`[PriceSnapshotQueue] Job ${job.id} completed successfully:`, resultInfo);
 });
 
 // Handle job failures
-priceSnapshotQueue.on("failed", (job, err) => {
-  logger.error('PriceSnapshotQueue job failed', { jobId: job?.id, error: err.message });
+priceSnapshotQueue.on("failed", (job, err: unknown) => {
+  const errorMessage = err instanceof Error ? err.message : String(err);
+  logger.error('PriceSnapshotQueue job failed', { jobId: job?.id, error: errorMessage });
 });
 
 // Handle job stalling

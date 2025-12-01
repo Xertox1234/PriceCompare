@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { storage, type AffiliateLinkStats } from '../storage';
 import type { Retailer } from '../../shared/schema';
 import { createLogger } from '../utils/logger';
@@ -218,7 +217,8 @@ export class AffiliateLinkService {
     if (!configString) return {};
 
     try {
-      return JSON.parse(configString);
+      const parsed: unknown = JSON.parse(configString);
+      return (parsed && typeof parsed === 'object') ? parsed as AffiliateConfig : {};
     } catch (error) {
       log.error('Failed to parse affiliate config:', { error });
       return {};

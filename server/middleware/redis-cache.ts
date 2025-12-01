@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import type { Request, Response, NextFunction } from 'express';
 import { getRedisClient } from '../config/redis';
 import type { Redis } from 'ioredis';
@@ -109,7 +108,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
 
       if (cachedResponse) {
         // Cache hit - return cached response
-        const parsed = JSON.parse(cachedResponse);
+        const parsed: unknown = JSON.parse(cachedResponse);
         res.setHeader('X-Cache', 'HIT');
         res.setHeader('X-Cache-Key', cacheKey);
         return res.json(parsed);

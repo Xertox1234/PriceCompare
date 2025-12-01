@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { createLogger } from '@/utils/logger';
 
@@ -246,8 +245,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        dispatch({ type: 'LOAD_STATE', payload: parsed });
+        const parsed: unknown = JSON.parse(saved);
+        // Validate parsed data has expected shape before dispatching
+        if (typeof parsed === 'object' && parsed !== null && 'cart' in parsed) {
+          dispatch({ type: 'LOAD_STATE', payload: parsed as ShopState });
+        }
       }
     } catch (error) {
       log.error('Failed to load shop state', { error: error instanceof Error ? error.message : String(error) });

@@ -67,3 +67,6 @@ vitest.config.ts
 tailwind.config.ts
 playwright.config.ts
 drizzle.config.ts
+
+# Chrome extension (separate JavaScript project, not in tsconfig.json)
+extensions/chrome/

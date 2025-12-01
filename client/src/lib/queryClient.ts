@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import {
   ApiResponse,
@@ -155,11 +154,11 @@ export function getQueryFn<T>(options: {
     });
 
     if (options.on401 === "returnNull" && res.status === 401) {
-      return null;
+      return null as T;
     }
 
     await throwIfResNotOk(res);
-    const data = await res.json();
+    const data: unknown = await res.json();
 
     // Handle standardized API responses
     if (typeof data === 'object' && data !== null && 'success' in data) {
@@ -174,7 +173,7 @@ export function getQueryFn<T>(options: {
     }
 
     // Legacy responses - return as-is
-    return data;
+    return data as T;
   };
 }
 

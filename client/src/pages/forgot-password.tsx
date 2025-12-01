@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,20 @@ import { useToast } from "@/hooks/use-toast";
 import { createLogger } from "@/utils/logger";
 
 const log = createLogger('ForgotPassword');
+
+// API response type
+interface ForgotPasswordResponse {
+  success?: boolean;
+  error?: string;
+}
+
+/**
+ * Type-safe JSON parsing helper
+ */
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -46,7 +59,7 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonResponse<ForgotPasswordResponse>(response);
 
       if (response.ok) {
         setIsSubmitted(true);
@@ -55,7 +68,7 @@ export default function ForgotPassword() {
           description: "If an account exists with this email, a password reset link has been sent.",
         });
       } else {
-        setError(data.error || "An error occurred. Please try again.");
+        setError(data.error ?? "An error occurred. Please try again.");
       }
     } catch (err) {
       log.error("Forgot password error:", { error: err });

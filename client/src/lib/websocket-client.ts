@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * WebSocket Client Manager - Singleton
  *
@@ -155,7 +154,7 @@ export class WebSocketClient {
 
     // Socket.io typed sockets handle event typing through the generic parameter.
     // The handler type matches ServerToClientEvents[E] which Socket.io expects.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO's listener type is overly strict, requiring cast for typed handlers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Socket.IO's listener type is overly strict, requiring cast for typed handlers
     this.socket.on(event, handler as any);
   }
 
@@ -175,7 +174,7 @@ export class WebSocketClient {
 
     if (handler) {
       // Socket.io typed sockets handle event typing through the generic parameter.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO's listener type is overly strict, requiring cast for typed handlers
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Socket.IO's listener type is overly strict, requiring cast for typed handlers
       this.socket.off(event, handler as any);
     } else {
       this.socket.off(event);

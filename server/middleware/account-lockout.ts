@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Redis data structures require runtime validation */
 import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { createLogger } from '../utils/logger';
@@ -29,6 +28,26 @@ interface FailedLoginAttempt {
   attempts: number;
   lockedUntil: number | null; // Unix timestamp in ms
   lastAttempt: number; // Unix timestamp in ms
+}
+
+/**
+ * Type-safe JSON parsing for FailedLoginAttempt records from Redis
+ */
+function parseFailedLoginAttempt(data: string): FailedLoginAttempt {
+  const parsed: unknown = JSON.parse(data);
+  // Runtime type assertion - data comes from our own Redis writes
+  return parsed as FailedLoginAttempt;
+}
+
+/**
+ * Type-safe parsing of email from request body
+ */
+function parseLoginEmail(body: unknown): string | undefined {
+  if (typeof body === 'object' && body !== null && 'email' in body) {
+    const { email } = body as { email?: unknown };
+    return typeof email === 'string' ? email : undefined;
+  }
+  return undefined;
 }
 
 // Configuration constants
@@ -110,7 +129,7 @@ export async function isAccountLockedAsync(email: string): Promise<{
       return { locked: false };
     }
 
-    const record: FailedLoginAttempt = JSON.parse(data);
+    const record: FailedLoginAttempt = parseFailedLoginAttempt(data);
     const now = Date.now();
 
     // Check if lockout period is active
@@ -175,7 +194,7 @@ export async function recordFailedLoginAsync(email: string): Promise<{
         lastAttempt: now,
       };
     } else {
-      record = JSON.parse(data);
+      record = parseFailedLoginAttempt(data);
 
       // Check if we're in a new time window
       if (now - record.lastAttempt > ATTEMPT_WINDOW_MS) {
@@ -408,7 +427,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
     return next();
   }
 
-  const { email } = req.body;
+  const email = parseLoginEmail(req.body);
 
   if (!email) {
     return next();
@@ -507,7 +526,7 @@ export async function getLockoutStatsAsync(): Promise<{
     for (const key of keys) {
       const data = await redis.get(key);
       if (data) {
-        const record: FailedLoginAttempt = JSON.parse(data);
+        const record = parseFailedLoginAttempt(data);
         totalAttempts += record.attempts;
         if (record.lockedUntil && record.lockedUntil > now) {
           totalLockedAccounts++;

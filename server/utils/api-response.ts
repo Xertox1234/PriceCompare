@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { Response } from "express";
 import { logger } from "./logger";
 
@@ -61,7 +60,7 @@ export function sendSuccess<T>(
     response.meta = {
       timestamp: new Date().toISOString(),
       version: '1.0',
-      requestId: res.locals.requestId,
+      requestId: res.locals.requestId as string | undefined,
       ...meta,
     };
   }

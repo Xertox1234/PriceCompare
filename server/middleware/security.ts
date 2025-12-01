@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { getRequiredEnv } from '../config/env-validation';
@@ -163,7 +162,12 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
   }
 
   // Get CSRF token from request
-  const token = req.body._csrf || req.headers['x-csrf-token'];
+  // req.body is typed as any by Express, but _csrf may not be present
+  const bodyToken = typeof req.body === 'object' && req.body !== null && '_csrf' in req.body
+    ? String((req.body as { _csrf?: unknown })._csrf ?? '')
+    : '';
+  const headerToken = req.headers['x-csrf-token'];
+  const token = bodyToken || (typeof headerToken === 'string' ? headerToken : '');
   const sessionToken = req.session?.csrfToken;
 
   // Validate CSRF token
@@ -335,8 +339,10 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
  */
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   // Sanitize body (most user input comes through body)
-  if (req.body) {
-    req.body = sanitizeObject(req.body, SanitizationContext.PLAIN_TEXT);
+  if (req.body && typeof req.body === 'object') {
+    // req.body is typed as any - sanitizeObject expects Record<string, unknown>
+    const sanitizedBody = sanitizeObject(req.body as Record<string, unknown>, SanitizationContext.PLAIN_TEXT);
+    req.body = sanitizedBody;
   }
 
   // Sanitize query params (used for search, filters, etc.)

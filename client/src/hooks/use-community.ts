@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- API responses from fetch need runtime type checking */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   ProductWatch,
@@ -6,6 +5,27 @@ import type {
   UserReputation,
   DealSpotting
 } from '@shared/schema';
+
+// Type-safe error extraction from unknown JSON response
+interface ApiErrorResponse {
+  error?: string;
+  message?: string;
+}
+
+function extractErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === 'object' && data !== null) {
+    const obj = data as ApiErrorResponse;
+    if (typeof obj.error === 'string') return obj.error;
+    if (typeof obj.message === 'string') return obj.message;
+  }
+  return fallback;
+}
+
+// Type-safe JSON parsing helper
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
 
 // API response types
 interface WatchStats {
@@ -40,11 +60,14 @@ export function useAddProductWatch() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add product watch');
+        const errorData: unknown = await response.json();
+        const errorMessage = typeof errorData === 'object' && errorData !== null && 'message' in errorData
+          ? String((errorData as { message: unknown }).message)
+          : 'Failed to add product watch';
+        throw new Error(errorMessage);
       }
 
-      return response.json();
+      return response.json() as Promise<{ data: unknown }>;
     },
     onSuccess: (_, productId) => {
       // Invalidate relevant queries
@@ -68,11 +91,14 @@ export function useRemoveProductWatch() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to remove product watch');
+        const errorData: unknown = await response.json();
+        const errorMessage = typeof errorData === 'object' && errorData !== null && 'message' in errorData
+          ? String((errorData as { message: unknown }).message)
+          : 'Failed to remove product watch';
+        throw new Error(errorMessage);
       }
 
-      return response.json();
+      return response.json() as Promise<{ data: unknown }>;
     },
     onSuccess: (_, productId) => {
       // Invalidate relevant queries
@@ -250,11 +276,11 @@ export function useCreateWatchList() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create watch list');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to create watch list'));
       }
 
-      return response.json();
+      return parseJsonResponse<{ data: WatchList }>(response);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
@@ -275,7 +301,7 @@ export function useWatchLists() {
         throw new Error('Failed to fetch watch lists');
       }
 
-      return response.json();
+      return parseJsonResponse<{ data: WatchListWithStats[] }>(response);
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -294,7 +320,7 @@ export function useWatchList(listId: number) {
         throw new Error('Failed to fetch watch list');
       }
 
-      return response.json();
+      return parseJsonResponse<{ data: WatchListWithStats }>(response);
     },
     enabled: !!listId,
   });
@@ -328,11 +354,11 @@ export function useUpdateWatchList() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update watch list');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to update watch list'));
       }
 
-      return response.json();
+      return parseJsonResponse<{ data: WatchList }>(response);
     },
     onSuccess: (_, { listId }) => {
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
@@ -353,11 +379,11 @@ export function useDeleteWatchList() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete watch list');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to delete watch list'));
       }
 
-      return response.json();
+      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
@@ -379,7 +405,7 @@ export function useWatchListProducts(listId: number) {
         throw new Error('Failed to fetch watch list products');
       }
 
-      return response.json();
+      return parseJsonResponse<{ data: WatchListProduct[] }>(response);
     },
     enabled: !!listId,
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -414,13 +440,13 @@ export function useUpdateProductWatch() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update product watch');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to update product watch'));
       }
 
-      return response.json();
+      return parseJsonResponse<{ data: ProductWatch }>(response);
     },
-    onSuccess: (data, { updates }) => {
+    onSuccess: (_, { updates }) => {
       // Invalidate watch lists
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
@@ -457,11 +483,11 @@ export function useMoveProductsToWatchList() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to move products');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to move products'));
       }
 
-      return response.json();
+      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
       // Invalidate all watch list queries
@@ -487,11 +513,11 @@ export function useBulkRemoveProductWatches() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete products');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to delete products'));
       }
 
-      return response.json();
+      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
       // Invalidate all watch list queries
@@ -511,11 +537,14 @@ export function useExportWatchLists() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to export watch lists');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to export watch lists'));
       }
 
-      const data = await response.json();
+      interface ExportResponse {
+        data: unknown;
+      }
+      const data = await parseJsonResponse<ExportResponse>(response);
 
       // Download as JSON file
       const blob = new Blob([JSON.stringify(data.data, null, 2)], {
@@ -555,8 +584,12 @@ interface WatchListImportData {
 export function useImportWatchLists() {
   const queryClient = useQueryClient();
 
+  interface ImportResult {
+    data: { created: number; skipped: number };
+  }
+
   return useMutation({
-    mutationFn: async (importData: WatchListImportData) => {
+    mutationFn: async (importData: WatchListImportData): Promise<ImportResult> => {
       const response = await fetch('/api/community/watch-lists/import', {
         method: 'POST',
         credentials: 'include',
@@ -567,11 +600,11 @@ export function useImportWatchLists() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to import watch lists');
+        const errorData: unknown = await response.json();
+        throw new Error(extractErrorMessage(errorData, 'Failed to import watch lists'));
       }
 
-      return response.json();
+      return parseJsonResponse<ImportResult>(response);
     },
     onSuccess: () => {
       // Invalidate all watch list queries

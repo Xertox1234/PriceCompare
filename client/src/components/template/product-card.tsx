@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import * as React from 'react';
 import { Link } from 'wouter';
 import { Heart, BarChart2, Eye, TrendingDown, TrendingUp, Minus, Star } from 'lucide-react';
@@ -196,7 +195,7 @@ export function ProductCard({
         {product.rating && (
           <div className="expandable-card-rating">
             <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
+              {Array.from({ length: 5 }, (_, i) => (
                 <Star
                   key={i}
                   className={cn(

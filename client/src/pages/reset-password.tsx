@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- API responses from fetch need runtime type checking */
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,27 @@ import { useToast } from "@/hooks/use-toast";
 import { createLogger } from "@/utils/logger";
 
 const log = createLogger('ResetPassword');
+
+// API response types
+interface TokenValidationResponse {
+  email?: string;
+  username?: string;
+  error?: string;
+}
+
+interface ResetPasswordResponse {
+  success?: boolean;
+  error?: string;
+}
+
+/**
+ * Type-safe JSON parsing helper
+ * Casts response.json() result to expected type with runtime validation consideration
+ */
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
 
 export default function ResetPassword() {
   const [, setLocation] = useLocation();
@@ -45,12 +65,12 @@ export default function ResetPassword() {
   const validateToken = async (tokenValue: string) => {
     try {
       const response = await fetch(`/api/auth/reset-password/${tokenValue}`);
-      const data = await response.json();
+      const data = await parseJsonResponse<TokenValidationResponse>(response);
 
-      if (response.ok) {
+      if (response.ok && data.email && data.username) {
         setUserInfo({ email: data.email, username: data.username });
       } else {
-        setTokenError(data.error || "Invalid or expired password reset token");
+        setTokenError(data.error ?? "Invalid or expired password reset token");
       }
     } catch (err) {
       log.error("Token validation error:", { error: err });
@@ -107,7 +127,7 @@ export default function ResetPassword() {
         body: JSON.stringify({ token, password }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonResponse<ResetPasswordResponse>(response);
 
       if (response.ok) {
         setIsSuccess(true);
@@ -121,7 +141,7 @@ export default function ResetPassword() {
           setLocation("/");
         }, 3000);
       } else {
-        setError(data.error || "Failed to reset password. Please try again.");
+        setError(data.error ?? "Failed to reset password. Please try again.");
       }
     } catch (err) {
       log.error("Reset password error:", { error: err });

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import { sendError } from './utils/api-response';
@@ -31,7 +30,7 @@ export function validateRequestBody<T>(schema: z.ZodSchema<T>, body: unknown): V
 export function validateRequest(schema: z.ZodSchema, source: 'body' | 'query' | 'params' = 'body') {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const data = source === 'body' ? req.body : source === 'query' ? req.query : req.params;
+      const data: unknown = source === 'body' ? req.body : source === 'query' ? req.query : req.params;
       const result = schema.safeParse(data);
 
       if (!result.success) {

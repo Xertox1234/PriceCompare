@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Retailer Storage Domain
  *
@@ -383,7 +382,7 @@ export class RetailerStorage extends BaseStorage {
           return {
             ...retailer,
             affiliateConfigParsed: retailer.affiliateConfig
-              ? JSON.parse(retailer.affiliateConfig)
+              ? (JSON.parse(retailer.affiliateConfig) as Record<string, unknown>)
               : null,
             stats
           };
@@ -405,7 +404,7 @@ export class RetailerStorage extends BaseStorage {
         return {
           ...allRetailers[index],
           affiliateConfigParsed: allRetailers[index].affiliateConfig
-            ? JSON.parse(allRetailers[index].affiliateConfig)
+            ? (JSON.parse(allRetailers[index].affiliateConfig) as Record<string, unknown>)
             : null,
           stats: { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 }
         };

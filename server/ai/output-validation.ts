@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- AI validation works with dynamic JSON structures */
 /**
  * AI Output Validation System
  *
@@ -236,7 +235,7 @@ export function validateOutput(
     // Validate array items
     if (typeof schema.items === 'string') {
       // Simple type validation
-      data.forEach((item, index) => {
+      data.forEach((item: unknown, index) => {
         if (typeof item !== schema.items) {
           errors.push({
             field: `[${index}]`,
@@ -246,21 +245,22 @@ export function validateOutput(
           });
         }
 
-        // Additional string constraints
-        if (schema.items === 'string' && (schema as ArraySchema).itemConstraints) {
+        // Additional string constraints (only if item is actually a string)
+        if (schema.items === 'string' && typeof item === 'string' && (schema as ArraySchema).itemConstraints) {
           const constraints = (schema as ArraySchema).itemConstraints as ItemConstraints;
-          if (constraints.minLength && item.length < constraints.minLength) {
+          const itemLength = item.length;
+          if (constraints.minLength && itemLength < constraints.minLength) {
             errors.push({
               field: `[${index}]`,
               message: VALIDATION_MESSAGES.STRING_MIN_LENGTH(constraints.minLength),
-              received: item.length
+              received: itemLength
             });
           }
-          if (constraints.maxLength && item.length > constraints.maxLength) {
+          if (constraints.maxLength && itemLength > constraints.maxLength) {
             errors.push({
               field: `[${index}]`,
               message: VALIDATION_MESSAGES.STRING_MAX_LENGTH(constraints.maxLength),
-              received: item.length
+              received: itemLength
             });
           }
           if (constraints.pattern && !constraints.pattern.test(item)) {
@@ -274,7 +274,7 @@ export function validateOutput(
       });
     } else if (typeof schema.items === 'object' && schema.items !== null && !Array.isArray(schema.items)) {
       // Object validation
-      data.forEach((item, index) => {
+      data.forEach((item: unknown, index) => {
         const itemErrors = validateObject(item, schema.items as Record<string, unknown>, `[${index}]`);
         errors.push(...itemErrors);
       });
@@ -512,7 +512,7 @@ export function parseAndValidateJSON(
     }
 
     // Parse JSON
-    const parsed = JSON.parse(sanitized);
+    const parsed: unknown = JSON.parse(sanitized);
 
     // Validate against schema
     return validateOutput(schemaName, parsed);

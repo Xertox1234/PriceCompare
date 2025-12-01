@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
@@ -94,7 +93,7 @@ export async function setupVite(app: Express, server: Server) {
 
       // SECURITY: Inject CSP nonce into script tags AFTER Vite transformation
       // This ensures Vite's injected inline scripts also get nonces
-      const nonce = res.locals.cspNonce || '';
+      const nonce: string = typeof res.locals.cspNonce === 'string' ? res.locals.cspNonce : '';
       page = injectNonceIntoHtml(page, nonce);
 
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -130,7 +129,7 @@ export function serveStatic(app: Express) {
   // path-to-regexp 8.x requires named wildcards - use "*path" instead of "*"
   app.use("*path", (_req, res) => {
     // SECURITY: Inject CSP nonce into the HTML template
-    const nonce = res.locals.cspNonce || '';
+    const nonce: string = typeof res.locals.cspNonce === 'string' ? res.locals.cspNonce : '';
 
     if (cachedTemplate && nonce) {
       // Inject nonce into the cached template

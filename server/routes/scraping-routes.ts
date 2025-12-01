@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Express req.body is typed as any, requires runtime validation */
 import type { Express, Request, Response } from "express";
 import { logger } from "../utils/logger";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
@@ -10,7 +9,14 @@ import {
   trendingProductsQuerySchema,
   productSearchQuerySchema,
   googleSearchQuerySchema,
+  type ScrapingInitializeInput,
 } from '../validation/admin-schemas';
+import type { z } from 'zod';
+
+// Type aliases for validated request data
+type TrendingProductsQuery = z.infer<typeof trendingProductsQuerySchema>;
+type ProductSearchInput = z.infer<typeof productSearchQuerySchema>;
+type GoogleSearchInput = z.infer<typeof googleSearchQuerySchema>;
 import { agentService } from '../services/agent-service';
 import { googleSearchService } from '../services/google-search';
 import { storage } from '../storage';
@@ -136,7 +142,8 @@ export function registerScrapingRoutes(app: Express): void {
       try {
         const coordinationAgent = await agentService.getCoordinationAgent();
 
-        const { sources, categories, limit } = req.body;
+        // Type assertion safe after Zod validation middleware
+        const { sources, categories, limit } = req.body as ScrapingInitializeInput;
 
         const result = await coordinationAgent.processTask({
           action: 'discover_trends',
@@ -165,8 +172,10 @@ export function registerScrapingRoutes(app: Express): void {
     async (req: Request, res: Response) => {
       try {
         // SECURITY: Using validated query parameters (validated by middleware)
-        const limit = Number(req.query.limit) || 20;
-        const status = (req.query.status as string) || 'discovered';
+        // Type assertion safe after Zod validation middleware
+        const validatedQuery = req.query as unknown as TrendingProductsQuery;
+        const limit = validatedQuery.limit ?? 20;
+        const status = validatedQuery.status ?? 'discovered';
 
         const products = await storage.getTrendingProducts(status, limit);
 
@@ -209,7 +218,9 @@ export function registerScrapingRoutes(app: Express): void {
         const searchAgent = await agentService.getSearchAgent();
 
         // SECURITY: Using validated request body
-        const { productName, category, retailers = ['amazon', 'walmart', 'target'] } = req.body;
+        // Type assertion safe after Zod validation middleware
+        const validatedBody = req.body as ProductSearchInput;
+        const { productName, category, retailers = ['amazon', 'walmart', 'target'] } = validatedBody;
 
         const searchResults = await searchAgent.processTask({
           action: 'search_products',
@@ -234,9 +245,11 @@ export function registerScrapingRoutes(app: Express): void {
       const coordinationAgent = await agentService.getCoordinationAgent();
 
       // Run full cycle in background
+      // req.body may contain optional parameters for full cycle - type as unknown record
+      const fullCycleParams = req.body as Record<string, unknown>;
       coordinationAgent.processTask({
         action: 'full_cycle',
-        ...req.body
+        ...fullCycleParams
       }).catch(error => {
         logger.error('Full cycle failed:', { error: error instanceof Error ? error.message : String(error) });
       });
@@ -274,7 +287,9 @@ export function registerScrapingRoutes(app: Express): void {
     async (req: Request, res: Response) => {
       try {
         // SECURITY: Using validated request body
-        const { query, retailers = ['amazon.com', 'walmart.com', 'target.com'], maxResults = 5 } = req.body;
+        // Type assertion safe after Zod validation middleware
+        const validatedBody = req.body as GoogleSearchInput;
+        const { query, retailers = ['amazon.com', 'walmart.com', 'target.com'], maxResults = 5 } = validatedBody;
 
       if (!googleSearchService.isConfigured()) {
         sendError(res, "Google Custom Search API not configured. Please set GOOGLE_CUSTOM_SEARCH_API_KEY and GOOGLE_CUSTOM_SEARCH_ENGINE_ID environment variables", 500);
@@ -335,7 +350,9 @@ export function registerScrapingRoutes(app: Express): void {
   // Extract product data from specific URLs
   app.post("/api/scraping/extract-product", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const { url, retailer, searchQuery } = req.body;
+      // Type the expected request body structure
+      const body = req.body as { url?: string; retailer?: string; searchQuery?: string };
+      const { url, retailer, searchQuery } = body;
 
       if (!url) {
         sendError(res, "Product URL is required", 400);
@@ -373,7 +390,9 @@ export function registerScrapingRoutes(app: Express): void {
   // Start price monitoring for existing products
   app.post("/api/scraping/start-monitoring", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const { maxAge = 24 } = req.body;
+      // Type the expected request body structure
+      const body = req.body as { maxAge?: number };
+      const { maxAge = 24 } = body;
 
       // Import the monitoring agent dynamically
       const { priceMonitoringAgent } = await import('../agents/monitoring-agent');
@@ -418,7 +437,9 @@ export function registerScrapingRoutes(app: Express): void {
   // Run complete product discovery and extraction workflow
   app.post("/api/scraping/complete-workflow", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const { searchQuery, maxResults = 5 } = req.body;
+      // Type the expected request body structure
+      const body = req.body as { searchQuery?: string; maxResults?: number };
+      const { searchQuery, maxResults = 5 } = body;
 
       if (!searchQuery) {
         sendError(res, "Search query is required", 400);
@@ -529,7 +550,9 @@ export function registerScrapingRoutes(app: Express): void {
   app.post("/api/scraping/cache-clear", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { queryCache, generalCache } = await import('../services/redis-cache');
-      const { cacheType } = req.body; // 'query', 'general', or 'all'
+      // Type the expected request body structure
+      const body = req.body as { cacheType?: 'query' | 'general' | 'all' };
+      const { cacheType } = body;
 
       let clearedQuery = false;
       let clearedGeneral = false;

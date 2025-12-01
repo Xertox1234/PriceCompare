@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Admin Aggregation Routes
  *
@@ -213,9 +212,10 @@ export function registerAdminAggregationRoutes(app: Express): void {
         productId,
       });
     } catch (error: unknown) {
+      const body = req.body as Record<string, unknown> | undefined;
       logger.error('[AdminAggregation] Single product aggregation failed:', {
         error,
-        productId: req.body.productId,
+        productId: body?.productId,
         adminUser: req.user?.username,
       });
       sendErrorFromException(res, error, 'SingleProductAggregation');

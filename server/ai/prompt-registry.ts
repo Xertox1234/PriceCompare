@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Prompt Registry and Versioning System
  *
@@ -352,7 +351,7 @@ export function renderTemplate(template: string, variables: Record<string, unkno
   }
 
   // Handle conditional blocks {{#if key}}...{{/if}}
-  rendered = rendered.replace(/{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g, (match, key, content) => {
+  rendered = rendered.replace(/{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g, (_match, key: string, content: string) => {
     return variables[key] ? content : '';
   });
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- API responses from fetch need runtime type checking */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createLogger } from "@/utils/logger";
 
@@ -12,6 +11,11 @@ interface PriceHistoryData {
   retailerLogo: string | null;
   price: string;
   recordedAt: Date | string;
+}
+
+// Type for API response
+interface PriceHistoryResponse {
+  data?: PriceHistoryData[];
 }
 
 interface UsePriceHistoryInfiniteOptions {
@@ -46,14 +50,16 @@ export function usePriceHistoryInfinite({
 
   // Fetch price history from API
   const fetchPriceHistory = useCallback(
-    async (days: number, isLoadMore = false) => {
+    async (days: number, isLoadMore = false): Promise<PriceHistoryData[] | undefined> => {
       const cacheKey = `${productId}-${days}`;
 
       // Check cache first
       if (cacheRef.current.has(cacheKey)) {
-        const cachedData = cacheRef.current.get(cacheKey)!;
-        setData(cachedData);
-        return cachedData;
+        const cachedData = cacheRef.current.get(cacheKey);
+        if (cachedData) {
+          setData(cachedData);
+          return cachedData;
+        }
       }
 
       // Cancel any pending requests
@@ -81,8 +87,9 @@ export function usePriceHistoryInfinite({
           throw new Error(`Failed to fetch price history: ${response.statusText}`);
         }
 
-        const result = await response.json();
-        const historyData = result.data || [];
+        const result: unknown = await response.json();
+        const typedResult = result as PriceHistoryResponse;
+        const historyData: PriceHistoryData[] = typedResult.data ?? [];
 
         // Cache the result
         cacheRef.current.set(cacheKey, historyData);
@@ -98,7 +105,7 @@ export function usePriceHistoryInfinite({
         if (err instanceof Error) {
           if (err.name === 'AbortError') {
             log.debug('Request aborted');
-            return;
+            return undefined;
           }
           setError(err);
         } else {
@@ -159,12 +166,13 @@ export function usePriceHistoryInfinite({
     if (!cacheRef.current.has(cacheKey)) {
       // Prefetch silently without updating state
       fetch(`/api/products/${productId}/price-history?days=${nextDays}`)
-        .then((res) => res.json())
+        .then((res) => res.json() as Promise<unknown>)
         .then((result) => {
-          const historyData = result.data || [];
+          const typedResult = result as PriceHistoryResponse;
+          const historyData: PriceHistoryData[] = typedResult.data ?? [];
           cacheRef.current.set(cacheKey, historyData);
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           log.error('Prefetch error:', { error: err });
         });
     }

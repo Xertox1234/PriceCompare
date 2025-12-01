@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- API responses from fetch need runtime type checking */
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ProductComparison } from "@/components/price-history/ProductComparison";
@@ -6,6 +5,37 @@ import { ArrowLeft } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import { useMemo } from "react";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+
+// API response types
+interface ProductResponse {
+  product?: {
+    name?: string;
+    imageUrl?: string;
+    bestPrice?: number;
+  };
+}
+
+interface PriceHistoryEntry {
+  id: number;
+  productId: number;
+  retailerId: number;
+  retailerName: string;
+  retailerLogo: string | null;
+  price: string;
+  recordedAt: Date | string;
+}
+
+interface PriceHistoryResponse {
+  history?: PriceHistoryEntry[];
+}
+
+/**
+ * Type-safe JSON parsing helper
+ */
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
 
 export default function ComparisonPage() {
   const [, setLocation] = useLocation();
@@ -32,13 +62,13 @@ export default function ComparisonPage() {
 
       const responses = await Promise.all(
         productIds.map((id) =>
-          fetch(`/api/products/${id}`).then((res) => res.json())
+          fetch(`/api/products/${id}`).then((res) => parseJsonResponse<ProductResponse>(res))
         )
       );
 
       return responses.map((res, index) => ({
         id: productIds[index],
-        name: res.product?.name || `Product ${productIds[index]}`,
+        name: res.product?.name ?? `Product ${productIds[index]}`,
         imageUrl: res.product?.imageUrl,
         currentPrice: res.product?.bestPrice,
       }));
@@ -47,15 +77,15 @@ export default function ComparisonPage() {
   });
 
   // Fetch price history function
-  const fetchPriceHistory = async (productId: number, days: number) => {
+  const fetchPriceHistory = async (productId: number, days: number): Promise<PriceHistoryEntry[]> => {
     const response = await fetch(
       `/api/products/${productId}/price-history?days=${days}`
     );
     if (!response.ok) {
       throw new Error("Failed to fetch price history");
     }
-    const data = await response.json();
-    return data.history || [];
+    const data = await parseJsonResponse<PriceHistoryResponse>(response);
+    return data.history ?? [];
   };
 
   return (

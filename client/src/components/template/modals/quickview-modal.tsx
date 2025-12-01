@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState } from 'react';
 import { X, Heart, BarChart2, Minus, Plus, Star, ShoppingCart, ExternalLink, TrendingDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'wouter';
@@ -179,7 +178,7 @@ export function QuickviewModal({ isOpen, onClose, product }: QuickviewModalProps
             <div className="flex flex-wrap items-center gap-3 mb-4 text-sm">
               {product.rating && (
                 <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
+                  {Array.from({ length: 5 }, (_, i) => (
                     <Star
                       key={i}
                       className={cn(

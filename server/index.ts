@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 // Load environment variables from .env file
 import 'dotenv/config';
 
@@ -193,8 +192,8 @@ app.use(sanitizeInput);
     let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
 
     const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
-      capturedJsonResponse = bodyJson;
+    res.json = function (bodyJson: unknown, ...args) {
+      capturedJsonResponse = bodyJson as Record<string, unknown>;
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
 

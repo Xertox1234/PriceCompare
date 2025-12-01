@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useState } from 'react';
 import { Bell, Filter } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -185,7 +184,7 @@ export function NotificationCenter() {
           {/* Notification List */}
           {isLoadingSmartNotifications ? (
             <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
+              {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-48 w-full" />
               ))}
             </div>
@@ -222,7 +221,7 @@ export function NotificationCenter() {
         <TabsContent value="general" className="space-y-4">
           {isLoadingGeneral ? (
             <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
+              {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-20 w-full" />
               ))}
             </div>

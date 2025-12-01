@@ -6,12 +6,18 @@
     "sourceType": "module",
     "project": "./tsconfig.json"
   },
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "eslint-comments"],
   "extends": [
     "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
+    "plugin:@typescript-eslint/recommended",
+    "plugin:eslint-comments/recommended"
   ],
   "rules": {
+    // CRITICAL: Prevent blanket ESLint disables (Phase 3 of type safety cleanup)
+    // Requires specific rules to be disabled, not whole categories
+    "eslint-comments/no-unlimited-disable": "error",
+    "eslint-comments/require-description": ["error", { "ignore": ["eslint-enable"] }],
+
     // CRITICAL: Block 'any' types - defeats TypeScript purpose
     "@typescript-eslint/no-explicit-any": "error",
 
@@ -59,10 +65,20 @@
   },
   "overrides": [
     {
-      "files": ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+      "files": ["**/__tests__/**/*.ts", "**/__tests__/**/*.tsx", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/test/setup.ts"],
       "rules": {
-        // Test files: Allow console, but still enforce type safety
-        "no-console": "off"
+        // Test files: Allow console for debugging
+        "no-console": "off",
+        // Test files: Allow file-level disables without enable pair
+        // Test mocks and fixtures genuinely require flexible typing throughout
+        "eslint-comments/disable-enable-pair": "off",
+        // Test files: Relax unsafe rules - test mocks require flexible typing
+        // This is documented and justified - see docs/01_TYPESCRIPT_PATTERNS.md
+        "@typescript-eslint/no-unsafe-assignment": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-argument": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-unsafe-return": "off"
       }
     },
     {

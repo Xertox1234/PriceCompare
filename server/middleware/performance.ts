@@ -31,7 +31,7 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
 
   // Override res.end to capture metrics
   // Type assertion: Response.end() has complex overloads - we're just proxying to original method
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Response.end has complex overloaded signatures
   res.end = function (this: Response, ...args: unknown[]): Response {
     const duration = Date.now() - startTime;
     const statusCode = res.statusCode;
@@ -66,9 +66,9 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
 
     // Call original end with all arguments
     // Type assertion: Spreading args to match Response.end overloads
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Calling original method with forwarded args
     return (originalEnd as (...args: unknown[]) => Response).apply(this, args);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- res.end type compatibility
   } as typeof res.end;
 
   next();
