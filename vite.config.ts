@@ -20,16 +20,18 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     // Performance optimization: Manual chunking for better caching and loading
+    // See docs/PERFORMANCE_GUIDE.md for code splitting strategy
     rollupOptions: {
       output: {
         manualChunks: {
-          // Core React libraries
-          'vendor-react': ['react', 'react-dom'],
+          // Core React libraries + router (shared across all pages)
+          'vendor-react': ['react', 'react-dom', 'wouter'],
 
-          // React Query for data fetching
+          // React Query for data fetching (needed on most pages)
           'vendor-query': ['@tanstack/react-query'],
 
-          // UI component libraries (Radix UI)
+          // UI component libraries - Core (Radix UI)
+          // Split into core and extended for better granularity
           'vendor-ui-core': [
             '@radix-ui/react-dialog',
             '@radix-ui/react-dropdown-menu',
@@ -41,7 +43,7 @@ export default defineConfig({
             '@radix-ui/react-checkbox',
           ],
 
-          // Additional UI components
+          // UI component libraries - Extended (less commonly used)
           'vendor-ui-extended': [
             '@radix-ui/react-scroll-area',
             '@radix-ui/react-separator',
@@ -53,17 +55,27 @@ export default defineConfig({
             '@radix-ui/react-slider',
           ],
 
-          // Charts library (heavy)
+          // Charts library - CRITICAL: Keep separate for lazy loading
+          // This is 367KB and should only load on chart pages
           'vendor-charts': ['recharts'],
 
-          // Form handling
+          // Form handling (lazy load with form-heavy pages)
           'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
 
-          // Icons
+          // Icons library
           'vendor-icons': ['lucide-react'],
 
-          // Utilities
+          // Utility libraries (frequently used, small)
           'vendor-utils': ['clsx', 'tailwind-merge', 'class-variance-authority', 'date-fns'],
+
+          // Socket.io for real-time features (only needed on specific pages)
+          'vendor-socket': ['socket.io-client'],
+
+          // Helmet for SEO (small, used across pages)
+          'vendor-seo': ['react-helmet-async'],
+
+          // Carousel libraries (used on home page and product pages)
+          'vendor-carousel': ['swiper', 'embla-carousel-react'],
         },
       },
     },

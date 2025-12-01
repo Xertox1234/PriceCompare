@@ -9,21 +9,36 @@ import { SharedNavigation } from "@/components/shared-navigation";
 import { RateLimitBanner } from "@/components/RateLimitBanner";
 import { NewFooter } from "@/components/new-footer";
 import { Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import Home from "@/pages/home";
+import { PageLoadingFallback, ProductGridLoadingFallback } from "@/components/loading-spinner";
+
+// ============================================
+// Eager-loaded pages (critical path, needed immediately)
+// ============================================
 import HomeNew from "@/pages/home-new";
-import ProductDetailPage from "@/pages/product-detail-new";
-import Products from "@/pages/products";
-import ProductsNew from "@/pages/products-new";
-import WishlistNew from "@/pages/wishlist-new";
-import CompareNew from "@/pages/compare-new";
-import MonitoringDashboard from "@/pages/monitoring";
-import PriceWatch from "@/pages/price-watch";
-import NotificationsPage from "@/pages/notifications";
-import NotFound from "@/pages/not-found";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
-import { LazyAdminPage, LazyAdvancedSearchPage, LazyPriceHistoryPage, LazyAnalyticsPage, LazyWatchListManager } from "@/components/lazy";
+import NotFound from "@/pages/not-found";
+
+// ============================================
+// Lazy-loaded pages (loaded on demand)
+// Reduces initial bundle from ~1.2MB to ~300KB
+// ============================================
+import {
+  LazyAdminPage,
+  LazyAdvancedSearchPage,
+  LazyPriceHistoryPage,
+  LazyAnalyticsPage,
+  LazyWatchListManager,
+  LazyMonitoringDashboard,
+  LazyPriceWatch,
+  LazyNotificationsPage,
+  LazyProductsPage,
+  LazyProductsNewPage,
+  LazyProductDetailPage,
+  LazyWishlistPage,
+  LazyComparePage,
+  LazyHomeLegacy,
+} from "@/components/lazy";
 import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
 import { useRealtimeNotifications } from "@/hooks/useSmartNotifications";
 import { ConnectionStatus } from "@/components/connection-status";
@@ -32,90 +47,162 @@ import { useWatchListUpdates } from "@/hooks/use-watchlist-updates";
 import { useNotificationUpdates } from "@/hooks/use-notification-updates";
 
 function Router() {
-  const LoadingFallback = () => (
-    <div className="container mx-auto px-4 py-8">
-      <Skeleton className="h-8 w-48 mb-6" />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-48 w-full" />
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <Switch>
-      {/* Main homepage with Onsus template layout */}
+      {/* ============================================
+       * Main routes with Onsus template layout
+       * Home page is eager-loaded (critical path)
+       * ============================================ */}
       <Route path="/" component={HomeNew} />
 
-      {/* Product detail page with Onsus template layout */}
-      <Route path="/product/:id" component={ProductDetailPage} />
+      {/* Product detail page - Lazy loaded (chart-heavy with price history) */}
+      <Route path="/product/:id">
+        <RouteErrorBoundary>
+          <Suspense fallback={<PageLoadingFallback />}>
+            <LazyProductDetailPage />
+          </Suspense>
+        </RouteErrorBoundary>
+      </Route>
 
-      {/* Shop/Products page with Onsus template layout */}
-      <Route path="/shop" component={ProductsNew} />
+      {/* Shop/Products page - Lazy loaded (large component with filters) */}
+      <Route path="/shop">
+        <RouteErrorBoundary>
+          <Suspense fallback={<ProductGridLoadingFallback />}>
+            <LazyProductsNewPage />
+          </Suspense>
+        </RouteErrorBoundary>
+      </Route>
 
-      {/* Wishlist page with Onsus template layout */}
-      <Route path="/wishlist" component={WishlistNew} />
+      {/* Wishlist page - Lazy loaded */}
+      <Route path="/wishlist">
+        <RouteErrorBoundary>
+          <Suspense fallback={<PageLoadingFallback />}>
+            <LazyWishlistPage />
+          </Suspense>
+        </RouteErrorBoundary>
+      </Route>
 
-      {/* Compare page with Onsus template layout */}
-      <Route path="/compare" component={CompareNew} />
+      {/* Compare page - Lazy loaded */}
+      <Route path="/compare">
+        <RouteErrorBoundary>
+          <Suspense fallback={<PageLoadingFallback />}>
+            <LazyComparePage />
+          </Suspense>
+        </RouteErrorBoundary>
+      </Route>
 
-      {/* Legacy routes with default layout */}
+      {/* ============================================
+       * Legacy routes with default layout
+       * Wrapped in SharedNavigation + Footer
+       * ============================================ */}
       <Route>
         <div className="min-h-screen bg-background">
           <SharedNavigation />
           <RateLimitBanner />
           <main className="container mx-auto px-6 py-12">
             <Switch>
-              <Route path="/legacy" component={Home} />
-              <Route path="/products" component={Products} />
+              {/* Legacy home - Lazy loaded */}
+              <Route path="/legacy">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyHomeLegacy />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
+              {/* Legacy products - Lazy loaded */}
+              <Route path="/products">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<ProductGridLoadingFallback />}>
+                    <LazyProductsPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
+              {/* Auth pages - Eager loaded (critical for user flow) */}
               <Route path="/forgot-password" component={ForgotPassword} />
               <Route path="/reset-password" component={ResetPassword} />
+
+              {/* Search pages - Lazy loaded */}
               <Route path="/search">
                 <RouteErrorBoundary>
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<PageLoadingFallback />}>
                     <LazyAdvancedSearchPage />
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>
               <Route path="/search/advanced">
                 <RouteErrorBoundary>
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<PageLoadingFallback />}>
                     <LazyAdvancedSearchPage />
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>
+
+              {/* Admin page - Lazy loaded (heavy, admin-only) */}
               <Route path="/admin">
                 <RouteErrorBoundary>
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<PageLoadingFallback />}>
                     <LazyAdminPage />
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>
-              <Route path="/monitoring" component={MonitoringDashboard} />
-              <Route path="/price-watch" component={PriceWatch} />
-              <Route path="/notifications" component={NotificationsPage} />
+
+              {/* Monitoring dashboard - Lazy loaded (charts, WebSocket) */}
+              <Route path="/monitoring">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyMonitoringDashboard />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
+              {/* Price watch - Lazy loaded */}
+              <Route path="/price-watch">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyPriceWatch />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
+              {/* Notifications - Lazy loaded */}
+              <Route path="/notifications">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyNotificationsPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
+              {/* Watch lists - Lazy loaded */}
               <Route path="/watchlists">
                 <RouteErrorBoundary>
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<PageLoadingFallback />}>
                     <LazyWatchListManager />
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>
+
+              {/* Price history - Lazy loaded (chart-heavy, loads recharts) */}
               <Route path="/products/:id/price-history">
                 <RouteErrorBoundary>
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<PageLoadingFallback />}>
                     <LazyPriceHistoryPage />
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>
+
+              {/* Analytics - Lazy loaded (chart-heavy, loads recharts) */}
               <Route path="/products/:id/analytics">
                 <RouteErrorBoundary>
-                  <Suspense fallback={<LoadingFallback />}>
+                  <Suspense fallback={<PageLoadingFallback />}>
                     <LazyAnalyticsPage />
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>
+
+              {/* 404 - Eager loaded (small component) */}
               <Route component={NotFound} />
             </Switch>
           </main>

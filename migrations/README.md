@@ -22,6 +22,10 @@ Migrations are numbered sequentially and executed in order:
 - `0014_add_aggregation_indexes.sql` - **Aggregation performance indexes** (optimizes time-range queries, 10-100x faster)
 - `0015_fix_set_null_constraints.sql` - **Fix SET NULL constraints** (allows user deletion with forum content)
 - `0016_fix_data_integrity_issues.sql` - **Fix data integrity issues** (unique constraints, nullable sender_id)
+- `0017_add_wishlists_and_specifications.sql` - **Wishlists and specifications** (product wishlists, specifications tables)
+- `0018_change_forum_topic_title_to_text.sql` - **Forum topic title** (change VARCHAR to TEXT)
+- `0019_fix_product_watches_unique_constraint.sql` - **Product watches constraint** (dual constraint for NULL handling)
+- `0020_add_price_check_constraints.sql` - **Price CHECK constraints** (Dec 1, 2025) - Adds database-level validation to prevent negative prices, invalid price ranges, and illogical sale prices
 
 ## How to Apply Migrations
 

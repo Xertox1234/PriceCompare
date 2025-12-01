@@ -24,6 +24,10 @@ This document provides comprehensive rollback procedures for all database migrat
   - [0014 - Aggregation Indexes](#0014---aggregation-indexes)
   - [0015 - Fix SET NULL Constraints](#0015---fix-set-null-constraints)
   - [0016 - Fix Data Integrity Issues](#0016---fix-data-integrity-issues)
+  - [0017 - Wishlists and Specifications](#0017---wishlists-and-specifications)
+  - [0018 - Forum Topic Title](#0018---forum-topic-title)
+  - [0019 - Product Watches Unique Constraint](#0019---product-watches-unique-constraint)
+  - [0020 - Price CHECK Constraints](#0020---price-check-constraints)
 - [Emergency Procedures](#emergency-procedures)
 - [Post-Rollback Verification](#post-rollback-verification)
 
@@ -754,6 +758,131 @@ COMMIT;
 
 ---
 
+### 0017 - Wishlists and Specifications
+
+**Risk Level**: HIGH
+**Data Loss**: Yes - all wishlists and product specifications lost
+**Code Impact**: Wishlist and specification features break
+
+```sql
+-- Rollback 0017_add_wishlists_and_specifications.sql
+BEGIN;
+
+-- Remove indexes
+DROP INDEX IF EXISTS wishlists_user_id_idx;
+DROP INDEX IF EXISTS wishlist_items_wishlist_id_idx;
+DROP INDEX IF EXISTS wishlist_items_user_id_idx;
+DROP INDEX IF EXISTS wishlist_items_product_id_idx;
+DROP INDEX IF EXISTS product_specs_product_id_idx;
+DROP INDEX IF EXISTS product_specs_group_idx;
+
+-- Drop tables (DATA WILL BE LOST)
+DROP TABLE IF EXISTS wishlist_items CASCADE;
+DROP TABLE IF EXISTS wishlists CASCADE;
+DROP TABLE IF EXISTS product_specifications CASCADE;
+
+COMMIT;
+```
+
+**Post-Rollback Actions**:
+- Disable wishlist features in UI
+- Remove product specifications from product detail pages
+- Update API to return 404 for wishlist endpoints
+
+---
+
+### 0018 - Forum Topic Title
+
+**Risk Level**: LOW
+**Data Loss**: No (data preserved, long titles may be truncated)
+**Code Impact**: Long topic titles may be truncated
+
+```sql
+-- Rollback 0018_change_forum_topic_title_to_text.sql
+BEGIN;
+
+-- Revert to VARCHAR(255) - WARNING: Long titles will be truncated!
+ALTER TABLE forum_topics ALTER COLUMN title TYPE varchar(255);
+
+COMMIT;
+```
+
+**Post-Rollback Actions**:
+- Check for truncated titles after rollback
+- Add title length validation in UI (255 char limit)
+
+---
+
+### 0019 - Product Watches Unique Constraint
+
+**Risk Level**: MEDIUM
+**Data Loss**: No
+**Code Impact**: Duplicate watches possible when watch_list_id is NULL
+
+```sql
+-- Rollback 0019_fix_product_watches_unique_constraint.sql
+BEGIN;
+
+-- Remove the partial index for NULL case
+DROP INDEX IF EXISTS unique_user_product_no_list;
+
+-- Remove the new constraint
+ALTER TABLE product_watches DROP CONSTRAINT IF EXISTS unique_user_product_list;
+
+-- Restore original simple unique constraint
+ALTER TABLE product_watches 
+  ADD CONSTRAINT product_watches_user_id_product_id_watch_list_id_key 
+  UNIQUE(user_id, product_id, watch_list_id);
+
+COMMIT;
+```
+
+**Post-Rollback Actions**:
+- Duplicate product watches possible when watch_list_id is NULL
+- Add application-level duplicate checking
+- Monitor for duplicate entries
+
+---
+
+### 0020 - Price CHECK Constraints
+
+**Risk Level**: LOW
+**Data Loss**: No
+**Code Impact**: Invalid price data can be inserted again
+
+```sql
+-- Rollback 0020_add_price_check_constraints.sql
+BEGIN;
+
+-- Remove constraints from product_offers
+ALTER TABLE product_offers DROP CONSTRAINT IF EXISTS check_product_offers_price_positive;
+ALTER TABLE product_offers DROP CONSTRAINT IF EXISTS check_product_offers_original_price_positive;
+ALTER TABLE product_offers DROP CONSTRAINT IF EXISTS check_product_offers_price_logical;
+
+-- Remove constraints from price_history
+ALTER TABLE price_history DROP CONSTRAINT IF EXISTS check_price_history_price_positive;
+ALTER TABLE price_history DROP CONSTRAINT IF EXISTS check_price_history_original_price_positive;
+
+-- Remove constraints from price_alerts
+ALTER TABLE price_alerts DROP CONSTRAINT IF EXISTS check_price_alerts_target_price_positive;
+ALTER TABLE price_alerts DROP CONSTRAINT IF EXISTS check_price_alerts_price_when_created_positive;
+
+-- Remove constraints from price_snapshots
+ALTER TABLE price_snapshots DROP CONSTRAINT IF EXISTS check_price_snapshots_prices_positive;
+ALTER TABLE price_snapshots DROP CONSTRAINT IF EXISTS check_price_snapshots_range_valid;
+ALTER TABLE price_snapshots DROP CONSTRAINT IF EXISTS check_price_snapshots_avg_in_range;
+
+COMMIT;
+```
+
+**Post-Rollback Actions**:
+- **WARNING**: Invalid prices can be inserted without database-level validation
+- Add application-level price validation as fallback
+- Consider adding Zod validation for all price fields
+- Monitor for invalid price data
+
+---
+
 ## Emergency Procedures
 
 ### Complete Database Reset
@@ -831,5 +960,5 @@ For emergency database assistance:
 
 ---
 
-*Last updated: 2025-11-23*
-*Document version: 1.0*
+*Last updated: 2025-12-01*
+*Document version: 1.1*

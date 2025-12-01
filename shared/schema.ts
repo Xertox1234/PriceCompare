@@ -145,12 +145,17 @@ export const products = pgTable("products", {
   searchIdx: index("idx_products_search").using("gin", table.searchVector),
 }));
 
+// Product offers with price constraints (migration 0020)
+// DB CHECK CONSTRAINTS:
+//   - check_product_offers_price_positive: price >= 0
+//   - check_product_offers_original_price_positive: original_price >= 0 (when not NULL)
+//   - check_product_offers_price_logical: price <= original_price (when original_price is set)
 export const productOffers = pgTable("product_offers", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
   retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: 'cascade' }).notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // CHECK: >= 0
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }), // CHECK: >= 0, price <= originalPrice
   availability: text("availability").default("in_stock"), // in_stock, out_of_stock, limited_stock
   rating: decimal("rating", { precision: 2, scale: 1 }),
   reviewCount: integer("review_count").default(0),
@@ -170,13 +175,16 @@ export const productOffers = pgTable("product_offers", {
 }));
 
 // Price history tracking for historical price trends and analysis
+// DB CHECK CONSTRAINTS (migration 0020):
+//   - check_price_history_price_positive: price >= 0
+//   - check_price_history_original_price_positive: original_price >= 0 (when not NULL)
 export const priceHistory = pgTable("price_history", {
   id: serial("id").primaryKey(),
   productOfferId: integer("product_offer_id").references(() => productOffers.id, { onDelete: 'cascade' }).notNull(),
   productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(), // Denormalized for fast queries
   retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: 'cascade' }).notNull(), // Denormalized for fast queries
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // CHECK: >= 0
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }), // CHECK: >= 0
   availability: text("availability"),
   rating: decimal("rating", { precision: 2, scale: 1 }),
   reviewCount: integer("review_count"),
@@ -308,15 +316,19 @@ export const forumPosts = pgTable("forum_posts", {
 }));
 
 // Price alerts that can notify the community
+// Price alerts that can notify the community
+// DB CHECK CONSTRAINTS (migration 0020):
+//   - check_price_alerts_target_price_positive: target_price > 0
+//   - check_price_alerts_price_when_created_positive: price_when_created >= 0 (when not NULL)
 export const priceAlerts = pgTable("price_alerts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
   productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
-  targetPrice: decimal("target_price", { precision: 10, scale: 2 }).notNull(),
+  targetPrice: decimal("target_price", { precision: 10, scale: 2 }).notNull(), // CHECK: > 0
   isActive: boolean("is_active").default(true),
   notifyForum: boolean("notify_forum").default(false), // Whether to post to forum when triggered
   // Historical context
-  priceWhenCreated: decimal("price_when_created", { precision: 10, scale: 2 }), // Price at creation time
+  priceWhenCreated: decimal("price_when_created", { precision: 10, scale: 2 }), // CHECK: >= 0, Price at creation time
   // Effectiveness tracking
   timesTriggered: integer("times_triggered").default(0), // How many times this alert has been triggered
   lastTriggeredAt: timestamp("last_triggered_at"), // When it was last triggered
@@ -855,13 +867,18 @@ export const pricePredictions = pgTable("price_predictions", {
 });
 
 // Price snapshots - Daily aggregated price data
+// Price snapshots - Daily aggregated price data
+// DB CHECK CONSTRAINTS (migration 0020):
+//   - check_price_snapshots_prices_positive: all prices >= 0
+//   - check_price_snapshots_range_valid: highest_price >= lowest_price
+//   - check_price_snapshots_avg_in_range: lowest_price <= average_price <= highest_price
 export const priceSnapshots = pgTable("price_snapshots", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
   retailerId: integer("retailer_id").references(() => retailers.id, { onDelete: 'cascade' }).notNull(),
-  lowestPrice: decimal("lowest_price", { precision: 10, scale: 2 }).notNull(),
-  highestPrice: decimal("highest_price", { precision: 10, scale: 2 }).notNull(),
-  averagePrice: decimal("average_price", { precision: 10, scale: 2 }).notNull(),
+  lowestPrice: decimal("lowest_price", { precision: 10, scale: 2 }).notNull(), // CHECK: >= 0, <= highest
+  highestPrice: decimal("highest_price", { precision: 10, scale: 2 }).notNull(), // CHECK: >= 0, >= lowest
+  averagePrice: decimal("average_price", { precision: 10, scale: 2 }).notNull(), // CHECK: >= 0, between lowest and highest
   offerCount: integer("offer_count").default(1),
   snapshotDate: timestamp("snapshot_date").notNull(), // Date of the snapshot
   createdAt: timestamp("created_at").defaultNow(),
