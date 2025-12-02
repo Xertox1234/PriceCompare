@@ -2,6 +2,7 @@ import { Express } from "express";
 import { storage } from "../storage";
 import { storageCache } from "../services/storage-cache";
 import type { SearchFilters } from "@shared/schema";
+import type { AuthenticatedRequest } from "@shared/types";
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from "../utils/validation-helpers";
 import {
   productCacheMiddleware,
@@ -81,7 +82,8 @@ export function registerProductRoutes(app: Express): void {
       };
 
       // Cache bypass support for admin users (debugging and verification)
-      const skipCache = isAuthenticated(req) && shouldSkipCache(req);
+      // Note: shouldSkipCache() already validates authentication internally
+      const skipCache = shouldSkipCache(req as AuthenticatedRequest);
       const { products, pagination } = skipCache
         ? await storage.searchProducts(filters)
         : await storageCache.searchProducts(filters);
@@ -106,7 +108,8 @@ export function registerProductRoutes(app: Express): void {
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
       // Cache bypass support for admin users (debugging and verification)
-      const skipCache = isAuthenticated(req) && shouldSkipCache(req);
+      // Note: shouldSkipCache() already validates authentication internally
+      const skipCache = shouldSkipCache(req as AuthenticatedRequest);
       const product = skipCache
         ? await storage.getProductById(id)
         : await storageCache.getProductById(id);

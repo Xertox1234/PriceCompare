@@ -1,6 +1,7 @@
 import { Express } from "express";
 import { storage } from "../storage";
 import { storageCache } from "../services/storage-cache";
+import type { AuthenticatedRequest } from "@shared/types";
 import { retailerCacheMiddleware } from "../middleware/redis-cache";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { parseIntSafe } from "../utils/validation-helpers";
@@ -22,7 +23,8 @@ export function registerRetailerRoutes(app: Express): void {
       res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
 
       // Cache bypass support for admin users (debugging and verification)
-      const skipCache = isAuthenticated(req) && shouldSkipCache(req);
+      // Note: shouldSkipCache() already validates authentication internally
+      const skipCache = shouldSkipCache(req as AuthenticatedRequest);
       const retailers = skipCache
         ? await storage.getAllRetailers()
         : await storageCache.getAllRetailers();
@@ -43,7 +45,8 @@ export function registerRetailerRoutes(app: Express): void {
       res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
 
       // Cache bypass support for admin users (debugging and verification)
-      const skipCache = isAuthenticated(req) && shouldSkipCache(req);
+      // Note: shouldSkipCache() already validates authentication internally
+      const skipCache = shouldSkipCache(req as AuthenticatedRequest);
       const retailer = skipCache
         ? await storage.getRetailerById(id)
         : await storageCache.getRetailerById(id);

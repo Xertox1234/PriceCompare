@@ -35,6 +35,7 @@ import { createLogger } from "./utils/logger";
 import { initializeWebSocket, shutdownWebSocket } from "./websocket/index";
 import { advancedCache } from "./services/advanced-cache";
 import { initializeEventSubscriptions, cleanupEventSubscriptions } from "./services/event-subscriptions";
+import { storageCache } from "./services/storage-cache";
 
 const serverLog = createLogger('Server');
 
@@ -258,9 +259,22 @@ app.use(sanitizeInput);
   server.listen({
     port,
     host: "0.0.0.0",
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
+
+    // Warm critical caches (retailers) to eliminate first-request cache misses
+    await storageCache.warmCaches();
   });
+
+  // Log cache performance metrics every minute
+  const CACHE_METRICS_INTERVAL = 60 * 1000; // 1 minute
+  const cacheMetricsInterval = setInterval(() => {
+    storageCache.logCacheMetrics();
+  }, CACHE_METRICS_INTERVAL);
+  cleanupManager.addInterval('cache-metrics', cacheMetricsInterval);
+
+  // Log initial cache metrics on startup
+  storageCache.logCacheMetrics();
 
   // Start price history scheduled jobs
   startPriceHistoryJobs();

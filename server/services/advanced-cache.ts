@@ -411,7 +411,9 @@ export class AdvancedCacheService {
         await this.publishInvalidation(pattern, true);
       }
 
-      this.stats.invalidations += deletedCount;
+      // Track pattern invalidation stats correctly
+      this.stats.patternInvalidations++;
+      this.stats.patternKeysDeleted += deletedCount;
       return deletedCount;
     } catch (error) {
       this.stats.errors++;

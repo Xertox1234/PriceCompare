@@ -3,6 +3,7 @@ import { AdvancedCacheService, CacheTier } from './advanced-cache';
 import { logger } from '../utils/logger';
 import { storage, type SafeUser } from '../storage';
 import type { Retailer, ProductWithOffers } from '@shared/schema';
+import { CacheKeys } from '../utils/cache-keys';
 
 // Re-export CacheTier for convenience (consumers can import from this module)
 export { CacheTier };
@@ -330,7 +331,7 @@ export class StorageCacheService {
    * ```
    */
   async getProductById(id: number): Promise<ProductWithOffers | null> {
-    const cacheKey = `product:full:${id}`;
+    const cacheKey = CacheKeys.PRODUCT.FULL(id);
     return this.cachedGet<ProductWithOffers | null>(
       cacheKey,
       () => storage.getProductById(id),
@@ -370,7 +371,7 @@ export class StorageCacheService {
    * ```
    */
   async getAllRetailers(): Promise<Retailer[]> {
-    const cacheKey = 'retailer:all';
+    const cacheKey = CacheKeys.RETAILER.ALL();
 
     return this.cachedGet<Retailer[]>(
       cacheKey,
@@ -420,7 +421,7 @@ export class StorageCacheService {
    * ```
    */
   async getRetailerById(id: number): Promise<Retailer | null> {
-    const cacheKey = `retailer:id:${id}`;
+    const cacheKey = CacheKeys.RETAILER.SINGLE(id);
 
     return this.cachedGet<Retailer | null>(
       cacheKey,
@@ -491,7 +492,7 @@ export class StorageCacheService {
     pagination: { page: number; limit: number; total: number; totalPages: number };
   }> {
     const filterHash = this.hashFilters(filters);
-    const cacheKey = `product:search:${filterHash}`;
+    const cacheKey = CacheKeys.PRODUCT.SEARCH(filterHash);
 
     return this.cachedGet(
       cacheKey,
@@ -509,7 +510,7 @@ export class StorageCacheService {
    * SECURITY: Only caches SafeUser (passwordHash excluded)
    */
   async getUserByIdSafe(id: number): Promise<SafeUser | null> {
-    const cacheKey = `user:safe:${id}`;
+    const cacheKey = CacheKeys.USER.SAFE(id);
 
     return this.cachedGet<SafeUser | null>(
       cacheKey,
@@ -583,11 +584,12 @@ export class StorageCacheService {
    */
   async invalidateProductCache(productId: number): Promise<void> {
     try {
-      // Invalidate specific product cache
-      await this.cache.invalidate(`product:full:${productId}`);
+      // Invalidate specific product cache (versioned key)
+      await this.cache.invalidate(CacheKeys.PRODUCT.FULL(productId));
 
       // Invalidate all search caches (product might appear in searches)
-      await this.cache.invalidatePattern('product:search:*');
+      // Use versioned pattern to only invalidate current version
+      await this.cache.invalidatePattern(CacheKeys.PRODUCT.PATTERN());
 
       logger.debug('Product cache invalidated', { productId });
     } catch (error) {
@@ -663,7 +665,7 @@ export class StorageCacheService {
    */
   async invalidateUserCache(userId: number): Promise<void> {
     try {
-      await this.cache.invalidate(`user:safe:${userId}`);
+      await this.cache.invalidate(CacheKeys.USER.SAFE(userId));
 
       logger.debug('User cache invalidated', { userId });
     } catch (error) {
@@ -715,11 +717,11 @@ export class StorageCacheService {
    */
   async invalidateRetailerCache(retailerId: number): Promise<void> {
     try {
-      // Invalidate specific retailer cache
-      await this.cache.invalidate(`retailer:id:${retailerId}`);
+      // Invalidate specific retailer cache (versioned key)
+      await this.cache.invalidate(CacheKeys.RETAILER.SINGLE(retailerId));
 
       // Invalidate all retailers list (retailer might be in the list)
-      await this.cache.invalidate('retailer:all');
+      await this.cache.invalidate(CacheKeys.RETAILER.ALL());
 
       logger.debug('Retailer cache invalidated', { retailerId });
     } catch (error) {
@@ -730,6 +732,76 @@ export class StorageCacheService {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
+  }
+
+  /**
+   * Warm critical caches on server startup.
+   * Pre-populates frequently accessed static data to eliminate first-request cache misses.
+   *
+   * This method is designed to be called during server initialization and will:
+   * - Pre-load all retailers (static data, accessed immediately)
+   * - Gracefully handle failures (logs warnings but doesn't throw)
+   * - Complete quickly to avoid delaying server startup
+   *
+   * @returns Promise<void>
+   *
+   * @example
+   * // In server/index.ts during startup:
+   * await storageCache.warmCaches();
+   */
+  async warmCaches(): Promise<void> {
+    logger.info('Warming critical caches...');
+    try {
+      // Pre-populate retailers (static data accessed on most pages)
+      const retailers = await this.getAllRetailers();
+      logger.info('Cache warming complete', {
+        retailers: retailers.length,
+      });
+    } catch (error) {
+      // Log warning but don't throw - cache warming is non-blocking
+      logger.warn('Cache warming failed (non-blocking)', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Log cache performance metrics for monitoring.
+   * Should be called periodically (e.g., every minute) to track cache effectiveness.
+   *
+   * @example
+   * // In server/index.ts:
+   * setInterval(() => storageCache.logCacheMetrics(), 60000);
+   */
+  logCacheMetrics(): void {
+    const stats = this.cache.getStats();
+
+    // Calculate hit rates
+    const l1Total = stats.l1.hits + stats.l1.misses;
+    const l2Total = stats.l2.hits + stats.l2.misses;
+    const l1HitRate = l1Total > 0 ? ((stats.l1.hits / l1Total) * 100).toFixed(1) : '0.0';
+    const l2HitRate = l2Total > 0 ? ((stats.l2.hits / l2Total) * 100).toFixed(1) : '0.0';
+
+    logger.info('Storage cache performance metrics', {
+      l1: {
+        hits: stats.l1.hits,
+        misses: stats.l1.misses,
+        hitRate: `${l1HitRate}%`,
+        size: stats.l1.size,
+        maxSize: stats.l1.maxSize,
+      },
+      l2: {
+        hits: stats.l2.hits,
+        misses: stats.l2.misses,
+        hitRate: `${l2HitRate}%`,
+      },
+      invalidations: {
+        total: stats.overall.invalidations,
+        patterns: stats.patternInvalidation.operations,
+        keysDeleted: stats.patternInvalidation.keysDeleted,
+      },
+      errors: stats.overall.errors,
+    });
   }
 }
 
