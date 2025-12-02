@@ -908,16 +908,66 @@ import { Product } from "@shared/schema";
 
 ## Multi-Level Caching Strategy
 
-1. **L1 - In-memory cache** (`server/middleware/cache.ts`) - Fast, single-server
-2. **L2 - Redis cache** (`server/middleware/redis-cache.ts`) - Distributed
+The application uses a sophisticated multi-tier caching system with automatic invalidation:
+
+### Cache Layers
+
+1. **L1 - In-memory cache** (`AdvancedCacheService`) - Fastest, single-server, 1000 items, 60s TTL
+2. **L2 - Redis cache** (`AdvancedCacheService`) - Distributed across servers
 3. **L3 - Database** (PostgreSQL) - Persistent source of truth
 4. **Client - React Query** - Client-side state with staleTime/gcTime
 
-Cache keys: `{resource}:{id}:{variant}` (e.g., `product:123:full`)
+### Storage Cache Service (NEW - Issue #125)
+
+**All storage layer access now flows through `storageCache`** for automatic caching:
+
+```typescript
+// ✅ CORRECT - Use storageCache wrapper
+import { storageCache } from './services/storage-cache';
+
+app.get('/api/products/:id', async (req, res) => {
+  const product = await storageCache.getProductById(id);  // Cached
+  sendSuccess(res, product);
+});
+
+// ❌ WRONG - Direct storage access bypasses cache
+const product = await storage.getProductById(id);  // No caching
+```
+
+**Key Features**:
+- **Automatic invalidation**: Updates/deletes automatically clear caches
+- **Cache warming**: Critical caches (retailers) pre-loaded on startup
+- **Versioned keys**: `CacheKeys.PRODUCT.FULL(id)` from `server/utils/cache-keys.ts`
+- **Cache bypass**: Admin users can use `?skipCache=1` query parameter
+- **Metrics logging**: Performance metrics logged every minute
+
+**Cache Tiers (by access pattern)**:
+- **STATIC** (1 hour): Retailers (admin-only changes)
+- **WARM** (10 min): Products, Users (frequently accessed)
+- **COLD** (3 min): Search results (occasionally accessed)
+- **HOT** (30 min): Frequently accessed data
+- **COMPUTED** (30 min): Expensive calculations
+
+**Cache Key Versioning**:
+```typescript
+// Increment CACHE_VERSION in server/utils/cache-keys.ts when schema changes
+const CACHE_VERSION = 1;
+
+// Old keys become stale automatically - zero-downtime migrations
+CacheKeys.PRODUCT.FULL(123)  // Returns: "product:full:v1:123"
+```
+
+**Cache Invalidation Pattern**:
+```typescript
+// In storage layer after update/delete
+await storageCache.invalidateProductCache(productId);
+// Invalidates: product:full:v1:123 + pattern: product:search:v1:*
+```
 
 **TTL Guidelines**:
-- Retailers: 1 hour (changes infrequently)
-- Products: 5 minutes (prices update regularly)
+- Retailers: 1 hour (STATIC tier - changes infrequently)
+- Products: 10 minutes (WARM tier - prices update regularly)
+- Search: 3 minutes (COLD tier - varies by query)
 - User sessions: 24 hours
 
 ## Constants & Configuration
