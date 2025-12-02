@@ -1,7 +1,7 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 2.0
-Last Updated: 2025-11-29
+Version: 2.1
+Last Updated: 2025-12-02
 Maintainer: Claude Code / Development Team
 Status: Active - SINGLE SOURCE OF TRUTH
 Migrated From:
@@ -11,6 +11,7 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (validation layer separation section)
 Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.1 (2025-12-02): Added Dependency Security & Error Monitoring section with Sentry patterns, npm audit workflow, transitive dependency handling, real-world example (GHSA-6465-jgvq-jhgp)
   - 2.0 (2025-11-29): MAJOR CONSOLIDATION - Merged 4 pattern files, eliminated CSRF duplication across 8+ files
   - 1.0 (2025-11-28): Initial consolidated security patterns
 ---
@@ -35,6 +36,7 @@ This document consolidates security, validation, and authentication patterns to 
 - [XSS Prevention](#xss-prevention)
 - [Security Headers](#security-headers)
 - [Environment Variables & Secret Management](#environment-variables--secret-management)
+- [Dependency Security & Error Monitoring](#dependency-security--error-monitoring)
 - [Development vs Production](#development-vs-production)
 - [Security Checklist](#security-checklist)
 
@@ -1733,6 +1735,240 @@ REDIS_URL=redis://localhost:6379
 2. Verify `SESSION_SECRET` is set and consistent
 3. Check cookie settings (secure flag, sameSite)
 4. Verify session max age hasn't expired
+
+---
+
+## Dependency Security & Error Monitoring
+
+### Dependency Vulnerability Management
+
+#### NPM Audit Workflow
+
+**Regular Security Scanning**:
+```bash
+# Run audit (moderate+ severity)
+npm audit --audit-level=moderate
+
+# Automated fix (when safe)
+npm audit fix
+
+# Force update with peer dependency conflicts
+npm install --legacy-peer-deps
+```
+
+**Vulnerability Prioritization**:
+- **P0 (Critical)**: Direct dependencies, high severity, actively exploited
+- **P1 (High)**: Direct dependencies, moderate severity, public PoCs exist
+- **P2 (Important)**: Transitive dependencies, moderate severity, or direct dependencies with low severity
+- **P3 (Low)**: Low severity, difficult to exploit, limited impact
+
+#### Handling Transitive Dependencies
+
+When a vulnerability is in a transitive dependency (dependency of a dependency):
+
+##### Option 1: npm Overrides (Recommended for Security Patches)
+```json
+// package.json
+{
+  "overrides": {
+    "body-parser": "2.2.1"  // Force specific version
+  },
+  "_comments": {
+    "overrides": "body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4. Remove when express updates naturally."
+  }
+}
+```
+
+**When to use overrides**:
+- ✅ Security patches (patch version bumps: 2.2.0 → 2.2.1)
+- ✅ Parent package hasn't updated yet
+- ✅ Immediate mitigation needed
+- ❌ Major version changes (breaking changes)
+- ❌ When you can wait for parent package update
+
+**Override best practices**:
+1. Document WHY in `_comments` section
+2. Include CVE/GHSA reference
+3. Note date applied
+4. Set reminder to remove when parent updates
+5. Monitor parent package releases
+
+##### Option 2: Wait for Parent Update
+```bash
+# Monitor for parent package updates
+npm outdated express body-parser
+
+# Check parent package release notes
+# When parent updates, remove override and update parent
+```
+
+**When to wait**:
+- Low severity vulnerability
+- Parent package actively maintained
+- No active exploits
+- Can accept temporary risk
+
+#### Version Documentation Pattern
+
+**Always document security updates in package.json**:
+
+```json
+{
+  "dependencies": {
+    "@sentry/node": "^10.28.0",
+    "@sentry/react": "^10.28.0"
+  },
+  "_comments": {
+    "sentry-versions": "@sentry/node and @sentry/react updated to ^10.28.0 to fix GHSA-6465-jgvq-jhgp (sensitive headers leak when sendDefaultPii enabled). Patch applied 2025-12-02.",
+    "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions."
+  }
+}
+```
+
+**Documentation checklist**:
+- [ ] Include CVE/GHSA reference
+- [ ] Note what vulnerability was fixed
+- [ ] Record date applied
+- [ ] Explain version constraint choice
+- [ ] Document removal plan (for overrides)
+
+---
+
+### Sentry Error Monitoring Security
+
+#### Configuration Security
+
+**File**: `server/config/sentry.ts`
+
+#### ❌ CRITICAL - Never Enable sendDefaultPii Without Review
+
+```typescript
+// ❌ DANGEROUS - Exposes sensitive headers
+Sentry.init({
+  sendDefaultPii: true,  // ⚠️ SECURITY RISK
+  // This sends Authorization headers, Cookies, session tokens to Sentry!
+});
+```
+
+**What sendDefaultPii exposes**:
+- Authorization headers (Bearer tokens, API keys)
+- Cookie headers (session IDs, auth cookies)
+- User-Agent strings (fingerprinting data)
+- Client IP addresses
+- Custom headers (may contain secrets)
+
+**Vulnerability context**:
+- **GHSA-6465-jgvq-jhgp**: Sentry versions 10.11.0-10.26.0 leaked sensitive headers when `sendDefaultPii: true`
+- **Fixed in**: 10.27.0+
+- **Current version**: 10.28.0+
+- **Defense-in-depth**: Keep disabled even with patched version
+
+#### ✅ CORRECT - Document Security Decision
+
+```typescript
+// server/config/sentry.ts
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: isProduction ? 0.1 : 1.0,
+
+  // SECURITY: sendDefaultPii is intentionally NOT enabled to prevent exposure
+  // of personally identifiable information (PII) in error reports. This includes
+  // sensitive HTTP headers like Authorization, Cookie, and session tokens.
+  //
+  // Context: Sentry vulnerability GHSA-6465-jgvq-jhgp (fixed in 10.27.0+) leaked
+  // sensitive headers when sendDefaultPii was true. Even though we're now on a
+  // patched version, we maintain defense-in-depth by keeping this disabled.
+  //
+  // If PII collection becomes necessary for debugging:
+  // 1. Ensure Sentry version >= 10.27.0 (current: 10.28.0+)
+  // 2. Implement additional header filtering in beforeSend hook
+  // 3. Document security review and approval
+  // 4. Consider using Sentry's data scrubbing rules as additional layer
+  //
+  // sendDefaultPii: false, // (false by default, explicitly documented here)
+
+  beforeSend(event, hint) {
+    // Filter operational errors
+    // Additional header filtering would go here if PII enabled
+    return event;
+  }
+});
+```
+
+#### Header Filtering Pattern (If PII Ever Needed)
+
+```typescript
+// Advanced pattern: Selective PII with header filtering
+Sentry.init({
+  sendDefaultPii: true,  // Only if absolutely necessary!
+
+  beforeSend(event, hint) {
+    // Strip sensitive headers
+    if (event.request?.headers) {
+      const sensitiveHeaders = [
+        'authorization',
+        'cookie',
+        'x-api-key',
+        'x-auth-token',
+        'x-session-id',
+        'set-cookie'
+      ];
+
+      for (const header of sensitiveHeaders) {
+        if (event.request.headers[header]) {
+          event.request.headers[header] = '[REDACTED]';
+        }
+      }
+    }
+
+    return event;
+  }
+});
+```
+
+#### Sentry Security Checklist
+
+- [ ] **Configuration Review**
+  - [ ] `sendDefaultPii` is false (or explicitly filtered)
+  - [ ] Sentry version >= 10.27.0 (GHSA-6465-jgvq-jhgp patched)
+  - [ ] Security decision documented in comments
+  - [ ] `beforeSend` hook filters sensitive data
+
+- [ ] **Version Documentation**
+  - [ ] package.json `_comments` documents security patch
+  - [ ] CVE/GHSA reference included
+  - [ ] Patch date recorded
+
+- [ ] **Monitoring**
+  - [ ] Error reports reviewed for data leaks
+  - [ ] Sentry dashboard access restricted (RBAC)
+  - [ ] Regular dependency updates scheduled
+
+- [ ] **Development vs Production**
+  - [ ] Development: More verbose logging acceptable
+  - [ ] Production: Strict PII filtering enforced
+  - [ ] Test Sentry in staging before production
+
+#### Real-World Example: Sentry Headers Leak (2025-12-02)
+
+**Scenario**: npm audit detected GHSA-6465-jgvq-jhgp in @sentry/node 10.26.0
+
+**Response**:
+1. **Assessed Impact**: Checked if `sendDefaultPii` enabled (it wasn't)
+2. **Prioritized**: P2 (important but not actively exploitable)
+3. **Updated**: `@sentry/node` 10.26.0 → 10.28.0
+4. **Documented**: Added comments in package.json and sentry.ts
+5. **Verified**: npm audit clean, TypeScript/ESLint pass
+6. **Codified**: Added patterns to this document
+
+**Lessons Learned**:
+- ✅ Defense-in-depth: Patch even when not actively vulnerable
+- ✅ Document decisions: Future developers need context
+- ✅ Process matters: Systematic approach > ad-hoc fixes
+- ✅ Codify learnings: Turn incidents into institutional knowledge
+
+**Time to resolution**: < 30 minutes (assessment + fix + documentation)
 
 ---
 
