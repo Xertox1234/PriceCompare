@@ -1,5 +1,5 @@
 import { retailers, products, productOffers, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
-import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchListStats } from './storage/types';
+import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchListStats, NormalizedPricePoint } from './storage/types';
 import { db } from "./db";
 import { eq, and, gte, lt, inArray, sql, desc, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
@@ -273,6 +273,11 @@ export interface IStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<Array<{ agg: MonthlyAggregateRecord; retailer: Retailer }>>;
+  getPriceHistoryOptimized(
+    productId: number,
+    days?: number,
+    retailerId?: number
+  ): Promise<NormalizedPricePoint[]>;
   getActiveProductOffersGrouped(): Promise<Array<{
     productId: number;
     retailerId: number;
@@ -1359,6 +1364,14 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
 
+  async getPriceHistoryOptimized(
+    _productId: number,
+    _days?: number,
+    _retailerId?: number
+  ): Promise<NormalizedPricePoint[]> {
+    throw new Error('Not supported in memory storage');
+  }
+
   async getActiveProductOffersGrouped(): Promise<Array<{
     productId: number;
     retailerId: number;
@@ -1807,6 +1820,12 @@ export class DatabaseStorage implements IStorage {
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
     this.notificationStorage = new NotificationStorage(db);
+    
+    // Wire up cross-domain dependencies (avoids circular imports)
+    // PriceStorage needs ProductStorage.getProductOffers for trend analysis
+    this.priceStorage.setGetProductOffersCallback(
+      (productId: number) => this.productStorage.getProductOffers(productId)
+    );
   }
 
   // ============================================================================
@@ -3118,6 +3137,14 @@ export class DatabaseStorage implements IStorage {
     retailerId?: number
   ): Promise<Array<{ agg: MonthlyAggregateRecord; retailer: Retailer }>> {
     return this.priceStorage.getMonthlyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+  }
+
+  async getPriceHistoryOptimized(
+    productId: number,
+    days?: number,
+    retailerId?: number
+  ): Promise<NormalizedPricePoint[]> {
+    return this.priceStorage.getPriceHistoryOptimized(productId, days, retailerId);
   }
 
   async getActiveProductOffersGrouped(): Promise<Array<{

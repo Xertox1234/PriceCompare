@@ -31,7 +31,7 @@ import {
   type Retailer,
 } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
-import type { NormalizedPricePoint } from "../../services/price-history-service";
+import { logger } from "../../utils/logger";
 import type {
   PriceHistoryWithDetails,
   PriceTrendAnalysis,
@@ -49,10 +49,18 @@ import type {
   PriceHistoryQueryParams,
   PriceSnapshotRecord,
   PriceSnapshotInsert,
+  NormalizedPricePoint,
   TrendPriceData,
   PriceTrendInsert,
   PriceTrendWithRetailer,
 } from "../types";
+import type { db as DbType } from "../../db";
+
+/**
+ * Type for the getProductOffers callback to avoid circular dependency
+ * Injected from parent storage to allow price analytics to access current offers
+ */
+export type GetProductOffersCallback = (productId: number) => Promise<(ProductOffer & { retailer: Retailer })[]>;
 
 /**
  * PriceStorage - Domain repository for price operations
@@ -68,6 +76,30 @@ import type {
  * 7. Logging - Uses logSuccess() for completed operations where appropriate
  */
 export class PriceStorage extends BaseStorage {
+  /**
+   * Callback to get product offers from ProductStorage
+   * Injected to avoid circular dependency between price-storage and storage.ts
+   */
+  private getProductOffers?: GetProductOffersCallback;
+
+  /**
+   * Constructor with optional dependency injection
+   * @param db - Drizzle database connection
+   * @param getProductOffers - Optional callback to get product offers (for cross-domain queries)
+   */
+  constructor(db: typeof DbType, getProductOffers?: GetProductOffersCallback) {
+    super(db);
+    this.getProductOffers = getProductOffers;
+  }
+
+  /**
+   * Set the getProductOffers callback (alternative to constructor injection)
+   * Useful when storage instances are created before dependencies are available
+   */
+  setGetProductOffersCallback(callback: GetProductOffersCallback): void {
+    this.getProductOffers = callback;
+  }
+
   /**
    * Validate product ID is positive integer
    * Used by: Price history, trend, and analytics methods
@@ -107,6 +139,216 @@ export class PriceStorage extends BaseStorage {
 
   /**
    * Get price history with smart data source selection
+   *
+   * STRATEGY: Automatically selects the most appropriate data source based on date range
+   * to optimize query performance while maintaining data granularity where it matters.
+   *
+   * DATA SOURCE SELECTION:
+   * - Last 30 days: Raw priceHistory only (most granular)
+   * - 30-90 days: Daily aggregates + recent raw
+   * - 90-365 days: Weekly aggregates + daily + raw
+   * - 1+ years: Monthly aggregates + weekly + daily + raw
+   *
+   * @param productId - Product ID (validated as positive integer)
+   * @param days - Number of days of history to retrieve (default: 30)
+   * @param retailerId - Optional retailer filter for single-retailer queries
+   * @returns Array of normalized price data points sorted chronologically
+   */
+  async getPriceHistoryOptimized(
+    productId: number,
+    days = 30,
+    retailerId?: number
+  ): Promise<NormalizedPricePoint[]> {
+    try {
+      this.validateProductId(productId);
+
+      if (!Number.isFinite(days) || days <= 0) {
+        throw new Error(`Invalid days: ${days}. Must be a positive number.`);
+      }
+      if (days > 3650) {
+        throw new Error(`Invalid days: ${days}. Maximum allowed is 3650 (10 years).`);
+      }
+      if (retailerId !== undefined) {
+        this.validateRetailerId(retailerId);
+      }
+
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setDate(now.getDate() - days);
+
+      logger.debug(`[PriceStorage] Fetching ${days} days of data for product ${productId}${retailerId ? ` from retailer ${retailerId}` : ''}`);
+
+      // Strategy 1: Last 30 days - use raw data only
+      if (days <= 30) {
+        return await this.getRawPriceHistoryNormalized(productId, startDate, now, retailerId);
+      }
+
+      // Strategy 2: 30-90 days - use daily aggregates + recent raw
+      if (days <= 90) {
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+
+        const recentRaw = await this.getRawPriceHistoryNormalized(productId, thirtyDaysAgo, now, retailerId);
+        const dailyAgg = await this.getDailyAggregatesNormalized(productId, startDate, thirtyDaysAgo, retailerId);
+
+        return [...dailyAgg, ...recentRaw];
+      }
+
+      // Strategy 3: 90-365 days - use weekly aggregates + daily + raw
+      if (days <= 365) {
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+
+        const ninetyDaysAgo = new Date(now);
+        ninetyDaysAgo.setDate(now.getDate() - 90);
+
+        const recentRaw = await this.getRawPriceHistoryNormalized(productId, thirtyDaysAgo, now, retailerId);
+        const dailyAgg = await this.getDailyAggregatesNormalized(productId, ninetyDaysAgo, thirtyDaysAgo, retailerId);
+        const weeklyAgg = await this.getWeeklyAggregatesNormalized(productId, startDate, ninetyDaysAgo, retailerId);
+
+        return [...weeklyAgg, ...dailyAgg, ...recentRaw];
+      }
+
+      // Strategy 4: 1+ years - use monthly aggregates + weekly + daily + raw
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+
+      const ninetyDaysAgo = new Date(now);
+      ninetyDaysAgo.setDate(now.getDate() - 90);
+
+      const oneYearAgo = new Date(now);
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+
+      const recentRaw = await this.getRawPriceHistoryNormalized(productId, thirtyDaysAgo, now, retailerId);
+      const dailyAgg = await this.getDailyAggregatesNormalized(productId, ninetyDaysAgo, thirtyDaysAgo, retailerId);
+      const weeklyAgg = await this.getWeeklyAggregatesNormalized(productId, oneYearAgo, ninetyDaysAgo, retailerId);
+      const monthlyAgg = await this.getMonthlyAggregatesNormalized(productId, startDate, oneYearAgo, retailerId);
+
+      return [...monthlyAgg, ...weeklyAgg, ...dailyAgg, ...recentRaw];
+    } catch (error) {
+      this.handleError(error, 'getPriceHistoryOptimized');
+    }
+  }
+
+  /**
+   * Get raw price history normalized to NormalizedPricePoint format
+   * @private
+   */
+  private async getRawPriceHistoryNormalized(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<NormalizedPricePoint[]> {
+    const result = await this.getRawPriceHistoryWithRetailers(productId, startDate, endDate, retailerId);
+
+    return result.map(row => ({
+      date: row.history.recordedAt || new Date(),
+      price: parseFloat(row.history.price),
+      retailerId: row.history.retailerId,
+      retailerName: row.retailer.name,
+      availability: row.history.availability,
+      source: 'raw' as const
+    }));
+  }
+
+  /**
+   * Get daily aggregates normalized to NormalizedPricePoint format
+   * @private
+   */
+  private async getDailyAggregatesNormalized(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<NormalizedPricePoint[]> {
+    const result = await this.getDailyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+
+    return result.map(row => ({
+      date: new Date(row.agg.date + 'T00:00:00'),
+      price: parseFloat(row.agg.avgPrice),
+      minPrice: parseFloat(row.agg.minPrice),
+      maxPrice: parseFloat(row.agg.maxPrice),
+      avgPrice: parseFloat(row.agg.avgPrice),
+      medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
+      retailerId: row.agg.retailerId,
+      retailerName: row.retailer.name,
+      source: 'daily' as const
+    }));
+  }
+
+  /**
+   * Get weekly aggregates normalized to NormalizedPricePoint format
+   * @private
+   */
+  private async getWeeklyAggregatesNormalized(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<NormalizedPricePoint[]> {
+    const result = await this.getWeeklyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+
+    return result.map(row => {
+      const weekDate = this.getDateFromWeek(row.agg.year, row.agg.week);
+
+      return {
+        date: weekDate,
+        price: parseFloat(row.agg.avgPrice || '0'),
+        minPrice: parseFloat(row.agg.minPrice || '0'),
+        maxPrice: parseFloat(row.agg.maxPrice || '0'),
+        avgPrice: parseFloat(row.agg.avgPrice || '0'),
+        medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
+        retailerId: row.agg.retailerId,
+        retailerName: row.retailer.name,
+        source: 'weekly' as const
+      };
+    });
+  }
+
+  /**
+   * Get monthly aggregates normalized to NormalizedPricePoint format
+   * @private
+   */
+  private async getMonthlyAggregatesNormalized(
+    productId: number,
+    startDate: Date,
+    endDate: Date,
+    retailerId?: number
+  ): Promise<NormalizedPricePoint[]> {
+    const result = await this.getMonthlyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+
+    return result.map(row => ({
+      date: new Date(row.agg.year, row.agg.month - 1, 1),
+      price: parseFloat(row.agg.avgPrice || '0'),
+      minPrice: parseFloat(row.agg.minPrice || '0'),
+      maxPrice: parseFloat(row.agg.maxPrice || '0'),
+      avgPrice: parseFloat(row.agg.avgPrice || '0'),
+      medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
+      retailerId: row.agg.retailerId,
+      retailerName: row.retailer.name,
+      source: 'monthly' as const
+    }));
+  }
+
+  /**
+   * Helper: Get date from ISO week number
+   * @private
+   */
+  private getDateFromWeek(year: number, week: number): Date {
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dow = simple.getDay();
+    const ISOweekStart = simple;
+    if (dow <= 4) {
+      ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+    } else {
+      ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    }
+    return ISOweekStart;
+  }
+
+  /**
+   * Get price history with smart data source selection (legacy interface)
    * Automatically uses aggregated data for longer time ranges
    *
    * @param productId - Product ID (validated as positive integer)
@@ -117,9 +359,8 @@ export class PriceStorage extends BaseStorage {
     try {
       this.validateProductId(productId);
 
-      // Use optimized query that selects appropriate data source based on date range
-      const { getPriceHistoryOptimized } = await import('../../services/price-history-service');
-      const optimizedData = await getPriceHistoryOptimized(productId, days || 30);
+      // Use the internal optimized query
+      const optimizedData = await this.getPriceHistoryOptimized(productId, days || 30);
 
       // Convert normalized format to legacy format for backward compatibility
       return optimizedData.map((point: NormalizedPricePoint) => ({
@@ -159,9 +400,8 @@ export class PriceStorage extends BaseStorage {
       this.validateProductId(productId);
       this.validateRetailerId(retailerId);
 
-      // Use optimized query with retailer filter
-      const { getPriceHistoryOptimized } = await import('../../services/price-history-service');
-      const optimizedData = await getPriceHistoryOptimized(productId, days || 30, retailerId);
+      // Use the internal optimized query with retailer filter
+      const optimizedData = await this.getPriceHistoryOptimized(productId, days || 30, retailerId);
 
       // Convert normalized format to legacy format
       return optimizedData.map((point: NormalizedPricePoint) => ({
@@ -354,9 +594,21 @@ export class PriceStorage extends BaseStorage {
 
       if (history.length === 0) {
         // No history, use current price from offers (requires ProductStorage integration)
-        // Note: This calls getProductOffers which is in ProductStorage domain
-        const { storage } = await import('../../storage');
-        const offers = await storage.getProductOffers(productId);
+        if (!this.getProductOffers) {
+          logger.warn('getProductOffers callback not set, returning zero price for product', { productId });
+          return {
+            productId,
+            currentPrice: 0,
+            averagePrice: 0,
+            lowestPrice: 0,
+            highestPrice: 0,
+            trend: 'stable',
+            changePercentage: 0,
+            daysAnalyzed: 0,
+          };
+        }
+        
+        const offers = await this.getProductOffers(productId);
         const currentPrice = offers.length > 0
           ? Math.min(...offers.map(o => parseFloat(o.price)))
           : 0;
@@ -434,12 +686,16 @@ export class PriceStorage extends BaseStorage {
         ))
         .orderBy(asc(priceHistory.recordedAt));
 
-      // Get current price (requires ProductStorage integration)
-      const { storage } = await import('../../storage');
-      const offers = await storage.getProductOffers(productId);
-      const currentPrice = offers.length > 0
-        ? Math.min(...offers.map(o => parseFloat(o.price)))
-        : 0;
+      // Get current price (requires ProductStorage integration via injected callback)
+      let currentPrice = 0;
+      if (this.getProductOffers) {
+        const offers = await this.getProductOffers(productId);
+        currentPrice = offers.length > 0
+          ? Math.min(...offers.map(o => parseFloat(o.price)))
+          : 0;
+      } else {
+        logger.warn('getProductOffers callback not set, using zero for current price', { productId });
+      }
 
       if (history.length === 0) {
         return {

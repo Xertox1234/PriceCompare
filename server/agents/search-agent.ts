@@ -9,7 +9,7 @@ import { googleSearchService } from '../services/google-search';
 import type { GoogleSearchResult } from '../services/google-search';
 import { logger } from '../utils/logger';
 import { safeSearchQueries, type AISearchQueries } from './ai-validation-schemas';
-import { queryCache } from '../services/redis-cache';
+import { queryCache } from '../services/advanced-cache';
 import { agentQueryLimiter } from '../services/agent-query-limiter';
 
 // Local retailer config interface that matches the Map usage

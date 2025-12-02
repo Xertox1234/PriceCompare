@@ -1,7 +1,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
 import { monitoringService, DashboardMetrics } from './monitoring-service';
-import { alertService } from './alert-service';
+import { eventBus, AppEvents } from '../utils/event-bus';
 import { logger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
 
@@ -109,6 +109,9 @@ class WebSocketService {
     // Start periodic updates
     this.startPeriodicUpdates();
 
+    // Subscribe to alert events from event bus
+    this.setupEventSubscriptions();
+
     logger.info('WebSocket service initialized', {
       updateFrequency: `${this.UPDATE_FREQUENCY / 1000}s`
     });
@@ -131,6 +134,44 @@ class WebSocketService {
   }
 
   /**
+   * Set up event bus subscriptions
+   * This allows decoupled communication without circular dependencies
+   */
+  private setupEventSubscriptions(): void {
+    // Subscribe to alert events and broadcast to WebSocket clients
+    eventBus.on(AppEvents.ALERT_TRIGGERED, (payload) => {
+      this.broadcast('alert:triggered', {
+        id: payload.alertId,
+        level: payload.severity,
+        title: payload.ruleName,
+        message: payload.message,
+        context: payload.data,
+        timestamp: payload.timestamp
+      });
+    });
+
+    eventBus.on(AppEvents.ALERT_RESOLVED, (payload) => {
+      this.broadcast('alert:resolved', {
+        alertId: payload.alertId,
+        ruleName: payload.ruleName,
+        timestamp: payload.timestamp
+      });
+    });
+
+    // Subscribe to error events
+    eventBus.on(AppEvents.ERROR_OCCURRED, (payload) => {
+      this.broadcast('error:new', {
+        level: payload.level,
+        message: payload.message,
+        context: payload.context,
+        timestamp: payload.timestamp
+      });
+    });
+
+    logger.debug('WebSocket service subscribed to event bus');
+  }
+
+  /**
    * Broadcast metrics to all connected clients
    */
   private async broadcastMetrics(): Promise<void> {
@@ -139,8 +180,11 @@ class WebSocketService {
     try {
       const metrics = await monitoringService.getDashboardMetrics();
 
-      // Check alert rules
-      await alertService.checkAlerts(metrics);
+      // Emit metrics event for alert service to check (decoupled via event bus)
+      eventBus.emit(AppEvents.METRICS_UPDATED, {
+        metrics: metrics as unknown as Record<string, unknown>,
+        timestamp: new Date().toISOString()
+      });
 
       this.broadcast('metrics:update', {
         metrics,

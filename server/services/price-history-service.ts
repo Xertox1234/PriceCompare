@@ -1,10 +1,13 @@
 import { storage } from '../storage';
 import { logger } from '../utils/logger';
-import type { PriceSnapshotInsert } from '../storage/types';
+import type { PriceSnapshotInsert, NormalizedPricePoint } from '../storage/types';
 import {
   type PriceHistory,
   type PriceSnapshot
 } from '@shared/schema';
+
+// Re-export NormalizedPricePoint for backward compatibility
+export type { NormalizedPricePoint } from '../storage/types';
 
 /**
  * Price History Service
@@ -142,294 +145,27 @@ export async function getPriceHistory(query: PriceHistoryQuery): Promise<PriceHi
 }
 
 /**
- * Normalized price history data point
- * Standardized format for both raw and aggregated data
- */
-export interface NormalizedPricePoint {
-  date: Date;
-  price: number;
-  minPrice?: number;
-  maxPrice?: number;
-  avgPrice?: number;
-  medianPrice?: number;
-  retailerId: number;
-  retailerName?: string;
-  availability?: string | null;
-  source: 'raw' | 'daily' | 'weekly' | 'monthly';
-}
-
-/**
  * Get price history with smart data source selection
  *
  * STRATEGY: Automatically selects the most appropriate data source based on date range
  * to optimize query performance while maintaining data granularity where it matters.
  *
- * DATA SOURCE SELECTION:
- * - Last 30 days: Raw priceHistory only (most granular, ~1,000 records)
- * - 30-90 days: Daily aggregates + recent raw (~160 records total)
- * - 90-365 days: Weekly aggregates + daily + raw (~145 records total)
- * - 1+ years: Monthly aggregates + weekly + daily + raw (~157 records per year)
- *
- * PERFORMANCE IMPACT:
- * - 30-day query: ~1ms (raw data only)
- * - 90-day query: ~3ms (combined sources, 95% reduction in data)
- * - 365-day query: ~5ms (combined sources, 98% reduction in data)
- * - 2-year query: ~8ms (combined sources, 99% reduction in data)
- *
- * Returns normalized price points that can be used directly for charting without
- * additional processing. All sources provide consistent shape with date, price,
- * and optional min/max/avg/median statistics.
+ * This function delegates to the storage layer implementation to avoid circular dependencies.
+ * See storage.getPriceHistoryOptimized for full documentation.
  *
  * @param productId - Product ID to fetch history for
  * @param days - Number of days to retrieve (default: 30)
  * @param retailerId - Optional retailer filter for single-retailer queries
  * @returns Array of normalized price data points sorted chronologically
  * @throws Error if query fails
- *
- * @example
- * // Get last 30 days of raw data
- * const recentPrices = await getPriceHistoryOptimized(123, 30);
- *
- * @example
- * // Get 1 year of optimized data (monthly + weekly + daily + raw)
- * const yearPrices = await getPriceHistoryOptimized(123, 365);
- *
- * @example
- * // Get 90 days for specific retailer
- * const retailerPrices = await getPriceHistoryOptimized(123, 90, 5);
  */
 export async function getPriceHistoryOptimized(
   productId: number,
   days = 30,
   retailerId?: number
 ): Promise<NormalizedPricePoint[]> {
-  // Input validation
-  if (!Number.isFinite(productId) || productId <= 0) {
-    throw new Error(`Invalid productId: ${productId}. Must be a positive integer.`);
-  }
-  if (!Number.isFinite(days) || days <= 0) {
-    throw new Error(`Invalid days: ${days}. Must be a positive number.`);
-  }
-  if (days > 3650) {
-    throw new Error(`Invalid days: ${days}. Maximum allowed is 3650 (10 years).`);
-  }
-  if (retailerId !== undefined && (!Number.isFinite(retailerId) || retailerId <= 0)) {
-    throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive integer.`);
-  }
-
-  try {
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setDate(now.getDate() - days);
-
-    logger.info(`[PriceHistory] Fetching ${days} days of data for product ${productId}${retailerId ? ` from retailer ${retailerId}` : ''}`);
-
-    // Strategy 1: Last 30 days - use raw data only
-    if (days <= 30) {
-      logger.info(`[PriceHistory] Using raw data for ${days} days`);
-      return await getRawPriceHistory(productId, startDate, now, retailerId);
-    }
-
-    // Strategy 2: 30-90 days - use daily aggregates + recent raw
-    if (days <= 90) {
-      logger.info(`[PriceHistory] Using daily aggregates + raw data for ${days} days`);
-
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-
-      // Get recent raw data (last 30 days)
-      const recentRaw = await getRawPriceHistory(productId, thirtyDaysAgo, now, retailerId);
-
-      // Get daily aggregates (30-90 days ago)
-      const dailyAgg = await getDailyAggregates(productId, startDate, thirtyDaysAgo, retailerId);
-
-      return [...dailyAgg, ...recentRaw];
-    }
-
-    // Strategy 3: 90-365 days - use weekly aggregates + daily + raw
-    if (days <= 365) {
-      logger.info(`[PriceHistory] Using weekly aggregates + daily + raw data for ${days} days`);
-
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-
-      const ninetyDaysAgo = new Date(now);
-      ninetyDaysAgo.setDate(now.getDate() - 90);
-
-      // Get recent raw data (last 30 days)
-      const recentRaw = await getRawPriceHistory(productId, thirtyDaysAgo, now, retailerId);
-
-      // Get daily aggregates (30-90 days ago)
-      const dailyAgg = await getDailyAggregates(productId, ninetyDaysAgo, thirtyDaysAgo, retailerId);
-
-      // Get weekly aggregates (90+ days ago)
-      const weeklyAgg = await getWeeklyAggregates(productId, startDate, ninetyDaysAgo, retailerId);
-
-      return [...weeklyAgg, ...dailyAgg, ...recentRaw];
-    }
-
-    // Strategy 4: 1+ years - use monthly aggregates + weekly + daily + raw
-    logger.info(`[PriceHistory] Using monthly aggregates + weekly + daily + raw data for ${days} days`);
-
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(now.getDate() - 30);
-
-    const ninetyDaysAgo = new Date(now);
-    ninetyDaysAgo.setDate(now.getDate() - 90);
-
-    const oneYearAgo = new Date(now);
-    oneYearAgo.setFullYear(now.getFullYear() - 1);
-
-    // Get recent raw data (last 30 days)
-    const recentRaw = await getRawPriceHistory(productId, thirtyDaysAgo, now, retailerId);
-
-    // Get daily aggregates (30-90 days ago)
-    const dailyAgg = await getDailyAggregates(productId, ninetyDaysAgo, thirtyDaysAgo, retailerId);
-
-    // Get weekly aggregates (90-365 days ago)
-    const weeklyAgg = await getWeeklyAggregates(productId, oneYearAgo, ninetyDaysAgo, retailerId);
-
-    // Get monthly aggregates (1+ years ago)
-    const monthlyAgg = await getMonthlyAggregates(productId, startDate, oneYearAgo, retailerId);
-
-    return [...monthlyAgg, ...weeklyAgg, ...dailyAgg, ...recentRaw];
-  } catch (error) {
-    logger.error('Error getting optimized price history:', { error: error instanceof Error ? error.message : String(error) });
-    throw error;
-  }
-}
-
-/**
- * Get raw price history data
- */
-async function getRawPriceHistory(
-  productId: number,
-  startDate: Date,
-  endDate: Date,
-  retailerId?: number
-): Promise<NormalizedPricePoint[]> {
-  const result = await storage.getRawPriceHistoryWithRetailers(
-    productId,
-    startDate,
-    endDate,
-    retailerId
-  );
-
-  return result.map(row => ({
-    date: row.history.recordedAt || new Date(),
-    price: parseFloat(row.history.price),
-    retailerId: row.history.retailerId,
-    retailerName: row.retailer.name,
-    availability: row.history.availability,
-    source: 'raw' as const
-  }));
-}
-
-/**
- * Get daily aggregated price data
- */
-async function getDailyAggregates(
-  productId: number,
-  startDate: Date,
-  endDate: Date,
-  retailerId?: number
-): Promise<NormalizedPricePoint[]> {
-  const result = await storage.getDailyAggregatesWithRetailers(
-    productId,
-    startDate,
-    endDate,
-    retailerId
-  );
-
-  return result.map(row => ({
-    date: new Date(row.agg.date + 'T00:00:00'), // Convert YYYY-MM-DD to Date
-    price: parseFloat(row.agg.avgPrice), // Use average as primary price
-    minPrice: parseFloat(row.agg.minPrice),
-    maxPrice: parseFloat(row.agg.maxPrice),
-    avgPrice: parseFloat(row.agg.avgPrice),
-    medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
-    retailerId: row.agg.retailerId,
-    retailerName: row.retailer.name,
-    source: 'daily' as const
-  }));
-}
-
-/**
- * Get weekly aggregated price data
- */
-async function getWeeklyAggregates(
-  productId: number,
-  startDate: Date,
-  endDate: Date,
-  retailerId?: number
-): Promise<NormalizedPricePoint[]> {
-  const result = await storage.getWeeklyAggregatesWithRetailers(
-    productId,
-    startDate,
-    endDate,
-    retailerId
-  );
-
-  return result.map(row => {
-    // Approximate date from year/week (use Monday of that week)
-    const weekDate = getDateFromWeek(row.agg.year, row.agg.week);
-
-    return {
-      date: weekDate,
-      price: parseFloat(row.agg.avgPrice || '0'),
-      minPrice: parseFloat(row.agg.minPrice || '0'),
-      maxPrice: parseFloat(row.agg.maxPrice || '0'),
-      avgPrice: parseFloat(row.agg.avgPrice || '0'),
-      medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
-      retailerId: row.agg.retailerId,
-      retailerName: row.retailer.name,
-      source: 'weekly' as const
-    };
-  });
-}
-
-/**
- * Get monthly aggregated price data
- */
-async function getMonthlyAggregates(
-  productId: number,
-  startDate: Date,
-  endDate: Date,
-  retailerId?: number
-): Promise<NormalizedPricePoint[]> {
-  const result = await storage.getMonthlyAggregatesWithRetailers(
-    productId,
-    startDate,
-    endDate,
-    retailerId
-  );
-
-  return result.map(row => ({
-    date: new Date(row.agg.year, row.agg.month - 1, 1), // First day of month
-    price: parseFloat(row.agg.avgPrice || '0'),
-    minPrice: parseFloat(row.agg.minPrice || '0'),
-    maxPrice: parseFloat(row.agg.maxPrice || '0'),
-    avgPrice: parseFloat(row.agg.avgPrice || '0'),
-    medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
-    retailerId: row.agg.retailerId,
-    retailerName: row.retailer.name,
-    source: 'monthly' as const
-  }));
-}
-
-/**
- * Helper: Get date from ISO week number
- */
-function getDateFromWeek(year: number, week: number): Date {
-  const simple = new Date(year, 0, 1 + (week - 1) * 7);
-  const dow = simple.getDay();
-  const ISOweekStart = simple;
-  if (dow <= 4) {
-    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-  } else {
-    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-  }
-  return ISOweekStart;
+  // Delegate to storage layer implementation
+  return storage.getPriceHistoryOptimized(productId, days, retailerId);
 }
 
 /**

@@ -32,6 +32,7 @@ import {
 } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
 import { logger } from "../../utils/logger";
+import { eventBus, AppEvents } from "../../utils/event-bus";
 import { retryWithBackoff, isTransientDatabaseError } from "../../utils/retry-with-backoff";
 import type {
   WatchListWithCount,
@@ -268,25 +269,17 @@ export class WatchListStorage extends BaseStorage {
         })
         .returning();
 
-      // Emit WebSocket event for real-time updates
-      try {
-        const { getSocketIO } = await import('../../websocket');
-        const { emitWatchListUpdate } = await import('../../websocket/handlers/watch-list-handler');
-        const io = getSocketIO();
-        if (io) {
-          emitWatchListUpdate(io, userId, 'created', {
-            id: result.id,
-            name: result.name,
-            description: result.description,
-            productCount: 0,
-          });
+      // Emit event via event bus for real-time updates (decoupled from WebSocket)
+      eventBus.emit(AppEvents.WATCHLIST_UPDATED, {
+        userId,
+        watchlistId: result.id,
+        action: 'created',
+        watchlist: {
+          id: result.id,
+          name: result.name,
+          productCount: 0,
         }
-      } catch (error) {
-        // Don't fail the operation if WebSocket emit fails
-        logger.error('Failed to emit watch list created event', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+      });
 
       return result;
     } catch (error) {
@@ -336,24 +329,17 @@ export class WatchListStorage extends BaseStorage {
         throw new Error('Watch list not found or unauthorized');
       }
 
-      // Emit WebSocket event for real-time updates
-      try {
-        const { getSocketIO } = await import('../../websocket');
-        const { emitWatchListUpdate } = await import('../../websocket/handlers/watch-list-handler');
-        const io = getSocketIO();
-        if (io) {
-          emitWatchListUpdate(io, userId, 'updated', {
-            id: result.id,
-            name: result.name,
-            description: result.description,
-          });
+      // Emit event via event bus for real-time updates (decoupled from WebSocket)
+      eventBus.emit(AppEvents.WATCHLIST_UPDATED, {
+        userId,
+        watchlistId: result.id,
+        action: 'updated',
+        watchlist: {
+          id: result.id,
+          name: result.name,
+          productCount: 0, // We don't have the count here, but it's optional
         }
-      } catch (error) {
-        // Don't fail the operation if WebSocket emit fails
-        logger.error('Failed to emit watch list updated event', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+      });
 
       return result;
     } catch (error) {
@@ -385,24 +371,17 @@ export class WatchListStorage extends BaseStorage {
         throw new Error('Watch list not found or unauthorized');
       }
 
-      // Emit WebSocket event for real-time updates
-      try {
-        const { getSocketIO } = await import('../../websocket');
-        const { emitWatchListUpdate } = await import('../../websocket/handlers/watch-list-handler');
-        const io = getSocketIO();
-        if (io) {
-          emitWatchListUpdate(io, userId, 'deleted', {
-            id: result.id,
-            name: result.name,
-            description: result.description,
-          });
+      // Emit event via event bus for real-time updates (decoupled from WebSocket)
+      eventBus.emit(AppEvents.WATCHLIST_UPDATED, {
+        userId,
+        watchlistId: result.id,
+        action: 'deleted',
+        watchlist: {
+          id: result.id,
+          name: result.name,
+          productCount: 0,
         }
-      } catch (error) {
-        // Don't fail the operation if WebSocket emit fails
-        logger.error('Failed to emit watch list deleted event', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+      });
 
       return result;
     } catch (error) {
@@ -928,25 +907,17 @@ export class WatchListStorage extends BaseStorage {
         }
       );
 
-      // Emit WebSocket event after transaction commits
-      try {
-        const { getSocketIO } = await import('../../websocket');
-        const { emitProductAdded } = await import('../../websocket/handlers/watch-list-handler');
-        const io = getSocketIO();
-        if (io) {
-          emitProductAdded(io, userId, watchListId, {
-            id: result.product.id,
-            name: result.product.name,
-            image: result.product.image,
-            currentPrice: result.currentPrice,
-          });
+      // Emit event via event bus for real-time updates (decoupled from WebSocket)
+      eventBus.emit(AppEvents.WATCHLIST_PRODUCT_ADDED, {
+        userId,
+        watchlistId: watchListId,
+        productId: result.product.id,
+        product: {
+          id: result.product.id,
+          name: result.product.name,
+          imageUrl: result.product.image ?? undefined,
         }
-      } catch (error) {
-        // Don't fail the operation if WebSocket emit fails
-        logger.error('Failed to emit product added event', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+      });
 
       return result.result;
     } catch (error: unknown) {
@@ -1007,20 +978,12 @@ export class WatchListStorage extends BaseStorage {
         throw new Error('Product watch not found or unauthorized');
       }
 
-      // Emit WebSocket event for real-time updates
-      try {
-        const { getSocketIO } = await import('../../websocket');
-        const { emitProductRemoved } = await import('../../websocket/handlers/watch-list-handler');
-        const io = getSocketIO();
-        if (io) {
-          emitProductRemoved(io, userId, watchListId, productId);
-        }
-      } catch (error) {
-        // Don't fail the operation if WebSocket emit fails
-        logger.error('Failed to emit product removed event', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+      // Emit event via event bus for real-time updates (decoupled from WebSocket)
+      eventBus.emit(AppEvents.WATCHLIST_PRODUCT_REMOVED, {
+        userId,
+        watchlistId: watchListId,
+        productId,
+      });
 
       return result;
     } catch (error) {

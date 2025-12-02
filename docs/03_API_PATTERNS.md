@@ -1377,6 +1377,72 @@ async function searchWithRateLimit(query: string, userId: string) {
 
 ---
 
+### Single Cache Abstraction Pattern
+
+**Problem**: Multiple cache implementations create confusion, duplicate Redis connections, and maintenance burden.
+
+**Status**: Enforced as of 2025-12-01 (Cache Consolidation Complete)
+
+#### Anti-Pattern
+
+```typescript
+// ❌ WRONG - Multiple separate cache services
+import { redisCache } from '../services/redis-cache';
+import { analyticsCacheService } from '../services/analytics-cache';
+import { queryCache } from '../services/redis-cache';
+
+// Creates confusion: which cache to use?
+// Creates duplicate Redis connections
+// Inconsistent cache key patterns
+```
+
+#### Correct Pattern
+
+```typescript
+// ✅ CORRECT - Single unified cache abstraction
+import { advancedCache, CacheTier, queryCache, generalCache } from '../services/advanced-cache';
+
+// Primary cache service with L1+L2 and tiered TTL
+const data = await advancedCache.getOrSet(
+  key,
+  async () => fetchFromDB(),
+  CacheTier.WARM  // Uses tier-based TTL
+);
+
+// Invalidate with pattern matching
+await advancedCache.invalidatePattern('product:123:*');
+
+// Specialized wrappers for specific domains
+// queryCache - AI-generated search queries (7 day TTL)
+await queryCache.set('some-query-key', queries);
+
+// generalCache - General-purpose caching (1 hour TTL)
+await generalCache.set('some-key', data);
+```
+
+**Cache Tier Selection:**
+
+| Tier | TTL | Use Case |
+|------|-----|----------|
+| `CacheTier.HOT` | 30 min | Frequently accessed (top 100 products) |
+| `CacheTier.WARM` | 10 min | Moderately accessed (normal products) |
+| `CacheTier.COLD` | 3 min | Rarely accessed |
+| `CacheTier.STATIC` | 1 hour | Rarely changes (retailers, categories) |
+| `CacheTier.COMPUTED` | 30 min | Expensive calculations (analytics) |
+
+**Implementation Rules:**
+1. **Always use `advancedCache`** - Never create new cache service instances
+2. **Use specialized wrappers** - `queryCache` and `generalCache` for backward compatibility
+3. **Select appropriate tier** - Match TTL to data update frequency
+4. **Use L1 sparingly** - Only for ultra-hot data (set `useL1 = true`)
+5. **Pattern invalidation** - Use `invalidatePattern()` instead of clearing entire cache
+
+**Related Documentation:**
+- `docs/advanced-caching.md` - Full caching system documentation
+- `docs/DOMAIN_CACHING_STRATEGIES.md` - Per-domain caching guidance
+
+---
+
 ### Type Extraction Pattern
 
 **Problem**: Complex inline types in React Query hooks reduce code readability and make maintenance difficult.

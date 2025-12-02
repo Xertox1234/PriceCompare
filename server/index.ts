@@ -34,6 +34,7 @@ import { cleanupManager } from "./utils/cleanup-manager";
 import { createLogger } from "./utils/logger";
 import { initializeWebSocket, shutdownWebSocket } from "./websocket/index";
 import { advancedCache } from "./services/advanced-cache";
+import { initializeEventSubscriptions, cleanupEventSubscriptions } from "./services/event-subscriptions";
 
 const serverLog = createLogger('Server');
 
@@ -231,6 +232,11 @@ app.use(sanitizeInput);
   initializeWebSocket(server, sessionMiddleware);
   log("WebSocket server initialized for watch list notifications (path: /ws)");
 
+  // Initialize event bus subscriptions (must be after services are loaded)
+  // This connects services via event bus to avoid circular dependencies
+  initializeEventSubscriptions();
+  log("Event subscriptions initialized");
+
   // SENTRY: Error handler must be BEFORE custom error handler
   app.use(sentryErrorHandler);
 
@@ -342,6 +348,11 @@ async function gracefulShutdown(signal: string) {
     await websocketService.shutdown();
     await shutdownWebSocket();
     log('WebSocket connections closed');
+
+    // Step 2.5: Cleanup event bus subscriptions
+    log('Cleaning up event subscriptions...');
+    cleanupEventSubscriptions();
+    log('Event subscriptions cleaned up');
 
     // Step 3: Close advanced cache (pub/sub subscriber)
     log('Closing advanced cache service...');

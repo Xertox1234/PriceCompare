@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger';
-import { websocketService } from './websocket-service';
+import { eventBus, AppEvents } from '../utils/event-bus';
 import type { DashboardMetrics } from './monitoring-service';
 
 /**
@@ -160,8 +160,15 @@ class AlertService {
     // Send to Slack
     await this.sendSlackAlert(alert);
 
-    // Broadcast to WebSocket clients
-    websocketService.broadcast('alert:triggered', alert as unknown as Record<string, unknown>);
+    // Emit event for WebSocket broadcast (decoupled via event bus)
+    eventBus.emit(AppEvents.ALERT_TRIGGERED, {
+      alertId: alert.id,
+      ruleName: alert.title,
+      severity: alert.level,
+      message: alert.message,
+      data: alert.context,
+      timestamp: alert.timestamp
+    });
   }
 
   /**
@@ -260,8 +267,15 @@ class AlertService {
     // Send to Slack
     await this.sendSlackAlert(alert);
 
-    // Broadcast to WebSocket clients
-    websocketService.broadcast('alert:triggered', alert as unknown as Record<string, unknown>);
+    // Emit event for WebSocket broadcast (decoupled via event bus)
+    eventBus.emit(AppEvents.ALERT_TRIGGERED, {
+      alertId: alert.id,
+      ruleName: alert.title,
+      severity: alert.level,
+      message: alert.message,
+      data: alert.context,
+      timestamp: alert.timestamp
+    });
   }
 
   /**

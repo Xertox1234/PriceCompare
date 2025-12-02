@@ -1,6 +1,6 @@
 import { storage } from '../storage';
 import { logger } from '../utils/logger';
-import { queryCache, generalCache } from './redis-cache';
+import { queryCache, generalCache } from './advanced-cache';
 
 /**
  * Monitoring Service

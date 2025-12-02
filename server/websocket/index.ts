@@ -358,8 +358,8 @@ function handleConnection(socket: Socket): void {
 async function setupEventHandlers(socket: AuthenticatedSocket): Promise<void> {
   // Dynamic imports to avoid circular dependency issues during server initialization
   const [
-    { registerWatchListHandlers },
-    { registerNotificationHandlers },
+    { registerWatchListHandlers, setupWatchListEventSubscriptions },
+    { registerNotificationHandlers, setupNotificationEventSubscriptions },
     { registerPriceUpdateHandlers }
   ] = await Promise.all([
     import('./handlers/watch-list-handler'),
@@ -371,6 +371,15 @@ async function setupEventHandlers(socket: AuthenticatedSocket): Promise<void> {
   registerWatchListHandlers(socket);
   registerNotificationHandlers(socket);
   registerPriceUpdateHandlers(socket);
+
+  // Set up event bus subscriptions (only once per io instance)
+  // This must be called after io is initialized
+  if (io && !eventSubscriptionsInitialized) {
+    setupNotificationEventSubscriptions(io);
+    setupWatchListEventSubscriptions(io);
+    eventSubscriptionsInitialized = true;
+    log.info('WebSocket event bus subscriptions initialized');
+  }
 
   // Heartbeat/ping handler (keep existing)
   socket.on('ping', () => {
@@ -389,6 +398,9 @@ async function setupEventHandlers(socket: AuthenticatedSocket): Promise<void> {
     // Note: Already in user room, no additional action needed
   });
 }
+
+// Track whether event subscriptions have been initialized
+let eventSubscriptionsInitialized = false;
 
 /**
  * Get Socket.io server instance
@@ -462,6 +474,7 @@ export async function shutdownWebSocket(): Promise<void> {
  * Re-export event emitter functions for use by services
  *
  * These allow backend services to emit events to connected clients
+ * NOTE: Notification events are now handled via event bus (AppEvents.NOTIFICATION_CREATED)
  */
 export {
   emitWatchListUpdate,
@@ -470,7 +483,6 @@ export {
 } from './handlers/watch-list-handler';
 
 export {
-  emitNewNotification,
   emitUnreadCountUpdate,
 } from './handlers/notification-handler';
 

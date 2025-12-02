@@ -6,13 +6,15 @@
  * - Watch list creation/update/deletion events
  * - Product addition/removal events
  *
- * Events are emitted from storage layer when watch lists change.
+ * Uses event bus for decoupled communication with storage layer.
+ * @see server/utils/event-bus.ts for event definitions
  */
 
 import type { Server } from 'socket.io';
 import type { AuthenticatedSocket } from '../types';
 import { checkRateLimit } from '../middleware/rate-limit';
 import { withErrorHandling } from '../middleware/error-handler';
+import { eventBus, AppEvents } from '../../utils/event-bus';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('WebSocket:WatchList');
@@ -85,16 +87,14 @@ export function registerWatchListHandlers(socket: AuthenticatedSocket): void {
 }
 
 /**
- * Emit watch list update event to user's connected clients
- *
- * Called from storage layer after watch list operations
+ * Internal: Emit watch list update event to user's connected clients
  *
  * @param io Socket.io server instance
  * @param userId User ID to target
  * @param action Action performed (created, updated, deleted)
  * @param watchList Watch list data
  */
-export function emitWatchListUpdate(
+function emitWatchListUpdateInternal(
   io: Server,
   userId: number,
   action: 'created' | 'updated' | 'deleted',
@@ -124,16 +124,14 @@ export function emitWatchListUpdate(
 }
 
 /**
- * Emit product added event to user's connected clients
- *
- * Called from storage layer after adding product to watch list
+ * Internal: Emit product added event to user's connected clients
  *
  * @param io Socket.io server instance
  * @param userId User ID to target
  * @param watchListId Watch list ID
  * @param product Product data
  */
-export function emitProductAdded(
+function emitProductAddedInternal(
   io: Server,
   userId: number,
   watchListId: number,
@@ -166,16 +164,14 @@ export function emitProductAdded(
 }
 
 /**
- * Emit product removed event to user's connected clients
- *
- * Called from storage layer after removing product from watch list
+ * Internal: Emit product removed event to user's connected clients
  *
  * @param io Socket.io server instance
  * @param userId User ID to target
  * @param watchListId Watch list ID
  * @param productId Product ID
  */
-export function emitProductRemoved(
+function emitProductRemovedInternal(
   io: Server,
   userId: number,
   watchListId: number,
@@ -196,3 +192,58 @@ export function emitProductRemoved(
     room,
   });
 }
+
+/**
+ * Set up event bus subscriptions for watch list-related events
+ *
+ * This function should be called once during WebSocket initialization
+ * to subscribe to watch list events from the storage layer.
+ *
+ * @param io Socket.io server instance
+ */
+export function setupWatchListEventSubscriptions(io: Server): void {
+  // Subscribe to watch list updated events from storage layer
+  eventBus.on(AppEvents.WATCHLIST_UPDATED, (payload) => {
+    emitWatchListUpdateInternal(
+      io,
+      payload.userId,
+      payload.action,
+      {
+        id: payload.watchlistId,
+        name: payload.watchlist?.name ?? '',
+        productCount: payload.watchlist?.productCount,
+      }
+    );
+  });
+
+  // Subscribe to product added events from storage layer
+  eventBus.on(AppEvents.WATCHLIST_PRODUCT_ADDED, (payload) => {
+    emitProductAddedInternal(
+      io,
+      payload.userId,
+      payload.watchlistId,
+      {
+        id: payload.productId,
+        name: payload.product?.name ?? '',
+        image: payload.product?.imageUrl,
+      }
+    );
+  });
+
+  // Subscribe to product removed events from storage layer
+  eventBus.on(AppEvents.WATCHLIST_PRODUCT_REMOVED, (payload) => {
+    emitProductRemovedInternal(
+      io,
+      payload.userId,
+      payload.watchlistId,
+      payload.productId
+    );
+  });
+
+  log.info('Watch list event subscriptions set up');
+}
+
+// Legacy exports for backward compatibility (deprecated - use event bus instead)
+export const emitWatchListUpdate = emitWatchListUpdateInternal;
+export const emitProductAdded = emitProductAddedInternal;
+export const emitProductRemoved = emitProductRemovedInternal;

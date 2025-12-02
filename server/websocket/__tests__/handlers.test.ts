@@ -19,7 +19,6 @@ import {
 } from '../handlers/watch-list-handler';
 import {
   registerNotificationHandlers,
-  emitNewNotification,
   emitUnreadCountUpdate,
 } from '../handlers/notification-handler';
 import {
@@ -253,22 +252,8 @@ describe('WebSocket Event Handlers', () => {
       expect(mockSocket.on).toHaveBeenCalledWith('notification:mark-read', expect.any(Function));
     });
 
-    it('should emit new notification event', () => {
-      emitNewNotification(
-        mockIo,
-        123,
-        {
-          id: 1,
-          type: 'price_alert',
-          title: 'Price dropped!',
-          content: 'iPhone 15 is now $899',
-          priority: 'high',
-        },
-        5
-      );
-
-      expect(mockIo.to).toHaveBeenCalledWith('notifications:123');
-    });
+    // Note: emitNewNotification is now triggered internally via event bus (AppEvents.NOTIFICATION_CREATED)
+    // Event-based notification emission is tested in integration tests
 
     it('should emit unread count update', () => {
       emitUnreadCountUpdate(mockIo, 123, 3);

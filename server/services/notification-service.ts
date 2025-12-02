@@ -1,5 +1,5 @@
 import { storage } from "../storage";
-import { logger } from "../utils/logger";
+import { eventBus, AppEvents } from "../utils/event-bus";
 import {
   type Notification,
   type NotificationPreferences,
@@ -116,28 +116,18 @@ export async function createNotification(
   // Create notification with transaction and retry logic (moved to storage layer)
   const created = await storage.createNotification(notification, prefs);
 
-  // Emit WebSocket event after transaction commits
-  try {
-    const { getSocketIO } = await import('../websocket');
-    const { emitNewNotification } = await import('../websocket/handlers/notification-handler');
-    const io = getSocketIO();
-    if (io) {
-      // Get updated unread count
-      const stats = await getNotificationStats(notification.userId);
-
-      emitNewNotification(io, notification.userId, {
-        id: created.id,
-        type: created.type,
-        title: created.title,
-        content: created.content ?? '',
-        priority: 'normal', // Default priority since not stored in DB
-        metadata: null, // No metadata stored in DB currently
-      }, stats.unread);
+  // Emit event via event bus for WebSocket broadcast (decoupled)
+  eventBus.emit(AppEvents.NOTIFICATION_CREATED, {
+    userId: notification.userId,
+    notification: {
+      id: created.id,
+      type: created.type,
+      title: created.title,
+      message: created.content ?? '',
+      data: undefined,
+      createdAt: created.createdAt ?? new Date()
     }
-  } catch (error: unknown) {
-    // Don't fail the operation if WebSocket emit fails
-    logger.error('Failed to emit new notification event:', error instanceof Error ? error.message : String(error));
-  }
+  });
 
   return created;
 }

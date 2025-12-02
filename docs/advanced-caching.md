@@ -96,10 +96,12 @@ Expensive analytics calculations are automatically cached:
 
 ### Core Services
 
-#### 1. `advanced-cache.ts` - Multi-Tier Cache Service
+#### 1. `advanced-cache.ts` - Multi-Tier Cache Service (PRIMARY)
+
+**This is the single unified cache abstraction.** All caching should flow through this service.
 
 ```typescript
-import { advancedCache, CacheTier } from './services/advanced-cache';
+import { advancedCache, CacheTier, queryCache, generalCache } from './services/advanced-cache';
 
 // Get from cache
 const data = await advancedCache.get<Product>(key);
@@ -117,6 +119,14 @@ const result = await advancedCache.getOrSet(
 // Invalidate
 await advancedCache.invalidate(key);
 await advancedCache.invalidatePattern('product:*');
+
+// Specialized caches for backward compatibility
+// queryCache - For AI-generated search queries (7 day TTL)
+const cachedQuery = await queryCache.get<string[]>(queryKey);
+await queryCache.set(queryKey, queries);
+
+// generalCache - For general-purpose caching (1 hour TTL)
+const cachedData = await generalCache.get<SomeType>(key);
 ```
 
 **Features:**
@@ -124,6 +134,9 @@ await advancedCache.invalidatePattern('product:*');
 - L2 Redis cache (distributed, tiered TTL)
 - Automatic cache statistics tracking
 - Pub/sub for distributed invalidation
+- Specialized cache wrappers (`queryCache`, `generalCache`) for backward compatibility
+- `getMany()` for batch operations
+- `exists()`, `ping()`, `isReady()` for health checks
 
 #### 2. `popularity-tracker.ts` - Popularity Tracking
 
@@ -142,25 +155,9 @@ const tier = await popularityTracker.getProductTier(productId);
 const topProducts = await popularityTracker.getTopProducts(100, 'HOURLY');
 ```
 
-#### 3. `cache-warming.ts` - Cache Warming Service
+#### 3. `cache-invalidation.ts` - Smart Invalidation
 
-```typescript
-import { CacheWarmingService } from './services/cache-warming';
-
-const warmingService = new CacheWarmingService(storage);
-
-// Warm top products
-const count = await warmingService.warmTopProducts({
-  topProductsCount: 100,
-  includeAnalytics: true,
-  includeSearches: true,
-});
-
-// Start automatic warming
-warmingService.startAutoWarming(5 * 60 * 1000); // Every 5 minutes
-```
-
-#### 4. `cache-invalidation.ts` - Smart Invalidation
+Provides event-driven cache invalidation coordinated through `advancedCache`:
 
 ```typescript
 import { cacheInvalidation } from './services/cache-invalidation';
@@ -175,39 +172,26 @@ await cacheInvalidation.onProductUpdate(productId);
 await cacheInvalidation.batchInvalidateProducts([1, 2, 3, 4, 5]);
 ```
 
-#### 5. `analytics-cache.ts` - Analytics Caching
-
-```typescript
-import { analyticsCacheService } from './services/analytics-cache';
-
-// Cache analytics with automatic key generation
-const trend = await analyticsCacheService.getCachedAnalytics(
-  'trend',
-  { productId, days: 30 },
-  () => calculatePriceTrend(productId, 30)
-);
-
-// Invalidate analytics
-await analyticsCacheService.invalidateProductAnalytics(productId);
-```
-
 ### Middleware
 
-#### Advanced Cache Middleware
+#### HTTP Response Cache Middleware
+
+The middleware layer (`middleware/redis-cache.ts`) handles HTTP response caching, which is distinct from service-level caching:
 
 ```typescript
 import {
-  productDetailCacheMiddleware,
+  productCacheMiddleware,
   searchCacheMiddleware,
-  analyticsCacheMiddleware,
-  retailerListCacheMiddleware,
-} from './middleware/advanced-cache-middleware';
+  retailerCacheMiddleware,
+  redisCacheMiddleware,
+} from './middleware/redis-cache';
 
-// Product detail with popularity tracking
-app.get('/api/products/:id', productDetailCacheMiddleware(), handler);
+// Product endpoints (5 min cache)
+app.get('/api/products/:id', productCacheMiddleware, handler);
 
-// Search with query tracking
-app.get('/api/products/search', searchCacheMiddleware(), handler);
+// Search endpoints (3 min cache)
+app.get('/api/products/search', searchCacheMiddleware, handler);
+```
 
 // Analytics endpoints
 app.get('/api/products/:id/trend', analyticsCacheMiddleware('trend'), handler);

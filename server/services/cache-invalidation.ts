@@ -9,7 +9,6 @@
  */
 
 import { advancedCache, CachePrefix } from './advanced-cache';
-import { analyticsCacheService } from './analytics-cache';
 import { logger } from '../utils/logger';
 import { getRedisClient } from '../config/redis';
 
@@ -18,6 +17,33 @@ import { getRedisClient } from '../config/redis';
  */
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Invalidate all analytics cache for a product
+ * (Inlined from analytics-cache.ts to reduce coupling)
+ */
+async function invalidateProductAnalytics(productId: number): Promise<void> {
+  try {
+    // Invalidate all analytics types for this product
+    const patterns = [
+      `${CachePrefix.ANALYTICS}:trend:${productId}:*`,
+      `${CachePrefix.ANALYTICS}:volatility:${productId}:*`,
+      `${CachePrefix.ANALYTICS}:seasonal:${productId}:*`,
+      `${CachePrefix.ANALYTICS}:besttime:${productId}:*`,
+      `${CachePrefix.ANALYTICS}:reliability:${productId}:*`,
+      `${CachePrefix.ANALYTICS}:prediction:${productId}:*`,
+      `${CachePrefix.ANALYTICS}:history:${productId}:*`,
+    ];
+
+    await Promise.all(
+      patterns.map(pattern => advancedCache.invalidatePattern(pattern))
+    );
+
+    logger.info(`Invalidated analytics cache for product ${productId}`);
+  } catch (error: unknown) {
+    logger.error(`Error invalidating analytics cache for product ${productId}:`, getErrorMessage(error));
+  }
 }
 
 /**
@@ -73,7 +99,7 @@ export class CacheInvalidationService {
         advancedCache.invalidatePattern(`${CachePrefix.PRICE_HISTORY}:${productId}*`),
 
         // Analytics cache (trends, volatility, etc.)
-        analyticsCacheService.invalidateProductAnalytics(productId),
+        invalidateProductAnalytics(productId),
 
         // Search results that might include this product
         // Note: We invalidate all search results as they might include this product

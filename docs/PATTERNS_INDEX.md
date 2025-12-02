@@ -53,7 +53,7 @@ Find patterns by common concerns:
 | **Type Safety** | TYPESCRIPT_PATTERNS | All patterns (cross-cutting) |
 | **Transaction Boundaries** | DATABASE_PATTERNS | ERROR_HANDLING_PATTERNS |
 | **Rate Limiting** | API_PATTERNS | BACKGROUND_JOBS_PATTERNS |
-| **Caching Strategy** | API_PATTERNS | SERVICE_INTEGRATION_PATTERNS |
+| **Caching Strategy** | API_PATTERNS (Single Cache Abstraction) | advanced-caching.md, DOMAIN_CACHING_STRATEGIES.md |
 | **Authentication** | AUTHENTICATION_PATTERNS | SECURITY_PATTERNS, API_PATTERNS |
 
 ## Pattern Relationships

@@ -8,16 +8,24 @@
  * - Smart cache invalidation with pub/sub
  * - Cache warming for frequently accessed items
  *
- * @see GitHub Issue #89 for the caching layer consolidation roadmap.
- *
  * Architecture Notes:
- * This is the primary caching service. Related cache files use this as their backend:
- * - analytics-cache.ts - Thin wrapper providing analytics-specific caching methods
+ * This is the SINGLE unified caching service for the application.
+ * All caching should flow through this service.
+ *
+ * Related services that use this as their backend:
  * - cache-invalidation.ts - Event-driven invalidation coordinated through this service
  *
- * Remaining consolidation opportunity:
- * - redis-cache.ts maintains a separate Redis connection and could be migrated
- *   to use AdvancedCacheService for unified connection management
+ * Specialized cache wrappers exported from this file:
+ * - queryCache - For AI-generated search queries (7 day TTL)
+ * - generalCache - For general-purpose caching (1 hour TTL)
+ *
+ * Consolidation complete (2025-12-01):
+ * - Merged redis-cache.ts functionality into this file
+ * - Merged analytics-cache.ts functionality into this file
+ * - Single Redis connection via config/redis.ts
+ *
+ * @see docs/advanced-caching.md for complete documentation
+ * @see docs/DOMAIN_CACHING_STRATEGIES.md for domain-specific caching guidance
  */
 
 import type { Redis } from 'ioredis';
@@ -435,6 +443,124 @@ export class AdvancedCacheService {
   }
 
   /**
+   * Check if key exists in cache
+   * @param key - Cache key
+   */
+  async exists(key: string): Promise<boolean> {
+    try {
+      // Check L1 first
+      if (this.l1Cache.get(key) !== null) {
+        return true;
+      }
+
+      // Check L2 (Redis)
+      const redis = this.getRedis();
+      const result = await redis.exists(key);
+      return result === 1;
+    } catch (error) {
+      this.stats.errors++;
+      logger.error('Cache exists check error:', { error: this.getErrorMessage(error) });
+      return false;
+    }
+  }
+
+  /**
+   * Get multiple values from cache
+   * @param keys - Array of cache keys
+   * @returns Map of key -> value (only includes found keys)
+   */
+  async getMany<T>(keys: string[], useL1 = true): Promise<Map<string, T>> {
+    const result = new Map<string, T>();
+
+    if (keys.length === 0) {
+      return result;
+    }
+
+    try {
+      const redis = this.getRedis();
+
+      // Check L1 cache first
+      const missingKeys: string[] = [];
+      if (useL1) {
+        for (const key of keys) {
+          const l1Value = this.l1Cache.get(key);
+          if (l1Value !== null) {
+            result.set(key, l1Value as T);
+            this.stats.l1Hits++;
+          } else {
+            this.stats.l1Misses++;
+            missingKeys.push(key);
+          }
+        }
+      } else {
+        missingKeys.push(...keys);
+      }
+
+      // Fetch remaining from Redis
+      if (missingKeys.length > 0) {
+        const values = await redis.mget(...missingKeys);
+
+        missingKeys.forEach((key, index) => {
+          const value = values[index];
+          if (value !== null) {
+            try {
+              const parsed = JSON.parse(value) as T;
+              result.set(key, parsed);
+              this.stats.l2Hits++;
+
+              // Populate L1 cache
+              if (useL1) {
+                this.l1Cache.set(key, parsed);
+              }
+            } catch {
+              this.stats.errors++;
+            }
+          } else {
+            this.stats.l2Misses++;
+          }
+        });
+      }
+
+      logger.debug('Cache getMany', {
+        requested: keys.length,
+        found: result.size,
+        hitRate: result.size / keys.length,
+      });
+
+      return result;
+    } catch (error) {
+      this.stats.errors++;
+      logger.error('Cache getMany error:', { error: this.getErrorMessage(error) });
+      return result;
+    }
+  }
+
+  /**
+   * Ping Redis to check connectivity
+   */
+  async ping(): Promise<boolean> {
+    try {
+      const redis = this.getRedis();
+      const result = await redis.ping();
+      return result === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if Redis is connected and ready
+   */
+  isReady(): boolean {
+    try {
+      const redis = this.getRedis();
+      return redis.status === 'ready';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Get cache statistics
    */
   getStats() {
@@ -473,6 +599,26 @@ export class AdvancedCacheService {
           ? (this.stats.patternKeysDeleted / this.stats.patternInvalidations).toFixed(2)
           : '0.00',
       },
+    };
+  }
+
+  /**
+   * Get simplified statistics for monitoring (matches RedisCache interface)
+   */
+  getSimpleStats() {
+    const totalRequests = this.stats.l1Hits + this.stats.l1Misses +
+                         this.stats.l2Hits + this.stats.l2Misses;
+    const totalHits = this.stats.l1Hits + this.stats.l2Hits;
+    const totalMisses = this.stats.l1Misses + this.stats.l2Misses;
+
+    return {
+      hits: totalHits,
+      misses: totalMisses,
+      sets: this.stats.sets,
+      deletes: this.stats.invalidations,
+      errors: this.stats.errors,
+      hitRate: totalRequests > 0 ? totalHits / totalRequests : 0,
+      connected: this.isReady(),
     };
   }
 
@@ -679,3 +825,162 @@ export async function getCachedSearchResults(query: string, filters: unknown) {
   const key = AdvancedCacheService.generateKey(CachePrefix.PRODUCT_SEARCH, query, filterStr);
   return advancedCache.get(key, false);
 }
+
+/**
+ * Specialized cache wrapper for backward compatibility with redis-cache.ts patterns
+ *
+ * These wrappers provide the same interface as the old RedisCache class
+ * to support gradual migration from redis-cache.ts to advanced-cache.ts
+ */
+class SpecializedCache {
+  private keyPrefix: string;
+  private defaultTTL: number; // in seconds
+  private tier: CacheTier;
+
+  constructor(options: { keyPrefix: string; defaultTTL: number; tier?: CacheTier }) {
+    this.keyPrefix = options.keyPrefix;
+    this.defaultTTL = Math.floor(options.defaultTTL / 1000); // Convert ms to seconds
+    this.tier = options.tier || CacheTier.WARM;
+  }
+
+  private getFullKey(key: string): string {
+    return `${this.keyPrefix}${key}`;
+  }
+
+  /**
+   * Get value from cache (compatible with RedisCache interface)
+   */
+  async get<T = unknown>(key: string): Promise<T | null> {
+    return advancedCache.get<T>(this.getFullKey(key), false);
+  }
+
+  /**
+   * Set value in cache (compatible with RedisCache interface)
+   * @param key - Cache key
+   * @param value - Value to cache
+   * @param ttl - Time to live in milliseconds (optional)
+   */
+  async set(key: string, value: unknown, ttl?: number): Promise<boolean> {
+    try {
+      // Use custom TTL if provided, otherwise use tier-based TTL
+      if (ttl !== undefined) {
+        const redis = advancedCache['getRedis']();
+        const ttlSeconds = Math.floor(ttl / 1000);
+        await redis.setex(this.getFullKey(key), ttlSeconds, JSON.stringify(value));
+      } else {
+        await advancedCache.set(this.getFullKey(key), value, this.tier, false);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Delete value from cache
+   */
+  async delete(key: string): Promise<boolean> {
+    try {
+      await advancedCache.invalidate(this.getFullKey(key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if key exists in cache
+   */
+  async exists(key: string): Promise<boolean> {
+    return advancedCache.exists(this.getFullKey(key));
+  }
+
+  /**
+   * Get multiple values from cache
+   */
+  async getMany<T = unknown>(keys: string[]): Promise<Map<string, T>> {
+    const fullKeys = keys.map(key => this.getFullKey(key));
+    const result = await advancedCache.getMany<T>(fullKeys, false);
+
+    // Convert back to original keys
+    const mappedResult = new Map<string, T>();
+    for (const [fullKey, value] of result) {
+      const originalKey = fullKey.substring(this.keyPrefix.length);
+      mappedResult.set(originalKey, value);
+    }
+    return mappedResult;
+  }
+
+  /**
+   * Clear all keys with this prefix
+   */
+  async clear(): Promise<boolean> {
+    try {
+      await advancedCache.invalidatePattern(`${this.keyPrefix}*`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get cache statistics (compatible with RedisCache interface)
+   */
+  getStats() {
+    return advancedCache.getSimpleStats();
+  }
+
+  /**
+   * Reset statistics
+   */
+  resetStats(): void {
+    advancedCache.resetStats();
+    logger.info(`Cache statistics reset for prefix: ${this.keyPrefix}`);
+  }
+
+  /**
+   * Check if cache is ready
+   */
+  isReady(): boolean {
+    return advancedCache.isReady();
+  }
+
+  /**
+   * Close cache connection (no-op - managed by advancedCache singleton)
+   */
+  async close(): Promise<void> {
+    // No-op: Connection managed by advancedCache singleton
+    logger.debug(`SpecializedCache.close() called for ${this.keyPrefix} - connection managed by advancedCache`);
+  }
+
+  /**
+   * Ping to check connectivity
+   */
+  async ping(): Promise<boolean> {
+    return advancedCache.ping();
+  }
+}
+
+/**
+ * Query cache - for AI-generated search queries (7 day TTL)
+ *
+ * Replaces queryCache from redis-cache.ts
+ * Used by: search-agent.ts
+ */
+export const queryCache = new SpecializedCache({
+  keyPrefix: 'query:',
+  defaultTTL: 604800000, // 7 days in ms
+  tier: CacheTier.STATIC, // Long-lived data
+});
+
+/**
+ * General cache - for general-purpose caching (1 hour TTL)
+ *
+ * Replaces generalCache from redis-cache.ts
+ * Used by: monitoring-service.ts
+ */
+export const generalCache = new SpecializedCache({
+  keyPrefix: 'general:',
+  defaultTTL: 3600000, // 1 hour in ms
+  tier: CacheTier.HOT,
+});

@@ -509,7 +509,7 @@ export function registerScrapingRoutes(app: Express): void {
   // Get Redis cache statistics
   app.get("/api/scraping/cache-stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const { queryCache, generalCache } = await import('../services/redis-cache');
+      const { queryCache, generalCache } = await import('../services/advanced-cache');
 
       const queryCacheStats = queryCache.getStats();
       const generalCacheStats = generalCache.getStats();
@@ -549,7 +549,7 @@ export function registerScrapingRoutes(app: Express): void {
   // Clear Redis cache (admin only)
   app.post("/api/scraping/cache-clear", csrfProtection, requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const { queryCache, generalCache } = await import('../services/redis-cache');
+      const { queryCache, generalCache } = await import('../services/advanced-cache');
       // Type the expected request body structure
       const body = req.body as { cacheType?: 'query' | 'general' | 'all' };
       const { cacheType } = body;

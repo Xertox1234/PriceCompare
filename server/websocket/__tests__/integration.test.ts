@@ -22,8 +22,9 @@ import {
 } from './test-utils';
 import { getSocketIO } from '../index';
 import { emitWatchListUpdate, emitProductAdded, emitProductRemoved } from '../handlers/watch-list-handler';
-import { emitNewNotification, emitUnreadCountUpdate } from '../handlers/notification-handler';
+import { emitUnreadCountUpdate } from '../handlers/notification-handler';
 import { emitPriceAlert } from '../handlers/price-update-handler';
+import { eventBus, AppEvents } from '../../utils/event-bus';
 
 // Mock dependencies
 vi.mock('../../config/redis', () => ({
@@ -386,21 +387,17 @@ describe('WebSocket Integration Tests', () => {
 
         const notificationSpy = spyOnSocketEvent(client, 'notification:new');
 
-        const io = getSocketIO();
-        if (io) {
-          emitNewNotification(
-            io,
-            userId,
-            {
-              id: 1,
-              type: 'price_alert',
-              title: 'Price dropped!',
-              content: 'iPhone 15 is now $899',
-              priority: 'high',
-            },
-            5
-          );
-        }
+        // Emit notification via event bus (triggers the handler subscription)
+        eventBus.emit(AppEvents.NOTIFICATION_CREATED, {
+          userId,
+          notification: {
+            id: 1,
+            type: 'price_alert',
+            title: 'Price dropped!',
+            message: 'iPhone 15 is now $899',
+            createdAt: new Date(),
+          },
+        });
 
         await waitForEvent(client, 'notification:new', 2000);
 
@@ -410,9 +407,10 @@ describe('WebSocket Integration Tests', () => {
               id: 1,
               type: 'price_alert',
               title: 'Price dropped!',
-              priority: 'high',
+              content: 'iPhone 15 is now $899', // message is mapped to content
+              priority: 'normal', // default priority
             }),
-            unreadCount: 5,
+            unreadCount: expect.any(Number), // fetched from storage
           })
         );
       } finally {

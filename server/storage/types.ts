@@ -45,6 +45,25 @@ export interface PriceHistoryWithDetails extends PriceHistory {
   retailerLogo: string | null;
 }
 
+/**
+ * Normalized price history data point
+ * Standardized format for both raw and aggregated data
+ *
+ * Used by getPriceHistoryOptimized for smart data source selection.
+ */
+export interface NormalizedPricePoint {
+  date: Date;
+  price: number;
+  minPrice?: number;
+  maxPrice?: number;
+  avgPrice?: number;
+  medianPrice?: number;
+  retailerId: number;
+  retailerName?: string;
+  availability?: string | null;
+  source: 'raw' | 'daily' | 'weekly' | 'monthly';
+}
+
 export interface PriceTrendAnalysis {
   productId: number;
   currentPrice: number;
