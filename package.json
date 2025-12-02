@@ -121,7 +121,7 @@
     "memorystore": "^1.6.7",
     "next-themes": "^0.4.6",
     "node-cron": "^4.1.1",
-    "nodemailer": "^7.0.10",
+    "nodemailer": "^7.0.11",
     "openai": "^6.9.1",
     "openid-client": "^6.6.1",
     "passport": "^0.7.0",
@@ -194,10 +194,12 @@
     "npm": ">=8.0.0"
   },
   "overrides": {
-    "esbuild": "^0.27.0"
+    "esbuild": "^0.27.0",
+    "body-parser": "2.2.1"
   },
   "_comments": {
-    "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions.",
-    "sentry-versions": "@sentry/node and @sentry/react updated to ^10.28.0 to fix GHSA-6465-jgvq-jhgp (sensitive headers leak when sendDefaultPii enabled). Patch applied 2025-12-02."
+    "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions. body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4 (DoS via URL encoding). Remove when Express 5.x naturally updates to body-parser >= 2.2.1.",
+    "sentry-versions": "@sentry/node and @sentry/react updated to ^10.28.0 to fix GHSA-6465-jgvq-jhgp (sensitive headers leak when sendDefaultPii enabled). Patch applied 2025-12-02.",
+    "nodemailer-version": "nodemailer updated to ^7.0.11 to fix GHSA-rcmh-qjqh-p98v (DoS via recursive calls in addressparser). Patch applied 2025-12-02."
   }
 }
