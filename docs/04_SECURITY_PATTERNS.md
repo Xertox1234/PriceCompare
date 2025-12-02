@@ -1,6 +1,6 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 2.1
+Version: 2.3
 Last Updated: 2025-12-02
 Maintainer: Claude Code / Development Team
 Status: Active - SINGLE SOURCE OF TRUTH
@@ -11,6 +11,8 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (validation layer separation section)
 Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.3 (2025-12-02): Added nodemailer direct dependency example (GHSA-rcmh-qjqh-p98v), comprehensive decision tree for direct vs transitive dependency fixes, caret versioning best practices
+  - 2.2 (2025-12-02): Added real-world body-parser DoS fix example (GHSA-wqch-xfxh-vrr4) with npm override pattern, verification steps, and removal plan
   - 2.1 (2025-12-02): Added Dependency Security & Error Monitoring section with Sentry patterns, npm audit workflow, transitive dependency handling, real-world example (GHSA-6465-jgvq-jhgp)
   - 2.0 (2025-11-29): MAJOR CONSOLIDATION - Merged 4 pattern files, eliminated CSRF duplication across 8+ files
   - 1.0 (2025-11-28): Initial consolidated security patterns
@@ -1831,6 +1833,150 @@ npm outdated express body-parser
 - [ ] Record date applied
 - [ ] Explain version constraint choice
 - [ ] Document removal plan (for overrides)
+
+#### Real-World Example: body-parser DoS Fix (GHSA-wqch-xfxh-vrr4)
+
+**Context**: body-parser 2.2.0 (transitive dependency via Express 5.1.0) vulnerable to DoS via URL encoding.
+
+**Solution Applied** (2025-12-02):
+```json
+{
+  "overrides": {
+    "body-parser": "2.2.1"
+  },
+  "_comments": {
+    "overrides": "body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4 (DoS via URL encoding). Remove when Express 5.x naturally updates to body-parser >= 2.2.1."
+  }
+}
+```
+
+**Verification**:
+```bash
+# Verify override applied
+npm ls body-parser
+# Output: body-parser@2.2.1 overridden
+
+# Verify vulnerability resolved
+npm audit --audit-level=moderate
+# No longer shows GHSA-wqch-xfxh-vrr4
+```
+
+**Removal Plan**:
+1. Monitor Express 5.x releases: https://github.com/expressjs/express/releases
+2. When Express naturally depends on body-parser >= 2.2.1:
+   - Remove override from package.json
+   - Update Express to new version
+   - Run `npm install`
+   - Verify with `npm ls body-parser` (should no longer show "overridden")
+
+**Key Learnings**:
+- Transitive dependencies can introduce vulnerabilities even if you don't directly use them
+- npm overrides provide immediate mitigation while waiting for parent package updates
+- Always document WHY override exists and WHEN to remove it
+- Patch version updates (2.2.0 → 2.2.1) are generally safe for overrides
+- Monitor parent package (Express) releases to remove override when no longer needed
+
+#### Real-World Example: nodemailer DoS Fix (GHSA-rcmh-qjqh-p98v)
+
+**Context**: nodemailer 7.0.10 (direct dependency) vulnerable to DoS via recursive calls in addressparser when processing malformed email addresses.
+
+**Update Applied** (2025-12-02):
+```json
+{
+  "dependencies": {
+    "nodemailer": "^7.0.11"  // ← Updated from ^7.0.10
+  },
+  "_comments": {
+    "nodemailer-version": "nodemailer updated to ^7.0.11 to fix GHSA-rcmh-qjqh-p98v (DoS via recursive calls in addressparser). Patch applied 2025-12-02."
+  }
+}
+```
+
+**Verification**:
+```bash
+# Verify version updated
+npm ls nodemailer
+# Output: nodemailer@7.0.11
+
+# Verify vulnerability resolved
+npm audit --audit-level=moderate
+# Should no longer report GHSA-rcmh-qjqh-p98v
+```
+
+**Key Difference from body-parser**:
+nodemailer is a **direct dependency** so we update it directly in package.json. No npm override needed (unlike body-parser which is transitive via Express).
+
+**When to Use This Pattern**:
+- Direct dependencies (check with `npm ls <package>` - shows 1 level)
+- Patch version updates (x.y.Z)
+- Caret (^) versioning allows future patches automatically
+- No ongoing monitoring required
+- Time: 5-10 minutes
+
+**Why Caret (^) Versioning**:
+```json
+// ✅ CORRECT - Allows patch updates
+"nodemailer": "^7.0.11"
+// Allows: 7.0.11, 7.0.12, 7.0.13 (patches)
+// Blocks: 7.1.0 (minor), 8.0.0 (major)
+
+// ❌ AVOID - Pins exact version, misses future patches
+"nodemailer": "7.0.11"
+
+// ❌ AVOID - Tilde allows minor updates (may break)
+"nodemailer": "~7.0.11"
+```
+
+#### Direct vs Transitive Dependency Decision Tree
+
+**Start Here**: Run `npm ls <vulnerable-package>` to check dependency depth
+
+```
+Is the package 1 level deep (direct dependency)?
+│
+├─ YES → Direct Dependency Pattern (SIMPLE)
+│         1. Update version in package.json (use caret ^)
+│         2. Add _comments entry with GHSA + date
+│         3. Run npm install --legacy-peer-deps
+│         4. Verify with npm ls <package>
+│         5. Verify with npm audit
+│         6. No ongoing monitoring needed
+│
+│         Time: 5-10 minutes
+│         Complexity: LOW ⭐
+│         Examples: nodemailer, @sentry/node, direct deps
+│         Documentation: package.json _comments only
+│
+└─ NO (2+ levels) → Transitive Dependency Pattern (COMPLEX)
+          1. Check parent package update schedule
+          2. If urgent: Use npm override (patch versions only)
+          3. Add to package.json overrides + _comments
+          4. Add entry to NPM_OVERRIDES_TRACKING.md
+          5. Monitor monthly for parent updates
+          6. Remove override when parent updates
+
+          Time: 30-60 minutes + ongoing monitoring
+          Complexity: HIGH ⭐⭐⭐
+          Examples: body-parser (via Express), esbuild (via Vite)
+          Documentation: package.json + NPM_OVERRIDES_TRACKING.md
+```
+
+**Quick Check Commands**:
+```bash
+# Check if direct or transitive
+npm ls <package-name>
+# 1 level = Direct dependency
+# 2+ levels = Transitive dependency
+
+# Examples:
+npm ls nodemailer
+# Output: rest-express@1.0.0 └── nodemailer@7.0.11
+# Analysis: 1 level = DIRECT → Simple pattern
+
+npm ls body-parser
+# Output: rest-express@1.0.0 └─┬ express@5.1.0 └── body-parser@2.2.1
+# Analysis: 2 levels = TRANSITIVE → Override pattern
+```
 
 ---
 
