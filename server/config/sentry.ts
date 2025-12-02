@@ -48,6 +48,22 @@ export function initializeSentry(): void {
     // Profiling - 10% sample rate
     profilesSampleRate: 0.1,
 
+    // SECURITY: sendDefaultPii is intentionally NOT enabled to prevent exposure
+    // of personally identifiable information (PII) in error reports. This includes
+    // sensitive HTTP headers like Authorization, Cookie, and session tokens.
+    //
+    // Context: Sentry vulnerability GHSA-6465-jgvq-jhgp (fixed in 10.27.0+) leaked
+    // sensitive headers when sendDefaultPii was true. Even though we're now on a
+    // patched version, we maintain defense-in-depth by keeping this disabled.
+    //
+    // If PII collection becomes necessary for debugging:
+    // 1. Ensure Sentry version >= 10.27.0 (current: 10.28.0+)
+    // 2. Implement additional header filtering in beforeSend hook
+    // 3. Document security review and approval
+    // 4. Consider using Sentry's data scrubbing rules as additional layer
+    //
+    // sendDefaultPii: false, // (false by default, explicitly documented here)
+
     // Integrations
     integrations: [
       // Node.js profiling for performance analysis (optional)
