@@ -600,6 +600,154 @@ async function checkJobHealth(queueName: string) {
 
 ---
 
+## Graceful Shutdown with cleanupManager (CRITICAL - 2025-12-02)
+
+All background intervals and timers MUST be registered with `cleanupManager` for proper graceful shutdown.
+
+### ❌ WRONG - Unregistered Intervals
+
+```typescript
+class MetricsService {
+  private interval: NodeJS.Timeout | null = null;
+
+  start(): void {
+    // WRONG: Interval not registered for cleanup
+    this.interval = setInterval(() => {
+      this.collectAndLog();
+    }, 60000);
+  }
+
+  // No cleanup method - interval runs forever after SIGTERM!
+}
+```
+
+**Problems:**
+- Interval continues after shutdown signal
+- Delays graceful termination
+- May cause errors during shutdown (resources already closed)
+- Memory leaks in development with hot reloading
+
+### ✅ CORRECT - Registered with cleanupManager
+
+```typescript
+import { cleanupManager } from '../utils/cleanup-manager';
+
+class MetricsService {
+  private interval: NodeJS.Timeout | null = null;
+
+  start(): void {
+    this.interval = setInterval(() => {
+      this.collectAndLog();
+    }, 60000);
+
+    // CRITICAL: Register cleanup handler
+    cleanupManager.register('metrics-interval', () => {
+      if (this.interval) {
+        clearInterval(this.interval);
+        this.interval = null;
+        log.info('Metrics collection stopped');
+      }
+    });
+  }
+}
+```
+
+### cleanupManager API
+
+```typescript
+// Register a cleanup handler
+cleanupManager.register(name: string, handler: () => void | Promise<void>): void
+
+// All handlers are called during graceful shutdown in reverse order
+// (last registered, first called - like a stack)
+
+// Example: Multiple registrations
+cleanupManager.register('redis-connection', () => redis.quit());
+cleanupManager.register('database-pool', () => db.end());
+cleanupManager.register('websocket-server', () => io.close());
+```
+
+### What to Register
+
+Register these with cleanupManager:
+- `setInterval()` timers
+- `setTimeout()` long-running timers
+- Database connection pools
+- Redis client connections
+- WebSocket servers
+- File handles / streams
+- External service connections
+
+---
+
+## Structured Metrics Logging (2025-12-02)
+
+Metrics logging should use structured JSON for log aggregation systems.
+
+### ✅ CORRECT - Structured JSON Output
+
+```typescript
+private logMetrics(): void {
+  const stats = this.getStats();
+
+  // Structured format for log aggregation (Datadog, ELK, Splunk)
+  log.info('Cache metrics', {
+    // Identifiers
+    service: 'cache-service',
+    metricType: 'cache_stats',
+
+    // Metrics
+    hits: stats.hits,
+    misses: stats.misses,
+    hitRate: stats.hits / (stats.hits + stats.misses) || 0,
+    totalKeys: stats.totalKeys,
+    memoryUsageMB: stats.memoryUsage / 1024 / 1024,
+
+    // Metadata
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+  });
+}
+```
+
+**Benefits:**
+- Queryable in log aggregation systems
+- Can build dashboards from log data
+- Enables alerting on specific metrics
+- Consistent format across services
+
+### Common Metrics to Log
+
+```typescript
+// Job completion metrics
+log.info('Job completed', {
+  jobName: 'price-snapshot',
+  duration: Date.now() - startTime,
+  itemsProcessed: count,
+  itemsFailed: failures,
+  successRate: (count - failures) / count,
+});
+
+// Cache metrics
+log.info('Cache stats', {
+  hits: stats.hits,
+  misses: stats.misses,
+  hitRate: stats.hitRate,
+  evictions: stats.evictions,
+});
+
+// Queue metrics
+log.info('Queue status', {
+  queueName: 'notifications',
+  waiting: await queue.getWaitingCount(),
+  active: await queue.getActiveCount(),
+  failed: await queue.getFailedCount(),
+  delayed: await queue.getDelayedCount(),
+});
+```
+
+---
+
 ## Background Jobs Checklist
 
 - [ ] **Rate limiting** - Circuit breakers prevent spam
@@ -612,6 +760,8 @@ async function checkJobHealth(queueName: string) {
 - [ ] **Dead letter queue** - Failed jobs stored for investigation
 - [ ] **NOTE vs TODO** - Proper comment usage
 - [ ] **Monitoring** - Logs, metrics, and health checks
+- [ ] **cleanupManager registration** - All intervals registered for graceful shutdown
+- [ ] **Structured logging** - Metrics use JSON format for aggregation
 
 ---
 

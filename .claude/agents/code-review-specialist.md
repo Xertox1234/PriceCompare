@@ -133,6 +133,9 @@ npm run check
    - Unnecessary re-renders in React components
    - Missing indexes on frequently queried columns
    - Overfetching data (select only needed fields)
+   - **Cache Statistics Tracking (2025-12-02)**: Statistics must be tracked AFTER operations complete, not during
+   - **Cache Warming at Startup**: Must be non-blocking (fire-and-forget with void operator)
+   - **Background Interval Cleanup**: All setInterval() calls must be registered with cleanupManager
 
 6. **Type Safety**: Enforce strict TypeScript:
    - No implicit any types
@@ -960,6 +963,138 @@ getProductsByCategory(category: string, limit = 20): Promise<Product[]>
 grep -E "Promise<Array<{" server/storage.ts
 ```
 If any results found, flag as critical type consistency issue.
+
+## Caching Implementation Patterns (CRITICAL - 2025-12-02)
+
+When reviewing cache service implementations, verify these patterns:
+
+### Cache Statistics Tracking
+
+Statistics MUST be tracked AFTER operations complete, not during:
+
+```typescript
+// ❌ WRONG - Statistics before operation completes
+async get<T>(key: string): Promise<T | null> {
+  const cached = await this.redis.get(key);
+  if (cached) {
+    this.stats.hits++;  // ❌ Wrong - parse could still fail
+  }
+  return cached ? JSON.parse(cached) : null;
+}
+
+// ✅ CORRECT - Statistics after successful completion
+async get<T>(key: string): Promise<T | null> {
+  const cached = await this.redis.get(key);
+  if (cached) {
+    const parsed = JSON.parse(cached) as T;
+    this.stats.hits++;  // ✅ Tracked after successful parse
+    return parsed;
+  }
+  this.stats.misses++;  // ✅ Tracked after confirming no value
+  return null;
+}
+```
+
+### Helper Function Centralization (shouldSkipCache Pattern)
+
+Repeated conditional checks MUST be extracted to helper functions:
+
+```typescript
+// ❌ WRONG - Same conditions duplicated across methods
+async getProduct(id: number, options?: Options): Promise<Product | null> {
+  if (!this.enabled || options?.bypassCache || !this.isReady) {
+    return this.storage.getProduct(id);
+  }
+  // ...
+}
+
+async getUser(id: number, options?: Options): Promise<User | null> {
+  if (!this.enabled || options?.bypassCache || !this.isReady) {  // Duplicate!
+    return this.storage.getUser(id);
+  }
+  // ...
+}
+
+// ✅ CORRECT - Centralized helper
+private shouldSkipCache(options?: Options): boolean {
+  return !this.enabled || options?.bypassCache || !this.isReady;
+}
+
+async getProduct(id: number, options?: Options): Promise<Product | null> {
+  if (this.shouldSkipCache(options)) {
+    return this.storage.getProduct(id);
+  }
+  // ...
+}
+```
+
+### Cache Warming at Server Startup
+
+Cache warming MUST be non-blocking:
+
+```typescript
+// ❌ WRONG - Blocks server startup
+async function startServer() {
+  await cacheService.warmCache();  // Could take minutes!
+  app.listen(5000);
+}
+
+// ✅ CORRECT - Fire-and-forget with void operator
+async function startServer() {
+  void cacheService.warmCache().catch(error => {
+    log.warn('Cache warming failed, will populate on demand', { error });
+  });
+  app.listen(5000);  // Server available immediately
+}
+```
+
+### Background Intervals with cleanupManager
+
+All intervals MUST be registered for graceful shutdown:
+
+```typescript
+// ❌ WRONG - Interval not registered
+this.metricsInterval = setInterval(() => this.logMetrics(), 60000);
+
+// ✅ CORRECT - Registered with cleanupManager
+import { cleanupManager } from '../utils/cleanup-manager';
+
+this.metricsInterval = setInterval(() => this.logMetrics(), 60000);
+cleanupManager.register('cache-metrics', () => {
+  if (this.metricsInterval) {
+    clearInterval(this.metricsInterval);
+    this.metricsInterval = null;
+  }
+});
+```
+
+### Cache Key Versioning
+
+Cache keys SHOULD include version for zero-downtime schema migrations:
+
+```typescript
+// ✅ CORRECT - Versioned cache keys
+const CACHE_VERSIONS = {
+  product: 'v2',
+  user: 'v1',
+} as const;
+
+function getCacheKey(entity: keyof typeof CACHE_VERSIONS, id: number): string {
+  return `${entity}:${CACHE_VERSIONS[entity]}:${id}`;
+}
+```
+
+### Caching Review Checklist
+
+- [ ] Statistics tracked AFTER operation completion (not during)
+- [ ] Repeated conditions extracted to helper functions (shouldSkipCache pattern)
+- [ ] Cache warming is non-blocking (void operator with error handling)
+- [ ] Background intervals registered with cleanupManager
+- [ ] Metrics logging uses structured JSON format
+- [ ] Cache keys include version for schema migration path
+- [ ] Graceful degradation when cache unavailable
+
+---
 
 ## N+1 Query and Batch Processing Patterns
 

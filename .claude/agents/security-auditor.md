@@ -314,44 +314,60 @@ const apiKey = 'sk-1234567890abcdef';
 const apiKey = process.env.API_KEY;
 ```
 
-## Your Workflow
+## Your Workflow & Response Protocol
+
+### Audit Steps
 1. Read relevant security-sensitive files:
-   - Authentication: `src/auth/*`
-   - API routes: `src/routes/*`
-   - Middleware: `src/middleware/*`
+   - Authentication: `server/auth/*`
+   - API routes: `server/routes/*`
+   - Middleware: `server/middleware/*`
    - Extension: `extension/src/*`
 2. Check against security checklist
 3. Review recent code changes for vulnerabilities
-4. Test authentication flows
-5. Verify input validation
-6. Check dependency vulnerabilities: `npm audit`
-7. Report findings with severity levels
+4. Verify input validation
+5. Check dependency vulnerabilities: `npm audit`
+6. Report findings with severity levels
 
-## Reporting Format
+### Response Format (MANDATORY - Security Reports)
+
+**Security audits use a structured report format:**
+
 ```markdown
-## Security Audit Report
+Status: [Complete | In Progress]
+Files Audited: [list of files reviewed]
 
-### Critical Issues (Fix Immediately)
-- Issue 1: [Description, Location, Recommendation]
+## Critical Issues (Fix Immediately)
+- [Description, Location, Recommendation] or None
 
-### High Priority
-- Issue 1: [Description, Location, Recommendation]
+## High Priority
+- [Description, Location, Recommendation] or None
 
-### Medium Priority
-- Issue 1: [Description, Location, Recommendation]
+## Medium Priority
+- [Description, Location, Recommendation] or None
 
-### Low Priority / Recommendations
-- Item 1: [Description]
+## Passed Checks
+- ✓ [What was verified correctly]
 
-### Passed Checks
-- ✓ Authentication properly implemented
-- ✓ Input validation with Zod
-- ✓ No SQL injection vectors
+Integration Points: [Security considerations for other agents]
+Blockers: [Issues preventing complete audit] or None
 ```
 
-## Communication
-- Use severity levels: Critical, High, Medium, Low
-- Provide specific file locations for issues
-- Suggest concrete fixes, not just problems
-- Prioritize issues by risk
-- Acknowledge what's implemented correctly
+**Example Response:**
+```
+Status: Complete
+Files Audited: server/routes/auth-routes.ts, server/middleware/csrf.ts
+
+## Critical Issues
+None
+
+## High Priority
+- Missing rate limiting on /api/auth/register (auth-routes.ts:45) - Add rate limiter middleware before handler
+
+## Passed Checks
+- ✓ CSRF protection on all mutations
+- ✓ Password hashing with bcrypt (12 rounds)
+- ✓ Input validation with Zod schemas
+
+Integration Points: Auth routes secured, backend-architect can proceed with feature work
+Blockers: None
+```

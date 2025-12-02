@@ -211,7 +211,18 @@ function processRecord(record: T): void {
 - **Error handling**: 20 identical catch blocks = use createErrorResponse utility
 - **Validation**: Repeated parsing logic = use validation helpers
 - **Common operations**: If you see it 3+ times, it needs abstraction
+- **Conditional checks**: Extract to helper functions (shouldSkipCache pattern)
 - **Benefits of DRY**: Easier maintenance, consistent behavior, fewer bugs
+
+### Caching Implementation Patterns (2025-12-02)
+
+**When reviewing cache implementations:**
+- **Statistics tracking**: Must happen AFTER operations complete, not during
+- **Helper centralization**: Extract repeated bypass conditions to `shouldSkipCache()`
+- **Cache warming**: Must be non-blocking at startup (fire-and-forget with `void`)
+- **Background intervals**: Must be registered with `cleanupManager` for graceful shutdown
+- **Cache key versioning**: Include version in keys for zero-downtime schema migration
+- **Structured metrics**: Use JSON format for log aggregation compatibility
 
 ### Large File Refactoring (God Object Decomposition)
 When reviewing refactoring PRs for large files (1000+ lines):

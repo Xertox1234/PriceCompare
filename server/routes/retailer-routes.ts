@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "@shared/types";
 import { retailerCacheMiddleware } from "../middleware/redis-cache";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
 import { parseIntSafe } from "../utils/validation-helpers";
-import { isAuthenticated, shouldSkipCache } from "./helpers";
+import { shouldSkipCache } from "./helpers";
 
 /**
  * Retailer Routes

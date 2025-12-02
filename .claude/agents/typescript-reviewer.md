@@ -1210,7 +1210,154 @@ export function useRetailers() {
 - [ ] Helper function has comprehensive JSDoc
 - [ ] Type parameter explicitly provided: `createApiQueryFn<Type>`
 
-### 18. Storage Layer Architecture Pattern (Phase 8 - CRITICAL)
+### 18. Cache Statistics Tracking Pattern (CRITICAL - 2025-12-02)
+
+**When reviewing caching implementations, verify that statistics tracking happens AFTER operations complete, not during.**
+
+#### ❌ WRONG - Statistics in Operation Path (Bug Pattern)
+```typescript
+class CacheService {
+  private stats = { hits: 0, misses: 0 };
+
+  async get<T>(key: string): Promise<T | null> {
+    const cached = await this.redis.get(key);
+
+    // BUG: Statistics updated in the middle of the operation
+    // If redis.get throws, stats are inconsistent
+    // Also, stats are updated before we know if value is usable
+    if (cached) {
+      this.stats.hits++;  // ❌ Wrong place - operation not complete yet
+    }
+
+    return cached ? JSON.parse(cached) : null;
+  }
+}
+```
+
+**Problems:**
+- Statistics may not reflect actual outcomes (parse could fail)
+- Early tracking creates inconsistent metrics
+- Makes debugging cache issues harder
+
+#### ✅ CORRECT - Statistics After Operation Completes
+```typescript
+class CacheService {
+  private stats = { hits: 0, misses: 0 };
+
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const cached = await this.redis.get(key);
+
+      if (cached) {
+        const parsed = JSON.parse(cached) as T;
+        // Statistics tracked AFTER successful operation
+        this.stats.hits++;
+        return parsed;
+      }
+
+      // Track miss after confirming no value exists
+      this.stats.misses++;
+      return null;
+    } catch (error) {
+      // Don't count errors as hits or misses - track separately
+      this.stats.errors = (this.stats.errors || 0) + 1;
+      throw error;
+    }
+  }
+}
+```
+
+**Review Checklist:**
+- [ ] Cache hits tracked AFTER value is successfully returned
+- [ ] Cache misses tracked AFTER confirming no value exists
+- [ ] Parse/deserialization errors tracked separately from hits/misses
+- [ ] Statistics are consistent with actual cache behavior
+- [ ] No statistics updates in the middle of try blocks before return
+
+---
+
+### 19. Helper Function Centralization Pattern (shouldSkipCache Example)
+
+**When reviewing services with repeated conditional checks, verify that common conditions are centralized into helper functions.**
+
+#### ❌ WRONG - Redundant Conditional Checks
+```typescript
+class CacheService {
+  async getProduct(productId: number, options?: { bypassCache?: boolean }): Promise<Product | null> {
+    // Same auth check repeated in every method
+    if (!this.isAuthenticated() || options?.bypassCache || this.config.disabled) {
+      return this.storage.getProduct(productId);
+    }
+    // ... cache logic
+  }
+
+  async getUser(userId: number, options?: { bypassCache?: boolean }): Promise<User | null> {
+    // Duplicate check!
+    if (!this.isAuthenticated() || options?.bypassCache || this.config.disabled) {
+      return this.storage.getUser(userId);
+    }
+    // ... cache logic
+  }
+
+  async getRetailers(options?: { bypassCache?: boolean }): Promise<Retailer[]> {
+    // Triple duplicate!
+    if (!this.isAuthenticated() || options?.bypassCache || this.config.disabled) {
+      return this.storage.getRetailers();
+    }
+    // ... cache logic
+  }
+}
+```
+
+**Problems:**
+- DRY violation - same logic in multiple places
+- Easy to miss one condition in one method
+- Changes require updates to all methods
+- Inconsistent behavior if conditions diverge
+
+#### ✅ CORRECT - Centralized Helper Function
+```typescript
+class CacheService {
+  /**
+   * Determines if cache should be bypassed for this request.
+   * Centralized check eliminates redundant conditions across methods.
+   */
+  private shouldSkipCache(options?: { bypassCache?: boolean }): boolean {
+    // Single source of truth for skip conditions
+    return (
+      !this.isAuthenticated() ||    // No caching for unauthenticated
+      options?.bypassCache ||       // Explicit bypass requested
+      this.config.disabled ||       // Cache globally disabled
+      this.isReadReplica()          // Read replicas bypass cache
+    );
+  }
+
+  async getProduct(productId: number, options?: { bypassCache?: boolean }): Promise<Product | null> {
+    if (this.shouldSkipCache(options)) {
+      return this.storage.getProduct(productId);
+    }
+    // ... cache logic
+  }
+
+  async getUser(userId: number, options?: { bypassCache?: boolean }): Promise<User | null> {
+    if (this.shouldSkipCache(options)) {
+      return this.storage.getUser(userId);
+    }
+    // ... cache logic
+  }
+}
+```
+
+**Review Checklist:**
+- [ ] Repeated conditional checks extracted to named helper function
+- [ ] Helper function has clear JSDoc explaining its purpose
+- [ ] All bypass conditions documented in one place
+- [ ] Adding new conditions requires change in only one location
+- [ ] Helper function name clearly describes the decision (shouldSkipCache, canProceed, isEligible)
+
+---
+
+### 20. Storage Layer Architecture Pattern (Phase 8 - CRITICAL)
 
 **When reviewing service files, verify storage layer compliance:**
 

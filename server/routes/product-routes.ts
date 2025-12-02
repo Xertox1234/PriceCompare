@@ -13,7 +13,7 @@ import { CACHE_DURATION } from "../utils/constants";
 import { logger } from "../utils/logger";
 import { csrfProtection } from "../middleware/security";
 import { sendSuccess, sendError, sendPaginated, sendErrorFromException } from "../utils/api-response";
-import { isAuthenticated, shouldSkipCache } from "./helpers";
+import { shouldSkipCache } from "./helpers";
 
 // Price history cache middleware - using redis cache with 1 hour TTL
 const priceHistoryCacheMiddleware = redisCacheMiddleware({

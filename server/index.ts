@@ -259,11 +259,12 @@ app.use(sanitizeInput);
   server.listen({
     port,
     host: "0.0.0.0",
-  }, async () => {
+  }, () => {
     log(`serving on port ${port}`);
 
     // Warm critical caches (retailers) to eliminate first-request cache misses
-    await storageCache.warmCaches();
+    // Using void to explicitly mark fire-and-forget async operation
+    void storageCache.warmCaches();
   });
 
   // Log cache performance metrics every minute

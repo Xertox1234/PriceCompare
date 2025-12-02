@@ -1439,6 +1439,83 @@ function sortByDate<T extends Timestamped>(items: T[]): T[] {
 
 ---
 
+## Bracket Notation for Private Method Access (2025-12-02)
+
+**When to use bracket notation to access private methods within the same module.**
+
+In TypeScript, private methods (`private methodName()`) are only accessible within the same class. However, when writing tests or internal utilities within the same module, you may need to call private methods. Bracket notation provides a way to do this that is acceptable within the same module context.
+
+### Pattern: Bracket Notation for Internal Testing
+
+```typescript
+class CacheService {
+  // Private method not accessible via dot notation from outside
+  private generateKey(entity: string, id: number): string {
+    return `${entity}:v1:${id}`;
+  }
+
+  // Private method for cache warming
+  private async warmCacheForEntity(entity: string): Promise<void> {
+    // Implementation
+  }
+}
+
+// Within the same module (e.g., testing internal behavior)
+const service = new CacheService();
+
+// ❌ WRONG - TypeScript error: Property 'generateKey' is private
+service.generateKey('product', 123);
+
+// ✅ ACCEPTABLE - Bracket notation bypasses TypeScript private check
+// Only use within the same module for testing/internal purposes
+service['generateKey']('product', 123);  // Works at runtime
+```
+
+### When This Is Acceptable
+
+**USE bracket notation when:**
+- Unit testing private methods within the same module
+- Internal module utilities need to access private behavior
+- Calling from a method in the same class file that TypeScript doesn't recognize
+
+**DON'T USE bracket notation when:**
+- Accessing from a different module (indicates design problem)
+- The method should actually be public
+- Testing should go through public API instead
+
+### Alternative: Extract to Testable Unit
+
+If you frequently need to test a private method, consider extracting it:
+
+```typescript
+// ✅ BETTER - Extract reusable logic to standalone function
+export function generateCacheKey(entity: string, id: number): string {
+  return `${entity}:v1:${id}`;
+}
+
+class CacheService {
+  private generateKey(entity: string, id: number): string {
+    return generateCacheKey(entity, id);
+  }
+}
+
+// Now testable without bracket notation
+describe('generateCacheKey', () => {
+  it('should generate versioned key', () => {
+    expect(generateCacheKey('product', 123)).toBe('product:v1:123');
+  });
+});
+```
+
+### Review Checklist
+
+- [ ] Bracket notation only used within same module
+- [ ] Consider if method should be public or extracted
+- [ ] Document why bracket notation is needed (comment)
+- [ ] Tests primarily use public API, bracket notation is exception
+
+---
+
 ## TypeScript Configuration
 
 ### Strict tsconfig.json

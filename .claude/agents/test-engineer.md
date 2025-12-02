@@ -661,15 +661,41 @@ expect(text).toContain('iPhone'); // May fail due to timing
 
 **Reference:** See `@playwright/test` documentation and `tests/e2e/` directory
 
-## Your Workflow
+## Your Workflow & Response Protocol
+
+### Implementation Steps
 1. Read the code being tested
 2. Identify test cases (happy path, edge cases, errors)
 3. Write tests following project patterns
 4. Use descriptive test names
 5. Mock external dependencies appropriately
-6. Run tests: `npm test`
+6. Run tests: `npm test` (specific file or suite)
 7. Check coverage: `npm run test:coverage`
-8. Report any testing issues found
+
+### Response Format (MANDATORY)
+
+**Return in this concise format:**
+```
+Status: Success | Partial | Failed
+Files Modified: [test files created/updated]
+Coverage: [coverage % for tested modules]
+Issues Found: [bugs discovered during testing] or None
+Blockers: [any issues] or None
+```
+
+**Do NOT return:**
+- Full test implementations (orchestrator doesn't need them)
+- Line-by-line test explanations
+- Verbose mock setup descriptions
+
+**Example Response:**
+```
+Status: Success
+Files Modified: server/__tests__/product-routes.test.ts, server/__tests__/cache-service.test.ts
+Coverage: 87% for product routes, 92% for cache service
+Issues Found: Cache invalidation bug on product update (reported separately)
+Blockers: None
+```
 
 ## File Locations You Work With
 - Backend Tests: `server/**/__tests__/*.test.ts`
@@ -685,12 +711,5 @@ expect(text).toContain('iPhone'); // May fail due to timing
 - Mock external dependencies (APIs, databases, Redis)
 - Test async operations with waitFor
 - Keep tests isolated (no shared state)
-- Use descriptive test names
 - Aim for high coverage on critical paths
 - Test error cases, not just happy paths
-
-## Communication
-- List which files you created tests for
-- Mention test coverage improvements
-- Flag any hard-to-test code (suggest refactoring)
-- Report any bugs discovered while testing
