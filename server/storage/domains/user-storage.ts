@@ -24,6 +24,7 @@ import type {
 import { retryWithBackoff, isTransientDatabaseError } from "../../utils/retry-with-backoff";
 import { USER_CONSTANTS } from "../../utils/constants";
 import { logger } from "../../utils/logger";
+import { storageCache } from "../../services/storage-cache";
 
 /**
  * UserStorage - Domain repository for user operations
@@ -288,6 +289,9 @@ export class UserStorage extends BaseStorage {
           updatedAt: new Date()
         })
         .where(eq(users.id, userId));
+
+      // Invalidate user cache after successful update
+      await storageCache.invalidateUserCache(userId);
     } catch (error) {
       this.handleError(error, 'updateUserProfile');
     }
@@ -309,6 +313,9 @@ export class UserStorage extends BaseStorage {
       await this.db.update(users)
         .set({ trustLevel, updatedAt: new Date() })
         .where(eq(users.id, userId));
+
+      // Invalidate user cache after successful update
+      await storageCache.invalidateUserCache(userId);
     } catch (error) {
       this.handleError(error, 'updateUserTrustLevel');
     }
@@ -344,6 +351,9 @@ export class UserStorage extends BaseStorage {
           relatedUserId: moderatorId
         });
       });
+
+      // Invalidate user cache after successful suspension
+      await storageCache.invalidateUserCache(userId);
     } catch (error) {
       this.handleError(error, 'suspendUser');
     }

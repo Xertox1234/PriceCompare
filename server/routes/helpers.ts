@@ -46,6 +46,35 @@ export function withAdmin(handler: (req: AuthenticatedRequest, res: Response) =>
 }
 
 /**
+ * Check if cache should be bypassed for this request.
+ *
+ * Cache bypass is only allowed for admin users via the ?skipCache=1 query parameter.
+ * This feature is useful for:
+ * - Verifying data after updates
+ * - Debugging cache issues
+ * - Testing without cache interference
+ *
+ * Security: Non-admin users cannot bypass cache, ensuring controlled cache usage.
+ *
+ * @param req - Express request object (must be authenticated)
+ * @returns true if cache should be bypassed, false otherwise
+ *
+ * @example
+ * ```typescript
+ * // In route handler with withAuth wrapper
+ * app.get('/api/products/:id', withAuth(async (req, res) => {
+ *   const skipCache = shouldSkipCache(req);
+ *   const product = skipCache
+ *     ? await storage.getProductById(id)
+ *     : await storageCache.getProductById(id);
+ * }));
+ * ```
+ */
+export function shouldSkipCache(req: AuthenticatedRequest): boolean {
+  return req.query.skipCache === '1' && req.user.role === 'admin';
+}
+
+/**
  * @deprecated Use sendErrorFromException() from '../utils/api-response' instead
  *
  * Legacy error response handler - maintained for backwards compatibility

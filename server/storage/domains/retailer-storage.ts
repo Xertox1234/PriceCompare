@@ -23,6 +23,7 @@ import type {
   AffiliateConfig,
 } from "../types";
 import { logger } from "../../utils/logger";
+import { storageCache } from "../../services/storage-cache";
 
 export class RetailerStorage extends BaseStorage {
   constructor(database: typeof db) {
@@ -227,6 +228,11 @@ export class RetailerStorage extends BaseStorage {
         .where(eq(retailers.id, id))
         .returning();
 
+      // Invalidate retailer caches after successful update
+      if (result) {
+        await storageCache.invalidateRetailerCache(id);
+      }
+
       this.logSuccess('updateRetailer', { retailerId: id, found: !!result });
       return result || null;
     } catch (error) {
@@ -247,6 +253,11 @@ export class RetailerStorage extends BaseStorage {
         .delete(retailers)
         .where(eq(retailers.id, id))
         .returning();
+
+      // Invalidate retailer caches after successful deletion
+      if (result) {
+        await storageCache.invalidateRetailerCache(id);
+      }
 
       this.logSuccess('deleteRetailer', { retailerId: id, found: !!result });
       return result || null;
@@ -315,6 +326,11 @@ export class RetailerStorage extends BaseStorage {
         .where(eq(retailers.id, id))
         .returning();
 
+      // Invalidate retailer caches after successful update
+      if (updatedRetailer) {
+        await storageCache.invalidateRetailerCache(id);
+      }
+
       this.logSuccess('updateAdminRetailer', { retailerId: id, found: !!updatedRetailer });
       return updatedRetailer || null;
     } catch (error) {
@@ -335,6 +351,11 @@ export class RetailerStorage extends BaseStorage {
         .delete(retailers)
         .where(eq(retailers.id, id))
         .returning();
+
+      // Invalidate retailer caches after successful deletion
+      if (deletedRetailer) {
+        await storageCache.invalidateRetailerCache(id);
+      }
 
       this.logSuccess('deleteAdminRetailer', { retailerId: id, found: !!deletedRetailer });
       return deletedRetailer || null;
@@ -440,6 +461,11 @@ export class RetailerStorage extends BaseStorage {
         })
         .where(eq(retailers.id, id))
         .returning();
+
+      // Invalidate retailer caches after successful affiliate config update
+      if (updatedRetailer) {
+        await storageCache.invalidateRetailerCache(id);
+      }
 
       this.logSuccess('updateRetailerAffiliateConfig', {
         retailerId: id,

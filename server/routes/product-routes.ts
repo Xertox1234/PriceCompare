@@ -1,5 +1,6 @@
 import { Express } from "express";
 import { storage } from "../storage";
+import { storageCache } from "../services/storage-cache";
 import type { SearchFilters } from "@shared/schema";
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from "../utils/validation-helpers";
 import {
@@ -11,6 +12,7 @@ import { CACHE_DURATION } from "../utils/constants";
 import { logger } from "../utils/logger";
 import { csrfProtection } from "../middleware/security";
 import { sendSuccess, sendError, sendPaginated, sendErrorFromException } from "../utils/api-response";
+import { isAuthenticated, shouldSkipCache } from "./helpers";
 
 // Price history cache middleware - using redis cache with 1 hour TTL
 const priceHistoryCacheMiddleware = redisCacheMiddleware({
@@ -78,7 +80,11 @@ export function registerProductRoutes(app: Express): void {
         limit: req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 20,
       };
 
-      const { products, pagination } = await storage.searchProducts(filters);
+      // Cache bypass support for admin users (debugging and verification)
+      const skipCache = isAuthenticated(req) && shouldSkipCache(req);
+      const { products, pagination } = skipCache
+        ? await storage.searchProducts(filters)
+        : await storageCache.searchProducts(filters);
 
       // Return standardized paginated response
       sendPaginated(res, products, {
@@ -93,12 +99,18 @@ export function registerProductRoutes(app: Express): void {
   });
 
   // Get product by ID (with Redis caching)
+  // Supports cache bypass via ?skipCache=1 query parameter (admin only)
   app.get("/api/products/:id", productCacheMiddleware, async (req, res) => {
     try {
       // SECURITY: Safe integer parsing with validation
       const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
-      const product = await storage.getProductById(id);
+      // Cache bypass support for admin users (debugging and verification)
+      const skipCache = isAuthenticated(req) && shouldSkipCache(req);
+      const product = skipCache
+        ? await storage.getProductById(id)
+        : await storageCache.getProductById(id);
+
       if (!product) {
         sendError(res, "Product not found", 404);
         return;
@@ -116,7 +128,7 @@ export function registerProductRoutes(app: Express): void {
       const filters: SearchFilters = {
         sortBy: "popularity",
       };
-      const { products, pagination } = await storage.searchProducts(filters);
+      const { products, pagination } = await storageCache.searchProducts(filters);
       sendPaginated(res, products, pagination);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'FetchProducts');

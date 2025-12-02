@@ -25,6 +25,7 @@ import {
   type ProductWithOffers
 } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
+import { storageCache } from "../../services/storage-cache";
 
 /**
  * ProductStorage - Domain repository for product operations
@@ -195,6 +196,11 @@ export class ProductStorage extends BaseStorage {
         .where(eq(products.id, id))
         .returning();
 
+      // Invalidate product cache after successful update
+      if (result) {
+        await storageCache.invalidateProductCache(id);
+      }
+
       return result || null;
     } catch (error) {
       this.handleError(error, 'updateProduct');
@@ -216,6 +222,11 @@ export class ProductStorage extends BaseStorage {
         .delete(products)
         .where(eq(products.id, id))
         .returning();
+
+      // Invalidate product cache after successful deletion
+      if (result) {
+        await storageCache.invalidateProductCache(id);
+      }
 
       return result || null;
     } catch (error) {

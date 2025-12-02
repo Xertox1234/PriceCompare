@@ -764,6 +764,23 @@ export async function invalidateProductCache(productId: number) {
 }
 
 /**
+ * Invalidate caches when product price changes.
+ * Called by price snapshot service, offer updates, etc.
+ *
+ * @param productId - Product with updated price
+ */
+export async function invalidatePriceCache(productId: number): Promise<void> {
+  try {
+    // Price changes affect product details and search results
+    await invalidateProductCache(productId);
+
+    logger.debug('Price cache invalidated', { productId });
+  } catch (error) {
+    logger.warn('Failed to invalidate price cache', { productId, error });
+  }
+}
+
+/**
  * Cache analytics results
  */
 export async function cacheAnalytics(
