@@ -1206,6 +1206,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 7. **Input validation**: Every route input goes through Zod schema first
 8. **Account lockout**: Failed logins trigger temporary lockouts (`server/middleware/account-lockout.ts`)
 9. **Dual Redis clients**: Use correct client - `ioredis` for cache, `redis` package for sessions
+10. **NPM Overrides**: Track temporary security overrides in `docs/NPM_OVERRIDES_TRACKING.md`
+    - Use overrides ONLY for security patches (patch versions: x.y.Z)
+    - Document CVE/GHSA reference, removal trigger, and monitoring plan
+    - Review monthly and remove when parent package updates
+    - See `docs/04_SECURITY_PATTERNS.md` (Dependency Security section)
 
 ## Pattern Documentation (CRITICAL)
 
@@ -1232,7 +1237,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
 - `docs/API_DOCUMENTATION.md` - Complete API endpoint reference
 - `docs/AFFILIATE_REQUIREMENTS.md` - Retailer affiliate program requirements and setup
+- `docs/NPM_OVERRIDES_TRACKING.md` - Active npm overrides monitoring and removal tracking (NEW)
 - `server/ai/README.md` - AI prompt system documentation
+
+### Learnings Documentation (Real-World Examples)
+- `docs/LEARNINGS_TODO_002_BODY_PARSER_FIX.md` - Transitive dependency security fix pattern (2025-12-02)
 
 ### Subagent Documentation (.claude/knowledge/)
 - `claude-code-subagent-setup-guide.md` - Complete subagent system guide
