@@ -301,6 +301,238 @@ Architecture Check for [code section]:
 
 ---
 
+## Common Lint Error Patterns - Quick Reference (NEW in v1.2)
+
+**Context**: Analysis of ~1624 lint errors fixed in recent commits identified recurring patterns that often escape initial review. Check for these BEFORE committing.
+
+### Pattern 1: Floating Promises ⚡ Most Common
+
+**What**: Async operations that return promises but aren't awaited or handled.
+
+**Common Locations**:
+- React Query cache invalidations: `queryClient.invalidateQueries(...)`
+- Fire-and-forget service calls: `emailService.send(...)`, `notificationService.create(...)`
+- Socket.io room operations: `socket.join(...)`, `io.to(...).emit(...)`
+
+**Detection**:
+```typescript
+// ❌ WRONG - Floating promise (ESLint error)
+queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+emailService.sendWelcome(user.email);
+socket.join(`user:${userId}`);
+
+// ✅ CORRECT - Explicit fire-and-forget with void
+void queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+void emailService.sendWelcome(user.email);
+void socket.join(`user:${userId}`);
+
+// ✅ ALSO CORRECT - Await if you need to wait
+await emailService.sendWelcome(user.email);
+```
+
+**Review Checklist**:
+- [ ] Search for `queryClient.invalidate` without `void` or `await`
+- [ ] Search for `Service.[method](` without `void` or `await`
+- [ ] Search for `socket.join|emit` without `void` or `await`
+
+**Files to Watch**: Client hooks (`use-*.ts`), React components with mutations
+
+---
+
+### Pattern 2: Misused Promises in Event Handlers ⚡ Very Common
+
+**What**: Async functions passed directly to React event handlers without proper wrapping.
+
+**Common Locations**:
+- `onClick={handleSubmit}` where `handleSubmit` is async
+- `onSubmit={processForm}` where `processForm` is async
+- `<AlertDialogAction onClick={handleDelete}>` where `handleDelete` is async
+
+**Detection**:
+```typescript
+// ❌ WRONG - Async function without wrapper (ESLint error)
+<Button onClick={handleSubmit}>Submit</Button>
+// where: async function handleSubmit() { ... }
+
+// ✅ CORRECT - Void wrapper for fire-and-forget
+<Button onClick={() => void handleSubmit()}>Submit</Button>
+
+// ✅ ALSO CORRECT - Explicit async arrow function
+<Button onClick={async () => { await handleSubmit(); }}>Submit</Button>
+
+// ❌ WRONG - Async in onSubmit
+<form onSubmit={processForm}>
+
+// ✅ CORRECT - Wrapped with void
+<form onSubmit={() => void processForm()}>
+```
+
+**Review Checklist**:
+- [ ] Search for `onClick={[a-zA-Z]+}` - check if function is async
+- [ ] Search for `onSubmit={[a-zA-Z]+}` - check if function is async
+- [ ] Verify ALL event handlers that call async functions use void wrapper
+
+**Files to Watch**: React components (`.tsx`), especially forms and dialogs
+
+---
+
+### Pattern 3: Explicit `any` Types 🎯 High Priority
+
+**What**: Using `any` type annotation instead of proper TypeScript types.
+
+**Common Locations**:
+- Function parameters: `function process(data: any)`
+- Variable declarations: `const result: any = ...`
+- Generic type arguments: `Array<any>`, `Record<string, any>`
+
+**Detection**:
+```typescript
+// ❌ WRONG - Explicit any (ESLint error)
+const data: any = await fetch(...);
+function process(item: any) { ... }
+const items: any[] = [];
+
+// ✅ CORRECT - Proper types from schema
+import { type Product, type SafeUser } from '@shared/schema';
+const data: Product = await fetch(...);
+function process(item: Product) { ... }
+const items: Product[] = [];
+
+// ✅ ALSO CORRECT - Unknown with type guard
+const data: unknown = await fetch(...);
+if (isProduct(data)) { /* now Product type */ }
+```
+
+**Review Checklist**:
+- [ ] Search for `: any[^a-zA-Z]` in changed files
+- [ ] Search for `<any>` in generics
+- [ ] Verify test files use proper types (NO exception for tests!)
+
+**Files to Watch**: All TypeScript files - tests included
+
+---
+
+### Pattern 4: Missing await on Async Operations ⏱️ Common
+
+**What**: Calling async functions without `await` or `void` keyword.
+
+**Common Locations**:
+- Database operations: `db.select()`, `db.insert()`, `storage.getProduct()`
+- API calls: `fetch(...)`, `axios.get(...)`
+- Service methods: `storage.[method]()`, `service.[method]()`
+
+**Detection**:
+```typescript
+// ❌ WRONG - Missing await (runtime error risk)
+const result = db.select().from(users);  // result is Promise, not data!
+const product = storage.getProductById(id);  // Promise<Product>, not Product
+
+// ✅ CORRECT - Await the promise
+const result = await db.select().from(users);
+const product = await storage.getProductById(id);
+
+// ✅ ALSO CORRECT - Fire-and-forget with void
+void db.insert(auditLogs).values({ action: 'viewed' });
+```
+
+**Review Checklist**:
+- [ ] Search for `= db.(select|insert|update|delete)` without `await`
+- [ ] Search for `= storage.[a-z]+\(` without `await`
+- [ ] Search for `= fetch\(` without `await`
+
+**Files to Watch**: Route handlers, service methods, storage layer
+
+---
+
+### Pattern 5: console.log in Production Code 🔒 Security
+
+**What**: Debug logging using `console.log` instead of structured logger.
+
+**Common Locations**:
+- Development debugging statements left in code
+- Error logging: `console.error(...)`
+- Feature debugging: `console.log('User:', user)`
+
+**Detection**:
+```typescript
+// ❌ WRONG - console.log (information leak risk)
+console.log('User created:', user);
+console.error('API failed:', error);
+
+// ✅ CORRECT - Structured logger
+import { createLogger } from '@/utils/logger';
+const log = createLogger('UserService');
+
+log.info('User created', { userId: user.id });
+log.error('API failed', { error: error.message });
+```
+
+**Review Checklist**:
+- [ ] Search for `console.log` in non-test files
+- [ ] Search for `console.error` in non-test files
+- [ ] Verify structured logger is imported and used
+
+**Files to Watch**: All production code (exclude `*.test.ts`, `*.spec.ts`, `__tests__/`)
+
+---
+
+### Pattern 6: Unused Variables After Refactoring 🧹 Cleanup
+
+**What**: Variables declared but never used, often left after refactoring.
+
+**Common Causes**:
+- Renamed variables: `oldName` → `newName` but `oldName` still declared
+- Extracted functions: Variable moved to helper but declaration remains
+- Dead code: Conditional removed but variable declaration remains
+
+**Detection**:
+```typescript
+// ❌ WRONG - Unused variable
+const userId = req.user.id;  // ❌ Never used
+const products = await storage.getProducts();  // ✅ Used below
+return products;
+
+// ✅ CORRECT - Remove unused variables
+const products = await storage.getProducts();
+return products;
+```
+
+**Review Checklist**:
+- [ ] Run `npx eslint --fix <file>` to auto-remove unused vars
+- [ ] Check for variables declared in large refactored functions
+- [ ] Verify destructured imports are all used
+
+**Quick Fix**: ESLint auto-fix handles most cases automatically.
+
+---
+
+### Pre-Commit Integration
+
+The pre-commit hook (`/.git/hooks/pre-commit`) now includes **proactive pattern detection** that warns about these patterns BEFORE running full ESLint:
+
+```bash
+# Fast pattern checks (before ESLint runs)
+Pattern 1: Floating promises (queryClient.invalidate, service calls)
+Pattern 2: Misused promises (async in onClick/onSubmit)
+Pattern 3: Explicit 'any' types
+Pattern 4: Missing await on async operations
+Pattern 5: console.log in production code
+Pattern 6: Unused variables (if many new declarations)
+```
+
+**Benefit**: Get actionable quick-fix suggestions BEFORE full lint runs, reducing commit friction.
+
+---
+
+### Related Documentation
+
+- **Pre-commit hook**: `/.git/hooks/pre-commit` (lines 73-162) - Proactive pattern detection
+- **TypeScript patterns**: `docs/01_TYPESCRIPT_PATTERNS.md` - Comprehensive type safety guide
+- **ESLint enforcement**: `CLAUDE.md` - ESLint strict rules and enforcement layers
+- **Recent fixes**: Commit history (`git log --grep="eslint\|floating\|any type"`)
+
+---
+
 ## Constitutional Review Principles (NEW in v1.1)
 
 **Before finalizing your review, critique your own output against these principles**:
