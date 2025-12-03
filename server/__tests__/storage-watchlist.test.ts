@@ -647,13 +647,18 @@ describe('Watchlist Storage Layer', () => {
     });
 
     it('should complete within reasonable time (performance sanity check)', async () => {
+      // Sanity check - detects accidental N+1 queries or missing indexes
+      // NOT a strict performance test - just regression detection
+      // Test setup: 2 products × 7-day history = 14 price records
+      // Expected baseline: 45-80ms (Drizzle + PostgreSQL query overhead)
+      // CI environment adds 20-50ms overhead
+      // Threshold: 200ms gives 2.5x margin while catching N+1 regressions (300ms+)
+
       const startTime = performance.now();
       await storage.getWatchedProducts(testUserId);
       const duration = performance.now() - startTime;
 
-      // Sanity check - detects accidental N+1 queries or missing indexes
-      // NOT a strict performance test - just regression detection
-      expect(duration).toBeLessThan(500); // 500ms buffer for CI variability
+      expect(duration).toBeLessThan(200); // Catches N+1 queries (300ms+)
     });
   });
 
