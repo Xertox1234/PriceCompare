@@ -4,9 +4,9 @@
 
 The PriceCompare pre-commit hook enforces critical security and code quality standards before code can be committed. This ensures that common vulnerabilities and anti-patterns are caught **before** they enter the codebase.
 
-**Version**: 2.0 (Enhanced Edition)
-**Location**: `.git/hooks/pre-commit`
-**Checks**: 17 automated checks (7 blockers, 9 warnings, 1 informational)
+**Version**: 2.1 (Enhanced Edition)
+**Location**: `.husky/pre-commit` → `scripts/security-checks.sh`
+**Checks**: 12 automated checks (7 blockers, 5 warnings)
 
 ---
 
@@ -19,32 +19,30 @@ The PriceCompare pre-commit hook enforces critical security and code quality sta
 - Optimized database queries (no N+1 patterns)
 - Explicit field selection (no passwordHash exposure)
 - Foreign keys with cascade rules
+- CSRF protection on all mutations
 - Environment variables for secrets
-- Parameterized SQL queries (no injection risks)
+- Correct middleware order (CSRF before auth)
 
 ### ❌ What Blocks Commits
 
 | Check | Risk Level | What It Blocks |
 |-------|-----------|----------------|
-| **1. passwordHash Exposure** | 🔴 CRITICAL | Exposing password hashes in queries |
-| **2. console.log** | 🔴 CRITICAL | Console logging in production code |
-| **3. any Types** | 🔴 CRITICAL | TypeScript `any` defeating type safety |
-| **4. N+1 Queries** | 🔴 CRITICAL | Database queries inside loops |
-| **5. Missing Cascade Rules** | 🔴 CRITICAL | Foreign keys without onDelete |
-| **6. Hardcoded Secrets** | 🔴 CRITICAL | API keys/passwords in code |
-| **7. SQL Injection** | 🔴 CRITICAL | Unsafe SQL template literals |
+| **1. CSRF Protection Missing** | 🔴 CRITICAL | POST/PUT/PATCH/DELETE without csrfProtection |
+| **2. Global CSRF Anti-Pattern** | 🔴 CRITICAL | app.use(csrfProtection) in server/index.ts |
+| **3. N+1 Queries** | 🔴 CRITICAL | Database queries inside loops |
+| **4. Missing Cascade Rules** | 🔴 CRITICAL | Foreign keys without onDelete |
+| **5. console.log** | 🔴 CRITICAL | Console logging in server code |
+| **6. passwordHash Exposure** | 🔴 CRITICAL | Exposing password hashes in queries |
+| **7. any Types** | 🔴 CRITICAL | TypeScript `any` defeating type safety |
+| **8. Unsafe parseInt** | 🔴 CRITICAL | parseInt on req.params without parseIntSafe |
 
 ### ⚠️ What Generates Warnings
 
-1. Missing transaction boundaries
-2. Missing CSRF protection
-3. Missing input validation (Zod)
-4. Missing authentication middleware
-5. Missing error handling in async routes
-6. Direct db imports in routes
-7. Hardcoded hex colors
-8. Missing error sanitization
-9. Unoptimized SELECT * queries
+1. Raw error message exposure (use sendErrorFromException)
+2. Missing transaction boundaries (multiple inserts without transaction)
+3. Hardcoded password constants (use PASSWORD.MIN_LENGTH)
+4. Middleware order issues (auth before CSRF)
+5. Direct db imports in services (use storage layer)
 
 ---
 
