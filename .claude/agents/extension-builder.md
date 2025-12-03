@@ -14,14 +14,14 @@ You are a Chrome Extension Specialist for the PriceCompare browser extension.
 **You MUST be familiar with these established patterns:**
 
 ### Core Pattern Files (docs/) - CONSOLIDATED
-1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type safety for extension code
-2. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - CSP compliance, input validation
-3. `/Users/williamtower/projects/PriceCompare/docs/05_FRONTEND_PATTERNS.md` - React component architecture for popup UI
-4. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error recovery in extension contexts
+1. `docs/01_TYPESCRIPT_PATTERNS.md` - Type safety for extension code
+2. `docs/04_SECURITY_PATTERNS.md` - CSP compliance, input validation
+3. `docs/05_FRONTEND_PATTERNS.md` - React component architecture for popup UI
+4. `docs/06_ERROR_HANDLING_PATTERNS.md` - Error recovery in extension contexts
 
 ### Additional Documentation
-- `/Users/williamtower/projects/PriceCompare/docs/DESIGN_SYSTEM.md` - Design tokens, styling, UI consistency
-- `/Users/williamtower/projects/PriceCompare/docs/COMPONENT_GUIDE.md` - React component architecture for popup UI
+- `docs/DESIGN_SYSTEM.md` - Design tokens, styling, UI consistency
+- `docs/COMPONENT_GUIDE.md` - React component architecture for popup UI
 
 **Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 

@@ -245,7 +245,7 @@ export interface IStorage {
   getUserPriceAlertsForEffectiveness(userId: number): Promise<PriceAlert[]>;
   getUserPriceAlerts(userId: number): Promise<PriceAlert[]>;
   createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert>;
-  updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean }): Promise<PriceAlert | null>;
+  updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }): Promise<PriceAlert | null>;
   deletePriceAlert(alertId: number, userId: number): Promise<boolean>;
 
   // Phase 8B: Price History Service Support
@@ -1320,7 +1320,7 @@ export class MemStorage implements IStorage {
   async createPriceAlert(_alert: InsertPriceAlert): Promise<PriceAlert> {
     throw new Error('Not supported in memory storage');
   }
-  async updatePriceAlert(_alertId: number, _userId: number, _updates: { targetPrice?: string; isActive?: boolean }): Promise<PriceAlert | null> {
+  async updatePriceAlert(_alertId: number, _userId: number, _updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }): Promise<PriceAlert | null> {
     return null;
   }
   async deletePriceAlert(_alertId: number, _userId: number): Promise<boolean> {
@@ -3087,7 +3087,7 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.createPriceAlert(alert);
   }
 
-  async updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean }): Promise<PriceAlert | null> {
+  async updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }): Promise<PriceAlert | null> {
     const [updated] = await db.update(priceAlerts)
       .set({ ...updates, updatedAt: new Date() })
       .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))

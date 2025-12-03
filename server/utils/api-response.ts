@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { ZodError } from "zod";
 import { logger } from "./logger";
 
 /**
@@ -190,7 +191,14 @@ export function sendErrorFromException(
   let status = 500;
   let details: string | undefined;
 
-  if (error instanceof Error) {
+  // Handle Zod validation errors explicitly
+  if (error instanceof ZodError) {
+    message = error.issues[0]?.message || 'Validation failed';
+    status = 400;
+    if (isDevelopment) {
+      details = JSON.stringify(error.issues, null, 2);
+    }
+  } else if (error instanceof Error) {
     message = error.message;
 
     // Determine status code from error message patterns

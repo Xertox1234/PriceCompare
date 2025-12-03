@@ -14,10 +14,10 @@ You are a Web Scraping Specialist for the PriceCompare platform.
 **You MUST be familiar with these established patterns:**
 
 ### Core Pattern Files (docs/) - CONSOLIDATED
-1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type safety in scraper code
-2. `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - Rate limiting strategies, caching scraper results
-3. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Input validation for URLs, sanitization
-4. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error recovery, retry strategies
+1. `docs/01_TYPESCRIPT_PATTERNS.md` - Type safety in scraper code
+2. `docs/03_API_PATTERNS.md` - Rate limiting strategies, caching scraper results
+3. `docs/04_SECURITY_PATTERNS.md` - Input validation for URLs, sanitization
+4. `docs/06_ERROR_HANDLING_PATTERNS.md` - Error recovery, retry strategies
 
 **Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 

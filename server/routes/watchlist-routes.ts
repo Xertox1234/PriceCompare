@@ -40,11 +40,13 @@ function requireAuth(req: Request, res: Response, next: () => void) {
 /**
  * Schema for creating a new watch list
  * VALIDATION: Name required (1-100 chars), description optional (max 500 chars)
+ * Note: .trim() transforms the string BEFORE validation, so empty/whitespace-only strings
+ * become "" and fail the .min(1) check with a 400 validation error
  */
 const createWatchListSchema = z.object({
   name: z.string()
-    .trim()  // Trim FIRST before validation
-    .min(1, "Name is required")
+    .trim()  // Trim FIRST - converts "  " to ""
+    .min(1, "Name is required")  // Then validate non-empty
     .max(100, "Name must be 100 characters or less"),
   description: z.string().max(500, "Description must be 500 characters or less").optional()
 });
@@ -313,9 +315,9 @@ export function registerWatchListRoutes(app: Express): void {
 
       sendSuccess(res, productWatch, 201);
     } catch (error: unknown) {
-      // Check for validation errors (duplicate product)
-      if (error instanceof Error && error.message.includes('already added')) {
-        sendError(res, error.message, 400);
+      // Handle duplicate product error with proper status code
+      if (error instanceof Error && error.message.includes('already')) {
+        sendError(res, error.message, 409); // 409 Conflict for duplicate resource
         return;
       }
       sendErrorFromException(res, error, 'AddProductToWatchList');

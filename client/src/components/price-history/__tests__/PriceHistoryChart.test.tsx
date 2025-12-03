@@ -74,8 +74,7 @@ describe('PriceHistoryChart', () => {
     expect(bestBuyButton).toBeInTheDocument();
   });
 
-  // TODO: Skipped - retailer filtering logic changes visible buttons, not chart data
-  it.skip('should filter data by selected retailer IDs', () => {
+  it('should filter displayed retailer buttons by selected retailer IDs', () => {
     render(
       <PriceHistoryChart
         data={mockPriceHistory}
@@ -84,10 +83,10 @@ describe('PriceHistoryChart', () => {
       />
     );
 
-    // Amazon should be visible
-    expect(screen.getByText('Amazon')).toBeInTheDocument();
-    // Best Buy should not be visible when filtered
-    expect(screen.queryByText('Best Buy')).not.toBeInTheDocument();
+    // Amazon button should be visible
+    expect(screen.getByRole('button', { name: /amazon/i })).toBeInTheDocument();
+    // Best Buy button should not be visible when filtered out
+    expect(screen.queryByRole('button', { name: /best buy/i })).not.toBeInTheDocument();
   });
 
   // Note: Recharts rendering in test environment requires proper dimensions

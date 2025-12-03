@@ -14,14 +14,14 @@ You are a Frontend Specialist for the PriceCompare platform.
 **Pattern Loading Strategy:** Load patterns JIT (just-in-time) based on task type. This preserves your 30K token budget.
 
 ### Critical Patterns (Load These First)
-- **Type Safety**: `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Avoiding `any`, Zod integration
-- **Design System**: `/Users/williamtower/projects/PriceCompare/docs/DESIGN_SYSTEM.md` - Design tokens (MANDATORY for pre-commit hooks)
+- **Type Safety**: `docs/01_TYPESCRIPT_PATTERNS.md` - Avoiding `any`, Zod integration
+- **Design System**: `docs/DESIGN_SYSTEM.md` - Design tokens (MANDATORY for pre-commit hooks)
 
 ### Load Based on Task Type
-- **React components** → `/Users/williamtower/projects/PriceCompare/docs/05_FRONTEND_PATTERNS.md` - React Query, forms, pagination, dialogs
-- **API integration** → `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - API contracts, validation, error responses
-- **Error handling** → `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - React Query errors, validation errors
-- **Component reuse** → `/Users/williamtower/projects/PriceCompare/docs/COMPONENT_GUIDE.md` - Existing component catalog
+- **React components** → `docs/05_FRONTEND_PATTERNS.md` - React Query, forms, pagination, dialogs
+- **API integration** → `docs/03_API_PATTERNS.md` - API contracts, validation, error responses
+- **Error handling** → `docs/06_ERROR_HANDLING_PATTERNS.md` - React Query errors, validation errors
+- **Component reuse** → `docs/COMPONENT_GUIDE.md` - Existing component catalog
 
 **Each pattern has ONE canonical location. Load on-demand to stay within your token budget.**
 
@@ -132,7 +132,7 @@ function PriceHistoryChart({ data }: { data: PricePoint[] }) {
 - **Styles**: Use Tailwind classes, NOT inline styles (except truly dynamic values)
 - **Dark Mode**: Design tokens automatically support dark mode
 
-**Reference:** `/Users/williamtower/projects/PriceCompare/docs/DESIGN_SYSTEM.md` for complete guide
+**Reference:** `docs/DESIGN_SYSTEM.md` for complete guide
 
 ## UI Component Library (Quick Reference)
 

@@ -1573,7 +1573,266 @@ it('should not retry on unique violation (error code 23505)', async () => {
 
 ---
 
-## 8. Migration Patterns
+## 8. Test Isolation Patterns
+
+### 8.1 Test Database Cleanup with TRUNCATE CASCADE (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_001 + TODO_002 test fixes)
+
+**Problem:** Using `db.delete()` for test cleanup causes:
+- Data pollution between tests (sequences not reset)
+- Foreign key constraint violations (wrong cleanup order)
+- Slow cleanup (multiple DELETE queries)
+- Flaky tests (data leaks between test runs)
+
+#### ❌ ANTI-PATTERN - Individual Deletes
+
+```typescript
+beforeEach(async () => {
+  // ❌ WRONG - Slow, doesn't reset sequences, order-dependent
+  await db.delete(priceAlerts);
+  await db.delete(notifications);
+  await db.delete(productOffers);
+  await db.delete(products);
+  await db.delete(retailers);
+  await db.delete(users);
+  // Auto-increment IDs continue from previous test!
+  // Foreign key order matters - easy to get wrong
+});
+```
+
+**Symptoms:**
+- Tests pass individually but fail as suite
+- "Foreign key constraint violation" errors
+- ID values incrementing across tests (ID 1, then 42, then 137)
+- Expected 1 record, found 3 (data from previous tests)
+
+#### ✅ CORRECT - TRUNCATE CASCADE Pattern
+
+```typescript
+import { sql } from 'drizzle-orm';
+
+beforeEach(async () => {
+  // Set test environment
+  process.env.NODE_ENV = 'test';
+  process.env.CSRF_SECRET = 'test-csrf-secret-for-testing';
+
+  // ✅ CORRECT - Fast, reliable, resets sequences
+  // Clean database - TRUNCATE CASCADE for complete cleanup
+  await db.execute(sql`TRUNCATE TABLE price_alerts RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE notifications RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+
+  // Reset mocks if using Vitest
+  vi.clearAllMocks();
+
+  // Continue with test data setup...
+});
+```
+
+**Key Benefits:**
+1. **RESTART IDENTITY** - Resets auto-increment sequences (IDs start at 1)
+2. **CASCADE** - Handles foreign key cascades automatically
+3. **Speed** - Single command per table (10x faster than DELETE)
+4. **Reliability** - No foreign key order issues
+5. **Isolation** - Each test starts with clean slate
+
+#### Cleanup Order Guidelines
+
+**Children before parents** (although CASCADE handles this automatically):
+
+```typescript
+// 1. Child tables (have foreign keys TO other tables)
+await db.execute(sql`TRUNCATE TABLE price_alerts RESTART IDENTITY CASCADE`);
+await db.execute(sql`TRUNCATE TABLE notifications RESTART IDENTITY CASCADE`);
+await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+
+// 2. Parent tables (other tables reference these)
+await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+```
+
+### 8.2 Test Data Type Safety (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_002 fix)
+
+**Problem:** Zod schemas enforce strict type checking - strings don't coerce to numbers.
+
+#### ❌ ANTI-PATTERN - Wrong Data Types
+
+```typescript
+it('should create alert', async () => {
+  const response = await request(app)
+    .post('/api/alerts')
+    .set('Cookie', authCookie)
+    .set('X-CSRF-Token', csrfToken)
+    .send({
+      productId: testProductId,
+      targetPrice: '249.99', // ❌ WRONG - String instead of number
+      notifyForum: false,
+    });
+
+  // Response: 400 validation error
+});
+```
+
+#### ✅ CORRECT - Proper Types
+
+```typescript
+it('should create alert', async () => {
+  const response = await request(app)
+    .post('/api/alerts')
+    .set('Cookie', authCookie)
+    .set('X-CSRF-Token', csrfToken)
+    .send({
+      productId: testProductId,
+      targetPrice: 249.99, // ✅ CORRECT - Number matches schema
+      notifyForum: false,
+    });
+
+  expect(response.status).toBe(201);
+});
+```
+
+**Rule:** Match test data types to Zod schema types exactly.
+
+| Zod Schema | ✅ Test Data | ❌ Wrong Type |
+|------------|--------------|---------------|
+| `z.number().positive()` | `249.99` | `'249.99'` |
+| `z.boolean()` | `false` | `'false'` |
+| `z.number().int()` | `123` | `'123'` |
+| `z.string()` | `'Test'` | `123` |
+
+### 8.3 CSRF Middleware Order in Tests (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_002 fix)
+
+**Problem:** CSRF middleware runs BEFORE auth middleware, affecting error codes in tests.
+
+#### ❌ ANTI-PATTERN - Wrong Error Expectation
+
+```typescript
+it('should require authentication (POST /api/alerts)', async () => {
+  const response = await request(app)
+    .post('/api/alerts')
+    .send({ productId: testProductId, targetPrice: 249.99 });
+
+  // ❌ WRONG - Expects 401 (auth) but gets 403 (CSRF)
+  expect(response.status).toBe(401);
+});
+```
+
+**Why:** Middleware pipeline order is: CSRF → Auth → Route Handler
+
+#### ✅ CORRECT - Expect CSRF Error First
+
+```typescript
+it('should require authentication (POST /api/alerts)', async () => {
+  const response = await request(app)
+    .post('/api/alerts')
+    .send({ productId: testProductId, targetPrice: 249.99 });
+
+  // ✅ CORRECT - CSRF runs before auth, so 403
+  expect(response.status).toBe(403);
+  expect(response.body.error).toContain('CSRF');
+});
+
+it('should require CSRF token', async () => {
+  const response = await request(app)
+    .post('/api/alerts')
+    .set('Cookie', authCookie) // Authenticated but no CSRF token
+    .send({ productId: testProductId, targetPrice: 249.99 });
+
+  expect(response.status).toBe(403);
+  expect(response.body.error).toContain('CSRF');
+});
+```
+
+**Error Code Order:**
+1. **403** - CSRF token missing (CSRF middleware fails)
+2. **401** - Not authenticated (auth middleware fails)
+3. **400** - Validation error (route validation fails)
+4. **200/201** - Success
+
+### 8.4 CSRF Mock Standardization (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_002 fix)
+
+**Problem:** Even mocked middleware must use standardized response helpers.
+
+#### ❌ ANTI-PATTERN - Manual JSON Responses
+
+```typescript
+vi.mock('../middleware/security', () => ({
+  csrfProtection: (req: Request, res: Response, next: NextFunction) => {
+    if (!req.headers['x-csrf-token']) {
+      // ❌ WRONG - Manual JSON response
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+    next();
+  },
+}));
+```
+
+#### ✅ CORRECT - Use sendError() Helper
+
+```typescript
+import { sendError } from '../utils/api-response';
+
+vi.mock('../middleware/security', () => ({
+  csrfProtection: (req: Request, res: Response, next: NextFunction) => {
+    if (!req.headers['x-csrf-token']) {
+      // ✅ CORRECT - Use standardized helper
+      sendError(res, 'CSRF token missing or invalid', 403);
+      return;
+    }
+    next();
+  },
+}));
+```
+
+**Why:** Ensures consistent error response format across all endpoints and tests.
+
+### 8.5 Test Cleanup Verification Pattern
+
+**Optional but recommended** - Verify cleanup worked:
+
+```typescript
+afterEach(async () => {
+  // Verify cleanup worked
+  const alertCount = await db.select({ count: sql<number>`count(*)` })
+    .from(priceAlerts);
+
+  const notificationCount = await db.select({ count: sql<number>`count(*)` })
+    .from(notifications);
+
+  const countNum = typeof alertCount[0]?.count === 'number'
+    ? alertCount[0].count
+    : Number(alertCount[0]?.count || 0);
+
+  const notifCountNum = typeof notificationCount[0]?.count === 'number'
+    ? notificationCount[0].count
+    : Number(notificationCount[0]?.count || 0);
+
+  if (countNum > 0) {
+    console.error(`❌ ${countNum} alerts remain after test`);
+  }
+
+  if (notifCountNum > 0) {
+    console.error(`❌ ${notifCountNum} notifications remain`);
+  }
+});
+```
+
+---
+
+## 9. Migration Patterns
 
 ### 8.1 Facade Pattern for Incremental Migration
 

@@ -6,29 +6,35 @@ This directory contains comprehensive pattern documentation organized by domain.
 
 Essential patterns that apply across the entire codebase:
 
-- **[DATABASE_PATTERNS.md](DATABASE_PATTERNS.md)** - v1.0 - Query optimization, transactions, field selection, N+1 prevention
-- **[SECURITY_PATTERNS.md](SECURITY_PATTERNS.md)** - v1.0 - Authentication, CSRF, input validation, error sanitization
-- **[TYPESCRIPT_PATTERNS.md](TYPESCRIPT_PATTERNS.md)** - v1.0 - Type safety, Zod integration, avoiding `any`, error handling
+- **[01_TYPESCRIPT_PATTERNS.md](01_TYPESCRIPT_PATTERNS.md)** - v1.0 - Type safety, Zod integration, avoiding `any`, error handling
+- **[02_DATABASE_PATTERNS.md](02_DATABASE_PATTERNS.md)** - v1.0 - Query optimization, transactions, field selection, N+1 prevention
+- **[03_API_PATTERNS.md](03_API_PATTERNS.md)** - v1.0 - Route organization, middleware pipeline, validation, caching
+- **[04_SECURITY_PATTERNS.md](04_SECURITY_PATTERNS.md)** - v1.0 - Authentication, CSRF, input validation, error sanitization
+- **[08_TESTING_PATTERNS.md](08_TESTING_PATTERNS.md)** - v1.0 - Test infrastructure, date handling, mocking, avoiding skipped tests
 
 ## Domain-Specific Patterns
 
 ### Backend Patterns
 
-- **[API_PATTERNS.md](API_PATTERNS.md)** - v1.0 - Route organization, middleware pipeline, validation, caching
-- **[SERVICE_INTEGRATION_PATTERNS.md](SERVICE_INTEGRATION_PATTERNS.md)** - v1.0 - Guard patterns, cache-before-limit, service composition *(Coming soon)*
-- **[BACKGROUND_JOBS_PATTERNS.md](BACKGROUND_JOBS_PATTERNS.md)** - v1.0 - Scheduled tasks, Bull queues, distributed locking
+- **[03_API_PATTERNS.md](03_API_PATTERNS.md)** - v1.0 - Route organization, middleware pipeline, validation, caching
+- **[07_BACKGROUND_JOBS_PATTERNS.md](07_BACKGROUND_JOBS_PATTERNS.md)** - v1.0 - Scheduled tasks, Bull queues, distributed locking
 - **[AUTHENTICATION_PATTERNS.md](AUTHENTICATION_PATTERNS.md)** - v1.0 - Auth flow specifics, session management, password reset
 - **[PATTERNS.md](PATTERNS.md)** - v1.0 - General backend patterns overview, job locking, aggregations
+- **[SERVICE_INTEGRATION_PATTERNS.md](SERVICE_INTEGRATION_PATTERNS.md)** - v1.0 - Guard patterns, cache-before-limit, service composition *(Coming soon)*
 
 ### Frontend Patterns
 
-- **[FRONTEND_PATTERNS.md](FRONTEND_PATTERNS.md)** - v1.0 - React components, hooks, state management, React Query
+- **[05_FRONTEND_PATTERNS.md](05_FRONTEND_PATTERNS.md)** - v2.0 - React components, hooks, state management, React Query
+
+### Testing Patterns
+
+- **[08_TESTING_PATTERNS.md](08_TESTING_PATTERNS.md)** - v1.0 - Test infrastructure, mocking, timezone-safe dates, avoiding skipped tests
 
 ### Cross-Cutting Patterns
 
 Patterns that span multiple domains:
 
-- **[ERROR_HANDLING_PATTERNS.md](ERROR_HANDLING_PATTERNS.md)** - v1.0 - Error responses, validation errors, recovery strategies
+- **[06_ERROR_HANDLING_PATTERNS.md](06_ERROR_HANDLING_PATTERNS.md)** - v1.0 - Error responses, validation errors, recovery strategies
 - **[VALIDATION_PATTERNS.md](VALIDATION_PATTERNS.md)** - v1.0 - Input validation, Zod schemas, sanitization *(To be moved from storage-layer/)*
 
 ## Cross-Functional Guides
@@ -55,28 +61,36 @@ Find patterns by common concerns:
 | **Rate Limiting** | API_PATTERNS | BACKGROUND_JOBS_PATTERNS |
 | **Caching Strategy** | API_PATTERNS (Single Cache Abstraction) | advanced-caching.md, DOMAIN_CACHING_STRATEGIES.md |
 | **Authentication** | AUTHENTICATION_PATTERNS | SECURITY_PATTERNS, API_PATTERNS |
+| **Testing** | TESTING_PATTERNS | FRONTEND_PATTERNS, SECURITY_PATTERNS |
+| **Date/Time in Tests** | TESTING_PATTERNS | FRONTEND_PATTERNS |
+| **Mocking Redis** | TESTING_PATTERNS | API_PATTERNS |
 
 ## Pattern Relationships
 
 Understanding how patterns connect:
 
 ```
-SECURITY_PATTERNS.md
-├── DATABASE_PATTERNS.md (password hash exposure, field selection)
-├── API_PATTERNS.md (CSRF middleware, input validation)
-└── ERROR_HANDLING_PATTERNS.md (error sanitization)
+04_SECURITY_PATTERNS.md
+├── 02_DATABASE_PATTERNS.md (password hash exposure, field selection)
+├── 03_API_PATTERNS.md (CSRF middleware, input validation)
+└── 06_ERROR_HANDLING_PATTERNS.md (error sanitization)
 
-DATABASE_PATTERNS.md
-├── SECURITY_PATTERNS.md (preventing data exposure)
-├── API_PATTERNS.md (route query optimization)
+02_DATABASE_PATTERNS.md
+├── 04_SECURITY_PATTERNS.md (preventing data exposure)
+├── 03_API_PATTERNS.md (route query optimization)
 └── SERVICE_INTEGRATION_PATTERNS.md (storage layer)
 
-API_PATTERNS.md
-├── SECURITY_PATTERNS.md (CSRF, auth)
-├── ERROR_HANDLING_PATTERNS.md (route error responses)
-└── DATABASE_PATTERNS.md (preventing N+1 in routes)
+03_API_PATTERNS.md
+├── 04_SECURITY_PATTERNS.md (CSRF, auth)
+├── 06_ERROR_HANDLING_PATTERNS.md (route error responses)
+└── 02_DATABASE_PATTERNS.md (preventing N+1 in routes)
 
-TYPESCRIPT_PATTERNS.md
+08_TESTING_PATTERNS.md
+├── 05_FRONTEND_PATTERNS.md (component testing)
+├── 03_API_PATTERNS.md (route testing, mocking)
+└── 04_SECURITY_PATTERNS.md (security testing)
+
+01_TYPESCRIPT_PATTERNS.md
 └── All patterns (type safety is cross-cutting)
 ```
 
@@ -189,5 +203,5 @@ Version numbers help track pattern evolution and enable gradual migration when p
 
 ---
 
-**Last Updated**: 2025-11-26
+**Last Updated**: 2025-12-02
 **Maintained By**: PriceCompare Development Team + Claude Code

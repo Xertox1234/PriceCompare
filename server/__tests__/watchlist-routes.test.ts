@@ -27,6 +27,23 @@ import {
  * - GET /api/watchlists/stats - Get dashboard statistics
  */
 
+// Mock Redis client to avoid requiring Redis in test environment
+vi.mock('../config/redis', () => ({
+  redisClient: {
+    get: vi.fn(),
+    setex: vi.fn(),
+    del: vi.fn(),
+    keys: vi.fn(),
+    scan: vi.fn(),
+    publish: vi.fn(),
+    duplicate: vi.fn(() => ({
+      subscribe: vi.fn(),
+      on: vi.fn(),
+      quit: vi.fn(),
+    })),
+  },
+}));
+
 // Mock logger
 vi.mock('../utils/logger', () => ({
   logger: {
@@ -110,12 +127,18 @@ describe('Watchlist Routes - Integration Tests', () => {
     // Register watchlist routes
     registerWatchListRoutes(app);
 
-    // Clean database
-    await db.delete(productWatches);
-    await db.delete(watchLists);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
+    /**
+     * Database Cleanup Strategy:
+     * - Use TRUNCATE CASCADE for fast, reliable cleanup
+     * - RESTART IDENTITY resets auto-increment sequences to 1
+     * - CASCADE automatically handles foreign key relationships
+     * - Order: children → parents (respects foreign keys)
+     */
+    await db.execute(sql`TRUNCATE TABLE product_watches RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE watch_lists RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create test user via registration endpoint (same as alert-routes pattern)
@@ -125,7 +148,7 @@ describe('Watchlist Routes - Integration Tests', () => {
       .send({
         email: 'testuser@example.com',
         username: 'testuser',
-        password: 'SecurePass123',
+        password: 'SecurePass123!', // Must have special character for password validation
       });
 
     // Extract user from standardized response envelope
@@ -175,12 +198,15 @@ describe('Watchlist Routes - Integration Tests', () => {
   });
 
   afterEach(async () => {
-    // Clean up
-    await db.delete(productWatches);
-    await db.delete(watchLists);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
+    /**
+     * Cleanup after each test - ensure no data leaks between tests
+     * Same TRUNCATE CASCADE strategy as beforeEach
+     */
+    await db.execute(sql`TRUNCATE TABLE product_watches RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE watch_lists RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
   });
 
@@ -269,11 +295,9 @@ describe('Watchlist Routes - Integration Tests', () => {
         .set('X-CSRF-Token', csrfToken)
         .send({ name: '' });
 
-      // BUG DISCOVERED: Empty string passes Zod validation but fails at database level (500)
-      // The schema has .min(1) but it's not working as expected
-      // This needs to be fixed in the schema to use .min(1).nonempty() or similar
-      // For now, accept the 500 error until the schema is fixed
-      expectErrorResponse(response, 500);
+      // FIXED: Zod schema now uses .trim().min(1) to catch empty strings at validation layer
+      // Returns 400 (Bad Request) instead of 500 (Server Error)
+      expectErrorResponse(response, 400);
     });
 
     it('should validate name length (max 100 chars)', async () => {
@@ -562,10 +586,9 @@ describe('Watchlist Routes - Integration Tests', () => {
         .set('X-CSRF-Token', csrfToken)
         .send({ productId: testProductId });
 
-      // BUG DISCOVERED: Database constraint violation returns 500 instead of 400
-      // The storage layer should catch unique constraint violations and return a proper error
-      // For now, accept the 500 error until the storage layer is fixed
-      expectErrorResponse(response, 500);
+      // FIXED: Storage layer catches unique constraint violation (PostgreSQL error code 23505)
+      // Returns 409 (Conflict) instead of 500 (Server Error)
+      expectErrorResponse(response, 409);
     });
   });
 

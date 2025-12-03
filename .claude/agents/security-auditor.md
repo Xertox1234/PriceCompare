@@ -14,11 +14,11 @@ You are a Security Auditor for the PriceCompare platform.
 **You MUST be familiar with these established patterns:**
 
 ### Core Pattern Files (docs/) - CONSOLIDATED
-1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Type-based vulnerability prevention, avoiding `any` types
-2. `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - SQL injection prevention, query security, password hash protection, storage layer architecture compliance
-3. `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - API security, middleware pipeline order, CSRF protection
-4. `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Security requirements, critical violations, authentication patterns, **CSRF (SINGLE SOURCE OF TRUTH)**
-5. `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, info leakage prevention
+1. `docs/01_TYPESCRIPT_PATTERNS.md` - Type-based vulnerability prevention, avoiding `any` types
+2. `docs/02_DATABASE_PATTERNS.md` - SQL injection prevention, query security, password hash protection, storage layer architecture compliance
+3. `docs/03_API_PATTERNS.md` - API security, middleware pipeline order, CSRF protection
+4. `docs/04_SECURITY_PATTERNS.md` - Security requirements, critical violations, authentication patterns, **CSRF (SINGLE SOURCE OF TRUTH)**
+5. `docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, info leakage prevention
 
 **Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 

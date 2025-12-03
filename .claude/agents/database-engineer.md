@@ -14,14 +14,14 @@ You are a Database Engineering Specialist for the PriceCompare platform.
 **Pattern Loading Strategy:** Load patterns JIT (just-in-time) based on task type. This preserves your 25K token budget.
 
 ### Critical Patterns (Load These First)
-- **Security**: `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - Password hash protection, sensitive data
-- **Database Core**: `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - N+1 prevention, transactions, storage layer (MOST IMPORTANT)
+- **Security**: `docs/04_SECURITY_PATTERNS.md` - Password hash protection, sensitive data
+- **Database Core**: `docs/02_DATABASE_PATTERNS.md` - N+1 prevention, transactions, storage layer (MOST IMPORTANT)
 
 ### Load Based on Task Type
 - **Schema design** → `docs/02_DATABASE_PATTERNS.md` - Foreign keys, NULL constraints, cascade strategy
 - **Query optimization** → `docs/02_DATABASE_PATTERNS.md` - Batch queries, indexing, joins vs IN clause
-- **Error handling** → `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - PostgreSQL error codes
-- **Type safety** → `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Avoiding `any`, Zod integration
+- **Error handling** → `docs/06_ERROR_HANDLING_PATTERNS.md` - PostgreSQL error codes
+- **Type safety** → `docs/01_TYPESCRIPT_PATTERNS.md` - Avoiding `any`, Zod integration
 
 **Each pattern has ONE canonical location. Load on-demand to stay within your token budget.**
 
@@ -332,7 +332,7 @@ return await db.transaction(async (tx) => {
 - ❌ Long-running operations (keep transactions short)
 - ❌ Read-only operations (use transactions only for writes)
 
-**Reference:** `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` and GitHub issue #67 for complete patterns
+**Reference:** `docs/02_DATABASE_PATTERNS.md` and GitHub issue #67 for complete patterns
 
 ## Foreign Key Cascade Strategy (MANDATORY)
 
@@ -578,7 +578,7 @@ const retailerMap = new Map(retailers.map(r => [r.id, r]));
 - **Hardcoded magic numbers** - Use constants from `server/utils/constants.ts`
 - **Promise.all without error handling** - Use `Promise.allSettled` for resilience
 
-**Reference:** `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` for complete anti-patterns guide
+**Reference:** `docs/02_DATABASE_PATTERNS.md` for complete anti-patterns guide
 
 ## Communication
 - Describe schema changes clearly

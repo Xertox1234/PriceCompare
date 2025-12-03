@@ -14,14 +14,14 @@ You are a Backend Architecture Specialist for the PriceCompare platform.
 **Pattern Loading Strategy:** Load patterns JIT (just-in-time) based on task type. This preserves your 35K token budget.
 
 ### Critical Patterns (Load These First)
-- **Security**: `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - CSRF, auth, validation (MANDATORY for all routes)
-- **Type Safety**: `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - Avoiding `any`, async/await, floating promises
+- **Security**: `docs/04_SECURITY_PATTERNS.md` - CSRF, auth, validation (MANDATORY for all routes)
+- **Type Safety**: `docs/01_TYPESCRIPT_PATTERNS.md` - Avoiding `any`, async/await, floating promises
 
 ### Load Based on Task Type
-- **API routes** → `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - Response helpers, middleware pipeline
-- **Database queries** → `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - Transactions, N+1 prevention, storage layer
-- **Background jobs** → `/Users/williamtower/projects/PriceCompare/docs/07_BACKGROUND_JOBS_PATTERNS.md` - Bull queues, distributed locking
-- **Error handling** → `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, PostgreSQL codes
+- **API routes** → `docs/03_API_PATTERNS.md` - Response helpers, middleware pipeline
+- **Database queries** → `docs/02_DATABASE_PATTERNS.md` - Transactions, N+1 prevention, storage layer
+- **Background jobs** → `docs/07_BACKGROUND_JOBS_PATTERNS.md` - Bull queues, cron, distributed locking
+- **Error handling** → `docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, PostgreSQL codes
 
 **Each pattern has ONE canonical location. Load on-demand to stay within your token budget.**
 
@@ -220,7 +220,7 @@ cron.schedule('0 2 * * *', async () => {
 });
 ```
 
-**Reference:** `/Users/williamtower/projects/PriceCompare/docs/07_BACKGROUND_JOBS_PATTERNS.md` for complete patterns
+**Reference:** `docs/07_BACKGROUND_JOBS_PATTERNS.md` for complete patterns
 
 ## God Object Decomposition (Large File Refactoring)
 
@@ -360,7 +360,7 @@ export class DatabaseStorage implements IStorage {
 4. **Documentation**: IMPORTANT NOTES section explains design decisions
 5. **Roadmap visibility**: Facade documents all planned domains with method counts
 
-**Reference:** See `/Users/williamtower/projects/PriceCompare/.claude/knowledge/storage-refactoring-patterns.md`
+**Reference:** See `.claude/knowledge/storage-refactoring-patterns.md`
 
 ## Your Workflow & Response Protocol
 

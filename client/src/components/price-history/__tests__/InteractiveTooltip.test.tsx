@@ -2,8 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@/test/test-utils';
 import { InteractiveTooltip } from '../InteractiveTooltip';
 
-// TODO: Skip entire suite - these tests have rendering issues with date formatting in test environment
-describe.skip('InteractiveTooltip', () => {
+describe('InteractiveTooltip', () => {
   const mockRetailers = [
     { id: 1, name: 'Amazon', logo: '/amazon.png' },
     { id: 2, name: 'Walmart', logo: '/walmart.png' },
@@ -44,18 +43,19 @@ describe.skip('InteractiveTooltip', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  // TODO: Skipped due to date formatting differences in test environment
-  it.skip('should render with basic data', () => {
+  it('should render with basic data', () => {
+    // Use ISO timestamp with explicit time to avoid timezone issues
     render(
       <InteractiveTooltip
         active={true}
         payload={mockPayload}
-        label="2024-01-01"
+        label="2025-01-15T12:00:00.000Z"
         retailers={mockRetailers}
       />
     );
 
-    expect(screen.getByText(/Jan 1, 2024/i)).toBeInTheDocument();
+    // Use flexible date pattern to handle timezone differences
+    expect(screen.getByText(/Jan 1[45], 2025/i)).toBeInTheDocument();
     expect(screen.getByText('Amazon')).toBeInTheDocument();
     expect(screen.getByText('Walmart')).toBeInTheDocument();
     expect(screen.getByText('$99.99')).toBeInTheDocument();

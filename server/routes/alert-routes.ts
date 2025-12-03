@@ -5,6 +5,7 @@ import { withAuth } from "./helpers";
 import { parseIntSafe } from "../utils/validation-helpers";
 import { csrfProtection } from "../middleware/security";
 import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { logger } from "../utils/logger";
 
 /**
  * Schema for creating a new price alert
@@ -17,6 +18,7 @@ const createPriceAlertSchema = z.object({
   targetPrice: z.number()
     .positive('Target price must be positive')
     .multipleOf(0.01, 'Price must have maximum 2 decimal places'),
+  notifyForum: z.boolean().optional().default(false),
 });
 
 /**
@@ -29,6 +31,7 @@ const updatePriceAlertSchema = z.object({
     .multipleOf(0.01, 'Price must have maximum 2 decimal places')
     .optional(),
   isActive: z.boolean().optional(),
+  notifyForum: z.boolean().optional(),
 }).refine(data => Object.keys(data).length > 0, {
   message: 'At least one field must be provided for update',
 });
@@ -57,6 +60,7 @@ export function registerAlertRoutes(app: Express): void {
         userId: user.id,
         productId: validatedData.productId,
         targetPrice: validatedData.targetPrice.toFixed(2), // Convert to string for decimal field
+        notifyForum: validatedData.notifyForum,
       });
 
       sendSuccess(res, alert, 201);
@@ -115,7 +119,16 @@ export function registerAlertRoutes(app: Express): void {
         return;
       }
 
-      sendSuccess(res, {});
+      // Audit log for compliance and debugging
+      logger.info('Price alert deleted', {
+        alertId,
+        userId: user.id,
+        action: 'price-alert-deleted',
+        timestamp: new Date().toISOString(),
+      });
+
+      // Return meaningful success response instead of empty object
+      sendSuccess(res, { deleted: true });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'DeletePriceAlert');
     }

@@ -1613,10 +1613,22 @@ export class PriceStorage extends BaseStorage {
         throw new Error(`Invalid userId: ${userId}`);
       }
 
-      return await this.db
-        .select()
+      // Use LEFT JOIN to include product details with each alert
+      // Separate query approach to avoid Drizzle nested object issues
+      const alertsWithProducts = await this.db
+        .select({
+          alert: priceAlerts,
+          product: products,
+        })
         .from(priceAlerts)
+        .leftJoin(products, eq(priceAlerts.productId, products.id))
         .where(eq(priceAlerts.userId, userId));
+
+      // Map results to include product details in alert objects
+      return alertsWithProducts.map(({ alert, product }) => ({
+        ...alert,
+        product: product || undefined, // Include product if exists, undefined if deleted
+      })) as PriceAlert[];
     } catch (error) {
       this.handleError(error, 'getUserPriceAlerts');
     }

@@ -680,6 +680,553 @@ grep -rn "sendSuccess(res, {" server/routes/*.ts | grep -E "(success|data):"
 
 ---
 
+### Schema-Route-Storage Alignment Pattern (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_002_ALERT_ROUTES fix)
+
+When adding or modifying fields in routes, you must update **THREE layers** in strict alignment to prevent validation errors or incomplete updates:
+
+1. **Database Schema** (`shared/schema.ts`)
+2. **Route Validation Schema** (route file)
+3. **Storage Layer Interface** (`server/storage.ts`)
+
+**Missing any layer causes 400 validation errors or silent update failures.**
+
+#### ❌ ANTI-PATTERN - Missing Validation Schema Field
+
+```typescript
+// Database schema ALREADY has the field
+// shared/schema.ts
+export const priceAlerts = pgTable('price_alerts', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull(),
+  targetPrice: numeric('target_price').notNull(),
+  notifyForum: boolean('notify_forum').default(false), // Field exists in DB
+});
+
+// ❌ WRONG - Route validation MISSING the field
+// server/routes/alert-routes.ts
+const insertPriceAlertSchema = z.object({
+  productId: z.number().int().positive(),
+  targetPrice: z.number().positive(),
+  // notifyForum missing! - Causes 400 validation error when client sends it
+});
+
+// ❌ WRONG - Storage layer can't update it
+// server/storage.ts
+async updatePriceAlert(
+  alertId: number,
+  userId: number,
+  targetPrice?: number
+  // notifyForum parameter missing! - Can't update the field
+): Promise<PriceAlert | null>
+```
+
+**Symptoms:**
+- Client sends `{ productId: 123, targetPrice: 99.99, notifyForum: false }`
+- Route validation rejects with 400: "Unknown field: notifyForum"
+- OR: Route accepts but storage layer can't update the field
+
+#### ✅ CORRECT - All Three Layers Aligned
+
+```typescript
+// 1. Database Schema (shared/schema.ts)
+export const priceAlerts = pgTable('price_alerts', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull(),
+  targetPrice: numeric('target_price').notNull(),
+  notifyForum: boolean('notify_forum').default(false),
+});
+
+// 2. Route Validation Schema (server/routes/alert-routes.ts)
+const insertPriceAlertSchema = z.object({
+  productId: z.number().int().positive(),
+  targetPrice: z.number().positive(),
+  notifyForum: z.boolean().optional().default(false), // ✅ Added
+});
+
+const updatePriceAlertSchema = z.object({
+  targetPrice: z.number().positive().optional(),
+  notifyForum: z.boolean().optional(), // ✅ Added
+});
+
+// 3. Storage Layer Interface (server/storage.ts)
+async updatePriceAlert(
+  alertId: number,
+  userId: number,
+  targetPrice?: number,
+  notifyForum?: boolean // ✅ Added parameter
+): Promise<PriceAlert | null> {
+  const updates: Record<string, number | boolean> = {};
+  if (targetPrice !== undefined) updates.targetPrice = targetPrice;
+  if (notifyForum !== undefined) updates.notifyForum = notifyForum; // ✅ Include in updates
+
+  const [updated] = await db
+    .update(priceAlerts)
+    .set(updates)
+    .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
+    .returning();
+
+  return updated || null;
+}
+```
+
+#### Three-Layer Checklist
+
+When adding/modifying route fields:
+
+- [ ] **Layer 1: Database Schema** - Field defined in `shared/schema.ts` table
+- [ ] **Layer 2: Route Validation** - Field in Zod schema (create + update schemas)
+- [ ] **Layer 3: Storage Interface** - Parameter in storage method + included in updates
+
+**Detection Pattern:**
+```bash
+# Find schema fields
+grep -A 10 "pgTable('price_alerts'" shared/schema.ts
+
+# Check route validation
+grep -A 15 "PriceAlertSchema" server/routes/alert-routes.ts
+
+# Check storage interface
+grep -A 10 "updatePriceAlert" server/storage.ts
+```
+
+**Pre-Commit Hook Enhancement:**
+
+Consider adding automated check:
+```bash
+# Check if all schema fields have corresponding Zod validation
+# Check if all route parameters have storage layer support
+```
+
+**Related Learnings:**
+- `docs/LEARNINGS_TODO_002_ALERT_ROUTES_FIX.md` - Complete fix documentation
+- Pre-commit hooks catch missing fields in routes
+- TypeScript catches missing fields in storage calls
+
+---
+
+### DELETE Response Pattern: Meaningful Acknowledgment (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_002 optional improvements)
+
+DELETE endpoints should return meaningful confirmation data, not empty objects. This improves API clarity and provides explicit confirmation to clients.
+
+#### ❌ ANTI-PATTERN - Empty Response
+
+```typescript
+// ❌ WRONG - No feedback that operation succeeded
+app.delete("/api/price-alerts/:id", csrfProtection, withAuth(async (req, res) => {
+  const deleted = await storage.deletePriceAlert(alertId, user.id);
+  if (!deleted) {
+    sendError(res, 'Alert not found or unauthorized', 404);
+    return;
+  }
+
+  sendSuccess(res, {}); // Empty object provides no value
+}));
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+**Problem**: Client only knows operation succeeded from HTTP 200 status. No explicit confirmation in response body.
+
+#### ✅ CORRECT - Meaningful Acknowledgment
+
+```typescript
+// ✅ CORRECT - Explicit confirmation of deletion
+app.delete("/api/price-alerts/:id", csrfProtection, withAuth(async (req, res) => {
+  const deleted = await storage.deletePriceAlert(alertId, user.id);
+  if (!deleted) {
+    sendError(res, 'Alert not found or unauthorized', 404);
+    return;
+  }
+
+  sendSuccess(res, { deleted: true });
+}));
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": true
+  }
+}
+```
+
+**Benefits:**
+- Explicit confirmation in response body
+- Type-safe response structure
+- Better API clarity for clients
+- Aligns with REST best practices
+
+#### Alternative Patterns
+
+```typescript
+// Pattern 1: Return deleted entity ID
+sendSuccess(res, { deleted: true, deletedId: alertId });
+
+// Pattern 2: Return count of deleted entities (batch operations)
+sendSuccess(res, { deleted: true, count: deletedCount });
+
+// Pattern 3: Return deleted entity (if needed by client)
+sendSuccess(res, { deleted: true, entity: deletedAlert });
+```
+
+**Test Pattern:**
+
+```typescript
+it('should delete entity and return confirmation', async () => {
+  const response = await request(app)
+    .delete(`/api/entities/${entityId}`)
+    .set('Cookie', authCookie)
+    .set('X-CSRF-Token', csrfToken);
+
+  const result = expectSuccessResponse<{ deleted: boolean }>(response, 200);
+  expect(result.deleted).toBe(true);
+
+  // Verify database deletion
+  const entity = await storage.getEntityById(entityId);
+  expect(entity).toBeNull();
+});
+```
+
+**When to Use:**
+- All DELETE operations (except 204 No Content responses)
+- Batch delete operations (return count)
+- Soft delete operations (return updated entity)
+
+---
+
+### Audit Logging Pattern for Sensitive Operations (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_002 optional improvements)
+
+**Rule:** All irreversible or sensitive operations MUST have structured audit logging for compliance, debugging, and security monitoring.
+
+#### When Audit Logging is MANDATORY
+
+Add audit logging when operation:
+1. **Irreversible** - DELETE, permanent updates, account closures
+2. **Price/money-sensitive** - Price changes, payment operations, refunds
+3. **User data integrity** - Account changes, permission updates, data exports
+4. **Compliance required** - GDPR data access, financial operations
+
+#### ✅ CORRECT Pattern
+
+```typescript
+import { logger } from "../utils/logger";
+
+app.delete("/api/price-alerts/:id", csrfProtection, withAuth(async (req, res) => {
+  const user = req.user;
+  const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
+
+  const deleted = await storage.deletePriceAlert(alertId, user.id);
+  if (!deleted) {
+    sendError(res, 'Alert not found or unauthorized', 404);
+    return;
+  }
+
+  // ✅ AUDIT LOG - Structured logging for sensitive operations
+  logger.info('Price alert deleted', {
+    alertId,
+    userId: user.id,
+    action: 'price-alert-deleted',
+    timestamp: new Date().toISOString(),
+  });
+
+  sendSuccess(res, { deleted: true });
+}));
+```
+
+#### Log Structure Requirements
+
+**Mandatory fields:**
+- `action` - Standardized action type (use kebab-case)
+- `userId` - Who performed the operation
+- `entityId` - What was affected (alertId, productId, etc.)
+- `timestamp` - When it occurred (ISO 8601 format)
+
+**Optional fields:**
+- `ipAddress` - For security monitoring
+- `userAgent` - For device tracking
+- `reason` - For operations requiring justification
+- `previousValue` - For audit trail of changes
+
+#### Example Audit Log Output
+
+```json
+{
+  "level": "info",
+  "message": "Price alert deleted",
+  "alertId": 42,
+  "userId": 123,
+  "action": "price-alert-deleted",
+  "timestamp": "2025-12-02T18:30:00.000Z"
+}
+```
+
+#### Audit Logging Checklist
+
+For each route, ask:
+- [ ] Is operation irreversible? (DELETE, permanent updates)
+- [ ] Does it affect money/pricing?
+- [ ] Does it modify user data integrity?
+- [ ] Could it be needed for compliance audit?
+- [ ] Would security team want to monitor this?
+
+**If YES to any** → Add structured audit logging
+
+#### Common Operations Requiring Audit Logs
+
+**Always Log:**
+- DELETE operations (all types)
+- Price/discount changes
+- User account changes (role, permissions, suspension)
+- Payment operations (charges, refunds)
+- Data exports/downloads
+- Authentication failures (rate limiting, suspicious activity)
+
+**Consider Logging:**
+- CREATE operations for critical entities
+- Bulk operations (batch imports, mass updates)
+- Admin-only operations
+- Operations with compliance requirements
+
+**Don't Log:**
+- Read-only GET operations (unless compliance required)
+- Health checks, metrics endpoints
+- Internal system operations
+
+#### Pattern for Multiple Audit Points
+
+```typescript
+app.patch("/api/users/:id/role", csrfProtection, withAdmin(async (req, res) => {
+  const targetUserId = parseIntSafe(req.params.id, 'userId', { min: 1 });
+  const { role } = req.body;
+  const adminUser = req.user;
+
+  const previousRole = await storage.getUserRole(targetUserId);
+
+  const updated = await storage.updateUserRole(targetUserId, role);
+  if (!updated) {
+    sendError(res, 'User not found', 404);
+    return;
+  }
+
+  // ✅ AUDIT - Role changes are security-sensitive
+  logger.warn('User role changed', {
+    targetUserId,
+    adminUserId: adminUser.id,
+    adminUsername: adminUser.username,
+    previousRole,
+    newRole: role,
+    action: 'user-role-changed',
+    timestamp: new Date().toISOString(),
+  });
+
+  sendSuccess(res, updated);
+}));
+```
+
+**Benefits:**
+1. **Compliance** - Audit trail for regulatory requirements
+2. **Security** - Detect suspicious deletion patterns
+3. **Debugging** - Understand user behavior and system issues
+4. **Analytics** - Track why users delete entities
+5. **Recovery** - Aid in data recovery investigations
+
+---
+
+### LEFT JOIN Pattern for Related Data (CRITICAL)
+
+**Issue Codified**: 2025-12-02 (TODO_002 optional improvements)
+
+**Rule:** When clients always need related data, use JOIN in the storage layer to prevent N+1 queries and reduce API calls.
+
+#### ❌ ANTI-PATTERN - Separate Queries (N+1)
+
+```typescript
+// ❌ WRONG - N+1 query pattern
+async getUserPriceAlerts(userId: number): Promise<PriceAlert[]> {
+  const alerts = await this.db
+    .select()
+    .from(priceAlerts)
+    .where(eq(priceAlerts.userId, userId));
+
+  // N queries - one for each alert!
+  for (const alert of alerts) {
+    alert.product = await this.db
+      .select()
+      .from(products)
+      .where(eq(products.id, alert.productId));
+  }
+
+  return alerts;
+}
+```
+
+**Problems:**
+- N database roundtrips (1 + N queries)
+- Slow performance with many records
+- Violates pre-commit hook N+1 check
+
+#### ✅ CORRECT - Single JOIN Query
+
+```typescript
+// ✅ CORRECT - Single query with LEFT JOIN
+async getUserPriceAlerts(userId: number): Promise<PriceAlert[]> {
+  try {
+    if (!userId || userId < 1) {
+      throw new Error(`Invalid userId: ${userId}`);
+    }
+
+    // Use LEFT JOIN to include product details with each alert
+    const alertsWithProducts = await this.db
+      .select({
+        alert: priceAlerts,
+        product: products,
+      })
+      .from(priceAlerts)
+      .leftJoin(products, eq(priceAlerts.productId, products.id))
+      .where(eq(priceAlerts.userId, userId));
+
+    // Map results to include product details in alert objects
+    return alertsWithProducts.map(({ alert, product }) => ({
+      ...alert,
+      product: product || undefined, // Graceful null handling
+    })) as PriceAlert[];
+  } catch (error) {
+    this.handleError(error, 'getUserPriceAlerts');
+  }
+}
+```
+
+**Benefits:**
+1. **Single query** - No N+1 problem
+2. **Reduced API calls** - Client gets everything in one response
+3. **Better UX** - Display product name immediately
+4. **Graceful degradation** - Product undefined if deleted
+
+#### Response Example
+
+**Before (without JOIN):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "userId": 123,
+      "productId": 456,
+      "targetPrice": "89.99",
+      "isActive": true
+    }
+  ]
+}
+```
+
+**After (with JOIN):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "userId": 123,
+      "productId": 456,
+      "targetPrice": "89.99",
+      "isActive": true,
+      "product": {
+        "id": 456,
+        "name": "iPhone 15 Pro",
+        "description": "Latest iPhone model",
+        "category": "Electronics"
+      }
+    }
+  ]
+}
+```
+
+#### Drizzle LEFT JOIN Mapping Pattern
+
+**Key Insight:** Drizzle's automatic nested object handling can be quirky. Use explicit mapping for control.
+
+```typescript
+// ✅ CORRECT - Explicit select and manual mapping
+const results = await db
+  .select({
+    parent: parentTable,
+    child: childTable,
+  })
+  .from(parentTable)
+  .leftJoin(childTable, eq(parentTable.id, childTable.parentId));
+
+// Map manually to desired structure
+return results.map(({ parent, child }) => ({
+  ...parent,
+  child: child || undefined, // Handle null from LEFT JOIN
+}));
+```
+
+**Avoid:**
+```typescript
+// ❌ ANTI-PATTERN - Expecting automatic nesting
+const results = await db
+  .select()
+  .from(parentTable)
+  .leftJoin(childTable, eq(parentTable.id, childTable.parentId));
+// Drizzle's auto-nesting can be unpredictable with nullable fields
+```
+
+#### When to Use LEFT JOIN
+
+**Use JOIN when:**
+- Clients always need the related data (90%+ of requests)
+- Related data is small (not large nested arrays)
+- Performance matters (avoid N+1)
+- Client-side data assembly is complex
+
+**Don't use JOIN when:**
+- Related data is rarely needed (<10% of requests)
+- Related data is very large (pagination needed)
+- Client can efficiently fetch separately
+- Optional feature flag determines if data is needed
+
+#### Test Pattern
+
+```typescript
+it('should include related details in response', async () => {
+  const response = await request(app)
+    .get('/api/entities')
+    .set('Cookie', authCookie);
+
+  const entities = expectSuccessResponse<Array<{ relatedData?: RelatedType }>>(response, 200);
+
+  // Verify related data included
+  expect(entities[0]).toHaveProperty('relatedData');
+  expect(entities[0].relatedData).toBeDefined();
+  expect(entities[0].relatedData).toMatchObject({
+    id: expect.any(Number),
+    name: expect.any(String),
+  });
+});
+```
+
+**Related Patterns:**
+- See `docs/02_DATABASE_PATTERNS.md` - N+1 Prevention (Section 2.1)
+- See `docs/02_DATABASE_PATTERNS.md` - Query Optimization (Section 3)
+
+---
+
 ### Route Usage Examples
 
 ```typescript

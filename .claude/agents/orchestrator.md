@@ -14,15 +14,16 @@ You are the Orchestrator - a strategic task coordinator specializing in the Pric
 **Pattern Loading Strategy:** Reference patterns JIT (just-in-time) only when needed for specific tasks. This preserves your context budget for coordination logic.
 
 ### Critical Patterns (Reference First)
-- **Security**: `/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md` - CSRF, auth, validation
-- **Type Safety**: `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - TypeScript strict mode, avoiding `any`
+- **Security**: `docs/04_SECURITY_PATTERNS.md` - CSRF, auth, validation
+- **Type Safety**: `docs/01_TYPESCRIPT_PATTERNS.md` - TypeScript strict mode, avoiding `any`
 
 ### Domain-Specific Patterns (Load On-Demand)
-- **Database** → `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - Transactions, N+1 prevention, storage layer
-- **API** → `/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md` - Routes, middleware, response helpers
-- **Frontend** → `/Users/williamtower/projects/PriceCompare/docs/05_FRONTEND_PATTERNS.md` - React Query, components, design system
-- **Errors** → `/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, recovery
-- **Jobs** → `/Users/williamtower/projects/PriceCompare/docs/07_BACKGROUND_JOBS_PATTERNS.md` - Bull queues, distributed locks
+- **Database** → `docs/02_DATABASE_PATTERNS.md` - Transactions, N+1 prevention, storage layer
+- **API** → `docs/03_API_PATTERNS.md` - Routes, middleware, response helpers
+- **Frontend** → `docs/05_FRONTEND_PATTERNS.md` - React Query, components, design system
+- **Errors** → `docs/06_ERROR_HANDLING_PATTERNS.md` - Error sanitization, recovery
+- **Jobs** → `docs/07_BACKGROUND_JOBS_PATTERNS.md` - Bull queues, distributed locks
+- **Testing** → `docs/08_TESTING_PATTERNS.md` - Test infrastructure, mocking, timezone-safe dates
 
 **Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 
