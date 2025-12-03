@@ -1,37 +1,49 @@
-# Test Fixes TODO Files
+# TODO Management
 
-This folder contains detailed TODO files for fixing 71 failing tests across the codebase.
+This folder contains TODO items for the PriceCompare project. Completed TODOs are archived to `archive/` with timestamps.
 
-## Quick Links
+## Active TODOs
 
-- **[TEST_FIX_SUMMARY](../docs/TEST_FIX_SUMMARY.md)** - Quick start guide in `/docs/`
-- **[TODO_TEST_FIXES.md](./TODO_TEST_FIXES.md)** - Complete master plan
+Currently, there is 1 active TODO remaining:
 
-## Priority Order
+- **[TODO_006_PRODUCT_DISCUSSION_COUNT.md](./TODO_006_PRODUCT_DISCUSSION_COUNT.md)** - Add discussion count to product queries (P2, 1 hour)
 
-### P0 - Critical (Must fix first)
-1. [TODO_001_WATCHLIST_ROUTES.md](./TODO_001_WATCHLIST_ROUTES.md) - 32 tests, 2-3 hours
-2. [TODO_002_ALERT_ROUTES.md](./TODO_002_ALERT_ROUTES.md) - 29 tests, 2-3 hours
+## Recently Completed (2025-12-03)
 
-### P1 - High
-3. [TODO_003_STORAGE_WATCHLIST.md](./TODO_003_STORAGE_WATCHLIST.md) - 3 tests, 1 hour
+All completed TODOs have been archived to `archive/2025-12-03-*`:
 
-### P2 - Medium
-4. [TODO_004_PRICE_AGGREGATION.md](./TODO_004_PRICE_AGGREGATION.md) - 4 tests, 1-2 hours
-5. [TODO_005_AUTH_EXPIRED_TOKEN.md](./TODO_005_AUTH_EXPIRED_TOKEN.md) - 1 test, 30 minutes
-6. [TODO_006_PRODUCT_DISCUSSION_COUNT.md](./TODO_006_PRODUCT_DISCUSSION_COUNT.md) - 2 tests, 1 hour
+### Critical Test Fixes
+- ✅ **TODO_TEST_FIXES** - Fixed 71 failing tests across 6 test suites
+  - Fixed Redis mocking in product-routes.test.ts (40 tests)
+  - Fixed Redis mocking in auth-routes.test.ts (55 tests, 18 login tests)
+  - All 202 tests now passing reliably
 
-## Total Effort
+### Test Quality Improvements
+- ✅ **TODO_004** - Clarified watchlist test descriptions (P3, 15min)
+- ✅ **TODO_005** - Enhanced pagination test assertions (P3, 20min)
+- ✅ **TODO_006** - Added trigger documentation with line references (P3, 10min)
+- ✅ **TODO_007** - Extracted test data builder helpers (P4, 45min)
+- ✅ **TODO_008** - Added edge case tests for watchlist (P4, 30min)
+- ✅ **TODO_009** - Added performance sanity check (P4, 20min)
 
-- **Critical**: 4-6 hours
-- **High**: 1 hour
-- **Medium**: 2.5-3.5 hours
-- **Testing & Verification**: 1-2 hours
-- **Total**: 10-15 hours
+## Archive
 
-## After Completion
+Completed TODOs are stored in the `archive/` directory with format:
+```
+archive/YYYY-MM-DD-TODO_XXX_DESCRIPTION.md
+```
 
-Once all tests pass:
-1. Commit test fixes with comprehensive message
-2. Merge 5 pending Dependabot PRs for GitHub Actions updates
-3. Update documentation with test isolation patterns
+## Workflow
+
+1. **Create TODO**: Add new TODO_XXX_DESCRIPTION.md with priority, time estimate, and implementation steps
+2. **Work on TODO**: Follow implementation steps in the TODO file
+3. **Complete**: Move to `archive/` with timestamp prefix
+4. **Update README**: Update this file to reflect current active TODOs
+
+## Priority Levels
+
+- **P0 - Critical**: Blocking issues, must fix immediately
+- **P1 - High**: Important improvements, fix soon
+- **P2 - Medium**: Valuable improvements, schedule when possible
+- **P3 - Low**: Nice-to-have improvements
+- **P4 - Optional**: Enhancement opportunities
