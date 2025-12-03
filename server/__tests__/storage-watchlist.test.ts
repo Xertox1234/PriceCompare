@@ -31,6 +31,83 @@ vi.mock('../utils/logger', () => ({
 }));
 
 /**
+ * Test Helper Functions
+ *
+ * Extracted patterns to reduce duplication across test suites.
+ * See TODO_007_WATCHLIST_TEST_DATA_BUILDERS.md for rationale.
+ */
+
+/**
+ * Create a test watchlist for a user
+ * @param userId - User ID to create watchlist for
+ * @param name - Optional watchlist name (defaults to 'Test List')
+ * @returns Created watchlist record
+ */
+async function createTestWatchList(userId: number, name = 'Test List') {
+  const [list] = await db.insert(watchLists).values({
+    userId,
+    name,
+  }).returning();
+  return list;
+}
+
+/**
+ * Add multiple products to a watchlist
+ * @param watchListId - Watchlist ID to add products to
+ * @param userId - User ID who owns the watchlist
+ * @param productIds - Array of product IDs to add
+ */
+async function _addProductsToWatchList(
+  watchListId: number,
+  userId: number,
+  productIds: number[]
+) {
+  const values = productIds.map(productId => ({
+    userId,
+    watchListId,
+    productId,
+  }));
+  await db.insert(productWatches).values(values);
+}
+
+/**
+ * Create price history data for a product
+ * @param productOfferId - Product offer ID to create history for
+ * @param productId - Product ID
+ * @param retailerId - Retailer ID
+ * @param days - Number of days of history to create
+ * @param startPrice - Starting price (most recent)
+ * @param priceDecrement - Amount to decrease price per day going back (defaults to 10)
+ */
+async function _createPriceHistory(
+  productOfferId: number,
+  productId: number,
+  retailerId: number,
+  days: number,
+  startPrice: number,
+  priceDecrement = 10
+) {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - days);
+
+  for (let i = 0; i < days; i++) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+
+    await db.insert(priceHistory).values({
+      productOfferId,
+      productId,
+      retailerId,
+      price: (startPrice - (days - i - 1) * priceDecrement).toFixed(2),
+      availability: 'in_stock',
+      source: 'scraper',
+      recordedAt: date,
+    });
+  }
+}
+
+/**
  * Watchlist Storage Layer Tests
  *
  * Tests the storage layer for watchlist operations including:
@@ -42,7 +119,8 @@ vi.mock('../utils/logger', () => ({
  * - getWatchListStats - Get aggregated dashboard statistics
  *
  * NOTE: Database trigger auto-creates default watchlist on user insert
- * - Trigger: trigger_create_default_watch_list (migrations/0008_add_watch_lists.sql)
+ * - Trigger: trigger_create_default_watch_list
+ * - Migration: migrations/0008_add_watch_lists.sql (lines 75-90)
  * - Creates watchlist with name="My Watches", isDefault=true
  * - We delete this in beforeEach cleanup to isolate tests
  */
@@ -263,18 +341,18 @@ describe('Watchlist Storage Layer', () => {
     // NOTE: Name validation (required, length, trimming) is handled by Zod schema in routes
     // Storage layer accepts name as-is and trusts route validation
     // These tests verify storage layer doesn't add extra validation
-    it('should accept empty name (validation is route responsibility)', async () => {
+    it('should preserve empty names without validation (validation is route responsibility)', async () => {
       const watchList = await storage.createWatchList(testUserId, { name: '' });
       expect(watchList.name).toBe('');
     });
 
-    it('should accept long names (validation is route responsibility)', async () => {
+    it('should preserve long names without length enforcement (validation is route responsibility)', async () => {
       const longName = 'a'.repeat(101);
       const watchList = await storage.createWatchList(testUserId, { name: longName });
       expect(watchList.name).toBe(longName);
     });
 
-    it('should accept untrimmed names (validation is route responsibility)', async () => {
+    it('should preserve whitespace without trimming (validation is route responsibility)', async () => {
       const watchList = await storage.createWatchList(testUserId, {
         name: '  My Watch List  ',
       });
@@ -287,10 +365,7 @@ describe('Watchlist Storage Layer', () => {
     let watchListId: number;
 
     beforeEach(async () => {
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const list = await createTestWatchList(testUserId);
       watchListId = list.id;
     });
 
@@ -516,10 +591,69 @@ describe('Watchlist Storage Layer', () => {
         limit: 1,
       });
 
-      // getWatchedProducts returns { products, hasMore, nextCursor }
+      // Verify correct number of products returned
       expect(result.products).toHaveLength(1);
-      expect(result).toHaveProperty('hasMore');
-      expect(result).toHaveProperty('nextCursor');
+
+      // Verify hasMore is true (we have 2 products, limit is 1)
+      expect(result.hasMore).toBe(true);
+
+      // Verify nextCursor is a valid number
+      expect(result.nextCursor).toBeDefined();
+      expect(typeof result.nextCursor).toBe('number');
+    });
+
+    it('should handle product with no price history', async () => {
+      // Create product without price history (no records in priceHistory table)
+      // testProductId2 has no price history - only created in beforeEach
+      const result = await storage.getWatchedProducts(testUserId);
+
+      const productWithoutHistory = result.products.find(
+        (p: { productId: number }) => p.productId === testProductId2
+      );
+
+      expect(productWithoutHistory).toBeDefined();
+      expect(productWithoutHistory!.last7Days).toEqual([]); // Empty array for sparkline
+      expect(productWithoutHistory!.currentPrice).toBe(0); // No price data
+      expect(productWithoutHistory!.lowestPrice).toBe(0); // No price data
+    });
+
+    it('should support cursor pagination with different products', async () => {
+      // Page 1: Get first product with limit=1
+      const page1 = await storage.getWatchedProducts(testUserId, {
+        limit: 1,
+      });
+
+      expect(page1.products).toHaveLength(1);
+      expect(page1.hasMore).toBe(true);
+      expect(page1.nextCursor).toBeDefined();
+
+      const firstProductId = page1.products[0].productId;
+
+      // Page 2: Use cursor to get second product
+      const page2 = await storage.getWatchedProducts(testUserId, {
+        limit: 1,
+        cursor: page1.nextCursor!,
+      });
+
+      expect(page2.products).toHaveLength(1);
+      const secondProductId = page2.products[0].productId;
+
+      // Verify no product overlap
+      expect(firstProductId).not.toBe(secondProductId);
+
+      // Verify correct hasMore value (false since we only have 2 products total)
+      expect(page2.hasMore).toBe(false);
+      expect(page2.nextCursor).toBeNull();
+    });
+
+    it('should complete within reasonable time (performance sanity check)', async () => {
+      const startTime = performance.now();
+      await storage.getWatchedProducts(testUserId);
+      const duration = performance.now() - startTime;
+
+      // Sanity check - detects accidental N+1 queries or missing indexes
+      // NOT a strict performance test - just regression detection
+      expect(duration).toBeLessThan(500); // 500ms buffer for CI variability
     });
   });
 
