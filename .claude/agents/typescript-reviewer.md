@@ -1357,7 +1357,229 @@ class CacheService {
 
 ---
 
-### 20. Storage Layer Architecture Pattern (Phase 8 - CRITICAL)
+### 20. Mock-Based Test Anti-Pattern Detection (NEW - 2025-12-03)
+
+**When reviewing test files, flag extensive database mocking as technical debt.**
+
+#### ❌ ANTI-PATTERN - Database Mock Chains (>50 lines)
+
+**Problem**: Mocking internal database code (Drizzle/Prisma/TypeORM) creates brittle tests that break when the ORM API changes.
+
+```typescript
+// WRONG - 300+ lines of mock setup (Issue #TODO_004)
+vi.mock('../../db', () => ({
+  db: {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]) // Missing methods break tests
+        })
+      })
+    }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockResolvedValue({})
+      })
+    })
+  }
+}));
+```
+
+**Detection Patterns**:
+- Mock setup exceeds 50 lines
+- Multiple nested `.mockReturnValue()` chains
+- Type casts to `any` for mock compatibility
+- Comments like "incomplete mock chain" or "TODO: add method"
+- Mock methods for database operations (select, insert, update, delete, transaction)
+
+#### ✅ CORRECT - Real Database with TRUNCATE CASCADE
+
+```typescript
+import { db } from '../../db';
+import { sql } from 'drizzle-orm';
+
+beforeEach(async () => {
+  // TRUNCATE CASCADE - fast, reliable, zero mock maintenance
+  await db.execute(sql`TRUNCATE TABLE price_aggregates RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+});
+```
+
+**Review Checklist**:
+- [ ] Test files with >50 lines of mock setup flagged for real database migration
+- [ ] Database mocking detected (Drizzle, Prisma, TypeORM, Knex)
+- [ ] `any` type casts in mocks indicate brittle type safety
+- [ ] Integration tests use TRUNCATE CASCADE for cleanup
+- [ ] Mocks only for external dependencies (APIs, email, payment processors)
+
+**Why This Matters**:
+- Mock-based tests: 320 lines, 4 tests failing, maintenance burden
+- Real database tests: 0 lines of mocks, 19 tests passing, zero maintenance
+- Performance: <900ms for 16 integration tests (TRUNCATE CASCADE is fast)
+
+**Reference**: `docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
+
+---
+
+### 21. Timezone-Safe Date Testing Pattern (NEW - 2025-12-03)
+
+**When reviewing tests with date assertions, verify timezone-safe construction.**
+
+#### ❌ WRONG - Timezone-Dependent Dates
+
+```typescript
+// WRONG - No time component (midnight UTC → Dec 31 in PST!)
+const date = new Date('2024-01-01');
+
+// WRONG - Implicit local time
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1); // What time is it?
+
+// TEST FAILS IN CI - Different timezone
+it('should display date', () => {
+  render(<DateComponent date="2025-01-01" />);
+  expect(screen.getByText('Jan 1, 2025')).toBeInTheDocument(); // Fails in PST!
+});
+```
+
+#### ✅ CORRECT - Explicit UTC Timestamps
+
+```typescript
+// CORRECT - Explicit UTC timestamp
+const date = new Date('2024-01-01T12:00:00.000Z'); // Noon UTC, safe everywhere
+
+// CORRECT - Controlled time with relative dates
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
+yesterday.setHours(12, 0, 0, 0); // Noon, predictable
+
+// CORRECT - Flexible assertion pattern
+it('should display date', () => {
+  render(<DateComponent date="2025-01-15T12:00:00.000Z" />);
+  expect(screen.getByText(/Jan 1[45], 2025/i)).toBeInTheDocument(); // Handles edge cases
+});
+```
+
+**Review Checklist**:
+- [ ] `new Date('YYYY-MM-DD')` without time component flagged
+- [ ] All test dates use ISO 8601 with explicit time: `YYYY-MM-DDTHH:mm:ss.sssZ`
+- [ ] Noon UTC (12:00) preferred for date boundaries
+- [ ] Mid-month dates (15th) used to avoid month boundary issues
+- [ ] Flexible regex patterns for date assertions: `/Jan 1[45], 2025/i`
+
+**Detection Commands**:
+```bash
+# Find timezone-unsafe date construction in tests
+grep -rn "new Date('[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}')" **/__tests__/*.ts
+```
+
+**Reference**: `docs/08_TESTING_PATTERNS.md` (Timezone-Safe Date Assertions)
+
+---
+
+### 22. Strong vs Weak Test Assertions (NEW - 2025-12-03)
+
+**When reviewing test assertions, flag range checks that indicate uncertainty about expected values.**
+
+#### ❌ WEAK - Range Assertions for Exact Values
+
+```typescript
+// WEAK - Developer unsure what exact value should be
+const count = await service.aggregateToDaily(startDate, endDate);
+expect(count).toBeGreaterThanOrEqual(2);
+expect(count).toBeLessThanOrEqual(3); // "Could be 2 or 3"
+
+// WEAK - Time-based uncertainty
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1); // When exactly?
+const count = await service.calculateDailyAggregates();
+expect(count).toBeGreaterThanOrEqual(0); // Very weak!
+```
+
+#### ✅ STRONG - Exact Assertions with Deterministic Data
+
+```typescript
+// STRONG - Deterministic test data yields exact values
+const baseDate = new Date();
+baseDate.setDate(baseDate.getDate() - 10); // Guaranteed past
+baseDate.setHours(12, 0, 0, 0);
+
+const day1 = new Date(baseDate);
+const day2 = new Date(baseDate);
+day2.setDate(day2.getDate() + 1);
+const day3 = new Date(baseDate);
+day3.setDate(day3.getDate() + 2);
+
+await insertPriceHistory([
+  { price: '100.00', recordedAt: day1 },
+  { price: '101.00', recordedAt: day2 },
+  { price: '102.00', recordedAt: day3 },
+]);
+
+const count = await service.aggregateToDaily(startDate, endDate);
+expect(count).toBe(3); // EXACT - we inserted 3 days of data
+```
+
+**Review Checklist**:
+- [ ] `toBeGreaterThanOrEqual()` / `toBeLessThanOrEqual()` for countable/deterministic values flagged
+- [ ] Comments like "might be X or Y" or "could vary" indicate weak tests
+- [ ] Range checks replaced with exact assertions using controlled test data
+- [ ] Time-based calculations use fixed past dates (e.g., `baseDate - 10 days`)
+
+**Principle**: If you can control the test data, you can assert exact values.
+
+---
+
+### 23. Force/Skip Parameter Coverage (NEW - 2025-12-03)
+
+**When reviewing methods with boolean parameters that change behavior, verify both branches are tested.**
+
+#### ❌ INCOMPLETE - Only Default Behavior Tested
+
+```typescript
+// Only tests force=false (default)
+it('should aggregate daily data', async () => {
+  const count = await service.aggregateToDaily(startDate, endDate);
+  expect(count).toBe(1);
+});
+```
+
+#### ✅ COMPLETE - Both Branches Tested
+
+```typescript
+it('should skip already-aggregated dates by default', async () => {
+  // Pre-create aggregate
+  await db.insert(priceAggregatesDaily).values({ ... });
+
+  const count = await service.aggregateToDaily(startDate, endDate, false); // Explicit false
+  expect(count).toBe(0); // Skipped
+});
+
+it('should re-aggregate when force=true', async () => {
+  await db.insert(priceAggregatesDaily).values({ avgPrice: '100.00', ... });
+  await insertPriceHistory([{ price: '200.00', recordedAt: yesterday }]);
+
+  const count = await service.aggregateToDaily(startDate, endDate, true); // Explicit true
+  expect(count).toBe(1); // Re-aggregated
+
+  const aggregates = await db.select().from(priceAggregatesDaily);
+  expect(aggregates[0].avgPrice).toBe('150.00'); // Verify updated
+});
+```
+
+**Review Checklist**:
+- [ ] Methods with boolean parameters (force, skip, override, refresh) have both branches tested
+- [ ] Default parameter value tested explicitly
+- [ ] Non-default parameter value tested explicitly
+- [ ] Tests verify behavior difference between parameter values
+
+**Detection Pattern**:
+- Find methods: `function methodName(..., force?: boolean, ...)`
+- Verify tests exist for both `force=false` and `force=true`
+
+---
+
+### 24. Storage Layer Architecture Pattern (Phase 8 - CRITICAL)
 
 **When reviewing service files, verify storage layer compliance:**
 

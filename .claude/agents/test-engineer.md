@@ -44,6 +44,276 @@ Before writing tests, reference these pattern files to ensure you're testing the
 - Coverage: Vitest coverage reports
 - Types: TypeScript test types
 
+## CRITICAL: Anti-Patterns to Avoid (NEW - 2025-12-03)
+
+### ❌ Mock-Based Test Anti-Pattern (Issue #TODO_004)
+
+**NEVER create extensive mocks for internal database code.** Mocks for Drizzle/Prisma/TypeORM are technical debt.
+
+```typescript
+// ❌ WRONG - 320 lines of brittle mock code
+vi.mock('../../db', () => ({
+  db: {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]) // Easy to miss methods
+        })
+      })
+    })
+  }
+}));
+
+// ✅ CORRECT - Real database with TRUNCATE CASCADE
+import { db } from '../../db';
+import { sql } from 'drizzle-orm';
+
+beforeEach(async () => {
+  // Clean all tables - fast and reliable
+  await db.execute(sql`TRUNCATE TABLE price_aggregates RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+});
+```
+
+**Why Real Database Tests Are Better**:
+- ✅ Tests actual SQL queries and transactions
+- ✅ Verifies real Drizzle ORM behavior
+- ✅ Zero mock maintenance burden
+- ✅ Fast (TRUNCATE CASCADE is milliseconds)
+- ✅ Proper TypeScript types (no `any` casts)
+- ✅ Catches database-level issues (constraints, triggers)
+
+**When to Use Mocks**:
+- ⚠️ External APIs (Google Search, OpenAI, payment processors)
+- ⚠️ Email services (SendGrid, Mailgun)
+- ⚠️ Third-party SDKs you don't control
+- ⚠️ Pure business logic with no database
+
+**Rule of Thumb**: If you need >50 lines of mock setup, use real database instead.
+
+**Reference**: `docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
+
+---
+
+### ✅ TRUNCATE CASCADE Pattern (MANDATORY for Integration Tests)
+
+**All database integration tests MUST use TRUNCATE CASCADE in beforeEach:**
+
+```typescript
+beforeEach(async () => {
+  // TRUNCATE CASCADE pattern - resets auto-increment IDs and cascades to child tables
+  await db.execute(sql`TRUNCATE TABLE price_aggregates_daily RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+
+  // Create base test data (respects foreign key order)
+  [testRetailer] = await db.insert(retailers).values({
+    name: 'Test Retailer',
+    website: 'https://test.com',
+    logoUrl: 'https://test.com/logo.png',
+  }).returning();
+
+  [testProduct] = await db.insert(products).values({
+    name: 'Test Product',
+    description: 'Test description',
+  }).returning();
+});
+```
+
+**Benefits**:
+- Automatically cleans child tables (no foreign key violations)
+- Resets auto-increment sequences (predictable IDs)
+- Single command vs multiple deletes
+- Fast (milliseconds)
+
+**See**: `docs/02_DATABASE_PATTERNS.md` (Section 8.1: TRUNCATE CASCADE)
+
+---
+
+### ✅ Timezone-Safe Date Construction (MANDATORY)
+
+**ALWAYS use explicit UTC timestamps in tests. Local timezone assumptions break in CI.**
+
+```typescript
+// ❌ WRONG - Timezone-dependent (breaks in CI/different timezones)
+const date = new Date('2024-01-01'); // Midnight UTC → Dec 31 in PST!
+
+// ❌ WRONG - Implicit local time
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1); // What time?
+
+// ✅ CORRECT - Explicit UTC timestamp
+const date = new Date('2024-01-01T12:00:00.000Z'); // Noon UTC, safe everywhere
+
+// ✅ CORRECT - Relative dates with controlled time
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
+yesterday.setHours(12, 0, 0, 0); // Noon in local time, but controlled
+```
+
+**Date Construction Guidelines**:
+1. Use ISO 8601 with explicit time: `"2025-01-15T12:00:00.000Z"`
+2. Use noon UTC (12:00) to avoid date boundary issues
+3. Use mid-month dates (15th) to avoid month boundary issues
+4. For test data spanning days, use consistent hour offsets
+
+**See**: `docs/08_TESTING_PATTERNS.md` (Timezone-Safe Date Assertions)
+
+---
+
+### ✅ Strong Assertions vs Weak Assertions
+
+**Use exact assertions with deterministic test data. Range checks indicate uncertainty.**
+
+```typescript
+// ❌ WEAK - Reveals uncertainty about expected behavior
+const count = await service.aggregateToDaily(startDate, endDate);
+expect(count).toBeGreaterThanOrEqual(2);
+expect(count).toBeLessThanOrEqual(3); // "Might be 2 or 3?"
+
+// ✅ STRONG - Deterministic test data yields exact values
+const baseDate = new Date();
+baseDate.setDate(baseDate.getDate() - 10); // Guaranteed past
+
+const day1 = new Date(baseDate);
+const day2 = new Date(baseDate);
+day2.setDate(day2.getDate() + 1);
+const day3 = new Date(baseDate);
+day3.setDate(day3.getDate() + 2);
+
+await insertPriceHistory([
+  { price: '100.00', recordedAt: day1 },
+  { price: '101.00', recordedAt: day2 },
+  { price: '102.00', recordedAt: day3 },
+]);
+
+const count = await service.aggregateToDaily(startDate, endDate);
+expect(count).toBe(3); // EXACT assertion - we know it's 3 days
+```
+
+**Principle**: If you can control the test data, you can assert exact values.
+
+---
+
+### ✅ Force/Skip Parameter Coverage
+
+**Test ALL parameter combinations that change behavior, not just defaults.**
+
+```typescript
+// ❌ INCOMPLETE - Only tests default behavior
+it('should aggregate daily data', async () => {
+  const count = await service.aggregateToDaily(startDate, endDate); // force=false (default)
+  expect(count).toBe(1);
+});
+
+// ✅ COMPLETE - Tests both force=false and force=true
+it('should skip already-aggregated dates by default', async () => {
+  // Pre-create aggregate
+  await db.insert(priceAggregatesDaily).values({ ... });
+
+  const count = await service.aggregateToDaily(startDate, endDate, false);
+  expect(count).toBe(0); // Skipped
+});
+
+it('should re-aggregate when force=true', async () => {
+  // Pre-create aggregate with old data
+  await db.insert(priceAggregatesDaily).values({ avgPrice: '100.00', ... });
+
+  // Add new price data
+  await insertPriceHistory([{ price: '200.00', recordedAt: yesterday }]);
+
+  const count = await service.aggregateToDaily(startDate, endDate, true); // force=true
+  expect(count).toBe(1); // Re-aggregated
+
+  const aggregates = await db.select().from(priceAggregatesDaily);
+  expect(aggregates[0].avgPrice).toBe('150.00'); // Updated with new data
+});
+```
+
+**Guideline**: For each boolean parameter, write at least 2 tests (true/false cases).
+
+---
+
+### ✅ Performance Benchmarks for Integration Tests
+
+**Add performance budget tests to catch regressions early.**
+
+```typescript
+describe('performance', () => {
+  it('should complete aggregation within performance budget', async () => {
+    const start = Date.now();
+
+    // Create realistic test data volume
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(12, 0, 0, 0);
+
+    await insertPriceHistory([
+      { price: '100.00', recordedAt: yesterday },
+      { price: '105.00', recordedAt: new Date(yesterday.getTime() + 60000) },
+      { price: '110.00', recordedAt: new Date(yesterday.getTime() + 120000) },
+      { price: '108.00', recordedAt: new Date(yesterday.getTime() + 180000) },
+      { price: '112.00', recordedAt: new Date(yesterday.getTime() + 240000) },
+    ]);
+
+    await service.calculateDailyAggregates();
+
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(1000); // 1 second budget
+
+    // Verify aggregation succeeded
+    const aggregates = await db.select().from(priceAggregatesDaily);
+    expect(aggregates).toHaveLength(1);
+  });
+});
+```
+
+**Performance Budget Guidelines**:
+- Single record operations: <100ms
+- Batch operations (10-50 records): <500ms
+- Large batch operations (50-200 records): <2000ms
+- Date range aggregations (7 days): <2000ms
+
+---
+
+### ✅ Helper Functions for Complex Database Setup
+
+**Extract repeated setup logic into helper functions to reduce duplication.**
+
+```typescript
+// Helper encapsulates foreign key relationships
+async function insertPriceHistory(
+  prices: Array<{ price: string; recordedAt: Date }>
+): Promise<void> {
+  return await db.insert(priceHistory).values(
+    prices.map(p => ({
+      productOfferId: testOffer.id,
+      productId: testProduct.id,
+      retailerId: testRetailer.id,
+      price: p.price,
+      recordedAt: p.recordedAt,
+    }))
+  );
+}
+
+// Usage is clean and readable
+await insertPriceHistory([
+  { price: '100.00', recordedAt: yesterday },
+  { price: '200.00', recordedAt: new Date(yesterday.getTime() + 60000) },
+]);
+```
+
+**Benefits**:
+- DRY - no repeated foreign key logic
+- Type-safe - compiler checks helper usage
+- Maintainable - update once, applies everywhere
+- Readable - test intent is clear
+
+---
+
 ## Key Patterns You Follow
 
 ### Unit Tests (Backend)

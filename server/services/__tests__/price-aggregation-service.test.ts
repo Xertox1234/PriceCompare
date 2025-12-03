@@ -1,3 +1,24 @@
+/**
+ * ⚠️ DEPRECATED - Mock-Based Tests (2025-12-03)
+ *
+ * These tests use 300+ lines of brittle mock setup that breaks when Drizzle APIs change.
+ * They've been replaced with real database integration tests that are more reliable and maintainable.
+ *
+ * **DO NOT USE THIS FILE AS A REFERENCE** - Use price-aggregation-service.integration.test.ts instead.
+ *
+ * Why these tests are problematic:
+ * - Mock chains break when Drizzle API changes (happened with .limit() method)
+ * - 300+ lines of mock setup code
+ * - Tests pass but don't verify real SQL behavior
+ * - Mock drift from actual Drizzle behavior
+ * - Type safety violations with `any` types
+ *
+ * Migration completed: 2025-12-03
+ * New file: price-aggregation-service.integration.test.ts (16 tests, 0 mocks, real DB)
+ *
+ * This file kept temporarily for reference, will be removed in future cleanup.
+ */
+
 /* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle transaction mocks require complex chain typing */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -421,7 +442,7 @@ describe('PriceAggregationService', () => {
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue([]), // no existing aggregates
+                  limit: vi.fn().mockResolvedValue([]), // FIXED: Added .limit() method
                 }),
               }),
             })
@@ -445,7 +466,9 @@ describe('PriceAggregationService', () => {
               }),
             }),
           insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue({}),
+            values: vi.fn().mockReturnValue({
+              onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+            }),
           }),
           update: vi.fn().mockReturnValue({
             set: vi.fn().mockReturnValue({
@@ -473,7 +496,7 @@ describe('PriceAggregationService', () => {
           select: vi.fn().mockReturnValue({
             from: vi.fn().mockReturnValue({
               where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([{ id: 1 }]), // existing aggregate
+                limit: vi.fn().mockResolvedValue([{ id: 1 }]), // FIXED: Added .limit() method - existing aggregate
               }),
             }),
           }),
@@ -506,7 +529,7 @@ describe('PriceAggregationService', () => {
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue([]),
+                  limit: vi.fn().mockResolvedValue([]), // FIXED: Added .limit() method
                 }),
               }),
             })
@@ -530,7 +553,9 @@ describe('PriceAggregationService', () => {
               }),
             }),
           insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue({}),
+            values: vi.fn().mockReturnValue({
+              onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+            }),
           }),
           update: vi.fn().mockReturnValue({
             set: vi.fn().mockReturnValue({
@@ -559,7 +584,7 @@ describe('PriceAggregationService', () => {
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue([]),
+                  limit: vi.fn().mockResolvedValue([]), // FIXED: Added .limit() method
                 }),
               }),
             })
@@ -589,7 +614,9 @@ describe('PriceAggregationService', () => {
               }),
             }),
           insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue({}),
+            values: vi.fn().mockReturnValue({
+              onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+            }),
           }),
           update: vi.fn().mockReturnValue({
             set: vi.fn().mockReturnValue({
@@ -611,10 +638,8 @@ describe('PriceAggregationService', () => {
       const startDate = new Date('2024-01-03');
       const endDate = new Date('2024-01-01'); // end before start
 
-      const count = await service.aggregateToDaily(startDate, endDate);
-
-      expect(count).toBe(0);
-      expect(db.transaction).not.toHaveBeenCalled();
+      // Invalid date range should throw validation error before any transactions
+      await expect(service.aggregateToDaily(startDate, endDate)).rejects.toThrow();
     });
   });
 

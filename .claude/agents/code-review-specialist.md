@@ -1128,6 +1128,39 @@ Use visual indicators for confidence:
 
 ---
 
+## NEW: Test Quality Review Patterns (2025-12-03)
+
+When reviewing test files, apply these critical patterns from TODO_004 learnings:
+
+### Test Anti-Patterns to Flag
+
+1. **Mock-Based Database Tests (>50 lines of mocks)**
+   - Flag: Mocking Drizzle/Prisma/TypeORM operations
+   - Recommendation: Use real database with TRUNCATE CASCADE
+   - Reference: `docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
+
+2. **Timezone-Unsafe Date Construction**
+   - Flag: `new Date('2024-01-01')` without time component
+   - Recommendation: Use explicit UTC: `new Date('2024-01-01T12:00:00.000Z')`
+   - Reference: `docs/08_TESTING_PATTERNS.md`
+
+3. **Weak Assertions (Range Checks for Exact Values)**
+   - Flag: `toBeGreaterThanOrEqual()` / `toBeLessThanOrEqual()` for deterministic values
+   - Recommendation: Use exact assertions with controlled test data
+   - Example: `expect(count).toBe(3)` instead of `expect(count).toBeGreaterThanOrEqual(2)`
+
+4. **Missing Parameter Coverage**
+   - Flag: Methods with boolean parameters only testing default value
+   - Recommendation: Test both `force=true` and `force=false` branches
+
+5. **Missing TRUNCATE CASCADE in Integration Tests**
+   - Flag: `beforeEach` cleanup using DELETE instead of TRUNCATE
+   - Recommendation: Use `TRUNCATE TABLE ... RESTART IDENTITY CASCADE`
+
+**Detection Priority**: These patterns save significant maintenance time. Flag them proactively.
+
+---
+
 ## Core Review Responsibilities
 
 ### 1. Security-First Review

@@ -1,31 +1,37 @@
 # Testing Patterns
 
-**Version:** 1.0
-**Last Updated:** 2025-12-02
+**Version:** 1.1
+**Last Updated:** 2025-12-03
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
 - docs/04_SECURITY_PATTERNS.md (security testing)
+- docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md (real database test migration)
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Test Infrastructure](#test-infrastructure)
+2. [Integration Test Patterns (NEW)](#integration-test-patterns-new)
+   - [Mock-Based Test Anti-Pattern](#mock-based-test-anti-pattern)
+   - [TRUNCATE CASCADE Pattern](#truncate-cascade-pattern)
+   - [Strong vs Weak Assertions](#strong-vs-weak-assertions)
+   - [Performance Benchmarks](#performance-benchmarks)
+3. [Test Infrastructure](#test-infrastructure)
    - [Required Mocks for Route Tests](#required-mocks-for-route-tests)
    - [Redis Mock Pattern](#redis-mock-pattern)
-3. [Date and Time Testing](#date-and-time-testing)
+4. [Date and Time Testing](#date-and-time-testing)
    - [Timezone-Safe Date Assertions](#timezone-safe-date-assertions)
    - [Date Formatting in Tests](#date-formatting-in-tests)
-4. [Component Testing Patterns](#component-testing-patterns)
+5. [Component Testing Patterns](#component-testing-patterns)
    - [Testing Filtered UI Elements](#testing-filtered-ui-elements)
    - [Recharts Testing](#recharts-testing)
-5. [Route Testing Patterns](#route-testing-patterns)
+6. [Route Testing Patterns](#route-testing-patterns)
    - [Testing Missing Route Parameters](#testing-missing-route-parameters)
    - [Express Route Not Found Behavior](#express-route-not-found-behavior)
-6. [Avoiding Skipped Tests](#avoiding-skipped-tests)
-7. [Checklist](#testing-checklist)
+7. [Avoiding Skipped Tests](#avoiding-skipped-tests)
+8. [Checklist](#testing-checklist)
 
 ---
 
@@ -40,10 +46,239 @@ This document codifies testing patterns to ensure reliable, maintainable tests t
 - Playwright (E2E tests - Chrome extension only)
 
 **Core Principles:**
+- **Prefer real database over mocks** - Mocks for internal code are technical debt (see TODO_004)
 - **No `it.skip()` without a plan** - Skipped tests are technical debt
 - **Timezone-safe assertions** - Tests must pass in any timezone
-- **Mock external dependencies** - Redis, email, external APIs
+- **Mock external dependencies only** - Redis, email, external APIs
 - **Test behavior, not implementation** - Focus on what users see/do
+- **Strong assertions over weak** - Use exact values with deterministic test data
+
+---
+
+## Integration Test Patterns (NEW - 2025-12-03)
+
+### Mock-Based Test Anti-Pattern
+
+**Source**: TODO_004 - Price Aggregation Service test migration
+
+**Problem**: Mocking internal database code (Drizzle/Prisma/TypeORM) creates brittle tests that break when the ORM API changes.
+
+#### ❌ WRONG - Extensive Database Mocking
+
+```typescript
+// 320 lines of mock setup (from TODO_004 before migration)
+vi.mock('../../db', () => ({
+  db: {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]) // Easy to miss methods
+        })
+      })
+    }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockResolvedValue({})
+      })
+    }),
+    transaction: vi.fn().mockImplementation(async (callback) => {
+      // Complex mock transaction logic...
+    })
+  }
+}));
+```
+
+**Symptoms of Mock Fragility**:
+- >50 lines of mock setup
+- Multiple nested `.mockReturnValue()` chains
+- Type casts to `any` for mock compatibility
+- Comments like "incomplete mock chain" or "TODO: add method"
+- Tests fail when Drizzle API adds/changes methods
+
+#### ✅ CORRECT - Real Database Integration Tests
+
+```typescript
+import { db } from '../../db';
+import { sql } from 'drizzle-orm';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+describe('PriceAggregationService (Integration)', () => {
+  beforeEach(async () => {
+    // TRUNCATE CASCADE - clean all tables, fast and reliable
+    await db.execute(sql`TRUNCATE TABLE price_aggregates RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+
+    // Create base test data
+    [testRetailer] = await db.insert(retailers).values({
+      name: 'Test Retailer',
+      website: 'https://test.com',
+      logoUrl: 'https://test.com/logo.png',
+    }).returning();
+
+    [testProduct] = await db.insert(products).values({
+      name: 'Test Product',
+      description: 'Test description',
+    }).returning();
+
+    service = new PriceAggregationService();
+  });
+
+  it('should create daily aggregates correctly', async () => {
+    // Insert real price history data
+    await db.insert(priceHistory).values({
+      productId: testProduct.id,
+      retailerId: testRetailer.id,
+      price: '99.99',
+      recordedAt: new Date('2024-01-01T12:00:00Z'),
+    });
+
+    // Run actual service method (no mocks!)
+    const count = await service.calculateDailyAggregates();
+
+    // Verify real database state
+    const [aggregate] = await db.select()
+      .from(priceAggregates)
+      .where(sql`${priceAggregates.productId} = ${testProduct.id}`);
+
+    expect(aggregate.minPrice).toBe('99.99');
+    expect(aggregate.maxPrice).toBe('99.99');
+  });
+});
+```
+
+**Benefits of Real Database Tests**:
+- ✅ Tests actual SQL queries and transactions
+- ✅ Verifies real Drizzle ORM behavior
+- ✅ Zero mock maintenance burden (0 vs 320 lines)
+- ✅ Fast execution (<900ms for 16 tests with TRUNCATE CASCADE)
+- ✅ Proper TypeScript types (no `any` casts)
+- ✅ Catches database-level issues (constraints, triggers)
+- ✅ True confidence - if tests pass, real queries work
+
+**When to Use Mocks**:
+- ⚠️ External APIs (Google Search, OpenAI, payment processors)
+- ⚠️ Email services (SendGrid, Mailgun)
+- ⚠️ Third-party SDKs you don't control
+- ⚠️ Pure business logic with no database
+
+**Rule of Thumb**: If you need >50 lines of mock setup, use real database instead.
+
+**Reference**: `docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
+
+---
+
+### TRUNCATE CASCADE Pattern
+
+**MANDATORY for all database integration tests.**
+
+#### Pattern
+
+```typescript
+beforeEach(async () => {
+  // TRUNCATE CASCADE pattern - resets auto-increment IDs and cascades to child tables
+  await db.execute(sql`TRUNCATE TABLE price_aggregates RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+});
+```
+
+**Why CASCADE?**:
+- Automatically cleans child tables (prevents foreign key violations)
+- Resets auto-increment sequences (predictable IDs)
+- Single command vs multiple deletes
+- Fast (milliseconds)
+
+**Order**: Parent tables last, child tables first (reverse dependency order).
+
+**See**: `docs/02_DATABASE_PATTERNS.md` (Section 8.1: TRUNCATE CASCADE)
+
+---
+
+### Strong vs Weak Assertions
+
+**Use exact assertions with deterministic test data. Range checks indicate uncertainty.**
+
+#### ❌ WEAK - Range Assertions
+
+```typescript
+// WEAK - Developer unsure what exact value should be
+const count = await service.aggregateToDaily(startDate, endDate);
+expect(count).toBeGreaterThanOrEqual(2);
+expect(count).toBeLessThanOrEqual(3); // "Could be 2 or 3?"
+```
+
+#### ✅ STRONG - Exact Assertions
+
+```typescript
+// STRONG - Deterministic test data yields exact values
+const baseDate = new Date();
+baseDate.setDate(baseDate.getDate() - 10); // Guaranteed past
+baseDate.setHours(12, 0, 0, 0);
+
+const day1 = new Date(baseDate);
+const day2 = new Date(baseDate);
+day2.setDate(day2.getDate() + 1);
+const day3 = new Date(baseDate);
+day3.setDate(day3.getDate() + 2);
+
+await insertPriceHistory([
+  { price: '100.00', recordedAt: day1 },
+  { price: '101.00', recordedAt: day2 },
+  { price: '102.00', recordedAt: day3 },
+]);
+
+const count = await service.aggregateToDaily(startDate, endDate);
+expect(count).toBe(3); // EXACT - we inserted 3 days of data
+```
+
+**Principle**: If you can control the test data, you can assert exact values.
+
+---
+
+### Performance Benchmarks
+
+**Add performance budget tests to catch regressions early.**
+
+```typescript
+describe('performance', () => {
+  it('should complete aggregation within performance budget', async () => {
+    const start = Date.now();
+
+    // Create realistic test data volume
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(12, 0, 0, 0);
+
+    await insertPriceHistory([
+      { price: '100.00', recordedAt: yesterday },
+      { price: '105.00', recordedAt: new Date(yesterday.getTime() + 60000) },
+      { price: '110.00', recordedAt: new Date(yesterday.getTime() + 120000) },
+      { price: '108.00', recordedAt: new Date(yesterday.getTime() + 180000) },
+      { price: '112.00', recordedAt: new Date(yesterday.getTime() + 240000) },
+    ]);
+
+    await service.calculateDailyAggregates();
+
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(1000); // 1 second budget
+
+    // Verify aggregation succeeded
+    const aggregates = await db.select().from(priceAggregatesDaily);
+    expect(aggregates).toHaveLength(1);
+  });
+});
+```
+
+**Performance Budget Guidelines**:
+- Single record operations: <100ms
+- Batch operations (10-50 records): <500ms
+- Large batch operations (50-200 records): <2000ms
+- Date range aggregations (7 days): <2000ms
 
 ---
 
