@@ -1,7 +1,7 @@
 import { retailers, products, productOffers, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
 import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchListStats, NormalizedPricePoint } from './storage/types';
 import { db } from "./db";
-import { eq, and, gte, lt, inArray, sql, desc, isNotNull, or, like, count } from "drizzle-orm";
+import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
 import { logger } from "./utils/logger";
 import { USER_CONSTANTS, PRODUCT_CONSTANTS } from "./utils/constants";
@@ -2830,14 +2830,58 @@ export class DatabaseStorage implements IStorage {
   }
 
   async validatePasswordResetToken(token: string): Promise<PasswordResetToken | null> {
-    const tokenRecord = await db.query.passwordResetTokens.findFirst({
-      where: and(
-        eq(passwordResetTokens.token, token),
-        eq(passwordResetTokens.isUsed, false),
-        sql`${passwordResetTokens.expiresAt} > NOW()`
-      ),
-    });
-    return tokenRecord || null;
+    // Input validation: Ensure token is a valid non-empty string
+    if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      throw new Error('Invalid token: must be non-empty string');
+    }
+
+    if (token.length > 255) {
+      throw new Error('Invalid token: exceeds maximum length');
+    }
+
+    // NOTE: expiresAt is stored as timestamp without timezone (bug in schema)
+    // JavaScript Date objects are UTC, but PostgreSQL treats timestamp without timezone as local time
+    // We need to explicitly tell PostgreSQL that the stored timestamp IS in UTC
+    // Using raw SQL because Drizzle's query API doesn't handle AT TIME ZONE well
+    const result = await db.execute(
+      sql`
+        SELECT *
+        FROM password_reset_tokens
+        WHERE token = ${token}
+          AND is_used = false
+          AND (expires_at AT TIME ZONE 'UTC') > NOW()
+        LIMIT 1
+      `
+    );
+
+    // Type assertion: db.execute() returns raw PostgreSQL rows as unknown type
+    const row = result.rows[0] as unknown;
+    if (!row) return null;
+
+    // Type assertion: Map PostgreSQL snake_case columns to TypeScript camelCase structure
+    const dbRow = row as {
+      id: number;
+      user_id: number;
+      token: string;
+      expires_at: Date;
+      is_used: boolean;
+      used_at: Date | null;
+      ip_address: string | null;
+      user_agent: string | null;
+      created_at: Date;
+    };
+
+    return {
+      id: dbRow.id,
+      userId: dbRow.user_id,
+      token: dbRow.token,
+      expiresAt: dbRow.expires_at,
+      isUsed: dbRow.is_used,
+      usedAt: dbRow.used_at,
+      ipAddress: dbRow.ip_address,
+      userAgent: dbRow.user_agent,
+      createdAt: dbRow.created_at,
+    };
   }
 
   async markPasswordResetTokenAsUsed(token: string): Promise<void> {
@@ -2851,9 +2895,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cleanupExpiredPasswordResetTokens(): Promise<number> {
-    const result = await db
-      .delete(passwordResetTokens)
-      .where(lt(passwordResetTokens.expiresAt, new Date()));
+    // Use PostgreSQL NOW() with AT TIME ZONE for consistency with validatePasswordResetToken()
+    // NOTE: expiresAt is timestamp without timezone (schema bug), so we need explicit UTC handling
+    const result = await db.execute(
+      sql`
+        DELETE FROM password_reset_tokens
+        WHERE (expires_at AT TIME ZONE 'UTC') < NOW()
+        RETURNING id
+      `
+    );
     return result.rowCount || 0;
   }
 

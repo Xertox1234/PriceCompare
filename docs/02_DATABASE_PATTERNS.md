@@ -1,7 +1,7 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.0
-**Last Updated:** 2025-11-29
+**Version:** 2.1
+**Last Updated:** 2025-12-03
 **Migrated From:**
 - `docs/DATABASE_PATTERNS.md` (v1.0)
 - `.claude/knowledge/storage-refactoring-patterns.md`
@@ -23,6 +23,9 @@
 3. [Query Optimization](#3-query-optimization)
 4. [Transaction Patterns](#4-transaction-patterns)
 5. [Schema Design Patterns](#5-schema-design-patterns)
+   - 5.1 [Foreign Key Cascade Rules](#51-foreign-key-cascade-rules-mandatory)
+   - 5.2 [NULL-Safe UNIQUE Constraints](#52-null-safe-unique-constraints-phase-0-pattern)
+   - 5.3 [Timestamp vs Timestamptz](#53-timestamp-vs-timestamptz-critical)
 6. [Type Safety in Queries](#6-type-safety-in-queries)
 7. [Production Bugs Catalog](#7-production-bugs-catalog)
 8. [Migration Patterns](#8-migration-patterns)
@@ -1121,6 +1124,240 @@ catch (error: unknown) {
 
 **Reference Implementation:** See `migrations/0019_fix_product_watches_unique_constraint.sql` for complete example.
 
+### 5.3 Timestamp vs Timestamptz (CRITICAL)
+
+**Status:** Active issue in production - requires migration
+**Affected Tables:** `password_reset_tokens`, `job_locks`, others TBD
+**Root Cause:** Schema uses `timestamp` without timezone, causing ambiguous comparisons
+
+#### The Problem: Timestamp Without Timezone
+
+PostgreSQL has two timestamp types with **critically different behavior**:
+- `timestamp` (without timezone) - Stores value as-is, no timezone metadata
+- `timestamptz` (with timezone) - Stores UTC internally, converts to display timezone
+
+When comparing `timestamp` columns with timezone-aware functions like `NOW()`, PostgreSQL performs implicit timezone conversion that can cause bugs.
+
+#### ❌ ANTI-PATTERN - timestamp without timezone
+
+**Schema:**
+```typescript
+// shared/schema.ts - WRONG
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),  // ❌ No timezone
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+```
+
+**Problem:**
+```typescript
+// JavaScript creates UTC Date
+const expiresAt = new Date(Date.now() + 3600000);  // 1 hour from now (UTC)
+
+// PostgreSQL stores it in timestamp (no timezone metadata)
+await db.insert(passwordResetTokens).values({ expiresAt });
+
+// Later: Query with NOW() (returns timestamptz)
+const valid = await db.select()
+  .from(passwordResetTokens)
+  .where(sql`expires_at > NOW()`);  // ❌ Comparing timestamp to timestamptz
+
+// PostgreSQL implicitly converts timestamp to server's local timezone
+// If server timezone != UTC, comparison gives wrong result!
+```
+
+**Real-World Impact:**
+- If server timezone is PST (UTC-8):
+  - JavaScript stores `2024-01-01 12:00:00` (UTC)
+  - PostgreSQL treats it as `2024-01-01 12:00:00` (PST)
+  - Token expires 8 hours earlier than intended
+- Expired tokens appear valid (or vice versa)
+- Different behavior in dev (UTC) vs production (non-UTC timezone)
+
+#### ✅ CORRECT PATTERN 1 - Use timestamptz in Schema
+
+**Schema (Recommended):**
+```typescript
+// shared/schema.ts - CORRECT
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),  // ✅ With timezone
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+```
+
+**Benefits:**
+- Stores UTC internally, eliminates ambiguity
+- Comparisons with `NOW()` work without workarounds
+- Automatic timezone conversion for display
+- PostgreSQL best practice
+
+**Migration:**
+```sql
+-- Safe migration (preserves existing UTC timestamps)
+ALTER TABLE password_reset_tokens
+  ALTER COLUMN expires_at TYPE timestamptz
+  USING expires_at AT TIME ZONE 'UTC';
+
+ALTER TABLE password_reset_tokens
+  ALTER COLUMN created_at TYPE timestamptz
+  USING created_at AT TIME ZONE 'UTC';
+```
+
+#### ✅ CORRECT PATTERN 2 - Explicit Timezone Handling (Workaround)
+
+If schema migration isn't possible immediately, use explicit timezone handling in queries:
+
+**Storage Layer:**
+```typescript
+// server/storage.ts - Workaround for timestamp without timezone
+async validatePasswordResetToken(token: string): Promise<PasswordResetToken | null> {
+  // Input validation
+  if (!token || typeof token !== 'string' || token.trim().length === 0) {
+    throw new Error('Invalid token: must be non-empty string');
+  }
+
+  // NOTE: expiresAt is stored as timestamp without timezone (bug in schema)
+  // JavaScript Date objects are UTC, but PostgreSQL treats timestamp without timezone as local time
+  // We need to explicitly tell PostgreSQL that the stored timestamp IS in UTC
+  const result = await db.execute(
+    sql`
+      SELECT *
+      FROM password_reset_tokens
+      WHERE token = ${token}
+        AND is_used = false
+        AND (expires_at AT TIME ZONE 'UTC') > NOW()  -- ✅ Explicit UTC
+      LIMIT 1
+    `
+  );
+
+  // Type assertion: db.execute() returns raw PostgreSQL rows as unknown type
+  const row = result.rows[0] as unknown;
+  if (!row) return null;
+
+  // Type assertion: Map PostgreSQL snake_case columns to TypeScript camelCase structure
+  const dbRow = row as {
+    id: number;
+    user_id: number;
+    token: string;
+    expires_at: Date;
+    is_used: boolean;
+    // ... other fields
+  };
+
+  return {
+    id: dbRow.id,
+    userId: dbRow.user_id,
+    token: dbRow.token,
+    expiresAt: dbRow.expires_at,
+    isUsed: dbRow.is_used,
+    // ... other fields
+  };
+}
+```
+
+**Cleanup Method (Consistent Approach):**
+```typescript
+async cleanupExpiredPasswordResetTokens(): Promise<number> {
+  // Use PostgreSQL NOW() with AT TIME ZONE for consistency with validatePasswordResetToken()
+  // NOTE: expiresAt is timestamp without timezone (schema bug), so we need explicit UTC handling
+  const result = await db.execute(
+    sql`
+      DELETE FROM password_reset_tokens
+      WHERE (expires_at AT TIME ZONE 'UTC') < NOW()
+      RETURNING id
+    `
+  );
+  return result.rowCount || 0;
+}
+```
+
+**Why `AT TIME ZONE 'UTC'` Works:**
+- Tells PostgreSQL: "treat this timestamp AS IF it's in UTC"
+- Converts to `timestamptz` for comparison with `NOW()`
+- Eliminates server timezone dependency
+
+#### ❌ ANTI-PATTERN - Inconsistent Timezone Handling
+
+```typescript
+// WRONG: Validation uses PostgreSQL NOW(), cleanup uses JavaScript Date
+async validatePasswordResetToken(token: string) {
+  // Uses PostgreSQL NOW() with AT TIME ZONE
+  const result = await db.execute(
+    sql`WHERE (expires_at AT TIME ZONE 'UTC') > NOW()`
+  );
+}
+
+async cleanupExpiredPasswordResetTokens() {
+  // Uses JavaScript Date (different timezone handling!)
+  const result = await db.delete(passwordResetTokens)
+    .where(lt(passwordResetTokens.expiresAt, new Date()));  // ❌ Inconsistent
+}
+```
+
+**Problem:** Different methods use different timezone handling strategies, causing subtle bugs.
+
+#### ✅ CORRECT - Consistent Timezone Handling
+
+**Rule:** Use same approach for validation AND cleanup.
+
+```typescript
+// Both methods use PostgreSQL NOW() with AT TIME ZONE
+async validatePasswordResetToken(token: string) {
+  return db.execute(sql`WHERE (expires_at AT TIME ZONE 'UTC') > NOW()`);
+}
+
+async cleanupExpiredPasswordResetTokens() {
+  return db.execute(sql`WHERE (expires_at AT TIME ZONE 'UTC') < NOW()`);
+}
+```
+
+#### Detection Rule for Code Review
+
+**Flag these patterns:**
+1. `timestamp(` without `, { withTimezone: true }` in schema
+2. Comparisons with `NOW()` on `timestamp` columns
+3. Mixed timezone handling (some methods use `NOW()`, others use `new Date()`)
+
+**Audit Command:**
+```bash
+# Find all timestamp columns without timezone
+grep "timestamp(" shared/schema.ts | grep -v "withTimezone: true"
+
+# Find comparisons with NOW()
+grep -r "NOW()" server/ | grep -E "(timestamp|expires|created)"
+
+# Find mixed patterns (both NOW() and new Date())
+grep -A 5 -B 5 "NOW()" server/storage.ts | grep "new Date()"
+```
+
+#### When to Use Each Approach
+
+| Approach | When to Use | Migration Effort |
+|----------|-------------|------------------|
+| **timestamptz in schema** | New tables, major refactor | High (schema migration) |
+| **AT TIME ZONE workaround** | Existing tables, quick fix | Low (query changes only) |
+
+**Recommendation:**
+- **Short-term:** Use `AT TIME ZONE` workaround for existing tables
+- **Long-term:** Migrate to `timestamptz` in schema during next major version
+
+#### Related Bugs Catalog
+
+**Production Issue:** Password reset tokens appeared valid after expiration
+- **Root Cause:** `timestamp` vs `timestamptz` comparison
+- **Fix:** Added `AT TIME ZONE 'UTC'` to queries
+- **Learnings:** See `docs/LEARNINGS_TODO_005_AUTH_EXPIRED_TOKEN.md`
+
+**Similar Issues Found:**
+- `server/storage/domains/job-lock-storage.ts` - Same pattern in job locks
+- Other tables TBD (needs full audit)
+
 ---
 
 ## 6. Type Safety in Queries
@@ -2010,6 +2247,196 @@ The 7-point implementation guidance serves as in-code documentation for future d
 5. **Transactions** - References atomicity requirements
 6. **Retry Logic** - Points to utility for transient errors
 7. **Logging** - Ensures consistent observability
+
+### 7.4 Database Triggers in Testing (CRITICAL)
+
+**Date Discovered**: 2025-12-02 (TODO_003)
+**Rule:** Database triggers can create "phantom data" that appears in tests without explicit creation. Always check for triggers when unexpected data appears, and clean up trigger-created data in test setup.
+
+#### Common Trigger Problem: Auto-Created Default Records
+
+**Symptom:**
+- Tests expect specific count, get more records than created
+- Records appear with specific names/flags (`isDefault: true`, `name: "My Watches"`)
+- Data exists without explicit INSERT in test code
+
+**Root Cause:**
+```sql
+-- migrations/0008_add_watch_lists.sql
+CREATE TRIGGER trigger_create_default_watch_list
+  AFTER INSERT ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION create_default_watch_list();
+
+-- This trigger automatically creates a watchlist when user is inserted!
+CREATE FUNCTION create_default_watch_list()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO watch_lists (user_id, name, description, is_default)
+  VALUES (NEW.id, 'My Watches', 'Default watch list', true);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### ❌ ANTI-PATTERN - Ignoring Trigger Effects
+
+```typescript
+// Test creates user but doesn't account for trigger
+beforeEach(async () => {
+  [testUser] = await db.insert(users).values({
+    username: 'testuser',
+    email: 'test@example.com',
+    passwordHash: 'hash',
+  }).returning();
+  // Hidden: Trigger just created a default watchlist!
+});
+
+// ❌ Test fails - expected 2, got 3 (2 explicit + 1 from trigger)
+it('should return all watch lists for user', async () => {
+  await db.insert(watchLists).values([
+    { userId: testUser.id, name: 'List 1' },
+    { userId: testUser.id, name: 'List 2' },
+  ]);
+
+  const lists = await storage.getUserWatchLists(testUser.id);
+  expect(lists).toHaveLength(2); // FAILS: Got 3!
+});
+```
+
+#### ✅ CORRECT - Clean Up Trigger Data in Test Setup
+
+```typescript
+/**
+ * NOTE: Database trigger auto-creates default watchlist on user insert
+ * - Trigger: trigger_create_default_watch_list
+ * - Migration: migrations/0008_add_watch_lists.sql (lines 45-55)
+ * - Creates watchlist with name="My Watches", isDefault=true
+ * - We delete this in beforeEach cleanup to isolate tests
+ */
+beforeEach(async () => {
+  // Create test user
+  [testUser] = await db.insert(users).values({
+    username: 'testuser',
+    email: 'test@example.com',
+    passwordHash: 'hash',
+  }).returning();
+
+  // Delete auto-created default watchlist (created by trigger)
+  // This ensures tests start with a clean slate and test explicit creation
+  await db.delete(watchLists).where(eq(watchLists.userId, testUser.id));
+});
+
+// ✅ Test passes - only explicit watchlists counted
+it('should return all watch lists for user', async () => {
+  await db.insert(watchLists).values([
+    { userId: testUser.id, name: 'List 1' },
+    { userId: testUser.id, name: 'List 2' },
+  ]);
+
+  const lists = await storage.getUserWatchLists(testUser.id);
+  expect(lists).toHaveLength(2); // PASSES: Got 2!
+});
+```
+
+#### Discovery Pattern for Triggers
+
+When tests have "phantom data":
+
+```bash
+# Search for triggers in migrations
+grep -rn "CREATE TRIGGER" migrations/
+
+# Search for trigger functions
+grep -rn "CREATE FUNCTION" migrations/
+
+# Find what the trigger creates
+grep -rn "My Watches\|isDefault.*true" migrations/
+```
+
+**Common Trigger Patterns to Watch For:**
+
+| Trigger Type | What It Does | Test Impact |
+|--------------|--------------|-------------|
+| **Default record creation** | Creates initial records (profiles, settings, watchlists) | Count assertions fail |
+| **Audit trail** | Creates audit/log records | More records than expected |
+| **Cascade updates** | Updates related tables | Unexpected field values |
+| **Data validation** | Rejects or modifies inserts | Tests fail unexpectedly |
+| **Denormalization** | Updates cached counts | Computed fields don't match |
+
+#### Testing Strategies for Triggers
+
+**Strategy 1: Delete Trigger Data (Recommended)**
+```typescript
+// Clean up auto-created data in beforeEach
+await db.delete(tableName).where(eq(tableName.isDefault, true));
+```
+
+**Pros**: ✅ Tests explicit behavior, ✅ Maintains production trigger, ✅ Clean test isolation
+**Cons**: ❌ Requires understanding trigger behavior
+
+**Strategy 2: Filter Trigger Data in Assertions**
+```typescript
+// Filter out default records in test
+const nonDefaultLists = lists.filter(l => !l.isDefault);
+expect(nonDefaultLists).toHaveLength(2);
+```
+
+**Pros**: ✅ No setup changes
+**Cons**: ❌ Hides production behavior, ❌ Clutters every test
+
+**Strategy 3: Environment Check in Trigger (NOT Recommended)**
+```sql
+-- Add environment check to trigger function
+CREATE FUNCTION create_default_watch_list() RETURNS TRIGGER AS $$
+BEGIN
+  IF current_setting('app.environment', true) != 'test' THEN
+    INSERT INTO watch_lists (...) VALUES (...);
+  END IF;
+  RETURN NEW;
+END;
+```
+
+**Pros**: ✅ No test changes needed
+**Cons**: ❌ Production code for test concerns, ❌ Harder to test actual prod behavior, ❌ Requires config management
+
+**Verdict**: Use Strategy 1 (delete in beforeEach) - it's explicit, maintainable, and tests real behavior.
+
+#### Documentation Requirements
+
+When working with database triggers in tests:
+
+1. **Document the trigger** in test comments:
+   ```typescript
+   /**
+    * NOTE: Database trigger auto-creates [entity] on [event]
+    * - Trigger: trigger_name
+    * - Migration: migrations/NNNN_file.sql (lines XX-YY)
+    * - Creates [what it creates]
+    * - We [how we handle it in tests]
+    */
+   ```
+
+2. **Comment cleanup strategy**:
+   ```typescript
+   // Delete auto-created [entity] (created by trigger_name)
+   // This ensures tests start with a clean slate
+   ```
+
+3. **Reference in migration file**:
+   ```sql
+   -- NOTE: This trigger creates default records
+   -- Test cleanup: Tests delete these in beforeEach
+   CREATE TRIGGER trigger_name ...
+   ```
+
+#### Related Testing Patterns
+
+- **Test Isolation**: See `LEARNINGS_TODO_001_WATCHLIST_TEST_FIX.md` for TRUNCATE CASCADE patterns
+- **Storage Layer Testing**: See `LEARNINGS_TODO_003_STORAGE_WATCHLIST_FIX.md` for trigger discovery process
+- **Database Cleanup**: Section 7.1 for transaction boundaries in tests
+
+**Reference Issue**: TODO_003 - Storage watchlist test fixes (2025-12-02)
 
 ---
 

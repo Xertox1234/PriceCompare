@@ -1,49 +1,67 @@
-# Work on GitHub Issue
-
-Use the orchestrator to coordinate work on a GitHub issue from the PriceCompare repository.
-
-**Usage:** `/work-issue <issue-number>`
-
+---
+name: work-issue
+description: Orchestrator command to work on a GitHub issue. Directly invokes the orchestrator to coordinate implementation across specialists.
+tools: Read, Grep, Glob, WebSearch, WebFetch, Task, Bash
+model: sonnet
 ---
 
-## Task
-Work on GitHub Issue: #$ARGUMENTS
+# Work on GitHub Issue: #$ARGUMENTS
 
-## Instructions
+You are the **Orchestrator** - executing work on a GitHub issue.
 
-1. **First**, fetch the GitHub issue details:
-   - Repository: `Xertox1234/PriceCompare`
-   - Issue number: $ARGUMENTS
-   - Use `gh issue view $ARGUMENTS` to get issue details, labels, and comments
+## Step 1: Fetch Issue Details
 
-2. **Analyze the issue**:
-   - Understand the requirements from title, description, and comments
-   - Check labels for priority (P1, P2, P3) and type (bug, feature, security)
-   - Note any linked PRs or related issues
+Run this command to get the issue details:
+```bash
+gh issue view $ARGUMENTS --repo Xertox1234/PriceCompare
+```
 
-3. **Then**, invoke the orchestrator agent (`.claude/agents/orchestrator.md`) to:
-   - Break down the issue into implementation subtasks
-   - Identify which specialist agents are needed based on the issue type:
-     - `bug` label → likely needs `test-engineer` + domain specialist
-     - `security` label → needs `security-auditor`
-     - `feature` label → may need multiple specialists
-     - `database` label → needs `database-engineer`
-     - `frontend` label → needs `frontend-specialist`
-     - `backend` label → needs `backend-architect`
-   - Delegate to appropriate specialists sequentially
-   - Coordinate the implementation to completion
+Analyze the issue:
+- Understand requirements from title, description, and comments
+- Check labels for priority (P1, P2, P3) and type (bug, feature, security)
+- Note any linked PRs or related issues
 
-4. **During implementation**:
-   - Create a feature branch if not already on one: `git checkout -b issue-$ARGUMENTS-<short-description>`
-   - Make atomic commits referencing the issue: `git commit -m "fix: description (#$ARGUMENTS)"`
-   - Follow project patterns from `docs/` folder
+## Step 2: Follow Orchestrator Protocol
 
-5. **When complete**:
-   - Run tests: `npm test`
-   - Summarize changes made
-   - Optionally create PR with `gh pr create --title "Fix #$ARGUMENTS: <title>" --body "<description>"`
+Load and follow the orchestrator agent configuration at `.claude/agents/orchestrator.md`.
 
-## Orchestrator Specialists
+**Your Role:** You NEVER implement code directly. You coordinate by:
+1. Analyzing the issue and breaking into subtasks
+2. Using the **Task tool** to delegate to specialist agents
+3. Waiting for each agent to complete before proceeding
+4. Passing context between agents
+5. Synthesizing results into a final summary
+
+## Step 3: Setup Branch
+
+Create a feature branch if not already on one:
+```bash
+git checkout -b issue-$ARGUMENTS-<short-description>
+```
+
+## Step 4: Execute Implementation
+
+Delegate to specialists using the Task tool based on issue labels:
+- `bug` label → likely needs `test-engineer` + domain specialist
+- `security` label → needs `security-auditor`
+- `feature` label → may need multiple specialists
+- `database` label → needs `database-engineer`
+- `frontend` label → needs `frontend-specialist`
+- `backend` label → needs `backend-architect`
+
+```
+Task(subagent_type, description, prompt, model?)
+```
+
+## Step 5: Completion
+
+When implementation is complete:
+1. Run tests: `npm test`
+2. Make atomic commits: `git commit -m "fix: description (#$ARGUMENTS)"`
+3. Summarize changes made
+4. Optionally create PR: `gh pr create --title "Fix #$ARGUMENTS: <title>" --body "<description>"`
+
+## Available Specialists
 - `backend-architect` - API routes, Express middleware, Bull jobs, WebSocket
 - `frontend-specialist` - React components, React Query, Recharts
 - `database-engineer` - PostgreSQL, Drizzle ORM, migrations
@@ -60,3 +78,8 @@ Work on GitHub Issue: #$ARGUMENTS
 - Frontend: `docs/05_FRONTEND_PATTERNS.md`
 - Errors: `docs/06_ERROR_HANDLING_PATTERNS.md`
 - Jobs: `docs/07_BACKGROUND_JOBS_PATTERNS.md`
+- Testing: `docs/08_TESTING_PATTERNS.md`
+
+---
+
+**BEGIN:** Fetch issue #$ARGUMENTS and start orchestrating the implementation.

@@ -726,17 +726,21 @@ describe('Authentication Routes', () => {
     });
 
     it('should reject expired token', async () => {
-      // Manually expire the token
+      // Manually expire the token by setting expiresAt to the past
+      // Note: We set it directly in DB rather than using fake timers because
+      // PostgreSQL's NOW() function uses database time, not JavaScript time
       await db
         .update(passwordResetTokens)
-        .set({ expiresAt: new Date(Date.now() - 1000) }) // 1 second ago
+        .set({
+          expiresAt: new Date(Date.now() - 60 * 60 * 1000) // 1 hour ago
+        })
         .where(eq(passwordResetTokens.token, validToken));
 
+      // Attempt to validate expired token
       const response = await request(app).get(`/api/auth/reset-password/${validToken}`);
 
-      // TODO: Fix - validatePasswordResetToken should check expiration but currently returns success
-      // expectBadRequestError(response, 'Invalid or expired');
-      expectSuccessResponse(response, 200);
+      // Should reject with "Invalid or expired" error
+      expectBadRequestError(response, 'Invalid or expired');
     });
 
     it('should reject used token', async () => {

@@ -48,7 +48,7 @@ describe('PriceAggregationService (Integration)', () => {
     [testRetailer] = await db.insert(retailers).values({
       name: 'Test Retailer',
       website: 'https://test-retailer.com',
-      logoUrl: 'https://test-retailer.com/logo.png',
+      logo: 'https://test-retailer.com/logo.png',
     }).returning();
 
     [testProduct] = await db.insert(products).values({
@@ -544,7 +544,7 @@ describe('PriceAggregationService (Integration)', () => {
 
       // Volatility should be calculated and non-zero
       expect(aggregate.volatilityScore).toBeDefined();
-      const volatility = parseFloat(aggregate.volatilityScore);
+      const volatility = parseFloat(aggregate.volatilityScore ?? '0');
       expect(volatility).toBeGreaterThan(0);
       // Should be approximately 40.82% (coefficient of variation)
       expect(volatility).toBeGreaterThan(35);
@@ -617,7 +617,7 @@ describe('PriceAggregationService (Integration)', () => {
       const [retailer2] = await db.insert(retailers).values({
         name: 'Second Retailer',
         website: 'https://retailer2.com',
-        logoUrl: 'https://retailer2.com/logo.png',
+        logo: 'https://retailer2.com/logo.png',
       }).returning();
 
       const yesterday = new Date();
