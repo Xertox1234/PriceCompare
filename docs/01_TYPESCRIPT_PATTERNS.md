@@ -23,6 +23,7 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
 - [Error Type Handling](#error-type-handling)
 - [Async/Promise Patterns](#asyncpromise-patterns)
 - [Type Guards & Narrowing](#type-guards--narrowing)
+- [Non-Null Assertion Patterns](#non-null-assertion-patterns-new---2025-12-04)
 - [Generic Patterns](#generic-patterns)
 
 ---
@@ -1517,6 +1518,162 @@ export function validateOutput(
   const schema = outputSchemas[schemaName];
   // Now safe to proceed with validation...
 }
+```
+
+---
+
+## Non-Null Assertion Patterns (NEW - 2025-12-04)
+
+Non-null assertions (`!`) bypass TypeScript's null safety. This section documents when to use them and preferred alternatives.
+
+### When Non-Null Assertions Are Dangerous
+
+The `!` operator tells TypeScript "trust me, this is not null". But if you're wrong, you get a runtime crash instead of a compile-time error.
+
+**Most Common Violation**: Using `!` after `Map.get()` when building grouped data.
+
+### Pattern 1: Map.get() with Null Coalescing (PREFERRED)
+
+```typescript
+// ❌ WRONG - Non-null assertion hides potential crash
+const groupedData = new Map<string, DataPoint[]>();
+
+for (const item of items) {
+  const key = item.category;
+  if (!groupedData.has(key)) {
+    groupedData.set(key, []);
+  }
+  groupedData.get(key)!.push(item);  // ❌ Non-null assertion!
+}
+
+// ✅ BEST - Null coalescing is clean and safe
+const groupedData = new Map<string, DataPoint[]>();
+
+for (const item of items) {
+  const key = item.category;
+  const group = groupedData.get(key) ?? [];
+  group.push(item);
+  groupedData.set(key, group);
+}
+```
+
+**Benefits of null coalescing**:
+- Zero chance of null pointer exception
+- More readable - single line handles both cases
+- No log noise from initialization
+- TypeScript understands the type narrowing
+
+### Pattern 2: Explicit Error for Uninitialized Refs
+
+When null indicates a bug (not a valid state), throw a descriptive error.
+
+```typescript
+// ❌ WRONG - Non-null assertion on ref
+const fetchFn = originalFetchRef.current!;
+
+// ✅ GOOD - Explicit error with context
+if (!originalFetchRef.current) {
+  throw new Error(
+    'Rate limit hook: Fetch ref not initialized. ' +
+    'This indicates a timing issue in hook lifecycle.'
+  );
+}
+const fetchFn = originalFetchRef.current;  // TypeScript knows it's defined
+```
+
+**When to use explicit errors:**
+- React refs that should be set after mount
+- Singleton services that should be initialized
+- Resources that MUST exist (null indicates a setup bug)
+
+### Pattern 3: Optional Chaining in Tests
+
+In tests, prefer optional chaining over non-null assertions for clearer failure messages.
+
+```typescript
+// ❌ WRONG - Non-null assertion crashes with unhelpful stack trace
+expect(result!.currentPrice).toBe(100);
+expect(products[0]!.name).toBe('Test');
+
+// ✅ BETTER - Optional chaining gives clearer test failure
+expect(result?.currentPrice).toBe(100);
+expect(products[0]?.name).toBe('Test');
+// Failure: "expected undefined to be 100" - tells you what was null
+
+// ✅ ALSO GOOD - Explicit existence check first
+expect(result).toBeDefined();
+expect(result!.currentPrice).toBe(100);  // Safe after check
+```
+
+### Pattern 4: Double Non-Null Assertions (CRITICAL)
+
+When you see TWO `!` on the same line, BOTH need null handling.
+
+```typescript
+// ❌ CRITICAL - Double non-null assertion
+const listProducts = productsByListId.get(product.watchListId!)!;
+//                                                       ^     ^
+//                         First assertion: watchListId is defined
+//                         Second assertion: Map.get() returns value
+
+// ✅ CORRECT - Handle BOTH null cases
+if (!product.watchListId) {
+  logger.warn(`Product ${product.productId} has null watchListId, skipping`);
+  continue;
+}
+
+const listProducts = productsByListId.get(product.watchListId) ?? [];
+listProducts.push(product);
+productsByListId.set(product.watchListId, listProducts);
+```
+
+### Anti-Pattern: Logger.warn for Expected Behavior
+
+DO NOT use `logger.warn()` for normal code paths like first-time Map initialization.
+
+```typescript
+// ❌ WRONG - Creates false-positive warnings in logs
+const group = groupedData.get(key);
+if (group) {
+  group.push(item);
+} else {
+  logger.warn(`Missing group for key: ${key}, initializing`);  // ❌ Log noise!
+  groupedData.set(key, [item]);
+}
+
+// ✅ CORRECT - Silent initialization with null coalescing
+const group = groupedData.get(key) ?? [];
+group.push(item);
+groupedData.set(key, group);
+```
+
+**Problems with warning on expected nulls:**
+- First-time initialization is EXPECTED, not a warning condition
+- Creates noise in production logs
+- Makes real warnings harder to find
+- Verbose compared to null coalescing
+
+### Quick Reference Table
+
+| Pattern | Replace With |
+|---------|-------------|
+| `map.get(key)!` | `map.get(key) ?? defaultValue` |
+| `array[0]!` | `array[0]` with optional chaining or bounds check |
+| `ref.current!` | Explicit null check with descriptive error |
+| `value!.property!` | Two separate null checks |
+| `logger.warn` for init | Null coalescing (no logging) |
+
+### Detection Commands
+
+```bash
+# Find non-null assertions in TypeScript files
+grep -rn "!\." server/ client/src/ --include="*.ts" --include="*.tsx" | grep -v ".test."
+
+# Find Map.get() with non-null assertion
+grep -rn "\.get(.*)\!" server/ client/src/ --include="*.ts"
+
+# Find double non-null assertions
+grep -rn "!\)!" server/ client/src/ --include="*.ts"
 ```
 
 ---

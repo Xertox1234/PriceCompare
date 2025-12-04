@@ -506,6 +506,91 @@ return products;
 
 ---
 
+### Pattern 7: Non-Null Assertions (`!`) 🔒 Type Safety (NEW 2025-12-04)
+
+**What**: Using the non-null assertion operator (`!`) to tell TypeScript a value is not null/undefined, bypassing safety checks.
+
+**Why It's Bad**: Non-null assertions hide potential runtime crashes. If the value IS null, the code crashes instead of handling the case gracefully.
+
+**Common Locations**:
+- Map.get() operations: `map.get(key)!.push(item)`
+- Array indexing: `array[0]!.property`
+- React refs: `ref.current!.value`
+- Optional chaining bypass: `obj.nested!.prop`
+
+**Detection**:
+```typescript
+// ❌ WRONG - Non-null assertion on Map.get()
+const groupedData = new Map<string, DataPoint[]>();
+for (const item of items) {
+  if (!groupedData.has(key)) {
+    groupedData.set(key, []);
+  }
+  groupedData.get(key)!.push(item);  // ❌ Non-null assertion!
+}
+
+// ✅ CORRECT - Null coalescing operator (PREFERRED)
+const group = groupedData.get(key) ?? [];
+group.push(item);
+groupedData.set(key, group);
+
+// ❌ WRONG - Double non-null assertion (CRITICAL)
+const listProducts = productsByListId.get(product.watchListId!)!;
+//                                                       ^     ^
+
+// ✅ CORRECT - Handle BOTH null cases
+if (!product.watchListId) {
+  logger.warn(`Product ${product.productId} has null watchListId`);
+  continue;
+}
+const listProducts = productsByListId.get(product.watchListId) ?? [];
+```
+
+**Special Case: Ref.current**
+
+```typescript
+// ❌ WRONG - Non-null assertion on ref
+const fetchFn = originalFetchRef.current!;
+
+// ✅ CORRECT - Explicit error for uninitialized ref
+if (!originalFetchRef.current) {
+  throw new Error('Fetch ref not initialized. This indicates a timing issue.');
+}
+const fetchFn = originalFetchRef.current;  // Now TypeScript knows it's defined
+```
+
+**Anti-Pattern: Logger.warn for Expected Behavior**
+
+```typescript
+// ❌ WRONG - Creates log noise for normal code path
+const group = groupedData.get(key);
+if (group) {
+  group.push(item);
+} else {
+  logger.warn(`Missing group for key: ${key}, initializing`);  // ❌ Log noise!
+  groupedData.set(key, [item]);
+}
+
+// ✅ CORRECT - Silent initialization with null coalescing
+const group = groupedData.get(key) ?? [];
+group.push(item);
+groupedData.set(key, group);
+```
+
+**Review Checklist**:
+- [ ] Search for `\.get\(.*\)!` - Map.get with non-null assertion
+- [ ] Search for `\[.*\]!` - Array indexing with non-null assertion
+- [ ] Search for `\.current!` - Ref with non-null assertion
+- [ ] Search for `!\)!` - Double non-null assertions (CRITICAL)
+- [ ] Check logger.warn isn't used for expected null cases
+
+**Files to Watch**: All TypeScript files, especially:
+- Data transformation utilities (Map grouping)
+- React hooks with refs
+- Storage layer export/import operations
+
+---
+
 ### Pre-Commit Integration
 
 The pre-commit hook (`/.git/hooks/pre-commit`) now includes **proactive pattern detection** that warns about these patterns BEFORE running full ESLint:
@@ -518,6 +603,7 @@ Pattern 3: Explicit 'any' types
 Pattern 4: Missing await on async operations
 Pattern 5: console.log in production code
 Pattern 6: Unused variables (if many new declarations)
+Pattern 7: Non-null assertions (map.get()!, ref.current!)
 ```
 
 **Benefit**: Get actionable quick-fix suggestions BEFORE full lint runs, reducing commit friction.

@@ -1276,6 +1276,167 @@ class CacheService {
 
 ---
 
+### 25. Non-Null Assertion Elimination Pattern (CRITICAL - 2025-12-04)
+
+**When reviewing code with non-null assertions (`!`), flag them as violations requiring defensive null checking.**
+
+Non-null assertions (`value!`) bypass TypeScript's null safety and hide potential runtime errors. They indicate that the developer believes a value cannot be null, but this belief may be wrong under edge cases or future code changes.
+
+#### Anti-Pattern: Non-Null Assertion on Map.get()
+
+**Most Common Case**: Using `!` after `Map.get()` when building grouped data.
+
+```typescript
+// ❌ WRONG - Non-null assertion hides potential runtime error
+const groupedData = new Map<string, DataPoint[]>();
+
+for (const item of items) {
+  const key = item.category;
+  if (!groupedData.has(key)) {
+    groupedData.set(key, []);
+  }
+  groupedData.get(key)!.push(item);  // ❌ Non-null assertion!
+}
+```
+
+**Problem**: If the `has()` check and `get()` call race (concurrent code) or the key is modified between calls, `get()` could return undefined, causing a runtime crash.
+
+#### ✅ BEST - Null Coalescing Operator (`??`)
+
+```typescript
+// ✅ BEST - Clean and idiomatic with null coalescing
+const groupedData = new Map<string, DataPoint[]>();
+
+for (const item of items) {
+  const key = item.category;
+  const group = groupedData.get(key) ?? [];
+  group.push(item);
+  groupedData.set(key, group);
+}
+```
+
+**Benefits:**
+- Zero chance of null pointer exception
+- More readable - single line handles both cases
+- No log noise from initialization (unlike logger.warn approach)
+- TypeScript understands the type narrowing
+
+#### ❌ ANTI-PATTERN - Logger.warn for Expected Behavior
+
+**DO NOT use logger.warn() for normal code paths like first-time Map initialization.**
+
+```typescript
+// ❌ WRONG - Creates false-positive warnings in logs
+const group = groupedData.get(key);
+if (group) {
+  group.push(item);
+} else {
+  logger.warn(`Missing group for key: ${key}, initializing`);  // ❌ Log noise!
+  groupedData.set(key, [item]);
+}
+```
+
+**Problems:**
+- First-time initialization is EXPECTED, not a warning condition
+- Creates noise in production logs
+- Makes real warnings harder to find
+- Verbose compared to null coalescing
+
+#### Pattern 2: Explicit Error for Uninitialized Refs
+
+**When**: A ref or resource should definitely be initialized before use, and null indicates a bug.
+
+```typescript
+// ✅ GOOD - Clear error messages for timing issues
+if (!originalFetchRef.current) {
+  throw new Error(
+    'Rate limit hook: Fetch ref not initialized. This indicates a timing issue in hook lifecycle.'
+  );
+}
+const originalFetch = originalFetchRef.current;
+// Now TypeScript knows originalFetch is not null
+```
+
+**When to use explicit errors:**
+- React refs that should be set after mount
+- Singleton services that should be initialized
+- Resources that MUST exist (indicates setup bug if null)
+
+#### Pattern 3: Optional Chaining in Tests
+
+**When**: Accessing properties in test assertions where undefined should fail the test.
+
+```typescript
+// ❌ WRONG - Non-null assertion in test
+expect(result!.currentPrice).toBe(100);
+expect(products[0]!.name).toBe('Test');
+
+// ✅ BETTER - Optional chaining (clearer error if undefined)
+expect(result?.currentPrice).toBe(100);
+expect(products[0]?.name).toBe('Test');
+// Test fails with "expected undefined to be 100" - clearer than crash
+
+// ✅ ALSO GOOD - Explicit existence check first
+expect(result).toBeDefined();
+expect(result!.currentPrice).toBe(100);  // Safe after check
+```
+
+#### Pattern 4: Double Non-Null Assertions (CRITICAL)
+
+**When you see TWO non-null assertions on the same line, BOTH need null checks.**
+
+```typescript
+// ❌ CRITICAL - Double non-null assertion
+const listProducts = productsByListId.get(product.watchListId!)!;
+//                                                       ^     ^
+//                         First assertion: watchListId is defined
+//                         Second assertion: Map.get() returns value
+
+// ✅ CORRECT - Both null cases handled
+if (!product.watchListId) {
+  logger.warn(`Product ${product.productId} has null watchListId, skipping`);
+  continue;
+}
+
+const listProducts = productsByListId.get(product.watchListId) ?? [];
+listProducts.push(product);
+productsByListId.set(product.watchListId, listProducts);
+```
+
+#### Review Checklist for Non-Null Assertions
+
+- [ ] **Map.get() + `!`** - Replace with null coalescing (`??`)
+- [ ] **Array index + `!`** (e.g., `items[0]!`) - Use optional chaining or bounds check
+- [ ] **Ref.current + `!`** - Add explicit null check with descriptive error
+- [ ] **Double `!`** - Check BOTH assertions have corresponding null handling
+- [ ] **No logger.warn for expected nulls** - Use null coalescing instead
+- [ ] **Test assertions** - Prefer optional chaining over `!`
+
+#### Detection Commands
+
+```bash
+# Find non-null assertions in TypeScript files
+grep -rn "!\\." server/ client/src/ --include="*.ts" --include="*.tsx" | grep -v ".test."
+
+# Find Map.get() with non-null assertion
+grep -rn "\.get(.*)\!" server/ client/src/ --include="*.ts"
+
+# Find double non-null assertions
+grep -rn "!\\)!" server/ client/src/ --include="*.ts"
+```
+
+#### Quick Reference
+
+| Pattern | Replace With |
+|---------|-------------|
+| `map.get(key)!` | `map.get(key) ?? defaultValue` |
+| `array[0]!` | `array[0]` with optional chaining or bounds check |
+| `ref.current!` | Explicit null check with error |
+| `value!.property!` | Two separate null checks |
+| `logger.warn` for init | Null coalescing (no logging) |
+
+---
+
 ### 19. Helper Function Centralization Pattern (shouldSkipCache Example)
 
 **When reviewing services with repeated conditional checks, verify that common conditions are centralized into helper functions.**
@@ -1891,6 +2052,9 @@ errors.push({
 - [ ] **Storage layer architecture compliance (Phase 8)** - No direct db imports in services
 - [ ] **Type assertion documentation (Phase 8)** - All `as` casts have comments
 - [ ] **Logging pattern (Phase 8)** - No console.error/console.log in production
+- [ ] **No non-null assertions (`!`)** - Use null coalescing or explicit checks
+- [ ] **Map.get() patterns** - Use `?? []` instead of `!` for grouped data
+- [ ] **No logger.warn for expected nulls** - Use null coalescing, not logging
 
 ### 🚨 Critical Issues
 [Pattern violations that break established conventions]
