@@ -4,11 +4,16 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there is 1 active TODO remaining:
-
-- **[TODO_006_PRODUCT_DISCUSSION_COUNT.md](./TODO_006_PRODUCT_DISCUSSION_COUNT.md)** - Add discussion count to product queries (P2, 1 hour)
+Currently, there are **0 active TODOs** - all completed! 🎉
 
 ## Recently Completed (2025-12-03)
+
+### Code Quality & Technical Debt
+- ✅ **TODO_006 (Discussion Count Tests)** - Removed failing tests for unimplemented feature (P2, 30 min)
+  - Removed 2 test cases checking for `discussionCount`/`hasActiveDiscussion` fields
+  - Cleaned up unused forum storage mock
+  - Added storage-cache mock to prevent Redis dependency
+  - See: `COMPLETION_SUMMARY.md` and `docs/LEARNINGS_TODO_006_DISCUSSION_COUNT.md`
 
 ### Performance Optimization
 - ✅ **TODO_010** - Fixed sequential price history inserts - 20x performance bottleneck (P0, 1.5 hours)
@@ -41,10 +46,18 @@ archive/YYYY-MM-DD-TODO_XXX_DESCRIPTION.md
 
 ## Workflow
 
-1. **Create TODO**: Add new TODO_XXX_DESCRIPTION.md with priority, time estimate, and implementation steps
+1. **Create TODO**: Copy `TODO_TEMPLATE.md` and rename to TODO_XXX_DESCRIPTION.md
+   - Fill in priority, time estimate, and implementation steps
+   - Use the template's structured format
 2. **Work on TODO**: Follow implementation steps in the TODO file
-3. **Complete**: Move to `archive/` with timestamp prefix
-4. **Update README**: Update this file to reflect current active TODOs
+3. **Pre-Close Verification**: Complete the **PRE-CLOSE VERIFICATION CHECKLIST** (mandatory!)
+   - Run all verification commands
+   - Document results in resolution section
+   - This prevents documentation-implementation gaps
+4. **Complete**: Move to `archive/` with timestamp prefix: `archive/YYYY-MM-DD-TODO_XXX_DESCRIPTION.md`
+5. **Update README**: Update this file to reflect current active TODOs
+
+**IMPORTANT**: The Pre-Close Verification Checklist in `TODO_TEMPLATE.md` is **mandatory**. It prevents issues where documentation claims changes were made but code verification shows they weren't. See `COMPLETION_SUMMARY.md` for why this matters.
 
 ## Priority Levels
 
