@@ -115,6 +115,20 @@ The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces co
 
 **Bypass hook** (not recommended): `git commit --no-verify`
 
+### Working with the Pre-Commit Hook
+
+**Key Patterns:**
+- **Security markers must be inline:** `passwordHash: 'hash', // SECURITY: Test data only`
+- **Remove unused variables:** Don't declare if unused, or prefix with `_`
+- **Read hook output:** It provides specific fixes and examples
+- **Never bypass casually:** Bypassing creates technical debt
+
+**See `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md` for complete guide** including:
+- Inline security marker patterns
+- Common hook failures and solutions
+- Blocker vs warning classification
+- Real-world examples from project commits
+
 ### Claude Code Hooks
 
 Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent to review commits made through Claude Code.
@@ -1242,6 +1256,9 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 ### Learnings Documentation (Real-World Examples)
 - `docs/LEARNINGS_TODO_002_BODY_PARSER_FIX.md` - Transitive dependency security fix pattern (2025-12-02)
+- `docs/LEARNINGS_TODO_006_DISCUSSION_COUNT.md` - Identifying and resolving duplicate TODOs (2025-12-03)
+- `docs/LEARNINGS_TODO_010_BATCH_INSERT.md` - Batch insert optimization implementation (2025-12-03)
+- `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md` - Working with pre-commit hooks, security markers, and common fixes (2025-12-03)
 
 ### Subagent Documentation (.claude/knowledge/)
 - `claude-code-subagent-setup-guide.md` - Complete subagent system guide

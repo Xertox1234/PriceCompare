@@ -1,6 +1,6 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.1
+**Version:** 2.2
 **Last Updated:** 2025-12-03
 **Migrated From:**
 - `docs/DATABASE_PATTERNS.md` (v1.0)
@@ -13,6 +13,7 @@
 **Maintainer:** Claude Code / Development Team
 **Status:** Active
 **Related Patterns:** [SECURITY_PATTERNS.md, API_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, ERROR_HANDLING_PATTERNS.md]
+**Related Learnings:** [LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md (test fixture security markers)]
 
 ---
 
