@@ -220,7 +220,15 @@ class MonitoringService {
       const completedJobs = allJobs.filter(j => j.status === 'completed' && j.startedAt && j.completedAt);
       const avgDuration = completedJobs.length > 0
         ? completedJobs.reduce((sum, job) => {
-            const duration = job.completedAt!.getTime() - job.startedAt!.getTime();
+            // Skip jobs with incomplete timestamps (already filtered but extra safety)
+            if (!job.completedAt || !job.startedAt) {
+              logger.debug(
+                `Monitoring: Job ${job.id} has incomplete timestamps ` +
+                `(completedAt: ${job.completedAt}, startedAt: ${job.startedAt}), skipping duration`
+              );
+              return sum;
+            }
+            const duration = job.completedAt.getTime() - job.startedAt.getTime();
             return sum + duration;
           }, 0) / completedJobs.length
         : null;

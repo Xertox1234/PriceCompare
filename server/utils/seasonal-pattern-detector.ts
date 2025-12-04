@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 interface PriceData {
   price: string;
   recordedAt: Date | string;
@@ -85,7 +87,13 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
     if (!monthlyData.has(month)) {
       monthlyData.set(month, []);
     }
-    monthlyData.get(month)!.push(item.price);
+    const monthData = monthlyData.get(month);
+    if (monthData) {
+      monthData.push(item.price);
+    } else {
+      logger.warn(`Seasonal detector: Missing month data for ${month}, initializing`);
+      monthlyData.set(month, [item.price]);
+    }
   });
 
   const monthlyPatterns: MonthlyPattern[] = Array.from(monthlyData.entries())
@@ -110,7 +118,13 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
     if (!seasonalData.has(season)) {
       seasonalData.set(season, []);
     }
-    seasonalData.get(season)!.push(item.price);
+    const seasonData = seasonalData.get(season);
+    if (seasonData) {
+      seasonData.push(item.price);
+    } else {
+      logger.warn(`Seasonal detector: Missing season data for ${season}, initializing`);
+      seasonalData.set(season, [item.price]);
+    }
   });
 
   const seasonalPatterns: SeasonalPattern[] = Array.from(seasonalData.entries())
@@ -133,7 +147,13 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
     if (!dayOfWeekData.has(dayOfWeek)) {
       dayOfWeekData.set(dayOfWeek, []);
     }
-    dayOfWeekData.get(dayOfWeek)!.push(item.price);
+    const dayData = dayOfWeekData.get(dayOfWeek);
+    if (dayData) {
+      dayData.push(item.price);
+    } else {
+      logger.warn(`Seasonal detector: Missing day-of-week data for ${dayOfWeek}, initializing`);
+      dayOfWeekData.set(dayOfWeek, [item.price]);
+    }
   });
 
   const dayOfWeekPatterns: DayOfWeekPattern[] = Array.from(dayOfWeekData.entries())

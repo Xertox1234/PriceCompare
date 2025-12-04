@@ -1471,10 +1471,22 @@ export class WatchListStorage extends BaseStorage {
       // Step 3: Group products by listId using Map for O(n) lookup
       const productsByListId = new Map<number, typeof allProducts>();
       for (const product of allProducts) {
-        if (!productsByListId.has(product.watchListId!)) {
-          productsByListId.set(product.watchListId!, []);
+        if (!product.watchListId) {
+          logger.warn(`Storage: Product ${product.productId} has null watchListId, skipping`);
+          continue;
         }
-        productsByListId.get(product.watchListId!)!.push(product);
+
+        if (!productsByListId.has(product.watchListId)) {
+          productsByListId.set(product.watchListId, []);
+        }
+
+        const listProducts = productsByListId.get(product.watchListId);
+        if (listProducts) {
+          listProducts.push(product);
+        } else {
+          logger.warn(`Storage: Missing products array for watchlist ID: ${product.watchListId}, initializing`);
+          productsByListId.set(product.watchListId, [product]);
+        }
       }
 
       // Step 4: Build export data

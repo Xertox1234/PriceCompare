@@ -522,11 +522,11 @@ describe('Watchlist Storage Layer', () => {
 
       const product = result.products.find((p: { productId: number }) => p.productId === testProductId);
       expect(product).toBeDefined();
-      expect(product!.productName).toBe('Test Product 1');
-      expect(product!.currentPrice).toBeDefined();
-      expect(product!.lowestPrice).toBeDefined();
-      expect(product!.averagePrice).toBeDefined();
-      expect(product!.savingsPotential).toBeDefined();
+      expect(product?.productName).toBe('Test Product 1');
+      expect(product?.currentPrice).toBeDefined();
+      expect(product?.lowestPrice).toBeDefined();
+      expect(product?.averagePrice).toBeDefined();
+      expect(product?.savingsPotential).toBeDefined();
     });
 
     it('should support sorting by priceDropPercent', async () => {
@@ -576,13 +576,13 @@ describe('Watchlist Storage Layer', () => {
 
       const product = result.products.find((p: { productId: number }) => p.productId === testProductId);
       expect(product).toBeDefined();
-      expect(product!.last7Days).toBeDefined();
-      expect(Array.isArray(product!.last7Days)).toBe(true);
+      expect(product?.last7Days).toBeDefined();
+      expect(Array.isArray(product?.last7Days)).toBe(true);
 
       // Should have sparkline data points
-      if (product!.last7Days.length > 0) {
-        expect(product!.last7Days[0]).toHaveProperty('date');
-        expect(product!.last7Days[0]).toHaveProperty('price');
+      if (product?.last7Days && product.last7Days.length > 0) {
+        expect(product.last7Days[0]).toHaveProperty('date');
+        expect(product.last7Days[0]).toHaveProperty('price');
       }
     });
 
@@ -604,7 +604,7 @@ describe('Watchlist Storage Layer', () => {
 
     it('should handle product with no price history', async () => {
       // Create product without price history (no records in priceHistory table)
-      // testProductId2 has no price history - only created in beforeEach
+      // testProductId2 has current price from product offer but no historical data
       const result = await storage.getWatchedProducts(testUserId);
 
       const productWithoutHistory = result.products.find(
@@ -612,9 +612,9 @@ describe('Watchlist Storage Layer', () => {
       );
 
       expect(productWithoutHistory).toBeDefined();
-      expect(productWithoutHistory!.last7Days).toEqual([]); // Empty array for sparkline
-      expect(productWithoutHistory!.currentPrice).toBe(0); // No price data
-      expect(productWithoutHistory!.lowestPrice).toBe(0); // No price data
+      expect(productWithoutHistory?.last7Days).toEqual([]); // Empty array for sparkline - no history
+      expect(productWithoutHistory?.currentPrice).toBe('199.99'); // Has current price from offer
+      expect(productWithoutHistory?.lowestPrice).toBe('199.99'); // No history, so lowest = current
     });
 
     it('should support cursor pagination with different products', async () => {

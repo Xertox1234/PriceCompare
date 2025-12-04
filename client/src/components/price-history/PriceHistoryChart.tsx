@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { InteractiveTooltip } from "./InteractiveTooltip";
 import { ChartExport } from "./ChartExport";
 import { TrendingDown } from "lucide-react";
+import { createLogger } from "@/utils/logger";
 
 interface PriceHistoryData {
   id: number;
@@ -40,6 +41,8 @@ const RETAILER_COLORS = [
   "#06b6d4", // Cyan
   "#f97316", // Orange
 ];
+
+const logger = createLogger('PriceHistoryChart');
 
 export function PriceHistoryChart({
   data,
@@ -83,7 +86,14 @@ export function PriceHistoryChart({
       if (!dataByRetailer.has(item.retailerId)) {
         dataByRetailer.set(item.retailerId, []);
       }
-      dataByRetailer.get(item.retailerId)!.push(item);
+      const retailerData = dataByRetailer.get(item.retailerId);
+      if (retailerData) {
+        retailerData.push(item);
+      } else {
+        // Defensive: Initialize if missing (shouldn't happen in normal flow)
+        logger.warn(`Missing retailer data for ID: ${item.retailerId}, initializing`);
+        dataByRetailer.set(item.retailerId, [item]);
+      }
     });
 
     // Check each retailer's price history for significant drops
@@ -152,7 +162,18 @@ export function PriceHistoryChart({
     }
 
     const retailerKey = `retailer_${item.retailerId}`;
-    dataByDate.get(dateKey)![retailerKey] = parseFloat(item.price);
+    const dateData = dataByDate.get(dateKey);
+    if (dateData) {
+      dateData[retailerKey] = parseFloat(item.price);
+    } else {
+      // Defensive: Initialize if missing (shouldn't happen in normal flow)
+      logger.warn(`Missing date data for key: ${dateKey}, initializing`);
+      dataByDate.set(dateKey, {
+        date: dateKey,
+        timestamp: date.getTime(),
+        [retailerKey]: parseFloat(item.price)
+      });
+    }
   });
 
   // Convert to array and sort by date

@@ -1,4 +1,7 @@
 import { format, parseISO, startOfWeek, startOfMonth } from "date-fns";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger('ChartDataTransformer');
 
 export interface PriceDataPoint {
   id: number;
@@ -53,7 +56,13 @@ export function aggregatePriceData(
     if (!retailerGroups.has(point.retailerId)) {
       retailerGroups.set(point.retailerId, []);
     }
-    retailerGroups.get(point.retailerId)!.push(point);
+    const retailerGroup = retailerGroups.get(point.retailerId);
+    if (retailerGroup) {
+      retailerGroup.push(point);
+    } else {
+      logger.warn(`Missing retailer group for ID: ${point.retailerId}, initializing`);
+      retailerGroups.set(point.retailerId, [point]);
+    }
   });
 
   // Aggregate each retailer's data
@@ -84,7 +93,13 @@ export function aggregatePriceData(
       if (!grouped.has(groupKey)) {
         grouped.set(groupKey, []);
       }
-      grouped.get(groupKey)!.push(point);
+      const group = grouped.get(groupKey);
+      if (group) {
+        group.push(point);
+      } else {
+        logger.warn(`Missing group for key: ${groupKey}, initializing`);
+        grouped.set(groupKey, [point]);
+      }
     });
 
     // Calculate average for each group
@@ -143,7 +158,17 @@ export function transformForChart(
     }
 
     const retailerKey = `retailer_${item.retailerId}`;
-    dataByDate.get(dateKey)![retailerKey] = parseFloat(item.price);
+    const dateData = dataByDate.get(dateKey);
+    if (dateData) {
+      dateData[retailerKey] = parseFloat(item.price);
+    } else {
+      logger.warn(`Missing date data for key: ${dateKey}, initializing`);
+      dataByDate.set(dateKey, {
+        date: dateKey,
+        timestamp: date.getTime(),
+        [retailerKey]: parseFloat(item.price),
+      });
+    }
   });
 
   // Convert to array and sort by date

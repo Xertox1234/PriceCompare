@@ -720,7 +720,14 @@ export class MemStorage implements IStorage {
       if (!offersByProduct.has(offer.productId)) {
         offersByProduct.set(offer.productId, []);
       }
-      offersByProduct.get(offer.productId)!.push({ ...offer, retailer });
+
+      const productOffers = offersByProduct.get(offer.productId);
+      if (productOffers) {
+        productOffers.push({ ...offer, retailer });
+      } else {
+        logger.warn(`Storage: Missing product offers array for product ID: ${offer.productId}, initializing`);
+        offersByProduct.set(offer.productId, [{ ...offer, retailer }]);
+      }
     }
 
     // Build products with offers
@@ -2494,7 +2501,14 @@ export class DatabaseStorage implements IStorage {
       if (!itemsByWishlist.has(wishlistId)) {
         itemsByWishlist.set(wishlistId, []);
       }
-      itemsByWishlist.get(wishlistId)!.push(item);
+
+      const wishlistItems = itemsByWishlist.get(wishlistId);
+      if (wishlistItems) {
+        wishlistItems.push(item);
+      } else {
+        logger.warn(`Storage: Missing wishlist items array for wishlist ID: ${wishlistId}, initializing`);
+        itemsByWishlist.set(wishlistId, [item]);
+      }
     }
 
     // 4. Build result with grouped items
@@ -2656,10 +2670,20 @@ export class DatabaseStorage implements IStorage {
       if (!offersByProduct.has(item.productId)) {
         offersByProduct.set(item.productId, []);
       }
-      offersByProduct.get(item.productId)!.push({
-        ...item.offer,
-        retailer: item.retailer,
-      });
+
+      const productOffers = offersByProduct.get(item.productId);
+      if (productOffers) {
+        productOffers.push({
+          ...item.offer,
+          retailer: item.retailer,
+        });
+      } else {
+        logger.warn(`Storage: Missing product offers array for product ID: ${item.productId}, initializing`);
+        offersByProduct.set(item.productId, [{
+          ...item.offer,
+          retailer: item.retailer,
+        }]);
+      }
     }
 
     // Populate results using map lookup (O(1) per item, no additional queries)

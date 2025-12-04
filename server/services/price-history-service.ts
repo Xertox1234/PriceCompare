@@ -299,7 +299,13 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
       if (!groupedOffers.has(key)) {
         groupedOffers.set(key, []);
       }
-      groupedOffers.get(key)!.push(parseFloat(offer.price));
+      const offerPrices = groupedOffers.get(key);
+      if (offerPrices) {
+        offerPrices.push(parseFloat(offer.price));
+      } else {
+        logger.warn(`Price history: Missing offer group for key: ${key}, initializing`);
+        groupedOffers.set(key, [parseFloat(offer.price)]);
+      }
     }
 
     // Step 5: Process snapshots and separate into inserts vs updates (no database queries in loop!)
@@ -443,7 +449,13 @@ export async function detectSignificantPriceDrops(
       if (!offerMap.has(change.productOfferId)) {
         offerMap.set(change.productOfferId, []);
       }
-      offerMap.get(change.productOfferId)!.push(parseFloat(change.price));
+      const offerPrices = offerMap.get(change.productOfferId);
+      if (offerPrices) {
+        offerPrices.push(parseFloat(change.price));
+      } else {
+        logger.warn(`Price history: Missing offer map entry for offer ID: ${change.productOfferId}, initializing`);
+        offerMap.set(change.productOfferId, [parseFloat(change.price)]);
+      }
     }
 
     for (const [offerId, prices] of Array.from(offerMap.entries())) {
