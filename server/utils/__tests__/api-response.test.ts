@@ -377,7 +377,7 @@ describe('API Response Helpers', () => {
       const createdProduct = {
         id: 1,
         name: 'Product',
-        offers: [{ id: 1, price: '99.99' }],
+        offers: [{ id: 1, price: 99.99 }],
       };
 
       sendCreated(mockResponse as Response, createdProduct);
