@@ -8,6 +8,18 @@
  * - migrations/0020_add_price_check_constraints.sql - Database constraints
  * - shared/schema.ts - Zod schema definitions
  * - GitHub Issue #160 - Add Zod validation for database CHECK constraints
+ *
+ * INTEGRATION GUIDE:
+ * These schemas should be used in all routes that handle price data:
+ * - POST /api/product-offers (create) - Use insertProductOfferSchema
+ * - PUT /api/product-offers/:id (update) - Use insertProductOfferSchema
+ * - POST /api/price-alerts (create) - Use insertPriceAlertSchema
+ * - PUT /api/price-alerts/:id (update) - Use insertPriceAlertSchema
+ * - POST /api/price-history (add history) - Use insertPriceHistorySchema
+ *
+ * Example:
+ * const data = insertProductOfferSchema.parse(req.body);
+ * const offer = await storage.createProductOffer(data);
  */
 
 import { describe, it, expect } from "vitest";

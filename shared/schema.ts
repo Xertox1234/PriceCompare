@@ -552,6 +552,10 @@ export const insertProductSchema = createInsertSchema(products).omit({
   embedding: z.array(z.number()).optional().nullable(),
 });
 
+// Mirrors migration 0020 CHECK constraints:
+// - price >= 0
+// - originalPrice >= 0 (when not null)
+// - price <= originalPrice (when originalPrice set)
 export const insertProductOfferSchema = createInsertSchema(productOffers)
   .omit({
     id: true,
@@ -582,6 +586,9 @@ export const insertProductOfferSchema = createInsertSchema(productOffers)
     { message: "Sale price cannot exceed original price", path: ["price"] }
   );
 
+// Mirrors migration 0020 CHECK constraints:
+// - price >= 0
+// - originalPrice >= 0 (when not null)
 export const insertPriceHistorySchema = createInsertSchema(priceHistory)
   .omit({
     id: true,
@@ -641,6 +648,9 @@ export const insertForumPostSchema = createInsertSchema(forumPosts).omit({
   updatedAt: true,
 });
 
+// Mirrors migration 0020 CHECK constraints:
+// - targetPrice > 0 (strictly positive)
+// - priceWhenCreated >= 0 (when not null)
 export const insertPriceAlertSchema = createInsertSchema(priceAlerts)
   .omit({
     id: true,
