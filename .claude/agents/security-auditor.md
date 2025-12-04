@@ -371,3 +371,110 @@ None
 Integration Points: Auth routes secured, backend-architect can proceed with feature work
 Blockers: None
 ```
+
+## Pre-Commit Hook Security Enforcement (NEW - 2025-12-04)
+
+The pre-commit hook (`.git/hooks/pre-commit` v3.1) enforces security patterns automatically.
+
+### CSRF Protection (BLOCKERS 10 & 11)
+
+**BLOCKER 10: Global CSRF Middleware Detection**
+```bash
+# Detection: Finds app.use(csrfProtection) in server/index.ts
+if echo "$STAGED_FILES" | grep "server/index.ts" | \
+  xargs git diff --cached 2>/dev/null | \
+  grep -E "^\+" | grep "app\.use.*csrfProtection"
+```
+
+**Why blocked:** Global CSRF causes double-protection in nested routes, blocks GET requests.
+
+**BLOCKER 11: Missing CSRF on Mutations**
+```bash
+# Detection: POST/PUT/PATCH/DELETE without csrfProtection
+grep -E "app\.(post|put|delete|patch)\(|router\.(post|put|delete|patch)\(" | \
+  grep -v "csrfProtection" | \
+  grep -v "// CSRF exempt:"
+```
+
+**Exemption validation checklist:**
+- [ ] Webhook has HMAC signature verification
+- [ ] Endpoint is truly public (no auth, no state changes)
+- [ ] Alternative protection documented (rate limiting, etc.)
+- [ ] Exemption comment includes specific technical reason
+
+### Password Security (WARNINGS 12 & 13)
+
+**WARNING 12: Hardcoded Password Lengths**
+```bash
+# Detection: Finds .min(8) or .min(12) near password without PASSWORD constant
+grep -rn "\.min(8)\|\.min(12)" server/ | grep -i password | grep -v "PASSWORD\."
+```
+
+**WARNING 13: Hardcoded Bcrypt Rounds**
+```bash
+# Detection: Finds bcrypt.hash with hardcoded number
+grep -rn "bcrypt\.hash.*[0-9]\+)" server/ | grep -v "PASSWORD\.BCRYPT_ROUNDS"
+```
+
+**Validation checklist:**
+- [ ] All password validation uses `PASSWORD.MIN_LENGTH` (12)
+- [ ] All bcrypt hashing uses `PASSWORD.BCRYPT_ROUNDS` (12)
+- [ ] All PASSWORD requirement flags enforced (uppercase, lowercase, number, special)
+
+### Security Exemption Validation Protocol
+
+When reviewing code with security exemption comments:
+
+**Step 1: Identify the exemption**
+```typescript
+// CSRF exempt: Public webhook with signature verification
+router.post('/api/webhook', webhookHandler);
+```
+
+**Step 2: Validate the justification**
+- Is there signature verification code nearby?
+- Does the handler verify HMAC/signature before processing?
+- Is the endpoint documented as a webhook in API docs?
+
+**Step 3: Check for missing protection**
+- Rate limiting in place?
+- Input validation still required?
+- Logging for security events?
+
+**Step 4: Flag invalid exemptions**
+```markdown
+## High Priority
+- Invalid CSRF exemption (webhook-routes.ts:45)
+  - Claims "signature verification" but no verification code found
+  - FIX: Add HMAC verification or remove exemption and add csrfProtection
+```
+
+### Pre-Commit Hook Security Checks Reference
+
+| Blocker/Warning | What It Detects | How to Pass |
+|-----------------|-----------------|-------------|
+| BLOCKER 1 | passwordHash exposure | Use explicit field selection, exclude passwordHash |
+| BLOCKER 6 | Hardcoded secrets | Use `process.env.SECRET_NAME` |
+| BLOCKER 7 | SQL injection | Use Drizzle ORM, not template literals |
+| BLOCKER 10 | Global CSRF | Use per-route csrfProtection, not `app.use()` |
+| BLOCKER 11 | Missing CSRF | Add csrfProtection to all mutations |
+| WARNING 12 | Hardcoded password length | Use `PASSWORD.MIN_LENGTH` |
+| WARNING 13 | Hardcoded bcrypt rounds | Use `PASSWORD.BCRYPT_ROUNDS` |
+
+### Tech Debt Discovery Pattern
+
+When implementing new security checks, run against full codebase to find existing violations:
+
+```bash
+# Find existing violations (not just staged changes)
+grep -rn "bcrypt.hash.*[0-9])" server/ --include="*.ts" | grep -v PASSWORD
+
+# Document findings as issues
+# Example: server/auth.ts:161 - hardcoded bcrypt rounds
+```
+
+**Protocol:**
+1. Fix critical security issues immediately
+2. Create issues for medium-priority findings
+3. Add to backlog for low-priority findings
+4. Don't block unrelated commits for pre-existing issues
