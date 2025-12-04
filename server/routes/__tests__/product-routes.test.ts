@@ -32,10 +32,10 @@ import {
 
 // Mock Redis cache middleware to avoid requiring Redis in tests
 vi.mock('../../middleware/redis-cache', () => ({
-  productCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
-  searchCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
-  retailerCacheMiddleware: (req: unknown, res: unknown, next: () => void) => next(),
-  redisCacheMiddleware: () => (req: unknown, res: unknown, next: () => void) => next(),
+  productCacheMiddleware: (_req: unknown, _res: unknown, next: () => void) => next(),
+  searchCacheMiddleware: (_req: unknown, _res: unknown, next: () => void) => next(),
+  retailerCacheMiddleware: (_req: unknown, _res: unknown, next: () => void) => next(),
+  redisCacheMiddleware: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
 
@@ -55,18 +55,18 @@ vi.mock('../../utils/logger', () => ({
   })),
 }));
 
-// Mock forum storage to avoid requiring forum setup
-vi.mock('../../forum-storage', () => ({
-  forumStorage: {
-    getProductDiscussionCount: vi.fn().mockResolvedValue(0),
-    getProductDiscussionCounts: vi.fn().mockResolvedValue(new Map()),
-  },
-}));
-
 // Mock CSRF protection for tests
 vi.mock('../../middleware/security', () => ({
-  csrfProtection: (req: unknown, res: unknown, next: () => void) => next(),
+  csrfProtection: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
+
+// Mock storage cache to avoid requiring Redis
+vi.mock('../../services/storage-cache', async () => {
+  const actual = await vi.importActual<typeof import('../../storage')>('../../storage');
+  return {
+    storageCache: actual.storage,
+  };
+});
 
 describe('Product Routes - Integration Tests', () => {
   let app: Express;
@@ -314,18 +314,6 @@ describe('Product Routes - Integration Tests', () => {
       expect(prices).toEqual(sortedPrices);
     });
 
-    it('should include discussion count in results', async () => {
-      const response = await request(app)
-        .get('/api/products/search')
-        .query({ category: 'Electronics' });
-
-      const { data } = expectPaginatedResponse<{ discussionCount?: number; hasActiveDiscussion?: boolean }>(response, 200);
-      if (data.length > 0) {
-        expect(data[0]).toHaveProperty('discussionCount');
-        expect(data[0]).toHaveProperty('hasActiveDiscussion');
-      }
-    });
-
     it('should return empty results for no matches', async () => {
       const response = await request(app)
         .get('/api/products/search')
@@ -361,14 +349,6 @@ describe('Product Routes - Integration Tests', () => {
         id: testRetailerId,
         name: 'Test Retailer',
       });
-    });
-
-    it('should include discussion count', async () => {
-      const response = await request(app).get(`/api/products/${testProductId}`);
-
-      const product = expectSuccessResponse<{ discussionCount: number; hasActiveDiscussion: boolean }>(response, 200);
-      expect(product).toHaveProperty('discussionCount');
-      expect(product).toHaveProperty('hasActiveDiscussion');
     });
 
     it('should return 404 for non-existent product', async () => {
