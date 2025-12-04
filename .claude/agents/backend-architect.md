@@ -646,6 +646,224 @@ const userKey = getCacheKey('user', userId);           // "user:v1:456"
 - [ ] Cache keys include version for schema migration
 - [ ] Graceful shutdown properly cleans up all intervals
 
+## Pre-Commit Hook Implementation Patterns (NEW - 2025-12-04)
+
+When implementing detection logic in shell scripts (like pre-commit hooks):
+
+### Pattern Detection Best Practices
+
+**1. Context-Aware Detection**
+```bash
+# Bad: Simple grep (many false positives)
+grep -E "await db\." file.ts
+
+# Good: Context-aware (checks for loops nearby)
+grep -B5 -A5 "await db\." file.ts | grep -E "for\s*\(|\.forEach\("
+```
+
+**2. Multi-Stage Filtering**
+```bash
+# Stage 1: Find candidates
+CANDIDATES=$(echo "$FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+")
+
+# Stage 2: Exclude test files
+FILTERED=$(echo "$CANDIDATES" | grep -v "__tests__" | grep -v "\.test\.")
+
+# Stage 3: Exclude exemption comments
+VIOLATIONS=$(echo "$FILTERED" | grep -v "// EXEMPT:")
+
+# Stage 4: Extract context for error message
+echo "$VIOLATIONS" | head -3 | sed 's/^/    /'
+```
+
+**3. Exemption Pattern Support**
+When implementing blockers/warnings:
+- Always provide inline comment exemption pattern
+- Document valid exemption reasons in error message
+- Make exemption pattern specific and grep-able
+
+### Transaction Boundary Detection
+
+Hook WARNING 11 detects check-then-act without SERIALIZABLE:
+
+```bash
+# Detection pattern from .git/hooks/pre-commit
+CHECK_THEN_ACT=$(grep -rn -A10 "\.select\(" server/ --include="*.ts" 2>/dev/null | \
+  grep -B5 "\.insert\|\.update\|\.delete" | \
+  grep "count\|length\|>=" | \
+  grep -v "serializable" | \
+  grep -v "__tests__")
+```
+
+**When implementing transactions:**
+- Use SERIALIZABLE for counter operations
+- Use SERIALIZABLE for first-user checks
+- Use SERIALIZABLE for limit enforcement
+- Default READ COMMITTED is fine for simple multi-step creates
+
+### Diff-Based vs Full-File Detection
+
+**Diff-based (staged changes only):**
+```bash
+# Only checks new/modified code
+git diff --cached --name-only | xargs git diff --cached | grep -E "^\+"
+```
+
+**Full-file (codebase audit):**
+```bash
+# Checks entire codebase - use for audits, not commits
+grep -rn "pattern" server/ --include="*.ts"
+```
+
+**Trade-offs:**
+- Diff-based: Doesn't block on existing tech debt, faster
+- Full-file: Catches existing issues, slower, can be noisy
+
+### Error Message Best Practices
+
+Every blocker/warning should include:
+1. **RISK**: Clear explanation of why this matters
+2. **FIX**: Specific action to take
+3. **EXAMPLE**: Before/after code examples
+4. **DOCS**: Link to detailed documentation
+5. **BYPASS**: How to bypass if legitimate (for warnings only)
+
+```bash
+echo -e "${RED}BLOCKER X: Description${NC}"
+echo "  ${RED}RISK:${NC} Why this matters for security/performance/correctness"
+echo "  ${CYAN}FIX:${NC} Specific fix instruction"
+echo "  ${CYAN}EXAMPLE:${NC}"
+echo "    Before: bad_pattern()"
+echo "    After:  good_pattern()"
+echo "  ${CYAN}BYPASS:${NC} // Bypass comment pattern for legitimate exceptions"
+echo "  ${CYAN}DOCS:${NC} docs/PATTERN_FILE.md#section"
+```
+
+## Test Quality Enforcement Patterns (NEW - Phase 5 - 2025-12-04)
+
+When implementing test quality checks in pre-commit hooks or code reviews:
+
+### Test Cleanup Patterns (WARNING 18)
+
+**Purpose:** Enforce TRUNCATE CASCADE for test cleanup instead of slow db.delete()
+
+**Detection Pattern:**
+```bash
+# Find test files with db.delete in cleanup hooks
+for file in $(find server/ -name "*.test.ts" 2>/dev/null); do
+  # Check if file has BOTH db.delete AND cleanup hooks
+  if grep -q "await db\.delete\|db\.delete(" "$file" && \
+     grep -q "beforeEach\|afterEach\|beforeAll\|afterAll" "$file"; then
+    # Get violations (excluding bypass comment)
+    VIOLATIONS=$(grep -n "await db\.delete\|db\.delete(" "$file" | \
+      grep -v "Testing delete functionality" | \
+      head -3)
+    if [ -n "$VIOLATIONS" ]; then
+      echo "$file: $VIOLATIONS"
+    fi
+  fi
+done
+```
+
+**Bypass Pattern:**
+```typescript
+// When testing actual delete functionality (not cleanup):
+await db.delete(users).where(eq(users.id, 1)); // Testing delete functionality
+```
+
+**Correct Cleanup Pattern:**
+```typescript
+afterEach(async () => {
+  await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+});
+```
+
+### Test Data Type Safety (WARNING 19)
+
+**Purpose:** Prevent string numbers in test data that cause Zod validation failures
+
+**Detection Pattern:**
+```bash
+# Specific field assignment matching with boundary anchors
+STRING_NUMBERS=$(grep -rn "\(price\|targetPrice\|amount\)\s*:\s*['\"][0-9]" server/ --include="*.test.ts" | \
+  grep -v "priceString\|formatted" | \
+  head -5)
+```
+
+**Why Field Boundaries Matter:**
+```bash
+# Bad (broad): price.*['"]
+# Matches: "Check the price: \"$99.99\"", URLs, descriptions
+
+# Good (specific): price\s*:\s*['"]
+# Only matches: price: "99.99" (object field assignments)
+```
+
+**Common Test Data Type Mistakes:**
+```typescript
+// WRONG - String numbers cause Zod validation failures
+const testProduct = {
+  name: 'iPhone 15',
+  price: "999.99",    // String - Zod expects number
+  amount: "1500",     // String - Zod expects number
+};
+
+// CORRECT - Use actual numbers
+const testProduct = {
+  name: 'iPhone 15',
+  price: 999.99,      // Number - matches schema
+  amount: 1500,       // Number - matches schema
+};
+```
+
+### Conservative Detection with Bypass (Pattern Principle)
+
+When implementing detection that may have false positives:
+
+1. **Detect broadly, filter specifically:**
+```bash
+# Stage 1: Broad detection
+if grep -q "pattern" "$file"; then
+  # Stage 2: Filter out known legitimate cases
+  VIOLATIONS=$(grep -n "pattern" "$file" | \
+    grep -v "Bypass comment" | \
+    head -3)
+fi
+```
+
+2. **Always provide bypass mechanism:**
+- Document the bypass comment pattern in error output
+- Include bypass example in the BYPASS section
+- Make bypass pattern specific and grep-able
+
+3. **Document limitations in code:**
+```bash
+# NOTE: Conservative detection - flags any db.delete() in files with cleanup hooks
+# May have false positives for tests validating delete() functionality
+# Add comment "// Testing delete functionality" to bypass if intentional
+```
+
+### Pattern Precision Evolution
+
+Initial implementation often requires refinement:
+
+**Phase 1 (Broad):** Catch all potential issues
+```bash
+grep -rn "price.*['\"][0-9]" # Catches too much
+```
+
+**Phase 2 (Refined):** Add field boundary anchors
+```bash
+grep -rn "price\s*:\s*['\"][0-9]" # More precise
+```
+
+**Phase 3 (Exclusions):** Filter known false positives
+```bash
+grep -rn "price\s*:\s*['\"][0-9]" | grep -v "priceString\|formatted"
+```
+
+**Key Insight:** Start conservative (more false positives), refine based on feedback, always provide bypass.
+
 ## Communication
 - Be specific about what you implemented
 - Mention any integration points with frontend or database

@@ -1,7 +1,7 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.2
-**Last Updated:** 2025-12-03
+**Version:** 2.3
+**Last Updated:** 2025-12-04
 **Migrated From:**
 - `docs/DATABASE_PATTERNS.md` (v1.0)
 - `.claude/knowledge/storage-refactoring-patterns.md`
@@ -1937,6 +1937,42 @@ await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
 await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
 await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 ```
+
+#### Pre-Commit Hook Detection (WARNING 18 - NEW Phase 5)
+
+The pre-commit hook (v3.4) detects `db.delete()` usage in test cleanup hooks and flags it with WARNING 18.
+
+**Detection Pattern:**
+- Hook searches for test files with BOTH cleanup hooks AND `db.delete()` usage
+- Files with `beforeEach`/`afterEach`/`beforeAll`/`afterAll` AND `db.delete()` are flagged
+
+**Bypass for Legitimate Delete Tests:**
+
+When testing actual delete functionality (not cleanup), add the bypass comment:
+
+```typescript
+// ✅ BYPASS - Testing delete functionality explicitly
+describe('Delete User API', () => {
+  it('should delete user by ID', async () => {
+    // This delete is the TEST SUBJECT, not cleanup
+    await db.delete(users).where(eq(users.id, 1)); // Testing delete functionality
+
+    // Verify deletion worked
+    const result = await db.select().from(users).where(eq(users.id, 1));
+    expect(result.length).toBe(0);
+  });
+});
+```
+
+**When to Use Bypass:**
+- Testing the delete functionality itself (integration tests for DELETE endpoints)
+- Testing cascade behavior (verifying children are deleted with parent)
+- Testing soft delete implementations
+
+**When NOT to Use Bypass:**
+- Cleanup in `beforeEach`/`afterEach` - use TRUNCATE CASCADE instead
+- Resetting test state - use TRUNCATE CASCADE
+- Any cleanup operation - use TRUNCATE CASCADE
 
 ### 8.2 Test Data Type Safety (CRITICAL)
 

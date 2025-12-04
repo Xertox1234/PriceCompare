@@ -1435,6 +1435,191 @@ When reviewing test files, apply these critical patterns from TODO_004 learnings
 
 ---
 
+## NEW: Pre-Commit Hook Pattern Awareness (v1.4 - 2025-12-04)
+
+Understanding how the pre-commit hook works helps you provide more accurate reviews.
+
+### Hook Detection Scope
+
+The hook (`.git/hooks/pre-commit` v3.4) uses **diff-based detection**:
+
+1. **Only checks staged changes** (`git diff --cached`)
+   - New violations in modified code WILL be caught
+   - Existing violations in unchanged code WILL NOT be caught
+   - When fixing issues, ensure ALL new code follows patterns
+
+2. **Context-aware matching** (5-line windows)
+   - Some checks look at surrounding code for accuracy
+   - N+1 detection: Checks for loops near database queries
+   - CSRF detection: Checks for csrfProtection middleware nearby
+
+3. **Exemption comment patterns** (inline comments bypass checks)
+   - `// CSRF exempt: <reason>` - Bypasses CSRF requirement
+   - `// N+1 safe: <reason>` - Bypasses N+1 detection
+   - `// SECURITY: <marker>` - Bypasses passwordHash detection
+
+### Exemption Comment Validation (CRITICAL)
+
+**When reviewing code with exemption comments, validate the justification:**
+
+**Valid CSRF Exemptions:**
+- Public webhooks with HMAC signature verification
+- Health check endpoints (no state changes)
+- Public endpoints that return static data
+
+**Invalid CSRF Exemptions:**
+- "Too complex to add CSRF" (not a valid reason)
+- "Low risk endpoint" (all mutations need CSRF)
+- Missing specific technical justification
+
+**Valid N+1 Exemptions:**
+- External API rate limiting requires sequential calls
+- Batch size constrained by external system
+- Intentional sequential processing with documented reason
+
+**Invalid N+1 Exemptions:**
+- "Performance not critical" (still a problem at scale)
+- "Only a few items" (can grow over time)
+- Missing specific technical constraint
+
+### Hook Blockers vs Warnings
+
+**BLOCKERS (11 total) - Commit fails:**
+1. TypeScript errors
+2. ESLint errors (any types, unsafe operations)
+3. passwordHash exposure
+4. 'any' types in new code
+5. console.log in production code
+6. N+1 query patterns
+7. Foreign keys without cascade rules
+8. Timestamps without timezone
+9. Hardcoded secrets/API keys
+10. Global CSRF middleware
+11. Mutations without CSRF protection
+
+**WARNINGS (19 total) - Commit allowed, flagged:**
+- Transaction boundaries, input validation, auth checks
+- Error handling, direct db imports, hardcoded colors
+- Error sanitization, unoptimized queries
+- Client-side aggregation, job rate limiting
+- Check-then-act without SERIALIZABLE (WARNING 11)
+- Hardcoded password lengths (WARNING 12)
+- Hardcoded bcrypt rounds (WARNING 13)
+- Type assertions without documentation (WARNING 14)
+- Return type consistency (WARNING 15)
+- Storage layer pattern violations (WARNING 16)
+- Middleware order issues (WARNING 17)
+- **Test cleanup using db.delete (WARNING 18)** - Use TRUNCATE CASCADE
+- **Test data string numbers (WARNING 19)** - Use actual numbers
+
+### Review Strategy Based on Hook Awareness
+
+1. **For new files**: Comprehensive review (hook catches everything)
+2. **For modified files**: Focus on changed lines AND surrounding context
+3. **For unchanged files**: May contain existing violations (track separately)
+
+### Pre-Commit Hook Reference
+
+Current hook version: **3.4** (Phase 5 Complete - 2025-12-04)
+Location: `.git/hooks/pre-commit`
+Documentation: `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md`
+
+---
+
+## NEW: Phase 5 Test Quality Patterns (v1.4 - 2025-12-04)
+
+When reviewing test files, apply these patterns from Phase 5 pre-commit hook implementation:
+
+### Test Cleanup Anti-Patterns (WARNING 18)
+
+**Flag test files that use `db.delete()` in cleanup hooks:**
+
+```typescript
+// WRONG - Slow, incomplete cleanup
+beforeEach(async () => {
+  await db.delete(products);
+  await db.delete(productOffers);
+  await db.delete(retailers);
+});
+
+// CORRECT - Fast, complete cleanup with CASCADE
+beforeEach(async () => {
+  await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+});
+```
+
+**Review Checklist:**
+- [ ] Check `beforeEach`/`afterEach`/`beforeAll`/`afterAll` for `db.delete()` usage
+- [ ] Verify TRUNCATE CASCADE is used for test isolation
+- [ ] Ensure RESTART IDENTITY resets auto-increment counters
+
+**Bypass Recognition:**
+If reviewing tests that validate delete functionality (not cleanup), the bypass comment is:
+```typescript
+await db.delete(users).where(eq(users.id, 1)); // Testing delete functionality
+```
+
+### Test Data Type Safety (WARNING 19)
+
+**Flag string numbers in test data:**
+
+```typescript
+// WRONG - String numbers cause Zod validation failures
+const testAlert = {
+  targetPrice: "99.99",  // String - Zod expects number
+  price: "199.00",       // String - Zod expects number
+};
+
+// CORRECT - Use actual numbers
+const testAlert = {
+  targetPrice: 99.99,    // Number - matches schema
+  price: 199.00,         // Number - matches schema
+};
+```
+
+**Review Checklist:**
+- [ ] Check for `price: "..."`, `targetPrice: "..."`, `amount: "..."` patterns
+- [ ] Verify numeric fields use actual numbers, not string-wrapped
+- [ ] Exception: Variables with "String" or "formatted" in name are intentional
+
+**Common Root Causes:**
+1. Copy-paste from JSON (which represents numbers as strings)
+2. Migration from weakly-typed systems
+3. Confusion between display format and data format
+
+### Code Review Improvement Integration (9/10 Score Pattern)
+
+When reviewing pre-commit hook implementations or similar detection scripts:
+
+**1. Check for Bypass Mechanisms:**
+```bash
+# Good: Provides bypass for legitimate exceptions
+VIOLATIONS=$(grep -n "pattern" "$file" | grep -v "Bypass comment")
+
+# Bad: No way to handle false positives
+VIOLATIONS=$(grep -n "pattern" "$file")
+```
+
+**2. Validate Pattern Precision:**
+```bash
+# Broad (more false positives): price.*['"]
+# Specific (fewer false positives): price\s*:\s*['"]
+```
+
+**3. Verify Error Message Structure:**
+- RISK section (why it matters)
+- VIOLATIONS FOUND section (specific instances)
+- FIX section (concrete solution)
+- WHY section (benefits)
+- BYPASS section (for legitimate exceptions)
+- DOCS section (reference link)
+
+**4. Version Tracking:**
+- Minor improvements (3.4 -> 3.4.1) for refinements
+- Major versions (3.4 -> 3.5) for new features
+
+---
+
 ## Constitutional Self-Check Before Output
 
 **Before finalizing review**:
@@ -1483,9 +1668,11 @@ If you encounter unclear patterns:
 
 ---
 
-**Version**: 1.2
-**Last Updated**: 2025-12-02
-**Changes**: 
+**Version**: 1.4
+**Last Updated**: 2025-12-04
+**Changes**:
+- v1.4: Added Phase 5 test quality patterns (WARNING 18/19), code review improvement integration patterns, updated hook reference to v3.4
+- v1.3: Added pre-commit hook pattern awareness, exemption comment validation, hook blockers/warnings reference
 - v1.2: Added context window scoping, worktree compatibility, and relative path usage
 - v1.1: Added explicit reasoning, comprehensive few-shot examples, constitutional self-checks, confidence scores, and dynamic context loading
 **Status**: Production ready

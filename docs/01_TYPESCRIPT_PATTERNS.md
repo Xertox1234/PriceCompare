@@ -363,6 +363,47 @@ describe('Product API', () => {
    });
    ```
 
+4. **String Numbers in Test Data (NEW - Phase 5 - 2025-12-04)**
+
+   Numeric fields must use actual numbers, not string-wrapped numbers. This is caught by pre-commit hook WARNING 19.
+
+   ```typescript
+   // ❌ WRONG - String numbers cause Zod validation failures
+   const testAlert = {
+     userId: 1,
+     productId: 2,
+     targetPrice: "99.99",   // String - Zod expects number!
+     price: "199.00",        // String - Zod expects number!
+     amount: "1500",         // String - Zod expects number!
+   };
+
+   // ✅ CORRECT - Use actual numbers
+   const testAlert = {
+     userId: 1,
+     productId: 2,
+     targetPrice: 99.99,     // Number - matches schema
+     price: 199.00,          // Number - matches schema
+     amount: 1500,           // Number - matches schema
+   };
+   ```
+
+   **Why This Matters:**
+   - Zod schemas validate types strictly - `z.number()` rejects "99.99"
+   - Database expects numeric types for DECIMAL/INTEGER columns
+   - String numbers cause silent conversion issues in some contexts
+   - Tests should match production data types exactly
+
+   **Common Root Causes:**
+   - Copy-paste from JSON files (which represent numbers as strings)
+   - Migration from weakly-typed systems (JavaScript without TypeScript)
+   - Confusion between display format ("$99.99") and data format (99.99)
+
+   **Pre-Commit Detection:**
+   The hook detects patterns like `price: "99.99"` in test files using:
+   ```bash
+   grep -rn "\(price\|targetPrice\|amount\)\s*:\s*['\"][0-9]" server/ --include="*.test.ts"
+   ```
+
 ### Late-Stage Development Type Discipline
 
 **Context**: You're past MVP, have established patterns, and should have mature type definitions.
