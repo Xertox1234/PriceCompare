@@ -50,10 +50,8 @@ export class PriceSnapshotService {
           recordedAt: now
         }));
 
-        // Insert price history records
-        for (const snapshot of snapshots) {
-          await storage.insertPriceHistory(snapshot);
-        }
+        // Insert price history records (batch insert for performance)
+        await storage.insertPriceHistoryBatch(snapshots);
 
         totalCount += batch.length;
         offset += batchSize;
@@ -119,10 +117,8 @@ export class PriceSnapshotService {
         recordedAt: now
       }));
 
-      // Insert price history records
-      for (const snapshot of snapshots) {
-        await storage.insertPriceHistory(snapshot);
-      }
+      // Insert price history records (batch insert for performance)
+      await storage.insertPriceHistoryBatch(snapshots);
 
       logger.info(
         `[PriceSnapshot] Snapshotted ${snapshots.length} prices for product ${productId}`

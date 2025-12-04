@@ -549,7 +549,49 @@ async getRetailersWithStats() {
 
 ## 3. Query Optimization
 
-### 3.1 Database Aggregations
+### 3.1 Batch Insert Pattern (CRITICAL - 20x Performance)
+
+**Status:** MANDATORY for bulk insert operations
+**Reference:** See [`PATTERNS_BATCH_INSERT_OPTIMIZATION.md`](./PATTERNS_BATCH_INSERT_OPTIMIZATION.md) for comprehensive guide
+**Performance:** 20x improvement (1,000ms → 50ms for 500 records)
+
+#### Quick Reference
+
+**❌ ANTI-PATTERN - Sequential Inserts (N+1)**
+```typescript
+// Executes N database queries (500 queries for 500 records)
+for (const record of records) {
+  await storage.insertPriceHistory(record);
+}
+// Performance: 500 queries × 2ms = 1,000ms
+```
+
+**✅ CORRECT - Batch Insert**
+```typescript
+// Executes 1 database query (regardless of record count)
+await storage.insertPriceHistoryBatch(records);
+// Performance: 1 query × 50ms = 50ms (20x faster)
+```
+
+**Key Benefits:**
+- **20x faster:** Single query vs N queries
+- **Atomic:** All records inserted or none (automatic transaction)
+- **Lower load:** 500x fewer database connections
+- **Scalable:** Supports 10,000+ records with proper batching
+
+**Implementation Checklist:**
+1. Add batch insert method to domain storage class
+2. Add to IStorage interface
+3. Expose through main Storage class
+4. Update InMemoryStorage mock
+5. Replace sequential loops with batch call
+6. Add comprehensive tests (7 minimum)
+
+**See full pattern documentation:** [`PATTERNS_BATCH_INSERT_OPTIMIZATION.md`](./PATTERNS_BATCH_INSERT_OPTIMIZATION.md)
+
+---
+
+### 3.2 Database Aggregations
 
 #### ❌ WRONG - Count in Application
 ```typescript

@@ -67,6 +67,7 @@ export interface IStorage {
   getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]>;
   getPriceTrend(productId: number): Promise<PriceTrendAnalysis>;
   getBestTimeToBuy(productId: number): Promise<BestTimeAnalysis>;
+  insertPriceHistoryBatch(records: InsertPriceHistoryWithRecordedAt[]): Promise<void>;
 
   // Watch Lists
   getUserWatchLists(userId: number): Promise<WatchListWithCount[]>;
@@ -1285,6 +1286,9 @@ export class MemStorage implements IStorage {
   async getLatestPriceForOffer(_offerId: number): Promise<PriceHistory | null> { return null; }
   async insertPriceHistory(_data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory> {
     throw new Error('Price history operations not supported in memory storage');
+  }
+  async insertPriceHistoryBatch(_records: InsertPriceHistoryWithRecordedAt[]): Promise<void> {
+    throw new Error('Price history batch operations not supported in memory storage');
   }
   async getPriceHistoryByQuery(_query: PriceHistoryQueryParams): Promise<PriceHistory[]> { return []; }
   async getExistingSnapshotsForDate(_date: Date): Promise<PriceSnapshotRecord[]> { return []; }
@@ -3044,6 +3048,10 @@ export class DatabaseStorage implements IStorage {
 
   async insertPriceHistory(data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory> {
     return this.priceStorage.insertPriceHistory(data);
+  }
+
+  async insertPriceHistoryBatch(records: InsertPriceHistoryWithRecordedAt[]): Promise<void> {
+    await this.priceStorage.insertPriceHistoryBatch(records);
   }
 
   async getPriceHistoryByQuery(query: PriceHistoryQueryParams): Promise<PriceHistory[]> {
