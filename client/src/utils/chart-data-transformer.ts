@@ -1,7 +1,4 @@
 import { format, parseISO, startOfWeek, startOfMonth } from "date-fns";
-import { createLogger } from "@/utils/logger";
-
-const logger = createLogger('ChartDataTransformer');
 
 export interface PriceDataPoint {
   id: number;
@@ -53,16 +50,9 @@ export function aggregatePriceData(
   // Group by retailer first
   const retailerGroups = new Map<number, PriceDataPoint[]>();
   data.forEach((point) => {
-    if (!retailerGroups.has(point.retailerId)) {
-      retailerGroups.set(point.retailerId, []);
-    }
-    const retailerGroup = retailerGroups.get(point.retailerId);
-    if (retailerGroup) {
-      retailerGroup.push(point);
-    } else {
-      logger.warn(`Missing retailer group for ID: ${point.retailerId}, initializing`);
-      retailerGroups.set(point.retailerId, [point]);
-    }
+    const retailerGroup = retailerGroups.get(point.retailerId) ?? [];
+    retailerGroup.push(point);
+    retailerGroups.set(point.retailerId, retailerGroup);
   });
 
   // Aggregate each retailer's data
@@ -90,16 +80,9 @@ export function aggregatePriceData(
           break;
       }
 
-      if (!grouped.has(groupKey)) {
-        grouped.set(groupKey, []);
-      }
-      const group = grouped.get(groupKey);
-      if (group) {
-        group.push(point);
-      } else {
-        logger.warn(`Missing group for key: ${groupKey}, initializing`);
-        grouped.set(groupKey, [point]);
-      }
+      const group = grouped.get(groupKey) ?? [];
+      group.push(point);
+      grouped.set(groupKey, group);
     });
 
     // Calculate average for each group
@@ -158,17 +141,12 @@ export function transformForChart(
     }
 
     const retailerKey = `retailer_${item.retailerId}`;
-    const dateData = dataByDate.get(dateKey);
-    if (dateData) {
-      dateData[retailerKey] = parseFloat(item.price);
-    } else {
-      logger.warn(`Missing date data for key: ${dateKey}, initializing`);
-      dataByDate.set(dateKey, {
-        date: dateKey,
-        timestamp: date.getTime(),
-        [retailerKey]: parseFloat(item.price),
-      });
-    }
+    const dateData = dataByDate.get(dateKey) ?? {
+      date: dateKey,
+      timestamp: date.getTime(),
+    };
+    dateData[retailerKey] = parseFloat(item.price);
+    dataByDate.set(dateKey, dateData);
   });
 
   // Convert to array and sort by date
