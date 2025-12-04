@@ -552,16 +552,57 @@ export const insertProductSchema = createInsertSchema(products).omit({
   embedding: z.array(z.number()).optional().nullable(),
 });
 
-export const insertProductOfferSchema = createInsertSchema(productOffers).omit({
-  id: true,
-  lastUpdated: true,
-});
+export const insertProductOfferSchema = createInsertSchema(productOffers)
+  .omit({
+    id: true,
+    lastUpdated: true,
+  })
+  .refine(
+    (data) => {
+      const price = parseFloat(data.price);
+      return !isNaN(price) && price >= 0;
+    },
+    { message: "Price must be non-negative", path: ["price"] }
+  )
+  .refine(
+    (data) => {
+      if (!data.originalPrice) return true;
+      const originalPrice = parseFloat(data.originalPrice);
+      return !isNaN(originalPrice) && originalPrice >= 0;
+    },
+    { message: "Original price must be non-negative", path: ["originalPrice"] }
+  )
+  .refine(
+    (data) => {
+      if (!data.originalPrice) return true;
+      const price = parseFloat(data.price);
+      const originalPrice = parseFloat(data.originalPrice);
+      return price <= originalPrice;
+    },
+    { message: "Sale price cannot exceed original price", path: ["price"] }
+  );
 
-export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
-  id: true,
-  recordedAt: true,
-  createdAt: true,
-});
+export const insertPriceHistorySchema = createInsertSchema(priceHistory)
+  .omit({
+    id: true,
+    recordedAt: true,
+    createdAt: true,
+  })
+  .refine(
+    (data) => {
+      const price = parseFloat(data.price);
+      return !isNaN(price) && price >= 0;
+    },
+    { message: "Price must be non-negative", path: ["price"] }
+  )
+  .refine(
+    (data) => {
+      if (!data.originalPrice) return true;
+      const originalPrice = parseFloat(data.originalPrice);
+      return !isNaN(originalPrice) && originalPrice >= 0;
+    },
+    { message: "Original price must be non-negative", path: ["originalPrice"] }
+  );
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -600,10 +641,26 @@ export const insertForumPostSchema = createInsertSchema(forumPosts).omit({
   updatedAt: true,
 });
 
-export const insertPriceAlertSchema = createInsertSchema(priceAlerts).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertPriceAlertSchema = createInsertSchema(priceAlerts)
+  .omit({
+    id: true,
+    createdAt: true,
+  })
+  .refine(
+    (data) => {
+      const targetPrice = parseFloat(data.targetPrice);
+      return !isNaN(targetPrice) && targetPrice > 0;
+    },
+    { message: "Target price must be positive", path: ["targetPrice"] }
+  )
+  .refine(
+    (data) => {
+      if (!data.priceWhenCreated) return true;
+      const priceWhenCreated = parseFloat(data.priceWhenCreated);
+      return !isNaN(priceWhenCreated) && priceWhenCreated >= 0;
+    },
+    { message: "Price when created must be non-negative", path: ["priceWhenCreated"] }
+  );
 
 // New insert schemas for enhanced features
 export const insertPostLikeSchema = createInsertSchema(postLikes).omit({
