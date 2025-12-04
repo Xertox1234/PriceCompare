@@ -2,9 +2,9 @@
 
 **Created:** 2025-12-02
 **Last Updated:** 2025-12-04
-**Status:** Phase 1, 2 & 3 Complete ✅ | Phase 4-5 Pending
+**Status:** Phase 1, 2 & 3 Complete ✅ (with v3.2.1 improvements) | Phase 4-5 Pending
 **Priority:** High - Security & Code Quality Enforcement
-**Hook Version:** 3.2
+**Hook Version:** 3.2.1
 
 ---
 
@@ -440,6 +440,52 @@ fi
 - **Return types:** Excludes code comments (' * ' prefix) and function params
 - **parseInt:** Only checks request objects (req.), not internal parsing
 - **Common exemption patterns:** Test files excluded across all checks
+
+### Phase 3.2.1 Improvements (Code Review Enhancements)
+
+**Completed:** 2025-12-04 (same day as Phase 3)
+**Triggered by:** code-review-specialist feedback
+
+**Improvements Made:**
+
+1. **WARNING 15 Scope Expansion**
+   - **Before:** Only scanned `server/storage*.ts` and `server/storage/`
+   - **After:** Now scans `server/services/` as well
+   - **Impact:** Catches return type inconsistencies in service layer that interacts with data
+   - **Rationale:** Services often implement data access patterns and should follow same conventions
+
+2. **WARNING 14 Comment Format Documentation**
+   - **Added:** "RECOMMENDED COMMENT FORMATS" section to hook output
+   - **Formats shown:** `// Type assertion:`, `// Cast needed:`, `// SAFETY:`, `// Validated by schema:`
+   - **Impact:** Developers know exactly which comment patterns are recognized
+   - **Updated detection:** Now excludes `// Validated by schema:` and `// Cast needed:` patterns
+
+3. **WARNING 14 Multiline Type Assertion Detection**
+   - **Before:** Only detected `const x = val as Type` (single line)
+   - **After:** Also detects multiline assertions like:
+     ```typescript
+     const x = val as
+       VeryLongTypeName;
+     ```
+   - **Implementation:** Custom line-by-line context checking in bash
+   - **Impact:** Catches edge case of assertions split across lines (rare but possible)
+
+4. **WARNING 14 Context-Aware Comment Detection**
+   - **Before:** Simple grep pattern couldn't check previous line for comments
+   - **After:** Parses git diff with `-U1` context, checks if assertion line has comment on previous line
+   - **Result:** Correctly identifies documented vs undocumented assertions
+   - **Test Results:**
+     - ✅ Assertions with comments on previous line: NOT flagged (correct)
+     - ✅ Assertions without comments: FLAGGED (correct)
+     - ✅ Multiline assertions: Properly handled
+
+**Testing:**
+- Created comprehensive test file with 7 test cases
+- All 4 documented assertions (data1-data4) correctly excluded
+- Both undocumented assertions (data5, data7) correctly flagged
+- Multiline detection working (data7)
+
+**Version Update:** 3.2 → 3.2.1
 
 ### 3.1 Type Assertion Comment Requirement (✅ IMPLEMENTED as WARNING 14)
 
