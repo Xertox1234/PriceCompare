@@ -1,3 +1,6 @@
+
+
+
 ---
 name: work-issue
 description: Orchestrator command to work on a GitHub issue. Directly invokes the orchestrator to coordinate implementation across specialists.

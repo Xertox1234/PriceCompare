@@ -1,11 +1,12 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.0
-**Last Updated:** 2025-11-29
-**Domain:** TypeScript, Type Safety, Async/Await
+**Version:** 2.1
+**Last Updated:** 2025-12-04
+**Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
 - docs/PHASE1_WATCHLIST_PATTERNS.md (Pattern 9: ESLint compliance)
+- TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 ---
 
@@ -16,6 +17,7 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
 - [Critical Type Safety Violations](#critical-type-safety-violations)
 - [Type Inference Patterns](#type-inference-patterns)
 - [Zod Schema Patterns](#zod-schema-patterns)
+  - [DECIMAL Field Validation with Drizzle ORM](#decimal-field-validation-with-drizzle-orm-critical---phase-5)
 - [React Component Patterns](#react-component-patterns)
 - [Utility Type Patterns](#utility-type-patterns)
 - [Error Type Handling](#error-type-handling)
@@ -605,6 +607,129 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
   return productSchema.parse(response);
 }
 ```
+
+### DECIMAL Field Validation with Drizzle ORM (CRITICAL - Phase 5)
+
+**Issue Codified:** 2025-12-04 (TODO 2026 - Zod validation for CHECK constraints)
+
+PostgreSQL DECIMAL columns are represented as `string` in Drizzle ORM to avoid JavaScript floating-point precision issues. When adding Zod validation to these fields, you MUST preserve the string type.
+
+#### ❌ ANTI-PATTERN - Using .coerce.number() Changes Type
+
+```typescript
+// WRONG - This changes the TypeScript type from string to number!
+export const insertProductOfferSchema = createInsertSchema(productOffers)
+  .omit({ id: true, lastUpdated: true })
+  .extend({
+    price: z.coerce.number().min(0),  // ❌ Changes type to number!
+    originalPrice: z.coerce.number().min(0).optional(),
+  });
+
+// Result: InsertProductOffer.price is now `number` instead of `string`
+// This breaks Drizzle ORM which expects `string` for DECIMAL columns
+```
+
+**Problems:**
+- Changes `InsertProductOffer.price` from `string` to `number`
+- Breaks type compatibility with Drizzle database operations
+- Causes TypeScript errors across codebase where type is used
+- Drizzle expects `string` for DECIMAL; `number` causes runtime errors
+
+#### ✅ CORRECT - Use .refine() with parseFloat()
+
+```typescript
+// CORRECT - Validates numeric value while preserving string type
+// Mirrors migration 0020 CHECK constraints:
+// - price >= 0
+// - originalPrice >= 0 (when not null)
+// - price <= originalPrice (when originalPrice set)
+export const insertProductOfferSchema = createInsertSchema(productOffers)
+  .omit({
+    id: true,
+    lastUpdated: true,
+  })
+  .refine(
+    (data) => {
+      const price = parseFloat(data.price);
+      return !isNaN(price) && price >= 0;
+    },
+    { message: "Price must be non-negative", path: ["price"] }
+  )
+  .refine(
+    (data) => {
+      if (!data.originalPrice) return true;  // null/undefined is valid
+      const originalPrice = parseFloat(data.originalPrice);
+      return !isNaN(originalPrice) && originalPrice >= 0;
+    },
+    { message: "Original price must be non-negative", path: ["originalPrice"] }
+  )
+  .refine(
+    (data) => {
+      if (!data.originalPrice) return true;  // No comparison if no original
+      const price = parseFloat(data.price);
+      const originalPrice = parseFloat(data.originalPrice);
+      return price <= originalPrice;
+    },
+    { message: "Sale price cannot exceed original price", path: ["price"] }
+  );
+```
+
+**Benefits:**
+- Preserves `string` type for Drizzle ORM compatibility
+- Validates the numeric value at application layer
+- Provides clear, user-friendly error messages
+- Includes field path for UI error highlighting
+
+#### Common Validation Patterns for DECIMAL Fields
+
+**Non-Negative (>= 0) - For prices that can be zero:**
+```typescript
+.refine(
+  (data) => {
+    const value = parseFloat(data.price);
+    return !isNaN(value) && value >= 0;
+  },
+  { message: "Price must be non-negative", path: ["price"] }
+)
+```
+
+**Strictly Positive (> 0) - For values that must be positive:**
+```typescript
+.refine(
+  (data) => {
+    const value = parseFloat(data.targetPrice);
+    return !isNaN(value) && value > 0;
+  },
+  { message: "Target price must be positive", path: ["targetPrice"] }
+)
+```
+
+**Nullable Field Validation:**
+```typescript
+.refine(
+  (data) => {
+    if (!data.originalPrice) return true;  // null/undefined is valid
+    const value = parseFloat(data.originalPrice);
+    return !isNaN(value) && value >= 0;
+  },
+  { message: "Original price must be non-negative", path: ["originalPrice"] }
+)
+```
+
+**Cross-Field Validation (sale price <= original):**
+```typescript
+.refine(
+  (data) => {
+    if (!data.originalPrice) return true;
+    const price = parseFloat(data.price);
+    const originalPrice = parseFloat(data.originalPrice);
+    return price <= originalPrice;
+  },
+  { message: "Sale price cannot exceed original price", path: ["price"] }
+)
+```
+
+**See:** `docs/LEARNINGS_TODO_2026_ZOD_CHECK_CONSTRAINTS.md` for complete implementation details.
 
 ---
 

@@ -1259,6 +1259,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/LEARNINGS_TODO_006_DISCUSSION_COUNT.md` - Identifying and resolving duplicate TODOs (2025-12-03)
 - `docs/LEARNINGS_TODO_010_BATCH_INSERT.md` - Batch insert optimization implementation (2025-12-03)
 - `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md` - Working with pre-commit hooks, security markers, and common fixes (2025-12-03)
+- `docs/LEARNINGS_TODO_2026_ZOD_CHECK_CONSTRAINTS.md` - Zod validation for DECIMAL fields with Drizzle ORM type preservation (2025-12-04)
 
 ### Subagent Documentation (.claude/knowledge/)
 - `claude-code-subagent-setup-guide.md` - Complete subagent system guide
