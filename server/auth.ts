@@ -158,7 +158,8 @@ passport.deserializeUser(async (id: number, done) => {
 
 // Helper functions
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+  const { PASSWORD } = await import('./utils/constants.js');
+  return bcrypt.hash(password, PASSWORD.BCRYPT_ROUNDS);
 }
 
 export async function createUser(userData: { username: string; email: string; password: string; role?: string }): Promise<SafeUser> {
