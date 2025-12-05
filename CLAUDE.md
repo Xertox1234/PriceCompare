@@ -329,7 +329,7 @@ Since routes are in `server/routes/`, imports must use `../` to reach parent dir
 ```typescript
 // ✅ CORRECT - from server/routes/*.ts
 import { logger } from "../utils/logger";
-import { createErrorResponse } from "../utils/error-sanitizer";
+import { sendErrorFromException } from "../utils/api-response";
 import { withAuth } from "./helpers";
 
 // ❌ WRONG - these paths don't resolve from routes/ subdirectory
@@ -493,8 +493,7 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 ### Migration Status
 
 **COMPLETE** - All routes and middleware migrated. When working with routes OR middleware:
-- ✅ Use new helpers: `sendSuccess/sendError/sendErrorFromException`
-- ❌ Avoid legacy: `createErrorResponse()` + manual `res.json()`
+- ✅ Use standardized helpers: `sendSuccess/sendError/sendErrorFromException`
 - ❌ Never manually create envelope: `res.json({ success: true, data: ... })`
 
 ### Middleware Error Responses (MANDATORY - 100% Coverage)
@@ -670,16 +669,9 @@ sendSuccess(res, metrics);
 // Results in: { success: true, data: metrics }
 ```
 
-**Legacy Pattern (DEPRECATED):**
+**Historical Note:**
 
-The old `createErrorResponse()` pattern is being phased out (87% migrated as of 2025-11-27):
-
-```typescript
-// ⚠️ DEPRECATED - Don't use in new code
-import { createErrorResponse } from '../utils/error-sanitizer';
-const errorResponse = createErrorResponse(error, 'Context');
-res.status(errorResponse.status).json({ error: errorResponse.error });
-```
+Error handling was consolidated in TODO_165 (Dec 2025). Previous implementations using `createErrorResponse()` from `error-sanitizer.ts` have been replaced with the standardized helpers above.
 
 ### 4. Input Validation with Zod
 
