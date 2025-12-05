@@ -4,7 +4,16 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there are **0 active TODOs** - all completed! 🎉
+Currently, there is **1 active TODO**:
+
+### Code Quality & Simplification
+- 🔵 **TODO_165 (Error Handling Consolidation)** - Consolidate error handling into single file (P3, 3 hours)
+  - Reduce from 4 files (244 LOC) to 1 file (15-30 LOC)
+  - Remove error-sanitizer.ts, error-helpers.ts
+  - Simplify errors.ts with 2 utility functions
+  - 87-93% code reduction, no functionality loss
+  - Status: **Ready** - Can be picked up for implementation
+  - Source: GitHub Issue #165
 
 ## Recently Completed (2025-12-03)
 
