@@ -1,12 +1,68 @@
 /**
- * Custom Error Classes
+ * Error Handling Utilities
  *
- * Provides standardized error types for better error handling across the application.
+ * Consolidated error handling with minimal complexity.
+ * Provides essential error utilities and minimal custom error classes for actual use cases.
  */
 
 /**
+ * Extract error message from unknown error type
+ *
+ * Handles Error objects, strings, and other values safely.
+ * Use in catch blocks to safely extract error messages for logging.
+ *
+ * @param error - Unknown error value from catch block
+ * @returns String representation of the error
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await riskyOperation();
+ * } catch (error) {
+ *   logger.error('Operation failed:', { error: getErrorMessage(error) });
+ * }
+ * ```
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+}
+
+/**
+ * Get appropriate HTTP status code from error
+ *
+ * Infers status codes from error messages using common patterns.
+ *
+ * @param error - Unknown error value
+ * @returns HTTP status code (400, 401, 403, 404, 409, or 500)
+ *
+ * @example
+ * ```typescript
+ * const status = getErrorStatus(error);
+ * res.status(status).json({ error: getErrorMessage(error) });
+ * ```
+ */
+export function getErrorStatus(error: unknown): number {
+  if (!(error instanceof Error)) return 500;
+
+  const msg = error.message.toLowerCase();
+
+  // Check for specific status codes based on message content
+  if (msg.includes('not found')) return 404;
+  if (msg.includes('unauthorized') || msg.includes('authentication required')) return 401;
+  if (msg.includes('forbidden') || msg.includes('admin access required')) return 403;
+  if (msg.includes('already exists') || msg.includes('conflict')) return 409;
+  if (msg.includes('invalid') || msg.includes('must be') || msg.includes('is required')) return 400;
+
+  return 500;
+}
+
+/**
  * Base application error class
- * All custom errors should extend this class
+ *
+ * Custom error with statusCode and metadata support.
+ * Used sparingly for cases requiring structured error handling.
  */
 export class AppError extends Error {
   constructor(
@@ -23,9 +79,10 @@ export class AppError extends Error {
 
   toJSON() {
     return {
-      success: false,  // CRITICAL: Must include success discriminator for API contract
+      success: false,
       error: this.message,
       code: this.code,
+      statusCode: this.statusCode,
       ...(process.env.NODE_ENV === 'development' && {
         stack: this.stack,
         metadata: this.metadata,
@@ -36,81 +93,13 @@ export class AppError extends Error {
 
 /**
  * Validation Error (400 Bad Request)
- * Used when user input doesn't meet requirements
+ *
+ * Used for input validation failures in aggregation services.
+ * ONLY custom error class with actual usage (5 occurrences).
  */
 export class ValidationError extends AppError {
   constructor(message: string, metadata?: Record<string, unknown>) {
     super(message, 400, 'VALIDATION_ERROR', metadata);
-  }
-}
-
-/**
- * Authentication Error (401 Unauthorized)
- * Used when user is not authenticated
- */
-export class AuthenticationError extends AppError {
-  constructor(message = 'Authentication required', metadata?: Record<string, unknown>) {
-    super(message, 401, 'AUTHENTICATION_ERROR', metadata);
-  }
-}
-
-/**
- * Authorization Error (403 Forbidden)
- * Used when user doesn't have permission
- */
-export class AuthorizationError extends AppError {
-  constructor(message = 'Access denied', metadata?: Record<string, unknown>) {
-    super(message, 403, 'AUTHORIZATION_ERROR', metadata);
-  }
-}
-
-/**
- * Not Found Error (404)
- * Used when a resource doesn't exist
- */
-export class NotFoundError extends AppError {
-  constructor(resource: string, metadata?: Record<string, unknown>) {
-    super(`${resource} not found`, 404, 'NOT_FOUND', metadata);
-  }
-}
-
-/**
- * Conflict Error (409)
- * Used when there's a conflict (e.g., duplicate entry)
- */
-export class ConflictError extends AppError {
-  constructor(message: string, metadata?: Record<string, unknown>) {
-    super(message, 409, 'CONFLICT_ERROR', metadata);
-  }
-}
-
-/**
- * Rate Limit Error (429)
- * Used when rate limit is exceeded
- */
-export class RateLimitError extends AppError {
-  constructor(message = 'Too many requests', metadata?: Record<string, unknown>) {
-    super(message, 429, 'RATE_LIMIT_ERROR', metadata);
-  }
-}
-
-/**
- * Database Error (500)
- * Used for database-related errors
- */
-export class DatabaseError extends AppError {
-  constructor(message: string, metadata?: Record<string, unknown>) {
-    super(message, 500, 'DATABASE_ERROR', metadata, false);
-  }
-}
-
-/**
- * External Service Error (502)
- * Used when external services fail
- */
-export class ExternalServiceError extends AppError {
-  constructor(service: string, metadata?: Record<string, unknown>) {
-    super(`External service '${service}' failed`, 502, 'EXTERNAL_SERVICE_ERROR', metadata, false);
   }
 }
 

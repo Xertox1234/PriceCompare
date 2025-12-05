@@ -9,7 +9,7 @@
 
 import { getRedisClient } from '../config/redis';
 import { createLogger } from '../utils/logger';
-import { getErrorMessage } from '../utils/error-helpers';
+import { getErrorMessage } from '../utils/errors';
 
 const logger = createLogger('PopularityTracker');
 

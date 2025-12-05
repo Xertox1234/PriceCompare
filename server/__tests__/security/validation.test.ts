@@ -4,7 +4,7 @@
  */
 import { describe, test, expect } from 'vitest';
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from '../../utils/validation-helpers';
-import { sanitizeErrorMessage, createErrorResponse, getErrorStatus } from '../../utils/error-sanitizer';
+import { getErrorStatus } from '../../utils/errors';
 
 describe('Integer Parsing Security', () => {
   describe('parseIntSafe', () => {
@@ -82,44 +82,7 @@ describe('Integer Parsing Security', () => {
   });
 });
 
-describe('Error Message Sanitization', () => {
-  const originalEnv = process.env.NODE_ENV;
-
-  afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
-  });
-
-  describe('sanitizeErrorMessage', () => {
-    test('returns full error in development', () => {
-      process.env.NODE_ENV = 'development';
-      const error = new Error('Detailed database connection error: host not found');
-      expect(sanitizeErrorMessage(error, 'Operation failed')).toContain('database connection');
-    });
-
-    test('returns generic message in production for unsafe errors', () => {
-      process.env.NODE_ENV = 'production';
-      // Use an error that doesn't match any safe error patterns
-      const error = new Error('Detailed database connection error: timeout exceeded');
-      expect(sanitizeErrorMessage(error, 'Operation failed')).toBe('Operation failed');
-    });
-
-    test('allows safe error patterns in production', () => {
-      process.env.NODE_ENV = 'production';
-      
-      expect(sanitizeErrorMessage(new Error('ID must be a valid integer'), 'Failed'))
-        .toBe('ID must be a valid integer');
-      
-      expect(sanitizeErrorMessage(new Error('Email is required'), 'Failed'))
-        .toBe('Email is required');
-      
-      expect(sanitizeErrorMessage(new Error('Invalid credentials'), 'Failed'))
-        .toBe('Invalid credentials');
-      
-      expect(sanitizeErrorMessage(new Error('Resource not found'), 'Failed'))
-        .toBe('Resource not found');
-    });
-  });
-
+describe('Error Status Code Inference', () => {
   describe('getErrorStatus', () => {
     test('returns 404 for not found errors', () => {
       expect(getErrorStatus(new Error('Resource not found'))).toBe(404);
@@ -150,35 +113,6 @@ describe('Error Message Sanitization', () => {
     test('returns 500 for unknown errors', () => {
       expect(getErrorStatus(new Error('Something went wrong'))).toBe(500);
       expect(getErrorStatus(new Error('Database error'))).toBe(500);
-    });
-  });
-
-  describe('createErrorResponse', () => {
-    test('includes details only in development', () => {
-      process.env.NODE_ENV = 'development';
-      const error = new Error('Test error');
-      error.stack = 'Stack trace here';
-      
-      const response = createErrorResponse(error, 'Test');
-      expect(response.details).toBeDefined();
-      expect(response.details).toContain('Stack trace');
-    });
-
-    test('excludes details in production', () => {
-      process.env.NODE_ENV = 'production';
-      const error = new Error('Test error');
-      error.stack = 'Stack trace here';
-      
-      const response = createErrorResponse(error, 'Test');
-      expect(response.details).toBeUndefined();
-    });
-
-    test('includes appropriate status code', () => {
-      const notFoundError = new Error('Resource not found');
-      expect(createErrorResponse(notFoundError, 'Fetch').status).toBe(404);
-      
-      const validationError = new Error('ID must be valid');
-      expect(createErrorResponse(validationError, 'Validate').status).toBe(400);
     });
   });
 });
