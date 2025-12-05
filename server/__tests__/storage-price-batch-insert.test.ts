@@ -1,41 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// Mock Redis and logger FIRST - must be before imports that use them
+import './helpers/mock-redis';
+import './helpers/mock-logger';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../db';
-import { users, products, productOffers, priceHistory, retailers } from '@shared/schema';
+import { products, productOffers, priceHistory, retailers, users } from '@shared/schema';
 import { storage } from '../storage';
 import { sql, gte } from 'drizzle-orm';
 import type { InsertPriceHistoryWithRecordedAt } from '../storage/types';
-
-// Mock Redis client (required by advanced-cache service)
-vi.mock('../config/redis', () => ({
-  redisClient: {
-    get: vi.fn(),
-    setex: vi.fn(),
-    del: vi.fn(),
-    keys: vi.fn(),
-    scan: vi.fn(),
-    publish: vi.fn(),
-    duplicate: vi.fn(() => ({
-      subscribe: vi.fn(),
-      on: vi.fn(),
-      quit: vi.fn(),
-    })),
-  },
-}));
-
-vi.mock('../utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-    warn: vi.fn(),
-  },
-  createLogger: vi.fn(() => ({
-    error: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-    warn: vi.fn(),
-  })),
-}));
+import {
+  cleanupTestData,
+  createTestProduct,
+  createTestRetailer,
+  createTestProductOffer,
+} from './helpers/test-fixtures';
 
 describe('PriceStorage.insertPriceHistoryBatch', () => {
   let testRetailer: typeof retailers.$inferSelect;
@@ -44,12 +22,14 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
   let testOffer2: typeof productOffers.$inferSelect;
 
   beforeEach(async () => {
-    // Clean up test data
-    await db.delete(priceHistory);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
-    await db.delete(users);
+    // Clean up test data using TRUNCATE CASCADE pattern
+    await cleanupTestData(db, [
+      'price_history',
+      'product_offers',
+      'products',
+      'retailers',
+      'users',
+    ]);
 
     // Create test user (no need to store reference)
     await db.insert(users).values({
@@ -59,43 +39,49 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
       role: 'user',
     });
 
-    // Create test retailer
-    [testRetailer] = await db.insert(retailers).values({
+    // Create test retailer using fixture
+    const retailerData = createTestRetailer({
       name: 'Test Retailer',
       website: 'https://example.com',
-    }).returning();
+    });
+    [testRetailer] = await db.insert(retailers).values(retailerData).returning();
 
-    // Create test product
-    [testProduct] = await db.insert(products).values({
+    // Create test product using fixture
+    const productData = createTestProduct({
       name: 'Test Product',
       description: 'Test Description',
-    }).returning();
+    });
+    [testProduct] = await db.insert(products).values(productData).returning();
 
-    // Create test offers
-    [testOffer1] = await db.insert(productOffers).values({
+    // Create test offers using fixture
+    const offer1Data = createTestProductOffer({
       productId: testProduct.id,
       retailerId: testRetailer.id,
       price: '99.99',
       productUrl: 'https://example.com/product1',
       availability: 'in_stock',
-    }).returning();
+    });
+    [testOffer1] = await db.insert(productOffers).values(offer1Data).returning();
 
-    [testOffer2] = await db.insert(productOffers).values({
+    const offer2Data = createTestProductOffer({
       productId: testProduct.id,
       retailerId: testRetailer.id,
       price: '89.99',
       productUrl: 'https://example.com/product2',
       availability: 'in_stock',
-    }).returning();
+    });
+    [testOffer2] = await db.insert(productOffers).values(offer2Data).returning();
   });
 
   afterEach(async () => {
-    // Clean up test data
-    await db.delete(priceHistory);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
-    await db.delete(users);
+    // Clean up test data using TRUNCATE CASCADE pattern
+    await cleanupTestData(db, [
+      'price_history',
+      'product_offers',
+      'products',
+      'retailers',
+      'users',
+    ]);
   });
 
   it('should insert multiple price history records in a single batch', async () => {

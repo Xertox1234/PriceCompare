@@ -1,30 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// Mock Redis and logger BEFORE importing service
+import './helpers/mock-redis';
+import './helpers/mock-logger';
+
 import { AdvancedCacheService, CacheTier } from '../services/advanced-cache';
-
-// Mock Redis client
-vi.mock('../config/redis', () => ({
-  redisClient: {
-    get: vi.fn(),
-    setex: vi.fn(),
-    del: vi.fn(),
-    keys: vi.fn(),
-    scan: vi.fn(),
-    publish: vi.fn(),
-    duplicate: vi.fn(() => ({
-      subscribe: vi.fn(),
-      on: vi.fn(),
-      quit: vi.fn(),
-    })),
-  },
-}));
-
-vi.mock('../utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
 
 describe('AdvancedCacheService', () => {
   let cacheService: AdvancedCacheService;

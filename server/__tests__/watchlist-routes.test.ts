@@ -1,17 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// Mock Redis and logger BEFORE importing dependencies
+import './helpers/mock-redis';
+import './helpers/mock-logger';
+
 import request from 'supertest';
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import session from 'express-session';
 import { db } from '../db';
-import { users, watchLists, productWatches, products, retailers, productOffers } from '@shared/schema';
+import { users, watchLists, productWatches, products as _products, retailers as _retailers, productOffers as _productOffers } from '@shared/schema';
+import { sql } from 'drizzle-orm';
 import { passport } from '../auth';
 import { registerWatchListRoutes } from '../routes/watchlist-routes';
 import { registerAuthRoutes } from '../routes/auth-routes';
-import { sql } from 'drizzle-orm';
 import {
   expectSuccessResponse,
   expectErrorResponse,
 } from '../__tests__/helpers/response-validators';
+import {
+  cleanupTestData,
+  createTestRetailer,
+  createTestProduct,
+  createTestProductOffer,
+} from './helpers/test-fixtures';
 
 /**
  * Watchlist Routes Integration Tests
@@ -26,39 +37,6 @@ import {
  * - DELETE /api/watchlists/:id/products/:productId - Remove product
  * - GET /api/watchlists/stats - Get dashboard statistics
  */
-
-// Mock Redis client to avoid requiring Redis in test environment
-vi.mock('../config/redis', () => ({
-  redisClient: {
-    get: vi.fn(),
-    setex: vi.fn(),
-    del: vi.fn(),
-    keys: vi.fn(),
-    scan: vi.fn(),
-    publish: vi.fn(),
-    duplicate: vi.fn(() => ({
-      subscribe: vi.fn(),
-      on: vi.fn(),
-      quit: vi.fn(),
-    })),
-  },
-}));
-
-// Mock logger
-vi.mock('../utils/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  },
-  createLogger: vi.fn(() => ({
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  })),
-}));
 
 // Mock vite logger
 vi.mock('../vite', () => ({
@@ -127,19 +105,15 @@ describe('Watchlist Routes - Integration Tests', () => {
     // Register watchlist routes
     registerWatchListRoutes(app);
 
-    /**
-     * Database Cleanup Strategy:
-     * - Use TRUNCATE CASCADE for fast, reliable cleanup
-     * - RESTART IDENTITY resets auto-increment sequences to 1
-     * - CASCADE automatically handles foreign key relationships
-     * - Order: children → parents (respects foreign keys)
-     */
-    await db.execute(sql`TRUNCATE TABLE product_watches RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE watch_lists RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Database cleanup - TRUNCATE CASCADE pattern
+    await cleanupTestData(db, [
+      'product_watches',
+      'watch_lists',
+      'product_offers',
+      'products',
+      'retailers',
+      'users',
+    ]);
 
     // Create test user via registration endpoint (same as alert-routes pattern)
     const registerRes = await request(app)
@@ -156,30 +130,24 @@ describe('Watchlist Routes - Integration Tests', () => {
     const setCookieHeader = registerRes.headers['set-cookie'];
     authCookie = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
 
-    // Create test retailer
-    const [retailer] = await db
-      .insert(retailers)
-      .values({
-        name: 'Test Retailer',
-        website: 'https://test.com',
-        isActive: true,
-      })
-      .returning();
+    // Create test data using fixtures
+    const retailerData = createTestRetailer({
+      name: 'Test Retailer',
+      website: 'https://test.com',
+    });
+    const [retailer] = await db.insert(_retailers).values(retailerData).returning();
     testRetailerId = retailer.id;
 
-    // Create test product
-    const [product] = await db
-      .insert(products)
-      .values({
-        name: 'Test Product',
-        description: 'Test description',
-        category: 'Electronics',
-      })
-      .returning();
+    const productData = createTestProduct({
+      name: 'Test Product',
+      description: 'Test description',
+      category: 'Electronics',
+    });
+    const [product] = await db.insert(_products).values(productData).returning();
     testProductId = product.id;
 
     // Create product offer
-    await db.insert(productOffers).values({
+    const offerData = createTestProductOffer({
       productId: testProductId,
       retailerId: testRetailerId,
       price: '299.99',
@@ -187,6 +155,7 @@ describe('Watchlist Routes - Integration Tests', () => {
       availability: 'in_stock',
       productUrl: 'https://test.com/product',
     });
+    await db.insert(_productOffers).values(offerData).returning();
 
     // Get CSRF token from cookie
     const csrfCookie = authCookie?.find((c: string) => c.startsWith('_csrf='));
@@ -198,16 +167,15 @@ describe('Watchlist Routes - Integration Tests', () => {
   });
 
   afterEach(async () => {
-    /**
-     * Cleanup after each test - ensure no data leaks between tests
-     * Same TRUNCATE CASCADE strategy as beforeEach
-     */
-    await db.execute(sql`TRUNCATE TABLE product_watches RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE watch_lists RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Cleanup after each test - ensure no data leaks between tests
+    await cleanupTestData(db, [
+      'product_watches',
+      'watch_lists',
+      'product_offers',
+      'products',
+      'retailers',
+      'users',
+    ]);
   });
 
   describe('GET /api/watchlists', () => {

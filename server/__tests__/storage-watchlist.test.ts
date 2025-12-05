@@ -1,34 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// Mock Redis and logger FIRST - must be before imports that use them
+import './helpers/mock-redis';
+import './helpers/mock-logger';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../db';
 import { users, watchLists, productWatches, products, productOffers, priceHistory, retailers } from '@shared/schema';
 import { storage } from '../storage';
-import { sql, eq } from 'drizzle-orm';
-
-// Mock Redis client (required by advanced-cache service)
-vi.mock('../config/redis', () => ({
-  redisClient: {
-    get: vi.fn(),
-    setex: vi.fn(),
-    del: vi.fn(),
-    keys: vi.fn(),
-    scan: vi.fn(),
-    publish: vi.fn(),
-    duplicate: vi.fn(() => ({
-      subscribe: vi.fn(),
-      on: vi.fn(),
-      quit: vi.fn(),
-    })),
-  },
-}));
-
-vi.mock('../utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-    warn: vi.fn(),
-  },
-}));
+import { eq } from 'drizzle-orm';
+import {
+  cleanupTestData,
+  createTestProduct,
+  createTestRetailer,
+  createTestProductOffer,
+} from './helpers/test-fixtures';
 
 /**
  * Test Helper Functions
@@ -132,14 +116,16 @@ describe('Watchlist Storage Layer', () => {
   let testRetailerId: number;
 
   beforeEach(async () => {
-    // Clean database
-    await db.delete(priceHistory);
-    await db.delete(productWatches);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(watchLists);
-    await db.delete(retailers);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Clean database using TRUNCATE CASCADE pattern
+    await cleanupTestData(db, [
+      'price_history',
+      'product_watches',
+      'product_offers',
+      'products',
+      'watch_lists',
+      'retailers',
+      'users',
+    ]);
 
     // Create test user
     const [user] = await db
@@ -158,49 +144,44 @@ describe('Watchlist Storage Layer', () => {
     // This ensures tests start with a clean slate and test explicit watchlist creation
     await db.delete(watchLists).where(eq(watchLists.userId, testUserId));
 
-    // Create test retailer
-    const [retailer] = await db
-      .insert(retailers)
-      .values({
-        name: 'Test Retailer',
-        website: 'https://test.com',
-        isActive: true,
-      })
-      .returning();
+    // Create test retailer using fixture
+    const retailerData = createTestRetailer({
+      name: 'Test Retailer',
+      website: 'https://test.com',
+      isActive: true,
+    });
+    const [retailer] = await db.insert(retailers).values(retailerData).returning();
     testRetailerId = retailer.id;
 
-    // Create test products
-    const [product1] = await db
-      .insert(products)
-      .values({
-        name: 'Test Product 1',
-        description: 'Test description',
-        category: 'Electronics',
-      })
-      .returning();
+    // Create test products using fixtures
+    const product1Data = createTestProduct({
+      name: 'Test Product 1',
+      description: 'Test description',
+      category: 'Electronics',
+    });
+    const [product1] = await db.insert(products).values(product1Data).returning();
     testProductId = product1.id;
 
-    const [product2] = await db
-      .insert(products)
-      .values({
-        name: 'Test Product 2',
-        description: 'Test description 2',
-        category: 'Electronics',
-      })
-      .returning();
+    const product2Data = createTestProduct({
+      name: 'Test Product 2',
+      description: 'Test description 2',
+      category: 'Electronics',
+    });
+    const [product2] = await db.insert(products).values(product2Data).returning();
     testProductId2 = product2.id;
 
-    // Create product offers
-    const [offer1] = await db.insert(productOffers).values({
+    // Create product offers using fixtures
+    const offer1Data = createTestProductOffer({
       productId: testProductId,
       retailerId: testRetailerId,
       price: '299.99',
       originalPrice: '399.99',
       availability: 'in_stock',
       productUrl: 'https://test.com/product1',
-    }).returning();
+    });
+    const [offer1] = await db.insert(productOffers).values(offer1Data).returning();
 
-    await db.insert(productOffers).values({
+    const offer2Data = createTestProductOffer({
       productId: testProductId2,
       retailerId: testRetailerId,
       price: '199.99',
@@ -208,6 +189,7 @@ describe('Watchlist Storage Layer', () => {
       availability: 'in_stock',
       productUrl: 'https://test.com/product2',
     });
+    await db.insert(productOffers).values(offer2Data);
 
     // Create price history for last 7 days
     const sevenDaysAgo = new Date();
@@ -230,14 +212,16 @@ describe('Watchlist Storage Layer', () => {
   });
 
   afterEach(async () => {
-    // Clean up
-    await db.delete(priceHistory);
-    await db.delete(productWatches);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(watchLists);
-    await db.delete(retailers);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Clean up using TRUNCATE CASCADE pattern
+    await cleanupTestData(db, [
+      'price_history',
+      'product_watches',
+      'product_offers',
+      'products',
+      'watch_lists',
+      'retailers',
+      'users',
+    ]);
   });
 
   describe('getUserWatchLists', () => {

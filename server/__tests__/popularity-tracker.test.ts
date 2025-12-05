@@ -1,37 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Mock Redis and logger BEFORE importing service
+import './helpers/mock-redis';
+import './helpers/mock-logger';
+
 import { PopularityTracker } from '../services/popularity-tracker';
-
-// Mock Redis client
-vi.mock('../config/redis', () => ({
-  redisClient: {
-    pipeline: vi.fn(() => ({
-      zincrby: vi.fn(),
-      expire: vi.fn(),
-      exec: vi.fn().mockResolvedValue([]),
-    })),
-    zincrby: vi.fn(),
-    zscore: vi.fn(),
-    zrevrange: vi.fn(),
-    zcard: vi.fn(),
-    zpopmin: vi.fn(),
-  },
-}));
-
-vi.mock('../utils/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-  },
-}));
+import type { MockRedisClient } from './helpers/mock-types';
 
 describe('PopularityTracker', () => {
   let tracker: PopularityTracker;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mock Redis client with dynamic method stubs
-  let mockRedis: any;
+  let mockRedis: MockRedisClient;
 
   beforeEach(async () => {
     const { redisClient } = await import('../config/redis');
-    mockRedis = redisClient;
+    mockRedis = redisClient as unknown as MockRedisClient;
     vi.clearAllMocks();
 
     tracker = new PopularityTracker();
@@ -41,11 +23,11 @@ describe('PopularityTracker', () => {
     it('should track product view across all time windows', async () => {
       const productId = 123;
       const mockPipeline = {
-        zincrby: vi.fn().mockReturnThis(),
-        expire: vi.fn().mockReturnThis(),
+        zincrby: vi.fn(function (this: unknown) { return this; }),
+        expire: vi.fn(function (this: unknown) { return this; }),
         exec: vi.fn().mockResolvedValue([]),
       };
-      mockRedis.pipeline.mockReturnValue(mockPipeline);
+      (mockRedis.pipeline as ReturnType<typeof vi.fn>).mockReturnValue(mockPipeline);
 
       await tracker.trackProductView(productId);
 
@@ -57,7 +39,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockRedis.pipeline.mockImplementation(() => {
+      (mockRedis.pipeline as ReturnType<typeof vi.fn>).mockImplementation(() => {
         throw new Error('Redis error');
       });
 
@@ -69,6 +51,7 @@ describe('PopularityTracker', () => {
   describe('trackSearchQuery', () => {
     it('should track search query in lowercase', async () => {
       const query = 'iPhone 15 Pro';
+      (mockRedis.zincrby as ReturnType<typeof vi.fn>).mockResolvedValue('1');
 
       await tracker.trackSearchQuery(query);
 
@@ -80,7 +63,9 @@ describe('PopularityTracker', () => {
     });
 
     it('should cleanup old queries when limit exceeded', async () => {
-      mockRedis.zcard.mockResolvedValue(10001);
+      (mockRedis.zcard as ReturnType<typeof vi.fn>).mockResolvedValue(10001);
+      (mockRedis.zincrby as ReturnType<typeof vi.fn>).mockResolvedValue('1');
+      (mockRedis.zpopmin as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
       await tracker.trackSearchQuery('test query');
 
@@ -93,7 +78,7 @@ describe('PopularityTracker', () => {
 
   describe('getProductViewCount', () => {
     it('should return view count for hourly window', async () => {
-      mockRedis.zscore.mockResolvedValue('42');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('42');
 
       const count = await tracker.getProductViewCount(123, 'HOURLY');
 
@@ -102,7 +87,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should return 0 if product has no views', async () => {
-      mockRedis.zscore.mockResolvedValue(null);
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
       const count = await tracker.getProductViewCount(123, 'HOURLY');
 
@@ -110,7 +95,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should support different time windows', async () => {
-      mockRedis.zscore.mockResolvedValue('10');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('10');
 
       await tracker.getProductViewCount(123, 'DAILY');
       await tracker.getProductViewCount(123, 'WEEKLY');
@@ -121,7 +106,7 @@ describe('PopularityTracker', () => {
 
   describe('getProductTier', () => {
     it('should classify product as HOT with 100+ views', async () => {
-      mockRedis.zscore.mockResolvedValue('150');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('150');
 
       const tier = await tracker.getProductTier(123);
 
@@ -129,7 +114,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should classify product as WARM with 20-99 views', async () => {
-      mockRedis.zscore.mockResolvedValue('50');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('50');
 
       const tier = await tracker.getProductTier(123);
 
@@ -137,7 +122,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should classify product as COLD with <20 views', async () => {
-      mockRedis.zscore.mockResolvedValue('10');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('10');
 
       const tier = await tracker.getProductTier(123);
 
@@ -145,7 +130,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should classify product as COLD with no views', async () => {
-      mockRedis.zscore.mockResolvedValue(null);
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
       const tier = await tracker.getProductTier(123);
 
@@ -155,7 +140,7 @@ describe('PopularityTracker', () => {
 
   describe('getTopProducts', () => {
     it('should return top products by view count', async () => {
-      mockRedis.zrevrange.mockResolvedValue(['123', '456', '789']);
+      (mockRedis.zrevrange as ReturnType<typeof vi.fn>).mockResolvedValue(['123', '456', '789']);
 
       const topProducts = await tracker.getTopProducts(3, 'HOURLY');
 
@@ -168,7 +153,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should handle empty results', async () => {
-      mockRedis.zrevrange.mockResolvedValue([]);
+      (mockRedis.zrevrange as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
       const topProducts = await tracker.getTopProducts(10, 'DAILY');
 
@@ -176,7 +161,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should support different time windows', async () => {
-      mockRedis.zrevrange.mockResolvedValue(['1', '2']);
+      (mockRedis.zrevrange as ReturnType<typeof vi.fn>).mockResolvedValue(['1', '2']);
 
       await tracker.getTopProducts(5, 'WEEKLY');
 
@@ -190,7 +175,7 @@ describe('PopularityTracker', () => {
 
   describe('getTopSearchQueries', () => {
     it('should return top search queries with counts', async () => {
-      mockRedis.zrevrange.mockResolvedValue([
+      (mockRedis.zrevrange as ReturnType<typeof vi.fn>).mockResolvedValue([
         'iphone 15', '100',
         'macbook', '80',
         'airpods', '60'
@@ -206,7 +191,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should handle empty results', async () => {
-      mockRedis.zrevrange.mockResolvedValue([]);
+      (mockRedis.zrevrange as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
       const topQueries = await tracker.getTopSearchQueries(10);
 
@@ -216,13 +201,13 @@ describe('PopularityTracker', () => {
 
   describe('getStats', () => {
     it('should return popularity statistics', async () => {
-      mockRedis.zcard
+      (mockRedis.zcard as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce(50)   // hourly count
         .mockResolvedValueOnce(200)  // daily count
         .mockResolvedValueOnce(500)  // weekly count
         .mockResolvedValueOnce(1000); // search queries count
 
-      mockRedis.zrevrange
+      (mockRedis.zrevrange as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce(['1', '2', '3']) // top products
         .mockResolvedValueOnce(['query1', '10', 'query2', '5']); // top queries
 
@@ -240,7 +225,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockRedis.zcard.mockRejectedValue(new Error('Redis error'));
+      (mockRedis.zcard as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Redis error'));
 
       const stats = await tracker.getStats();
 
@@ -255,7 +240,8 @@ describe('PopularityTracker', () => {
 
   describe('cleanup', () => {
     it('should cleanup old data when limit exceeded', async () => {
-      mockRedis.zcard.mockResolvedValue(1500);
+      (mockRedis.zcard as ReturnType<typeof vi.fn>).mockResolvedValue(1500);
+      (mockRedis.zpopmin as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
       await tracker.cleanup();
 
@@ -266,7 +252,7 @@ describe('PopularityTracker', () => {
     });
 
     it('should not cleanup if under limit', async () => {
-      mockRedis.zcard.mockResolvedValue(500);
+      (mockRedis.zcard as ReturnType<typeof vi.fn>).mockResolvedValue(500);
 
       await tracker.cleanup();
 
@@ -277,19 +263,19 @@ describe('PopularityTracker', () => {
   describe('tier classification boundaries', () => {
     it('should correctly classify at boundary values', async () => {
       // Exactly 100 views = HOT
-      mockRedis.zscore.mockResolvedValue('100');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('100');
       expect(await tracker.getProductTier(1)).toBe('hot');
 
       // 99 views = WARM
-      mockRedis.zscore.mockResolvedValue('99');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('99');
       expect(await tracker.getProductTier(2)).toBe('warm');
 
       // Exactly 20 views = WARM
-      mockRedis.zscore.mockResolvedValue('20');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('20');
       expect(await tracker.getProductTier(3)).toBe('warm');
 
       // 19 views = COLD
-      mockRedis.zscore.mockResolvedValue('19');
+      (mockRedis.zscore as ReturnType<typeof vi.fn>).mockResolvedValue('19');
       expect(await tracker.getProductTier(4)).toBe('cold');
     });
   });
@@ -297,11 +283,11 @@ describe('PopularityTracker', () => {
   describe('concurrent tracking', () => {
     it('should handle concurrent product view tracking', async () => {
       const mockPipeline = {
-        zincrby: vi.fn().mockReturnThis(),
-        expire: vi.fn().mockReturnThis(),
+        zincrby: vi.fn(function (this: unknown) { return this; }),
+        expire: vi.fn(function (this: unknown) { return this; }),
         exec: vi.fn().mockResolvedValue([]),
       };
-      mockRedis.pipeline.mockReturnValue(mockPipeline);
+      (mockRedis.pipeline as ReturnType<typeof vi.fn>).mockReturnValue(mockPipeline);
 
       // Track multiple products concurrently
       await Promise.all([
@@ -315,6 +301,7 @@ describe('PopularityTracker', () => {
 
     it('should handle concurrent search query tracking', async () => {
       const queries = ['query1', 'query2', 'query3'];
+      (mockRedis.zincrby as ReturnType<typeof vi.fn>).mockResolvedValue('1');
 
       await Promise.all(queries.map(q => tracker.trackSearchQuery(q)));
 

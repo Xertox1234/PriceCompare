@@ -1,31 +1,45 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Drizzle query builder mocks require complex chain typing */
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PriceSnapshotService } from '../services/price-snapshot-service';
-import { db } from '../db';
 
-// Mock the database
-vi.mock('../db', () => ({
-  db: {
-    select: vi.fn(),
-    insert: vi.fn(),
+// Mock Redis and logger BEFORE importing service
+import './helpers/mock-redis';
+import './helpers/mock-logger';
+
+// Mock storage layer
+vi.mock('../storage', () => ({
+  storage: {
+    getActiveProductOffers: vi.fn(),
+    getProductOffersForSnapshot: vi.fn(),
+    getProductOffersByProductId: vi.fn(),
+    createPriceHistoryBatch: vi.fn(),
+    getPriceHistoryForOffers: vi.fn(),
+    insertPriceHistoryBatch: vi.fn(),
+    getProductByIdRaw: vi.fn(),
+    getRetailersByIds: vi.fn(),
+    getAllOffersWithDetails: vi.fn(),
+    getPriceHistoryForAnalysis: vi.fn(),
+    deleteOldAggregatedPriceHistory: vi.fn(),
   },
 }));
 
+import { PriceSnapshotService } from '../services/price-snapshot-service';
+import type { IStorage } from '../storage';
+
 describe('PriceSnapshotService', () => {
   let service: PriceSnapshotService;
+  let mockStorage: Partial<IStorage>;
 
-  beforeEach(() => {
-    service = new PriceSnapshotService();
+  beforeEach(async () => {
+    const { storage } = await import('../storage');
+    mockStorage = storage as Partial<IStorage>;
     vi.clearAllMocks();
+
+    service = new PriceSnapshotService();
   });
 
   describe('snapshotAllPrices', () => {
     it('should return 0 when no product offers exist', async () => {
-      // Mock empty product offers
-      vi.mocked(db.select).mockReturnValue({
-        from: vi.fn().mockResolvedValue([]),
-      } as any);
+      // Mock empty product offers batch
+      (mockStorage.getProductOffersForSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
       const count = await service.snapshotAllPrices();
 
@@ -56,21 +70,16 @@ describe('PriceSnapshotService', () => {
         },
       ];
 
-      // Mock database select
-      vi.mocked(db.select).mockReturnValue({
-        from: vi.fn().mockResolvedValue(mockOffers),
-      } as any);
-
-      // Mock database insert
-      const mockInsert = vi.fn().mockResolvedValue({ rowCount: 2 });
-      vi.mocked(db.insert).mockReturnValue({
-        values: mockInsert,
-      } as any);
+      // Mock storage methods - getProductOffersForSnapshot returns batch, then empty on next call
+      (mockStorage.getProductOffersForSnapshot as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(mockOffers)
+        .mockResolvedValueOnce([]); // Empty batch ends the loop
+      (mockStorage.insertPriceHistoryBatch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       const count = await service.snapshotAllPrices();
 
       expect(count).toBe(2);
-      expect(mockInsert).toHaveBeenCalledWith(
+      expect(mockStorage.insertPriceHistoryBatch).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             productOfferId: 1,
@@ -89,9 +98,7 @@ describe('PriceSnapshotService', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      vi.mocked(db.select).mockReturnValue({
-        from: vi.fn().mockRejectedValue(new Error('Database error')),
-      } as any);
+      (mockStorage.getProductOffersForSnapshot as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Database error'));
 
       await expect(service.snapshotAllPrices()).rejects.toThrow('Database error');
     });
@@ -99,11 +106,7 @@ describe('PriceSnapshotService', () => {
 
   describe('snapshotProductPrices', () => {
     it('should return 0 when product has no offers', async () => {
-      vi.mocked(db.select).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([]),
-        }),
-      } as any);
+      (mockStorage.getProductOffersByProductId as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
       const count = await service.snapshotProductPrices(1);
 
@@ -124,21 +127,14 @@ describe('PriceSnapshotService', () => {
         },
       ];
 
-      vi.mocked(db.select).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(mockOffers),
-        }),
-      } as any);
-
-      const mockInsert = vi.fn().mockResolvedValue({ rowCount: 1 });
-      vi.mocked(db.insert).mockReturnValue({
-        values: mockInsert,
-      } as any);
+      (mockStorage.getProductOffersByProductId as ReturnType<typeof vi.fn>).mockResolvedValue(mockOffers);
+      (mockStorage.getPriceHistoryForOffers as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+      (mockStorage.insertPriceHistoryBatch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       const count = await service.snapshotProductPrices(1);
 
       expect(count).toBe(1);
-      expect(mockInsert).toHaveBeenCalledWith(
+      expect(mockStorage.insertPriceHistoryBatch).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             productId: 1,
