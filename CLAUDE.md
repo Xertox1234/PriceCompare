@@ -480,6 +480,9 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 2. **sendError(res, message, status, details?)** - Send explicit error
    - Use for known error conditions (404, 400, etc.)
    - Sanitizes error messages in production
+   - **Flexible details parameter:**
+     - `string` details: Development-only (filtered in production for security)
+     - `Record<string, unknown>` details: Always included (for client UX like `retryAfter`, `locked`)
 
 3. **sendErrorFromException(res, error, context)** - Send error from caught exception
    - Handles Zod validation errors (400)
@@ -536,6 +539,22 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 - Authentication (`server/auth.ts` - requireAuth, requireAdmin)
 - Validation (`server/validation.ts` - validateRequest, validateMultiple)
 - Rate limiting, CSRF, account lockout, request limits, error handlers
+
+**Rich Metadata Pattern (for rate limiting, lockouts):**
+
+```typescript
+// Use object details to include client-useful metadata
+sendError(res, 'Account temporarily locked', 429, {
+  locked: true,
+  remainingTime: lockStatus.remainingTime,
+  message: `Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+  attempts: lockStatus.attempts,
+});
+// Response: { success: false, error: '...', locked: true, remainingTime: 847, ... }
+
+// Also set HTTP standard headers where applicable
+res.setHeader('Retry-After', retryAfterSeconds.toString());
+```
 
 **See `docs/MIDDLEWARE_API_PATTERNS.md` for complete patterns and examples.**
 
@@ -1272,6 +1291,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/LEARNINGS_TODO_010_BATCH_INSERT.md` - Batch insert optimization implementation (2025-12-03)
 - `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md` - Working with pre-commit hooks, security markers, and common fixes (2025-12-03)
 - `docs/LEARNINGS_TODO_2026_ZOD_CHECK_CONSTRAINTS.md` - Zod validation for DECIMAL fields with Drizzle ORM type preservation (2025-12-04)
+- `docs/LEARNINGS_TODO_162_MIDDLEWARE_STANDARDIZATION.md` - Parallel vs sequential execution, flexible API signatures, architectural exceptions (2025-12-04)
 
 ### Subagent Documentation (.claude/knowledge/)
 - `claude-code-subagent-setup-guide.md` - Complete subagent system guide
