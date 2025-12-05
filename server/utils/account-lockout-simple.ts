@@ -37,7 +37,7 @@ export async function isAccountLockedAsync(email: string): Promise<{
     return {
       locked: true,
       remainingTime: ttl > 0 ? ttl : undefined,
-      attempts: attempts ? parseInt(attempts) : undefined,
+      attempts: attempts ? parseInt(attempts, 10) : undefined,
     };
   }
 
@@ -45,7 +45,7 @@ export async function isAccountLockedAsync(email: string): Promise<{
   const attempts = await redis.get(`lockout:${normalizedEmail}`);
   return {
     locked: false,
-    attempts: attempts ? parseInt(attempts) : 0,
+    attempts: attempts ? parseInt(attempts, 10) : 0,
   };
 }
 
