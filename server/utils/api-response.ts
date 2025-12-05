@@ -73,16 +73,21 @@ export function sendSuccess<T>(
  * Error response helper
  * Sends standardized error response
  *
+ * ARCHITECTURAL NOTE:
+ * Error handler middleware (server/middleware/error-handler.ts) uses manual res.status().json()
+ * calls and does NOT use this helper. This is intentional - see ADR_ERROR_HANDLER_EXEMPTION.md.
+ * Format must remain consistent between this helper and error-handler middleware.
+ *
  * @param res - Express response object
  * @param error - Error message string
  * @param statusCode - HTTP status code (default: 500)
- * @param details - Optional error details (development only)
+ * @param details - Optional error details (development only) OR additional response fields
  */
 export function sendError(
   res: Response,
   error: string,
   statusCode = 500,
-  details?: string
+  details?: string | Record<string, unknown>
 ): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -90,14 +95,23 @@ export function sendError(
     success: false;
     error: string;
     details?: string;
+    [key: string]: unknown;
   } = {
     success: false,
     error,
   };
 
-  // Add details only in development
-  if (isDevelopment && details) {
-    response.details = details;
+  // Handle details parameter
+  if (details) {
+    if (typeof details === 'string') {
+      // String details only in development
+      if (isDevelopment) {
+        response.details = details;
+      }
+    } else {
+      // Object details - merge additional fields into response
+      Object.assign(response, details);
+    }
   }
 
   res.status(statusCode).json(response);

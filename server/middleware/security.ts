@@ -5,6 +5,7 @@ import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
 import { sanitizeObject, SanitizationContext } from '../utils/sanitization';
 import { cleanupManager } from '../utils/cleanup-manager';
+import { sendError } from '../utils/api-response';
 
 const log = createLogger('Security');
 
@@ -73,11 +74,8 @@ export function rateLimiter(options: {
     const currentSize = Object.keys(rateLimitStore).length;
     if (currentSize >= MAX_RATE_LIMIT_ENTRIES && !rateLimitStore[ip]) {
       // When at capacity, reject new IPs with rate limit error
-      res.status(429).json({
-        success: false,
-        error: 'Service temporarily unavailable due to high load',
-        retryAfter: 60
-      });
+      res.setHeader('Retry-After', '60');
+      sendError(res, 'Service temporarily unavailable due to high load', 429);
       return;
     }
 
@@ -100,11 +98,9 @@ export function rateLimiter(options: {
     }
 
     if (record.count >= maxRequests) {
-      res.status(429).json({
-        success: false,
-        error: message,
-        retryAfter: Math.ceil((record.resetTime - now) / 1000)
-      });
+      const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+      res.setHeader('Retry-After', retryAfter.toString());
+      sendError(res, message, 429);
       return;
     }
 
@@ -184,11 +180,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
       }
     });
 
-    res.status(403).json({
-      success: false,
-      error: 'CSRF token missing',
-      message: 'CSRF token is required for this request'
-    });
+    sendError(res, 'CSRF token missing', 403, 'CSRF token is required for this request');
     return;
   }
 
@@ -211,10 +203,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
         }
       });
 
-      res.status(403).json({
-        success: false,
-        error: 'Invalid CSRF token'
-      });
+      sendError(res, 'Invalid CSRF token', 403);
       return;
     }
   } catch (error) {
@@ -230,10 +219,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
       }
     });
 
-    res.status(403).json({
-      success: false,
-      error: 'Invalid CSRF token'
-    });
+    sendError(res, 'Invalid CSRF token', 403);
     return;
   }
 
@@ -443,10 +429,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
       res.status(204).send();
     } else {
       // Reject preflight for disallowed origins
-      res.status(403).json({
-        success: false,
-        error: 'Origin not allowed'
-      });
+      sendError(res, 'Origin not allowed', 403);
     }
     return;
   }

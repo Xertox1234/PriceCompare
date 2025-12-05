@@ -498,6 +498,18 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 
 **ALL middleware error responses MUST use `sendError()` helper:**
 
+**EXCEPTION - Error Handler Middleware:**
+
+The centralized error handler (`server/middleware/error-handler.ts`) is EXEMPT from using `sendError()` helpers because:
+
+1. **Architectural Layer**: Error handler IS the implementation layer for error responses (not a consumer)
+2. **Safety Net**: Last-resort handler should not depend on higher-level abstractions
+3. **Format Consistency**: Achieved through standardized envelope format, not code sharing
+
+Exception to the exception: `notFoundHandler()` uses `sendError()` because it handles specific 404 cases (route-like), not catch-all errors.
+
+See `docs/ADR_ERROR_HANDLER_EXEMPTION.md` for complete architectural rationale.
+
 ```typescript
 // ❌ WRONG - Manual JSON error response in middleware
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {

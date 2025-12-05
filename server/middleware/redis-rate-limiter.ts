@@ -11,6 +11,7 @@ import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
 import { RATE_LIMIT_TIERS } from '../utils/constants';
+import { sendError } from '../utils/api-response';
 
 const log = createLogger('RateLimiter');
 
@@ -382,10 +383,13 @@ export function createRateLimiter(options: RateLimitOptions) {
           }
         });
 
-        res.status(429).json({
-          success: false,
-          error: message,
-          retryAfter: Math.ceil((info.reset - Date.now()) / 1000),
+        const retryAfter = Math.ceil((info.reset - Date.now()) / 1000);
+
+        // Set HTTP standard Retry-After header
+        res.setHeader('Retry-After', retryAfter);
+
+        sendError(res, message, 429, {
+          retryAfter
         });
         return;
       }

@@ -442,9 +442,27 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 - Authentication (`server/auth.ts` - requireAuth, requireAdmin)
 - Validation (`server/validation.ts` - validateRequest, validateMultiple)
 - SSO (`server/discourse-sso.ts` - all error responses)
-- Rate limiting, CSRF, account lockout, request limits, error handlers
+- Rate limiting, CSRF, account lockout, request limits
 
-**See `docs/MIDDLEWARE_API_PATTERNS.md` for complete patterns and examples.**
+#### EXCEPTION: Error Handler Middleware
+
+**The centralized error handler middleware (`server/middleware/error-handler.ts`) is EXEMPT from using `sendError()` helpers.**
+
+**Rationale:**
+1. **Architectural Layer**: Error handler IS the implementation layer for error responses (not a consumer)
+2. **Safety Net Principle**: Last-resort handler should not depend on higher-level abstractions it backs up
+3. **Format Consistency**: Achieved through standardized envelope format in code, not shared helpers
+4. **Conceptual Clarity**: Using sendError() in error-handler would be conceptually circular
+
+**Format Requirements:**
+- Error handler MUST use same envelope format as `sendError()`: `{ success: false, error: string, ... }`
+- AppError.toJSON() MUST include `success: false` discriminator
+- All error paths must produce identical envelope structure
+
+**Exception to the Exception:**
+- `notFoundHandler()` uses `sendError()` because it's route-like (handles specific 404 case), not a catch-all
+
+**See `docs/ADR_ERROR_HANDLER_EXEMPTION.md` for complete architectural decision and rationale.**
 
 ---
 

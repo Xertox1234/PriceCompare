@@ -2,6 +2,30 @@ import type { Request, Response, NextFunction } from 'express';
 import { AppError, isOperationalError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { captureException } from '../config/sentry';
+import { sendError } from '../utils/api-response';
+
+/**
+ * ARCHITECTURAL NOTE - Error Handler Exemption
+ *
+ * This error handler uses manual res.status().json() calls instead of sendError() helpers.
+ * This is INTENTIONAL and documented as an architectural exception.
+ *
+ * Rationale:
+ * 1. Error handler IS the implementation layer for error responses (not a consumer)
+ * 2. Last-resort safety net should not depend on higher-level abstractions
+ * 3. Using sendError() here would be conceptually circular
+ *
+ * Format Requirement:
+ * All error responses MUST match the standardized envelope format:
+ * { success: false, error: string, code?: string, details?: unknown }
+ *
+ * This format matches server/utils/api-response.ts sendError() envelope.
+ *
+ * Exception: notFoundHandler() uses sendError() because it's route-like (specific 404 handler),
+ * not a catch-all error handler.
+ *
+ * See docs/ADR_ERROR_HANDLER_EXEMPTION.md for complete architectural decision.
+ */
 
 // Type guard for Zod errors
 interface ZodError extends Error {
@@ -109,13 +133,11 @@ export function asyncHandler(
  * Should be placed before error handler middleware
  */
 export function notFoundHandler(req: Request, res: Response, _next: NextFunction) {
-  res.status(404).json({
-    success: false,
-    error: 'Route not found',
+  sendError(res, 'Route not found', 404, JSON.stringify({
     code: 'NOT_FOUND',
     path: req.originalUrl,
     method: req.method,
-  });
+  }));
 }
 
 /**

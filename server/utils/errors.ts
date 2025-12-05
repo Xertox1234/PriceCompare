@@ -23,9 +23,9 @@ export class AppError extends Error {
 
   toJSON() {
     return {
+      success: false,  // CRITICAL: Must include success discriminator for API contract
       error: this.message,
       code: this.code,
-      statusCode: this.statusCode,
       ...(process.env.NODE_ENV === 'development' && {
         stack: this.stack,
         metadata: this.metadata,

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { createLogger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
+import { sendError } from '../utils/api-response';
 
 /**
  * Account Lockout Middleware
@@ -443,14 +444,18 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
         // Set Retry-After header for HTTP-standard lockout signaling
         res.setHeader('Retry-After', retryAfterSeconds);
 
-        return res.status(429).json({
-          success: false,
-          error: 'Account temporarily locked due to too many failed login attempts',
-          locked: true,
-          remainingTime: lockStatus.remainingTime,
-          message: `Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
-          attempts: lockStatus.attempts,
-        });
+        sendError(
+          res,
+          'Account temporarily locked due to too many failed login attempts',
+          429,
+          {
+            locked: true,
+            remainingTime: lockStatus.remainingTime,
+            message: `Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+            attempts: lockStatus.attempts,
+          }
+        );
+        return;
       }
 
       // Store email in request for use in login handler
