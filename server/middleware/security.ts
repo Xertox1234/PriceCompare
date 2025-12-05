@@ -75,7 +75,9 @@ export function rateLimiter(options: {
     if (currentSize >= MAX_RATE_LIMIT_ENTRIES && !rateLimitStore[ip]) {
       // When at capacity, reject new IPs with rate limit error
       res.setHeader('Retry-After', '60');
-      sendError(res, 'Service temporarily unavailable due to high load', 429);
+      sendError(res, 'Service temporarily unavailable due to high load', 429, {
+        code: 'RATE_LIMIT_EXCEEDED'
+      });
       return;
     }
 
@@ -100,7 +102,9 @@ export function rateLimiter(options: {
     if (record.count >= maxRequests) {
       const retryAfter = Math.ceil((record.resetTime - now) / 1000);
       res.setHeader('Retry-After', retryAfter.toString());
-      sendError(res, message, 429);
+      sendError(res, message, 429, {
+        code: 'RATE_LIMIT_EXCEEDED'
+      });
       return;
     }
 

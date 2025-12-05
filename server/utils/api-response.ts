@@ -1,6 +1,8 @@
 import { Response } from "express";
 import { ZodError } from "zod";
 import { logger } from "./logger";
+import { captureException } from "../config/sentry";
+import { isOperationalError } from "./errors";
 
 /**
  * API Response Helpers
@@ -186,11 +188,11 @@ export function normalizeResponse<T>(legacyData: unknown): T {
 
 /**
  * Convenience function to send error from caught exception
- * Integrates with existing error-sanitizer.ts
+ * Integrates with existing error-sanitizer.ts and Sentry error tracking
  *
  * @param res - Express response object
  * @param error - Caught error (unknown type)
- * @param context - Operation context for logging
+ * @param context - Operation context for logging and Sentry tagging
  */
 export function sendErrorFromException(
   res: Response,
@@ -204,11 +206,13 @@ export function sendErrorFromException(
   let message = `${context} failed`;
   let status = 500;
   let details: string | undefined;
+  let isOperational = false;
 
   // Handle Zod validation errors explicitly
   if (error instanceof ZodError) {
     message = error.issues[0]?.message || 'Validation failed';
     status = 400;
+    isOperational = true; // Validation errors are operational (expected)
     if (isDevelopment) {
       details = JSON.stringify(error.issues, null, 2);
     }
@@ -217,11 +221,25 @@ export function sendErrorFromException(
 
     // Determine status code from error message patterns
     const errorMsg = error.message.toLowerCase();
-    if (errorMsg.includes('not found')) status = 404;
+    if (errorMsg.includes('not found')) {
+      status = 404;
+      isOperational = true; // 404s are operational
+    }
     else if (errorMsg.includes('unauthorized')) status = 401;
     else if (errorMsg.includes('forbidden')) status = 403;
-    else if (errorMsg.includes('already exists') || errorMsg.includes('unique')) status = 409;
-    else if (errorMsg.includes('invalid') || errorMsg.includes('must be')) status = 400;
+    else if (errorMsg.includes('already exists') || errorMsg.includes('unique')) {
+      status = 409;
+      isOperational = true; // Duplicate entries are operational
+    }
+    else if (errorMsg.includes('invalid') || errorMsg.includes('must be')) {
+      status = 400;
+      isOperational = true; // Validation failures are operational
+    }
+
+    // Check if error has operational flag
+    if (!isOperational && typeof error === 'object' && 'isOperational' in error) {
+      isOperational = isOperationalError(error);
+    }
 
     if (isDevelopment && error.stack) {
       details = error.stack;
@@ -233,6 +251,18 @@ export function sendErrorFromException(
     error: error instanceof Error ? error.message : String(error),
     status,
   });
+
+  // Capture non-operational errors in Sentry
+  // Operational errors (404, validation, etc.) are expected and shouldn't alert
+  if (!isOperational && error instanceof Error) {
+    captureException(error, {
+      tags: {
+        context,
+        statusCode: status.toString(),
+      },
+      level: status >= 500 ? 'error' : 'warning',
+    });
+  }
 
   sendError(res, message, status, details);
 }

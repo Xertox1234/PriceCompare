@@ -389,6 +389,7 @@ export function createRateLimiter(options: RateLimitOptions) {
         res.setHeader('Retry-After', retryAfter);
 
         sendError(res, message, 429, {
+          code: 'RATE_LIMIT_EXCEEDED',
           retryAfter
         });
         return;

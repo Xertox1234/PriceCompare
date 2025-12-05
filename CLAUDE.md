@@ -509,9 +509,37 @@ The centralized error handler (`server/middleware/error-handler.ts`) is EXEMPT f
 2. **Safety Net**: Last-resort handler should not depend on higher-level abstractions
 3. **Format Consistency**: Achieved through standardized envelope format, not code sharing
 
-Exception to the exception: `notFoundHandler()` uses `sendError()` because it handles specific 404 cases (route-like), not catch-all errors.
+**Format Consistency**: Achieved through manual responses that match the standardized envelope format:
+```typescript
+{
+  success: false,
+  error: string,
+  code?: string,
+  details?: unknown
+}
+```
 
-See `docs/ADR_ERROR_HANDLER_EXEMPTION.md` for complete architectural rationale.
+**Exception-to-Exception**: The `notFoundHandler()` function within error-handler.ts DOES use `sendError()` because it's route-like (handles specific 404 case), not a catch-all error handler.
+
+**Example (error-handler.ts)**:
+```typescript
+// Manual response (intentional) - matches sendError() envelope format
+if (err instanceof AppError) {
+  return res.status(err.statusCode).json(err.toJSON());
+  // Returns: { success: false, error, code, statusCode }
+}
+
+// Exception uses helper (route-like, not catch-all)
+export function notFoundHandler(req: Request, res: Response, _next: NextFunction) {
+  sendError(res, 'Route not found', 404, {
+    code: 'NOT_FOUND',
+    path: req.originalUrl,
+    method: req.method,
+  });
+}
+```
+
+**See**: `docs/ADR_ERROR_HANDLER_EXEMPTION.md` for complete architectural decision, error flow analysis, and implementation details.
 
 ```typescript
 // ❌ WRONG - Manual JSON error response in middleware

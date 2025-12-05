@@ -76,7 +76,11 @@ export function requestSizeLimiter(limits: RequestSizeLimits = DEFAULT_SIZE_LIMI
           res,
           'Request payload too large',
           413,
-          `Max size: ${limit}, Received: ${formatBytes(sizeInBytes)}`
+          {
+            code: 'PAYLOAD_TOO_LARGE',
+            maxSize: limit,
+            receivedSize: formatBytes(sizeInBytes)
+          }
         );
         return;
       }
@@ -137,7 +141,10 @@ export function rejectOversizedRequests(maxSize: number = 10 * 1024 * 1024) {
           res,
           'Request entity too large',
           413,
-          `Max size: ${formatBytes(maxSize)}`
+          {
+            code: 'PAYLOAD_TOO_LARGE',
+            maxSize: formatBytes(maxSize)
+          }
         );
         req.destroy();
       }

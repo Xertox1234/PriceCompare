@@ -16,6 +16,7 @@ import { websocketService } from "./services/websocket-service";
 import { passport } from "./auth";
 import { apiCacheMiddleware } from "./middleware/cache";
 import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrfToken } from "./middleware/security";
+import { sentryContextMiddleware } from "./middleware/sentry-context";
 import { createRateLimiter as redisRateLimiter } from "./middleware/redis-rate-limiter";
 import { performanceMonitoring } from "./middleware/performance";
 import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
@@ -172,6 +173,10 @@ app.use(sanitizeInput);
   // Initialize Passport
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // SENTRY: Add user context to Sentry error reports
+  // Must be after passport.session() to access req.user
+  app.use(sentryContextMiddleware);
 
   // SECURITY: Attach CSRF token to all responses
   // This middleware adds X-CSRF-Token header for clients to use

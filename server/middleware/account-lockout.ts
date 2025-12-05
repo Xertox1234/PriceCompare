@@ -3,6 +3,7 @@ import { getRedisClient, isRedisConnected, REDIS_KEYS } from '../config/redis';
 import { createLogger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
 import { sendError } from '../utils/api-response';
+import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 
 /**
  * Account Lockout Middleware
@@ -441,6 +442,20 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
         const minutes = Math.ceil((lockStatus.remainingTime || 0) / 60);
         const retryAfterSeconds = Math.ceil((lockStatus.remainingTime || 0) / 1000);
 
+        // SECURITY: Log account lockout event for monitoring
+        logSecurityEvent(SecurityEventType.ACCOUNT_LOCKED, req, {
+          email,
+          success: false,
+          message: 'Account locked due to too many failed login attempts',
+          metadata: {
+            attempts: lockStatus.attempts,
+            remainingTime: lockStatus.remainingTime,
+            lockedUntil: lockStatus.remainingTime
+              ? new Date(Date.now() + lockStatus.remainingTime).toISOString()
+              : undefined,
+          }
+        });
+
         // Set Retry-After header for HTTP-standard lockout signaling
         res.setHeader('Retry-After', retryAfterSeconds);
 
@@ -449,6 +464,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
           'Account temporarily locked due to too many failed login attempts',
           429,
           {
+            code: 'ACCOUNT_LOCKED',
             locked: true,
             remainingTime: lockStatus.remainingTime,
             message: `Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
