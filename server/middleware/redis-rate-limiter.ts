@@ -12,6 +12,7 @@ import { createLogger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
 import { RATE_LIMIT_TIERS } from '../utils/constants';
 import { sendError } from '../utils/api-response';
+import { ErrorCodes } from '../utils/error-codes';
 
 const log = createLogger('RateLimiter');
 
@@ -389,7 +390,7 @@ export function createRateLimiter(options: RateLimitOptions) {
         res.setHeader('Retry-After', retryAfter);
 
         sendError(res, message, 429, {
-          code: 'RATE_LIMIT_EXCEEDED',
+          code: ErrorCodes.RATE_LIMIT_EXCEEDED,
           retryAfter
         });
         return;

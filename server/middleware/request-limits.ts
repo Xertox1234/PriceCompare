@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import express from 'express';
 import { sendError } from '../utils/api-response';
+import { ErrorCodes } from '../utils/error-codes';
 
 /**
  * Request Size Limit Middleware
@@ -69,6 +70,13 @@ export function requestSizeLimiter(limits: RequestSizeLimits = DEFAULT_SIZE_LIMI
     const contentLength = req.headers['content-length'];
     if (contentLength) {
       const sizeInBytes = parseInt(contentLength, 10);
+
+      // Validate parseInt result - invalid Content-Length header should be ignored
+      if (isNaN(sizeInBytes)) {
+        // Invalid content-length header, skip check and proceed
+        return next();
+      }
+
       const limitInBytes = parseSizeString(limit);
 
       if (sizeInBytes > limitInBytes) {
@@ -77,7 +85,7 @@ export function requestSizeLimiter(limits: RequestSizeLimits = DEFAULT_SIZE_LIMI
           'Request payload too large',
           413,
           {
-            code: 'PAYLOAD_TOO_LARGE',
+            code: ErrorCodes.PAYLOAD_TOO_LARGE,
             maxSize: limit,
             receivedSize: formatBytes(sizeInBytes)
           }
@@ -142,7 +150,7 @@ export function rejectOversizedRequests(maxSize: number = 10 * 1024 * 1024) {
           'Request entity too large',
           413,
           {
-            code: 'PAYLOAD_TOO_LARGE',
+            code: ErrorCodes.PAYLOAD_TOO_LARGE,
             maxSize: formatBytes(maxSize)
           }
         );

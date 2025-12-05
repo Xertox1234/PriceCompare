@@ -26,15 +26,17 @@ interface AuthenticatedUser {
 }
 
 /**
- * Type guard to check if req.user exists and has required fields
+ * Type guard to check if req.user exists and has required fields with correct types
  */
 function isAuthenticatedRequest(req: Request): req is Request & { user: AuthenticatedUser } {
+  const user = req.user as unknown;
   return (
-    req.user !== undefined &&
-    typeof req.user === 'object' &&
-    req.user !== null &&
-    'id' in req.user &&
-    'email' in req.user
+    typeof user === 'object' &&
+    user !== null &&
+    'id' in user &&
+    typeof (user as Record<string, unknown>).id === 'number' &&
+    'email' in user &&
+    typeof (user as Record<string, unknown>).email === 'string'
   );
 }
 

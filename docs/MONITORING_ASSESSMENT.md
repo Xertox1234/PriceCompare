@@ -256,6 +256,83 @@ The current monitoring setup is **production-ready** with:
 3. Add real-user monitoring (RUM)
 4. Add uptime monitoring (Pingdom/UptimeRobot)
 
+## Sentry Query Examples
+
+### Common Security Event Queries
+
+**Find all ACCOUNT_LOCKED events in last 24h:**
+```
+event.type:error tags.event_type:account.locked event.timestamp:>-24h
+```
+
+**Find RATE_LIMIT_EXCEEDED by user tier:**
+```
+event.type:error tags.event_type:security.rate_limit_exceeded
+error.metadata.tier:premium
+```
+
+**Find all CSRF violations:**
+```
+event.type:error tags.event_type:security.csrf_violation
+```
+
+**Find errors affecting specific user:**
+```
+user.id:123 event.timestamp:>-7d
+```
+
+**Find errors from specific IP address:**
+```
+request.ip:192.168.1.1 event.type:error
+```
+
+**Find all critical security events:**
+```
+event.type:error level:critical tags.event_type:*security*
+```
+
+**Find errors with specific error code:**
+```
+error.code:ACCOUNT_LOCKED event.timestamp:>-24h
+```
+
+### Performance Query Examples
+
+**Find slow API requests (>2s):**
+```
+event.type:transaction transaction.duration:>2000
+```
+
+**Find database query performance issues:**
+```
+event.type:transaction span.description:*SELECT* span.duration:>500
+```
+
+**Find errors by endpoint:**
+```
+event.type:error transaction:/api/products
+```
+
+### Alerting Query Examples
+
+**Alert on account lockout spike (>10 in 5 min):**
+```
+tags.event_type:account.locked event.timestamp:>-5m
+```
+Set alert threshold: >10 events
+
+**Alert on rate limit pattern (potential DDoS):**
+```
+tags.event_type:security.rate_limit_exceeded event.timestamp:>-1m
+```
+Set alert threshold: >100 events
+
+**Alert on CSRF attack pattern:**
+```
+tags.event_type:security.csrf_violation event.timestamp:>-10m
+```
+Set alert threshold: >20 events
+
 ## Testing Guide
 
 ### Manual Testing

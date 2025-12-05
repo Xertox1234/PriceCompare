@@ -6,6 +6,7 @@ import { createLogger } from '../utils/logger';
 import { sanitizeObject, SanitizationContext } from '../utils/sanitization';
 import { cleanupManager } from '../utils/cleanup-manager';
 import { sendError } from '../utils/api-response';
+import { ErrorCodes } from '../utils/error-codes';
 
 const log = createLogger('Security');
 
@@ -59,6 +60,28 @@ const rateLimitCleanupInterval = setInterval(() => {
 }, CLEANUP_INTERVAL_MS);
 cleanupManager.addInterval('rate-limit-cleanup', rateLimitCleanupInterval);
 
+/**
+ * DEPRECATED: In-memory Rate Limiter
+ *
+ * @deprecated Use createRateLimiter() from ./redis-rate-limiter.ts instead
+ *
+ * This implementation is only used as a fallback when Redis is unavailable.
+ * It provides no tiering and does not work across multiple server instances.
+ *
+ * Migration path:
+ * 1. Ensure Redis is available in your environment
+ * 2. Use createRateLimiter() from redis-rate-limiter.ts
+ * 3. Benefits: Distributed rate limiting, tier support, better metrics
+ *
+ * Current usage (in server/index.ts):
+ * - Falls back when Redis unavailable (development only)
+ * - No new code should use this function
+ *
+ * @param options - Rate limiting configuration
+ * @param options.windowMs - Time window in milliseconds
+ * @param options.maxRequests - Maximum requests per window
+ * @param options.message - Error message for rate limit exceeded
+ */
 export function rateLimiter(options: {
   windowMs: number;
   maxRequests: number;
@@ -76,7 +99,7 @@ export function rateLimiter(options: {
       // When at capacity, reject new IPs with rate limit error
       res.setHeader('Retry-After', '60');
       sendError(res, 'Service temporarily unavailable due to high load', 429, {
-        code: 'RATE_LIMIT_EXCEEDED'
+        code: ErrorCodes.RATE_LIMIT_EXCEEDED
       });
       return;
     }
@@ -103,7 +126,7 @@ export function rateLimiter(options: {
       const retryAfter = Math.ceil((record.resetTime - now) / 1000);
       res.setHeader('Retry-After', retryAfter.toString());
       sendError(res, message, 429, {
-        code: 'RATE_LIMIT_EXCEEDED'
+        code: ErrorCodes.RATE_LIMIT_EXCEEDED
       });
       return;
     }

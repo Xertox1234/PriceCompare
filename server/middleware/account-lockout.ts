@@ -4,6 +4,7 @@ import { createLogger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
 import { sendError } from '../utils/api-response';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
+import { ErrorCodes } from '../utils/error-codes';
 
 /**
  * Account Lockout Middleware
@@ -423,20 +424,23 @@ export function unlockAccount(email: string): boolean {
  * Middleware to check if account is locked before processing login
  * Uses async Redis-backed check with in-memory fallback
  */
-export function checkAccountLockout(req: Request, res: Response, next: NextFunction) {
+export function checkAccountLockout(req: Request, res: Response, next: NextFunction): void {
   // Only apply to login endpoint
   if (req.path !== '/api/auth/login' || req.method !== 'POST') {
-    return next();
+    next();
+    return;
   }
 
   const email = parseLoginEmail(req.body);
 
   if (!email) {
-    return next();
+    next();
+    return;
   }
 
   // Use async Redis-backed check
-  isAccountLockedAsync(email)
+  // Explicit void operator to indicate intentional floating promise
+  void isAccountLockedAsync(email)
     .then(lockStatus => {
       if (lockStatus.locked) {
         const minutes = Math.ceil((lockStatus.remainingTime || 0) / 60);
@@ -464,7 +468,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
           'Account temporarily locked due to too many failed login attempts',
           429,
           {
-            code: 'ACCOUNT_LOCKED',
+            code: ErrorCodes.ACCOUNT_LOCKED,
             locked: true,
             remainingTime: lockStatus.remainingTime,
             message: `Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
@@ -476,7 +480,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
 
       // Store email in request for use in login handler
       req.loginEmail = email;
-      return next();
+      next();
     })
     .catch(error => {
       log.error('Lockout check error:', {
@@ -484,7 +488,7 @@ export function checkAccountLockout(req: Request, res: Response, next: NextFunct
       });
       // On error, allow request through (fail open for availability)
       // Security note: This is acceptable because the sync fallback still works
-      return next();
+      next();
     });
 }
 
@@ -573,14 +577,16 @@ export async function getLockoutStatsAsync(): Promise<{
 /**
  * Reset all failed login attempts (for testing only)
  * WARNING: Only use this in test environments
- * @throws {Error} If called outside of test environment
+ * @throws {TestOnlyFunctionError} If called outside of test environment
  */
 export function resetFailedAttempts(): void {
   if (process.env.NODE_ENV !== 'test') {
-    throw new Error(
+    const error = new Error(
       'resetFailedAttempts() is only available in test environment. ' +
       'This prevents accidental rate limit bypass in production.'
     );
+    error.name = 'TestOnlyFunctionError';
+    throw error;
   }
   inMemoryAttempts.clear();
 }
