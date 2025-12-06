@@ -67,7 +67,42 @@ function getSeasonForMonth(month: number): 'winter' | 'spring' | 'summer' | 'fal
 }
 
 /**
- * Detect seasonal patterns in price data
+ * Detect seasonal patterns in price data to identify the best time to buy
+ *
+ * Analyzes historical price data to find:
+ * - Monthly price patterns (which months have lowest/highest prices)
+ * - Seasonal trends (winter/spring/summer/fall price differences)
+ * - Day-of-week patterns (e.g., Sunday vs Friday prices)
+ * - Best time to buy recommendations with expected savings
+ *
+ * **Algorithm**:
+ * 1. Groups price data by month, season, and day of week
+ * 2. Calculates average prices for each time period
+ * 3. Identifies best/worst months and seasons to buy
+ * 4. Determines if patterns are statistically significant (>10% deviation)
+ * 5. Generates buying recommendations based on historical data
+ *
+ * **Use Cases**:
+ * - "Should I buy now or wait for Black Friday?"
+ * - "When are prices historically lowest?"
+ * - "Is there a seasonal pattern I should know about?"
+ *
+ * **Confidence Levels**:
+ * - High: 6+ months of data, 5+ data points per month
+ * - Medium: 4+ months of data, 3+ data points per month
+ * - Low: Less data available, patterns less reliable
+ *
+ * @param priceHistory - Array of historical price data with dates (min 10 data points required)
+ * @returns Seasonal analysis with patterns and recommendations, or null if insufficient data
+ *
+ * @example
+ * ```typescript
+ * const analysis = detectSeasonalPatterns(priceHistory);
+ * if (analysis?.hasSeasonalPattern && analysis.bestMonthToBuy) {
+ *   console.log(`Best time to buy: ${analysis.bestMonthToBuy.monthName}`);
+ *   console.log(`Expected savings: ${analysis.recommendation?.expectedSavings}%`);
+ * }
+ * ```
  */
 export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnalysis | null {
   if (!priceHistory || priceHistory.length < 10) {

@@ -402,6 +402,263 @@ Same as individual product object from `/products` endpoint.
 - `404 Not Found`: Product not found
 - `500 Internal Server Error`: Server error
 
+### Product Analytics Endpoints
+
+#### GET /products/:id/volatility
+Get price volatility analysis for a product to understand price stability.
+
+**Description:**
+Analyzes historical price data to calculate how stable or volatile prices have been. Helps users understand if they should wait for a price drop or buy now. Uses statistical measures (standard deviation, coefficient of variation) to generate a 0-100 volatility score.
+
+**Path Parameters:**
+- `id` (number): Product ID
+
+**Query Parameters:**
+- `days` (number, optional): Number of days of history to analyze (default: 30)
+
+**Use Cases:**
+- "Are prices stable enough to buy now?"
+- "Should I wait for a potential price drop?"
+- "How much do prices typically fluctuate?"
+
+**Example Request:**
+```
+GET /products/123/volatility?days=90
+```
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "data": {
+    "score": 45,
+    "level": "moderate",
+    "standardDeviation": 15.50,
+    "averagePrice": 299.99,
+    "priceRange": {
+      "min": 275.00,
+      "max": 325.00
+    },
+    "recommendation": "Prices show moderate fluctuation. Monitor prices for a few days before buying. Consider waiting for a dip if you're not in a hurry, as prices may drop by 5-10%."
+  }
+}
+```
+
+**Volatility Levels:**
+- `low` (score 0-25): Stable prices, safe to buy anytime
+- `moderate` (score 26-50): Some fluctuation, monitor for a few days
+- `high` (score 51-75): Significant fluctuation, wait for drops
+- `very-high` (score 76-100): Extreme volatility, wait for deals
+
+**Response Codes:**
+- `200 OK`: Success (returns volatility data or null if insufficient data)
+- `400 Bad Request`: Invalid product ID or days parameter
+- `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server error
+
+**Edge Cases:**
+- Returns `{"success": true, "data": null}` if less than 2 price history records exist
+
+---
+
+#### GET /products/:id/seasonal-patterns
+Detect seasonal price patterns to find the best time to buy.
+
+**Description:**
+Analyzes historical price data to identify seasonal trends and patterns. Determines which months, seasons, or days of the week historically have the lowest/highest prices. Provides actionable recommendations like "Wait for Black Friday" or "Prices lowest in January."
+
+**Path Parameters:**
+- `id` (number): Product ID
+
+**Query Parameters:**
+- `days` (number, optional): Number of days of history to analyze (default: 365 for full year)
+
+**Use Cases:**
+- "When are prices typically lowest?"
+- "Should I wait for Black Friday?"
+- "Is there a seasonal pattern I should know about?"
+
+**Example Request:**
+```
+GET /products/123/seasonal-patterns?days=365
+```
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "data": {
+    "hasSeasonalPattern": true,
+    "monthlyPatterns": [
+      {
+        "month": 10,
+        "monthName": "November",
+        "averagePrice": 249.99,
+        "minPrice": 199.99,
+        "maxPrice": 299.99,
+        "dataPoints": 45
+      }
+    ],
+    "seasonalPatterns": [
+      {
+        "season": "fall",
+        "averagePrice": 269.99,
+        "minPrice": 199.99,
+        "maxPrice": 349.99,
+        "dataPoints": 120
+      }
+    ],
+    "dayOfWeekPatterns": [
+      {
+        "dayOfWeek": 5,
+        "dayName": "Friday",
+        "averagePrice": 279.99,
+        "dataPoints": 52
+      }
+    ],
+    "bestMonthToBuy": {
+      "month": 10,
+      "monthName": "November",
+      "averagePrice": 249.99,
+      "minPrice": 199.99,
+      "maxPrice": 299.99,
+      "dataPoints": 45
+    },
+    "worstMonthToBuy": {
+      "month": 6,
+      "monthName": "July",
+      "averagePrice": 349.99,
+      "minPrice": 299.99,
+      "maxPrice": 399.99,
+      "dataPoints": 38
+    },
+    "bestSeasonToBuy": {
+      "season": "fall",
+      "averagePrice": 269.99,
+      "minPrice": 199.99,
+      "maxPrice": 349.99,
+      "dataPoints": 120
+    },
+    "recommendation": {
+      "timeframe": "November",
+      "reason": "Historically, prices are lowest in November. Now is a great time to buy! Generally, fall offers the best prices.",
+      "expectedSavings": 28.5
+    },
+    "confidence": "high"
+  }
+}
+```
+
+**Confidence Levels:**
+- `high`: 6+ months of data, 5+ data points per month (reliable patterns)
+- `medium`: 4+ months of data, 3+ data points per month (moderate reliability)
+- `low`: Less data available (patterns less reliable)
+
+**Response Codes:**
+- `200 OK`: Success (returns seasonal data or null if insufficient data)
+- `400 Bad Request`: Invalid product ID or days parameter
+- `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server error
+
+**Edge Cases:**
+- Returns `{"success": true, "data": null}` if less than 10 price history records exist
+- `hasSeasonalPattern` is `false` if price deviations are <10% (no significant pattern)
+- `recommendation` is `null` if savings potential is <5% (not worth waiting)
+
+---
+
+#### GET /products/:id/retailer-reliability
+Get retailer reliability scores to choose trustworthy sellers.
+
+**Description:**
+Evaluates retailers based on 4 key metrics: price stability, stock availability, competitive pricing, and consistency. Provides an overall reliability score (0-100) with detailed strengths/weaknesses and a personalized recommendation.
+
+**Path Parameters:**
+- `id` (number): Product ID
+
+**Query Parameters:**
+- `days` (number, optional): Number of days of history to analyze (default: all available)
+
+**Use Cases:**
+- "Which retailer should I trust for this product?"
+- "Is this retailer's price likely to change tomorrow?"
+- "Does this seller keep items in stock?"
+
+**Example Request:**
+```
+GET /products/123/retailer-reliability?days=90
+```
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "retailerId": 1,
+      "retailerName": "Amazon",
+      "overallScore": 85,
+      "rating": "excellent",
+      "metrics": {
+        "priceStability": 78,
+        "availability": 95,
+        "competitiveness": 88,
+        "consistency": 82
+      },
+      "strengths": [
+        "Excellent stock availability",
+        "Competitive prices",
+        "Consistent pricing"
+      ],
+      "weaknesses": [],
+      "recommendation": "Highly reliable retailer with excellent stock availability, competitive prices, consistent pricing. Excellent choice for purchasing this product."
+    },
+    {
+      "retailerId": 2,
+      "retailerName": "BestBuy",
+      "overallScore": 68,
+      "rating": "good",
+      "metrics": {
+        "priceStability": 65,
+        "availability": 88,
+        "competitiveness": 55,
+        "consistency": 70
+      },
+      "strengths": [
+        "Good stock availability"
+      ],
+      "weaknesses": [
+        "Higher prices than competitors"
+      ],
+      "recommendation": "Reliable retailer with good stock availability. Consider monitoring higher prices than competitors. Good choice for purchasing."
+    }
+  ]
+}
+```
+
+**Scoring Methodology:**
+- **Price Stability** (25% weight): Lower volatility = higher score (CV of 0% = 100, 20%+ = 0)
+- **Availability** (30% weight): Percentage of time in stock (100% = score 100)
+- **Competitiveness** (25% weight): Price vs market average (10% below = 100, 10%+ above = 20)
+- **Consistency** (20% weight): Fewer price changes = higher score (0% changes = 100, 50%+ = 0)
+
+**Rating Levels:**
+- `excellent` (80-100): Highly reliable, great choice
+- `good` (65-79): Generally reliable with minor issues
+- `fair` (50-64): Moderate reliability, compare with others
+- `poor` (<50): Frequent issues, consider alternatives
+
+**Response Codes:**
+- `200 OK`: Success (returns reliability scores or null if insufficient data)
+- `400 Bad Request`: Invalid product ID or days parameter
+- `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server error
+
+**Edge Cases:**
+- Returns `{"success": true, "data": null}` if less than 5 total price history records exist
+- Retailers with <2 price history records get score 0 with "Insufficient data" weakness
+- Competitiveness score defaults to 50 (neutral) if only 1 retailer exists
+
 ## Data Types
 
 ### Product
