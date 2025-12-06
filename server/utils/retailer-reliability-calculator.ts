@@ -27,7 +27,43 @@ interface ReliabilityScore {
 }
 
 /**
- * Calculate retailer reliability score based on historical data
+ * Calculate comprehensive retailer reliability score based on historical performance
+ *
+ * Evaluates retailers across 4 key dimensions to help users choose trustworthy sellers:
+ * - **Price Stability** (25%): How consistent are prices over time? (less volatility = better)
+ * - **Availability** (30%): How often is the product in stock? (higher = better)
+ * - **Competitiveness** (25%): How do prices compare to market average? (lower = better)
+ * - **Consistency** (20%): How often do prices change? (fewer changes = better)
+ *
+ * **Scoring Algorithm**:
+ * 1. Calculate individual metric scores (0-100 for each)
+ * 2. Apply weighted average: availability×0.30 + stability×0.25 + competitive×0.25 + consistency×0.20
+ * 3. Determine overall rating: Excellent (80+), Good (65-79), Fair (50-64), Poor (<50)
+ * 4. Identify strengths and weaknesses (metrics scoring >75 or <50)
+ * 5. Generate personalized recommendation
+ *
+ * **Use Cases**:
+ * - "Which retailer should I trust for this product?"
+ * - "Is this retailer's price likely to change tomorrow?"
+ * - "Does this seller keep items in stock?"
+ *
+ * **Example Ratings**:
+ * - Excellent (80+): Reliable, competitive prices, consistent availability
+ * - Good (65-79): Generally reliable with minor issues
+ * - Fair (50-64): Moderate reliability, compare with others
+ * - Poor (<50): Frequent issues, consider alternatives
+ *
+ * @param retailerData - Historical data for the retailer being evaluated
+ * @param allRetailersData - Historical data for all retailers (for competitiveness comparison)
+ * @returns Comprehensive reliability score with metrics, rating, and recommendation
+ *
+ * @example
+ * ```typescript
+ * const score = calculateRetailerReliability(retailer, allRetailers);
+ * console.log(`${retailer.name}: ${score.rating} (${score.overallScore}/100)`);
+ * console.log(`Strengths: ${score.strengths.join(', ')}`);
+ * console.log(`Recommendation: ${score.recommendation}`);
+ * ```
  */
 export function calculateRetailerReliability(
   retailerData: RetailerData,
