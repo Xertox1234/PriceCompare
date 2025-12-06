@@ -1519,6 +1519,123 @@ When reviewing test files, apply these critical patterns from TODO_004 learnings
 - @ts-expect-error/@ts-ignore ZERO TOLERANCE
 - Type assertion documentation (MANDATORY)
 
+### 6. Over-Engineering Detection (NEW - 2025-12-05)
+- Dual storage backends (Redis + Map) for same data
+- Manual cleanup intervals (`setInterval` for cache/TTL)
+- Custom TTL tracking instead of platform TTL
+- LOC > 200 for single-purpose utilities (rate limit, lockout, cache)
+- Sync/async function pairs for same operation
+
+---
+
+## NEW: Over-Engineering Detection Patterns (v1.5 - 2025-12-05)
+
+**Context:** Account lockout middleware refactoring (TODO_001) reduced 623 LOC to 150 LOC by using Redis-native features instead of reimplementing expiration logic.
+
+### Platform-Feature-First Principle
+
+**Before reviewing custom implementations, ask:**
+1. Does the platform (Redis, PostgreSQL, Node.js) already solve this?
+2. What happens if we use the platform feature directly?
+3. What edge cases does the platform already handle?
+
+### High-Confidence Over-Engineering Signals (Flag Immediately)
+
+```typescript
+// SIGNAL 1: Dual storage backends
+const fallbackCache = new Map<string, CacheEntry>();  // In-memory fallback
+await redis.set(key, value);  // Redis primary
+// ASK: Is the Map fallback actually used in production?
+
+// SIGNAL 2: Manual cleanup intervals for expiration
+setInterval(() => {
+  for (const [key, value] of cache.entries()) {
+    if (value.expiresAt < Date.now()) cache.delete(key);
+  }
+}, CLEANUP_INTERVAL);
+// ASK: Why not use Redis EXPIRE or TTL?
+
+// SIGNAL 3: Custom TTL tracking
+interface CacheEntry {
+  value: string;
+  createdAt: number;
+  expiresAt: number;  // Manual TTL tracking
+  lastAccess: number; // LRU tracking
+}
+// ASK: Why not use Redis TTL which handles this natively?
+
+// SIGNAL 4: Memory exhaustion prevention
+const MAX_ENTRIES = 10000;
+if (cache.size > MAX_ENTRIES) {
+  // Sort by lastAccess, remove oldest 20%...
+}
+// ASK: Why not use Redis maxmemory + maxmemory-policy?
+```
+
+### Redis-Native Patterns (What to Recommend)
+
+```typescript
+// Instead of manual TTL tracking:
+const attempts = await redis.incr(key);
+if (attempts === 1) {
+  await redis.expire(key, TTL_SECONDS);  // Redis handles cleanup automatically
+}
+
+// Instead of GET-check-SET pattern:
+await redis.setex(`locked:${email}`, LOCKOUT_SECONDS, '1');  // Atomic set with TTL
+
+// Instead of parsing stored JSON for simple values:
+const isLocked = await redis.exists(`locked:${email}`);  // Boolean check
+
+// Graceful degradation (fail open for enhancements):
+const redis = getRedisClient();
+if (!redis) return { locked: false };  // Enhancement unavailable, not critical
+```
+
+### Simplification Checklist
+
+When you see these patterns, suggest simplification:
+
+| Pattern Found | Simplification |
+|---------------|----------------|
+| `setInterval` for cleanup | Use Redis EXPIRE/TTL |
+| `Map` with `expiresAt` field | Use Redis SETEX |
+| `MAX_ENTRIES` cap + LRU | Use Redis maxmemory-policy |
+| Sync/async function pairs | Keep async-only |
+| JSON parsing for simple data | Use Redis INCR/GET directly |
+| LOC > 200 for utility | Likely over-engineered |
+
+### Graceful Degradation Framework
+
+| Feature Type | Fail Mode | Example |
+|--------------|-----------|---------|
+| Security enhancement | Fail open | Account lockout, rate limiting |
+| Security requirement | Fail closed | Authentication, authorization |
+| UX enhancement | Fail open | Caching, recommendations |
+| Data integrity | Fail closed | Transactions, validation |
+
+### Example Review Output
+
+```
+Over-Engineering Detected (SIGNAL 2 + SIGNAL 3)
+
+File: server/middleware/custom-cache.ts (450 LOC)
+
+Issues Found:
+1. Manual cleanup interval (line 45): setInterval for TTL expiration
+2. Custom TTL tracking (line 12): expiresAt field in CacheEntry interface
+3. Memory cap (line 89): MAX_ENTRIES = 10000 with LRU eviction
+
+Redis Already Provides:
+- EXPIRE command for automatic key expiration
+- maxmemory + allkeys-lru for memory management
+- No cleanup intervals needed
+
+Recommendation: Refactor to use Redis-native TTL
+Expected Reduction: 450 LOC -> ~100 LOC (78% reduction)
+Reference: docs/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md
+```
+
 ---
 
 ## NEW: Pre-Commit Hook Pattern Awareness (v1.4 - 2025-12-04)
@@ -1754,9 +1871,10 @@ If you encounter unclear patterns:
 
 ---
 
-**Version**: 1.4
-**Last Updated**: 2025-12-04
+**Version**: 1.5
+**Last Updated**: 2025-12-05
 **Changes**:
+- v1.5: Added over-engineering detection patterns (Redis-native simplification from TODO_001), platform-feature-first principle, graceful degradation framework
 - v1.4: Added Phase 5 test quality patterns (WARNING 18/19), code review improvement integration patterns, updated hook reference to v3.4
 - v1.3: Added pre-commit hook pattern awareness, exemption comment validation, hook blockers/warnings reference
 - v1.2: Added context window scoping, worktree compatibility, and relative path usage

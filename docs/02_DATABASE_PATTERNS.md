@@ -1,7 +1,7 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.3
-**Last Updated:** 2025-12-04
+**Version:** 2.4
+**Last Updated:** 2025-12-05
 **Migrated From:**
 - `docs/DATABASE_PATTERNS.md` (v1.0)
 - `.claude/knowledge/storage-refactoring-patterns.md`
@@ -13,7 +13,7 @@
 **Maintainer:** Claude Code / Development Team
 **Status:** Active
 **Related Patterns:** [SECURITY_PATTERNS.md, API_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, ERROR_HANDLING_PATTERNS.md]
-**Related Learnings:** [LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md (test fixture security markers)]
+**Related Learnings:** [LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md (test fixture security markers), LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md (Redis-native patterns)]
 
 ---
 
@@ -30,6 +30,7 @@
 6. [Type Safety in Queries](#6-type-safety-in-queries)
 7. [Production Bugs Catalog](#7-production-bugs-catalog)
 8. [Migration Patterns](#8-migration-patterns)
+9. [Redis-Native Patterns](#9-redis-native-patterns-new---2025-12-05)
 
 ---
 
@@ -2516,6 +2517,155 @@ When working with database triggers in tests:
 - **Database Cleanup**: Section 7.1 for transaction boundaries in tests
 
 **Reference Issue**: TODO_003 - Storage watchlist test fixes (2025-12-02)
+
+---
+
+## 9. Redis-Native Patterns (NEW - 2025-12-05)
+
+**Context:** Account lockout middleware refactoring (TODO_001) reduced 623 LOC to 150 LOC (76% reduction) by using Redis-native TTL features instead of reimplementing expiration logic.
+
+**Reference:** `docs/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md`
+
+### 9.1 Platform-Feature-First Principle
+
+**Before implementing custom expiration/caching logic, ask:**
+
+1. Does Redis already solve this? (TTL, EXPIRE, SETEX)
+2. Does PostgreSQL already solve this? (pg_cron, table partitioning)
+3. What edge cases does the platform already handle?
+
+### 9.2 Over-Engineering Signals (Flag Immediately)
+
+```typescript
+// SIGNAL 1: Dual storage backends
+const fallbackCache = new Map<string, CacheEntry>();  // In-memory fallback
+await redis.set(key, value);  // Redis primary
+// PROBLEM: Maintaining two storage systems for same data
+
+// SIGNAL 2: Manual cleanup intervals
+setInterval(() => {
+  for (const [key, value] of cache.entries()) {
+    if (value.expiresAt < Date.now()) cache.delete(key);
+  }
+}, CLEANUP_INTERVAL);
+// PROBLEM: Reimplementing what Redis EXPIRE does automatically
+
+// SIGNAL 3: Custom TTL tracking
+interface CacheEntry {
+  value: string;
+  createdAt: number;
+  expiresAt: number;  // Manual TTL tracking
+  lastAccess: number; // LRU tracking
+}
+// PROBLEM: Redis handles TTL natively via EXPIRE
+
+// SIGNAL 4: Memory exhaustion prevention
+const MAX_ENTRIES = 10000;
+if (cache.size > MAX_ENTRIES) {
+  // Sort by lastAccess, remove oldest 20%...
+}
+// PROBLEM: Redis maxmemory + maxmemory-policy handles this
+```
+
+### 9.3 Redis-Native Patterns (CORRECT)
+
+#### Pattern 1: Atomic Counter with TTL (Rate Limiting, Lockout)
+
+```typescript
+// Increment counter atomically, set TTL on first access
+const attempts = await redis.incr(key);
+if (attempts === 1) {
+  await redis.expire(key, TTL_SECONDS);  // Redis handles cleanup
+}
+```
+
+**Why this works:**
+- `INCR` is atomic (race-condition safe)
+- `EXPIRE` triggers automatic deletion (no cleanup intervals needed)
+- Single storage backend (no dual Map + Redis)
+
+#### Pattern 2: Lock Flag with Automatic Expiration
+
+```typescript
+// Set locked flag that auto-expires (no manual cleanup)
+if (attempts >= MAX_ATTEMPTS) {
+  await redis.setex(`locked:${email}`, LOCKOUT_SECONDS, '1');
+}
+
+// Check existence (simpler than parsing values)
+const isLocked = await redis.exists(`locked:${email}`);
+```
+
+**Why this works:**
+- `SETEX` = atomic SET + EXPIRE in single command
+- Flag auto-deletes after TTL (no cleanup logic needed)
+- `EXISTS` is O(1) and avoids parsing
+
+#### Pattern 3: Graceful Degradation (Fail Open)
+
+```typescript
+const redis = getRedisClient();
+if (!redis) {
+  // Fail open for security enhancements (not requirements)
+  return { locked: false };
+}
+```
+
+**Decision Framework:**
+
+| Feature Type | Fail Mode | Rationale |
+|--------------|-----------|-----------|
+| Account lockout | Fail open | Enhancement - better to allow login than block legitimate users |
+| Rate limiting | Fail open | Enhancement - service availability over perfect limiting |
+| Session storage | Fail closed | Requirement - no fallback acceptable |
+| Authentication | Fail closed | Requirement - security-critical |
+
+### 9.4 Simplification Mapping
+
+| What You Built | What Redis Provides |
+|----------------|---------------------|
+| Manual TTL tracking (expiresAt field) | `EXPIRE key seconds` |
+| setInterval cleanup | Automatic key expiration (passive + active) |
+| Memory cap with LRU eviction | `maxmemory` + `maxmemory-policy allkeys-lru` |
+| GET-check-SET race condition handling | `INCR` (atomic), `SETEX` (atomic) |
+| JSON parsing for simple counters | `INCR`/`DECR` native integer operations |
+| Sync/async function pairs | Async-only (modern pattern) |
+
+### 9.5 Anti-Pattern: JSON for Simple Values
+
+```typescript
+// WRONG: Parsing JSON for simple counter
+const data = await redis.get(key);
+const parsed = JSON.parse(data || '{"count": 0}');
+parsed.count++;
+await redis.set(key, JSON.stringify(parsed));
+// PROBLEMS: Race condition, unnecessary serialization
+
+// CORRECT: Use Redis native integer operations
+const count = await redis.incr(key);  // Atomic, returns integer
+```
+
+### 9.6 When NOT to Simplify
+
+Keep custom logic when:
+
+1. **Business logic varies by environment** - Platform features are opinionated
+2. **Data must persist beyond Redis restart** - Use PostgreSQL instead
+3. **Complex state machines** - May need explicit transition control
+4. **Audit logging required** - Needs persistence, not TTL
+5. **Graceful degradation IS the primary path** - When Redis is expected to be unavailable frequently
+
+### 9.7 Metrics from TODO_001
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| Lines of Code | 623 | 150 | 76% reduction |
+| Functions | 12 | 5 | 58% reduction |
+| Storage Backends | 2 (Redis + Map) | 1 (Redis) | 50% reduction |
+| Cleanup Logic | Manual (setInterval) | Automatic (TTL) | Eliminated |
+| Code Review Issues | 0 | 1 (minor - parseInt radix) | Validates approach |
+
+**Key Insight:** Simpler code using platform primitives = more reliable code.
 
 ---
 
