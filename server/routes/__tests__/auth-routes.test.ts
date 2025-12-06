@@ -68,7 +68,7 @@ import { users, passwordResetTokens } from '@shared/schema';
 import { passport } from '../../auth';
 import { registerAuthRoutes } from '../auth-routes';
 import { emailService } from '../../services/email-service';
-import { resetFailedAttempts } from '../../middleware/account-lockout';
+import { resetFailedAttempts } from '../../utils/account-lockout-simple';
 import { eq, sql } from 'drizzle-orm';
 import * as _crypto from 'crypto';
 import {
@@ -99,7 +99,7 @@ describe('Authentication Routes', () => {
     process.env.ENCRYPTION_KEY = 'a'.repeat(64);
 
     // Reset failed login attempts to prevent lockout state from persisting across tests
-    resetFailedAttempts();
+    await resetFailedAttempts();
 
     // Create fresh Express app for each test
     app = express();

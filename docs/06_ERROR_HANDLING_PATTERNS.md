@@ -61,22 +61,19 @@ catch (error) {
 - Error messages may contain sensitive data or SQL queries
 - Attackers use this information to craft targeted attacks
 
-#### ✅ CORRECT - Use Error Sanitizer (MANDATORY)
+#### ✅ CORRECT - Use Standardized Error Response (MANDATORY)
 ```typescript
-import { createErrorResponse } from '../utils/error-sanitizer';
+import { sendErrorFromException } from '../utils/api-response';
 
 try {
   await db.insert(users).values(userData);
 } catch (error) {
-  // ALWAYS log full error server-side for debugging
-  console.error('User creation failed:', error);
-
-  // Send sanitized response to client
-  const errorResponse = createErrorResponse(error, 'UserCreation');
-  res.status(errorResponse.status).json({
-    error: errorResponse.error, // Generic message in production
-    details: errorResponse.details, // Only in development
-  });
+  // sendErrorFromException handles:
+  // - Server-side logging
+  // - Error sanitization (generic messages in production)
+  // - Status code inference
+  // - Sentry alerting for non-operational errors
+  sendErrorFromException(res, error, 'UserCreation');
 }
 ```
 
@@ -84,19 +81,19 @@ try {
 ```bash
 # Find routes that expose raw error messages
 # This will catch most violations
-grep -r "error\.message" server/routes/ server/*-routes.ts | grep -v "createErrorResponse" | grep -v "log\."
+grep -r "error\.message" server/routes/ server/*-routes.ts | grep -v "sendErrorFromException" | grep -v "log\."
 
 # Find direct error object responses
-grep -r "res\..*json.*error" server/routes/ | grep -v "createErrorResponse"
+grep -r "res\..*json.*error" server/routes/ | grep -v "sendErrorFromException" | grep -v "sendError"
 ```
 
 #### Pre-Commit Hook Check
 The pre-commit hook automatically detects:
 - `error.message` in response bodies
 - Raw `error` objects passed to `res.json()`
-- Missing `createErrorResponse` in catch blocks
+- Missing standardized error response helpers in catch blocks
 
-**To pass the hook**, ensure ALL error responses use `createErrorResponse()`.
+**To pass the hook**, ensure ALL error responses use `sendErrorFromException()` or `sendError()`.
 
 #### Common Violations and Fixes
 
@@ -109,8 +106,7 @@ catch (error) {
 
 // ✅ FIXED
 catch (error) {
-  const errorResponse = createErrorResponse(error, 'OperationName');
-  res.status(errorResponse.status).json(errorResponse);
+  sendErrorFromException(res, error, 'OperationName');
 }
 ```
 
@@ -125,9 +121,8 @@ catch (error) {
 
 // ✅ FIXED
 catch (error) {
-  const errorResponse = createErrorResponse(error, 'ValidationError');
-  res.status(errorResponse.status).json(errorResponse);
-  // createErrorResponse handles Zod errors properly
+  // sendErrorFromException handles Zod errors properly
+  sendErrorFromException(res, error, 'ValidationError');
 }
 ```
 
@@ -141,9 +136,8 @@ catch (error) {
 
 // ✅ FIXED
 catch (error) {
-  // Returns: "This item already exists" (production) or detailed error (dev)
-  const errorResponse = createErrorResponse(error, 'CreateUser');
-  res.status(errorResponse.status).json(errorResponse);
+  // Automatically infers 409 status for duplicate errors
+  sendErrorFromException(res, error, 'CreateUser');
 }
 ```
 
@@ -177,12 +171,9 @@ try {
 try {
   await updateProduct(data);
 } catch (error) {
-  // Always log errors
-  log.error('Product update failed:', error);
-
-  // Inform user appropriately
-  const errorResponse = createErrorResponse(error, 'ProductUpdate');
-  return res.status(errorResponse.status).json(errorResponse);
+  // sendErrorFromException handles logging automatically
+  sendErrorFromException(res, error, 'ProductUpdate');
+  return;
 }
 
 // Non-critical failures - degrade gracefully
@@ -201,179 +192,109 @@ try {
 
 ### Standardized Error Response Structure
 
-#### ✅ CORRECT - Consistent Error Format
+All API responses follow the standardized envelope format from `server/utils/api-response.ts`:
+
+#### ✅ CORRECT - Use Standardized Response Helpers
 ```typescript
-// types/errors.ts
-interface ErrorResponse {
-  error: string; // User-facing message
-  code?: string; // Machine-readable error code
-  details?: any; // Additional details (dev only)
-  timestamp: string;
-  requestId?: string; // For tracking
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
+
+// Success response
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const product = await storage.getProductById(id);
+    sendSuccess(res, product); // { success: true, data: product }
+  } catch (error) {
+    sendErrorFromException(res, error, 'GetProduct');
+    // { success: false, error: "message", details?: "..." }
+  }
+});
+
+// Explicit error with status code
+app.post('/api/products', csrfProtection, withAuth(async (req, res) => {
+  try {
+    const data = insertProductSchema.parse(req.body);
+    const product = await storage.createProduct(data);
+    sendSuccess(res, product, 201); // 201 Created
+  } catch (error) {
+    sendErrorFromException(res, error, 'CreateProduct');
+    // Automatically handles:
+    // - Zod validation errors (400)
+    // - Status code inference from error message
+    // - Logging and Sentry alerting
+    // - Environment-based details
+  }
+}));
+
+// Known error conditions
+if (!user) {
+  sendError(res, 'User not found', 404);
+  return;
 }
+```
 
-// utils/error-sanitizer.ts
-export function createErrorResponse(
-  error: unknown,
-  operation: string
-): ErrorResponse & { status: number } {
-  const timestamp = new Date().toISOString();
-  const requestId = generateRequestId();
+### Error Status Code Inference
 
-  // Log with request ID for tracking
-  log.error(`[${requestId}] ${operation} failed:`, error);
+The `sendErrorFromException()` helper automatically infers HTTP status codes from error messages:
 
-  // Development mode - include details
-  if (process.env.NODE_ENV === 'development') {
-    if (error instanceof z.ZodError) {
-      return {
-        status: 400,
-        error: 'Validation failed',
-        code: 'VALIDATION_ERROR',
-        details: error.errors,
-        timestamp,
-        requestId,
-      };
-    }
+| Error Message Contains | HTTP Status | Use Case |
+|------------------------|-------------|----------|
+| "not found" | 404 | Resource not found |
+| "unauthorized", "authentication required" | 401 | Authentication required |
+| "forbidden", "admin access required" | 403 | Permission denied |
+| "already exists", "conflict" | 409 | Duplicate resource |
+| "invalid", "must be", "is required" | 400 | Validation error |
+| (default) | 500 | Internal server error |
 
-    if (error instanceof Error) {
-      return {
-        status: 500,
-        error: error.message,
-        code: 'INTERNAL_ERROR',
-        details: { stack: error.stack },
-        timestamp,
-        requestId,
-      };
-    }
-  }
-
-  // Production mode - generic messages
-  if (error instanceof z.ZodError) {
-    return {
-      status: 400,
-      error: 'Invalid input provided',
-      code: 'VALIDATION_ERROR',
-      timestamp,
-      requestId,
-    };
-  }
-
-  // Map known errors to user-friendly messages
-  if (error instanceof Error) {
-    const errorMap: Record<string, { status: number; message: string; code: string }> = {
-      'unique constraint': {
-        status: 409,
-        message: 'This item already exists',
-        code: 'DUPLICATE_ENTRY',
-      },
-      'foreign key': {
-        status: 400,
-        message: 'Referenced item not found',
-        code: 'REFERENCE_ERROR',
-      },
-      'not found': {
-        status: 404,
-        message: 'Requested item not found',
-        code: 'NOT_FOUND',
-      },
-      'unauthorized': {
-        status: 401,
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-      },
-      'forbidden': {
-        status: 403,
-        message: 'You do not have permission to perform this action',
-        code: 'FORBIDDEN',
-      },
-    };
-
-    for (const [key, value] of Object.entries(errorMap)) {
-      if (error.message.toLowerCase().includes(key)) {
-        return {
-          status: value.status,
-          error: value.message,
-          code: value.code,
-          timestamp,
-          requestId,
-        };
-      }
-    }
-  }
-
-  // Generic fallback
-  return {
-    status: 500,
-    error: 'An unexpected error occurred. Please try again later.',
-    code: 'INTERNAL_ERROR',
-    timestamp,
-    requestId,
-  };
-}
+```typescript
+// Status code is automatically inferred from error message
+throw new Error('Product not found');  // → 404
+throw new Error('Email is required');  // → 400
+throw new Error('User already exists'); // → 409
 ```
 
 ### Custom Error Classes
 
-#### ✅ CORRECT - Domain-Specific Errors
+The codebase includes minimal custom error classes for structured error handling:
+
+#### ✅ Current Implementation (server/utils/errors.ts)
 ```typescript
-// errors/custom-errors.ts
+// Base error class with metadata support
 export class AppError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 500,
-    public code: string = 'INTERNAL_ERROR',
-    public isOperational: boolean = true
+    public statusCode = 500,
+    public code?: string,
+    public metadata?: Record<string, unknown>,
+    public isOperational = true
   ) {
     super(message);
     this.name = this.constructor.name;
     Error.captureStackTrace(this, this.constructor);
   }
+
+  toJSON() {
+    return {
+      success: false,
+      error: this.message,
+      code: this.code,
+      statusCode: this.statusCode,
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: this.stack,
+        metadata: this.metadata,
+      }),
+    };
+  }
 }
 
+// Validation errors (used in aggregation services)
 export class ValidationError extends AppError {
-  constructor(message: string, public fields: Record<string, string>) {
-    super(message, 400, 'VALIDATION_ERROR');
-    this.fields = fields;
+  constructor(message: string, metadata?: Record<string, unknown>) {
+    super(message, 400, 'VALIDATION_ERROR', metadata);
   }
-}
-
-export class NotFoundError extends AppError {
-  constructor(resource: string, id?: string | number) {
-    const message = id
-      ? `${resource} with ID ${id} not found`
-      : `${resource} not found`;
-    super(message, 404, 'NOT_FOUND');
-  }
-}
-
-export class AuthenticationError extends AppError {
-  constructor(message = 'Authentication required') {
-    super(message, 401, 'UNAUTHORIZED');
-  }
-}
-
-export class AuthorizationError extends AppError {
-  constructor(message = 'Insufficient permissions') {
-    super(message, 403, 'FORBIDDEN');
-  }
-}
-
-export class ConflictError extends AppError {
-  constructor(message: string) {
-    super(message, 409, 'CONFLICT');
-  }
-}
-
-export class RateLimitError extends AppError {
-  constructor(retryAfter?: number) {
-    super('Too many requests', 429, 'RATE_LIMIT_EXCEEDED');
-    this.retryAfter = retryAfter;
-  }
-
-  retryAfter?: number;
 }
 ```
+
+**Note**: Previous versions included many custom error classes (AuthenticationError, AuthorizationError, etc.) but these were rarely used. The consolidated approach uses message-based status code inference instead, which is simpler and sufficient for most use cases.
 
 ---
 
@@ -554,8 +475,7 @@ router.post('/api/products', async (req, res) => {
     }
 
     // Handle other errors
-    const errorResponse = createErrorResponse(error, 'CreateProduct');
-    res.status(errorResponse.status).json(errorResponse);
+    sendErrorFromException(res, error, 'CreateProduct');
   }
 });
 
@@ -928,8 +848,7 @@ router.get('/api/products/:id', asyncHandler(async (req, res) => {
 
 // Global error handler catches all
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-  const errorResponse = createErrorResponse(error, req.path);
-  res.status(errorResponse.status).json(errorResponse);
+  sendErrorFromException(res, error, req.path);
 });
 ```
 
@@ -1171,7 +1090,7 @@ async function scrapePrices(url: string) {
 
 ## Error Handling Checklist
 
-- [ ] **No raw error exposure** - Use createErrorResponse()
+- [ ] **No raw error exposure** - Use sendErrorFromException() or sendError()
 - [ ] **No silent failures** - Always log errors
 - [ ] **Consistent error format** - Standard ErrorResponse type
 - [ ] **Custom error classes** - Domain-specific errors
@@ -1197,4 +1116,5 @@ async function scrapePrices(url: string) {
 - [DATABASE_PATTERNS.md](DATABASE_PATTERNS.md) - Database query patterns, transactions
 - [PHASE0_WATCHLIST_PATTERNS.md](PHASE0_WATCHLIST_PATTERNS.md) - Source of PostgreSQL error patterns
 - [Pre-commit Hook](.git/hooks/pre-commit) - Error handling checks
-- [Error Sanitizer](../server/utils/error-sanitizer.ts) - Implementation
+- [Error Utilities](../server/utils/errors.ts) - Consolidated error handling implementation
+- [API Response Helpers](../server/utils/api-response.ts) - Response formatting with error handling

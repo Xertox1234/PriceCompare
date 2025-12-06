@@ -2091,4 +2091,86 @@ When reviewing database operations:
 - No N+1 queries
 - Appropriate indexes considered
 
+### Redis Service Integration (NEW - 2025-12-05)
+
+When reviewing Redis-related code, apply these patterns from TODO_001 (account lockout simplification):
+
+#### Over-Engineering Detection
+
+**Flag immediately as potential over-engineering:**
+
+```typescript
+// RED FLAG 1: Dual storage backends
+const cache = new Map<string, CacheEntry>();  // In-memory fallback
+await redis.set(key, value);  // Redis primary
+// Question: Is the Map fallback actually needed?
+
+// RED FLAG 2: Manual cleanup intervals
+setInterval(() => {
+  // Remove expired entries from Map
+  for (const [key, value] of cache.entries()) {
+    if (value.expiresAt < Date.now()) cache.delete(key);
+  }
+}, 60000);
+// Question: Why not use Redis TTL?
+
+// RED FLAG 3: Custom TTL tracking
+interface Entry {
+  value: string;
+  createdAt: number;
+  expiresAt: number;  // Manual TTL field
+}
+// Question: Why not use Redis EXPIRE?
+
+// RED FLAG 4: Memory exhaustion prevention
+const MAX_ENTRIES = 10000;
+if (cache.size > MAX_ENTRIES) {
+  // LRU eviction logic...
+}
+// Question: Why not use Redis maxmemory-policy?
+```
+
+#### Redis-Native Patterns (CORRECT)
+
+```typescript
+// Pattern 1: Atomic counter with TTL (rate limiting, lockout)
+const attempts = await redis.incr(key);
+if (attempts === 1) {
+  await redis.expire(key, TTL_SECONDS);  // Redis handles cleanup
+}
+
+// Pattern 2: Lock/flag with expiration
+if (attempts >= MAX_ATTEMPTS) {
+  await redis.setex(`locked:${id}`, TTL_SECONDS, '1');
+}
+
+// Pattern 3: Check existence (not value parsing)
+const isLocked = await redis.exists(`locked:${id}`);
+
+// Pattern 4: Graceful degradation (fail open for enhancements)
+const redis = getRedisClient();
+if (!redis) return { locked: false };  // Account lockout is enhancement, not critical
+```
+
+#### Review Checklist for Redis Code
+
+- [ ] **No `setInterval` for cleanup** - Use Redis TTL instead
+- [ ] **No dual storage** (Redis + Map) unless truly necessary
+- [ ] **No manual TTL tracking** - Use Redis EXPIRE/SETEX
+- [ ] **Atomic operations** for counters (INCR, not GET-check-SET)
+- [ ] **Graceful degradation** - Fail open for security enhancements, fail closed for security requirements
+
+#### Simplification Opportunity Indicators
+
+Flag for potential simplification when you see:
+- LOC > 200 for rate limiting/lockout/caching utilities
+- `setInterval` for TTL-related cleanup
+- `Map<string, { expiresAt: number, ... }>`
+- Sync/async function pairs for same operation
+- "Fallback" storage that isn't used in production
+
+**Reference:** `docs/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md`
+
+---
+
 Remember: Focus on patterns and consistency. A codebase with consistent patterns is easier to maintain than one with perfect but inconsistent code.

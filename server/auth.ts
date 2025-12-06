@@ -10,7 +10,7 @@ import {
   recordFailedLoginAsync,
   clearFailedLoginsAsync,
   isAccountLockedAsync,
-} from './middleware/account-lockout';
+} from './utils/account-lockout-simple';
 import { sendError } from './utils/api-response';
 
 // Export the User type for use elsewhere

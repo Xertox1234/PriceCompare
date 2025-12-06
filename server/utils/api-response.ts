@@ -2,7 +2,7 @@ import { Response } from "express";
 import { ZodError } from "zod";
 import { logger } from "./logger";
 import { captureException } from "../config/sentry";
-import { isOperationalError } from "./errors";
+import { isOperationalError, getErrorMessage, getErrorStatus } from "./errors";
 
 /**
  * API Response Helpers
@@ -188,7 +188,7 @@ export function normalizeResponse<T>(legacyData: unknown): T {
 
 /**
  * Convenience function to send error from caught exception
- * Integrates with existing error-sanitizer.ts and Sentry error tracking
+ * Uses consolidated error utilities from errors.ts and integrates with Sentry
  *
  * @param res - Express response object
  * @param error - Caught error (unknown type)
@@ -201,8 +201,6 @@ export function sendErrorFromException(
 ): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  // Import createErrorResponse dynamically to avoid circular deps
-  // This will be refactored to use error-sanitizer directly
   let message = `${context} failed`;
   let status = 500;
   let details: string | undefined;
@@ -217,26 +215,15 @@ export function sendErrorFromException(
       details = JSON.stringify(error.issues, null, 2);
     }
   } else if (error instanceof Error) {
-    message = error.message;
+    // Use consolidated error utilities
+    message = getErrorMessage(error);
+    status = getErrorStatus(error);
 
-    // Determine status code from error message patterns
-    const errorMsg = error.message.toLowerCase();
-    if (errorMsg.includes('not found')) {
-      status = 404;
-      isOperational = true; // 404s are operational
-    }
-    else if (errorMsg.includes('unauthorized')) status = 401;
-    else if (errorMsg.includes('forbidden')) status = 403;
-    else if (errorMsg.includes('already exists') || errorMsg.includes('unique')) {
-      status = 409;
-      isOperational = true; // Duplicate entries are operational
-    }
-    else if (errorMsg.includes('invalid') || errorMsg.includes('must be')) {
-      status = 400;
-      isOperational = true; // Validation failures are operational
-    }
+    // Determine if error is operational (expected) based on status code
+    // 4xx errors are generally operational (client errors, expected conditions)
+    isOperational = status >= 400 && status < 500;
 
-    // Check if error has operational flag
+    // Check if error has explicit operational flag
     if (!isOperational && typeof error === 'object' && 'isOperational' in error) {
       isOperational = isOperationalError(error);
     }
@@ -244,11 +231,14 @@ export function sendErrorFromException(
     if (isDevelopment && error.stack) {
       details = error.stack;
     }
+  } else {
+    // Non-Error types (strings, objects, etc.)
+    message = getErrorMessage(error);
   }
 
   // Log error
   logger.error(`${context} error:`, {
-    error: error instanceof Error ? error.message : String(error),
+    error: getErrorMessage(error),
     status,
   });
 
