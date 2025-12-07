@@ -77,6 +77,8 @@ export function registerWatchListHandlers(socket: AuthenticatedSocket): void {
       socket.emit('watchlist:unsubscribed', {
         timestamp: new Date().toISOString(),
       });
+
+      return Promise.resolve();
     })
   );
 

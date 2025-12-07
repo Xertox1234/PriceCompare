@@ -98,6 +98,8 @@ export function registerNotificationHandlers(socket: AuthenticatedSocket): void 
       socket.emit('notification:unsubscribed', {
         timestamp: new Date().toISOString(),
       });
+
+      return Promise.resolve();
     })
   );
 

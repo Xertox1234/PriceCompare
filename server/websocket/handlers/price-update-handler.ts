@@ -124,7 +124,7 @@ export function registerPriceUpdateHandlers(socket: AuthenticatedSocket): void {
           message: 'Invalid product IDs',
           code: 'INVALID_INPUT',
         });
-        return;
+        return Promise.resolve();
       }
 
       const { productIds } = data;
@@ -153,6 +153,8 @@ export function registerPriceUpdateHandlers(socket: AuthenticatedSocket): void {
         productIds,
         timestamp: new Date().toISOString(),
       });
+
+      return Promise.resolve();
     })
   );
 
