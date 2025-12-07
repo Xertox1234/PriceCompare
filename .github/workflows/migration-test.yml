@@ -108,6 +108,9 @@ jobs:
           psql postgresql://postgres:postgres@localhost:5432/postgres -c "DROP DATABASE IF EXISTS migration_perf_test;"
           psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE migration_perf_test;"
 
+          # Create base schema first (required for migrations)
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/migration_perf_test npm run db:push
+
           # Time the migration
           START_TIME=$(date +%s)
           DATABASE_URL=postgresql://postgres:postgres@localhost:5432/migration_perf_test npm run migrate
