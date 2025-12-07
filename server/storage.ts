@@ -1,4 +1,4 @@
-import { retailers, products, productOffers, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
+import { retailers, products, productOffers, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert, type AgentSession, type ScrapingJob, type InsertAgentSession, type InsertScrapingJob, type InsertTrendingProduct } from "@shared/schema";
 import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchListStats, NormalizedPricePoint } from './storage/types';
 import { db } from "./db";
 import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count } from "drizzle-orm";
@@ -12,6 +12,7 @@ import { WatchListStorage } from "./storage/domains/watchlist-storage";
 import { RetailerStorage } from "./storage/domains/retailer-storage";
 import { JobLockStorage } from "./storage/domains/job-lock-storage";
 import { NotificationStorage } from "./storage/domains/notification-storage";
+import { AgentStorage } from "./storage/domains/agent-storage";
 
 export interface IStorage {
   // Retailers
@@ -95,6 +96,7 @@ export interface IStorage {
 
   // Trending Products (Scraping)
   getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]>;
+  updateTrendingProduct(id: number, updates: Partial<InsertTrendingProduct>): Promise<void>;
 
   // Price Analytics
   getWeeklyAggregates(productId: number, options?: { year?: number; week?: number; retailerId?: number; limit?: number }): Promise<WeeklyAggregate[]>;
@@ -392,6 +394,43 @@ export interface IStorage {
    * @returns Count of active sessions started within the time window
    */
   getActiveAgentSessionsCount(minutes: number): Promise<number>;
+
+  /**
+   * Create a new agent session
+   * @param sessionData - Agent session data to insert
+   * @returns Created agent session with generated ID
+   */
+  createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession>;
+
+  /**
+   * Update an existing agent session
+   * @param sessionId - ID of the session to update
+   * @param updates - Partial agent session data to update
+   * @returns void
+   */
+  updateAgentSession(sessionId: number, updates: Partial<AgentSession>): Promise<void>;
+
+  /**
+   * Create a new scraping job
+   * @param jobData - Scraping job data to insert
+   * @returns Created scraping job with generated ID
+   */
+  createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob>;
+
+  /**
+   * Update an existing scraping job
+   * @param jobId - ID of the job to update
+   * @param updates - Partial scraping job data to update
+   * @returns void
+   */
+  updateScrapingJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void>;
+
+  /**
+   * Get pending scraping jobs
+   * @param limit - Maximum number of jobs to return
+   * @returns Array of pending scraping jobs ordered by scheduledAt
+   */
+  getPendingScrapingJobs(limit: number): Promise<ScrapingJob[]>;
 
   // ============================================================================
   // Price Drop Detection Operations (Phase 6 Storage Migration)
@@ -1532,6 +1571,24 @@ export class MemStorage implements IStorage {
   async getActiveAgentSessionsCount(_minutes: number): Promise<number> {
     throw new Error('Not supported in memory storage');
   }
+  async createAgentSession(_sessionData: InsertAgentSession): Promise<AgentSession> {
+    throw new Error('Not supported in memory storage');
+  }
+  async updateAgentSession(_sessionId: number, _updates: Partial<AgentSession>): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+  async createScrapingJob(_jobData: InsertScrapingJob): Promise<ScrapingJob> {
+    throw new Error('Not supported in memory storage');
+  }
+  async updateScrapingJob(_jobId: number, _updates: Partial<ScrapingJob>): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+  async getPendingScrapingJobs(_limit: number): Promise<ScrapingJob[]> {
+    throw new Error('Not supported in memory storage');
+  }
+  async updateTrendingProduct(_id: number, _updates: Partial<InsertTrendingProduct>): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
 
   // Price Drop Detection (4 methods)
   async getPriceHistoryByOfferId(_productOfferId: number, _limit: number): Promise<PriceHistory[]> {
@@ -1822,6 +1879,7 @@ export class DatabaseStorage implements IStorage {
   private retailerStorage: RetailerStorage;
   private jobLockStorage: JobLockStorage;
   private notificationStorage: NotificationStorage;
+  private agentStorage: AgentStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
@@ -1831,7 +1889,8 @@ export class DatabaseStorage implements IStorage {
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
     this.notificationStorage = new NotificationStorage(db);
-    
+    this.agentStorage = new AgentStorage(db);
+
     // Wire up cross-domain dependencies (avoids circular imports)
     // PriceStorage needs ProductStorage.getProductOffers for trend analysis
     this.priceStorage.setGetProductOffersCallback(
@@ -2385,6 +2444,7 @@ export class DatabaseStorage implements IStorage {
         name: trendingProducts.name,
         category: trendingProducts.category,
         status: trendingProducts.status,
+        source: trendingProducts.source,
         discoveredAt: trendingProducts.discoveryDate,
       })
       .from(trendingProducts)
@@ -3775,18 +3835,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getScrapingJobStatusCounts(): Promise<JobStatusCount[]> {
-    const statusCounts = await db.select({
-      status: scrapingJobs.status,
-      count: count(),
-    })
-      .from(scrapingJobs)
-      .groupBy(scrapingJobs.status);
-
-    // Type assertion: status is non-null in database schema
-    return statusCounts.map(row => ({
-      status: row.status as string,
-      count: Number(row.count),
-    }));
+    return this.agentStorage.getScrapingJobStatusCounts();
   }
 
   async getActiveJobLocksCount(): Promise<number> {
@@ -3801,18 +3850,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTrendingProductsStatusCounts(): Promise<TrendingProductStatusCount[]> {
-    const statusCounts = await db.select({
-      status: trendingProducts.status,
-      count: count(),
-    })
-      .from(trendingProducts)
-      .groupBy(trendingProducts.status);
-
-    // Type assertion: status is non-null in database schema
-    return statusCounts.map(row => ({
-      status: row.status as string,
-      count: Number(row.count),
-    }));
+    return this.agentStorage.getTrendingProductsStatusCounts();
   }
 
   async getActiveAgentSessionsCount(minutes: number): Promise<number> {
@@ -3830,6 +3868,30 @@ export class DatabaseStorage implements IStorage {
       ));
 
     return Number(result[0]?.count ?? 0);
+  }
+
+  async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
+    return this.agentStorage.createAgentSession(sessionData);
+  }
+
+  async updateAgentSession(sessionId: number, updates: Partial<AgentSession>): Promise<void> {
+    return this.agentStorage.updateAgentSession(sessionId, updates);
+  }
+
+  async createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob> {
+    return this.agentStorage.createScrapingJob(jobData);
+  }
+
+  async updateScrapingJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void> {
+    return this.agentStorage.updateScrapingJob(jobId, updates);
+  }
+
+  async getPendingScrapingJobs(limit: number): Promise<ScrapingJob[]> {
+    return this.agentStorage.getPendingScrapingJobs(limit);
+  }
+
+  async updateTrendingProduct(id: number, updates: Partial<InsertTrendingProduct>): Promise<void> {
+    return this.agentStorage.updateTrendingProduct(id, updates);
   }
 
   // ============================================================================
@@ -4642,6 +4704,7 @@ export interface TrendingProduct {
   name: string;
   category: string | null;
   status: string;
+  source: string;
   discoveredAt: Date | null;
 }
 

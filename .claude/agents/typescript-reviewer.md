@@ -1788,6 +1788,249 @@ grep -rn "from '@shared/schema'" server/services/*.ts | grep -E "(from\(|insert\
 
 ---
 
+### 27. Storage Layer Migration Completeness Pattern (CRITICAL - Issue #178)
+
+**When reviewing storage layer migrations, verify the ENTIRE integration chain, not just the existence of components.**
+
+**KEY INSIGHT: Creating abstractions is NOT the same as using them.** A migration can appear complete because all pieces exist, but the critical integration step may be missing.
+
+#### The Integration Chain (ALL Required)
+
+For a storage layer migration to be complete, verify ALL four steps:
+
+```
+1. Domain Storage Class     → server/storage/domains/<domain>-storage.ts EXISTS
+2. Interface Declaration    → IStorage interface has method signatures
+3. DatabaseStorage Property → private <domain>Storage: <Domain>Storage;
+4. DatabaseStorage Wiring   → this.<domain>Storage = new <Domain>Storage(db);
+5. Delegation Methods       → return this.<domain>Storage.<method>(...args);
+```
+
+**Missing ANY step = incomplete migration (even if code compiles)**
+
+#### Anti-Pattern 1: Created But Never Instantiated
+
+```typescript
+// File exists: server/storage/domains/agent-storage.ts
+// Class defined: export class AgentStorage extends BaseStorage { ... }
+// Methods implemented: async createAgentSession(...) { ... }
+
+// BUT in server/storage.ts:
+export class DatabaseStorage implements IStorage {
+  private userStorage: UserStorage;
+  private productStorage: ProductStorage;
+  // ❌ MISSING: private agentStorage: AgentStorage;
+
+  constructor() {
+    this.userStorage = new UserStorage(db);
+    this.productStorage = new ProductStorage(db);
+    // ❌ MISSING: this.agentStorage = new AgentStorage(db);
+  }
+}
+```
+
+**Detection:**
+```bash
+# Find domain storage classes
+ls server/storage/domains/*.ts
+
+# Check if each is imported AND instantiated
+for file in server/storage/domains/*.ts; do
+  class=$(basename "$file" .ts | sed 's/-storage/Storage/g' | sed 's/\b\w/\u&/g')
+  grep -q "private.*$class" server/storage.ts || echo "MISSING: $class property"
+  grep -q "this.*= new.*$class" server/storage.ts || echo "MISSING: $class instantiation"
+done
+```
+
+#### Anti-Pattern 2: Delegation Methods Using `db` Directly
+
+```typescript
+// ❌ WRONG - Delegation method bypasses domain storage
+export class DatabaseStorage implements IStorage {
+  private agentStorage: AgentStorage;  // Property exists
+
+  constructor() {
+    this.agentStorage = new AgentStorage(db);  // Instantiated
+  }
+
+  // ❌ CRITICAL BUG: Uses db directly instead of delegating!
+  async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
+    const [session] = await db.insert(agentSessions).values(sessionData).returning();
+    return session;
+  }
+}
+
+// ✅ CORRECT - Proper delegation
+async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
+  return this.agentStorage.createAgentSession(sessionData);
+}
+```
+
+**Detection:**
+```bash
+# Find delegation methods that use db instead of domain storage
+# In DatabaseStorage class methods:
+grep -n "async.*{" server/storage.ts | while read line; do
+  method_line=$(echo "$line" | cut -d: -f1)
+  # Check if method body contains "db." instead of "this.<storage>"
+  # This requires manual inspection or more sophisticated tooling
+done
+
+# Quick check - should NOT see db operations in delegation section
+grep -A5 "// Delegation methods" server/storage.ts | grep -E "await db\."
+```
+
+#### Anti-Pattern 3: Interface Methods Without Domain Implementation
+
+```typescript
+// IStorage interface declares:
+interface IStorage {
+  getScrapingJobStatusCounts(): Promise<JobStatusCount[]>;
+}
+
+// Agent code calls:
+const counts = await storage.getScrapingJobStatusCounts();
+
+// BUT AgentStorage class MISSING the method:
+export class AgentStorage extends BaseStorage {
+  // ❌ getScrapingJobStatusCounts() not implemented!
+}
+
+// DatabaseStorage has stub that uses db directly:
+async getScrapingJobStatusCounts(): Promise<JobStatusCount[]> {
+  return await db.select(...);  // ❌ Should delegate to agentStorage
+}
+```
+
+**Detection:**
+```bash
+# Extract all methods from IStorage interface
+grep -E "^\s+\w+\(" server/storage.ts | head -100
+
+# For each method in a specific domain, verify it exists in domain class
+# Example for agent domain:
+grep -E "^\s+async\s+\w+" server/storage/domains/agent-storage.ts
+```
+
+#### Anti-Pattern 4: Type Signature Mismatches
+
+```typescript
+// Interface expects full Insert type:
+interface IStorage {
+  createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession>;
+}
+
+// Domain storage uses restricted subset:
+class AgentStorage {
+  async createAgentSession(sessionData: {
+    agentType: string;
+    sessionId: string;
+    status: 'active' | 'completed' | 'failed';
+  }): Promise<AgentSession>  // ❌ Type mismatch!
+}
+```
+
+**Correct Pattern:**
+```typescript
+// ✅ CORRECT - Use schema types consistently
+class AgentStorage {
+  async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession>
+}
+```
+
+#### Complete Migration Validation Checklist
+
+For each domain being migrated (Agent, Product, User, etc.):
+
+**1. DOMAIN STORAGE CLASS**
+- [ ] File exists: `server/storage/domains/<domain>-storage.ts`
+- [ ] Extends BaseStorage
+- [ ] Uses `try-catch` with `this.handleError()`
+- [ ] Uses `this.logSuccess()` for operation tracking
+- [ ] All methods have JSDoc comments
+- [ ] Imports types from `@shared/schema`
+
+**2. INTERFACE DEFINITION**
+- [ ] Methods added to IStorage interface
+- [ ] Type signatures use schema types (InsertX, Partial<X>)
+- [ ] Comments document what each method does
+
+**3. DATABASE STORAGE INTEGRATION (CRITICAL)**
+- [ ] Import: `import { <Domain>Storage } from './storage/domains/<domain>-storage';`
+- [ ] Property: `private <domain>Storage: <Domain>Storage;`
+- [ ] Constructor: `this.<domain>Storage = new <Domain>Storage(db);`
+- [ ] ALL delegation methods use `this.<domain>Storage`
+- [ ] NO delegation methods use `db` directly
+- [ ] Pattern: `return this.<domain>Storage.<method>(...args);`
+
+**4. MIGRATION OF SOURCE FILES**
+- [ ] Remove direct db imports (except documented exceptions)
+- [ ] Import storage: `import { storage } from '../storage';`
+- [ ] Replace db operations with storage calls
+- [ ] Remove Drizzle ORM operator imports (eq, and, etc.)
+- [ ] Update error handling to use storage patterns
+
+**5. TYPE SAFETY**
+- [ ] TypeScript compilation passes (`npm run check`)
+- [ ] ESLint passes (no new warnings)
+- [ ] No 'any' types introduced
+- [ ] Type signatures match between interface and implementation
+
+**6. TESTING**
+- [ ] Existing functionality preserved
+- [ ] No behavioral changes (unless intended)
+- [ ] Integration tests pass
+
+#### Quick Verification Commands
+
+```bash
+# 1. List all domain storage classes
+ls server/storage/domains/*.ts
+
+# 2. For each, verify it's wired in DatabaseStorage
+for domain in $(ls server/storage/domains/*.ts | xargs -n1 basename | sed 's/.ts//'); do
+  class_name=$(echo "$domain" | sed 's/-storage/Storage/' | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+  echo "=== Checking $class_name ==="
+
+  # Check property declaration
+  grep -n "private.*$class_name" server/storage.ts && echo "  [OK] Property" || echo "  [MISSING] Property"
+
+  # Check constructor instantiation
+  grep -n "this.*= new $class_name" server/storage.ts && echo "  [OK] Instantiation" || echo "  [MISSING] Instantiation"
+done
+
+# 3. Find delegation methods NOT using domain storage
+grep -n "return this\." server/storage.ts | grep -v "Storage\." | head -20
+```
+
+#### Review Response Format
+
+When reviewing storage layer migrations, use this checklist in the review:
+
+```markdown
+### Storage Layer Migration Review (Issue #XXX)
+
+**Domain: [Agent/Product/User/etc.]**
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Domain class exists | OK/MISSING | |
+| Extends BaseStorage | OK/MISSING | |
+| Interface methods | OK/PARTIAL | X of Y |
+| DatabaseStorage property | OK/MISSING | |
+| Constructor instantiation | OK/MISSING | |
+| Delegation methods | OK/PARTIAL | X use db directly |
+| Type signatures match | OK/MISMATCH | |
+
+**Critical Issues:**
+- [List any MISSING or MISMATCH items]
+
+**Verification Commands Run:**
+- [Show output of verification commands]
+```
+
+---
+
 ### 19. Type Assertion Documentation Pattern (Phase 8 - MANDATORY)
 
 **ALL type assertions (`as` casts) MUST have inline comments explaining WHY:**
@@ -2050,6 +2293,7 @@ errors.push({
 - [ ] JSDoc documentation on exported hooks
 - [ ] Shared generic wrappers used (ListResponse/DataResponse)
 - [ ] **Storage layer architecture compliance (Phase 8)** - No direct db imports in services
+- [ ] **Storage layer migration completeness (Issue #178)** - Domain storage wired AND used in DatabaseStorage
 - [ ] **Type assertion documentation (Phase 8)** - All `as` casts have comments
 - [ ] **Logging pattern (Phase 8)** - No console.error/console.log in production
 - [ ] **No non-null assertions (`!`)** - Use null coalescing or explicit checks
