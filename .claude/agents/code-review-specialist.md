@@ -610,6 +610,46 @@ Pattern 7: Non-null assertions (map.get()!, ref.current!)
 
 ---
 
+### Code Formatting with Prettier (NEW in v1.2)
+
+**Prettier is enforced throughout the project** for consistent code style. The reviewer should be aware of formatting requirements:
+
+#### Configuration (`.prettierrc.json`)
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "plugins": ["prettier-plugin-tailwindcss"]
+}
+```
+
+#### Enforcement Layers
+1. **Pre-commit hook**: `lint-staged` runs `prettier --write` on staged files
+2. **CI Pipeline**: `npm run format:check` fails if files aren't formatted
+3. **PR Validation**: Format check runs before tests
+
+#### Review Checklist for Formatting
+- [ ] No manual formatting concerns - Prettier handles it automatically
+- [ ] Tailwind classes should be sorted (prettier-plugin-tailwindcss)
+- [ ] If reviewing generated/external code, check if it should be in `.prettierignore`
+
+#### Commands
+```bash
+# Format all files
+npm run format
+
+# Check without writing (used in CI)
+npm run format:check
+```
+
+**Note**: Don't manually review code style (spacing, semicolons, quotes) - Prettier is the single source of truth. Focus on semantics, logic, and patterns instead.
+
+---
+
 ### Related Documentation
 
 - **Pre-commit hook**: `/.git/hooks/pre-commit` (lines 73-162) - Proactive pattern detection

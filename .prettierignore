@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+extensions/chrome/node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+coverage/
+
+# Generated files
+*.min.js
+*.min.css
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Playwright
+playwright-report/
+test-results/
+
+# IDE & Editor
+.vscode/
+.idea/
+
+# Environment files (don't format - may break parsing)
+.env*
+
+# Database
+migrations/*.sql
+
+# Reports
+jscpd-report/
+.jscpd-report/
+
+# Docker
+Dockerfile*
+
+# Git
+.git/
+
+# Attached assets (external content)
+attached_assets/
+
+# Replit
+.replit
+
+# Large JSON files that shouldn't be formatted
+*.min.json
+
+# Claude agent configurations (may have specific formatting)
+.claude/
+
+# GitHub workflows (shell scripts inside can confuse Prettier)
+.github/workflows/
+
+# Root workflows folder (GitHub Actions YAML with embedded shell)
+workflows/

@@ -54,6 +54,9 @@ jobs:
       - name: Run TypeScript type check
         run: npx tsc --noEmit
 
+      - name: Check code formatting (Prettier)
+        run: npm run format:check
+
       - name: Run ESLint
         run: npx eslint . --max-warnings 0
         continue-on-error: true  # TODO: Fix lint errors and remove this

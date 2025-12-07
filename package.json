@@ -30,6 +30,8 @@
     "lint": "ESLINT_USE_FLAT_CONFIG=false npx eslint . --ext .ts,.tsx,.js,.jsx",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false npx eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "lint:security": "eslint --config eslint.security.config.mjs server/**/*.ts",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
   },
   "lint-staged": {

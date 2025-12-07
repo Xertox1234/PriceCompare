@@ -15,6 +15,7 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 **NEVER use Puppeteer.** All browser automation, web scraping, and E2E testing MUST use Playwright.
 
 ### Why Playwright Only:
+
 - Modern API with better async/await support
 - Superior cross-browser testing capabilities
 - Built-in auto-waiting and retry logic
@@ -23,6 +24,7 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 - Already integrated throughout the codebase
 
 ### Usage:
+
 ```typescript
 import { chromium } from '@playwright/test';
 
@@ -43,8 +45,10 @@ await browser.close();
 **If you find ANY references to Puppeteer in the codebase, remove them immediately and replace with Playwright equivalents.**
 
 ## Subagent Usage
+
 Use orchestrator for complex tasks requiring multiple domains.
 Direct subagent delegation for focused work:
+
 - "Use backend-architect to implement..."
 - "Use frontend-specialist to create..."
 - "Use test-engineer to add tests for..."
@@ -72,6 +76,10 @@ npm run lint             # Run ESLint on all files (zero warnings tolerance)
 npm run lint:fix         # Auto-fix ESLint issues where possible
 npm run lint:security    # Security-specific ESLint rules
 
+# Code Formatting (Prettier)
+npm run format           # Format all files with Prettier
+npm run format:check     # Check formatting (used in CI - fails if unformatted)
+
 # Building
 npm run build            # Production build (Vite + esbuild)
 npm start                # Run production server
@@ -97,6 +105,7 @@ npm run security:full    # Run all security checks + tests
 ### Quick Setup (Recommended)
 
 1. **Create test database:**
+
    ```bash
    # Using createdb (recommended)
    createdb pricecompare_test
@@ -106,6 +115,7 @@ npm run security:full    # Run all security checks + tests
    ```
 
 2. **Configure environment** (optional - uses smart defaults):
+
    ```bash
    # Copy the template
    cp .env.test.example .env.test
@@ -126,11 +136,13 @@ npm run security:full    # Run all security checks + tests
 The test setup (`server/test/setup.ts`) uses smart defaults that work for most developers:
 
 **Database Connection Priority:**
+
 1. `DATABASE_URL` environment variable (if explicitly set)
 2. Constructed from individual `DATABASE_*` variables
 3. Falls back to system username + localhost defaults
 
 **Default Values:**
+
 - **User**: Your system username (`process.env.USER`)
 - **Password**: Empty (works for trust/peer authentication)
 - **Host**: `localhost`
@@ -163,6 +175,7 @@ Test environment uses safe defaults that disable encryption for performance:
 - **CSRF_SECRET**: `'test-csrf-secret-min-32-chars'` - Test-only secret
 
 **Why no-op encryption in tests:**
+
 - Test data is ephemeral and contains no real PII
 - Encryption/decryption adds overhead to test execution
 - `NODE_ENV='test'` check in schema ensures production encryption remains active
@@ -173,14 +186,17 @@ Test environment uses safe defaults that disable encryption for performance:
 ### Troubleshooting
 
 **Error: "role 'postgres' does not exist"**
+
 - **Cause**: Hardcoded `postgres` username doesn't match your PostgreSQL user
 - **Fix**: Create `.env.test` and set `DATABASE_USER=your_username`
 - **Check your username**: Run `whoami` (macOS/Linux) or `echo %USERNAME%` (Windows)
 
 **Error: "database 'pricecompare_test' does not exist"**
+
 - **Fix**: Create the test database (see Quick Setup step 1)
 
 **Error: "password authentication failed"**
+
 - **Fix 1**: Set `DATABASE_PASSWORD=your_password` in `.env.test`
 - **Fix 2**: Configure PostgreSQL to trust local connections:
   ```bash
@@ -190,7 +206,9 @@ Test environment uses safe defaults that disable encryption for performance:
   ```
 
 **Error: "Connection refused"**
+
 - **Fix**: Start PostgreSQL:
+
   ```bash
   # macOS (Homebrew)
   brew services start postgresql
@@ -205,21 +223,25 @@ Test environment uses safe defaults that disable encryption for performance:
 ### Platform-Specific Notes
 
 **macOS (Homebrew PostgreSQL)**:
+
 - Default user: Your system username
 - No password required by default (peer authentication)
 - Database location: `/usr/local/var/postgres`
 
 **Linux**:
+
 - Default user: `postgres` or your system username
 - May require password depending on `pg_hba.conf`
 - Database location: `/var/lib/postgresql/*/main`
 
 **Windows**:
+
 - Default user: `postgres`
 - Password set during installation
 - Use `pgAdmin` or `psql` to manage
 
 **Docker**:
+
 - Default user: `postgres`
 - Password: Usually set in `docker-compose.yml`
 - Connection: `localhost:5432` (if ports are mapped)
@@ -231,6 +253,7 @@ Test environment uses safe defaults that disable encryption for performance:
 The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces code quality standards:
 
 ### Commit Blockers (Will FAIL commits):
+
 - ❌ TypeScript errors (must pass `npm run check`)
 - ❌ ESLint errors (must pass `npm run lint`)
 - ❌ `any` types in new code - Must use proper TypeScript types
@@ -241,6 +264,7 @@ The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces co
 - ❌ Foreign keys without cascade rules - Must specify onDelete behavior
 
 ### Warnings (Allow commits, but flag issues):
+
 - ⚠️ Direct `db` imports in routes (should use `storage.ts`)
 - ⚠️ Hardcoded hex colors (should use design tokens)
 - ⚠️ Legacy error handling patterns (should use `sendSuccess/sendError/sendErrorFromException`)
@@ -252,12 +276,14 @@ The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces co
 ### Working with the Pre-Commit Hook
 
 **Key Patterns:**
+
 - **Security markers must be inline:** `passwordHash: 'hash', // SECURITY: Test data only`
 - **Remove unused variables:** Don't declare if unused, or prefix with `_`
 - **Read hook output:** It provides specific fixes and examples
 - **Never bypass casually:** Bypassing creates technical debt
 
 **See `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md` for complete guide** including:
+
 - Inline security marker patterns
 - Common hook failures and solutions
 - Blocker vs warning classification
@@ -280,6 +306,7 @@ Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent
 ### Strict Rules Enforced
 
 **Type Safety (ERRORS):**
+
 - `@typescript-eslint/no-explicit-any` - No `any` types allowed
 - `@typescript-eslint/no-unsafe-*` - No unsafe type operations
 - `@typescript-eslint/no-floating-promises` - Must await/catch all promises
@@ -287,6 +314,7 @@ Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent
 - `@typescript-eslint/await-thenable` - Only await actual promises
 
 **Code Quality (ERRORS):**
+
 - `@typescript-eslint/no-unused-vars` - Clean up unused variables
 - `no-var` - Use const/let, never var
 - `prefer-const` - Use const for immutable values
@@ -294,6 +322,7 @@ Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent
 - `no-throw-literal` - Throw Error objects only
 
 **Security (ERRORS):**
+
 - `no-console` - Use structured logger from utils/logger.ts
 - `no-debugger` - No debugger statements
 - `no-eval` - No eval() or Function() constructor
@@ -301,6 +330,7 @@ Additionally, `.claude/hooks.json` configures the `code-review-specialist` agent
 ### Common ESLint Fixes
 
 **Floating Promises:**
+
 ```typescript
 // ❌ WRONG - Promise not awaited
 emailService.sendWelcome(user.email);
@@ -309,7 +339,7 @@ emailService.sendWelcome(user.email);
 await emailService.sendWelcome(user.email);
 
 // ✅ ALSO CORRECT - Handle errors explicitly
-emailService.sendWelcome(user.email).catch(err => log.error(err));
+emailService.sendWelcome(user.email).catch((err) => log.error(err));
 
 // ✅ ALSO CORRECT - Explicit fire-and-forget
 void emailService.sendWelcome(user.email);
@@ -317,11 +347,50 @@ void emailService.sendWelcome(user.email);
 
 **See `docs/ESLINT_ENFORCEMENT.md` for complete guide with examples and fixes.**
 
+## Prettier Formatting (ENFORCED)
+
+**Prettier is enforced** for consistent code style across the entire codebase.
+
+### Configuration (`.prettierrc.json`)
+
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "plugins": ["prettier-plugin-tailwindcss"]
+}
+```
+
+### Enforcement Layers
+
+1. **Pre-Commit Hook** - `lint-staged` runs `prettier --write` on staged files
+2. **CI Pipeline** - `npm run format:check` fails if files aren't formatted
+3. **PR Validation** - Format check runs before tests
+
+### Key Points
+
+- **Tailwind Class Sorting**: `prettier-plugin-tailwindcss` automatically sorts Tailwind classes
+- **Don't Manually Format**: Let Prettier handle spacing, semicolons, quotes, etc.
+- **Focus on Semantics**: During code review, focus on logic and patterns, not style
+- **Ignored Files**: See `.prettierignore` for files excluded from formatting
+
+### Commands
+
+```bash
+npm run format           # Format all files
+npm run format:check     # Check formatting (CI)
+```
+
 ## Design System (MANDATORY for UI Work)
 
 **All UI work MUST follow the design system** to maintain consistency.
 
 ### Key Design Requirements:
+
 - **Colors**: Use design tokens (`bg-primary`, `text-secondary`) NOT hardcoded hex values
   - Primary: Blue 500 (#3B82F6) - Use `className="bg-primary"`
   - Secondary: Amber 500 (#F59E0B) - Use `className="bg-secondary"`
@@ -348,12 +417,14 @@ void emailService.sendWelcome(user.email);
 ### Dual Redis Client Architecture
 
 The application uses **two separate Redis clients** for compatibility:
+
 - **ioredis** (`redisClient`) - Used for caching, rate limiting, distributed locks
 - **redis package** (`redisSessionClient`) - Used exclusively for session storage (connect-redis v9 requirement)
 
 Both clients are initialized in `server/config/redis.ts`. Always use `getRedisClient()` for cache/rate limiting and `getRedisSessionClient()` for sessions.
 
 **CRITICAL - Production Requirement**:
+
 - Redis is **MANDATORY** in production environments
 - Application will **EXIT ON STARTUP** if `REDIS_URL` is not configured in production
 - Validated at 4 levels: environment validation, Redis initialization, session store, rate limiter
@@ -367,6 +438,7 @@ Both clients are initialized in `server/config/redis.ts`. Always use `getRedisCl
 **Schema**: Single source of truth in `shared/schema.ts` (shared by client and server)
 
 Pattern:
+
 ```typescript
 // Route handler
 import { storage } from './storage';
@@ -380,6 +452,7 @@ app.get('/api/products/:id', async (req, res) => {
 **Storage Layer Exception**: `price-aggregation-service.ts` is the ONLY service with direct `db` access (documented exception). It passes transaction contexts between private helper methods for complex atomic operations. All other services MUST use the storage layer.
 
 **Migration Status** (as of Phase 7 completion):
+
 - ✅ 14/15 services migrated to storage layer
 - ✅ All routes use storage layer
 - ⚠️ 1 documented exception: `price-aggregation-service.ts` (complex transaction context passing)
@@ -390,6 +463,7 @@ app.get('/api/products/:id', async (req, res) => {
 **ALL foreign keys MUST have explicit cascade rules** to prevent orphaned records and maintain referential integrity.
 
 **Cascade Types:**
+
 - **CASCADE** (`onDelete: 'cascade'`) - Child data is meaningless without parent, delete automatically
 - **SET NULL** (`onDelete: 'set null'`) - Child data persists but reference becomes null
 - **RESTRICT** (rare) - Prevent deletion if children exist
@@ -407,6 +481,7 @@ app.get('/api/products/:id', async (req, res) => {
    - You want to anonymize rather than delete (e.g., reviews → authorId)
 
 3. **Examples from schema.ts:**
+
    ```typescript
    // CASCADE - Offers die with products
    productId: integer("product_id")
@@ -435,6 +510,7 @@ app.get('/api/products/:id', async (req, res) => {
 All routes are consolidated in `server/routes/` and registered via `server/routes/index.ts`:
 
 **Core routes**:
+
 - `auth-routes.ts` - Authentication (register, login, logout, password reset)
 - `product-routes.ts` - Product search, details, price history
 - `retailer-routes.ts` - Retailer management
@@ -445,6 +521,7 @@ All routes are consolidated in `server/routes/` and registered via `server/route
 - `helpers.ts` - Shared middleware: `withAuth`, `withAdmin`, `isAuthenticated`
 
 **Feature routes**:
+
 - `scraping-routes.ts` - AI-powered web scraping
 - `monitoring-routes.ts` - System monitoring dashboard
 - `affiliate-routes.ts` - Affiliate link generation
@@ -460,14 +537,15 @@ All routes are consolidated in `server/routes/` and registered via `server/route
 
 **Route Import Paths** (CRITICAL for nested routes):
 Since routes are in `server/routes/`, imports must use `../` to reach parent directories:
+
 ```typescript
 // ✅ CORRECT - from server/routes/*.ts
-import { logger } from "../utils/logger";
-import { sendErrorFromException } from "../utils/api-response";
-import { withAuth } from "./helpers";
+import { logger } from '../utils/logger';
+import { sendErrorFromException } from '../utils/api-response';
+import { withAuth } from './helpers';
 
 // ❌ WRONG - these paths don't resolve from routes/ subdirectory
-import { logger } from "./utils/logger";
+import { logger } from './utils/logger';
 ```
 
 ### Middleware Pipeline Order (CRITICAL)
@@ -500,6 +578,7 @@ In `server/index.ts`, middleware **MUST** be in this exact order:
 Business logic lives in `server/services/` to keep routes thin:
 
 **Core services**:
+
 - `price-snapshot-service.ts` - Automated price tracking
 - `distributed-lock.ts` - Prevent race conditions in distributed systems
 - `job-lock-service.ts` - Distributed job locking for scheduled tasks
@@ -515,6 +594,7 @@ Business logic lives in `server/services/` to keep routes thin:
 - `price-aggregation-service.ts` - Price data aggregation
 
 **Caching services**:
+
 - `redis-cache.ts` - Redis-based distributed cache
 - `advanced-cache.ts` - Multi-layer caching with TTL management
 - `analytics-cache.ts` - Analytics-specific caching
@@ -522,6 +602,7 @@ Business logic lives in `server/services/` to keep routes thin:
 - `cache-invalidation.ts` - Smart cache invalidation
 
 **Other services**:
+
 - `affiliate-link-service.ts` - Affiliate URL generation
 - `advanced-search.ts` - Advanced product search
 - `hybrid-data-collector.ts` - Multi-source data collection
@@ -541,6 +622,7 @@ Job queues in `server/jobs/` use Bull with Redis:
 - `cache-maintenance-jobs.ts` - Cache cleanup and warming
 
 **Distributed job locking** (multi-server safety):
+
 ```typescript
 import { jobLockService } from './services/job-lock-service';
 
@@ -569,7 +651,7 @@ const prompt = getActivePrompt('search-query-generation');
 // Execute with validation
 const result = await executePrompt('search-query-generation', {
   productName: 'iPhone 15 Pro',
-  category: 'Smartphones'
+  category: 'Smartphones',
 });
 ```
 
@@ -588,6 +670,7 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 ### Response Format
 
 **Success responses:**
+
 ```json
 {
   "success": true,
@@ -596,6 +679,7 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 ```
 
 **Error responses:**
+
 ```json
 {
   "success": false,
@@ -627,6 +711,7 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 ### Migration Status
 
 **COMPLETE** - All routes and middleware migrated. When working with routes OR middleware:
+
 - ✅ Use standardized helpers: `sendSuccess/sendError/sendErrorFromException`
 - ❌ Never manually create envelope: `res.json({ success: true, data: ... })`
 
@@ -643,6 +728,7 @@ The centralized error handler (`server/middleware/error-handler.ts`) is EXEMPT f
 3. **Format Consistency**: Achieved through standardized envelope format, not code sharing
 
 **Format Consistency**: Achieved through manual responses that match the standardized envelope format:
+
 ```typescript
 {
   success: false,
@@ -655,6 +741,7 @@ The centralized error handler (`server/middleware/error-handler.ts`) is EXEMPT f
 **Exception-to-Exception**: The `notFoundHandler()` function within error-handler.ts DOES use `sendError()` because it's route-like (handles specific 404 case), not a catch-all error handler.
 
 **Example (error-handler.ts)**:
+
 ```typescript
 // Manual response (intentional) - matches sendError() envelope format
 if (err instanceof AppError) {
@@ -697,6 +784,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 ```
 
 **Applies to all middleware types:**
+
 - Authentication (`server/auth.ts` - requireAuth, requireAdmin)
 - Validation (`server/validation.ts` - validateRequest, validateMultiple)
 - Rate limiting, CSRF, account lockout, request limits, error handlers
@@ -728,12 +816,15 @@ res.setHeader('Retry-After', retryAfterSeconds.toString());
 const user = await db.select().from(users).where(eq(users.id, id));
 
 // ✅ CORRECT - explicit field selection
-const user = await db.select({
-  id: users.id,
-  username: users.username,
-  email: users.email,
-  // SECURITY: Never expose passwordHash
-}).from(users).where(eq(users.id, id));
+const user = await db
+  .select({
+    id: users.id,
+    username: users.username,
+    email: users.email,
+    // SECURITY: Never expose passwordHash
+  })
+  .from(users)
+  .where(eq(users.id, id));
 ```
 
 ### 2. Use Type-Safe Integer Parsing
@@ -794,7 +885,7 @@ NEVER manually wrap data with `success` or `data` fields - the helpers provide t
 // ❌ WRONG - Creates double-nested envelope
 sendSuccess(res, {
   success: true,
-  data: metrics
+  data: metrics,
 });
 // Results in: { success: true, data: { success: true, data: metrics } }
 
@@ -835,9 +926,11 @@ import { csrfProtection } from '../middleware/security';
 import { withAuth, withAdmin } from './helpers';
 
 // ✅ CORRECT - CSRF before auth (fast token check, fails early)
-app.post('/api/products',
-  csrfProtection,     // 1. Verify CSRF token
-  withAuth(async (req, res) => {  // 2. Verify authentication
+app.post(
+  '/api/products',
+  csrfProtection, // 1. Verify CSRF token
+  withAuth(async (req, res) => {
+    // 2. Verify authentication
     // 3. Execute business logic
   })
 );
@@ -855,10 +948,11 @@ app.get('/api/csrf-token', (req, res) => {
 
 // ❌ CRITICAL MISTAKE - NEVER use global CSRF
 // In server/index.ts:
-app.use(csrfProtection);  // ❌ Causes double-protection, blocks GET requests
+app.use(csrfProtection); // ❌ Causes double-protection, blocks GET requests
 ```
 
 **Key CSRF Rules:**
+
 - Apply per-route, NOT globally
 - CSRF middleware BEFORE auth middleware (csrfProtection → withAuth)
 - Auth endpoints (/register, /login, /forgot-password, /reset-password) need CSRF
@@ -871,22 +965,28 @@ app.use(csrfProtection);  // ❌ Causes double-protection, blocks GET requests
 Always use shared helpers from `server/routes/helpers.ts`:
 
 ```typescript
-import { withAuth, withAdmin } from "./helpers";
+import { withAuth, withAdmin } from './helpers';
 
 // ✅ CORRECT - Use shared helper
-app.get("/api/protected", withAuth(async (req, res) => {
-  const user = req.user!; // Auth guaranteed by withAuth
-  // ...
-}));
+app.get(
+  '/api/protected',
+  withAuth(async (req, res) => {
+    const user = req.user!; // Auth guaranteed by withAuth
+    // ...
+  })
+);
 
 // ✅ Admin-only route
-app.delete("/api/admin/users/:id", withAdmin(async (req, res) => {
-  // Admin access guaranteed
-}));
+app.delete(
+  '/api/admin/users/:id',
+  withAdmin(async (req, res) => {
+    // Admin access guaranteed
+  })
+);
 
 // ❌ WRONG - Don't define inline auth middleware
-app.get("/api/data", async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+app.get('/api/data', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   // ...
 });
 ```
@@ -899,7 +999,9 @@ app.get("/api/data", async (req, res) => {
 // ❌ WRONG - N+1 query (1 query + N queries in loop)
 const products = await db.select().from(products);
 for (const product of products) {
-  const offers = await db.select().from(productOffers)
+  const offers = await db
+    .select()
+    .from(productOffers)
     .where(eq(productOffers.productId, product.id)); // N queries!
 }
 
@@ -913,8 +1015,9 @@ const productsWithOffers = await db
   .leftJoin(productOffers, eq(products.id, productOffers.productId));
 
 // ✅ ALSO CORRECT - Batch query with IN clause
-const productIds = products.map(p => p.id);
-const allOffers = await db.select()
+const productIds = products.map((p) => p.id);
+const allOffers = await db
+  .select()
   .from(productOffers)
   .where(inArray(productOffers.productId, productIds));
 
@@ -922,9 +1025,9 @@ const allOffers = await db.select()
 const priceData = await db
   .select({
     productId: priceHistory.productId,
-    prices: sql<Array<{price: number, date: string}>>`
+    prices: sql<Array<{ price: number; date: string }>>`
       json_agg(json_build_object('price', ${priceHistory.price}, 'date', ${priceHistory.recordedAt}))
-    `
+    `,
   })
   .from(priceHistory)
   .groupBy(priceHistory.productId);
@@ -961,11 +1064,12 @@ await db.transaction(async (tx) => {
   // Step 2: Create related record - must succeed or rollback product
   await tx.insert(productOffers).values({
     productId: product.id,
-    ...offerData
+    ...offerData,
   });
 
   // Step 3: Update stats - must succeed or rollback all
-  await tx.update(retailers)
+  await tx
+    .update(retailers)
     .set({ productCount: sql`${retailers.productCount} + 1` })
     .where(eq(retailers.id, offerData.retailerId));
 });
@@ -977,28 +1081,36 @@ Use SERIALIZABLE isolation for operations with race condition risks:
 
 ```typescript
 // ✅ CORRECT - Prevent race conditions with SERIALIZABLE
-await db.transaction(async (tx) => {
-  // Check if first user (count could change concurrently)
-  const userCount = await tx.select({ count: sql`count(*)` }).from(users);
-  const isFirstUser = parseInt(userCount[0].count as string) === 0;
+await db.transaction(
+  async (tx) => {
+    // Check if first user (count could change concurrently)
+    const userCount = await tx.select({ count: sql`count(*)` }).from(users);
+    const isFirstUser = parseInt(userCount[0].count as string) === 0;
 
-  // Create user - role determined by count check
-  await tx.insert(users).values({
-    ...userData,
-    role: isFirstUser ? 'admin' : 'user'
-  }).returning();
-}, {
-  isolationLevel: 'serializable' // Prevent concurrent first-user race
-});
+    // Create user - role determined by count check
+    await tx
+      .insert(users)
+      .values({
+        ...userData,
+        role: isFirstUser ? 'admin' : 'user',
+      })
+      .returning();
+  },
+  {
+    isolationLevel: 'serializable', // Prevent concurrent first-user race
+  }
+);
 ```
 
 **When to use SERIALIZABLE**:
+
 - Counter/sequence calculations (postNumber, order numbers)
 - Check-then-insert patterns (first user, duplicate prevention)
 - Daily limit enforcement (notification limits)
 - Any operation where concurrent execution could cause logical errors
 
 **Default (READ COMMITTED)** is fine for:
+
 - Simple multi-step creates with no conditionals
 - Operations on records locked by primary key
 - Sequential operations with no race condition risk
@@ -1006,6 +1118,7 @@ await db.transaction(async (tx) => {
 ### Common Patterns
 
 **Pattern 1: Create + Notification**
+
 ```typescript
 // UX: User must be notified of important events
 await db.transaction(async (tx) => {
@@ -1014,12 +1127,13 @@ await db.transaction(async (tx) => {
     userId,
     type: 'moderation',
     title: 'Account suspended',
-    content: reason
+    content: reason,
   });
 });
 ```
 
 **Pattern 2: Record + Reputation Award**
+
 ```typescript
 // DATA INTEGRITY: Reputation must match recorded achievements
 await db.transaction(async (tx) => {
@@ -1027,12 +1141,13 @@ await db.transaction(async (tx) => {
   await tx.insert(userReputation).values({
     userId,
     reputationChange: points,
-    relatedEntityId: deal.id
+    relatedEntityId: deal.id,
   });
 });
 ```
 
 **Pattern 3: Batch Import**
+
 ```typescript
 // DATA INTEGRITY: All-or-nothing imports
 return await db.transaction(async (tx) => {
@@ -1090,19 +1205,20 @@ See GitHub issue #67 for the comprehensive audit that identified 13 missing tran
 ## Path Aliases
 
 TypeScript paths configured in `tsconfig.json`:
+
 - `@/*` → `client/src/*` (frontend only)
 - `@shared/*` → `shared/*` (frontend & backend)
 - Server imports use relative paths or `./` prefix
 
 ```typescript
 // Client imports
-import { Button } from "@/components/ui/button";
-import { ProductWithOffers } from "@shared/schema";
+import { Button } from '@/components/ui/button';
+import { ProductWithOffers } from '@shared/schema';
 
 // Server imports
-import { db } from "./db";
-import { parseIntSafe } from "./utils/validation-helpers";
-import { Product } from "@shared/schema";
+import { db } from './db';
+import { parseIntSafe } from './utils/validation-helpers';
+import { Product } from '@shared/schema';
 ```
 
 ## Multi-Level Caching Strategy
@@ -1125,15 +1241,16 @@ The application uses a sophisticated multi-tier caching system with automatic in
 import { storageCache } from './services/storage-cache';
 
 app.get('/api/products/:id', async (req, res) => {
-  const product = await storageCache.getProductById(id);  // Cached
+  const product = await storageCache.getProductById(id); // Cached
   sendSuccess(res, product);
 });
 
 // ❌ WRONG - Direct storage access bypasses cache
-const product = await storage.getProductById(id);  // No caching
+const product = await storage.getProductById(id); // No caching
 ```
 
 **Key Features**:
+
 - **Automatic invalidation**: Updates/deletes automatically clear caches
 - **Cache warming**: Critical caches (retailers) pre-loaded on startup
 - **Versioned keys**: `CacheKeys.PRODUCT.FULL(id)` from `server/utils/cache-keys.ts`
@@ -1141,6 +1258,7 @@ const product = await storage.getProductById(id);  // No caching
 - **Metrics logging**: Performance metrics logged every minute
 
 **Cache Tiers (by access pattern)**:
+
 - **STATIC** (1 hour): Retailers (admin-only changes)
 - **WARM** (10 min): Products, Users (frequently accessed)
 - **COLD** (3 min): Search results (occasionally accessed)
@@ -1148,15 +1266,17 @@ const product = await storage.getProductById(id);  // No caching
 - **COMPUTED** (30 min): Expensive calculations
 
 **Cache Key Versioning**:
+
 ```typescript
 // Increment CACHE_VERSION in server/utils/cache-keys.ts when schema changes
 const CACHE_VERSION = 1;
 
 // Old keys become stale automatically - zero-downtime migrations
-CacheKeys.PRODUCT.FULL(123)  // Returns: "product:full:v1:123"
+CacheKeys.PRODUCT.FULL(123); // Returns: "product:full:v1:123"
 ```
 
 **Cache Invalidation Pattern**:
+
 ```typescript
 // In storage layer after update/delete
 await storageCache.invalidateProductCache(productId);
@@ -1164,6 +1284,7 @@ await storageCache.invalidateProductCache(productId);
 ```
 
 **TTL Guidelines**:
+
 - Retailers: 1 hour (STATIC tier - changes infrequently)
 - Products: 10 minutes (WARM tier - prices update regularly)
 - Search: 3 minutes (COLD tier - varies by query)
@@ -1183,11 +1304,13 @@ app.use(rateLimiter({ maxRequests: RATE_LIMIT.MAX_REQUESTS }));
 ## Environment Variables
 
 **Required in ALL environments** (generate with `openssl rand -base64 32`):
+
 - `SESSION_SECRET` - Express session encryption
 - `CSRF_SECRET` - CSRF token generation
 - `DATABASE_URL` - PostgreSQL connection string
 
 **Required in PRODUCTION** (app will exit if missing):
+
 - `REDIS_URL` - **MANDATORY** for distributed rate limiting, sessions, and caching
   - Format: `redis://hostname:6379` or `rediss://user:pass@host:port` (SSL)
   - Recommended providers: Upstash, Redis Cloud, AWS ElastiCache
@@ -1195,6 +1318,7 @@ app.use(rateLimiter({ maxRequests: RATE_LIMIT.MAX_REQUESTS }));
   - In production: **Application will fail to start without this**
 
 **Optional but recommended**:
+
 - `OPENAI_API_KEY` - For AI-powered features
 - `SENTRY_DSN` - Error monitoring and performance tracking
 
@@ -1205,9 +1329,11 @@ app.use(rateLimiter({ maxRequests: RATE_LIMIT.MAX_REQUESTS }));
 ### Enforcement Layers (Defense in Depth)
 
 #### 1. ESLint (Real-Time - IDE)
+
 **Location**: `.eslintrc.json`
 
 Blocks `any` types immediately in your editor:
+
 ```json
 {
   "rules": {
@@ -1223,9 +1349,11 @@ Blocks `any` types immediately in your editor:
 **IMPORTANT**: Test files get NO exception - they must use proper types too!
 
 #### 2. Pre-Commit Hook (Commit-Time)
+
 **Location**: `.git/hooks/pre-commit`
 
 Runs on every commit:
+
 - `npm run check` - TypeScript compiler check
 - `npx eslint` - Lint all staged files for `any` types
 - Custom grep checks - Catches `any` in diffs
@@ -1233,18 +1361,22 @@ Runs on every commit:
 **Commits are BLOCKED if any layer fails.**
 
 #### 3. TypeScript Compiler (Build-Time)
+
 **Location**: `tsconfig.json`
 
 Strict mode configuration:
+
 - `strict: true` - All strict checks enabled
 - `noImplicitAny: true` - No implicit any
 - `strictNullChecks: true` - Null safety
 - `strictFunctionTypes: true` - Function type safety
 
 #### 4. Claude Code Context (Development-Time)
+
 **Location**: `.claude/rules.md`
 
 Provides Claude Code with comprehensive type safety rules:
+
 - Why `any` is forbidden
 - What to use instead (unknown, generics, Record, etc.)
 - Test file requirements
@@ -1256,6 +1388,7 @@ Provides Claude Code with comprehensive type safety rules:
 #### ✅ ALWAYS Use These Instead of `any`:
 
 1. **Specific Types from Schema**
+
    ```typescript
    import { type Product, type SafeUser } from '@shared/schema';
    let product: Product;
@@ -1263,6 +1396,7 @@ Provides Claude Code with comprehensive type safety rules:
    ```
 
 2. **`unknown` for Truly Unknown Data**
+
    ```typescript
    function handleError(error: unknown) {
      if (error instanceof Error) {
@@ -1273,6 +1407,7 @@ Provides Claude Code with comprehensive type safety rules:
    ```
 
 3. **Generic Types**
+
    ```typescript
    async function fetchData<T>(url: string): Promise<T> {
      const response = await fetch(url);
@@ -1287,14 +1422,15 @@ Provides Claude Code with comprehensive type safety rules:
    ```
 
 #### ❌ NEVER Do This:
+
 ```typescript
-let data: any;                    // BLOCKED by ESLint
-function process(item: any) {}    // BLOCKED by ESLint
-const items: any[] = [];          // BLOCKED by ESLint
+let data: any; // BLOCKED by ESLint
+function process(item: any) {} // BLOCKED by ESLint
+const items: any[] = []; // BLOCKED by ESLint
 
 // Test files - NO EXCEPTION!
 describe('Test', () => {
-  let testData: any;  // BLOCKED - use proper types!
+  let testData: any; // BLOCKED - use proper types!
 });
 ```
 
@@ -1311,24 +1447,27 @@ describe('Product API', () => {
   let testRetailer: Retailer;
 
   beforeEach(async () => {
-    [testProduct] = await db.insert(products).values({
-      name: 'Test Product',
-      description: 'Test Description',
-    }).returning();
+    [testProduct] = await db
+      .insert(products)
+      .values({
+        name: 'Test Product',
+        description: 'Test Description',
+      })
+      .returning();
   });
 });
 ```
 
 ### Quick Reference
 
-| Situation | Use This | Not This |
-|-----------|----------|----------|
-| API response | `Promise<User>` + validation | `Promise<any>` |
-| Unknown data | `unknown` + type guard | `any` |
-| Test variables | `Product`, `SafeUser` | `any` |
-| Generic function | `<T>` | `any` |
-| Dynamic object | `Record<string, unknown>` | `any` |
-| Error handling | `error: unknown` | `error: any` |
+| Situation        | Use This                     | Not This       |
+| ---------------- | ---------------------------- | -------------- |
+| API response     | `Promise<User>` + validation | `Promise<any>` |
+| Unknown data     | `unknown` + type guard       | `any`          |
+| Test variables   | `Product`, `SafeUser`        | `any`          |
+| Generic function | `<T>`                        | `any`          |
+| Dynamic object   | `Record<string, unknown>`    | `any`          |
+| Error handling   | `error: unknown`             | `error: any`   |
 
 ### Why This Matters
 
@@ -1351,6 +1490,7 @@ describe('Product API', () => {
 ## Chrome Extension Integration
 
 Extension code in `extensions/chrome/` with own manifest.json:
+
 - `background.js` - Service worker for price monitoring
 - `content-scripts/price-detector.js` - Injected into retailer pages
 - `popup/` - Extension UI (React components)
@@ -1430,6 +1570,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 **Each pattern has ONE canonical location. Old files (PHASE0, PHASE1, etc.) have been merged and archived.**
 
 ### Additional Documentation
+
 - `ARCHITECTURE.md` - System overview, diagrams, data flows, ADRs, caching strategy
 - `.github/WORKFLOWS.md` - GitHub Actions workflows, CI/CD pipeline documentation (NEW)
 - `.github/copilot-instructions.md` - Comprehensive development patterns (mirrors core patterns)
@@ -1440,6 +1581,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `server/ai/README.md` - AI prompt system documentation
 
 ### Learnings Documentation (Real-World Examples)
+
 - `docs/LEARNINGS_TODO_002_BODY_PARSER_FIX.md` - Transitive dependency security fix pattern (2025-12-02)
 - `docs/LEARNINGS_TODO_006_DISCUSSION_COUNT.md` - Identifying and resolving duplicate TODOs (2025-12-03)
 - `docs/LEARNINGS_TODO_010_BATCH_INSERT.md` - Batch insert optimization implementation (2025-12-03)
@@ -1448,6 +1590,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/LEARNINGS_TODO_162_MIDDLEWARE_STANDARDIZATION.md` - Parallel vs sequential execution, flexible API signatures, architectural exceptions (2025-12-04)
 
 ### Subagent Documentation (.claude/knowledge/)
+
 - `claude-code-subagent-setup-guide.md` - Complete subagent system guide
 - `subagent-quick-reference.md` - Quick reference for delegation patterns
 
@@ -1456,6 +1599,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 ## Code Review Workflow
 
 **After implementing features or making changes:**
+
 - Always invoke the `code-review-specialist` subagent to review files changed in the session
 - The agent will check against all pattern files and pre-commit hook requirements
 - Address any critical issues before committing

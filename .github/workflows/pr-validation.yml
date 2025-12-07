@@ -49,6 +49,10 @@ jobs:
         run: npm run lint -- --max-warnings 0
         continue-on-error: false
 
+      - name: Prettier formatting check
+        run: npm run format:check
+        continue-on-error: false
+
       - name: TypeScript type checking
         run: npm run check
         continue-on-error: false
