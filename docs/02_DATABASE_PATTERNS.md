@@ -238,6 +238,95 @@ grep -n "import.*\bdb\b" server/services/your-service.ts  # Should be empty
 
 **Justification:** Documented in CLAUDE.md. This is the ONLY service allowed to use direct `db` access.
 
+### Domain Storage Integration Completeness (CRITICAL - Issue #178)
+
+**KEY INSIGHT: Creating abstractions is NOT the same as using them.**
+
+A storage layer migration can appear complete because all pieces exist, but fail because the integration step is missing. The migration must be verified end-to-end.
+
+#### The Complete Integration Chain
+
+All five steps must be verified for a migration to be complete:
+
+```
+Step 1: Domain Class     → server/storage/domains/<domain>-storage.ts EXISTS
+Step 2: Interface        → IStorage interface has method signatures
+Step 3: Property         → private <domain>Storage: <Domain>Storage;
+Step 4: Constructor      → this.<domain>Storage = new <Domain>Storage(db);
+Step 5: Delegation       → return this.<domain>Storage.<method>(...args);
+```
+
+**Missing ANY step = incomplete migration (even if code compiles)**
+
+#### Common Integration Failures
+
+**Failure 1: Created But Never Instantiated**
+```typescript
+// File exists, class implemented perfectly...
+// BUT DatabaseStorage never creates an instance
+export class DatabaseStorage {
+  // MISSING: private agentStorage: AgentStorage;
+  constructor() {
+    // MISSING: this.agentStorage = new AgentStorage(db);
+  }
+}
+```
+
+**Failure 2: Delegation Bypasses Domain Storage**
+```typescript
+// Property exists, constructor instantiates...
+// BUT delegation method uses db directly!
+async createAgentSession(data: InsertAgentSession): Promise<AgentSession> {
+  const [session] = await db.insert(...).returning();  // WRONG!
+  return session;
+  // SHOULD BE: return this.agentStorage.createAgentSession(data);
+}
+```
+
+**Failure 3: Type Signature Divergence**
+```typescript
+// Interface uses schema types
+createAgentSession(data: InsertAgentSession): Promise<AgentSession>;
+
+// Domain uses inline type (subtly incompatible)
+async createAgentSession(data: {
+  agentType: string;  // Missing other fields!
+}): Promise<AgentSession>
+```
+
+#### Verification Commands
+
+```bash
+# For each domain storage, verify the complete chain:
+for domain in agent notification price product retailer user watchlist job-lock; do
+  class_name=$(echo "$domain" | sed 's/-//g')Storage
+  echo "=== Checking $class_name ==="
+
+  # Check each step
+  test -f "server/storage/domains/${domain}-storage.ts" && echo "  [OK] Domain class" || echo "  [MISSING] Domain class"
+  grep -q "private ${domain}Storage" server/storage.ts && echo "  [OK] Property" || echo "  [MISSING] Property"
+  grep -q "this.${domain}Storage = new" server/storage.ts && echo "  [OK] Constructor" || echo "  [MISSING] Constructor"
+done
+
+# Find delegation methods that bypass domain storage
+grep -n "return this\." server/storage.ts | grep -v "Storage\." | head -20
+```
+
+#### Review Checklist
+
+When reviewing storage layer migrations, verify:
+
+- [ ] Domain storage class exists and extends BaseStorage
+- [ ] IStorage interface has all method signatures with schema types
+- [ ] DatabaseStorage has property: `private <domain>Storage`
+- [ ] DatabaseStorage constructor instantiates: `this.<domain>Storage = new`
+- [ ] ALL delegation methods use `this.<domain>Storage.<method>(...)`
+- [ ] NO delegation methods use `db` directly
+- [ ] Type signatures match exactly between interface and implementation
+- [ ] TypeScript compilation passes (`npm run check`)
+
+**Reference:** `docs/LEARNINGS_TODO_178_STORAGE_LAYER_MIGRATION_COMPLETENESS.md`
+
 ### Input Validation in Storage Layer
 
 All public storage methods MUST validate inputs:
