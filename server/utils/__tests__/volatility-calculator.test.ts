@@ -38,26 +38,29 @@ describe('volatility-calculator', () => {
       const result = calculateVolatility(mockStablePrices);
 
       expect(result).not.toBeNull();
-      expect(result!.level).toBe('low');
-      expect(result!.score).toBeGreaterThanOrEqual(0);
-      expect(result!.score).toBeLessThanOrEqual(25);
-      expect(result!.standardDeviation).toBeGreaterThan(0);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.level).toBe('low');
+      expect(result.score).toBeGreaterThanOrEqual(0);
+      expect(result.score).toBeLessThanOrEqual(25);
+      expect(result.standardDeviation).toBeGreaterThan(0);
     });
 
     it('should calculate volatility for moderate fluctuation', () => {
       const result = calculateVolatility(mockModeratePrices);
 
       expect(result).not.toBeNull();
-      expect(['moderate', 'high']).toContain(result!.level);
-      expect(result!.score).toBeGreaterThan(25);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(['moderate', 'high']).toContain(result.level);
+      expect(result.score).toBeGreaterThan(25);
     });
 
     it('should calculate volatility for high fluctuation', () => {
       const result = calculateVolatility(mockHighVolatilityPrices);
 
       expect(result).not.toBeNull();
-      expect(['high', 'very-high']).toContain(result!.level);
-      expect(result!.score).toBeGreaterThan(50);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(['high', 'very-high']).toContain(result.level);
+      expect(result.score).toBeGreaterThan(50);
     });
 
     it('should calculate correct average price', () => {
@@ -65,41 +68,46 @@ describe('volatility-calculator', () => {
       const expectedAvg = 100.0625; // (100 + 100.5 + 99.5 + 100.25) / 4
 
       expect(result).not.toBeNull();
-      expect(result!.averagePrice).toBeCloseTo(expectedAvg, 2);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.averagePrice).toBeCloseTo(expectedAvg, 2);
     });
 
     it('should calculate correct price range', () => {
       const result = calculateVolatility(mockModeratePrices);
 
       expect(result).not.toBeNull();
-      expect(result!.priceRange.min).toBe(95);
-      expect(result!.priceRange.max).toBe(110);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.priceRange.min).toBe(95);
+      expect(result.priceRange.max).toBe(110);
     });
 
     it('should calculate standard deviation correctly', () => {
       const result = calculateVolatility(mockStablePrices);
 
       expect(result).not.toBeNull();
-      expect(result!.standardDeviation).toBeGreaterThan(0);
-      expect(result!.standardDeviation).toBeLessThan(1); // Low volatility
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.standardDeviation).toBeGreaterThan(0);
+      expect(result.standardDeviation).toBeLessThan(1); // Low volatility
     });
 
     it('should provide recommendation for low volatility', () => {
       const result = calculateVolatility(mockStablePrices);
 
       expect(result).not.toBeNull();
-      expect(result!.recommendation).toContain('stable');
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.recommendation).toContain('stable');
     });
 
     it('should provide recommendation for high volatility', () => {
       const result = calculateVolatility(mockHighVolatilityPrices);
 
       expect(result).not.toBeNull();
-      expect(result!.recommendation.toLowerCase()).toMatch(/wait|drop|alert/);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.recommendation.toLowerCase()).toMatch(/wait|drop|alert/);
     });
 
     it('should handle string dates', () => {
-      const dataWithStringDates = mockStablePrices.map(item => ({
+      const dataWithStringDates = mockStablePrices.map((item) => ({
         price: item.price,
         recordedAt: item.recordedAt.toISOString(),
       }));
@@ -107,7 +115,8 @@ describe('volatility-calculator', () => {
       const result = calculateVolatility(dataWithStringDates);
 
       expect(result).not.toBeNull();
-      expect(result!.level).toBe('low');
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.level).toBe('low');
     });
 
     it('should cap score at 100', () => {
@@ -121,17 +130,20 @@ describe('volatility-calculator', () => {
       const result = calculateVolatility(extremePrices);
 
       expect(result).not.toBeNull();
-      expect(result!.score).toBeLessThanOrEqual(100);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.score).toBeLessThanOrEqual(100);
     });
 
     it('should assign correct level based on score', () => {
       // Test low
       let result = calculateVolatility(mockStablePrices);
-      expect(result!.score <= 25 ? result!.level : 'not-low').toBe('low');
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.score <= 25 ? result.level : 'not-low').toBe('low');
 
       // Test very-high
       result = calculateVolatility(mockHighVolatilityPrices);
-      expect(result!.score > 50).toBe(true);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.score > 50).toBe(true);
     });
   });
 
@@ -158,8 +170,9 @@ describe('volatility-calculator', () => {
       const result = calculateVolatilityTrend(allData, 30);
 
       expect(result).not.toBeNull();
-      expect(result!.trend).toBe('increasing');
-      expect(result!.change).toBeGreaterThan(0);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.trend).toBe('increasing');
+      expect(result.change).toBeGreaterThan(0);
     });
 
     it('should detect decreasing volatility trend', () => {
@@ -178,9 +191,10 @@ describe('volatility-calculator', () => {
       const result = calculateVolatilityTrend(allData, 30);
 
       expect(result).not.toBeNull();
-      expect(['decreasing', 'stable']).toContain(result!.trend);
-      if (result!.trend === 'decreasing') {
-        expect(result!.change).toBeLessThan(0);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(['decreasing', 'stable']).toContain(result.trend);
+      if (result.trend === 'decreasing') {
+        expect(result.change).toBeLessThan(0);
       }
     });
 
@@ -191,8 +205,9 @@ describe('volatility-calculator', () => {
       const result = calculateVolatilityTrend(allData, 30);
 
       expect(result).not.toBeNull();
-      expect(result!.trend).toBe('stable');
-      expect(Math.abs(result!.change)).toBeLessThan(10);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.trend).toBe('stable');
+      expect(Math.abs(result.change)).toBeLessThan(10);
     });
 
     it('should handle custom time period', () => {
@@ -200,11 +215,12 @@ describe('volatility-calculator', () => {
       const result = calculateVolatilityTrend(data, 14); // 14 days
 
       expect(result).not.toBeNull();
-      expect(['increasing', 'decreasing', 'stable']).toContain(result!.trend);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(['increasing', 'decreasing', 'stable']).toContain(result.trend);
     });
 
     it('should handle string dates in trend calculation', () => {
-      const data = createTimeSeries(60, 100, 5).map(item => ({
+      const data = createTimeSeries(60, 100, 5).map((item) => ({
         price: item.price,
         recordedAt: item.recordedAt.toISOString(),
       }));
@@ -212,6 +228,7 @@ describe('volatility-calculator', () => {
       const result = calculateVolatilityTrend(data, 30);
 
       expect(result).not.toBeNull();
+      if (!result) throw new Error('Expected result to be defined');
     });
 
     it('should return null when recent period has insufficient data', () => {
@@ -238,9 +255,10 @@ describe('volatility-calculator', () => {
       const result = calculateVolatility(identicalPrices);
 
       expect(result).not.toBeNull();
-      expect(result!.standardDeviation).toBe(0);
-      expect(result!.score).toBe(0);
-      expect(result!.level).toBe('low');
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.standardDeviation).toBe(0);
+      expect(result.score).toBe(0);
+      expect(result.level).toBe('low');
     });
 
     it('should handle very small price differences', () => {
@@ -253,7 +271,8 @@ describe('volatility-calculator', () => {
       const result = calculateVolatility(smallDifferences);
 
       expect(result).not.toBeNull();
-      expect(result!.level).toBe('low');
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.level).toBe('low');
     });
 
     it('should handle large price values', () => {
@@ -266,7 +285,8 @@ describe('volatility-calculator', () => {
       const result = calculateVolatility(largePrices);
 
       expect(result).not.toBeNull();
-      expect(result!.averagePrice).toBeGreaterThan(9000);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.averagePrice).toBeGreaterThan(9000);
     });
 
     it('should handle decimal prices', () => {
@@ -279,7 +299,8 @@ describe('volatility-calculator', () => {
       const result = calculateVolatility(decimalPrices);
 
       expect(result).not.toBeNull();
-      expect(result!.averagePrice).toBeCloseTo(99.99, 2);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.averagePrice).toBeCloseTo(99.99, 2);
     });
   });
 });

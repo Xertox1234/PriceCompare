@@ -86,43 +86,47 @@ export class AdvancedSearchService {
       searchVector: null,
       createdAt: new Date(),
       offers: result.offers
-        .filter(offer => offer.retailer !== null) // Filter out offers without retailers
-        .map(offer => ({
-          id: offer.id,
-          productId: result.id,
-          retailerId: offer.retailer!.id,
-          price: offer.price,
-          originalPrice: null,
-          availability: offer.availability,
-          rating: null,
-          reviewCount: null,
-          shippingInfo: null,
-          dealType: null,
-          productUrl: offer.productUrl,
-          affiliateUrl: null,
-          linkHealthStatus: 'unknown' as const,
-          lastLinkCheck: null,
-          clickCount: 0,
-          condition: null,
-          inStock: null,
-          stockQuantity: null,
-          scrapedAt: null,
-          lastChecked: new Date(),
-          lastUpdated: null,
-          retailer: {
-            id: offer.retailer!.id,
-            name: offer.retailer!.name,
-            logo: null,
-            website: offer.retailer!.websiteUrl,
-            isActive: true,
-            affiliateId: null,
-            affiliateProgram: null,
-            baseAffiliateUrl: null,
-            commissionRate: null,
-            affiliateStatus: 'inactive',
-            affiliateConfig: null
-          }
-        }))
+        .filter((offer) => offer.retailer !== null) // Filter out offers without retailers
+        .map((offer) => {
+          // After filter, retailer is guaranteed to be non-null, but TypeScript doesn't narrow types across array methods
+          if (!offer.retailer) throw new Error('Retailer should be non-null after filter');
+          return {
+            id: offer.id,
+            productId: result.id,
+            retailerId: offer.retailer.id,
+            price: offer.price,
+            originalPrice: null,
+            availability: offer.availability,
+            rating: null,
+            reviewCount: null,
+            shippingInfo: null,
+            dealType: null,
+            productUrl: offer.productUrl,
+            affiliateUrl: null,
+            linkHealthStatus: 'unknown' as const,
+            lastLinkCheck: null,
+            clickCount: 0,
+            condition: null,
+            inStock: null,
+            stockQuantity: null,
+            scrapedAt: null,
+            lastChecked: new Date(),
+            lastUpdated: null,
+            retailer: {
+              id: offer.retailer.id,
+              name: offer.retailer.name,
+              logo: null,
+              website: offer.retailer.websiteUrl,
+              isActive: true,
+              affiliateId: null,
+              affiliateProgram: null,
+              baseAffiliateUrl: null,
+              commissionRate: null,
+              affiliateStatus: 'inactive',
+              affiliateConfig: null,
+            },
+          };
+        }),
     };
   }
 
@@ -131,10 +135,12 @@ export class AdvancedSearchService {
     if (process.env.OPENAI_API_KEY) {
       try {
         this.openai = new OpenAI({
-          apiKey: process.env.OPENAI_API_KEY
+          apiKey: process.env.OPENAI_API_KEY,
         });
       } catch (error) {
-        logger.error('OpenAI initialization error:', { error: error instanceof Error ? error.message : String(error) });
+        logger.error('OpenAI initialization error:', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         this.openai = null;
       }
     } else {
@@ -146,7 +152,7 @@ export class AdvancedSearchService {
       semanticThreshold: 0.8,
       maxResults: 100,
       enableSemanticSearch: !!this.openai,
-      enableFuzzySearch: true
+      enableFuzzySearch: true,
     };
 
     this.synonyms = this.initializeSynonyms();
@@ -160,22 +166,31 @@ export class AdvancedSearchService {
    */
   private enforceQueryCacheLimit(): void {
     if (this.queryCache.size > this.MAX_QUERY_CACHE_SIZE) {
-      const keysToDelete = Array.from(this.queryCache.keys()).slice(0, this.queryCache.size - this.MAX_QUERY_CACHE_SIZE);
-      keysToDelete.forEach(key => this.queryCache.delete(key));
+      const keysToDelete = Array.from(this.queryCache.keys()).slice(
+        0,
+        this.queryCache.size - this.MAX_QUERY_CACHE_SIZE
+      );
+      keysToDelete.forEach((key) => this.queryCache.delete(key));
     }
   }
 
   private enforceEmbeddingCacheLimit(): void {
     if (this.embeddingCache.size > this.MAX_EMBEDDING_CACHE_SIZE) {
-      const keysToDelete = Array.from(this.embeddingCache.keys()).slice(0, this.embeddingCache.size - this.MAX_EMBEDDING_CACHE_SIZE);
-      keysToDelete.forEach(key => this.embeddingCache.delete(key));
+      const keysToDelete = Array.from(this.embeddingCache.keys()).slice(
+        0,
+        this.embeddingCache.size - this.MAX_EMBEDDING_CACHE_SIZE
+      );
+      keysToDelete.forEach((key) => this.embeddingCache.delete(key));
     }
   }
 
   private enforceSuggestionCacheLimit(): void {
     if (this.suggestionCache.size > this.MAX_SUGGESTION_CACHE_SIZE) {
-      const keysToDelete = Array.from(this.suggestionCache.keys()).slice(0, this.suggestionCache.size - this.MAX_SUGGESTION_CACHE_SIZE);
-      keysToDelete.forEach(key => this.suggestionCache.delete(key));
+      const keysToDelete = Array.from(this.suggestionCache.keys()).slice(
+        0,
+        this.suggestionCache.size - this.MAX_SUGGESTION_CACHE_SIZE
+      );
+      keysToDelete.forEach((key) => this.suggestionCache.delete(key));
     }
   }
 
@@ -184,7 +199,7 @@ export class AdvancedSearchService {
    */
   private initializeSynonyms(): Map<string, string[]> {
     const synonymMap = new Map<string, string[]>();
-    
+
     // Electronics synonyms
     synonymMap.set('tv', ['television', 'smart tv', 'display', 'monitor']);
     synonymMap.set('phone', ['smartphone', 'mobile', 'cell phone', 'iphone', 'android']);
@@ -192,12 +207,12 @@ export class AdvancedSearchService {
     synonymMap.set('headphones', ['earbuds', 'earphones', 'airpods', 'audio']);
     synonymMap.set('tablet', ['ipad', 'surface', 'android tablet']);
     synonymMap.set('watch', ['smartwatch', 'apple watch', 'fitness tracker']);
-    
+
     // Common misspellings and variations
     synonymMap.set('iphone', ['iphon', 'i-phone', 'iph']);
     synonymMap.set('samsung', ['samung', 'samsng']);
     synonymMap.set('bluetooth', ['bluethooth', 'blue tooth']);
-    
+
     return synonymMap;
   }
 
@@ -206,13 +221,14 @@ export class AdvancedSearchService {
    */
   async searchProducts(filters: SearchFilters, userId?: number): Promise<SearchResult[]> {
     const cacheKey = JSON.stringify({ filters, userId });
-    
+
     if (this.queryCache.has(cacheKey)) {
-      return this.queryCache.get(cacheKey)!;
+      const cached = this.queryCache.get(cacheKey);
+      if (cached) return cached;
     }
 
     const results: SearchResult[] = [];
-    
+
     if (filters.query) {
       // 1. Exact matches (highest priority)
       const exactResults = await this.performExactSearch(filters);
@@ -241,7 +257,7 @@ export class AdvancedSearchService {
 
     // Remove duplicates and rank by relevance
     const uniqueResults = this.removeDuplicatesAndRank(results);
-    
+
     // Apply additional filters
     const finalResults = this.applyFilters(uniqueResults, filters);
 
@@ -256,17 +272,21 @@ export class AdvancedSearchService {
    * Perform exact text matching
    */
   private async performExactSearch(filters: SearchFilters): Promise<SearchResult[]> {
-    const query = filters.query!.toLowerCase();
+    if (!filters.query) return [];
+    const query = filters.query.toLowerCase();
     const searchPattern = `%${query}%`;
 
-    const results = await storage.searchProductsExact(searchPattern, filters.limit || this.config.maxResults);
+    const results = await storage.searchProductsExact(
+      searchPattern,
+      filters.limit || this.config.maxResults
+    );
 
-    return results.map(result => {
+    return results.map((result) => {
       const productWithOffers = this.convertToProductWithOffers(result);
       return {
         product: productWithOffers,
         relevanceScore: this.calculateExactMatchScore(query, productWithOffers),
-        matchType: 'exact' as const
+        matchType: 'exact' as const,
       };
     });
   }
@@ -275,20 +295,25 @@ export class AdvancedSearchService {
    * Perform fuzzy search for typos and variations
    */
   private async performFuzzySearch(filters: SearchFilters): Promise<SearchResult[]> {
-    const query = filters.query!.toLowerCase();
+    if (!filters.query) return [];
+    const query = filters.query.toLowerCase();
 
     // Use ILIKE with wildcards for fuzzy matching (fallback without pg_trgm)
     const fuzzyPattern = `%${query.split('').join('%')}%`;
     const threshold = this.config.fuzzyThreshold; // Use config threshold
 
-    const results = await storage.searchProductsFuzzy(fuzzyPattern, threshold, filters.limit || this.config.maxResults);
+    const results = await storage.searchProductsFuzzy(
+      fuzzyPattern,
+      threshold,
+      filters.limit || this.config.maxResults
+    );
 
-    return results.map(result => {
+    return results.map((result) => {
       const productWithOffers = this.convertToProductWithOffers(result);
       return {
         product: productWithOffers,
         relevanceScore: this.calculateFuzzyScore(query, productWithOffers),
-        matchType: 'fuzzy' as const
+        matchType: 'fuzzy' as const,
       };
     });
   }
@@ -304,16 +329,16 @@ export class AdvancedSearchService {
 
     // Simple fuzzy scoring based on character overlap
     let score = 0;
-    
+
     // Name fuzzy match
     score += this.fuzzyStringMatch(queryLower, name) * 0.8;
-    
+
     // Brand fuzzy match
     score += this.fuzzyStringMatch(queryLower, brand) * 0.6;
-    
+
     // Description fuzzy match
     score += this.fuzzyStringMatch(queryLower, description) * 0.3;
-    
+
     return Math.min(score, 0.8); // Cap at 0.8 for fuzzy matches
   }
 
@@ -322,17 +347,17 @@ export class AdvancedSearchService {
    */
   private fuzzyStringMatch(query: string, target: string): number {
     if (target.includes(query)) return 1.0;
-    
+
     let matches = 0;
     let queryIndex = 0;
-    
+
     for (let i = 0; i < target.length && queryIndex < query.length; i++) {
       if (target[i] === query[queryIndex]) {
         matches++;
         queryIndex++;
       }
     }
-    
+
     return matches / query.length;
   }
 
@@ -340,15 +365,18 @@ export class AdvancedSearchService {
    * Search using synonyms
    */
   private async performSynonymSearch(filters: SearchFilters): Promise<SearchResult[]> {
-    const query = filters.query!.toLowerCase();
+    if (!filters.query) return [];
+    const query = filters.query.toLowerCase();
     const queryWords = query.split(' ');
     const expandedQueries = new Set<string>();
 
     // Find synonyms for each word
     for (const word of queryWords) {
       if (this.synonyms.has(word)) {
-        const synonyms = this.synonyms.get(word)!;
-        synonyms.forEach((synonym: string) => expandedQueries.add(synonym));
+        const synonyms = this.synonyms.get(word);
+        if (synonyms) {
+          synonyms.forEach((synonym: string) => expandedQueries.add(synonym));
+        }
       }
 
       // Also check if the word is a synonym of something else
@@ -365,14 +393,17 @@ export class AdvancedSearchService {
     }
 
     const allTerms = Array.from(expandedQueries);
-    const results = await storage.searchProductsBySynonyms(allTerms, filters.limit || this.config.maxResults);
+    const results = await storage.searchProductsBySynonyms(
+      allTerms,
+      filters.limit || this.config.maxResults
+    );
 
-    return results.map(result => {
+    return results.map((result) => {
       const productWithOffers = this.convertToProductWithOffers(result);
       return {
         product: productWithOffers,
         relevanceScore: 0.6, // Lower score for synonym matches
-        matchType: 'synonym' as const
+        matchType: 'synonym' as const,
       };
     });
   }
@@ -391,14 +422,15 @@ export class AdvancedSearchService {
     }
 
     try {
-      const query = filters.query!;
+      if (!filters.query) return [];
+      const query = filters.query;
       let queryEmbedding = this.embeddingCache.get(query);
 
       // Generate query embedding (only 1 API call per unique query)
       if (!queryEmbedding) {
         const response = await this.openai.embeddings.create({
           model: 'text-embedding-3-small',
-          input: query
+          input: query,
         });
         queryEmbedding = response.data[0].embedding;
         this.embeddingCache.set(query, queryEmbedding);
@@ -414,19 +446,21 @@ export class AdvancedSearchService {
 
       // Filter by similarity threshold and map to SearchResult format
       const semanticResults: SearchResult[] = semanticMatches
-        .filter(result => (result.similarity || 0) >= this.config.semanticThreshold)
-        .map(result => {
+        .filter((result) => (result.similarity || 0) >= this.config.semanticThreshold)
+        .map((result) => {
           const productWithOffers = this.convertToProductWithOffers(result);
           return {
             product: productWithOffers,
             relevanceScore: (result.similarity || 0) * 0.7, // Semantic matches get moderate score
-            matchType: 'semantic' as const
+            matchType: 'semantic' as const,
           };
         });
 
       return semanticResults;
     } catch (error) {
-      logger.error('Semantic search error:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Semantic search error:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
 
       // Fallback: If vector search fails (e.g., pgvector not installed),
       // return empty array rather than falling back to N+1 pattern
@@ -445,12 +479,12 @@ export class AdvancedSearchService {
     // The applyFilters method will narrow down by category, price, etc.
     const results = await storage.searchProductsExact('%', filters.limit || this.config.maxResults);
 
-    return results.map(result => {
+    return results.map((result) => {
       const productWithOffers = this.convertToProductWithOffers(result);
       return {
         product: productWithOffers,
         relevanceScore: 0.5, // Default relevance for non-searched items
-        matchType: 'exact' as const
+        matchType: 'exact' as const,
       };
     });
   }
@@ -469,27 +503,27 @@ export class AdvancedSearchService {
     // Exact name match gets highest score
     if (name === queryLower) score += 1.0;
     else if (name.includes(queryLower)) score += 0.8;
-    
+
     // Brand matches
     if (brand === queryLower) score += 0.7;
     else if (brand.includes(queryLower)) score += 0.5;
-    
+
     // Description matches
     if (description.includes(queryLower)) score += 0.3;
-    
+
     // Word order matters
     const queryWords = queryLower.split(' ');
     const nameWords = name.split(' ');
-    
+
     let consecutiveMatches = 0;
     for (let i = 0; i < queryWords.length; i++) {
       if (nameWords.includes(queryWords[i])) {
         consecutiveMatches++;
       }
     }
-    
+
     score += (consecutiveMatches / queryWords.length) * 0.4;
-    
+
     return Math.min(score, 1.0);
   }
 
@@ -498,64 +532,63 @@ export class AdvancedSearchService {
    */
   private removeDuplicatesAndRank(results: SearchResult[]): SearchResult[] {
     const productMap = new Map<number, SearchResult>();
-    
+
     for (const result of results) {
       const productId = result.product.id;
       const existing = productMap.get(productId);
-      
+
       if (!existing || result.relevanceScore > existing.relevanceScore) {
         productMap.set(productId, result);
       }
     }
-    
-    return Array.from(productMap.values())
-      .sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    return Array.from(productMap.values()).sort((a, b) => b.relevanceScore - a.relevanceScore);
   }
 
   /**
    * Apply additional filters (price, category, etc.)
    */
   private applyFilters(results: SearchResult[], filters: SearchFilters): SearchResult[] {
-    return results.filter(result => {
+    return results.filter((result) => {
       const product = result.product;
-      
+
       // Category filter
       if (filters.category && product.category !== filters.category) {
         return false;
       }
-      
+
       // Price filters
       if (product.offers && product.offers.length > 0) {
-        const prices = product.offers.map(offer => Number(offer.price));
+        const prices = product.offers.map((offer) => Number(offer.price));
         const minPrice = Math.min(...prices);
         const maxPrice = Math.max(...prices);
-        
+
         if (filters.minPrice && maxPrice < filters.minPrice) return false;
         if (filters.maxPrice && minPrice > filters.maxPrice) return false;
       }
-      
+
       // Retailer filter
       if (filters.retailers && filters.retailers.length > 0) {
-        const productRetailers = product.offers?.map(offer => offer.retailer?.id) || [];
-        if (!filters.retailers.some(id => productRetailers.includes(id))) {
+        const productRetailers = product.offers?.map((offer) => offer.retailer?.id) || [];
+        if (!filters.retailers.some((id) => productRetailers.includes(id))) {
           return false;
         }
       }
-      
+
       // Rating filter
       if (filters.minRating && product.offers) {
-        const maxRating = Math.max(...product.offers.map(offer => Number(offer.rating) || 0));
+        const maxRating = Math.max(...product.offers.map((offer) => Number(offer.rating) || 0));
         if (maxRating < filters.minRating) return false;
       }
-      
+
       // Availability filter
       if (filters.availability && filters.availability.length > 0) {
-        const availabilities = product.offers?.map(offer => offer.availability) || [];
-        if (!filters.availability.some(avail => availabilities.includes(avail))) {
+        const availabilities = product.offers?.map((offer) => offer.availability) || [];
+        if (!filters.availability.some((avail) => availabilities.includes(avail))) {
           return false;
         }
       }
-      
+
       return true;
     });
   }
@@ -571,55 +604,59 @@ export class AdvancedSearchService {
       // 1. Auto-completion from product names
       const productResults = await storage.getProductAutocompleteSuggestions(query, limit);
 
-      productResults.forEach(product => {
+      productResults.forEach((product) => {
         if (product.name && product.name.toLowerCase().startsWith(queryLower)) {
           suggestions.push({
             query: product.name,
             type: 'completion',
-            confidence: 0.9
+            confidence: 0.9,
           });
         }
         if (product.brand && product.brand.toLowerCase().startsWith(queryLower)) {
           suggestions.push({
             query: product.brand,
             type: 'completion',
-            confidence: 0.8
+            confidence: 0.8,
           });
         }
       });
     } catch (error) {
-      logger.error('Database error in search suggestions:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Database error in search suggestions:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-    
+
     // 2. Synonym suggestions
     for (const [key, synonyms] of Array.from(this.synonyms.entries())) {
       if (key.includes(queryLower) || synonyms.some((s: string) => s.includes(queryLower))) {
         suggestions.push({
           query: key,
           type: 'synonym',
-          confidence: 0.7
+          confidence: 0.7,
         });
       }
     }
-    
+
     // 3. AI-powered suggestions (if enabled)
     if (this.config.enableSemanticSearch && query.length > 3) {
       try {
         const aiSuggestions = await this.getAISuggestions(query);
         suggestions.push(...aiSuggestions);
       } catch (error) {
-        logger.error('AI suggestions error:', { error: error instanceof Error ? error.message : String(error) });
+        logger.error('AI suggestions error:', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
-    
+
     // Remove duplicates and sort by confidence
     const uniqueSuggestions = suggestions
-      .filter((suggestion, index, self) => 
-        self.findIndex(s => s.query === suggestion.query) === index
+      .filter(
+        (suggestion, index, self) => self.findIndex((s) => s.query === suggestion.query) === index
       )
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, limit);
-    
+
     return uniqueSuggestions;
   }
 
@@ -633,7 +670,8 @@ export class AdvancedSearchService {
 
     // Check cache first (1 hour TTL)
     const cached = this.suggestionCache.get(query.toLowerCase());
-    if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour = 3600000ms
+    if (cached && Date.now() - cached.timestamp < 3600000) {
+      // 1 hour = 3600000ms
       return cached.suggestions;
     }
 
@@ -697,7 +735,7 @@ Query: "smart watch"
 Output:
 Apple Watch Series 9
 Samsung Galaxy Watch 6
-Fitbit Sense 2`
+Fitbit Sense 2`,
           },
           {
             role: 'user',
@@ -715,32 +753,35 @@ REQUIREMENTS:
 - Make suggestions relevant and useful for price comparison
 - Consider: alternatives, related models, complementary items, or different tiers
 
-Return only 3 product names, one per line, no formatting or explanations.`
-          }
+Return only 3 product names, one per line, no formatting or explanations.`,
+          },
         ],
         max_tokens: 100,
-        temperature: 0.7
+        temperature: 0.7,
       });
 
-      const suggestions = response.choices[0].message.content
-        ?.split('\n')
-        .filter(line => line.trim())
-        .map(line => ({
-          query: line.trim().replace(/^\d+\.?\s*/, ''), // Remove numbering
-          type: 'completion' as const,
-          confidence: 0.6
-        })) || [];
+      const suggestions =
+        response.choices[0].message.content
+          ?.split('\n')
+          .filter((line) => line.trim())
+          .map((line) => ({
+            query: line.trim().replace(/^\d+\.?\s*/, ''), // Remove numbering
+            type: 'completion' as const,
+            confidence: 0.6,
+          })) || [];
 
       // Cache the result
       this.suggestionCache.set(query.toLowerCase(), {
         suggestions,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       this.enforceSuggestionCacheLimit();
 
       return suggestions;
     } catch (error) {
-      logger.error('AI suggestions error:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('AI suggestions error:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -764,11 +805,7 @@ Return only 3 product names, one per line, no formatting or explanations.`
       }
 
       // Create searchable text from product fields
-      const searchableText = [
-        product.name,
-        product.description,
-        product.brand
-      ]
+      const searchableText = [product.name, product.description, product.brand]
         .filter(Boolean)
         .join(' ')
         .trim();
@@ -781,7 +818,7 @@ Return only 3 product names, one per line, no formatting or explanations.`
       // Generate embedding (OpenAI API call - NOT in transaction)
       const response = await this.openai.embeddings.create({
         model: 'text-embedding-3-small',
-        input: searchableText
+        input: searchableText,
       });
 
       const embedding = response.data[0].embedding;
@@ -790,9 +827,10 @@ Return only 3 product names, one per line, no formatting or explanations.`
       await storage.updateProductEmbedding(productId, embedding);
 
       logger.info(`✅ Generated embedding for product ${productId}`);
-
     } catch (error) {
-      logger.error(`Failed to generate embedding for product ${productId}:`, { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to generate embedding for product ${productId}:`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -806,30 +844,31 @@ Return only 3 product names, one per line, no formatting or explanations.`
     suggestions: string[];
   }> {
     const queryLower = query.toLowerCase();
-    
+
     // Price-related keywords
     const priceKeywords = ['cheap', 'price', 'cost', 'deal', 'sale', 'discount', 'affordable'];
     const brandKeywords = ['apple', 'samsung', 'sony', 'lg', 'microsoft', 'google'];
     const categoryKeywords = ['phone', 'laptop', 'tv', 'headphones', 'tablet', 'watch'];
-    
-    let intent: 'product_search' | 'price_comparison' | 'brand_search' | 'category_browse' = 'product_search';
+
+    let intent: 'product_search' | 'price_comparison' | 'brand_search' | 'category_browse' =
+      'product_search';
     let confidence = 0.5;
     const suggestions: string[] = [];
-    
-    if (priceKeywords.some(keyword => queryLower.includes(keyword))) {
+
+    if (priceKeywords.some((keyword) => queryLower.includes(keyword))) {
       intent = 'price_comparison';
       confidence = 0.8;
       suggestions.push('Sort by price: low to high', 'Filter by discount percentage');
-    } else if (brandKeywords.some(keyword => queryLower.includes(keyword))) {
+    } else if (brandKeywords.some((keyword) => queryLower.includes(keyword))) {
       intent = 'brand_search';
       confidence = 0.9;
       suggestions.push('View all products from this brand', 'Compare with similar brands');
-    } else if (categoryKeywords.some(keyword => queryLower.includes(keyword))) {
+    } else if (categoryKeywords.some((keyword) => queryLower.includes(keyword))) {
       intent = 'category_browse';
       confidence = 0.8;
       suggestions.push('Browse category', 'Filter by sub-categories');
     }
-    
+
     return { intent, confidence, suggestions };
   }
 
@@ -856,8 +895,8 @@ Return only 3 product names, one per line, no formatting or explanations.`
         ...(this.config.enableSemanticSearch ? ['semantic_search'] : []),
         ...(this.config.enableFuzzySearch ? ['fuzzy_search'] : []),
         'synonym_search',
-        'auto_completion'
-      ]
+        'auto_completion',
+      ],
     };
   }
 }

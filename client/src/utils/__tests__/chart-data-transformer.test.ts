@@ -124,9 +124,7 @@ describe('chart-data-transformer', () => {
     it('should sort by date', () => {
       const result = transformForChart(mockPriceData, false);
 
-      expect(new Date(result[0].date).getTime()).toBeLessThan(
-        new Date(result[1].date).getTime()
-      );
+      expect(new Date(result[0].date).getTime()).toBeLessThan(new Date(result[1].date).getTime());
     });
 
     it('should aggregate automatically when enabled', () => {
@@ -158,26 +156,29 @@ describe('chart-data-transformer', () => {
       const stats = calculatePriceStats(mockPriceData);
 
       expect(stats).not.toBeNull();
-      expect(stats!.minimum).toBe(89.99);
-      expect(stats!.maximum).toBe(99.99);
-      expect(stats!.average).toBeCloseTo(95.32, 1);
+      if (!stats) throw new Error('Expected stats to be defined');
+      expect(stats.minimum).toBe(89.99);
+      expect(stats.maximum).toBe(99.99);
+      expect(stats.average).toBeCloseTo(95.32, 1);
     });
 
     it('should calculate price change', () => {
       const stats = calculatePriceStats(mockPriceData);
 
       expect(stats).not.toBeNull();
+      if (!stats) throw new Error('Expected stats to be defined');
       // First: 99.99, Last: 95.99
-      expect(stats!.priceChange).toBeCloseTo(-4.0, 1);
-      expect(stats!.priceChangePercent).toBeLessThan(0);
+      expect(stats.priceChange).toBeCloseTo(-4.0, 1);
+      expect(stats.priceChangePercent).toBeLessThan(0);
     });
 
     it('should calculate volatility', () => {
       const stats = calculatePriceStats(mockPriceData);
 
       expect(stats).not.toBeNull();
-      expect(stats!.volatility).toBeGreaterThan(0);
-      expect(stats!.standardDeviation).toBeGreaterThan(0);
+      if (!stats) throw new Error('Expected stats to be defined');
+      expect(stats.volatility).toBeGreaterThan(0);
+      expect(stats.standardDeviation).toBeGreaterThan(0);
     });
 
     it('should return null for empty data', () => {
@@ -189,9 +190,10 @@ describe('chart-data-transformer', () => {
       const stats = calculatePriceStats([mockPriceData[0]]);
 
       expect(stats).not.toBeNull();
-      expect(stats!.minimum).toBe(stats!.maximum);
-      expect(stats!.average).toBe(99.99);
-      expect(stats!.standardDeviation).toBe(0);
+      if (!stats) throw new Error('Expected stats to be defined');
+      expect(stats.minimum).toBe(stats.maximum);
+      expect(stats.average).toBe(99.99);
+      expect(stats.standardDeviation).toBe(0);
     });
   });
 
