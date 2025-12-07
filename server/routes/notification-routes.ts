@@ -1,5 +1,4 @@
 import type { Express, Request, Response, NextFunction } from 'express';
-import type { AuthenticatedRequest } from '@shared/types';
 import { z } from 'zod';
 import * as notificationService from '../services/notification-service';
 import { csrfProtection } from '../middleware/security';
@@ -32,6 +31,11 @@ export function registerNotificationRoutes(app: Express) {
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
 
         const filterSchema = z.object({
           isRead: z
@@ -72,6 +76,11 @@ export function registerNotificationRoutes(app: Express) {
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const stats = await notificationService.getNotificationStats(user.id);
 
         sendSuccess(res, stats);
@@ -90,9 +99,14 @@ export function registerNotificationRoutes(app: Express) {
     '/api/notifications/:id/read',
     requireAuth,
     csrfProtection,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req, res) => {
       try {
         const user = req.user; // Auth verified by requireAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
         const count = await notificationService.markAsRead(user.id, notificationId);
@@ -118,9 +132,14 @@ export function registerNotificationRoutes(app: Express) {
     '/api/notifications/read-all',
     requireAuth,
     csrfProtection,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req, res) => {
       try {
         const user = req.user; // Auth verified by requireAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const count = await notificationService.markAllAsRead(user.id);
 
         sendSuccess(res, { count });
@@ -139,9 +158,14 @@ export function registerNotificationRoutes(app: Express) {
     '/api/notifications/:id',
     requireAuth,
     csrfProtection,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req, res) => {
       try {
         const user = req.user; // Auth verified by requireAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
         const deleted = await notificationService.deleteNotification(user.id, notificationId);
@@ -167,9 +191,14 @@ export function registerNotificationRoutes(app: Express) {
     '/api/notifications',
     requireAuth,
     csrfProtection,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req, res) => {
       try {
         const user = req.user; // Auth verified by requireAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const count = await notificationService.deleteAllNotifications(user.id);
 
         sendSuccess(res, { count });
@@ -188,6 +217,11 @@ export function registerNotificationRoutes(app: Express) {
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const preferences = await notificationService.getUserPreferences(user.id);
 
         sendSuccess(res, preferences);
@@ -206,9 +240,14 @@ export function registerNotificationRoutes(app: Express) {
     '/api/notifications/preferences',
     requireAuth,
     csrfProtection,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req, res) => {
       try {
         const user = req.user; // Auth verified by requireAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
 
         const updateSchema = z.object({
           priceDropEnabled: z.boolean().optional(),
@@ -242,6 +281,11 @@ export function registerNotificationRoutes(app: Express) {
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const days = req.query.days
           ? parseIntSafe(req.query.days as string, 'days', { min: 1, max: 365 })
           : 7;
@@ -267,6 +311,11 @@ export function registerNotificationRoutes(app: Express) {
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const days = req.query.days
           ? parseIntSafe(req.query.days as string, 'days', { min: 1, max: 365 })
           : 7;
@@ -292,6 +341,11 @@ export function registerNotificationRoutes(app: Express) {
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
 
         const filterSchema = z.object({
           urgency: z.enum(['low', 'medium', 'high', 'critical']).optional(),
@@ -354,9 +408,14 @@ export function registerNotificationRoutes(app: Express) {
     '/api/notifications/smart/:id/snooze',
     requireAuth,
     csrfProtection,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req, res) => {
       try {
         const user = req.user; // Auth verified by requireAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
         const snoozeSchema = z.object({
@@ -417,9 +476,14 @@ export function registerNotificationRoutes(app: Express) {
     '/api/notifications/smart/:id/dismiss',
     requireAuth,
     csrfProtection,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req, res) => {
       try {
         const user = req.user; // Auth verified by requireAuth middleware
+        if (!user) {
+          sendError(res, 'Authentication required', 401);
+          return;
+        }
+
         const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
         // Get the notification to verify ownership and type

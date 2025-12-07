@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { X, Grid, Layers, BarChart2, TrendingUp } from "lucide-react";
-import { PriceHistoryChart } from "./PriceHistoryChart";
-import { useProductComparison, ComparisonProduct } from "@/hooks/useProductComparison";
+} from '@/components/ui/select';
+import { X, Grid, Layers, BarChart2, TrendingUp } from 'lucide-react';
+import { PriceHistoryChart } from './PriceHistoryChart';
+import { useProductComparison, ComparisonProduct } from '@/hooks/useProductComparison';
 import {
   LineChart,
   Line,
@@ -21,9 +21,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts";
-import { format } from "date-fns";
-import { createLogger } from "@/utils/logger";
+} from 'recharts';
+import { format } from 'date-fns';
+import { createLogger } from '@/utils/logger';
 
 const log = createLogger('ProductComparison');
 
@@ -45,10 +45,10 @@ interface ProductComparisonProps {
 }
 
 const PRODUCT_COLORS = [
-  "#3b82f6", // Blue
-  "#10b981", // Green
-  "#f59e0b", // Amber
-  "#ef4444", // Red
+  '#3b82f6', // Blue
+  '#10b981', // Green
+  '#f59e0b', // Amber
+  '#ef4444', // Red
 ];
 
 export function ProductComparison({
@@ -56,18 +56,10 @@ export function ProductComparison({
   onClose,
   fetchPriceHistory,
 }: ProductComparisonProps) {
-  const {
-    products,
-    settings,
-    removeProduct,
-    clearAll,
-    updateSettings,
-    toggleMode,
-  } = useProductComparison();
+  const { products, settings, removeProduct, clearAll, updateSettings, toggleMode } =
+    useProductComparison();
 
-  const [priceHistoryData, setPriceHistoryData] = useState<
-    Record<number, PriceHistoryData[]>
-  >({});
+  const [priceHistoryData, setPriceHistoryData] = useState<Record<number, PriceHistoryData[]>>({});
   const [loading, setLoading] = useState<Record<number, boolean>>({});
 
   // Add initial products
@@ -102,9 +94,9 @@ export function ProductComparison({
   if (products.length === 0) {
     return (
       <Card className="p-8 text-center">
-        <BarChart2 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No Products to Compare</h3>
-        <p className="text-sm text-muted-foreground">
+        <BarChart2 className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+        <h3 className="mb-2 text-lg font-semibold">No Products to Compare</h3>
+        <p className="text-muted-foreground text-sm">
           Add products to start comparing their price histories
         </p>
       </Card>
@@ -124,25 +116,28 @@ export function ProductComparison({
       const data = priceHistoryData[product.id] || [];
 
       data.forEach((item) => {
-        const date = typeof item.recordedAt === 'string'
-          ? new Date(item.recordedAt)
-          : item.recordedAt;
-        const dateKey = format(date, "yyyy-MM-dd");
+        const date =
+          typeof item.recordedAt === 'string' ? new Date(item.recordedAt) : item.recordedAt;
+        const dateKey = format(date, 'yyyy-MM-dd');
 
         if (!allDataByDate.has(dateKey)) {
           allDataByDate.set(dateKey, { date: dateKey, timestamp: date.getTime() });
         }
 
+        // Get the date entry (guaranteed to exist after has/set check above)
+        const dateEntry = allDataByDate.get(dateKey);
+        if (!dateEntry) throw new Error('Date entry should exist after set');
+
         // Use average price across all retailers for each product
         const productKey = `product_${product.id}`;
-        const currentValue = allDataByDate.get(dateKey)![productKey];
+        const currentValue = dateEntry[productKey];
         const newPrice = parseFloat(item.price);
 
         if (currentValue === undefined) {
-          allDataByDate.get(dateKey)![productKey] = newPrice;
+          dateEntry[productKey] = newPrice;
         } else {
           // Average if multiple data points on same date
-          allDataByDate.get(dateKey)![productKey] = (Number(currentValue) + newPrice) / 2;
+          dateEntry[productKey] = (Number(currentValue) + newPrice) / 2;
         }
       });
     });
@@ -191,11 +186,11 @@ export function ProductComparison({
     <div className="space-y-6">
       {/* Header */}
       <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BarChart2 className="h-5 w-5" />
             <h2 className="text-xl font-bold">Product Comparison</h2>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-muted-foreground text-sm">
               ({products.length} product{products.length !== 1 ? 's' : ''})
             </span>
           </div>
@@ -209,7 +204,7 @@ export function ProductComparison({
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">View Mode:</span>
             <Button
@@ -260,25 +255,25 @@ export function ProductComparison({
       {/* Price Insights */}
       {insights.length > 0 && (
         <Card className="p-4">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
             <TrendingUp className="h-5 w-5" />
             Price Insights
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {insights.map((insight, _index) => {
               if (!insight) return null;
 
               return (
                 <div
                   key={insight.product.id}
-                  className={`p-3 rounded-lg border-2 ${
+                  className={`rounded-lg border-2 p-3 ${
                     insight.isGoodDeal
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'border-green-200 bg-green-50'
+                      : 'border-gray-200 bg-gray-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-sm truncate flex-1">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="flex-1 truncate text-sm font-semibold">
                       {insight.product.name}
                     </span>
                     <Button
@@ -293,9 +288,7 @@ export function ProductComparison({
                   <div className="space-y-1 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Current:</span>
-                      <span className="font-semibold">
-                        ${insight.currentPrice.toFixed(2)}
-                      </span>
+                      <span className="font-semibold">${insight.currentPrice.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Average:</span>
@@ -303,15 +296,13 @@ export function ProductComparison({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-green-600">Best:</span>
-                      <span className="text-green-600 font-semibold">
+                      <span className="font-semibold text-green-600">
                         ${insight.lowestPrice.toFixed(2)}
                       </span>
                     </div>
                     {insight.isGoodDeal && (
-                      <div className="pt-1 mt-1 border-t border-green-200">
-                        <span className="text-green-700 font-semibold">
-                          🎉 Great Deal!
-                        </span>
+                      <div className="mt-1 border-t border-green-200 pt-1">
+                        <span className="font-semibold text-green-700">🎉 Great Deal!</span>
                       </div>
                     )}
                   </div>
@@ -324,7 +315,7 @@ export function ProductComparison({
 
       {/* Charts */}
       {settings.mode === 'side-by-side' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {products.map((product) => (
             <div key={product.id} className="relative">
               <Button
@@ -344,7 +335,7 @@ export function ProductComparison({
         </div>
       ) : (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Overlay Comparison</h3>
+          <h3 className="mb-4 text-lg font-semibold">Overlay Comparison</h3>
           {loading[products[0]?.id] ? (
             <Skeleton className="h-[400px] w-full" />
           ) : (
@@ -357,7 +348,9 @@ export function ProductComparison({
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(value: string | number | Date) => format(new Date(value), "MMM d")}
+                    tickFormatter={(value: string | number | Date) =>
+                      format(new Date(value), 'MMM d')
+                    }
                     className="text-xs"
                   />
                   <YAxis
@@ -369,32 +362,45 @@ export function ProductComparison({
                       if (!active || !payload || !label) return null;
 
                       return (
-                        <Card className="p-3 border-2">
-                          <p className="font-semibold text-sm mb-2">
-                            {format(new Date(label), "MMM d, yyyy")}
+                        <Card className="border-2 p-3">
+                          <p className="mb-2 text-sm font-semibold">
+                            {format(new Date(label), 'MMM d, yyyy')}
                           </p>
                           <div className="space-y-1">
-                            {payload.map((entry: { dataKey: string; value?: number; color?: string; [key: string]: unknown }, index: number) => {
-                              const productId = parseInt(entry.dataKey.split("_")[1]);
-                              const product = products.find((p) => p.id === productId);
+                            {payload.map(
+                              (
+                                entry: {
+                                  dataKey: string;
+                                  value?: number;
+                                  color?: string;
+                                  [key: string]: unknown;
+                                },
+                                index: number
+                              ) => {
+                                const productId = parseInt(entry.dataKey.split('_')[1]);
+                                const product = products.find((p) => p.id === productId);
 
-                              if (entry.value === undefined) return null;
+                                if (entry.value === undefined) return null;
 
-                              return (
-                                <div key={index} className="flex items-center justify-between gap-4">
-                                  <span className="text-sm flex items-center gap-2">
-                                    <div
-                                      className="w-2 h-2 rounded-full"
-                                      style={{ backgroundColor: entry.color }}
-                                    />
-                                    {product?.name}
-                                  </span>
-                                  <span className="font-semibold text-sm">
-                                    ${entry.value.toFixed(2)}
-                                  </span>
-                                </div>
-                              );
-                            })}
+                                return (
+                                  <div
+                                    key={index}
+                                    className="flex items-center justify-between gap-4"
+                                  >
+                                    <span className="flex items-center gap-2 text-sm">
+                                      <div
+                                        className="h-2 w-2 rounded-full"
+                                        style={{ backgroundColor: entry.color }}
+                                      />
+                                      {product?.name}
+                                    </span>
+                                    <span className="text-sm font-semibold">
+                                      ${entry.value.toFixed(2)}
+                                    </span>
+                                  </div>
+                                );
+                              }
+                            )}
                           </div>
                         </Card>
                       );

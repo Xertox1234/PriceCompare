@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -8,13 +8,13 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { WeeklyAggregate, MonthlyAggregate } from "@/hooks/use-price-analytics";
+} from 'recharts';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { WeeklyAggregate, MonthlyAggregate } from '@/hooks/use-price-analytics';
 
 interface AggregatesChartProps {
   data: WeeklyAggregate[] | MonthlyAggregate[];
-  type: "weekly" | "monthly";
+  type: 'weekly' | 'monthly';
   title?: string;
   description?: string;
 }
@@ -25,14 +25,14 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
 
     return data
       .map((item) => {
-        const isWeekly = "week" in item;
+        const isWeekly = 'week' in item;
         const label = isWeekly
           ? `W${item.week} ${item.year}`
-          : `${getMonthName((item).month)} ${item.year}`;
+          : `${getMonthName(item.month)} ${item.year}`;
 
         return {
           label,
-          period: isWeekly ? item.week : (item).month,
+          period: isWeekly ? item.week : item.month,
           year: item.year,
           min: parseFloat(item.minPrice),
           max: parseFloat(item.maxPrice),
@@ -43,19 +43,19 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
             ? item.weekOverWeekChange
               ? parseFloat(item.weekOverWeekChange)
               : null
-            : (item).monthOverMonthChange
-            ? parseFloat((item).monthOverMonthChange)
-            : null,
+            : item.monthOverMonthChange
+              ? parseFloat(item.monthOverMonthChange)
+              : null,
         };
       })
       .reverse(); // Reverse to show oldest to newest
   }, [data]);
 
-  const defaultTitle = type === "weekly" ? "Weekly Price Trends" : "Monthly Price Trends";
+  const defaultTitle = type === 'weekly' ? 'Weekly Price Trends' : 'Monthly Price Trends';
   const defaultDescription =
-    type === "weekly"
-      ? "Price aggregates by week showing min, max, and average prices"
-      : "Price aggregates by month showing min, max, and average prices";
+    type === 'weekly'
+      ? 'Price aggregates by week showing min, max, and average prices'
+      : 'Price aggregates by month showing min, max, and average prices';
 
   if (chartData.length === 0) {
     return (
@@ -65,7 +65,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
           <CardDescription>{description || defaultDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+          <div className="text-muted-foreground flex h-[300px] items-center justify-center">
             No data available
           </div>
         </CardContent>
@@ -91,7 +91,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
               tick={{ fontSize: 12 }}
             />
             <YAxis
-              label={{ value: "Price ($)", angle: -90, position: "insideLeft" }}
+              label={{ value: 'Price ($)', angle: -90, position: 'insideLeft' }}
               tick={{ fontSize: 12 }}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -134,47 +134,50 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
         </ResponsiveContainer>
 
         {/* Statistics Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div className="text-center">
-            <div className="text-sm text-muted-foreground">Current Avg</div>
-            <div className="text-lg font-bold">
-              ${chartData[chartData.length - 1]?.avg.toFixed(2) || "N/A"}
+        {(() => {
+          // Extract last entry (guaranteed to exist due to chartData.length check above)
+          const lastEntry = chartData[chartData.length - 1];
+          if (!lastEntry) return null; // Should never happen, but satisfies TypeScript
+
+          return (
+            <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="text-center">
+                <div className="text-muted-foreground text-sm">Current Avg</div>
+                <div className="text-lg font-bold">${lastEntry.avg.toFixed(2)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-muted-foreground text-sm">Period Change</div>
+                <div
+                  className={`text-lg font-bold ${
+                    (lastEntry.change || 0) > 0
+                      ? 'text-red-600'
+                      : (lastEntry.change || 0) < 0
+                        ? 'text-green-600'
+                        : 'text-gray-600'
+                  }`}
+                >
+                  {lastEntry.change !== null && lastEntry.change !== undefined
+                    ? `${lastEntry.change > 0 ? '+' : ''}${lastEntry.change.toFixed(2)}%`
+                    : 'N/A'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-muted-foreground text-sm">Volatility</div>
+                <div className="text-lg font-bold">
+                  {lastEntry.volatility !== null && lastEntry.volatility !== undefined
+                    ? `${lastEntry.volatility.toFixed(2)}%`
+                    : 'N/A'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-muted-foreground text-sm">Price Range</div>
+                <div className="text-lg font-bold">
+                  ${lastEntry.min.toFixed(2)} - ${lastEntry.max.toFixed(2)}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-muted-foreground">Period Change</div>
-            <div
-              className={`text-lg font-bold ${
-                (chartData[chartData.length - 1]?.change || 0) > 0
-                  ? "text-red-600"
-                  : (chartData[chartData.length - 1]?.change || 0) < 0
-                  ? "text-green-600"
-                  : "text-gray-600"
-              }`}
-            >
-              {chartData[chartData.length - 1]?.change !== null && chartData[chartData.length - 1]?.change !== undefined
-                ? `${chartData[chartData.length - 1].change! > 0 ? "+" : ""}${chartData[
-                    chartData.length - 1
-                  ].change!.toFixed(2)}%`
-                : "N/A"}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-muted-foreground">Volatility</div>
-            <div className="text-lg font-bold">
-              {chartData[chartData.length - 1]?.volatility !== null && chartData[chartData.length - 1]?.volatility !== undefined
-                ? `${chartData[chartData.length - 1].volatility!.toFixed(2)}%`
-                : "N/A"}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-muted-foreground">Price Range</div>
-            <div className="text-lg font-bold">
-              ${chartData[chartData.length - 1]?.min.toFixed(2) || "N/A"} - $
-              {chartData[chartData.length - 1]?.max.toFixed(2) || "N/A"}
-            </div>
-          </div>
-        </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
@@ -199,8 +202,8 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (active && payload && payload.length > 0 && payload[0]) {
     const data = payload[0].payload;
     return (
-      <div className="bg-background border border-border p-3 rounded-lg shadow-lg">
-        <p className="font-semibold mb-2">{label}</p>
+      <div className="bg-background border-border rounded-lg border p-3 shadow-lg">
+        <p className="mb-2 font-semibold">{label}</p>
         <div className="space-y-1 text-sm">
           <p className="text-blue-600">Average: ${data.avg.toFixed(2)}</p>
           <p className="text-green-600">Minimum: ${data.min.toFixed(2)}</p>
@@ -215,13 +218,13 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
             <p
               className={
                 data.change > 0
-                  ? "text-red-600"
+                  ? 'text-red-600'
                   : data.change < 0
-                  ? "text-green-600"
-                  : "text-gray-600"
+                    ? 'text-green-600'
+                    : 'text-gray-600'
               }
             >
-              Change: {data.change > 0 ? "+" : ""}
+              Change: {data.change > 0 ? '+' : ''}
               {data.change.toFixed(2)}%
             </p>
           )}
@@ -235,18 +238,18 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 
 function getMonthName(month: number): string {
   const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
-  return months[month - 1] || "";
+  return months[month - 1] || '';
 }

@@ -19,25 +19,26 @@ const _DISCOURSE_URL = getOptionalEnv('DISCOURSE_URL', 'http://localhost:3000');
  * Generate Discourse SSO payload and signature
  */
 export function generateDiscourseSSO(user: SharedUser, nonce: string, returnUrl: string) {
-  const payload = Buffer.from([
-    `nonce=${nonce}`,
-    `email=${encodeURIComponent(user.email)}`,
-    `external_id=${user.id}`,
-    `username=${encodeURIComponent(user.username)}`,
-    `name=${encodeURIComponent(user.username)}`,
-    user.avatarUrl ? `avatar_url=${encodeURIComponent(user.avatarUrl)}` : '',
-    user.bio ? `bio=${encodeURIComponent(user.bio)}` : '',
-    user.website ? `website=${encodeURIComponent(user.website)}` : '',
-    user.role === 'admin' ? 'admin=true' : '',
-    user.role === 'moderator' ? 'moderator=true' : '',
-    `return_sso_url=${encodeURIComponent(returnUrl)}`
-  ].filter(Boolean).join('&')).toString('base64');
-  
-  const signature = crypto
-    .createHmac('sha256', DISCOURSE_SSO_SECRET)
-    .update(payload)
-    .digest('hex');
-    
+  const payload = Buffer.from(
+    [
+      `nonce=${nonce}`,
+      `email=${encodeURIComponent(user.email)}`,
+      `external_id=${user.id}`,
+      `username=${encodeURIComponent(user.username)}`,
+      `name=${encodeURIComponent(user.username)}`,
+      user.avatarUrl ? `avatar_url=${encodeURIComponent(user.avatarUrl)}` : '',
+      user.bio ? `bio=${encodeURIComponent(user.bio)}` : '',
+      user.website ? `website=${encodeURIComponent(user.website)}` : '',
+      user.role === 'admin' ? 'admin=true' : '',
+      user.role === 'moderator' ? 'moderator=true' : '',
+      `return_sso_url=${encodeURIComponent(returnUrl)}`,
+    ]
+      .filter(Boolean)
+      .join('&')
+  ).toString('base64');
+
+  const signature = crypto.createHmac('sha256', DISCOURSE_SSO_SECRET).update(payload).digest('hex');
+
   return { payload, signature };
 }
 
@@ -45,11 +46,8 @@ export function generateDiscourseSSO(user: SharedUser, nonce: string, returnUrl:
  * Verify SSO signature from Discourse
  */
 function verifySSO(sso: string, sig: string): boolean {
-  const computedSig = crypto
-    .createHmac('sha256', DISCOURSE_SSO_SECRET)
-    .update(sso)
-    .digest('hex');
-    
+  const computedSig = crypto.createHmac('sha256', DISCOURSE_SSO_SECRET).update(sso).digest('hex');
+
   return computedSig === sig;
 }
 
@@ -60,11 +58,11 @@ function parseSSO(sso: string): Record<string, string> {
   const decodedPayload = Buffer.from(sso, 'base64').toString();
   const params = new URLSearchParams(decodedPayload);
   const result: Record<string, string> = {};
-  
+
   params.forEach((value, key) => {
     result[key] = value;
   });
-  
+
   return result;
 }
 
@@ -77,24 +75,24 @@ type RequestWithUser = Request & { user?: SharedUser };
 export async function handleDiscourseSSO(req: RequestWithUser, res: Response) {
   try {
     const { sso, sig } = req.query;
-    
+
     if (!sso || !sig) {
       sendError(res, 'Missing SSO parameters', 400);
       return;
     }
-    
+
     // Verify the request signature
     if (!verifySSO(sso as string, sig as string)) {
       sendError(res, 'Invalid SSO signature', 403);
       return;
     }
-    
+
     // Check if user is authenticated
     if (!req.user) {
       // Store SSO request in session for after login
       const token = crypto.randomBytes(32).toString('hex');
       const params = parseSSO(sso as string);
-      
+
       await db.insert(ssoTokens).values({
         token,
         userId: null, // Will be set after login
@@ -102,30 +100,31 @@ export async function handleDiscourseSSO(req: RequestWithUser, res: Response) {
         returnUrl: params.return_sso_url || '',
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       });
-      
-      return res.redirect(`/login?sso_token=${token}&return_to=${encodeURIComponent(req.originalUrl)}`);
+
+      return res.redirect(
+        `/login?sso_token=${token}&return_to=${encodeURIComponent(req.originalUrl)}`
+      );
     }
-    
+
     // Parse the SSO payload
     const params = parseSSO(sso as string);
     const nonce = params.nonce;
     const returnUrl = params.return_sso_url;
-    
+
     if (!nonce || !returnUrl) {
       sendError(res, 'Missing required SSO parameters', 400);
       return;
     }
-    
+
     // Create/update Discourse user mapping
     await syncUserWithDiscourse(req.user);
-    
+
     // Generate SSO response
     const { payload, signature } = generateDiscourseSSO(req.user, nonce, returnUrl);
-    
+
     // Redirect back to Discourse with SSO response
     const redirectUrl = `${returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
     res.redirect(redirectUrl);
-
   } catch (error) {
     log.error('Discourse SSO error:', { error });
     sendError(res, 'SSO authentication failed', 500);
@@ -138,50 +137,43 @@ export async function handleDiscourseSSO(req: RequestWithUser, res: Response) {
 export async function completeSSOAfterLogin(req: RequestWithUser, res: Response) {
   try {
     const { sso_token } = req.query;
-    
+
     if (!sso_token || !req.user) {
       sendError(res, 'Invalid SSO completion request', 400);
       return;
     }
-    
+
     // Find the stored SSO token
     const [tokenRecord] = await db
       .select()
       .from(ssoTokens)
-      .where(and(
-        eq(ssoTokens.token, sso_token as string),
-        gt(ssoTokens.expiresAt, new Date())
-      ))
+      .where(and(eq(ssoTokens.token, sso_token as string), gt(ssoTokens.expiresAt, new Date())))
       .limit(1);
-    
+
     if (!tokenRecord) {
       sendError(res, 'Invalid or expired SSO token', 400);
       return;
     }
-    
+
     // Update token with user ID
-    await db
-      .update(ssoTokens)
-      .set({ userId: req.user.id })
-      .where(eq(ssoTokens.id, tokenRecord.id));
-    
+    await db.update(ssoTokens).set({ userId: req.user.id }).where(eq(ssoTokens.id, tokenRecord.id));
+
     // Create/update Discourse user mapping
     await syncUserWithDiscourse(req.user);
-    
+
     // Generate SSO response
     const { payload, signature } = generateDiscourseSSO(
       req.user,
       tokenRecord.nonce || '',
       tokenRecord.returnUrl || ''
     );
-    
+
     // Clean up the token
     await db.delete(ssoTokens).where(eq(ssoTokens.id, tokenRecord.id));
 
     // Redirect back to Discourse
     const redirectUrl = `${tokenRecord.returnUrl}?sso=${encodeURIComponent(payload)}&sig=${signature}`;
     return res.redirect(redirectUrl);
-
   } catch (error) {
     log.error('SSO completion error:', { error });
     sendError(res, 'SSO completion failed', 500);
@@ -200,14 +192,14 @@ async function syncUserWithDiscourse(user: SharedUser): Promise<void> {
       .from(discourseUserMapping)
       .where(eq(discourseUserMapping.priceAppUserId, user.id))
       .limit(1);
-    
+
     if (existingMapping) {
       // Update last sync time
       await db
         .update(discourseUserMapping)
-        .set({ 
+        .set({
           lastSyncAt: new Date(),
-          discourseUsername: user.username
+          discourseUsername: user.username,
         })
         .where(eq(discourseUserMapping.id, existingMapping.id));
     } else {
@@ -227,7 +219,9 @@ async function syncUserWithDiscourse(user: SharedUser): Promise<void> {
 /**
  * Get user with Discourse information
  */
-export async function getUserWithDiscourse(userId: number): Promise<SharedUserWithDiscourse | null> {
+export async function getUserWithDiscourse(
+  userId: number
+): Promise<SharedUserWithDiscourse | null> {
   try {
     const [user] = await db
       .select({
@@ -271,14 +265,23 @@ export async function getUserWithDiscourse(userId: number): Promise<SharedUserWi
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
-    
+
     if (user.mappingId) {
+      // Verify all mapping fields are present (database constraint ensures this)
+      if (
+        !user.mappingDiscourseUserId ||
+        !user.mappingDiscourseUsername ||
+        !user.mappingLastSyncAt
+      ) {
+        throw new Error('Mapping fields must be present when mappingId exists');
+      }
+
       result.discourseMapping = {
         id: user.mappingId,
         priceAppUserId: user.id,
-        discourseUserId: user.mappingDiscourseUserId!,
-        discourseUsername: user.mappingDiscourseUsername!,
-        lastSyncAt: user.mappingLastSyncAt!,
+        discourseUserId: user.mappingDiscourseUserId,
+        discourseUsername: user.mappingDiscourseUsername,
+        lastSyncAt: user.mappingLastSyncAt,
       };
     }
 

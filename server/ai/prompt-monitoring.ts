@@ -55,13 +55,13 @@ class PromptMonitor {
   // Pricing (per 1M tokens for gpt-4o-mini)
   private readonly PRICING = {
     'gpt-4o-mini': {
-      input: 0.150,   // $0.150 per 1M input tokens
-      output: 0.600   // $0.600 per 1M output tokens
+      input: 0.15, // $0.150 per 1M input tokens
+      output: 0.6, // $0.600 per 1M output tokens
     },
     'text-embedding-3-small': {
-      input: 0.020,   // $0.020 per 1M tokens
-      output: 0
-    }
+      input: 0.02, // $0.020 per 1M tokens
+      output: 0,
+    },
   };
 
   /**
@@ -81,7 +81,7 @@ class PromptMonitor {
       model,
       startTime: Date.now(),
       success: false,
-      metadata
+      metadata,
     };
 
     this.metrics.push(metrics);
@@ -106,9 +106,7 @@ class PromptMonitor {
     } = {}
   ): void {
     // Find the most recent execution for this prompt
-    const execution = this.metrics
-      .reverse()
-      .find(m => m.promptName === promptName && !m.endTime);
+    const execution = this.metrics.reverse().find((m) => m.promptName === promptName && !m.endTime);
 
     if (!execution) {
       log.warn('No active execution found', { promptName });
@@ -193,28 +191,32 @@ class PromptMonitor {
    */
   getSummary(promptName: string, promptVersion?: string): PromptMetricsSummary | null {
     const filtered = this.metrics.filter(
-      m => m.promptName === promptName &&
-      (promptVersion === undefined || m.promptVersion === promptVersion) &&
-      m.endTime !== undefined
+      (m) =>
+        m.promptName === promptName &&
+        (promptVersion === undefined || m.promptVersion === promptVersion) &&
+        m.endTime !== undefined
     );
 
     if (filtered.length === 0) return null;
 
-    const successful = filtered.filter(m => m.success);
-    const failed = filtered.filter(m => !m.success);
+    const successful = filtered.filter((m) => m.success);
+    const failed = filtered.filter((m) => !m.success);
 
-    const latencies = filtered.map(m => m.latency!).filter(l => l !== undefined);
+    const latencies = filtered
+      .map((m) => m.latency)
+      .filter((l): l is number => l !== undefined);
     const qualityScores = filtered
-      .map(m => m.qualityScore)
+      .map((m) => m.qualityScore)
       .filter((q): q is number => q !== undefined);
 
     const totalTokens = filtered.reduce((sum, m) => sum + (m.totalTokens || 0), 0);
     const estimatedTotalCost = filtered.reduce((sum, m) => sum + (m.estimatedCost || 0), 0);
 
-    const lastExecution = filtered.reduce((latest, m) =>
-      m.endTime! > latest ? m.endTime! : latest,
-      0
-    );
+    const lastExecution = filtered.reduce((latest, m) => {
+      // filtered array already has m.endTime !== undefined (line 197 filter)
+      const endTime = m.endTime ?? 0;
+      return endTime > latest ? endTime : latest;
+    }, 0);
 
     return {
       promptName,
@@ -223,15 +225,17 @@ class PromptMonitor {
       successfulExecutions: successful.length,
       failedExecutions: failed.length,
       successRate: successful.length / filtered.length,
-      avgLatency: latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
+      avgLatency:
+        latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
       minLatency: latencies.length > 0 ? Math.min(...latencies) : 0,
       maxLatency: latencies.length > 0 ? Math.max(...latencies) : 0,
-      avgQualityScore: qualityScores.length > 0
-        ? qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length
-        : 0,
+      avgQualityScore:
+        qualityScores.length > 0
+          ? qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length
+          : 0,
       totalTokens,
       estimatedTotalCost,
-      lastExecuted: new Date(lastExecution)
+      lastExecuted: new Date(lastExecution),
     };
   }
 
@@ -240,7 +244,7 @@ class PromptMonitor {
    */
   getMetricsInRange(startTime: Date, endTime: Date): PromptExecutionMetrics[] {
     return this.metrics.filter(
-      m => m.startTime >= startTime.getTime() && m.startTime <= endTime.getTime()
+      (m) => m.startTime >= startTime.getTime() && m.startTime <= endTime.getTime()
     );
   }
 
@@ -249,7 +253,7 @@ class PromptMonitor {
    */
   getRecentFailures(limit = 10): PromptExecutionMetrics[] {
     return this.metrics
-      .filter(m => !m.success)
+      .filter((m) => !m.success)
       .slice(-limit)
       .reverse();
   }
@@ -303,7 +307,7 @@ class PromptMonitor {
    */
   exportMetrics(promptName?: string): string {
     const data = promptName
-      ? this.metrics.filter(m => m.promptName === promptName)
+      ? this.metrics.filter((m) => m.promptName === promptName)
       : this.metrics;
 
     return JSON.stringify(data, null, 2);
@@ -324,7 +328,7 @@ class PromptMonitor {
    * Get all prompt names with metrics
    */
   getAllPromptNames(): string[] {
-    const names = new Set(this.metrics.map(m => m.promptName));
+    const names = new Set(this.metrics.map((m) => m.promptName));
     return Array.from(names);
   }
 

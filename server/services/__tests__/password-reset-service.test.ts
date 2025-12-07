@@ -102,8 +102,9 @@ describe.sequential('Password Reset Service', () => {
       const tokenRecord = await db.query.passwordResetTokens.findFirst({
         where: eq(passwordResetTokens.token, token),
       });
+      if (!tokenRecord) throw new Error('Expected token record to be defined');
 
-      const expiresAt = new Date(tokenRecord!.expiresAt).getTime();
+      const expiresAt = new Date(tokenRecord.expiresAt).getTime();
       const expectedExpiry = beforeTime + 60 * 60 * 1000; // 1 hour
       const expectedExpiryAfter = afterTime + 60 * 60 * 1000;
 
@@ -113,11 +114,7 @@ describe.sequential('Password Reset Service', () => {
     });
 
     it('should store IP address when provided', async () => {
-      const token = await createPasswordResetToken(
-        testUserId,
-        '192.168.1.1',
-        'Mozilla/5.0'
-      );
+      const token = await createPasswordResetToken(testUserId, '192.168.1.1', 'Mozilla/5.0');
 
       const tokenRecord = await db.query.passwordResetTokens.findFirst({
         where: eq(passwordResetTokens.token, token),
@@ -128,11 +125,7 @@ describe.sequential('Password Reset Service', () => {
 
     it('should store user agent when provided', async () => {
       const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
-      const token = await createPasswordResetToken(
-        testUserId,
-        '192.168.1.1',
-        userAgent
-      );
+      const token = await createPasswordResetToken(testUserId, '192.168.1.1', userAgent);
 
       const tokenRecord = await db.query.passwordResetTokens.findFirst({
         where: eq(passwordResetTokens.token, token),
@@ -154,11 +147,7 @@ describe.sequential('Password Reset Service', () => {
 
     it('should truncate user agent to 500 characters', async () => {
       const longUserAgent = 'a'.repeat(1000);
-      const token = await createPasswordResetToken(
-        testUserId,
-        '192.168.1.1',
-        longUserAgent
-      );
+      const token = await createPasswordResetToken(testUserId, '192.168.1.1', longUserAgent);
 
       const tokenRecord = await db.query.passwordResetTokens.findFirst({
         where: eq(passwordResetTokens.token, token),
@@ -291,8 +280,11 @@ describe.sequential('Password Reset Service', () => {
 
       expect(tokenRecord?.isUsed).toBe(true);
       expect(tokenRecord?.usedAt).toBeDefined();
+      if (!tokenRecord || !tokenRecord.usedAt) {
+        throw new Error('Expected token record and usedAt to be defined');
+      }
 
-      const usedAtTime = new Date(tokenRecord!.usedAt!).getTime();
+      const usedAtTime = new Date(tokenRecord.usedAt).getTime();
       expect(usedAtTime).toBeGreaterThanOrEqual(beforeMark);
       expect(usedAtTime).toBeLessThanOrEqual(afterMark + 1000);
     });
