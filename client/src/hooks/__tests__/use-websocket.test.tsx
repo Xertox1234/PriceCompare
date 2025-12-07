@@ -171,12 +171,14 @@ describe('useWebSocket', () => {
     });
 
     const { result } = renderHook(() => useWebSocket());
+    if (!stateCallback) throw new Error('Expected stateCallback to be defined');
+    const callback: (state: ConnectionState) => void = stateCallback;
 
     expect(result.current.connectionState).toBe('disconnected');
     expect(result.current.isConnected).toBe(false);
 
     // Simulate state change to connected
-    stateCallback!('connected');
+    callback('connected');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('connected');
@@ -194,9 +196,11 @@ describe('useWebSocket', () => {
     });
 
     const { result } = renderHook(() => useWebSocket());
+    if (!stateCallback) throw new Error('Expected stateCallback to be defined');
+    const callback: (state: ConnectionState) => void = stateCallback;
 
     // Simulate reconnecting
-    stateCallback!('reconnecting');
+    callback('reconnecting');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('reconnecting');
@@ -204,7 +208,7 @@ describe('useWebSocket', () => {
     });
 
     // Then connected
-    stateCallback!('connected');
+    callback('connected');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('connected');
@@ -289,9 +293,11 @@ describe('useWebSocket', () => {
     });
 
     const { result } = renderHook(() => useWebSocket());
+    if (!stateCallback) throw new Error('Expected stateCallback to be defined');
+    const callback: (state: ConnectionState) => void = stateCallback;
 
     for (const state of states) {
-      stateCallback!(state);
+      callback(state);
 
       await waitFor(() => {
         expect(result.current.connectionState).toBe(state);
@@ -300,7 +306,7 @@ describe('useWebSocket', () => {
     }
 
     // Only 'connected' should be true
-    stateCallback!('connected');
+    callback('connected');
 
     await waitFor(() => {
       expect(result.current.connectionState).toBe('connected');

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRetailerReliability, calculateAllRetailerReliability } from '../retailer-reliability-calculator';
+import {
+  calculateRetailerReliability,
+  calculateAllRetailerReliability,
+} from '../retailer-reliability-calculator';
 
 describe('retailer-reliability-calculator', () => {
   const createRetailerData = (
@@ -122,10 +125,7 @@ describe('retailer-reliability-calculator', () => {
         'GoodRetailer',
         Array(15).fill(95) // Stable and competitive pricing
       );
-      const allRetailers = [
-        retailerData,
-        createRetailerData(2, 'Other', Array(15).fill(105)),
-      ];
+      const allRetailers = [retailerData, createRetailerData(2, 'Other', Array(15).fill(105))];
 
       const result = calculateRetailerReliability(retailerData, allRetailers);
 
@@ -144,7 +144,9 @@ describe('retailer-reliability-calculator', () => {
       const result = calculateRetailerReliability(volatileRetailer, [volatileRetailer]);
 
       expect(result.weaknesses.length).toBeGreaterThan(0);
-      expect(result.weaknesses.some(w => w.includes('stock') || w.includes('pricing'))).toBe(true);
+      expect(result.weaknesses.some((w) => w.includes('stock') || w.includes('pricing'))).toBe(
+        true
+      );
     });
 
     it('should assign correct rating based on score', () => {
@@ -213,9 +215,16 @@ describe('retailer-reliability-calculator', () => {
 
       const results = calculateAllRetailerReliability([cheapest, moderate, expensive]);
 
-      const cheapestScore = results.find(r => r.retailerId === 1)!.metrics.competitiveness;
-      const moderateScore = results.find(r => r.retailerId === 2)!.metrics.competitiveness;
-      const expensiveScore = results.find(r => r.retailerId === 3)!.metrics.competitiveness;
+      const cheapestResult = results.find((r) => r.retailerId === 1);
+      const moderateResult = results.find((r) => r.retailerId === 2);
+      const expensiveResult = results.find((r) => r.retailerId === 3);
+      if (!cheapestResult || !moderateResult || !expensiveResult) {
+        throw new Error('Expected all retailers to be found');
+      }
+
+      const cheapestScore = cheapestResult.metrics.competitiveness;
+      const moderateScore = moderateResult.metrics.competitiveness;
+      const expensiveScore = expensiveResult.metrics.competitiveness;
 
       expect(cheapestScore).toBeGreaterThan(moderateScore);
       expect(moderateScore).toBeGreaterThan(expensiveScore);
@@ -237,8 +246,11 @@ describe('retailer-reliability-calculator', () => {
 
       const results = calculateAllRetailerReliability([good, poor]);
 
-      const goodResult = results.find(r => r.retailerId === 1)!;
-      const poorResult = results.find(r => r.retailerId === 2)!;
+      const goodResult = results.find((r) => r.retailerId === 1);
+      const poorResult = results.find((r) => r.retailerId === 2);
+      if (!goodResult || !poorResult) {
+        throw new Error('Expected both retailers to be found');
+      }
 
       expect(goodResult.overallScore).toBeGreaterThan(poorResult.overallScore);
       expect(goodResult.rating).not.toBe(poorResult.rating);
@@ -279,7 +291,7 @@ describe('retailer-reliability-calculator', () => {
       const smallVariations = createRetailerData(
         1,
         'SmallVar',
-        [100.01, 100.02, 100.00, 100.01, 100.02]
+        [100.01, 100.02, 100.0, 100.01, 100.02]
       );
       const result = calculateRetailerReliability(smallVariations, [smallVariations]);
 
