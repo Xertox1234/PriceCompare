@@ -1,7 +1,7 @@
 import { retailers, products, productOffers, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert, type AgentSession, type ScrapingJob, type InsertAgentSession, type InsertScrapingJob, type InsertTrendingProduct } from "@shared/schema";
 import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchListStats, NormalizedPricePoint } from './storage/types';
 import { db } from "./db";
-import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count, lt } from "drizzle-orm";
+import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count } from "drizzle-orm";
 import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
 import { logger } from "./utils/logger";
 import { USER_CONSTANTS, PRODUCT_CONSTANTS } from "./utils/constants";
@@ -12,6 +12,7 @@ import { WatchListStorage } from "./storage/domains/watchlist-storage";
 import { RetailerStorage } from "./storage/domains/retailer-storage";
 import { JobLockStorage } from "./storage/domains/job-lock-storage";
 import { NotificationStorage } from "./storage/domains/notification-storage";
+import { AgentStorage } from "./storage/domains/agent-storage";
 
 export interface IStorage {
   // Retailers
@@ -1878,6 +1879,7 @@ export class DatabaseStorage implements IStorage {
   private retailerStorage: RetailerStorage;
   private jobLockStorage: JobLockStorage;
   private notificationStorage: NotificationStorage;
+  private agentStorage: AgentStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
@@ -1887,7 +1889,8 @@ export class DatabaseStorage implements IStorage {
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
     this.notificationStorage = new NotificationStorage(db);
-    
+    this.agentStorage = new AgentStorage(db);
+
     // Wire up cross-domain dependencies (avoids circular imports)
     // PriceStorage needs ProductStorage.getProductOffers for trend analysis
     this.priceStorage.setGetProductOffersCallback(
@@ -3832,18 +3835,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getScrapingJobStatusCounts(): Promise<JobStatusCount[]> {
-    const statusCounts = await db.select({
-      status: scrapingJobs.status,
-      count: count(),
-    })
-      .from(scrapingJobs)
-      .groupBy(scrapingJobs.status);
-
-    // Type assertion: status is non-null in database schema
-    return statusCounts.map(row => ({
-      status: row.status as string,
-      count: Number(row.count),
-    }));
+    return this.agentStorage.getScrapingJobStatusCounts();
   }
 
   async getActiveJobLocksCount(): Promise<number> {
@@ -3858,18 +3850,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTrendingProductsStatusCounts(): Promise<TrendingProductStatusCount[]> {
-    const statusCounts = await db.select({
-      status: trendingProducts.status,
-      count: count(),
-    })
-      .from(trendingProducts)
-      .groupBy(trendingProducts.status);
-
-    // Type assertion: status is non-null in database schema
-    return statusCounts.map(row => ({
-      status: row.status as string,
-      count: Number(row.count),
-    }));
+    return this.agentStorage.getTrendingProductsStatusCounts();
   }
 
   async getActiveAgentSessionsCount(minutes: number): Promise<number> {
@@ -3890,44 +3871,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
-    const [session] = await db.insert(agentSessions).values(sessionData).returning();
-    return session;
+    return this.agentStorage.createAgentSession(sessionData);
   }
 
   async updateAgentSession(sessionId: number, updates: Partial<AgentSession>): Promise<void> {
-    await db.update(agentSessions)
-      .set(updates)
-      .where(eq(agentSessions.id, sessionId));
+    return this.agentStorage.updateAgentSession(sessionId, updates);
   }
 
   async createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob> {
-    const [job] = await db.insert(scrapingJobs).values(jobData).returning();
-    return job;
+    return this.agentStorage.createScrapingJob(jobData);
   }
 
   async updateScrapingJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void> {
-    await db.update(scrapingJobs)
-      .set(updates)
-      .where(eq(scrapingJobs.id, jobId));
+    return this.agentStorage.updateScrapingJob(jobId, updates);
   }
 
   async getPendingScrapingJobs(limit: number): Promise<ScrapingJob[]> {
-    const jobs = await db.select()
-      .from(scrapingJobs)
-      .where(
-        and(
-          eq(scrapingJobs.status, 'pending'),
-          lt(scrapingJobs.scheduledAt, new Date())
-        )
-      )
-      .limit(limit);
-    return jobs;
+    return this.agentStorage.getPendingScrapingJobs(limit);
   }
 
   async updateTrendingProduct(id: number, updates: Partial<InsertTrendingProduct>): Promise<void> {
-    await db.update(trendingProducts)
-      .set(updates)
-      .where(eq(trendingProducts.id, id));
+    return this.agentStorage.updateTrendingProduct(id, updates);
   }
 
   // ============================================================================

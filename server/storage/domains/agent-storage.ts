@@ -7,13 +7,15 @@
  * Issue #178: Agent Storage Layer Migration - Migrate agent modules to storage layer pattern
  */
 
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
 import { agentSessions, scrapingJobs, trendingProducts } from "@shared/schema";
 import { BaseStorage } from "../base-storage";
 import type {
   AgentSession,
+  InsertAgentSession,
   ScrapingJob,
-  InsertScrapingJob
+  InsertScrapingJob,
+  InsertTrendingProduct
 } from "@shared/schema";
 import type { TrendingProduct } from "../types";
 import type { db } from "../../db";
@@ -44,14 +46,10 @@ export class AgentStorage extends BaseStorage {
 
   /**
    * Create a new agent session
-   * @param sessionData - Agent session data (agentType, sessionId, status)
+   * @param sessionData - Agent session data
    * @returns The created agent session with database ID
    */
-  async createAgentSession(sessionData: {
-    agentType: string;
-    sessionId: string;
-    status: 'active' | 'completed' | 'failed';
-  }): Promise<AgentSession> {
+  async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
     try {
       const [session] = await this.db
         .insert(agentSessions)
@@ -300,24 +298,70 @@ export class AgentStorage extends BaseStorage {
    * @param productId - ID of the trending product
    * @param updates - Partial trending product data to update
    */
-  async updateTrendingProduct(productId: number, updates: Partial<TrendingProduct>): Promise<void> {
+  async updateTrendingProduct(productId: number, updates: Partial<InsertTrendingProduct>): Promise<void> {
     try {
-      // Map the TrendingProduct interface fields to database schema fields
-      const dbUpdates: Record<string, unknown> = {};
-
-      if (updates.name !== undefined) dbUpdates.name = updates.name;
-      if (updates.category !== undefined) dbUpdates.category = updates.category;
-      if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.discoveredAt !== undefined) dbUpdates.discoveryDate = updates.discoveredAt;
-
       await this.db
         .update(trendingProducts)
-        .set(dbUpdates)
+        .set(updates)
         .where(eq(trendingProducts.id, productId));
 
       this.logSuccess('updateTrendingProduct', { productId, updates });
     } catch (error) {
       this.handleError(error, 'updateTrendingProduct');
+    }
+  }
+
+  /**
+   * Get scraping job counts by status
+   * @returns Array of {status, count} objects
+   */
+  async getScrapingJobStatusCounts(): Promise<Array<{ status: string; count: number }>> {
+    try {
+      const statusCounts = await this.db
+        .select({
+          status: scrapingJobs.status,
+          count: count(),
+        })
+        .from(scrapingJobs)
+        .groupBy(scrapingJobs.status);
+
+      // Map to consistent return type
+      const result = statusCounts.map(row => ({
+        status: row.status as string,
+        count: Number(row.count),
+      }));
+
+      this.logSuccess('getScrapingJobStatusCounts', { result });
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getScrapingJobStatusCounts');
+    }
+  }
+
+  /**
+   * Get trending product counts by status
+   * @returns Array of {status, count} objects
+   */
+  async getTrendingProductsStatusCounts(): Promise<Array<{ status: string; count: number }>> {
+    try {
+      const statusCounts = await this.db
+        .select({
+          status: trendingProducts.status,
+          count: count(),
+        })
+        .from(trendingProducts)
+        .groupBy(trendingProducts.status);
+
+      // Map to consistent return type
+      const result = statusCounts.map(row => ({
+        status: row.status as string,
+        count: Number(row.count),
+      }));
+
+      this.logSuccess('getTrendingProductsStatusCounts', { result });
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getTrendingProductsStatusCounts');
     }
   }
 }
