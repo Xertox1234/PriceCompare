@@ -256,7 +256,26 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
 }
 
 /**
- * Calculate confidence level based on data quality
+ * Calculate confidence level for seasonal pattern analysis based on data quality
+ *
+ * Determines how reliable the seasonal pattern analysis is based on the amount and
+ * distribution of historical price data. More months covered with more data points
+ * per month result in higher confidence.
+ *
+ * **Confidence Thresholds**:
+ * - **High**: 6+ months covered AND 5+ data points per month
+ *   - Reliable patterns, statistical significance
+ *   - Seasonal trends are trustworthy
+ * - **Medium**: 4+ months covered AND 3+ data points per month
+ *   - Moderate reliability, some gaps in data
+ *   - Patterns visible but less certain
+ * - **Low**: Less than medium thresholds
+ *   - Limited data, patterns may not be statistically significant
+ *   - Use with caution
+ *
+ * @param monthlyPatterns - Array of monthly price patterns with data point counts
+ * @param totalDataPoints - Total number of price records in the dataset
+ * @returns Confidence level: 'high', 'medium', or 'low'
  */
 function calculateConfidence(
   monthlyPatterns: MonthlyPattern[],
@@ -279,7 +298,32 @@ function calculateConfidence(
 }
 
 /**
- * Generate buying recommendation based on patterns
+ * Generate actionable buying recommendation based on seasonal price patterns
+ *
+ * Creates a personalized recommendation explaining when to buy based on historical
+ * price patterns. Considers best/worst months, potential savings, and current timing.
+ *
+ * **Recommendation Logic**:
+ * 1. Checks if savings potential is significant (>5%)
+ * 2. Calculates months until best buying time
+ * 3. Generates contextual advice based on timing:
+ *    - "Now is a great time!" if currently in best month
+ *    - "Wait a bit longer" if best month is 1-2 months away
+ *    - "Coming soon" if best month is 10+ months away
+ *    - General timing advice otherwise
+ * 4. Includes seasonal context (e.g., "fall offers best prices")
+ *
+ * **Edge Cases**:
+ * - Returns null if no significant pattern exists
+ * - Returns "no strong pattern" message if savings <5%
+ * - Handles circular month calculations (wraps Dec → Jan)
+ *
+ * @param bestMonth - Month with historically lowest prices
+ * @param worstMonth - Month with historically highest prices
+ * @param bestSeason - Season with historically lowest prices
+ * @param overallAverage - Average price across all months (for savings calculation)
+ * @param hasPattern - Whether a statistically significant pattern exists (>10% deviation)
+ * @returns Recommendation object with timeframe, reason, and expected savings %, or null if no pattern
  */
 function generateRecommendation(
   bestMonth: MonthlyPattern | null,
@@ -332,7 +376,36 @@ function generateRecommendation(
 }
 
 /**
- * Get current seasonal recommendation
+ * Get real-time seasonal buying advice based on current month
+ *
+ * Analyzes the current month's pricing relative to historical best month to
+ * provide immediate, actionable buying guidance. Compares current month's average
+ * price to the historically lowest month to determine if now is a good time to buy.
+ *
+ * **Use Cases**:
+ * - "Should I buy right now or wait?"
+ * - "How does current pricing compare to the best time?"
+ * - Real-time purchase decision support
+ *
+ * **Advice Logic**:
+ * - <5% above best month: "Good time to buy!" (near historical low)
+ * - 5-15% above best month: "Slightly elevated, consider waiting"
+ * - >15% above best month: "Wait for [best month] if possible"
+ *
+ * **Note**: This function complements `detectSeasonalPatterns()` by providing
+ * current-moment advice rather than general seasonal trends.
+ *
+ * @param analysis - Seasonal analysis result from `detectSeasonalPatterns()`
+ * @returns Human-readable advice string for immediate purchasing decision
+ *
+ * @example
+ * ```typescript
+ * const analysis = detectSeasonalPatterns(priceHistory);
+ * if (analysis) {
+ *   const advice = getCurrentSeasonalAdvice(analysis);
+ *   console.log(advice); // "Current prices are near their historical low. Good time to buy!"
+ * }
+ * ```
  */
 export function getCurrentSeasonalAdvice(analysis: SeasonalAnalysis): string {
   if (!analysis.hasSeasonalPattern) {

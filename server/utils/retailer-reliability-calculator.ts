@@ -135,7 +135,23 @@ export function calculateRetailerReliability(
 }
 
 /**
- * Calculate price stability score (less volatility = higher score)
+ * Calculate price stability score using coefficient of variation
+ *
+ * Measures how consistent prices are over time. Lower price volatility indicates
+ * a more reliable retailer that doesn't frequently change prices.
+ *
+ * **Scoring Formula**:
+ * - CV (Coefficient of Variation) = (Standard Deviation / Mean) × 100
+ * - Score = max(0, min(100, 100 - (CV × 5)))
+ *
+ * **Score Interpretation**:
+ * - 100: Perfect stability (CV = 0%, prices never change)
+ * - 75-99: Very stable (CV < 5%, minimal price fluctuation)
+ * - 50-74: Moderately stable (CV 5-10%, some price changes)
+ * - 0-49: Volatile (CV > 10%, frequent price changes)
+ *
+ * @param priceHistory - Array of price records with prices and dates
+ * @returns Score 0-100 (100 = perfectly stable prices, 0 = highly volatile with CV ≥20%)
  */
 function calculatePriceStability(priceHistory: PriceHistoryEntry[]): number {
   const prices = priceHistory.map(h => parseFloat(h.price));
@@ -155,7 +171,22 @@ function calculatePriceStability(priceHistory: PriceHistoryEntry[]): number {
 }
 
 /**
- * Calculate availability score
+ * Calculate stock availability score based on in-stock frequency
+ *
+ * Measures how often the product is available for purchase from this retailer.
+ * Higher scores indicate better inventory management and product availability.
+ *
+ * **Scoring Formula**:
+ * - Score = (Number of "in_stock" records / Total records) × 100
+ *
+ * **Score Interpretation**:
+ * - 90-100: Excellent availability (rarely out of stock)
+ * - 75-89: Good availability (occasional stockouts)
+ * - 60-74: Fair availability (frequent stockouts)
+ * - 0-59: Poor availability (often out of stock)
+ *
+ * @param priceHistory - Array of price records with availability status
+ * @returns Score 0-100 (100 = always in stock, 0 = never in stock)
  */
 function calculateAvailability(priceHistory: PriceHistoryEntry[]): number {
   const availableCount = priceHistory.filter(
@@ -167,7 +198,28 @@ function calculateAvailability(priceHistory: PriceHistoryEntry[]): number {
 }
 
 /**
- * Calculate price competitiveness vs other retailers
+ * Calculate price competitiveness compared to market average
+ *
+ * Measures how this retailer's average price compares to all retailers for this product.
+ * Lower prices relative to market average result in higher competitiveness scores.
+ *
+ * **Scoring Formula**:
+ * - Calculate retailer's average price
+ * - Calculate market average across all retailers
+ * - Score based on price ratio (retailer avg / market avg)
+ *
+ * **Score Interpretation**:
+ * - 100: 10%+ below market average (excellent deal)
+ * - 90: 5-10% below market (very competitive)
+ * - 80: At or slightly below market (competitive)
+ * - 60: 0-5% above market (fair pricing)
+ * - 40: 5-10% above market (above average)
+ * - 20: 10%+ above market (expensive)
+ * - 50: Neutral (only 1 retailer exists, no comparison possible)
+ *
+ * @param retailerData - Price history for the retailer being evaluated
+ * @param allRetailersData - Price history for all retailers (for market average calculation)
+ * @returns Score 0-100 (100 = significantly below market, 50 = neutral/no comparison, 20 = significantly above market)
  */
 function calculateCompetitiveness(
   retailerData: RetailerData,
@@ -204,7 +256,25 @@ function calculateCompetitiveness(
 }
 
 /**
- * Calculate consistency score (how often prices change)
+ * Calculate pricing consistency score based on price change frequency
+ *
+ * Measures how often a retailer changes their prices. Fewer price changes indicate
+ * more predictable, consistent pricing that users can rely on.
+ *
+ * **Scoring Formula**:
+ * - Count price changes >1% from previous price
+ * - Change rate = (Number of changes / Total comparisons) × 100
+ * - Score = max(0, min(100, 100 - (Change rate × 2)))
+ *
+ * **Score Interpretation**:
+ * - 100: Perfect consistency (0% change rate, prices never change)
+ * - 80-99: Very consistent (0-10% change rate, rare price updates)
+ * - 60-79: Moderately consistent (10-20% change rate, occasional changes)
+ * - 40-59: Inconsistent (20-30% change rate, frequent changes)
+ * - 0-39: Highly inconsistent (30%+ change rate, constantly changing)
+ *
+ * @param priceHistory - Array of price records sorted by date
+ * @returns Score 0-100 (100 = prices never change, 0 = prices change 50%+ of the time)
  */
 function calculateConsistency(priceHistory: PriceHistoryEntry[]): number {
   if (priceHistory.length < 2) return 100;
@@ -238,7 +308,19 @@ function calculateConsistency(priceHistory: PriceHistoryEntry[]): number {
 }
 
 /**
- * Get rating based on overall score
+ * Convert numeric reliability score to categorical rating
+ *
+ * Translates the 0-100 overall reliability score into a human-readable
+ * rating category for easier interpretation.
+ *
+ * **Rating Thresholds**:
+ * - Excellent (80-100): Highly reliable, top-tier retailer
+ * - Good (65-79): Reliable with minor issues
+ * - Fair (50-64): Moderate reliability, compare with others
+ * - Poor (<50): Significant reliability issues
+ *
+ * @param score - Overall reliability score (0-100)
+ * @returns Rating category: 'excellent', 'good', 'fair', or 'poor'
  */
 function getRating(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
   if (score >= 80) return 'excellent';
@@ -248,7 +330,22 @@ function getRating(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
 }
 
 /**
- * Analyze strengths and weaknesses
+ * Identify retailer strengths and weaknesses based on metric thresholds
+ *
+ * Analyzes the 4 reliability metrics to extract qualitative strengths and weaknesses.
+ * This helps users quickly understand where a retailer excels or has issues.
+ *
+ * **Strength Thresholds**:
+ * - Metric score ≥75: Added as a strength
+ * - Multiple tiers for availability (90+ = excellent, 75+ = good)
+ * - Multiple tiers for competitiveness (80+ = competitive, 70+ = fair)
+ *
+ * **Weakness Thresholds**:
+ * - Metric score <50: Added as a weakness
+ * - Describes the specific problem (volatile pricing, stock issues, etc.)
+ *
+ * @param metrics - The 4 calculated reliability metrics (0-100 each)
+ * @returns Object with arrays of strength and weakness descriptions
  */
 function analyzeStrengthsWeaknesses(metrics: {
   priceStability: number;
@@ -292,7 +389,22 @@ function analyzeStrengthsWeaknesses(metrics: {
 }
 
 /**
- * Generate recommendation based on analysis
+ * Generate personalized buying recommendation based on reliability analysis
+ *
+ * Creates a human-readable recommendation that summarizes the retailer's
+ * reliability and provides actionable guidance for purchasing decisions.
+ *
+ * **Recommendation Logic**:
+ * - Excellent (80+): Emphasizes strengths, encourages purchase
+ * - Good (65-79): Highlights strengths, mentions weaknesses to monitor
+ * - Fair (50-64): Suggests comparison shopping, lists concerns
+ * - Poor (<50): Warns of issues, recommends alternative retailers
+ *
+ * @param score - Overall reliability score (0-100)
+ * @param rating - Categorical rating ('excellent' | 'good' | 'fair' | 'poor')
+ * @param strengths - Array of identified strength descriptions
+ * @param weaknesses - Array of identified weakness descriptions
+ * @returns Personalized recommendation message for the user
  */
 function generateRecommendation(
   score: number,
