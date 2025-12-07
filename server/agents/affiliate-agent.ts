@@ -1,9 +1,7 @@
 import { BaseAgent, AgentConfig } from './base-agent';
 import { affiliateLinkService } from '../services/affiliate-link-service';
-import { db } from '../db';
-import { productOffers, retailers } from '../../shared/schema';
-import { eq, and, isNull, lt } from 'drizzle-orm';
-import type { ProductOffer, Retailer as _Retailer } from '../../shared/schema';
+import { storage } from '../storage';
+import type { ProductOffer } from '../../shared/schema';
 import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types';
 import { logger } from '../utils/logger';
 import { cleanupManager } from '../utils/cleanup-manager';
@@ -90,18 +88,21 @@ export class AffiliateLinkAgent extends BaseAgent {
 
     try {
       // Get offers without affiliate links
-      const whereConditions = [isNull(productOffers.affiliateUrl)];
+      // For retailer-specific queries, use storage method
+      // For all offers, we need to add a storage method to get offers without affiliate links
+      const allOffers = retailerId
+        ? await storage.getProductOffersByRetailerId(retailerId)
+        : await storage.getAllOffersWithDetails().then(details =>
+            // Convert to ProductOffer format by fetching full offers
+            Promise.all(details.map(d => storage.getProductOfferById(d.offerId)))
+              .then(offers => offers.filter((o): o is ProductOffer => o !== null))
+          );
 
-      if (retailerId !== undefined) {
-        whereConditions.push(eq(productOffers.retailerId, retailerId));
-      }
+      // Filter for offers without affiliate links
+      const offers = allOffers
+        .filter(offer => !offer.affiliateUrl)
+        .slice(0, limit);
 
-      const query = db.select()
-        .from(productOffers)
-        .where(and(...whereConditions))
-        .limit(limit);
-
-      const offers = await query;
       const results = [];
 
       for (const offer of offers) {
@@ -188,16 +189,23 @@ export class AffiliateLinkAgent extends BaseAgent {
       }
 
       // Health check all links older than 24 hours
+      // NOTE: This is a complex query filtering by lastLinkCheck timestamp
+      // We could add a storage method, but for now we filter in-memory from all offers
       const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const staleOffers = await db.select()
-        .from(productOffers)
-        .where(
-          and(
-            eq(productOffers.affiliateUrl, productOffers.affiliateUrl), // Not null
-            lt(productOffers.lastLinkCheck, staleCutoff)
-          )
+      const allOffersDetails = await storage.getAllOffersWithDetails();
+
+      // Fetch full offer objects and filter for stale affiliate links
+      const allOfferObjects = await Promise.all(
+        allOffersDetails.map(d => storage.getProductOfferById(d.offerId))
+      );
+
+      const staleOffers = allOfferObjects
+        .filter((offer): offer is ProductOffer =>
+          offer !== null &&
+          !!offer.affiliateUrl &&
+          (!offer.lastLinkCheck || offer.lastLinkCheck < staleCutoff)
         )
-        .limit(100);
+        .slice(0, 100);
 
       let healthy = 0;
       let broken = 0;
@@ -242,10 +250,7 @@ export class AffiliateLinkAgent extends BaseAgent {
    * Health check a single offer's affiliate link
    */
   private async healthCheckSingleOffer(offerId: number): Promise<SingleHealthCheckResult> {
-    const [offer] = await db.select()
-      .from(productOffers)
-      .where(eq(productOffers.id, offerId))
-      .limit(1);
+    const offer = await storage.getProductOfferById(offerId);
 
     if (!offer || !offer.affiliateUrl) {
       throw new Error(`No affiliate link found for offer ${offerId}`);
@@ -287,10 +292,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   private async updateSingleOffer(params: AffiliateLinkTask): Promise<UpdateOfferResult | ProcessOfferResult> {
     const { offerId, retailerId: _retailerId, productUrl: _productUrl, forceRegenerate } = params;
 
-    const [offer] = await db.select()
-      .from(productOffers)
-      .where(eq(productOffers.id, offerId))
-      .limit(1);
+    const offer = await storage.getProductOfferById(offerId);
 
     if (!offer) {
       throw new Error(`Offer ${offerId} not found`);
@@ -315,10 +317,7 @@ export class AffiliateLinkAgent extends BaseAgent {
     const { retailerId } = params;
 
     // Verify retailer has affiliate configuration
-    const [retailer] = await db.select()
-      .from(retailers)
-      .where(eq(retailers.id, retailerId))
-      .limit(1);
+    const retailer = await storage.getRetailerById(retailerId);
 
     if (!retailer) {
       throw new Error(`Retailer ${retailerId} not found`);
@@ -373,12 +372,28 @@ export class AffiliateLinkAgent extends BaseAgent {
       const dbStats = await affiliateLinkService.getAffiliateLinkStats();
       const baseStatus = this.getStatus();
 
+      // Get retailer breakdown: count of affiliate links per retailer
+      const byRetailer: Record<string, number> = {};
+
+      // Fetch all retailers to build the breakdown
+      const retailers = await storage.getRetailers();
+
+      // Get stats for each retailer
+      await Promise.all(
+        retailers.map(async (retailer) => {
+          const retailerStats = await storage.getAffiliateLinkStats(retailer.id);
+          if (retailerStats.affiliate_offers > 0) {
+            byRetailer[retailer.name] = retailerStats.affiliate_offers;
+          }
+        })
+      );
+
       // Transform AffiliateLinkStats from storage to AffiliateStats.links format
       const links = dbStats ? {
         total: dbStats.total_offers,
         active: dbStats.affiliate_offers,
         broken: dbStats.broken_links,
-        byRetailer: {} as Record<string, number>, // TODO: Add retailer breakdown
+        byRetailer,
       } : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
 
       return {
