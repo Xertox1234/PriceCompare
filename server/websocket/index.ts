@@ -95,7 +95,6 @@ export function initializeWebSocket(
   setupRedisAdapter();
 
   // Setup authentication middleware
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Socket.io supports async middleware
   io.use(authenticationMiddleware);
 
   // Setup rate limiting middleware
@@ -152,10 +151,10 @@ function setupRedisAdapter(): void {
  *
  * Rejects connections without valid Express session
  */
-async function authenticationMiddleware(
+function authenticationMiddleware(
   socket: Socket,
   next: (err?: Error) => void
-): Promise<void> {
+): void {
   const handshake = socket.handshake;
   const ip = handshake.address;
   const userAgent = handshake.headers['user-agent'] || 'unknown';
@@ -455,7 +454,7 @@ export function getConnectedClientsCount(): number {
 /**
  * Shutdown WebSocket server gracefully
  */
-export async function shutdownWebSocket(): Promise<void> {
+export function shutdownWebSocket(): void {
   if (!io) {
     return;
   }
