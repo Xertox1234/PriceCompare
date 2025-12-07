@@ -200,7 +200,8 @@ describe('WebSocket Load Tests', () => {
         clients.forEach((client, index) => {
           receivedMessages.set(index, 0);
           client.on('watchlist:update', () => {
-            receivedMessages.set(index, receivedMessages.get(index)! + 1);
+            const count = receivedMessages.get(index) || 0;
+            receivedMessages.set(index, count + 1);
           });
         });
 
@@ -220,13 +221,10 @@ describe('WebSocket Load Tests', () => {
         }
 
         // Wait for messages to be processed
-        await waitForCondition(
-          () => {
-            const total = Array.from(receivedMessages.values()).reduce((a, b) => a + b, 0);
-            return total >= messageCount;
-          },
-          5000
-        );
+        await waitForCondition(() => {
+          const total = Array.from(receivedMessages.values()).reduce((a, b) => a + b, 0);
+          return total >= messageCount;
+        }, 5000);
 
         const duration = Date.now() - startTime;
         const messagesPerSecond = (messageCount / duration) * 1000;

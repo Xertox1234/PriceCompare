@@ -1,6 +1,7 @@
-import { storage, type PriceTrendInsert } from "../storage";
-import { logger } from "../utils/logger";
-import { BATCH_PROCESSING } from "../utils/constants";
+import { storage, type PriceTrendInsert } from '../storage';
+import type { TrendPriceData } from '../storage/types';
+import { logger } from '../utils/logger';
+import { BATCH_PROCESSING } from '../utils/constants';
 
 export class TrendAnalysisService {
   /**
@@ -12,7 +13,9 @@ export class TrendAnalysisService {
    * TRANSACTIONAL: All trend updates committed atomically
    */
   async analyzeTrendsForAllProducts(analysisPeriodDays = 30): Promise<number> {
-    logger.info(`[TrendAnalysis] Starting trend analysis for all products (${analysisPeriodDays} days)`);
+    logger.info(
+      `[TrendAnalysis] Starting trend analysis for all products (${analysisPeriodDays} days)`
+    );
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - analysisPeriodDays);
@@ -21,28 +24,49 @@ export class TrendAnalysisService {
     const priceDataGrouped = await storage.getPriceDataGroupedForTrend(cutoffDate);
 
     if (priceDataGrouped.length === 0) {
-      logger.info("[TrendAnalysis] No price data found for trend analysis");
+      logger.info('[TrendAnalysis] No price data found for trend analysis');
       return 0;
     }
 
-    logger.info(`[TrendAnalysis] Found ${priceDataGrouped.length} product-retailer combinations to analyze`);
+    // Filter out any records with null productId or retailerId (defensive - should never happen)
+    const validData = priceDataGrouped.filter(
+      (data): data is TrendPriceData & { productId: number; retailerId: number } =>
+        data.productId !== null && data.retailerId !== null
+    );
+
+    if (validData.length < priceDataGrouped.length) {
+      logger.warn(
+        `[TrendAnalysis] Filtered out ${priceDataGrouped.length - validData.length} records with null IDs`
+      );
+    }
+
+    if (validData.length === 0) {
+      logger.info('[TrendAnalysis] No valid price data after filtering');
+      return 0;
+    }
+
+    logger.info(
+      `[TrendAnalysis] Found ${validData.length} product-retailer combinations to analyze`
+    );
 
     try {
       // OPTIMIZATION 1: Process trends in parallel batches to avoid overwhelming the system
       const trendValues: PriceTrendInsert[] = [];
       let analyzedCount = 0;
 
-      for (let i = 0; i < priceDataGrouped.length; i += BATCH_PROCESSING.TREND_ANALYSIS) {
-        const batch = priceDataGrouped.slice(i, i + BATCH_PROCESSING.TREND_ANALYSIS);
+      for (let i = 0; i < validData.length; i += BATCH_PROCESSING.TREND_ANALYSIS) {
+        const batch = validData.slice(i, i + BATCH_PROCESSING.TREND_ANALYSIS);
 
         // Process batch in parallel
         const results = await Promise.allSettled(
-          batch.map(data => this.analyzeTrendFromData(
-            data.productId!,
-            data.retailerId!,
-            data.prices,
-            analysisPeriodDays
-          ))
+          batch.map((data) =>
+            this.analyzeTrendFromData(
+              data.productId,
+              data.retailerId,
+              data.prices,
+              analysisPeriodDays
+            )
+          )
         );
 
         // Collect successful results
@@ -56,12 +80,17 @@ export class TrendAnalysisService {
           } else if (result.status === 'rejected') {
             logger.error(
               `[TrendAnalysis] Failed for product ${data.productId}, retailer ${data.retailerId}:`,
-              { error: result.reason instanceof Error ? result.reason.message : String(result.reason) }
+              {
+                error:
+                  result.reason instanceof Error ? result.reason.message : String(result.reason),
+              }
             );
           }
         }
 
-        logger.info(`[TrendAnalysis] Processed batch ${Math.floor(i / BATCH_PROCESSING.TREND_ANALYSIS) + 1}/${Math.ceil(priceDataGrouped.length / BATCH_PROCESSING.TREND_ANALYSIS)}`);
+        logger.info(
+          `[TrendAnalysis] Processed batch ${Math.floor(i / BATCH_PROCESSING.TREND_ANALYSIS) + 1}/${Math.ceil(priceDataGrouped.length / BATCH_PROCESSING.TREND_ANALYSIS)}`
+        );
       }
 
       // OPTIMIZATION 2: Batch insert/update all trends atomically
@@ -70,10 +99,12 @@ export class TrendAnalysisService {
         logger.info(`[TrendAnalysis] Batch upsert completed: ${trendValues.length} trends updated`);
       }
 
-      logger.info(`[TrendAnalysis] Completed trend analysis for ${analyzedCount} product-retailer combinations`);
+      logger.info(
+        `[TrendAnalysis] Completed trend analysis for ${analyzedCount} product-retailer combinations`
+      );
       return analyzedCount;
     } catch (error) {
-      logger.error("[TrendAnalysis] Error analyzing trends:", {
+      logger.error('[TrendAnalysis] Error analyzing trends:', {
         error: error instanceof Error ? error.message : String(error),
       });
       throw error;
@@ -87,7 +118,7 @@ export class TrendAnalysisService {
   private async analyzeTrendFromData(
     productId: number,
     retailerId: number,
-    prices: Array<{price: number, timestamp: string}>,
+    prices: Array<{ price: number; timestamp: string }>,
     analysisPeriodDays: number
   ): Promise<{
     productId: number;
@@ -219,7 +250,7 @@ export class TrendAnalysisService {
   private determineTrendDirection(slope: number, rSquared: number): string {
     // If R² is too low, consider it stable (not enough confidence in trend)
     if (rSquared < 0.3) {
-      return "stable";
+      return 'stable';
     }
 
     // Threshold for considering a slope significant
@@ -227,10 +258,10 @@ export class TrendAnalysisService {
     const slopeThreshold = 0.01;
 
     if (Math.abs(slope) < slopeThreshold) {
-      return "stable";
+      return 'stable';
     }
 
-    return slope > 0 ? "uptrend" : "downtrend";
+    return slope > 0 ? 'uptrend' : 'downtrend';
   }
 
   /**
@@ -238,11 +269,11 @@ export class TrendAnalysisService {
    */
   private determineConfidenceLevel(rSquared: number): string {
     if (rSquared >= 0.7) {
-      return "high";
+      return 'high';
     } else if (rSquared >= 0.4) {
-      return "medium";
+      return 'medium';
     } else {
-      return "low";
+      return 'low';
     }
   }
 
@@ -254,10 +285,9 @@ export class TrendAnalysisService {
     try {
       return await storage.getPriceTrendsForProduct(productId);
     } catch (error) {
-      logger.error(
-        `[TrendAnalysis] Error getting trend summary for product ${productId}:`,
-        { error: error instanceof Error ? error.message : String(error) }
-      );
+      logger.error(`[TrendAnalysis] Error getting trend summary for product ${productId}:`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }

@@ -4,7 +4,15 @@ import './helpers/mock-logger';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../db';
-import { users, watchLists, productWatches, products, productOffers, priceHistory, retailers } from '@shared/schema';
+import {
+  users,
+  watchLists,
+  productWatches,
+  products,
+  productOffers,
+  priceHistory,
+  retailers,
+} from '@shared/schema';
 import { storage } from '../storage';
 import { eq } from 'drizzle-orm';
 import {
@@ -28,10 +36,13 @@ import {
  * @returns Created watchlist record
  */
 async function createTestWatchList(userId: number, name = 'Test List') {
-  const [list] = await db.insert(watchLists).values({
-    userId,
-    name,
-  }).returning();
+  const [list] = await db
+    .insert(watchLists)
+    .values({
+      userId,
+      name,
+    })
+    .returning();
   return list;
 }
 
@@ -41,12 +52,8 @@ async function createTestWatchList(userId: number, name = 'Test List') {
  * @param userId - User ID who owns the watchlist
  * @param productIds - Array of product IDs to add
  */
-async function _addProductsToWatchList(
-  watchListId: number,
-  userId: number,
-  productIds: number[]
-) {
-  const values = productIds.map(productId => ({
+async function _addProductsToWatchList(watchListId: number, userId: number, productIds: number[]) {
+  const values = productIds.map((productId) => ({
     userId,
     watchListId,
     productId,
@@ -227,16 +234,22 @@ describe('Watchlist Storage Layer', () => {
   describe('getUserWatchLists', () => {
     it('should return all watch lists for user with product counts', async () => {
       // Create watch lists
-      const [list1] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'My First List',
-        description: 'Test description',
-      }).returning();
+      const [list1] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'My First List',
+          description: 'Test description',
+        })
+        .returning();
 
-      const [_list2] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'My Second List',
-      }).returning();
+      const [_list2] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'My Second List',
+        })
+        .returning();
 
       // Add products to first list
       await db.insert(productWatches).values([
@@ -261,13 +274,16 @@ describe('Watchlist Storage Layer', () => {
 
     it('should not return other users watch lists', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
-        username: 'otheruser',
-        email: 'other@example.com',
-        // SECURITY: NEVER expose passwordHash in production code
-        passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
-        role: 'user',
-      }).returning();
+      const [otherUser] = await db
+        .insert(users)
+        .values({
+          username: 'otheruser',
+          email: 'other@example.com',
+          // SECURITY: NEVER expose passwordHash in production code
+          passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
+          role: 'user',
+        })
+        .returning();
 
       // Create watch lists for both users
       await db.insert(watchLists).values([
@@ -317,9 +333,9 @@ describe('Watchlist Storage Layer', () => {
       }
 
       // Try to create 21st list
-      await expect(
-        storage.createWatchList(testUserId, { name: 'Extra List' })
-      ).rejects.toThrow('Maximum watch list limit reached (20 lists per user)');
+      await expect(storage.createWatchList(testUserId, { name: 'Extra List' })).rejects.toThrow(
+        'Maximum watch list limit reached (20 lists per user)'
+      );
     });
 
     // NOTE: Name validation (required, length, trimming) is handled by Zod schema in routes
@@ -380,10 +396,13 @@ describe('Watchlist Storage Layer', () => {
       // Create 100 products
       const productIds: number[] = [];
       for (let i = 0; i < 100; i++) {
-        const [product] = await db.insert(products).values({
-          name: `Product ${i}`,
-          category: 'Test',
-        }).returning();
+        const [product] = await db
+          .insert(products)
+          .values({
+            name: `Product ${i}`,
+            category: 'Test',
+          })
+          .returning();
         productIds.push(product.id);
 
         await db.insert(productWatches).values({
@@ -394,10 +413,13 @@ describe('Watchlist Storage Layer', () => {
       }
 
       // Try to add 101st product
-      const [extraProduct] = await db.insert(products).values({
-        name: 'Extra Product',
-        category: 'Test',
-      }).returning();
+      const [extraProduct] = await db
+        .insert(products)
+        .values({
+          name: 'Extra Product',
+          category: 'Test',
+        })
+        .returning();
 
       await expect(
         storage.addProductToWatchList(watchListId, extraProduct.id, testUserId)
@@ -406,13 +428,16 @@ describe('Watchlist Storage Layer', () => {
 
     it('should verify watch list ownership', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
-        username: 'otheruser',
-        email: 'other@example.com',
-        // SECURITY: NEVER expose passwordHash in production code
-        passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
-        role: 'user',
-      }).returning();
+      const [otherUser] = await db
+        .insert(users)
+        .values({
+          username: 'otheruser',
+          email: 'other@example.com',
+          // SECURITY: NEVER expose passwordHash in production code
+          passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
+          role: 'user',
+        })
+        .returning();
 
       // Try to add product to testUser's list as otherUser
       await expect(
@@ -421,9 +446,9 @@ describe('Watchlist Storage Layer', () => {
     });
 
     it('should verify product exists', async () => {
-      await expect(
-        storage.addProductToWatchList(watchListId, 99999, testUserId)
-      ).rejects.toThrow('Product not found');
+      await expect(storage.addProductToWatchList(watchListId, 99999, testUserId)).rejects.toThrow(
+        'Product not found'
+      );
     });
   });
 
@@ -431,10 +456,13 @@ describe('Watchlist Storage Layer', () => {
     let watchListId: number;
 
     beforeEach(async () => {
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
       watchListId = list.id;
 
       await db.insert(productWatches).values({
@@ -465,13 +493,16 @@ describe('Watchlist Storage Layer', () => {
 
     it('should verify ownership before removal', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
-        username: 'otheruser',
-        email: 'other@example.com',
-        // SECURITY: NEVER expose passwordHash in production code
-        passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
-        role: 'user',
-      }).returning();
+      const [otherUser] = await db
+        .insert(users)
+        .values({
+          username: 'otheruser',
+          email: 'other@example.com',
+          // SECURITY: NEVER expose passwordHash in production code
+          passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
+          role: 'user',
+        })
+        .returning();
 
       await expect(
         storage.removeProductFromWatchList(watchListId, testProductId, otherUser.id)
@@ -488,10 +519,13 @@ describe('Watchlist Storage Layer', () => {
   describe('getWatchedProducts', () => {
     beforeEach(async () => {
       // Create watch list and add products
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
 
       await db.insert(productWatches).values([
         { userId: testUserId, watchListId: list.id, productId: testProductId },
@@ -504,7 +538,9 @@ describe('Watchlist Storage Layer', () => {
 
       expect(result.products.length).toBeGreaterThan(0);
 
-      const product = result.products.find((p: { productId: number }) => p.productId === testProductId);
+      const product = result.products.find(
+        (p: { productId: number }) => p.productId === testProductId
+      );
       expect(product).toBeDefined();
       expect(product?.productName).toBe('Test Product 1');
       expect(product?.currentPrice).toBeDefined();
@@ -558,7 +594,9 @@ describe('Watchlist Storage Layer', () => {
     it('should return 7-day sparkline data', async () => {
       const result = await storage.getWatchedProducts(testUserId);
 
-      const product = result.products.find((p: { productId: number }) => p.productId === testProductId);
+      const product = result.products.find(
+        (p: { productId: number }) => p.productId === testProductId
+      );
       expect(product).toBeDefined();
       expect(product?.last7Days).toBeDefined();
       expect(Array.isArray(product?.last7Days)).toBe(true);
@@ -610,13 +648,14 @@ describe('Watchlist Storage Layer', () => {
       expect(page1.products).toHaveLength(1);
       expect(page1.hasMore).toBe(true);
       expect(page1.nextCursor).toBeDefined();
+      if (!page1.nextCursor) throw new Error('Expected nextCursor to be defined');
 
       const firstProductId = page1.products[0].productId;
 
       // Page 2: Use cursor to get second product
       const page2 = await storage.getWatchedProducts(testUserId, {
         limit: 1,
-        cursor: page1.nextCursor!,
+        cursor: page1.nextCursor,
       });
 
       expect(page2.products).toHaveLength(1);
@@ -649,15 +688,21 @@ describe('Watchlist Storage Layer', () => {
   describe('getWatchListStats', () => {
     beforeEach(async () => {
       // Create watch lists
-      const [list1] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'List 1',
-      }).returning();
+      const [list1] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'List 1',
+        })
+        .returning();
 
-      const [list2] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'List 2',
-      }).returning();
+      const [list2] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'List 2',
+        })
+        .returning();
 
       // Add products
       await db.insert(productWatches).values([
@@ -711,10 +756,13 @@ describe('Watchlist Storage Layer', () => {
   describe('deleteWatchList', () => {
     it('should delete watch list and cascade delete products', async () => {
       // Create watch list with products
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
 
       await db.insert(productWatches).values([
         { userId: testUserId, watchListId: list.id, productId: testProductId },
@@ -725,10 +773,7 @@ describe('Watchlist Storage Layer', () => {
       await storage.deleteWatchList(list.id, testUserId);
 
       // Verify list deleted
-      const lists = await db
-        .select()
-        .from(watchLists)
-        .where(eq(watchLists.id, list.id));
+      const lists = await db.select().from(watchLists).where(eq(watchLists.id, list.id));
       expect(lists).toHaveLength(0);
 
       // Verify product watches deleted (CASCADE)
@@ -741,24 +786,30 @@ describe('Watchlist Storage Layer', () => {
 
     it('should not allow deleting other users lists', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
-        username: 'otheruser',
-        email: 'other@example.com',
-        // SECURITY: NEVER expose passwordHash in production code
-        passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
-        role: 'user',
-      }).returning();
+      const [otherUser] = await db
+        .insert(users)
+        .values({
+          username: 'otheruser',
+          email: 'other@example.com',
+          // SECURITY: NEVER expose passwordHash in production code
+          passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
+          role: 'user',
+        })
+        .returning();
 
       // Create list for test user
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
 
       // Try to delete as other user
-      await expect(
-        storage.deleteWatchList(list.id, otherUser.id)
-      ).rejects.toThrow('Watch list not found or unauthorized');
+      await expect(storage.deleteWatchList(list.id, otherUser.id)).rejects.toThrow(
+        'Watch list not found or unauthorized'
+      );
     });
   });
 });

@@ -34,59 +34,64 @@ export class SearchOrchestrationAgent extends BaseAgent {
       type: 'search',
       maxConcurrentTasks: 5,
       retryAttempts: 2,
-      retryDelay: 1500
+      retryDelay: 1500,
     };
 
     super(config);
 
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+      apiKey: process.env.OPENAI_API_KEY,
     });
 
     this.queryGenerationCache = new Map();
 
     this.retailers = new Map([
-      ['amazon', {
-        name: 'Amazon',
-        searchUrl: 'https://www.amazon.com/s?k=',
-        selectors: {
-          productLinks: '[data-component-type="s-search-result"] h2 a',
-          prices: '.a-price-whole',
-          titles: '[data-component-type="s-search-result"] h2 span'
-        }
-      }],
-      ['walmart', {
-        name: 'Walmart',
-        searchUrl: 'https://www.walmart.com/search?q=',
-        selectors: {
-          productLinks: '[data-testid="product-title"] a',
-          prices: '[data-automation-id="product-price"]',
-          titles: '[data-testid="product-title"]'
-        }
-      }],
-      ['target', {
-        name: 'Target',
-        searchUrl: 'https://www.target.com/s?searchTerm=',
-        selectors: {
-          productLinks: '[data-test="product-title"] a',
-          prices: '[data-test="product-price"]',
-          titles: '[data-test="product-title"]'
-        }
-      }]
+      [
+        'amazon',
+        {
+          name: 'Amazon',
+          searchUrl: 'https://www.amazon.com/s?k=',
+          selectors: {
+            productLinks: '[data-component-type="s-search-result"] h2 a',
+            prices: '.a-price-whole',
+            titles: '[data-component-type="s-search-result"] h2 span',
+          },
+        },
+      ],
+      [
+        'walmart',
+        {
+          name: 'Walmart',
+          searchUrl: 'https://www.walmart.com/search?q=',
+          selectors: {
+            productLinks: '[data-testid="product-title"] a',
+            prices: '[data-automation-id="product-price"]',
+            titles: '[data-testid="product-title"]',
+          },
+        },
+      ],
+      [
+        'target',
+        {
+          name: 'Target',
+          searchUrl: 'https://www.target.com/s?searchTerm=',
+          selectors: {
+            productLinks: '[data-test="product-title"] a',
+            prices: '[data-test="product-price"]',
+            titles: '[data-test="product-title"]',
+          },
+        },
+      ],
     ]);
   }
 
   async processTask(taskData: SearchTaskData): Promise<SearchResult[]> {
     const taskId = `search_${Date.now()}`;
-    
-    const result = await this.executeTask(
-      taskId,
-      () => this.orchestrateSearch(taskData),
-      {
-        jobType: 'search',
-        targetData: JSON.stringify(taskData)
-      }
-    );
+
+    const result = await this.executeTask(taskId, () => this.orchestrateSearch(taskData), {
+      jobType: 'search',
+      targetData: JSON.stringify(taskData),
+    });
 
     if (result.success) {
       return result.data as SearchResult[];
@@ -98,10 +103,10 @@ export class SearchOrchestrationAgent extends BaseAgent {
   private async orchestrateSearch(taskData: SearchTaskData): Promise<SearchResult[]> {
     // Generate optimized search queries using AI
     const searchQueries = await this.generateSearchQueries(taskData.productName, taskData.category);
-    
+
     // Execute searches across all specified retailers
     const searchResults: SearchResult[] = [];
-    
+
     for (const retailer of taskData.retailers) {
       const retailerConfig = this.retailers.get(retailer);
       if (!retailerConfig) {
@@ -113,21 +118,20 @@ export class SearchOrchestrationAgent extends BaseAgent {
         try {
           const results = await this.searchRetailer(query, retailer, retailerConfig);
           searchResults.push(...results);
-          
+
           // Store successful query for future optimization
           await this.storeSearchQuery({
             trendingProductId: taskData.trendingProductId,
             queryText: query,
             retailer,
             queryType: 'product_search',
-            avgResults: results.length
+            avgResults: results.length,
           });
-
         } catch (error) {
           logger.error(`Search failed for ${retailer} with query "${query}"`, {
             error: error instanceof Error ? error.message : String(error),
             retailer,
-            query
+            query,
           });
         }
       }
@@ -224,22 +228,22 @@ OUTPUT CONSTRAINTS:
 - One query per line, no formatting
 - Each query: 2-8 words
 - Use natural search syntax (how humans actually search)
-- No quotes, no special operators, no Boolean logic`
+- No quotes, no special operators, no Boolean logic`,
           },
           {
             role: 'user',
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         temperature: 0.3,
-        max_tokens: 200
+        max_tokens: 200,
       });
 
       const rawResponse = response.choices[0].message.content || '';
       const queries = rawResponse
         .split('\n')
-        .map(q => q.trim())
-        .filter(q => q.length > 0);
+        .map((q) => q.trim())
+        .filter((q) => q.length > 0);
 
       // Validate queries with Zod schema
       let validatedQueries: AISearchQueries;
@@ -250,7 +254,7 @@ OUTPUT CONSTRAINTS:
           logger.error('Search query validation failed', {
             errors: validationResult.error.issues,
             rawQueries: queries,
-            productName
+            productName,
           });
           throw new Error('Invalid search query format');
         }
@@ -258,14 +262,14 @@ OUTPUT CONSTRAINTS:
         validatedQueries = validationResult.data;
         logger.debug('Search queries validated successfully', {
           queryCount: validatedQueries.length,
-          productName
+          productName,
         });
-
       } catch (validationError) {
         logger.error('Failed to validate search queries', {
-          error: validationError instanceof Error ? validationError.message : String(validationError),
+          error:
+            validationError instanceof Error ? validationError.message : String(validationError),
           rawResponse: rawResponse.substring(0, 200),
-          productName
+          productName,
         });
         // Fallback to product name
         validatedQueries = [productName];
@@ -277,23 +281,22 @@ OUTPUT CONSTRAINTS:
       logger.debug('Query cached in Redis', {
         productName,
         category,
-        queryCount: validatedQueries.length
+        queryCount: validatedQueries.length,
       });
 
       return validatedQueries;
-
     } catch (error) {
       logger.error('AI query generation failed', {
         error: error instanceof Error ? error.message : String(error),
-        productName
+        productName,
       });
       return [productName];
     }
   }
 
   private async searchRetailer(
-    query: string, 
-    retailerName: string, 
+    query: string,
+    retailerName: string,
     _config: RetailerConfig
   ): Promise<SearchResult[]> {
     try {
@@ -303,26 +306,23 @@ OUTPUT CONSTRAINTS:
 
       const retailerDomain = this.getRetailerDomain(retailerName);
       const results = await googleSearchService.searchRetailer(query, retailerDomain, { num: 10 });
-      
+
       // Convert Google search results to our SearchResult format
       const searchResults = results.map((item: GoogleSearchResult) => ({
         query,
         retailer: retailerName,
         urls: [item.link],
-        relevanceScore: this.calculateRelevanceScore(item.title, item.snippet, query)
+        relevanceScore: this.calculateRelevanceScore(item.title, item.snippet, query),
       }));
 
       // Filter to only include product URLs
       const productUrls = googleSearchService.extractProductUrls(results);
-      return searchResults.filter(result => 
-        productUrls.some(url => result.urls.includes(url))
-      );
-
+      return searchResults.filter((result) => productUrls.some((url) => result.urls.includes(url)));
     } catch (error) {
       logger.error(`Google Custom Search failed for ${retailerName}`, {
         error: error instanceof Error ? error.message : String(error),
         retailerName,
-        query
+        query,
       });
       throw error; // Don't fall back to simulated data
     }
@@ -333,21 +333,21 @@ OUTPUT CONSTRAINTS:
     const baseUrls = {
       amazon: 'https://www.amazon.com/dp/',
       walmart: 'https://www.walmart.com/ip/',
-      target: 'https://www.target.com/p/'
+      target: 'https://www.target.com/p/',
     };
 
     const baseUrl = baseUrls[retailerName as keyof typeof baseUrls] || 'https://example.com/';
-    
+
     return [
       {
         query,
         retailer: retailerName,
         urls: [
           `${baseUrl}${Math.random().toString(36).substr(2, 9)}`,
-          `${baseUrl}${Math.random().toString(36).substr(2, 9)}`
+          `${baseUrl}${Math.random().toString(36).substr(2, 9)}`,
         ],
-        relevanceScore: 0.8 + Math.random() * 0.2
-      }
+        relevanceScore: 0.8 + Math.random() * 0.2,
+      },
     ];
   }
 
@@ -355,41 +355,42 @@ OUTPUT CONSTRAINTS:
     const domains = {
       amazon: 'amazon.com',
       walmart: 'walmart.com',
-      target: 'target.com'
+      target: 'target.com',
     };
-    
+
     return domains[retailerName as keyof typeof domains] || 'example.com';
   }
 
   private calculateRelevanceScore(title: string, snippet: string, query: string): number {
     const text = `${title} ${snippet}`.toLowerCase();
     const queryWords = query.toLowerCase().split(' ');
-    
+
     let score = 0;
     const totalWords = queryWords.length;
-    
+
     for (const word of queryWords) {
       if (text.includes(word)) {
         score += 1;
       }
     }
-    
+
     return totalWords > 0 ? score / totalWords : 0;
   }
 
   private rankSearchResults(results: SearchResult[]): SearchResult[] {
     // Remove duplicates and rank by relevance
     const uniqueResults = new Map<string, SearchResult>();
-    
+
     for (const result of results) {
       for (const url of result.urls) {
         const key = `${result.retailer}_${url}`;
-        if (!uniqueResults.has(key) || uniqueResults.get(key)!.relevanceScore < result.relevanceScore) {
+        const existing = uniqueResults.get(key);
+        if (!existing || existing.relevanceScore < result.relevanceScore) {
           uniqueResults.set(key, { ...result, urls: [url] });
         }
       }
     }
-    
+
     return Array.from(uniqueResults.values())
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, 20); // Limit to top 20 results
@@ -403,12 +404,12 @@ OUTPUT CONSTRAINTS:
         queryType: queryData.queryType || 'product_search',
         avgResults: queryData.avgResults || 0,
         trendingProductId: queryData.trendingProductId,
-        lastUsed: new Date()
+        lastUsed: new Date(),
       });
     } catch (error) {
       logger.error('Failed to store search query', {
         error: error instanceof Error ? error.message : String(error),
-        queryData
+        queryData,
       });
     }
   }
@@ -416,18 +417,19 @@ OUTPUT CONSTRAINTS:
   async optimizeQueriesForProduct(productName: string): Promise<string[]> {
     // Analyze historical performance and suggest optimized queries
     try {
-      const historicalQueries = await db.select()
+      const historicalQueries = await db
+        .select()
         .from(searchQueries)
         .where(eq(searchQueries.queryText, productName))
         .orderBy(searchQueries.avgResults);
 
       if (historicalQueries.length > 0) {
-        return historicalQueries.slice(0, 3).map(q => q.queryText);
+        return historicalQueries.slice(0, 3).map((q) => q.queryText);
       }
     } catch (error) {
       logger.error('Failed to get historical queries', {
         error: error instanceof Error ? error.message : String(error),
-        productName
+        productName,
       });
     }
 

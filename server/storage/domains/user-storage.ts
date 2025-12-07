@@ -12,19 +12,21 @@
  * Phase 2: User Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { eq, sql } from "drizzle-orm";
-import { users, notifications, passwordResetTokens, products, retailers, priceAlerts } from "@shared/schema";
-import { BaseStorage } from "../base-storage";
-import type {
-  SafeUser,
-  AdminUser,
-  AdminAnalyticsOverview,
-  UserGrowthData,
-} from "../types";
-import { retryWithBackoff, isTransientDatabaseError } from "../../utils/retry-with-backoff";
-import { USER_CONSTANTS } from "../../utils/constants";
-import { logger } from "../../utils/logger";
-import { storageCache } from "../../services/storage-cache";
+import { eq, sql } from 'drizzle-orm';
+import {
+  users,
+  notifications,
+  passwordResetTokens,
+  products,
+  retailers,
+  priceAlerts,
+} from '@shared/schema';
+import { BaseStorage } from '../base-storage';
+import type { SafeUser, AdminUser, AdminAnalyticsOverview, UserGrowthData } from '../types';
+import { retryWithBackoff, isTransientDatabaseError } from '../../utils/retry-with-backoff';
+import { USER_CONSTANTS } from '../../utils/constants';
+import { logger } from '../../utils/logger';
+import { storageCache } from '../../services/storage-cache';
 
 /**
  * UserStorage - Domain repository for user operations
@@ -67,7 +69,11 @@ export class UserStorage extends BaseStorage {
    * Validate profile field length
    * @private
    */
-  private validateProfileField(value: string | undefined, fieldName: string, maxLength: number): void {
+  private validateProfileField(
+    value: string | undefined,
+    fieldName: string,
+    maxLength: number
+  ): void {
     if (value && value.length > maxLength) {
       throw new Error(`${fieldName} cannot exceed ${maxLength} characters`);
     }
@@ -103,17 +109,19 @@ export class UserStorage extends BaseStorage {
       this.validateUserId(id);
 
       // SECURITY: Never expose passwordHash - explicit field selection
-      const [user] = await this.db.select({
-        id: users.id,
-        username: users.username,
-        email: users.email,
-        role: users.role,
-        trustLevel: users.trustLevel,
-        isActive: users.isActive,
-        isSuspended: users.isSuspended,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      }).from(users)
+      const [user] = await this.db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          role: users.role,
+          trustLevel: users.trustLevel,
+          isActive: users.isActive,
+          isSuspended: users.isSuspended,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
         .where(eq(users.id, id))
         .limit(1);
 
@@ -134,7 +142,11 @@ export class UserStorage extends BaseStorage {
    * @param userData - User registration data including passwordHash
    * @returns SafeUser without passwordHash
    */
-  async registerUser(userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser> { // SECURITY: NEVER expose
+  async registerUser(userData: {
+    username: string;
+    email: string;
+    passwordHash: string; // SECURITY: NEVER expose - write-only parameter
+  }): Promise<SafeUser> {
     try {
       // SECURITY: passwordHash handled internally, NEVER exposed in SELECT queries
       const [user] = await this.db.insert(users).values(userData).returning({
@@ -163,7 +175,11 @@ export class UserStorage extends BaseStorage {
    * @param newPasswordHash - New password hash (write-only)
    * @param token - Reset token to mark as used
    */
-  async resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void> { // SECURITY: NEVER expose
+  async resetPassword(
+    userId: number,
+    newPasswordHash: string, // SECURITY: NEVER expose - write-only parameter
+    token: string
+  ): Promise<void> {
     try {
       // SECURITY: passwordHash handled internally, NEVER exposed in queries
       await this.db.transaction(async (tx) => {
@@ -201,43 +217,50 @@ export class UserStorage extends BaseStorage {
     email: string,
     passwordHash: string // SECURITY: NEVER expose
   ): Promise<{ user: SafeUser; isFirstUser: boolean }> {
-    let user: SafeUser;
+    let user: SafeUser | undefined;
     let isFirstUser = false;
 
     try {
       await retryWithBackoff(
-        async () => this.db.transaction(async (tx) => {
-          // Check if this is the first user (make them admin)
-          const userCount = await tx.select({ count: sql`count(*)` }).from(users);
-          // Safe integer conversion: SQL count() returns string|number, ensure valid integer
-          const count = userCount[0]?.count;
-          const userCountNum = typeof count === 'number' ? count : (count ? Number(count) : 0);
-          isFirstUser = userCountNum === 0;
+        async () =>
+          this.db.transaction(
+            async (tx) => {
+              // Check if this is the first user (make them admin)
+              const userCount = await tx.select({ count: sql`count(*)` }).from(users);
+              // Safe integer conversion: SQL count() returns string|number, ensure valid integer
+              const count = userCount[0]?.count;
+              const userCountNum = typeof count === 'number' ? count : count ? Number(count) : 0;
+              isFirstUser = userCountNum === 0;
 
-          // Create user - must be in same transaction as count check
-          // SECURITY: passwordHash stored securely, NEVER exposed in return value
-          const newUserResult = await tx.insert(users).values({
-            username,
-            email,
-            passwordHash, // SECURITY: NEVER expose - only used internally
-            role: isFirstUser ? 'admin' : 'user',
-          }).returning();
+              // Create user - must be in same transaction as count check
+              // SECURITY: passwordHash stored securely, NEVER exposed in return value
+              const newUserResult = await tx
+                .insert(users)
+                .values({
+                  username,
+                  email,
+                  passwordHash, // SECURITY: NEVER expose - only used internally
+                  role: isFirstUser ? 'admin' : 'user',
+                })
+                .returning();
 
-          // SECURITY: Explicitly extract safe fields, never expose passwordHash
-          user = {
-            id: newUserResult[0].id,
-            username: newUserResult[0].username,
-            email: newUserResult[0].email,
-            role: newUserResult[0].role,
-            trustLevel: newUserResult[0].trustLevel,
-            isActive: newUserResult[0].isActive,
-            isSuspended: newUserResult[0].isSuspended,
-            createdAt: newUserResult[0].createdAt,
-            updatedAt: newUserResult[0].updatedAt,
-          };
-        }, {
-          isolationLevel: 'serializable', // Prevent concurrent first-user race condition
-        }),
+              // SECURITY: Explicitly extract safe fields, never expose passwordHash
+              user = {
+                id: newUserResult[0].id,
+                username: newUserResult[0].username,
+                email: newUserResult[0].email,
+                role: newUserResult[0].role,
+                trustLevel: newUserResult[0].trustLevel,
+                isActive: newUserResult[0].isActive,
+                isSuspended: newUserResult[0].isSuspended,
+                createdAt: newUserResult[0].createdAt,
+                updatedAt: newUserResult[0].updatedAt,
+              };
+            },
+            {
+              isolationLevel: 'serializable', // Prevent concurrent first-user race condition
+            }
+          ),
         {
           maxAttempts: 3,
           initialDelayMs: 100,
@@ -254,7 +277,10 @@ export class UserStorage extends BaseStorage {
         }
       );
 
-      return { user: user!, isFirstUser };
+      if (!user) {
+        throw new Error('User was not created successfully');
+      }
+      return { user, isFirstUser };
     } catch (error) {
       this.handleError(error, 'createUserWithTransaction');
     }
@@ -271,22 +297,34 @@ export class UserStorage extends BaseStorage {
    * @param userId - User ID (validated as positive integer)
    * @param data - Profile fields to update (all optional)
    */
-  async updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
+  async updateUserProfile(
+    userId: number,
+    data: { bio?: string; location?: string; website?: string; avatarUrl?: string }
+  ): Promise<void> {
     try {
       // Validate inputs
       this.validateUserId(userId);
       this.validateProfileField(data.bio, 'Bio', USER_CONSTANTS.PROFILE.MAX_BIO_LENGTH);
-      this.validateProfileField(data.location, 'Location', USER_CONSTANTS.PROFILE.MAX_LOCATION_LENGTH);
+      this.validateProfileField(
+        data.location,
+        'Location',
+        USER_CONSTANTS.PROFILE.MAX_LOCATION_LENGTH
+      );
       this.validateProfileField(data.website, 'Website', USER_CONSTANTS.PROFILE.MAX_WEBSITE_LENGTH);
-      this.validateProfileField(data.avatarUrl, 'Avatar URL', USER_CONSTANTS.PROFILE.MAX_AVATAR_URL_LENGTH);
+      this.validateProfileField(
+        data.avatarUrl,
+        'Avatar URL',
+        USER_CONSTANTS.PROFILE.MAX_AVATAR_URL_LENGTH
+      );
 
-      await this.db.update(users)
+      await this.db
+        .update(users)
         .set({
           bio: data.bio,
           location: data.location,
           website: data.website,
           avatarUrl: data.avatarUrl,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
 
@@ -310,7 +348,8 @@ export class UserStorage extends BaseStorage {
       this.validateUserId(userId);
       this.validateTrustLevel(trustLevel);
 
-      await this.db.update(users)
+      await this.db
+        .update(users)
         .set({ trustLevel, updatedAt: new Date() })
         .where(eq(users.id, userId));
 
@@ -338,7 +377,8 @@ export class UserStorage extends BaseStorage {
 
       // UX: Use transaction to ensure suspension and notification are atomic
       await this.db.transaction(async (tx) => {
-        await tx.update(users)
+        await tx
+          .update(users)
           .set({ isSuspended: true, updatedAt: new Date() })
           .where(eq(users.id, userId));
 
@@ -348,7 +388,7 @@ export class UserStorage extends BaseStorage {
           type: 'moderation',
           title: 'Account suspended',
           content: reason || 'Your account has been suspended',
-          relatedUserId: moderatorId
+          relatedUserId: moderatorId,
         });
       });
 
@@ -372,15 +412,17 @@ export class UserStorage extends BaseStorage {
   async getAllUsers(): Promise<AdminUser[]> {
     try {
       // SECURITY: Never expose passwordHash - explicit field selection
-      return await this.db.select({
-        id: users.id,
-        username: users.username,
-        email: users.email,
-        role: users.role,
-        isActive: users.isActive,
-        reputation: users.reputation,
-        createdAt: users.createdAt
-      }).from(users);
+      return await this.db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          role: users.role,
+          isActive: users.isActive,
+          reputation: users.reputation,
+          createdAt: users.createdAt,
+        })
+        .from(users);
     } catch (error) {
       this.handleError(error, 'getAllUsers');
     }
@@ -398,14 +440,14 @@ export class UserStorage extends BaseStorage {
         this.db.select({ count: sql`count(*)` }).from(users),
         this.db.select({ count: sql`count(*)` }).from(products),
         this.db.select({ count: sql`count(*)` }).from(retailers),
-        this.db.select({ count: sql`count(*)` }).from(priceAlerts)
+        this.db.select({ count: sql`count(*)` }).from(priceAlerts),
       ]);
 
       return {
         totalUsers: Number(userCount[0]?.count || 0),
         totalProducts: Number(productCount[0]?.count || 0),
         totalRetailers: Number(retailerCount[0]?.count || 0),
-        totalAlerts: Number(alertCount[0]?.count || 0)
+        totalAlerts: Number(alertCount[0]?.count || 0),
       };
     } catch (error) {
       this.handleError(error, 'getAdminAnalyticsOverview');
@@ -420,15 +462,16 @@ export class UserStorage extends BaseStorage {
    */
   async getUserGrowthData(): Promise<UserGrowthData[]> {
     try {
-      const result = await this.db.select({
-        date: sql<string>`DATE(${users.createdAt})`.as('date'),
-        count: sql<number>`count(*)`.as('count')
-      })
-      .from(users)
-      .groupBy(sql`DATE(${users.createdAt})`)
-      .orderBy(sql`DATE(${users.createdAt})`);
+      const result = await this.db
+        .select({
+          date: sql<string>`DATE(${users.createdAt})`.as('date'),
+          count: sql<number>`count(*)`.as('count'),
+        })
+        .from(users)
+        .groupBy(sql`DATE(${users.createdAt})`)
+        .orderBy(sql`DATE(${users.createdAt})`);
 
-      return result.map(row => ({ date: String(row.date), count: Number(row.count) }));
+      return result.map((row) => ({ date: String(row.date), count: Number(row.count) }));
     } catch (error) {
       this.handleError(error, 'getUserGrowthData');
     }

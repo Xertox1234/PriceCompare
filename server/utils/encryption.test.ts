@@ -167,8 +167,9 @@ describe('Encryption Utilities (GDPR Compliance)', () => {
       const result = encryptIfNeeded(plaintext);
 
       expect(result).toBeDefined();
+      if (!result) throw new Error('Expected result to be defined');
       expect(result).not.toBe(plaintext);
-      expect(isEncrypted(result!)).toBe(true);
+      expect(isEncrypted(result)).toBe(true);
     });
 
     it('should not re-encrypt already encrypted data', () => {

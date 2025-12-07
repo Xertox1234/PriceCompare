@@ -26,7 +26,7 @@ export class AffiliateLinkService {
     target: /target\.com\/p\/.*\/-\/A-(\d+)/,
     bestbuy: /bestbuy\.com\/site\/.*\/(\d+)\.p/,
     'b&h photo': /bhphotovideo\.com\/.*\/product\/(\d+)/,
-    'apple store': /apple\.com\/.*\/([A-Z0-9]+)/
+    'apple store': /apple\.com\/.*\/([A-Z0-9]+)/,
   };
 
   private retailerCache: Map<number, Retailer> = new Map();
@@ -46,7 +46,7 @@ export class AffiliateLinkService {
         return {
           success: false,
           originalUrl: productUrl,
-          error: 'Retailer affiliate program not active'
+          error: 'Retailer affiliate program not active',
         };
       }
 
@@ -56,7 +56,7 @@ export class AffiliateLinkService {
         return {
           success: true,
           affiliateUrl,
-          originalUrl: productUrl
+          originalUrl: productUrl,
         };
       }
 
@@ -65,15 +65,14 @@ export class AffiliateLinkService {
       return {
         success: true,
         affiliateUrl: utmUrl,
-        originalUrl: productUrl
+        originalUrl: productUrl,
       };
-
     } catch (error) {
       log.error('Affiliate link generation failed:', { error });
       return {
         success: false,
         originalUrl: productUrl,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -163,11 +162,7 @@ export class AffiliateLinkService {
   /**
    * Add UTM tracking parameters
    */
-  private addUTMTracking(
-    url: string,
-    retailerName: string,
-    config?: AffiliateConfig
-  ): string {
+  private addUTMTracking(url: string, retailerName: string, config?: AffiliateConfig): string {
     const separator = url.includes('?') ? '&' : '?';
     const source = config?.source || 'pricecompare';
     const campaign = config?.campaign || 'product';
@@ -192,7 +187,7 @@ export class AffiliateLinkService {
    */
   private async getRetailerConfig(retailerId: number): Promise<Retailer | null> {
     if (this.retailerCache.has(retailerId)) {
-      return this.retailerCache.get(retailerId)!;
+      return this.retailerCache.get(retailerId) || null;
     }
 
     try {
@@ -218,7 +213,8 @@ export class AffiliateLinkService {
 
     try {
       const parsed: unknown = JSON.parse(configString);
-      return (parsed && typeof parsed === 'object') ? parsed as AffiliateConfig : {};
+      // Type assertion: JSON.parse returns unknown, validated by typeof check for object
+      return parsed && typeof parsed === 'object' ? (parsed as AffiliateConfig) : {};
     } catch (error) {
       log.error('Failed to parse affiliate config:', { error });
       return {};
@@ -236,7 +232,7 @@ export class AffiliateLinkService {
       const response = await fetch(affiliateUrl, {
         method: 'HEAD',
         redirect: 'follow',
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
@@ -259,7 +255,7 @@ export class AffiliateLinkService {
       await storage.updateProductOfferAffiliateLink(offerId, {
         affiliateUrl,
         linkHealthStatus: isHealthy ? 'healthy' : 'broken',
-        lastLinkCheck: new Date()
+        lastLinkCheck: new Date(),
       });
     } catch (error) {
       log.error('Failed to update offer with affiliate link:', { error });
@@ -308,7 +304,7 @@ export class AffiliateLinkService {
       return {
         total: offers.length,
         healthy,
-        broken
+        broken,
       };
     } catch (error) {
       log.error('Health check failed:', { error });

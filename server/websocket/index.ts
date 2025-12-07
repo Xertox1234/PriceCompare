@@ -17,11 +17,7 @@ import type { RequestHandler, Request, Response } from 'express';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { getRedisClient } from '../config/redis';
 import { createLogger } from '../utils/logger';
-import type {
-  AuthenticatedSocket,
-  ServerToClientEvents,
-  ClientToServerEvents,
-} from './types';
+import type { AuthenticatedSocket, ServerToClientEvents, ClientToServerEvents } from './types';
 
 /**
  * Extended request type for Socket.io integration with Express sessions
@@ -119,6 +115,11 @@ export function initializeWebSocket(
  * Uses ioredis client with pub/sub for cross-server message routing
  */
 function setupRedisAdapter(): void {
+  if (!io) {
+    log.error('Cannot setup Redis adapter - Socket.io not initialized');
+    return;
+  }
+
   const redisClient = getRedisClient();
 
   if (!redisClient) {
@@ -133,7 +134,7 @@ function setupRedisAdapter(): void {
     const subClient = pubClient.duplicate();
 
     // Socket.io Redis adapter
-    io!.adapter(createAdapter(pubClient, subClient));
+    io.adapter(createAdapter(pubClient, subClient));
 
     log.info('✅ Redis adapter configured for multi-server WebSocket support');
   } catch (error) {
@@ -151,10 +152,7 @@ function setupRedisAdapter(): void {
  *
  * Rejects connections without valid Express session
  */
-function authenticationMiddleware(
-  socket: Socket,
-  next: (err?: Error) => void
-): void {
+function authenticationMiddleware(socket: Socket, next: (err?: Error) => void): void {
   const handshake = socket.handshake;
   const ip = handshake.address;
   const userAgent = handshake.headers['user-agent'] || 'unknown';
@@ -169,25 +167,28 @@ function authenticationMiddleware(
   const req = socket.request as SocketRequestWithSession;
   const res: MinimalResponse = {
     getHeader: () => undefined,
-    setHeader: function() { return this; },
-    writeHead: function() { return this; },
-    end: function() { return this; },
+    setHeader: function () {
+      return this;
+    },
+    writeHead: function () {
+      return this;
+    },
+    end: function () {
+      return this;
+    },
   };
 
   // Run Express session middleware
-  // Type assertion: MinimalResponse implements the minimal Response interface needed by session middleware.
-  // Socket.IO doesn't use the response, but express-session requires it for middleware signature compatibility.
-  // We use 'unknown' as an intermediate step to safely cast between incompatible types.
-  sessionMiddleware(
-    req,
-    res as unknown as Response,
-    (err?: unknown) => {
-      if (err) {
-        log.error('Session middleware error', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return next(new Error('Authentication failed'));
-      }
+  // Type assertion: MinimalResponse implements minimal Response interface needed by express-session.
+  // Socket.IO doesn't use the response object, but middleware signature requires it for compatibility.
+  // Cast via 'unknown' is safe here as express-session only calls methods we've implemented above.
+  sessionMiddleware(req, res as unknown as Response, (err?: unknown) => {
+    if (err) {
+      log.error('Session middleware error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return next(new Error('Authentication failed'));
+    }
 
     // Extract session from request (now populated by session middleware)
     const session = req.session;
@@ -230,10 +231,7 @@ function authenticationMiddleware(
  *
  * Limits connections per IP to prevent abuse
  */
-async function rateLimitMiddleware(
-  socket: Socket,
-  next: (err?: Error) => void
-): Promise<void> {
+async function rateLimitMiddleware(socket: Socket, next: (err?: Error) => void): Promise<void> {
   const ip = socket.handshake.address;
   const redisClient = getRedisClient();
 
@@ -359,11 +357,11 @@ async function setupEventHandlers(socket: AuthenticatedSocket): Promise<void> {
   const [
     { registerWatchListHandlers, setupWatchListEventSubscriptions },
     { registerNotificationHandlers, setupNotificationEventSubscriptions },
-    { registerPriceUpdateHandlers }
+    { registerPriceUpdateHandlers },
   ] = await Promise.all([
     import('./handlers/watch-list-handler'),
     import('./handlers/notification-handler'),
-    import('./handlers/price-update-handler')
+    import('./handlers/price-update-handler'),
   ]);
 
   // Register all event handlers
@@ -435,7 +433,10 @@ export function emitToUser<K extends keyof ServerToClientEvents>(
   // that don't align with our simpler ServerToClientEvents type. Using 'as unknown' chain
   // to safely cast to the expected function signature while preserving type safety for callers.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO emit type incompatibility with room broadcast
-  (io.to(room).emit as unknown as (event: K, data: Parameters<ServerToClientEvents[K]>[0]) => void)(event, data);
+  (io.to(room).emit as unknown as (event: K, data: Parameters<ServerToClientEvents[K]>[0]) => void)(
+    event,
+    data
+  );
 
   log.debug('Event emitted to user', {
     userId,
@@ -481,9 +482,7 @@ export {
   emitProductRemoved,
 } from './handlers/watch-list-handler';
 
-export {
-  emitUnreadCountUpdate,
-} from './handlers/notification-handler';
+export { emitUnreadCountUpdate } from './handlers/notification-handler';
 
 export {
   emitPriceUpdate,

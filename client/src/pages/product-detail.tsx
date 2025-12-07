@@ -17,7 +17,7 @@ import {
   TrendingDown,
   Bell,
   Store,
-  Package
+  Package,
 } from 'lucide-react';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
@@ -26,10 +26,7 @@ import { CartSidebar } from '@/components/template/cart-sidebar';
 import { ShopProvider } from '@/context/shop-context';
 import { useShop } from '@/hooks/use-shop';
 import { cn } from '@/lib/utils';
-import {
-  bestSellerProducts,
-  dealOfTheDayProducts,
-} from '@/data/template-data';
+import { bestSellerProducts, dealOfTheDayProducts } from '@/data/template-data';
 
 // Mock product data with more details
 const mockProductDetails = {
@@ -65,10 +62,30 @@ const mockProductDetails = {
       'Advanced health features including ECG and Blood Oxygen',
     ],
     retailers: [
-      { name: 'Amazon', price: 329, logo: 'https://logo.clearbit.com/amazon.com', shipping: 'Free shipping' },
-      { name: 'Best Buy', price: 349, logo: 'https://logo.clearbit.com/bestbuy.com', shipping: '$5.99 shipping' },
-      { name: 'Walmart', price: 339, logo: 'https://logo.clearbit.com/walmart.com', shipping: 'Free shipping' },
-      { name: 'Apple', price: 399, logo: 'https://logo.clearbit.com/apple.com', shipping: 'Free shipping' },
+      {
+        name: 'Amazon',
+        price: 329,
+        logo: 'https://logo.clearbit.com/amazon.com',
+        shipping: 'Free shipping',
+      },
+      {
+        name: 'Best Buy',
+        price: 349,
+        logo: 'https://logo.clearbit.com/bestbuy.com',
+        shipping: '$5.99 shipping',
+      },
+      {
+        name: 'Walmart',
+        price: 339,
+        logo: 'https://logo.clearbit.com/walmart.com',
+        shipping: 'Free shipping',
+      },
+      {
+        name: 'Apple',
+        price: 399,
+        logo: 'https://logo.clearbit.com/apple.com',
+        shipping: 'Free shipping',
+      },
     ],
     priceHistory: [
       { date: '2024-01', price: 429 },
@@ -87,7 +104,9 @@ const getProductById = (id: string) => {
     return mockProductDetails[numId as keyof typeof mockProductDetails];
   }
   // Return mock data based on template products
-  const templateProduct = [...dealOfTheDayProducts, ...bestSellerProducts].find(p => p.id === numId);
+  const templateProduct = [...dealOfTheDayProducts, ...bestSellerProducts].find(
+    (p) => p.id === numId
+  );
   if (templateProduct) {
     return {
       ...mockProductDetails[1],
@@ -114,9 +133,12 @@ function ProductDetailContent() {
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState(0);
   const [selectedSize, setSelectedSize] = useState(1);
-  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews' | 'prices'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews' | 'prices'>(
+    'description'
+  );
 
-  const { toggleWishlist, isInWishlist, addSimpleToCart, isInCart, toggleCompare, openCart } = useShop();
+  const { toggleWishlist, isInWishlist, addSimpleToCart, isInCart, toggleCompare, openCart } =
+    useShop();
 
   const discountPercent = product.oldPrice
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
@@ -134,7 +156,7 @@ function ProductDetailContent() {
   };
 
   // Related products
-  const relatedProducts = bestSellerProducts.slice(0, 4).map(p => ({
+  const relatedProducts = bestSellerProducts.slice(0, 4).map((p) => ({
     id: p.id,
     name: p.title,
     category: p.category,
@@ -148,19 +170,23 @@ function ProductDetailContent() {
   }));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       <TemplateHeader onOpenCart={openCart} />
       <CartSidebar />
 
       {/* Breadcrumb */}
-      <div className="border-b border-border">
+      <div className="border-border border-b">
         <div className="container mx-auto px-4 py-3">
           <nav className="flex items-center gap-2 text-sm">
-            <Link href="/" className="text-muted-foreground hover:text-foreground">Home</Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <Link href="/products" className="text-muted-foreground hover:text-foreground">{product.category}</Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="text-foreground truncate max-w-[200px]">{product.title}</span>
+            <Link href="/" className="text-muted-foreground hover:text-foreground">
+              Home
+            </Link>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+            <Link href="/products" className="text-muted-foreground hover:text-foreground">
+              {product.category}
+            </Link>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+            <span className="text-foreground max-w-[200px] truncate">{product.title}</span>
           </nav>
         </div>
       </div>
@@ -168,19 +194,18 @@ function ProductDetailContent() {
       {/* Main Product Section */}
       <section className="py-8">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
             {/* Product Images */}
             <div className="space-y-4">
               {/* Main Image */}
-              <div className="relative aspect-square bg-muted rounded-2xl overflow-hidden">
+              <div className="bg-muted relative aspect-square overflow-hidden rounded-2xl">
                 <img
                   src={product.images[selectedImage]}
                   alt={product.title}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                 />
                 {discountPercent > 0 && (
-                  <div className="absolute top-4 left-4 bg-destructive text-destructive-foreground text-sm font-bold px-3 py-1 rounded-lg">
+                  <div className="bg-destructive text-destructive-foreground absolute top-4 left-4 rounded-lg px-3 py-1 text-sm font-bold">
                     -{discountPercent}%
                   </div>
                 )}
@@ -193,13 +218,13 @@ function ProductDetailContent() {
                     key={idx}
                     onClick={() => setSelectedImage(idx)}
                     className={cn(
-                      "w-20 h-20 rounded-lg overflow-hidden border-2 transition-all",
+                      'h-20 w-20 overflow-hidden rounded-lg border-2 transition-all',
                       selectedImage === idx
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "border-border hover:border-muted-foreground"
+                        ? 'border-primary ring-primary/20 ring-2'
+                        : 'border-border hover:border-muted-foreground'
                     )}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={img} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -209,12 +234,16 @@ function ProductDetailContent() {
             <div className="space-y-6">
               {/* Category & Title */}
               <div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Category: <Link href={`/products?category=${product.category}`} className="text-primary hover:underline">{product.category}</Link>
+                <p className="text-muted-foreground mb-2 text-sm">
+                  Category:{' '}
+                  <Link
+                    href={`/products?category=${product.category}`}
+                    className="text-primary hover:underline"
+                  >
+                    {product.category}
+                  </Link>
                 </p>
-                <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-                  {product.title}
-                </h1>
+                <h1 className="text-foreground text-2xl font-bold lg:text-3xl">{product.title}</h1>
               </div>
 
               {/* Rating & Sold */}
@@ -224,40 +253,47 @@ function ProductDetailContent() {
                     <Star
                       key={i}
                       className={cn(
-                        "h-4 w-4",
-                        i < Math.floor(product.rating) ? "fill-warning text-warning" : "text-muted"
+                        'h-4 w-4',
+                        i < Math.floor(product.rating) ? 'fill-warning text-warning' : 'text-muted'
                       )}
                     />
                   ))}
-                  <span className="text-muted-foreground ml-1">({product.reviewCount.toLocaleString()} reviews)</span>
+                  <span className="text-muted-foreground ml-1">
+                    ({product.reviewCount.toLocaleString()} reviews)
+                  </span>
                 </div>
                 <span className="text-muted-foreground">|</span>
                 <span className="text-muted-foreground">Sold: {product.sold}</span>
-                <Link href={`/products?brand=${product.brand}`} className="text-primary hover:underline">
+                <Link
+                  href={`/products?brand=${product.brand}`}
+                  className="text-primary hover:underline"
+                >
                   View shop
                 </Link>
               </div>
 
               {/* Price */}
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold text-primary">${product.price.toFixed(2)}</span>
+                <span className="text-primary text-3xl font-bold">${product.price.toFixed(2)}</span>
                 {product.oldPrice && (
-                  <span className="text-xl text-muted-foreground line-through">${product.oldPrice.toFixed(2)}</span>
+                  <span className="text-muted-foreground text-xl line-through">
+                    ${product.oldPrice.toFixed(2)}
+                  </span>
                 )}
-                {discountPercent > 0 && (
-                  <span className="text-sm font-medium text-success flex items-center gap-1">
+                {discountPercent > 0 && product.oldPrice && (
+                  <span className="text-success flex items-center gap-1 text-sm font-medium">
                     <TrendingDown className="h-4 w-4" />
-                    Save ${(product.oldPrice! - product.price).toFixed(2)}
+                    Save ${(product.oldPrice - product.price).toFixed(2)}
                   </span>
                 )}
               </div>
 
               {/* Features */}
-              <div className="grid grid-cols-2 gap-3 p-4 bg-muted/50 rounded-xl">
+              <div className="bg-muted/50 grid grid-cols-2 gap-3 rounded-xl p-4">
                 {product.features.map((feature, idx) => (
                   <div key={idx} className="flex justify-between">
-                    <span className="text-sm font-medium text-foreground">{feature.label}</span>
-                    <span className="text-sm text-muted-foreground">{feature.value}</span>
+                    <span className="text-foreground text-sm font-medium">{feature.label}</span>
+                    <span className="text-muted-foreground text-sm">{feature.value}</span>
                   </div>
                 ))}
               </div>
@@ -265,8 +301,9 @@ function ProductDetailContent() {
               {/* Color Selection */}
               {product.colors && (
                 <div>
-                  <p className="text-sm font-medium text-foreground mb-3">
-                    Color: <span className="text-muted-foreground">{product.colors[selectedColor]}</span>
+                  <p className="text-foreground mb-3 text-sm font-medium">
+                    Color:{' '}
+                    <span className="text-muted-foreground">{product.colors[selectedColor]}</span>
                   </p>
                   <div className="flex gap-2">
                     {product.colors.map((color, idx) => (
@@ -274,10 +311,10 @@ function ProductDetailContent() {
                         key={idx}
                         onClick={() => setSelectedColor(idx)}
                         className={cn(
-                          "px-4 py-2 rounded-lg border text-sm transition-all",
+                          'rounded-lg border px-4 py-2 text-sm transition-all',
                           selectedColor === idx
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border hover:border-muted-foreground text-foreground"
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border hover:border-muted-foreground text-foreground'
                         )}
                       >
                         {color}
@@ -290,8 +327,9 @@ function ProductDetailContent() {
               {/* Size Selection */}
               {product.sizes && (
                 <div>
-                  <p className="text-sm font-medium text-foreground mb-3">
-                    Size: <span className="text-muted-foreground">{product.sizes[selectedSize]}</span>
+                  <p className="text-foreground mb-3 text-sm font-medium">
+                    Size:{' '}
+                    <span className="text-muted-foreground">{product.sizes[selectedSize]}</span>
                   </p>
                   <div className="flex gap-2">
                     {product.sizes.map((size, idx) => (
@@ -299,10 +337,10 @@ function ProductDetailContent() {
                         key={idx}
                         onClick={() => setSelectedSize(idx)}
                         className={cn(
-                          "px-4 py-2 rounded-lg border text-sm transition-all",
+                          'rounded-lg border px-4 py-2 text-sm transition-all',
                           selectedSize === idx
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border hover:border-muted-foreground text-foreground"
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border hover:border-muted-foreground text-foreground'
                         )}
                       >
                         {size}
@@ -313,19 +351,19 @@ function ProductDetailContent() {
               )}
 
               {/* Quantity & Add to Cart */}
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row">
                 {/* Quantity */}
-                <div className="flex items-center border border-border rounded-lg">
+                <div className="border-border flex items-center rounded-lg border">
                   <button
-                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                    className="p-3 hover:bg-muted transition-colors"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="hover:bg-muted p-3 transition-colors"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
                   <span className="w-12 text-center font-medium">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(q => q + 1)}
-                    className="p-3 hover:bg-muted transition-colors"
+                    onClick={() => setQuantity((q) => q + 1)}
+                    className="hover:bg-muted p-3 transition-colors"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -335,10 +373,10 @@ function ProductDetailContent() {
                 <button
                   onClick={handleAddToCart}
                   className={cn(
-                    "flex-1 py-3 px-6 rounded-lg font-semibold transition-all flex items-center justify-center gap-2",
+                    'flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold transition-all',
                     isInCart(product.id)
-                      ? "bg-success text-white"
-                      : "bg-primary hover:bg-primary-hover text-white"
+                      ? 'bg-success text-white'
+                      : 'bg-primary hover:bg-primary-hover text-white'
                   )}
                 >
                   {isInCart(product.id) ? (
@@ -356,7 +394,7 @@ function ProductDetailContent() {
 
                 {/* Buy Now */}
                 <Link href="/checkout">
-                  <button className="py-3 px-6 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 text-white transition-all">
+                  <button className="rounded-lg bg-slate-800 px-6 py-3 font-semibold text-white transition-all hover:bg-slate-700">
                     Buy Now
                   </button>
                 </Link>
@@ -367,49 +405,49 @@ function ProductDetailContent() {
                 <button
                   onClick={() => toggleWishlist(product.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm",
+                    'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-all',
                     isInWishlist(product.id)
-                      ? "border-destructive text-destructive bg-destructive/10"
-                      : "border-border hover:border-muted-foreground text-foreground"
+                      ? 'border-destructive text-destructive bg-destructive/10'
+                      : 'border-border hover:border-muted-foreground text-foreground'
                   )}
                 >
-                  <Heart className={cn("h-4 w-4", isInWishlist(product.id) && "fill-current")} />
+                  <Heart className={cn('h-4 w-4', isInWishlist(product.id) && 'fill-current')} />
                   {isInWishlist(product.id) ? 'In Wishlist' : 'Add to Wishlist'}
                 </button>
                 <button
                   onClick={() => toggleCompare(product.id)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-muted-foreground text-foreground transition-all text-sm"
+                  className="border-border hover:border-muted-foreground text-foreground flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-all"
                 >
                   <BarChart2 className="h-4 w-4" />
                   Compare
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-muted-foreground text-foreground transition-all text-sm">
+                <button className="border-border hover:border-muted-foreground text-foreground flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-all">
                   <Share2 className="h-4 w-4" />
                   Share
                 </button>
               </div>
 
               {/* Shipping Info */}
-              <div className="space-y-3 p-4 bg-muted/50 rounded-xl">
+              <div className="bg-muted/50 space-y-3 rounded-xl p-4">
                 <div className="flex items-center gap-3">
-                  <Truck className="h-5 w-5 text-primary" />
+                  <Truck className="text-primary h-5 w-5" />
                   <div>
-                    <p className="font-medium text-foreground">Free Shipping</p>
-                    <p className="text-sm text-muted-foreground">Delivery in 2-5 business days</p>
+                    <p className="text-foreground font-medium">Free Shipping</p>
+                    <p className="text-muted-foreground text-sm">Delivery in 2-5 business days</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <RefreshCw className="h-5 w-5 text-primary" />
+                  <RefreshCw className="text-primary h-5 w-5" />
                   <div>
-                    <p className="font-medium text-foreground">Easy Returns</p>
-                    <p className="text-sm text-muted-foreground">30 day return policy</p>
+                    <p className="text-foreground font-medium">Easy Returns</p>
+                    <p className="text-muted-foreground text-sm">30 day return policy</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <ShieldCheck className="text-primary h-5 w-5" />
                   <div>
-                    <p className="font-medium text-foreground">Secure Payment</p>
-                    <p className="text-sm text-muted-foreground">100% protected checkout</p>
+                    <p className="text-foreground font-medium">Secure Payment</p>
+                    <p className="text-muted-foreground text-sm">100% protected checkout</p>
                   </div>
                 </div>
               </div>
@@ -419,10 +457,10 @@ function ProductDetailContent() {
       </section>
 
       {/* Price Comparison Section */}
-      <section className="py-8 bg-muted/30">
+      <section className="bg-muted/30 py-8">
         <div className="container mx-auto px-4">
-          <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-            <Store className="h-5 w-5 text-primary" />
+          <h2 className="text-foreground mb-6 flex items-center gap-2 text-xl font-bold">
+            <Store className="text-primary h-5 w-5" />
             Compare Prices Across Retailers
           </h2>
           <div className="grid gap-3">
@@ -430,37 +468,39 @@ function ProductDetailContent() {
               <div
                 key={idx}
                 className={cn(
-                  "flex items-center justify-between p-4 rounded-xl border transition-all",
+                  'flex items-center justify-between rounded-xl border p-4 transition-all',
                   idx === 0
-                    ? "bg-success/10 border-success"
-                    : "bg-card border-border hover:border-primary"
+                    ? 'bg-success/10 border-success'
+                    : 'bg-card border-border hover:border-primary'
                 )}
               >
                 <div className="flex items-center gap-4">
                   <img
                     src={retailer.logo}
                     alt={retailer.name}
-                    className="w-10 h-10 object-contain rounded"
+                    className="h-10 w-10 rounded object-contain"
                   />
                   <div>
-                    <p className="font-medium text-foreground">{retailer.name}</p>
-                    <p className="text-sm text-muted-foreground">{retailer.shipping}</p>
+                    <p className="text-foreground font-medium">{retailer.name}</p>
+                    <p className="text-muted-foreground text-sm">{retailer.shipping}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-xl font-bold text-foreground">${retailer.price.toFixed(2)}</p>
+                    <p className="text-foreground text-xl font-bold">
+                      ${retailer.price.toFixed(2)}
+                    </p>
                     {idx === 0 && (
-                      <span className="text-xs font-medium text-success">Best Price</span>
+                      <span className="text-success text-xs font-medium">Best Price</span>
                     )}
                   </div>
                   <a
                     href="#"
                     className={cn(
-                      "px-4 py-2 rounded-lg font-medium text-sm transition-all",
+                      'rounded-lg px-4 py-2 text-sm font-medium transition-all',
                       idx === 0
-                        ? "bg-success hover:bg-success/90 text-white"
-                        : "bg-primary hover:bg-primary-hover text-white"
+                        ? 'bg-success hover:bg-success/90 text-white'
+                        : 'bg-primary hover:bg-primary-hover text-white'
                     )}
                   >
                     Go to Store
@@ -471,15 +511,17 @@ function ProductDetailContent() {
           </div>
 
           {/* Price Alert */}
-          <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between">
+          <div className="bg-primary/10 border-primary/20 mt-6 flex items-center justify-between rounded-xl border p-4">
             <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-primary" />
+              <Bell className="text-primary h-5 w-5" />
               <div>
-                <p className="font-medium text-foreground">Set a Price Alert</p>
-                <p className="text-sm text-muted-foreground">Get notified when the price drops below your target</p>
+                <p className="text-foreground font-medium">Set a Price Alert</p>
+                <p className="text-muted-foreground text-sm">
+                  Get notified when the price drops below your target
+                </p>
               </div>
             </div>
-            <button className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg font-medium text-sm transition-all">
+            <button className="bg-primary hover:bg-primary-hover rounded-lg px-4 py-2 text-sm font-medium text-white transition-all">
               Set Alert
             </button>
           </div>
@@ -490,7 +532,7 @@ function ProductDetailContent() {
       <section className="py-8">
         <div className="container mx-auto px-4">
           {/* Tab Headers */}
-          <div className="flex gap-1 border-b border-border mb-6">
+          <div className="border-border mb-6 flex gap-1 border-b">
             {[
               { id: 'description', label: 'About This Item' },
               { id: 'specs', label: 'Specifications' },
@@ -501,10 +543,10 @@ function ProductDetailContent() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={cn(
-                  "px-6 py-3 font-medium text-sm transition-all border-b-2 -mb-[2px]",
+                  '-mb-[2px] border-b-2 px-6 py-3 text-sm font-medium transition-all',
                   activeTab === tab.id
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? 'border-primary text-primary'
+                    : 'text-muted-foreground hover:text-foreground border-transparent'
                 )}
               >
                 {tab.label}
@@ -516,11 +558,11 @@ function ProductDetailContent() {
           <div className="min-h-[200px]">
             {activeTab === 'description' && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground">About this item</h3>
+                <h3 className="text-foreground text-lg font-semibold">About this item</h3>
                 <ul className="space-y-2">
                   {product.about.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-muted-foreground">
-                      <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                    <li key={idx} className="text-muted-foreground flex items-start gap-2">
+                      <Check className="text-success mt-0.5 h-5 w-5 flex-shrink-0" />
                       {item}
                     </li>
                   ))}
@@ -529,10 +571,10 @@ function ProductDetailContent() {
             )}
 
             {activeTab === 'specs' && (
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 {product.features.map((feature, idx) => (
-                  <div key={idx} className="flex justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium text-foreground">{feature.label}</span>
+                  <div key={idx} className="bg-muted/50 flex justify-between rounded-lg p-3">
+                    <span className="text-foreground font-medium">{feature.label}</span>
                     <span className="text-muted-foreground">{feature.value}</span>
                   </div>
                 ))}
@@ -540,13 +582,13 @@ function ProductDetailContent() {
             )}
 
             {activeTab === 'reviews' && (
-              <div className="text-center py-12">
+              <div className="py-12 text-center">
                 <p className="text-muted-foreground">Reviews coming soon...</p>
               </div>
             )}
 
             {activeTab === 'prices' && (
-              <div className="text-center py-12">
+              <div className="py-12 text-center">
                 <p className="text-muted-foreground">Price history chart coming soon...</p>
               </div>
             )}
@@ -555,13 +597,13 @@ function ProductDetailContent() {
       </section>
 
       {/* Related Products */}
-      <section className="py-8 bg-muted/30">
+      <section className="bg-muted/30 py-8">
         <div className="container mx-auto px-4">
-          <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
+          <h2 className="text-foreground mb-6 flex items-center gap-2 text-xl font-bold">
+            <Package className="text-primary h-5 w-5" />
             You May Also Like
           </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
             {relatedProducts.map((product) => (
               <ProductCard
                 key={product.id}

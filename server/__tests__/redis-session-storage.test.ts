@@ -33,18 +33,20 @@ describe('Redis Session Storage Integration', () => {
     // Create test Express app
     app = express();
     app.use(express.json());
-    app.use(session({
-      store: sessionStore,
-      secret: 'test-secret-key-for-sessions-testing-only',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: false, // Allow non-HTTPS for testing
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      },
-    }));
+    app.use(
+      session({
+        store: sessionStore,
+        secret: 'test-secret-key-for-sessions-testing-only',
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+          secure: false, // Allow non-HTTPS for testing
+          httpOnly: true,
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        },
+      })
+    );
 
     // Test routes
     app.post('/api/test/login', (req, res) => {
@@ -62,7 +64,7 @@ describe('Redis Session Storage Integration', () => {
         res.json({
           authenticated: true,
           userId: req.session.userId,
-          username: req.session.username
+          username: req.session.username,
         });
       } else {
         res.json({ authenticated: false });
@@ -104,7 +106,7 @@ describe('Redis Session Storage Integration', () => {
     expect(typeof redisSessionClient.ping).toBe('function');
   });
 
-  test('session store should be initialized with Redis', async () => {
+  test('session store should be initialized with Redis', () => {
     if (!redisSessionClient) {
       console.warn('⚠️  Skipping test - Redis not available');
       return;
@@ -184,10 +186,7 @@ describe('Redis Session Storage Integration', () => {
     expect(sessionKeys.length).toBeGreaterThan(0);
 
     // Logout
-    await request(app)
-      .post('/api/test/logout')
-      .set('Cookie', cookies)
-      .expect(200);
+    await request(app).post('/api/test/logout').set('Cookie', cookies).expect(200);
 
     // Verify session was removed from Redis
     sessionKeys = await redisSessionClient.keys('sess:*');
@@ -221,9 +220,7 @@ describe('Redis Session Storage Integration', () => {
       return;
     }
 
-    const response = await request(app)
-      .get('/api/test/session')
-      .expect(200);
+    const response = await request(app).get('/api/test/session').expect(200);
 
     expect(response.body.authenticated).toBe(false);
   });
@@ -234,17 +231,20 @@ describe('Redis Session Storage Integration', () => {
       return;
     }
 
+    // Extract sessionStore (guaranteed by guard above)
+    const store = sessionStore;
+
     // Create a test session directly via the store
     const testSessionId = 'test-session-ttl-123';
     const testSessionData = {
       cookie: { maxAge: 86400000 }, // 24 hours
       userId: 111,
-      username: 'ttluser'
+      username: 'ttluser',
     };
 
     await new Promise((resolve, reject) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Session store type mismatch with express-session types
-      sessionStore!.set(testSessionId, testSessionData as any, (err?: Error) => {
+      store.set(testSessionId, testSessionData as any, (err?: Error) => {
         if (err) reject(err);
         else resolve(true);
       });

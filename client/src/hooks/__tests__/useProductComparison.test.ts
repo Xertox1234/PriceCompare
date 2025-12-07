@@ -169,8 +169,9 @@ describe('useProductComparison', () => {
 
     // Should calculate scale with 10% padding
     expect(result.current.priceScale).not.toBeNull();
-    expect(result.current.priceScale!.min).toBeCloseTo(79.99 * 0.9, 2);
-    expect(result.current.priceScale!.max).toBeCloseTo(99.99 * 1.1, 2);
+    if (!result.current.priceScale) throw new Error('Expected priceScale to be defined');
+    expect(result.current.priceScale.min).toBeCloseTo(79.99 * 0.9, 2);
+    expect(result.current.priceScale.max).toBeCloseTo(99.99 * 1.1, 2);
   });
 
   it('should return null price scale when no prices available', () => {
