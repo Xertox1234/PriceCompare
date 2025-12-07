@@ -153,6 +153,23 @@ DATABASE_NAME=pricecompare_test  # Default: pricecompare_test
 DATABASE_URL=postgresql://user:pass@host:5432/pricecompare_test
 ```
 
+### Security Secrets (Test Defaults)
+
+Test environment uses safe defaults that disable encryption for performance:
+
+- **NODE_ENV='test'**: Triggers no-op encryption in `schema.ts` (no actual encryption)
+- **ENCRYPTION_KEY**: `'a'.repeat(64)` - 64 'a' characters (sufficient for test mode)
+- **SESSION_SECRET**: `'test-session-secret-min-32-chars-long'` - Test-only secret
+- **CSRF_SECRET**: `'test-csrf-secret-min-32-chars'` - Test-only secret
+
+**Why no-op encryption in tests:**
+- Test data is ephemeral and contains no real PII
+- Encryption/decryption adds overhead to test execution
+- `NODE_ENV='test'` check in schema ensures production encryption remains active
+- Test database should never contain production data
+
+**Note**: These defaults are set in `server/test/setup.ts` and don't need to be configured unless you're testing encryption-specific functionality.
+
 ### Troubleshooting
 
 **Error: "role 'postgres' does not exist"**

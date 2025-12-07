@@ -23,7 +23,15 @@ process.env.CSRF_SECRET = process.env.CSRF_SECRET || 'test-csrf-secret-min-32-ch
 const databaseUser = process.env.DATABASE_USER || process.env.USER || 'postgres';
 const databasePassword = process.env.DATABASE_PASSWORD || '';
 const databaseHost = process.env.DATABASE_HOST || 'localhost';
-const databasePort = process.env.DATABASE_PORT || '5432';
+
+// Validate DATABASE_PORT is numeric and within valid range
+let databasePort = process.env.DATABASE_PORT || '5432';
+const portNum = parseInt(databasePort, 10);
+if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+  console.warn(`⚠️  Invalid DATABASE_PORT '${databasePort}', using default 5432`);
+  databasePort = '5432';
+}
+
 const databaseName = process.env.DATABASE_NAME || 'pricecompare_test';
 
 // Construct connection string with or without password
