@@ -1206,6 +1206,259 @@ async function tryMultipleOperations() {
 }
 ```
 
+### await-thenable Errors (ESLint Cleanup - 2025-12-07)
+
+**Rule**: `@typescript-eslint/await-thenable` - Only `await` actual Promises, not synchronous functions.
+
+#### ❌ ANTI-PATTERN - Awaiting Non-Promise Value
+```typescript
+// ❌ WRONG - Function returns void, not Promise<void>
+export function shutdownWebSocket(): void {
+  // Synchronous cleanup
+  io?.close();
+}
+
+// Call site incorrectly uses await
+await shutdownWebSocket(); // Error: awaiting non-Promise
+```
+
+#### ✅ CORRECT - Check Function Return Type
+```typescript
+// Synchronous function
+export function shutdownWebSocket(): void {
+  io?.close();
+}
+
+// Call synchronously (no await)
+shutdownWebSocket(); // ✅ Correct
+
+// vs Async function
+export async function shutdownWebSocketAsync(): Promise<void> {
+  await io?.close();
+}
+
+// Await is correct for Promise
+await shutdownWebSocketAsync(); // ✅ Correct
+```
+
+**When removing `async` from a function**, update ALL call sites:
+```bash
+# Step 1: Remove async from function definition
+- async function doSomething(): Promise<void> {
++ function doSomething(): void {
+
+# Step 2: Find all call sites
+grep -r "await doSomething" server/
+
+# Step 3: Remove await from each call site
+- await doSomething();
++ doSomething();
+```
+
+### require-await Warnings (ESLint Cleanup - 2025-12-07)
+
+**Rule**: `@typescript-eslint/require-await` - Remove `async` from functions without `await` statements.
+
+#### Pattern 1: Test Mock Callbacks
+
+```typescript
+// ❌ WRONG - Unnecessary async in mock callback
+globalThis.fetch = vi.fn(async () => {
+  return new Response('{}', { headers: { 'X-RateLimit-Limit': '100' } });
+}) as typeof fetch;
+
+// ✅ CORRECT - Remove async (mockResolvedValueOnce already returns Promise)
+globalThis.fetch = vi.fn(() => {
+  return new Response('{}', { headers: { 'X-RateLimit-Limit': '100' } });
+}) as typeof fetch;
+```
+
+**Why**: Mock frameworks (Vitest, Jest) automatically wrap return values in Promises when needed.
+
+#### Pattern 2: Route Handlers Without await
+
+```typescript
+// ❌ WRONG - Async handler with no await
+app.get('/api/health', async (req, res) => {
+  sendSuccess(res, { status: 'ok' }); // No await
+});
+
+// ✅ CORRECT - Remove async keyword
+app.get('/api/health', (req, res) => {
+  sendSuccess(res, { status: 'ok' });
+});
+```
+
+**Exception**: Keep `async` if using `try/catch` with `sendErrorFromException()` (expects Error objects).
+
+#### Pattern 3: Interface Compliance (Acceptable Warning)
+
+```typescript
+// Interface defines async (for database implementation)
+interface IStorage {
+  getUserById(id: number): Promise<User | undefined>;
+}
+
+// In-memory implementation doesn't need await, but must match interface
+class MemStorage implements IStorage {
+  async getUserById(id: number): Promise<User | undefined> {
+    // ⚠️ ESLint warning: require-await
+    // But this is INTENTIONAL for interface consistency
+    return this.users.find(u => u.id === id); // No await needed
+  }
+}
+```
+
+**Decision**: Accept require-await warnings in this case. Interface consistency > perfect ESLint.
+
+#### Pattern 4: Call Site Errors After Removing Async
+
+When agents/refactoring removes `async`, call sites may still await:
+
+```typescript
+// Agent removed async
+export function registerRoutes(app: Express): Server {
+  // Synchronous setup
+  return server;
+}
+
+// Call site still has await (ERROR!)
+const server = await registerRoutes(app); // ❌ await-thenable error
+
+// Fix: Remove await
+const server = registerRoutes(app); // ✅ Correct
+```
+
+**Verification**: After removing `async`, always search for call sites:
+```bash
+grep -r "await functionName" server/ client/
+```
+
+### no-non-null-assertion Warnings (ESLint Cleanup - 2025-12-07)
+
+**Rule**: `@typescript-eslint/no-non-null-assertion` - Avoid non-null assertion operator (`!`) by using proper type guards.
+
+**Why Forbidden**: The `!` operator bypasses TypeScript's type safety. If the value is actually null/undefined, it causes runtime errors that TypeScript could have prevented.
+
+#### Pattern 1: Test Files - Type Guards After Assertions
+
+**Problem**: Vitest's `expect().not.toBeNull()` doesn't narrow TypeScript types.
+
+```typescript
+// ❌ WRONG - Non-null assertion after expect
+const result = calculateVolatility(mockStablePrices);
+expect(result).not.toBeNull();
+expect(result!.level).toBe('low'); // ESLint warning
+expect(result!.score).toBeGreaterThanOrEqual(0);
+
+// ✅ CORRECT - Add explicit type guard
+const result = calculateVolatility(mockStablePrices);
+expect(result).not.toBeNull();
+if (!result) throw new Error('Expected result to be defined');
+// Now TypeScript knows result is not null
+expect(result.level).toBe('low'); // No warning!
+expect(result.score).toBeGreaterThanOrEqual(0);
+```
+
+**Impact**: Fixed 45 warnings across volatility-calculator.test.ts and chart-data-transformer.test.ts.
+
+#### Pattern 2: Map.get() After Map.has()
+
+**Problem**: `Map.has()` doesn't narrow the type of `Map.get()`.
+
+```typescript
+// ❌ WRONG - Non-null assertion
+if (this.queryCache.has(cacheKey)) {
+  return this.queryCache.get(cacheKey)!; // Warning!
+}
+
+// ✅ CORRECT - Store result and check
+if (this.queryCache.has(cacheKey)) {
+  const cached = this.queryCache.get(cacheKey);
+  if (cached) return cached;
+}
+```
+
+**Why**: Even after `has()` returns true, `get()` can still return `undefined` in TypeScript's type system (race conditions, type safety).
+
+#### Pattern 3: Early Returns for Optional Parameters
+
+**Problem**: Using `!` on optional parameters is unsafe.
+
+```typescript
+// ❌ WRONG - Non-null assertion on optional parameter
+private async performExactSearch(filters: SearchFilters): Promise<SearchResult[]> {
+  const query = filters.query!.toLowerCase(); // Warning!
+  // ...
+}
+
+// ✅ CORRECT - Early return with type narrowing
+private async performExactSearch(filters: SearchFilters): Promise<SearchResult[]> {
+  if (!filters.query) return [];
+  const query = filters.query.toLowerCase(); // No ! needed
+  // ...
+}
+```
+
+**Benefit**: Handles missing values gracefully instead of runtime errors.
+
+#### Pattern 4: Filter + Map Type Guards
+
+**Problem**: TypeScript doesn't narrow types across array method chains.
+
+```typescript
+// ❌ WRONG - TypeScript doesn't narrow after filter
+offers: result.offers
+  .filter((offer) => offer.retailer !== null)
+  .map((offer) => ({
+    retailerId: offer.retailer!.id, // Warning! (TypeScript still sees offer.retailer as possibly null)
+    website: offer.retailer!.websiteUrl,
+  }))
+
+// ✅ CORRECT - Explicit guard in map
+offers: result.offers
+  .filter((offer) => offer.retailer !== null)
+  .map((offer) => {
+    if (!offer.retailer) throw new Error('Retailer should be non-null after filter');
+    return {
+      retailerId: offer.retailer.id, // No warning!
+      website: offer.retailer.websiteUrl,
+    };
+  })
+
+// ✅ ALTERNATIVE - Type predicate function
+function hasRetailer(offer: Offer): offer is Offer & { retailer: NonNullable<Offer['retailer']> } {
+  return offer.retailer !== null;
+}
+
+offers: result.offers
+  .filter(hasRetailer)
+  .map((offer) => ({
+    retailerId: offer.retailer.id, // offer.retailer is now non-null!
+    website: offer.retailer.websiteUrl,
+  }))
+```
+
+**Root Cause**: TypeScript's control flow analysis doesn't track type narrowing across higher-order functions like `filter()` and `map()`.
+
+#### Pattern 5: UI Components - Optional Chaining
+
+```typescript
+// ❌ WRONG - Non-null assertion in JSX
+<div>{product!.name}</div>
+
+// ✅ CORRECT - Optional chaining with fallback
+<div>{product?.name ?? 'Unknown'}</div>
+
+// ✅ ALSO CORRECT - Early return with type guard
+if (!product) {
+  return <div>Product not found</div>;
+}
+return <div>{product.name}</div>; // No ! needed
+```
+
+**Impact**: Phase 4 eliminated 55 warnings (35% reduction) by applying these patterns to high-impact files.
+
 ---
 
 ## Type Guards & Narrowing
@@ -1603,7 +1856,42 @@ expect(products[0]?.name).toBe('Test');
 // ✅ ALSO GOOD - Explicit existence check first
 expect(result).toBeDefined();
 expect(result!.currentPrice).toBe(100);  // Safe after check
+
+// ✅ BEST - Type guard after null check (ESLint Cleanup - 2025-12-07)
+const result = calculateVolatility(mockStablePrices);
+expect(result).not.toBeNull();
+if (!result) throw new Error('Expected result to be defined');
+// Now TypeScript knows result is not null - no ! needed
+expect(result.level).toBe('low');
+expect(result.score).toBeGreaterThanOrEqual(0);
+expect(result.standardDeviation).toBeGreaterThan(0);
 ```
+
+**TypeScript Limitation**: `expect().not.toBeNull()` doesn't narrow types for TypeScript. The compiler still sees `result` as `Type | null` even after the assertion.
+
+**Pattern from volatility-calculator.test.ts** (34 instances):
+```typescript
+// ❌ CURRENT - Non-null assertions after expect
+const result = calculateVolatility(mockStablePrices);
+expect(result).not.toBeNull();
+expect(result!.level).toBe('low');             // ❌ ESLint warning
+expect(result!.score).toBeGreaterThanOrEqual(0); // ❌ ESLint warning
+expect(result!.standardDeviation).toBeGreaterThan(0); // ❌ ESLint warning
+
+// ✅ FIX - Add type guard after assertion
+const result = calculateVolatility(mockStablePrices);
+expect(result).not.toBeNull();
+if (!result) throw new Error('Expected result to be defined');
+// TypeScript now knows result is not null
+expect(result.level).toBe('low');              // ✅ No ! needed
+expect(result.score).toBeGreaterThanOrEqual(0);  // ✅ No ! needed
+expect(result.standardDeviation).toBeGreaterThan(0); // ✅ No ! needed
+```
+
+**Why the type guard works:**
+- `if (!result)` narrows the type from `T | null` to `T` in TypeScript
+- The `throw` ensures execution doesn't continue if result is null
+- More explicit than `!` - shows intent clearly
 
 ### Pattern 4: Double Non-Null Assertions (CRITICAL)
 
