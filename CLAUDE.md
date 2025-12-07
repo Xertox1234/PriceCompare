@@ -90,6 +90,123 @@ npm run security:fix     # Auto-fix security vulnerabilities
 npm run security:full    # Run all security checks + tests
 ```
 
+## Test Database Setup
+
+**Integration tests require a PostgreSQL database connection.** The test suite is flexible and works with different database configurations.
+
+### Quick Setup (Recommended)
+
+1. **Create test database:**
+   ```bash
+   # Using createdb (recommended)
+   createdb pricecompare_test
+
+   # Or using psql
+   psql -c "CREATE DATABASE pricecompare_test;"
+   ```
+
+2. **Configure environment** (optional - uses smart defaults):
+   ```bash
+   # Copy the template
+   cp .env.test.example .env.test
+
+   # Edit if needed (defaults usually work)
+   # DATABASE_USER defaults to your system username
+   # DATABASE_HOST defaults to localhost
+   # DATABASE_NAME defaults to pricecompare_test
+   ```
+
+3. **Run tests:**
+   ```bash
+   npm test server/services/__tests__/price-aggregation-service.integration.test.ts
+   ```
+
+### Configuration Details
+
+The test setup (`server/test/setup.ts`) uses smart defaults that work for most developers:
+
+**Database Connection Priority:**
+1. `DATABASE_URL` environment variable (if explicitly set)
+2. Constructed from individual `DATABASE_*` variables
+3. Falls back to system username + localhost defaults
+
+**Default Values:**
+- **User**: Your system username (`process.env.USER`)
+- **Password**: Empty (works for trust/peer authentication)
+- **Host**: `localhost`
+- **Port**: `5432`
+- **Database**: `pricecompare_test`
+
+### Environment Variables
+
+Configure in `.env.test` if defaults don't work:
+
+```bash
+# Individual connection parameters (recommended)
+DATABASE_USER=your_username       # Default: system username
+DATABASE_PASSWORD=your_password   # Default: empty
+DATABASE_HOST=localhost           # Default: localhost
+DATABASE_PORT=5432               # Default: 5432
+DATABASE_NAME=pricecompare_test  # Default: pricecompare_test
+
+# Or provide full connection string (overrides all individual params)
+DATABASE_URL=postgresql://user:pass@host:5432/pricecompare_test
+```
+
+### Troubleshooting
+
+**Error: "role 'postgres' does not exist"**
+- **Cause**: Hardcoded `postgres` username doesn't match your PostgreSQL user
+- **Fix**: Create `.env.test` and set `DATABASE_USER=your_username`
+- **Check your username**: Run `whoami` (macOS/Linux) or `echo %USERNAME%` (Windows)
+
+**Error: "database 'pricecompare_test' does not exist"**
+- **Fix**: Create the test database (see Quick Setup step 1)
+
+**Error: "password authentication failed"**
+- **Fix 1**: Set `DATABASE_PASSWORD=your_password` in `.env.test`
+- **Fix 2**: Configure PostgreSQL to trust local connections:
+  ```bash
+  # Edit pg_hba.conf to use 'trust' for local connections
+  # Location: /usr/local/var/postgres/pg_hba.conf (macOS Homebrew)
+  #           /etc/postgresql/*/main/pg_hba.conf (Linux)
+  ```
+
+**Error: "Connection refused"**
+- **Fix**: Start PostgreSQL:
+  ```bash
+  # macOS (Homebrew)
+  brew services start postgresql
+
+  # Linux
+  sudo systemctl start postgresql
+
+  # Docker
+  docker-compose up -d postgres
+  ```
+
+### Platform-Specific Notes
+
+**macOS (Homebrew PostgreSQL)**:
+- Default user: Your system username
+- No password required by default (peer authentication)
+- Database location: `/usr/local/var/postgres`
+
+**Linux**:
+- Default user: `postgres` or your system username
+- May require password depending on `pg_hba.conf`
+- Database location: `/var/lib/postgresql/*/main`
+
+**Windows**:
+- Default user: `postgres`
+- Password set during installation
+- Use `pgAdmin` or `psql` to manage
+
+**Docker**:
+- Default user: `postgres`
+- Password: Usually set in `docker-compose.yml`
+- Connection: `localhost:5432` (if ports are mapped)
+
 ## Pre-Commit Hook System
 
 **MANDATORY**: All commits go through automated code review checks.
