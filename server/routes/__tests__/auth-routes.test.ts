@@ -2,21 +2,26 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock Redis client to avoid requiring Redis in test environment
 // MUST be before any imports that use Redis (storage-cache, advanced-cache)
-vi.mock('../../config/redis', () => ({
-  redisClient: {
-    get: vi.fn(),
-    setex: vi.fn(),
-    del: vi.fn(),
-    keys: vi.fn(),
-    scan: vi.fn(),
-    publish: vi.fn(),
+vi.mock('../../config/redis', () => {
+  const mockRedisClient = {
+    get: vi.fn().mockResolvedValue(null),
+    setex: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+    keys: vi.fn().mockResolvedValue([]),  // Return empty array for keys()
+    scan: vi.fn().mockResolvedValue(['0', []]),  // Return [cursor, keys]
+    publish: vi.fn().mockResolvedValue(0),
     duplicate: vi.fn(() => ({
       subscribe: vi.fn(),
       on: vi.fn(),
       quit: vi.fn(),
     })),
-  },
-}));
+  };
+
+  return {
+    redisClient: mockRedisClient,
+    getRedisClient: vi.fn(() => mockRedisClient),
+  };
+});
 
 // Mock dependencies before imports
 vi.mock('../../services/email-service', () => ({
