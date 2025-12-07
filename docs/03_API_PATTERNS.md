@@ -1630,6 +1630,111 @@ it('should return products', async () => {
 
 ---
 
+### Timezone-Safe Date Testing (CRITICAL)
+
+**Problem**: JavaScript `new Date('2025-01-15')` creates midnight UTC, which becomes the previous day in western timezones (PST, EST) when formatted with `toLocaleDateString()`.
+
+#### ❌ WRONG - Timezone-Sensitive Test Dates
+
+```typescript
+it('should format date correctly', () => {
+  // ❌ WRONG - Midnight UTC shifts to Jan 14 in PST
+  const date = new Date('2025-01-15');
+  const formatted = formatDate(date);
+  expect(formatted).toMatch(/Jan.*15.*2025/); // FAILS in PST!
+});
+
+it('should return created timestamp', async () => {
+  // ❌ WRONG - Local timezone constructor
+  const testDate = new Date(2025, 0, 15); // Midnight local time
+  const response = await request(app).post('/api/products').send({
+    createdAt: testDate.toISOString()
+  });
+  // Inconsistent behavior across environments
+});
+```
+
+#### ✅ CORRECT - Timezone-Safe Patterns
+
+**Chrome Extension Tests** - Use utility functions:
+
+```typescript
+import { createTestDate, createTestDateISO, TEST_DATES } from '../helpers/test-dates.js';
+
+it('should format date correctly', () => {
+  // ✅ CORRECT - Noon UTC, works in all timezones
+  const date = createTestDate(2025, 1, 15); // 1-based months (1 = January)
+  const formatted = formatDate(date);
+  expect(formatted).toMatch(/Jan.*15.*2025/); // Passes everywhere ✅
+});
+
+it('should handle year boundaries', () => {
+  // ✅ CORRECT - Pre-defined boundary dates
+  const jan1 = TEST_DATES.YEAR_START;
+  const dec31 = TEST_DATES.YEAR_END;
+  expect(formatDate(jan1)).toMatch(/Jan.*1.*2025/);
+  expect(formatDate(dec31)).toMatch(/Dec.*31.*2024/);
+});
+
+it('should handle leap year dates', () => {
+  // ✅ CORRECT - Leap day testing
+  const leapDay = TEST_DATES.LEAP_YEAR_FEB_29;
+  expect(formatDate(leapDay)).toMatch(/Feb.*29.*2024/);
+});
+```
+
+**Server Tests** - Direct Date.UTC() with noon time:
+
+```typescript
+it('should return created timestamp', async () => {
+  // ✅ CORRECT - Explicit UTC with noon time
+  const testDate = new Date(Date.UTC(2025, 0, 15, 12, 0, 0)); // 0 = January
+  const response = await request(app).post('/api/products').send({
+    createdAt: testDate.toISOString()
+  });
+
+  const product = expectSuccessResponse<Product>(response, 201);
+  expect(product.createdAt).toBeDefined();
+});
+
+it('should filter by date range', async () => {
+  // ✅ CORRECT - ISO strings with time component
+  const response = await request(app)
+    .get('/api/products')
+    .query({
+      startDate: '2025-01-01T12:00:00Z', // Noon UTC
+      endDate: '2025-01-31T12:00:00Z'
+    });
+
+  const products = expectSuccessResponse<Product[]>(response, 200);
+  expect(products).toHaveLength(10);
+});
+```
+
+**Why Noon UTC?**
+
+Noon (12:00:00) UTC provides a 12-hour buffer that prevents date shifts across all world timezones:
+- **PST (UTC-8)**: 4 AM local, still same date ✅
+- **UTC+14**: 2 AM next day local, still same date ✅
+
+**Quick Reference:**
+
+| Pattern | Timezone-Safe? | Use Case |
+|---------|----------------|----------|
+| `createTestDate(2025, 1, 15)` | ✅ Yes | **Preferred** - Chrome extension tests |
+| `Date.UTC(2025, 0, 15, 12, 0, 0)` | ✅ Yes | **Good** - Server tests |
+| `'2025-01-15T12:00:00Z'` | ✅ Yes | **Good** - API query params |
+| `new Date('2025-01-15')` | ❌ No | **Never** - Shifts date in PST |
+| `new Date(2025, 0, 15)` | ❌ No | **Never** - Local timezone |
+
+**CI/CD Context:**
+
+Don't assume CI/CD runs in UTC! GitHub Actions, GitLab CI, and CircleCI may use different timezones depending on runner configuration.
+
+**See Also**: `docs/01_TYPESCRIPT_PATTERNS.md` - Date Testing Patterns section
+
+---
+
 ### Variable Naming Conflicts
 
 #### ❌ CRITICAL MISTAKE - Variable Shadowing

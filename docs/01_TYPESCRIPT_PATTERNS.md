@@ -1944,6 +1944,141 @@ interface User {
 - [ ] **Error handling** with unknown type
 - [ ] **Utility types** - Leverage Pick, Omit, Partial appropriately
 
+### Date Testing Patterns
+- [ ] **Timezone-safe test dates** - Use noon UTC to prevent date shifts
+- [ ] **1-based month utilities** - Use `createTestDate()` for intuitive month handling
+- [ ] **Boundary date testing** - Test Jan 1, Dec 31, Feb 29 edge cases
+- [ ] **Avoid date-only strings** - Never use `new Date('2025-01-15')` in tests
+- [ ] **ISO with time component** - Use `'2025-01-15T12:00:00Z'` for API tests
+
+---
+
+## Date Testing Patterns (CRITICAL for Timezone Safety)
+
+### The Timezone Problem
+
+**Issue**: JavaScript `new Date('2025-01-15')` creates midnight UTC, which becomes the previous day in western timezones (PST, EST) when formatted with `toLocaleDateString()`.
+
+```typescript
+// ❌ WRONG - Timezone-sensitive (fails in PST)
+const date = new Date('2025-01-15'); // Midnight UTC
+date.toLocaleDateString('en-US'); // "Jan 14, 2025" in PST ❌
+
+// ✅ CORRECT - Timezone-safe (works everywhere)
+const date = new Date(Date.UTC(2025, 0, 15, 12, 0, 0)); // Noon UTC
+date.toLocaleDateString('en-US'); // "Jan 15, 2025" in all timezones ✅
+```
+
+### Chrome Extension Test Date Utilities
+
+For Chrome extension tests, use the timezone-safe utility functions:
+
+```typescript
+import { createTestDate, createTestDateISO, TEST_DATES } from '../helpers/test-dates.js';
+
+// ✅ BEST - Intuitive 1-based months
+const date = createTestDate(2025, 1, 15); // Jan 15, 2025 (1 = January)
+
+// ✅ GOOD - ISO string with noon UTC
+const isoDate = createTestDateISO(2025, 1, 15); // "2025-01-15T12:00:00.000Z"
+
+// ✅ CONVENIENT - Pre-defined boundary dates
+const yearStart = TEST_DATES.YEAR_START; // Jan 1, 2025
+const yearEnd = TEST_DATES.YEAR_END; // Dec 31, 2024
+const leapDay = TEST_DATES.LEAP_YEAR_FEB_29; // Feb 29, 2024
+```
+
+### Server-Side Test Date Pattern
+
+For server-side tests (not using Chrome extension utilities):
+
+```typescript
+// ✅ CORRECT - Direct Date.UTC() with noon time
+const date = new Date(Date.UTC(2025, 0, 15, 12, 0, 0)); // 0 = January
+
+// ✅ ALSO CORRECT - ISO string with time component
+const isoDate = '2025-01-15T12:00:00Z'; // Noon UTC
+```
+
+### Why Noon UTC?
+
+**Noon (12:00:00) UTC prevents date shifts across all world timezones:**
+
+- **UTC-12 (Baker Island)**: Noon UTC → Midnight local (still Jan 15) ✅
+- **PST (UTC-8)**: Noon UTC → 4 AM local (still Jan 15) ✅
+- **UTC**: Noon UTC → Noon local (still Jan 15) ✅
+- **AEST (UTC+11)**: Noon UTC → 11 PM local (still Jan 15) ✅
+- **UTC+14 (Kiribati)**: Noon UTC → 2 AM next day local (still Jan 15) ✅
+
+With a 12-hour buffer, the date remains stable across all timezone conversions.
+
+### Boundary Date Testing
+
+Always test critical date boundaries:
+
+```typescript
+describe('date formatting', () => {
+  it('should handle year boundaries', () => {
+    // Jan 1 - Year start
+    const jan1 = createTestDate(2025, 1, 1);
+    expect(formatDate(jan1)).toMatch(/Jan.*1.*2025/);
+
+    // Dec 31 - Year end
+    const dec31 = createTestDate(2024, 12, 31);
+    expect(formatDate(dec31)).toMatch(/Dec.*31.*2024/);
+  });
+
+  it('should handle leap year dates', () => {
+    // Feb 29 exists in leap years
+    const leapDay = createTestDate(2024, 2, 29);
+    expect(formatDate(leapDay)).toMatch(/Feb.*29.*2024/);
+  });
+});
+```
+
+### Date Testing Anti-Patterns
+
+```typescript
+// ❌ NEVER - Date-only string (timezone-sensitive)
+const date = new Date('2025-01-15'); // Midnight UTC → Jan 14 in PST
+
+// ❌ NEVER - Local timezone constructor
+const date = new Date(2025, 0, 15); // Local midnight, inconsistent
+
+// ❌ WRONG - Assuming CI/CD runs in UTC
+// Tests may fail in different CI environments
+
+// ✅ CORRECT - Explicit UTC with noon time
+const date = new Date(Date.UTC(2025, 0, 15, 12, 0, 0));
+
+// ✅ BETTER - Use utility function (Chrome extension)
+const date = createTestDate(2025, 1, 15);
+```
+
+### CI/CD Timezone Context
+
+**CRITICAL**: CI/CD environments may run in different timezones:
+
+- **GitHub Actions**: Depends on runner location (not always UTC)
+- **GitLab CI**: Configurable per project
+- **CircleCI**: Depends on executor configuration
+- **Developer Machine**: Local timezone (varies by developer)
+
+**Always use timezone-safe patterns** to ensure tests pass in all environments.
+
+### Quick Reference
+
+| Pattern | Timezone-Safe? | Use Case |
+|---------|----------------|----------|
+| `createTestDate(2025, 1, 15)` | ✅ Yes | **Preferred** - Chrome extension tests |
+| `Date.UTC(2025, 0, 15, 12, 0, 0)` | ✅ Yes | **Good** - Server tests (noon UTC) |
+| `'2025-01-15T12:00:00Z'` | ✅ Yes | **Good** - ISO with time |
+| `Date.UTC(2025, 0, 15)` | ⚠️ Maybe | **Risky** - Midnight UTC may shift |
+| `new Date('2025-01-15')` | ❌ No | **Never** - Midnight UTC, shifts date |
+| `new Date(2025, 0, 15)` | ❌ No | **Never** - Local midnight |
+
+**See Also**: `docs/LEARNINGS_TODO_176_TIMEZONE_DATE_TESTS.md` - Complete timezone testing guide
+
 ---
 
 ## Related Documentation

@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import "../setup.js";
+import { createTestDate, createTestDateISO, TEST_DATES } from '../helpers/test-dates.js';
 
 /**
  * Unit tests for shared/utils.js
@@ -206,15 +207,38 @@ describe('Utils', () => {
 
   describe('formatDate', () => {
     it('should format date correctly', () => {
-      const date = new Date('2025-01-15');
+      // Use createTestDate() for timezone-safe test dates (1-based months)
+      const date = createTestDate(2025, 1, 15); // Jan 15, 2025
       const formatted = formatDate(date);
       expect(formatted).toMatch(/Jan.*15.*2025/);
     });
 
     it('should handle ISO date strings', () => {
-      const dateStr = '2025-01-15T10:30:00Z';
+      // ISO strings with noon time component are timezone-safe
+      const dateStr = createTestDateISO(2025, 1, 15);
       const formatted = formatDate(dateStr);
       expect(formatted).toMatch(/Jan.*15.*2025/);
+    });
+
+    it('should format year boundary dates (Jan 1)', () => {
+      // Year start should display correctly in all timezones
+      const date = TEST_DATES.YEAR_START;
+      const formatted = formatDate(date);
+      expect(formatted).toMatch(/Jan.*1.*2025/);
+    });
+
+    it('should format year boundary dates (Dec 31)', () => {
+      // Year end should display correctly in all timezones
+      const date = TEST_DATES.YEAR_END;
+      const formatted = formatDate(date);
+      expect(formatted).toMatch(/Dec.*31.*2024/);
+    });
+
+    it('should format leap year dates correctly', () => {
+      // Feb 29 (leap day) should format correctly
+      const leapDay = TEST_DATES.LEAP_YEAR_FEB_29;
+      const formatted = formatDate(leapDay);
+      expect(formatted).toMatch(/Feb.*29.*2024/);
     });
 
     it('should handle invalid dates', () => {
