@@ -35,9 +35,10 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.monthlyPatterns).toBeDefined();
-      expect(result!.seasonalPatterns).toBeDefined();
-      expect(result!.dayOfWeekPatterns).toBeDefined();
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.monthlyPatterns).toBeDefined();
+      expect(result.seasonalPatterns).toBeDefined();
+      expect(result.dayOfWeekPatterns).toBeDefined();
     });
 
     it('should identify best and worst months', () => {
@@ -45,10 +46,14 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.bestMonthToBuy).not.toBeNull();
-      expect(result!.worstMonthToBuy).not.toBeNull();
-      expect(result!.bestMonthToBuy!.averagePrice).toBeLessThan(
-        result!.worstMonthToBuy!.averagePrice
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.bestMonthToBuy).not.toBeNull();
+      expect(result.worstMonthToBuy).not.toBeNull();
+      if (!result.bestMonthToBuy || !result.worstMonthToBuy) {
+        throw new Error('Expected best and worst months to be defined');
+      }
+      expect(result.bestMonthToBuy.averagePrice).toBeLessThan(
+        result.worstMonthToBuy.averagePrice
       );
     });
 
@@ -73,11 +78,12 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.monthlyPatterns.length).toBeGreaterThan(0);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.monthlyPatterns.length).toBeGreaterThan(0);
 
       // January should have lower average than February
-      const janPattern = result!.monthlyPatterns.find(p => p.month === 0);
-      const febPattern = result!.monthlyPatterns.find(p => p.month === 1);
+      const janPattern = result.monthlyPatterns.find((p) => p.month === 0);
+      const febPattern = result.monthlyPatterns.find((p) => p.month === 1);
 
       if (janPattern && febPattern) {
         expect(janPattern.averagePrice).toBeLessThan(febPattern.averagePrice);
@@ -89,11 +95,12 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.seasonalPatterns.length).toBeGreaterThan(0);
-      expect(result!.seasonalPatterns.length).toBeLessThanOrEqual(4);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.seasonalPatterns.length).toBeGreaterThan(0);
+      expect(result.seasonalPatterns.length).toBeLessThanOrEqual(4);
 
       // Each season should have proper structure
-      result!.seasonalPatterns.forEach(pattern => {
+      result.seasonalPatterns.forEach((pattern) => {
         expect(['winter', 'spring', 'summer', 'fall']).toContain(pattern.season);
         expect(pattern.averagePrice).toBeGreaterThan(0);
         expect(pattern.dataPoints).toBeGreaterThan(0);
@@ -105,10 +112,12 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.bestSeasonToBuy).not.toBeNull();
-      expect(['winter', 'spring', 'summer', 'fall']).toContain(
-        result!.bestSeasonToBuy!.season
-      );
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.bestSeasonToBuy).not.toBeNull();
+      if (!result.bestSeasonToBuy) {
+        throw new Error('Expected bestSeasonToBuy to be defined');
+      }
+      expect(['winter', 'spring', 'summer', 'fall']).toContain(result.bestSeasonToBuy.season);
     });
 
     it('should calculate day of week patterns', () => {
@@ -116,11 +125,12 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.dayOfWeekPatterns.length).toBeGreaterThan(0);
-      expect(result!.dayOfWeekPatterns.length).toBeLessThanOrEqual(7);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.dayOfWeekPatterns.length).toBeGreaterThan(0);
+      expect(result.dayOfWeekPatterns.length).toBeLessThanOrEqual(7);
 
       // Each day should have proper structure
-      result!.dayOfWeekPatterns.forEach(pattern => {
+      result.dayOfWeekPatterns.forEach((pattern) => {
         expect(pattern.dayOfWeek).toBeGreaterThanOrEqual(0);
         expect(pattern.dayOfWeek).toBeLessThanOrEqual(6);
         expect(pattern.dayName).toBeDefined();
@@ -144,7 +154,8 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.hasSeasonalPattern).toBe(true);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.hasSeasonalPattern).toBe(true);
     });
 
     it('should not detect pattern for stable prices', () => {
@@ -166,7 +177,8 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(['low', 'medium', 'high']).toContain(result!.confidence);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(['low', 'medium', 'high']).toContain(result.confidence);
     });
 
     it('should provide recommendations when pattern exists', () => {
@@ -174,15 +186,16 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      if (result!.hasSeasonalPattern && result!.recommendation) {
-        expect(result!.recommendation.timeframe).toBeDefined();
-        expect(result!.recommendation.reason).toBeDefined();
-        expect(result!.recommendation.expectedSavings).toBeGreaterThanOrEqual(0);
+      if (!result) throw new Error('Expected result to be defined');
+      if (result.hasSeasonalPattern && result.recommendation) {
+        expect(result.recommendation.timeframe).toBeDefined();
+        expect(result.recommendation.reason).toBeDefined();
+        expect(result.recommendation.expectedSavings).toBeGreaterThanOrEqual(0);
       }
     });
 
     it('should handle string dates', () => {
-      const data = createMonthlyData(6, 100, 10).map(item => ({
+      const data = createMonthlyData(6, 100, 10).map((item) => ({
         price: item.price,
         recordedAt: item.recordedAt.toISOString(),
       }));
@@ -190,7 +203,8 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      expect(result!.monthlyPatterns.length).toBeGreaterThan(0);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.monthlyPatterns.length).toBeGreaterThan(0);
     });
 
     it('should include month names in monthly patterns', () => {
@@ -198,7 +212,8 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      result!.monthlyPatterns.forEach(pattern => {
+      if (!result) throw new Error('Expected result to be defined');
+      result.monthlyPatterns.forEach((pattern) => {
         expect(pattern.monthName).toBeDefined();
         expect(pattern.monthName.length).toBeGreaterThan(0);
       });
@@ -209,11 +224,18 @@ describe('seasonal-pattern-detector', () => {
       const result = detectSeasonalPatterns(data);
 
       expect(result).not.toBeNull();
-      result!.dayOfWeekPatterns.forEach(pattern => {
+      if (!result) throw new Error('Expected result to be defined');
+      result.dayOfWeekPatterns.forEach((pattern) => {
         expect(pattern.dayName).toBeDefined();
-        expect(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']).toContain(
-          pattern.dayName
-        );
+        expect([
+          'Sunday',
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+        ]).toContain(pattern.dayName);
       });
     });
   });
@@ -242,7 +264,8 @@ describe('seasonal-pattern-detector', () => {
       const analysis = detectSeasonalPatterns(data);
 
       expect(analysis).not.toBeNull();
-      const advice = getCurrentSeasonalAdvice(analysis!);
+      if (!analysis) throw new Error('Expected analysis to be defined');
+      const advice = getCurrentSeasonalAdvice(analysis);
       expect(advice).toBeDefined();
       expect(advice.length).toBeGreaterThan(0);
     });
@@ -307,7 +330,8 @@ describe('seasonal-pattern-detector', () => {
 
       const result = detectSeasonalPatterns(data);
       expect(result).not.toBeNull();
-      expect(result!.monthlyPatterns.length).toBeLessThanOrEqual(12);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.monthlyPatterns.length).toBeLessThanOrEqual(12);
     });
 
     it('should handle single month data', () => {
@@ -318,7 +342,8 @@ describe('seasonal-pattern-detector', () => {
 
       const result = detectSeasonalPatterns(data);
       expect(result).not.toBeNull();
-      expect(result!.monthlyPatterns.length).toBe(1);
+      if (!result) throw new Error('Expected result to be defined');
+      expect(result.monthlyPatterns.length).toBe(1);
     });
 
     it('should handle irregular price data', () => {

@@ -1,17 +1,77 @@
-import { retailers, products, productOffers, priceAlerts, users, trendingProducts, priceAggregatesWeekly, priceAggregatesMonthly, priceTrends, notifications, passwordResetTokens, wishlists, wishlistItems, productSpecifications, userReputation, dealSpottings, badges, userBadges, agentSessions, scrapingJobs, type Retailer, type Product, type ProductOffer, type PriceHistory, type WatchList, type ProductWatch, type InsertRetailer, type InsertProduct, type InsertProductOffer, type InsertPriceHistory, type ProductWithOffers, type SearchFilters, type Wishlist, type WishlistItem, type ProductSpecification, type InsertWishlist, type InsertProductSpecification, type WishlistWithItems, type WishlistItemWithProduct, type ProductFull, type SpecificationGroup, type PasswordResetToken, type UserReputation, type DealSpotting, type Badge, type InsertUserReputation, type InsertDealSpotting, type Notification, type NotificationPreferences, type InsertNotification, type InsertNotificationPreferences, type PriceAlert, type InsertPriceAlert } from "@shared/schema";
-import type { WatchListImportData, WatchedProductsOptions, WatchedProductsResult, WatchListStats, NormalizedPricePoint } from './storage/types';
-import { db } from "./db";
-import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count } from "drizzle-orm";
-import { retryWithBackoff, isTransientDatabaseError } from "./utils/retry-with-backoff";
-import { logger } from "./utils/logger";
-import { USER_CONSTANTS, PRODUCT_CONSTANTS } from "./utils/constants";
-import { UserStorage } from "./storage/domains/user-storage";
-import { ProductStorage } from "./storage/domains/product-storage";
-import { PriceStorage } from "./storage/domains/price-storage";
-import { WatchListStorage } from "./storage/domains/watchlist-storage";
-import { RetailerStorage } from "./storage/domains/retailer-storage";
-import { JobLockStorage } from "./storage/domains/job-lock-storage";
-import { NotificationStorage } from "./storage/domains/notification-storage";
+import {
+  retailers,
+  products,
+  productOffers,
+  priceAlerts,
+  users,
+  trendingProducts,
+  priceAggregatesWeekly,
+  priceAggregatesMonthly,
+  priceTrends,
+  notifications,
+  passwordResetTokens,
+  wishlists,
+  wishlistItems,
+  productSpecifications,
+  userReputation,
+  dealSpottings,
+  badges,
+  userBadges,
+  agentSessions,
+  scrapingJobs,
+  type Retailer,
+  type Product,
+  type ProductOffer,
+  type PriceHistory,
+  type WatchList,
+  type ProductWatch,
+  type InsertRetailer,
+  type InsertProduct,
+  type InsertProductOffer,
+  type InsertPriceHistory,
+  type ProductWithOffers,
+  type SearchFilters,
+  type Wishlist,
+  type WishlistItem,
+  type ProductSpecification,
+  type InsertWishlist,
+  type InsertProductSpecification,
+  type WishlistWithItems,
+  type WishlistItemWithProduct,
+  type ProductFull,
+  type SpecificationGroup,
+  type PasswordResetToken,
+  type UserReputation,
+  type DealSpotting,
+  type Badge,
+  type InsertUserReputation,
+  type InsertDealSpotting,
+  type Notification,
+  type NotificationPreferences,
+  type InsertNotification,
+  type InsertNotificationPreferences,
+  type PriceAlert,
+  type InsertPriceAlert,
+} from '@shared/schema';
+import type {
+  WatchListImportData,
+  WatchedProductsOptions,
+  WatchedProductsResult,
+  WatchListStats,
+  NormalizedPricePoint,
+} from './storage/types';
+import { db } from './db';
+import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count } from 'drizzle-orm';
+import { retryWithBackoff, isTransientDatabaseError } from './utils/retry-with-backoff';
+import { logger } from './utils/logger';
+import { USER_CONSTANTS, PRODUCT_CONSTANTS } from './utils/constants';
+import { UserStorage } from './storage/domains/user-storage';
+import { ProductStorage } from './storage/domains/product-storage';
+import { PriceStorage } from './storage/domains/price-storage';
+import { WatchListStorage } from './storage/domains/watchlist-storage';
+import { RetailerStorage } from './storage/domains/retailer-storage';
+import { JobLockStorage } from './storage/domains/job-lock-storage';
+import { NotificationStorage } from './storage/domains/notification-storage';
 
 export interface IStorage {
   // Retailers
@@ -41,18 +101,27 @@ export interface IStorage {
 
   // Affiliate Link Operations
   getProductOfferById(offerId: number): Promise<ProductOffer | null>;
-  updateProductOfferAffiliateLink(offerId: number, data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }): Promise<void>;
+  updateProductOfferAffiliateLink(
+    offerId: number,
+    data: {
+      affiliateUrl: string;
+      linkHealthStatus: 'healthy' | 'broken' | 'unknown';
+      lastLinkCheck: Date;
+    }
+  ): Promise<void>;
   incrementProductOfferClickCount(offerId: number): Promise<void>;
   getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]>;
   getProductOffersByProductId(productId: number): Promise<ProductOffer[]>;
-  getAllOffersWithDetails(): Promise<Array<{
-    offerId: number;
-    productId: number;
-    retailerId: number;
-    currentPrice: string;
-    productName: string;
-    retailerName: string;
-  }>>;
+  getAllOffersWithDetails(): Promise<
+    Array<{
+      offerId: number;
+      productId: number;
+      retailerId: number;
+      currentPrice: string;
+      productName: string;
+      retailerName: string;
+    }>
+  >;
   getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats>;
 
   // Product URL Search (for browser extension)
@@ -64,7 +133,11 @@ export interface IStorage {
 
   // Price History
   getPriceHistory(productId: number, days?: number): Promise<PriceHistoryWithDetails[]>;
-  getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]>;
+  getRetailerPriceHistory(
+    productId: number,
+    retailerId: number,
+    days?: number
+  ): Promise<PriceHistory[]>;
   getPriceTrend(productId: number): Promise<PriceTrendAnalysis>;
   getBestTimeToBuy(productId: number): Promise<BestTimeAnalysis>;
   insertPriceHistoryBatch(records: InsertPriceHistoryWithRecordedAt[]): Promise<void>;
@@ -73,11 +146,26 @@ export interface IStorage {
   getUserWatchLists(userId: number): Promise<WatchListWithCount[]>;
   getWatchListById(watchListId: number, userId: number): Promise<WatchListWithProducts | null>;
   createWatchList(userId: number, data: { name: string; description?: string }): Promise<WatchList>;
-  updateWatchList(watchListId: number, userId: number, updates: { name?: string; description?: string }): Promise<WatchList>;
+  updateWatchList(
+    watchListId: number,
+    userId: number,
+    updates: { name?: string; description?: string }
+  ): Promise<WatchList>;
   deleteWatchList(watchListId: number, userId: number): Promise<WatchList>;
-  addProductToWatchList(watchListId: number, productId: number, userId: number): Promise<ProductWatch>;
-  removeProductFromWatchList(watchListId: number, productId: number, userId: number): Promise<ProductWatch>;
-  getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductsResult>;
+  addProductToWatchList(
+    watchListId: number,
+    productId: number,
+    userId: number
+  ): Promise<ProductWatch>;
+  removeProductFromWatchList(
+    watchListId: number,
+    productId: number,
+    userId: number
+  ): Promise<ProductWatch>;
+  getWatchedProducts(
+    userId: number,
+    options?: WatchedProductsOptions
+  ): Promise<WatchedProductsResult>;
   getWatchListStats(userId: number): Promise<WatchListStats>;
 
   // Users - Basic operations
@@ -85,7 +173,11 @@ export interface IStorage {
   getUserByIdSafe(id: number): Promise<SafeUser | null>;
 
   // User Registration (with transaction) - SECURITY: passwordHash handled internally, NEVER exposed
-  registerUser(userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser>;
+  registerUser(userData: {
+    username: string;
+    email: string;
+    passwordHash: string;
+  }): Promise<SafeUser>;
 
   // Password Reset (with transaction) - SECURITY: passwordHash handled internally, NEVER exposed
   resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void>;
@@ -97,22 +189,41 @@ export interface IStorage {
   getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]>;
 
   // Price Analytics
-  getWeeklyAggregates(productId: number, options?: { year?: number; week?: number; retailerId?: number; limit?: number }): Promise<WeeklyAggregate[]>;
-  getMonthlyAggregates(productId: number, options?: { year?: number; month?: number; retailerId?: number; limit?: number }): Promise<MonthlyAggregate[]>;
+  getWeeklyAggregates(
+    productId: number,
+    options?: { year?: number; week?: number; retailerId?: number; limit?: number }
+  ): Promise<WeeklyAggregate[]>;
+  getMonthlyAggregates(
+    productId: number,
+    options?: { year?: number; month?: number; retailerId?: number; limit?: number }
+  ): Promise<MonthlyAggregate[]>;
   getAnalyticsOverview(): Promise<AnalyticsOverview>;
   getJobLocks(): Promise<JobLock[]>;
 
   // Job Lock Operations
-  acquireJobLock(jobName: string, lockedBy: string, ttlSeconds: number): Promise<{ success: boolean; id?: number }>;
+  acquireJobLock(
+    jobName: string,
+    lockedBy: string,
+    ttlSeconds: number
+  ): Promise<{ success: boolean; id?: number }>;
   getJobLockByName(jobName: string): Promise<JobLock | null>;
-  updateExpiredJobLock(jobName: string, lockedBy: string, newExpiresAt: Date): Promise<{ success: boolean; id?: number }>;
+  updateExpiredJobLock(
+    jobName: string,
+    lockedBy: string,
+    newExpiresAt: Date
+  ): Promise<{ success: boolean; id?: number }>;
   releaseJobLock(jobName: string, lockedBy: string): Promise<boolean>;
   extendJobLock(jobName: string, lockedBy: string, additionalSeconds: number): Promise<boolean>;
   isJobLocked(jobName: string): Promise<boolean>;
   cleanupExpiredJobLocks(): Promise<number>;
 
   // Password Reset Token Operations
-  createPasswordResetToken(userId: number, token: string, expiresAt: Date, metadata?: { ipAddress?: string; userAgent?: string }): Promise<void>;
+  createPasswordResetToken(
+    userId: number,
+    token: string,
+    expiresAt: Date,
+    metadata?: { ipAddress?: string; userAgent?: string }
+  ): Promise<void>;
   validatePasswordResetToken(token: string): Promise<PasswordResetToken | null>;
   markPasswordResetTokenAsUsed(token: string): Promise<void>;
   cleanupExpiredPasswordResetTokens(): Promise<number>;
@@ -121,16 +232,27 @@ export interface IStorage {
   // Notification Operations (Phase 8E + Phase 8A)
   getNotificationCountByType(userId: number, type: string, sinceDate: Date): Promise<number>;
   getUserEmailById(userId: number): Promise<{ email: string; username: string } | null>;
-  getUserNotifications(userId: number, filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }): Promise<Notification[]>;
-  getNotificationStats(userId: number): Promise<{ total: number; unread: number; byType: Record<string, number> }>;
+  getUserNotifications(
+    userId: number,
+    filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }
+  ): Promise<Notification[]>;
+  getNotificationStats(
+    userId: number
+  ): Promise<{ total: number; unread: number; byType: Record<string, number> }>;
   markAsRead(userId: number, notificationIds: number | number[]): Promise<number>;
   markAllAsRead(userId: number): Promise<number>;
   deleteNotification(userId: number, notificationId: number): Promise<boolean>;
   deleteAllNotifications(userId: number): Promise<number>;
-  createNotification(notification: InsertNotification, preferences: NotificationPreferences): Promise<Notification>;
+  createNotification(
+    notification: InsertNotification,
+    preferences: NotificationPreferences
+  ): Promise<Notification>;
   getUserPreferences(userId: number): Promise<NotificationPreferences | null>;
   createDefaultPreferences(userId: number): Promise<NotificationPreferences>;
-  updateUserPreferences(userId: number, updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+  updateUserPreferences(
+    userId: number,
+    updates: Partial<InsertNotificationPreferences>
+  ): Promise<NotificationPreferences>;
   getRecentPriceDrops(userId: number, days?: number): Promise<Notification[]>;
   getRecentPriceAlerts(userId: number, days?: number): Promise<Notification[]>;
 
@@ -150,7 +272,10 @@ export interface IStorage {
   updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null>;
 
   // User Profile Management
-  updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void>;
+  updateUserProfile(
+    userId: number,
+    data: { bio?: string; location?: string; website?: string; avatarUrl?: string }
+  ): Promise<void>;
   updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
   suspendUser(userId: number, reason: string, moderatorId: number): Promise<void>;
 
@@ -172,10 +297,22 @@ export interface IStorage {
   // Wishlists (simple "I want this" lists - separate from price tracking watchlists)
   getUserWishlists(userId: number): Promise<WishlistWithItems[]>;
   getWishlistById(wishlistId: number, userId: number): Promise<WishlistWithItems | null>;
-  createWishlist(userId: number, data: { name: string; description?: string; isPublic?: boolean }): Promise<Wishlist>;
-  updateWishlist(wishlistId: number, userId: number, updates: Partial<InsertWishlist>): Promise<Wishlist | null>;
+  createWishlist(
+    userId: number,
+    data: { name: string; description?: string; isPublic?: boolean }
+  ): Promise<Wishlist>;
+  updateWishlist(
+    wishlistId: number,
+    userId: number,
+    updates: Partial<InsertWishlist>
+  ): Promise<Wishlist | null>;
   deleteWishlist(wishlistId: number, userId: number): Promise<boolean>;
-  addToWishlist(wishlistId: number, userId: number, productId: number, data?: { notes?: string; priority?: number }): Promise<WishlistItem>;
+  addToWishlist(
+    wishlistId: number,
+    userId: number,
+    productId: number,
+    data?: { notes?: string; priority?: number }
+  ): Promise<WishlistItem>;
   removeFromWishlist(wishlistId: number, userId: number, productId: number): Promise<boolean>;
   isInWishlist(userId: number, productId: number): Promise<boolean>;
   getUserWishlistItems(userId: number): Promise<WishlistItemWithProduct[]>;
@@ -184,8 +321,13 @@ export interface IStorage {
   getProductSpecifications(productId: number): Promise<ProductSpecification[]>;
   getProductSpecificationsGrouped(productId: number): Promise<SpecificationGroup[]>;
   createProductSpecification(spec: InsertProductSpecification): Promise<ProductSpecification>;
-  createProductSpecificationsBatch(specs: InsertProductSpecification[]): Promise<ProductSpecification[]>;
-  updateProductSpecification(specId: number, updates: Partial<InsertProductSpecification>): Promise<ProductSpecification | null>;
+  createProductSpecificationsBatch(
+    specs: InsertProductSpecification[]
+  ): Promise<ProductSpecification[]>;
+  updateProductSpecification(
+    specId: number,
+    updates: Partial<InsertProductSpecification>
+  ): Promise<ProductSpecification | null>;
   deleteProductSpecification(specId: number): Promise<boolean>;
   deleteProductSpecifications(productId: number): Promise<number>;
   getProductFull(productId: number): Promise<ProductFull | null>;
@@ -195,7 +337,11 @@ export interface IStorage {
   // ============================================================================
 
   // Price Aggregation Data Access
-  getPriceDataForAggregation(startDate: Date, endDate: Date, productId?: number): Promise<PriceAggregationData[]>;
+  getPriceDataForAggregation(
+    startDate: Date,
+    endDate: Date,
+    productId?: number
+  ): Promise<PriceAggregationData[]>;
   getWeeklyAggregatesData(year: number, week: number): Promise<WeeklyAggregateRecord[]>;
   getDailyAggregatesData(date: string): Promise<DailyAggregateRecord[]>;
   getMonthlyAggregatesData(year: number, month: number): Promise<MonthlyAggregateRecord[]>;
@@ -216,37 +362,52 @@ export interface IStorage {
 
   // Price Snapshot Data Access
   getProductOffersForSnapshot(batchSize: number, offset: number): Promise<ProductOffer[]>;
-  getPriceHistoryForOffers(offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>>;
-  getPriceHistoryForAnalysis(offerIds: number[]): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>>;
+  getPriceHistoryForOffers(
+    offerIds: number[]
+  ): Promise<Array<{ productOfferId: number; price: string }>>;
+  getPriceHistoryForAnalysis(offerIds: number[]): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  >;
 
   // Trend Analysis Data Access
   getPriceDataGroupedForTrend(cutoffDate: Date): Promise<TrendPriceData[]>;
   upsertPriceTrends(values: PriceTrendInsert[]): Promise<void>;
-  getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null>;
+  getPriceTrendWithRetailer(
+    productId: number,
+    retailerId: number
+  ): Promise<PriceTrendWithRetailer | null>;
   getPriceTrendsForProduct(productId: number): Promise<PriceTrendWithRetailer[]>;
 
   // Smart Alerts Data Access (Phase 8D)
   getProductOfferIds(productId: number): Promise<number[]>;
   getPriceHistoryForOfferIds(offerIds: number[], limit?: number): Promise<PriceHistory[]>;
-  getUserActiveAlertsWithProducts(userId: number): Promise<Array<{
-    productId: number;
-    targetPrice: string;
-    productName: string | null;
-  }>>;
-  getLowestPricedOffersForProducts(productIds: number[]): Promise<Array<{
-    productId: number;
-    id: number;
-    price: string;
-  }>>;
+  getUserActiveAlertsWithProducts(userId: number): Promise<
+    Array<{
+      productId: number;
+      targetPrice: string;
+      productName: string | null;
+    }>
+  >;
+  getLowestPricedOffersForProducts(productIds: number[]): Promise<
+    Array<{
+      productId: number;
+      id: number;
+      price: string;
+    }>
+  >;
   getBatchPriceHistoryForOffers(offerIds: number[]): Promise<PriceHistory[]>;
   getUserPriceAlertsForEffectiveness(userId: number): Promise<PriceAlert[]>;
   getUserPriceAlerts(userId: number): Promise<PriceAlert[]>;
   createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert>;
-  updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }): Promise<PriceAlert | null>;
+  updatePriceAlert(
+    alertId: number,
+    userId: number,
+    updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }
+  ): Promise<PriceAlert | null>;
   deletePriceAlert(alertId: number, userId: number): Promise<boolean>;
 
   // Phase 8B: Price History Service Support
@@ -279,11 +440,13 @@ export interface IStorage {
     days?: number,
     retailerId?: number
   ): Promise<NormalizedPricePoint[]>;
-  getActiveProductOffersGrouped(): Promise<Array<{
-    productId: number;
-    retailerId: number;
-    price: string;
-  }>>;
+  getActiveProductOffersGrouped(): Promise<
+    Array<{
+      productId: number;
+      retailerId: number;
+      price: string;
+    }>
+  >;
   getPriceSnapshotsByFilters(
     productId: number,
     retailerId?: number,
@@ -291,11 +454,13 @@ export interface IStorage {
     endDate?: Date
   ): Promise<PriceSnapshotRecord[]>;
   deleteOldPriceHistory(cutoffDate: Date): Promise<number>;
-  getRecentPriceChanges(cutoffDate: Date): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>>;
+  getRecentPriceChanges(cutoffDate: Date): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  >;
 
   // ============================================================================
   // Community Service Operations (Phase 4 Storage Migration)
@@ -311,7 +476,11 @@ export interface IStorage {
 
   // Reputation Operations
   getOrCreateUserReputation(userId: number): Promise<UserReputation>;
-  updateUserReputationAtomic(userId: number, points: number, reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'): Promise<UserReputation>;
+  updateUserReputationAtomic(
+    userId: number,
+    points: number,
+    reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'
+  ): Promise<UserReputation>;
   getCommunityLeaderboard(limit: number): Promise<CommunityLeaderboardEntry[]>;
 
   // Deal Spotting Operations
@@ -329,15 +498,33 @@ export interface IStorage {
   createWatchListRecord(data: CreateWatchListData): Promise<WatchList>;
   getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]>;
   getWatchListByIdWithStats(userId: number, listId: number): Promise<WatchListWithStats | null>;
-  updateWatchListRecord(userId: number, listId: number, updates: WatchListUpdates): Promise<WatchList | null>;
+  updateWatchListRecord(
+    userId: number,
+    listId: number,
+    updates: WatchListUpdates
+  ): Promise<WatchList | null>;
   deleteWatchListRecord(userId: number, listId: number): Promise<boolean>;
-  getWatchListProductsWithDetails(userId: number, listId: number): Promise<WatchListProductWithDetails[]>;
-  updateProductWatchRecord(userId: number, watchId: number, updates: ProductWatchUpdates): Promise<ProductWatch | null>;
-  moveProductWatchesBulk(userId: number, watchIds: number[], targetListId: number | null): Promise<number>;
+  getWatchListProductsWithDetails(
+    userId: number,
+    listId: number
+  ): Promise<WatchListProductWithDetails[]>;
+  updateProductWatchRecord(
+    userId: number,
+    watchId: number,
+    updates: ProductWatchUpdates
+  ): Promise<ProductWatch | null>;
+  moveProductWatchesBulk(
+    userId: number,
+    watchIds: number[],
+    targetListId: number | null
+  ): Promise<number>;
   deleteProductWatchesBulk(userId: number, watchIds: number[]): Promise<number>;
   getUserDefaultWatchListRecord(userId: number): Promise<WatchList | null>;
   exportUserWatchListsData(userId: number): Promise<WatchListExportData>;
-  importWatchListsData(userId: number, data: WatchListImportData): Promise<{ created: number; skipped: number }>;
+  importWatchListsData(
+    userId: number,
+    data: WatchListImportData
+  ): Promise<{ created: number; skipped: number }>;
 
   // Product Watcher Operations
   getWatchersForProduct(productId: number): Promise<number[]>;
@@ -464,7 +651,10 @@ export interface IStorage {
    * @param limit - Maximum number of products to return
    * @returns Array of products with nested offers and retailers (via json_agg)
    */
-  searchProductsExact(searchPattern: string, limit: number): Promise<ProductWithOffersAndRetailers[]>;
+  searchProductsExact(
+    searchPattern: string,
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]>;
 
   /**
    * Perform fuzzy search using similarity function (requires pg_trgm extension)
@@ -473,7 +663,11 @@ export interface IStorage {
    * @param limit - Maximum number of products to return
    * @returns Array of products with nested offers and retailers, ordered by similarity
    */
-  searchProductsFuzzy(searchPattern: string, threshold: number, limit: number): Promise<ProductWithOffersAndRetailers[]>;
+  searchProductsFuzzy(
+    searchPattern: string,
+    threshold: number,
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]>;
 
   /**
    * Search products by synonym terms (batch OR query)
@@ -481,7 +675,10 @@ export interface IStorage {
    * @param limit - Maximum number of products to return
    * @returns Array of products with nested offers and retailers (via json_agg)
    */
-  searchProductsBySynonyms(searchTerms: string[], limit: number): Promise<ProductWithOffersAndRetailers[]>;
+  searchProductsBySynonyms(
+    searchTerms: string[],
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]>;
 
   /**
    * Perform semantic search using pgvector embeddings
@@ -489,7 +686,10 @@ export interface IStorage {
    * @param limit - Maximum number of products to return
    * @returns Array of products with similarity scores and nested offers, ordered by similarity
    */
-  searchProductsSemantic(embedding: number[], limit: number): Promise<ProductWithOffersAndRetailers[]>;
+  searchProductsSemantic(
+    embedding: number[],
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]>;
 
   /**
    * Get autocomplete suggestions for search input
@@ -529,7 +729,7 @@ export class MemStorage implements IStorage {
     this.currentRetailerId = 1;
     this.currentProductId = 1;
     this.currentOfferId = 1;
-    
+
     // Initialize with sample data
     this.initializeSampleData();
   }
@@ -537,99 +737,239 @@ export class MemStorage implements IStorage {
   private initializeSampleData() {
     // Sample retailers
     const sampleRetailers = [
-      { name: "Amazon", logo: "https://logo.clearbit.com/amazon.com", website: "https://amazon.com", isActive: true },
-      { name: "Best Buy", logo: "https://logo.clearbit.com/bestbuy.com", website: "https://bestbuy.com", isActive: true },
-      { name: "Walmart", logo: "https://logo.clearbit.com/walmart.com", website: "https://walmart.com", isActive: true },
-      { name: "Target", logo: "https://logo.clearbit.com/target.com", website: "https://target.com", isActive: true },
-      { name: "B&H Photo", logo: "https://logo.clearbit.com/bhphotovideo.com", website: "https://bhphotovideo.com", isActive: true },
-      { name: "Apple Store", logo: "https://logo.clearbit.com/apple.com", website: "https://apple.com", isActive: true },
+      {
+        name: 'Amazon',
+        logo: 'https://logo.clearbit.com/amazon.com',
+        website: 'https://amazon.com',
+        isActive: true,
+      },
+      {
+        name: 'Best Buy',
+        logo: 'https://logo.clearbit.com/bestbuy.com',
+        website: 'https://bestbuy.com',
+        isActive: true,
+      },
+      {
+        name: 'Walmart',
+        logo: 'https://logo.clearbit.com/walmart.com',
+        website: 'https://walmart.com',
+        isActive: true,
+      },
+      {
+        name: 'Target',
+        logo: 'https://logo.clearbit.com/target.com',
+        website: 'https://target.com',
+        isActive: true,
+      },
+      {
+        name: 'B&H Photo',
+        logo: 'https://logo.clearbit.com/bhphotovideo.com',
+        website: 'https://bhphotovideo.com',
+        isActive: true,
+      },
+      {
+        name: 'Apple Store',
+        logo: 'https://logo.clearbit.com/apple.com',
+        website: 'https://apple.com',
+        isActive: true,
+      },
     ];
 
-    sampleRetailers.forEach(retailer => {
+    sampleRetailers.forEach((retailer) => {
       const id = this.currentRetailerId++;
-      this.retailers.set(id, { 
-        ...retailer, 
+      this.retailers.set(id, {
+        ...retailer,
         id,
         affiliateId: null,
         affiliateProgram: null,
         baseAffiliateUrl: null,
         commissionRate: null,
         affiliateStatus: 'inactive',
-        affiliateConfig: null
+        affiliateConfig: null,
       });
     });
 
     // Sample products
     const sampleProducts = [
       {
-        name: "iPhone 15 Pro 128GB",
-        description: "Latest iPhone with titanium design and advanced camera system",
-        category: "Smartphones",
-        image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        brand: "Apple",
-        model: "iPhone 15 Pro",
+        name: 'iPhone 15 Pro 128GB',
+        description: 'Latest iPhone with titanium design and advanced camera system',
+        category: 'Smartphones',
+        image:
+          'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300',
+        brand: 'Apple',
+        model: 'iPhone 15 Pro',
       },
       {
-        name: "Samsung Galaxy S24 Ultra",
-        description: "Premium Android smartphone with S Pen and advanced AI features",
-        category: "Smartphones",
-        image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        brand: "Samsung",
-        model: "Galaxy S24 Ultra",
+        name: 'Samsung Galaxy S24 Ultra',
+        description: 'Premium Android smartphone with S Pen and advanced AI features',
+        category: 'Smartphones',
+        image:
+          'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300',
+        brand: 'Samsung',
+        model: 'Galaxy S24 Ultra',
       },
       {
-        name: "MacBook Pro 14-inch M3",
-        description: "Professional laptop with M3 chip and Liquid Retina XDR display",
-        category: "Laptops",
-        image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        brand: "Apple",
-        model: "MacBook Pro 14",
+        name: 'MacBook Pro 14-inch M3',
+        description: 'Professional laptop with M3 chip and Liquid Retina XDR display',
+        category: 'Laptops',
+        image:
+          'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300',
+        brand: 'Apple',
+        model: 'MacBook Pro 14',
       },
       {
-        name: "AirPods Pro (3rd Gen)",
-        description: "Active noise cancelling wireless earbuds with spatial audio",
-        category: "Audio",
-        image: "https://images.unsplash.com/photo-1606041008023-472dfb5e530f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-        brand: "Apple",
-        model: "AirPods Pro",
+        name: 'AirPods Pro (3rd Gen)',
+        description: 'Active noise cancelling wireless earbuds with spatial audio',
+        category: 'Audio',
+        image:
+          'https://images.unsplash.com/photo-1606041008023-472dfb5e530f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300',
+        brand: 'Apple',
+        model: 'AirPods Pro',
       },
     ];
 
-    sampleProducts.forEach(product => {
+    sampleProducts.forEach((product) => {
       const id = this.currentProductId++;
-      this.products.set(id, { ...product, id, createdAt: new Date(), embedding: null, embeddingUpdatedAt: null, searchVector: null });
+      this.products.set(id, {
+        ...product,
+        id,
+        createdAt: new Date(),
+        embedding: null,
+        embeddingUpdatedAt: null,
+        searchVector: null,
+      });
     });
 
     // Sample product offers
     const sampleOffers = [
       // iPhone 15 Pro offers
-      { productId: 1, retailerId: 1, price: "999.99", originalPrice: "1199.99", availability: "in_stock", rating: "4.5", reviewCount: 2431, shippingInfo: "Free shipping", dealType: "best_price", productUrl: "https://amazon.com/iphone" },
-      { productId: 1, retailerId: 2, price: "1049.99", originalPrice: "1199.99", availability: "in_stock", rating: "4.3", reviewCount: 1892, shippingInfo: "Store pickup available", dealType: null, productUrl: "https://bestbuy.com/iphone" },
-      { productId: 1, retailerId: 3, price: "1079.99", originalPrice: "1199.99", availability: "limited_stock", rating: "4.1", reviewCount: 967, shippingInfo: "2-day shipping", dealType: null, productUrl: "https://walmart.com/iphone" },
-      
+      {
+        productId: 1,
+        retailerId: 1,
+        price: '999.99',
+        originalPrice: '1199.99',
+        availability: 'in_stock',
+        rating: '4.5',
+        reviewCount: 2431,
+        shippingInfo: 'Free shipping',
+        dealType: 'best_price',
+        productUrl: 'https://amazon.com/iphone',
+      },
+      {
+        productId: 1,
+        retailerId: 2,
+        price: '1049.99',
+        originalPrice: '1199.99',
+        availability: 'in_stock',
+        rating: '4.3',
+        reviewCount: 1892,
+        shippingInfo: 'Store pickup available',
+        dealType: null,
+        productUrl: 'https://bestbuy.com/iphone',
+      },
+      {
+        productId: 1,
+        retailerId: 3,
+        price: '1079.99',
+        originalPrice: '1199.99',
+        availability: 'limited_stock',
+        rating: '4.1',
+        reviewCount: 967,
+        shippingInfo: '2-day shipping',
+        dealType: null,
+        productUrl: 'https://walmart.com/iphone',
+      },
+
       // Samsung Galaxy S24 Ultra offers
-      { productId: 2, retailerId: 1, price: "1199.99", originalPrice: "1299.99", availability: "in_stock", rating: "4.4", reviewCount: 1567, shippingInfo: "Free shipping", dealType: null, productUrl: "https://amazon.com/galaxy" },
-      { productId: 2, retailerId: 2, price: "1249.99", originalPrice: "1299.99", availability: "in_stock", rating: "4.2", reviewCount: 1234, shippingInfo: "Same day pickup", dealType: null, productUrl: "https://bestbuy.com/galaxy" },
-      
+      {
+        productId: 2,
+        retailerId: 1,
+        price: '1199.99',
+        originalPrice: '1299.99',
+        availability: 'in_stock',
+        rating: '4.4',
+        reviewCount: 1567,
+        shippingInfo: 'Free shipping',
+        dealType: null,
+        productUrl: 'https://amazon.com/galaxy',
+      },
+      {
+        productId: 2,
+        retailerId: 2,
+        price: '1249.99',
+        originalPrice: '1299.99',
+        availability: 'in_stock',
+        rating: '4.2',
+        reviewCount: 1234,
+        shippingInfo: 'Same day pickup',
+        dealType: null,
+        productUrl: 'https://bestbuy.com/galaxy',
+      },
+
       // MacBook Pro offers
-      { productId: 3, retailerId: 6, price: "1999.99", originalPrice: "2199.99", availability: "in_stock", rating: "4.8", reviewCount: 892, shippingInfo: "Free shipping", dealType: "limited_time", productUrl: "https://apple.com/macbook" },
-      { productId: 3, retailerId: 1, price: "2049.99", originalPrice: "2199.99", availability: "in_stock", rating: "4.6", reviewCount: 567, shippingInfo: "Free shipping", dealType: null, productUrl: "https://amazon.com/macbook" },
-      
+      {
+        productId: 3,
+        retailerId: 6,
+        price: '1999.99',
+        originalPrice: '2199.99',
+        availability: 'in_stock',
+        rating: '4.8',
+        reviewCount: 892,
+        shippingInfo: 'Free shipping',
+        dealType: 'limited_time',
+        productUrl: 'https://apple.com/macbook',
+      },
+      {
+        productId: 3,
+        retailerId: 1,
+        price: '2049.99',
+        originalPrice: '2199.99',
+        availability: 'in_stock',
+        rating: '4.6',
+        reviewCount: 567,
+        shippingInfo: 'Free shipping',
+        dealType: null,
+        productUrl: 'https://amazon.com/macbook',
+      },
+
       // AirPods Pro offers
-      { productId: 4, retailerId: 6, price: "249.99", originalPrice: "279.99", availability: "in_stock", rating: "4.7", reviewCount: 3421, shippingInfo: "Free shipping", dealType: null, productUrl: "https://apple.com/airpods" },
-      { productId: 4, retailerId: 1, price: "229.99", originalPrice: "279.99", availability: "in_stock", rating: "4.5", reviewCount: 2876, shippingInfo: "Free shipping", dealType: "best_price", productUrl: "https://amazon.com/airpods" },
+      {
+        productId: 4,
+        retailerId: 6,
+        price: '249.99',
+        originalPrice: '279.99',
+        availability: 'in_stock',
+        rating: '4.7',
+        reviewCount: 3421,
+        shippingInfo: 'Free shipping',
+        dealType: null,
+        productUrl: 'https://apple.com/airpods',
+      },
+      {
+        productId: 4,
+        retailerId: 1,
+        price: '229.99',
+        originalPrice: '279.99',
+        availability: 'in_stock',
+        rating: '4.5',
+        reviewCount: 2876,
+        shippingInfo: 'Free shipping',
+        dealType: 'best_price',
+        productUrl: 'https://amazon.com/airpods',
+      },
     ];
 
-    sampleOffers.forEach(offer => {
+    sampleOffers.forEach((offer) => {
       const id = this.currentOfferId++;
-      this.productOffers.set(id, { 
-        ...offer, 
-        id, 
+      this.productOffers.set(id, {
+        ...offer,
+        id,
         lastUpdated: new Date(),
         affiliateUrl: null,
         linkHealthStatus: 'unknown',
         lastLinkCheck: null,
-        clickCount: 0
+        clickCount: 0,
       });
     });
   }
@@ -640,8 +980,8 @@ export class MemStorage implements IStorage {
 
   async createRetailer(retailer: InsertRetailer): Promise<Retailer> {
     const id = this.currentRetailerId++;
-    const newRetailer: Retailer = { 
-      ...retailer, 
+    const newRetailer: Retailer = {
+      ...retailer,
       id,
       logo: retailer.logo ?? null,
       website: retailer.website ?? null,
@@ -651,7 +991,7 @@ export class MemStorage implements IStorage {
       baseAffiliateUrl: retailer.baseAffiliateUrl ?? null,
       commissionRate: retailer.commissionRate ?? null,
       affiliateStatus: retailer.affiliateStatus ?? 'inactive',
-      affiliateConfig: retailer.affiliateConfig ?? null
+      affiliateConfig: retailer.affiliateConfig ?? null,
     };
     this.retailers.set(id, newRetailer);
     return newRetailer;
@@ -675,7 +1015,7 @@ export class MemStorage implements IStorage {
       // Type assertion: Drizzle stores JSON field as unknown, cast to expected vector array format
       embedding: (product.embedding as number[] | null) || null,
       embeddingUpdatedAt: product.embeddingUpdatedAt || null,
-      searchVector: null
+      searchVector: null,
     };
     this.products.set(id, newProduct);
     return newProduct;
@@ -690,25 +1030,27 @@ export class MemStorage implements IStorage {
     // Apply search query filter
     if (filters.query) {
       const query = filters.query.toLowerCase();
-      filteredProducts = filteredProducts.filter(product =>
-        product.name.toLowerCase().includes(query) ||
-        product.description?.toLowerCase().includes(query) ||
-        product.brand?.toLowerCase().includes(query) ||
-        product.category?.toLowerCase().includes(query)
+      filteredProducts = filteredProducts.filter(
+        (product) =>
+          product.name.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query) ||
+          product.brand?.toLowerCase().includes(query) ||
+          product.category?.toLowerCase().includes(query)
       );
     }
 
     // Apply category filter
     if (filters.category) {
-      filteredProducts = filteredProducts.filter(product =>
-        product.category?.toLowerCase() === filters.category?.toLowerCase()
+      filteredProducts = filteredProducts.filter(
+        (product) => product.category?.toLowerCase() === filters.category?.toLowerCase()
       );
     }
 
     // Performance fix: Batch fetch all offers instead of N+1 queries
-    const productIds = filteredProducts.map(p => p.id);
-    const allOffers = Array.from(this.productOffers.values())
-      .filter(offer => productIds.includes(offer.productId));
+    const productIds = filteredProducts.map((p) => p.id);
+    const allOffers = Array.from(this.productOffers.values()).filter((offer) =>
+      productIds.includes(offer.productId)
+    );
 
     // Group offers by product ID
     const offersByProduct = new Map<number, Array<ProductOffer & { retailer: Retailer }>>();
@@ -725,56 +1067,65 @@ export class MemStorage implements IStorage {
       if (productOffers) {
         productOffers.push({ ...offer, retailer });
       } else {
-        logger.warn(`Storage: Missing product offers array for product ID: ${offer.productId}, initializing`);
+        logger.warn(
+          `Storage: Missing product offers array for product ID: ${offer.productId}, initializing`
+        );
         offersByProduct.set(offer.productId, [{ ...offer, retailer }]);
       }
     }
 
     // Build products with offers
-    const productsWithOffers = filteredProducts.map(product => {
+    const productsWithOffers = filteredProducts.map((product) => {
       let offers = offersByProduct.get(product.id) || [];
 
       // Apply price filters
       if (filters.minPrice) {
-        offers = offers.filter(offer => parseFloat(offer.price) >= filters.minPrice!);
+        const minPrice = filters.minPrice;
+        offers = offers.filter((offer) => parseFloat(offer.price) >= minPrice);
       }
       if (filters.maxPrice) {
-        offers = offers.filter(offer => parseFloat(offer.price) <= filters.maxPrice!);
+        const maxPrice = filters.maxPrice;
+        offers = offers.filter((offer) => parseFloat(offer.price) <= maxPrice);
       }
 
       // Apply retailer filter
       if (filters.retailers && filters.retailers.length > 0) {
-        offers = offers.filter(offer => filters.retailers!.includes(offer.retailerId));
+        const retailers = filters.retailers;
+        offers = offers.filter((offer) => retailers.includes(offer.retailerId));
       }
 
       // Apply rating filter
       if (filters.minRating) {
-        offers = offers.filter(offer =>
-          offer.rating && parseFloat(offer.rating) >= filters.minRating!
+        const minRating = filters.minRating;
+        offers = offers.filter(
+          (offer) => offer.rating && parseFloat(offer.rating) >= minRating
         );
       }
 
       // Apply availability filter
       if (filters.availability && filters.availability.length > 0) {
-        offers = offers.filter(offer =>
-          filters.availability!.includes(offer.availability || "in_stock")
+        const availability = filters.availability;
+        offers = offers.filter((offer) =>
+          availability.includes(offer.availability || 'in_stock')
         );
       }
 
       if (offers.length === 0) return null;
 
-      const prices = offers.map(offer => parseFloat(offer.price));
+      const prices = offers.map((offer) => parseFloat(offer.price));
       const bestPrice = Math.min(...prices);
       // Type assertion: filter() removes nulls, TypeScript needs explicit cast to number[]
       const originalPrices = offers
-        .map(offer => offer.originalPrice ? parseFloat(offer.originalPrice) : null)
-        .filter(price => price !== null);
-      const avgOriginalPrice = originalPrices.length > 0 ?
-        originalPrices.reduce((sum, price) => sum + price, 0) / originalPrices.length : null;
+        .map((offer) => (offer.originalPrice ? parseFloat(offer.originalPrice) : null))
+        .filter((price) => price !== null);
+      const avgOriginalPrice =
+        originalPrices.length > 0
+          ? originalPrices.reduce((sum, price) => sum + price, 0) / originalPrices.length
+          : null;
 
       const savings = avgOriginalPrice ? avgOriginalPrice - bestPrice : null;
-      const savingsPercentage = savings && avgOriginalPrice ?
-        Math.round((savings / avgOriginalPrice) * 100) : null;
+      const savingsPercentage =
+        savings && avgOriginalPrice ? Math.round((savings / avgOriginalPrice) * 100) : null;
 
       return {
         ...product,
@@ -787,24 +1138,26 @@ export class MemStorage implements IStorage {
 
     // Filter out products with no matching offers
     // Type assertion: filter() removes nulls, TypeScript needs explicit cast
-    const validProducts = productsWithOffers.filter(product => product !== null) as ProductWithOffers[];
+    const validProducts = productsWithOffers.filter(
+      (product) => product !== null
+    ) as ProductWithOffers[];
 
     // Apply sorting
     if (filters.sortBy) {
       validProducts.sort((a, b) => {
         switch (filters.sortBy) {
-          case "price_low":
+          case 'price_low':
             return (a.bestPrice || 0) - (b.bestPrice || 0);
-          case "price_high":
+          case 'price_high':
             return (b.bestPrice || 0) - (a.bestPrice || 0);
-          case "rating": {
-            const aRating = Math.max(...a.offers.map(offer => parseFloat(offer.rating || "0")));
-            const bRating = Math.max(...b.offers.map(offer => parseFloat(offer.rating || "0")));
+          case 'rating': {
+            const aRating = Math.max(...a.offers.map((offer) => parseFloat(offer.rating || '0')));
+            const bRating = Math.max(...b.offers.map((offer) => parseFloat(offer.rating || '0')));
             return bRating - aRating;
           }
-          case "popularity": {
-            const aReviews = Math.max(...a.offers.map(offer => offer.reviewCount || 0));
-            const bReviews = Math.max(...b.offers.map(offer => offer.reviewCount || 0));
+          case 'popularity': {
+            const aReviews = Math.max(...a.offers.map((offer) => offer.reviewCount || 0));
+            const bReviews = Math.max(...b.offers.map((offer) => offer.reviewCount || 0));
             return bReviews - aReviews;
           }
           default:
@@ -838,7 +1191,7 @@ export class MemStorage implements IStorage {
     if (!product) return null;
 
     const offers = await this.getProductOffers(id);
-    const prices = offers.map(offer => parseFloat(offer.price));
+    const prices = offers.map((offer) => parseFloat(offer.price));
     const bestPrice = prices.length > 0 ? Math.min(...prices) : undefined;
 
     return {
@@ -849,13 +1202,20 @@ export class MemStorage implements IStorage {
   }
 
   async getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]> {
-    const offers = Array.from(this.productOffers.values())
-      .filter(offer => offer.productId === productId);
+    const offers = Array.from(this.productOffers.values()).filter(
+      (offer) => offer.productId === productId
+    );
 
-    return offers.map(offer => ({
-      ...offer,
-      retailer: this.retailers.get(offer.retailerId)!,
-    }));
+    return offers.map((offer) => {
+      const retailer = this.retailers.get(offer.retailerId);
+      if (!retailer) {
+        throw new Error(`Retailer ${offer.retailerId} not found for offer ${offer.id}`);
+      }
+      return {
+        ...offer,
+        retailer,
+      };
+    });
   }
 
   async createProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
@@ -874,7 +1234,7 @@ export class MemStorage implements IStorage {
       affiliateUrl: offer.affiliateUrl ?? null,
       linkHealthStatus: offer.linkHealthStatus ?? 'unknown',
       lastLinkCheck: offer.lastLinkCheck ?? null,
-      clickCount: offer.clickCount ?? 0
+      clickCount: offer.clickCount ?? 0,
     };
     this.productOffers.set(id, newOffer);
     return newOffer;
@@ -887,7 +1247,11 @@ export class MemStorage implements IStorage {
 
   async updateProductOfferAffiliateLink(
     offerId: number,
-    data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }
+    data: {
+      affiliateUrl: string;
+      linkHealthStatus: 'healthy' | 'broken' | 'unknown';
+      lastLinkCheck: Date;
+    }
   ): Promise<void> {
     const offer = this.productOffers.get(offerId);
     if (offer) {
@@ -895,7 +1259,7 @@ export class MemStorage implements IStorage {
         ...offer,
         affiliateUrl: data.affiliateUrl,
         linkHealthStatus: data.linkHealthStatus,
-        lastLinkCheck: data.lastLinkCheck
+        lastLinkCheck: data.lastLinkCheck,
       });
     }
   }
@@ -905,29 +1269,29 @@ export class MemStorage implements IStorage {
     if (offer) {
       this.productOffers.set(offerId, {
         ...offer,
-        clickCount: (offer.clickCount ?? 0) + 1
+        clickCount: (offer.clickCount ?? 0) + 1,
       });
     }
   }
 
   async getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]> {
     return Array.from(this.productOffers.values()).filter(
-      offer => offer.retailerId === retailerId
+      (offer) => offer.retailerId === retailerId
     );
   }
 
   async getAffiliateLinkStats(_retailerId?: number): Promise<AffiliateLinkStats> {
     // Basic in-memory implementation
     const offers = _retailerId
-      ? Array.from(this.productOffers.values()).filter(o => o.retailerId === _retailerId)
+      ? Array.from(this.productOffers.values()).filter((o) => o.retailerId === _retailerId)
       : Array.from(this.productOffers.values());
 
     return {
       total_offers: offers.length,
-      affiliate_offers: offers.filter(o => o.affiliateUrl).length,
+      affiliate_offers: offers.filter((o) => o.affiliateUrl).length,
       total_clicks: offers.reduce((sum, o) => sum + (o.clickCount ?? 0), 0),
-      healthy_links: offers.filter(o => o.linkHealthStatus === 'healthy').length,
-      broken_links: offers.filter(o => o.linkHealthStatus === 'broken').length
+      healthy_links: offers.filter((o) => o.linkHealthStatus === 'healthy').length,
+      broken_links: offers.filter((o) => o.linkHealthStatus === 'broken').length,
     };
   }
 
@@ -954,7 +1318,11 @@ export class MemStorage implements IStorage {
     return [];
   }
 
-  async getRetailerPriceHistory(_productId: number, _retailerId: number, _days?: number): Promise<PriceHistory[]> {
+  async getRetailerPriceHistory(
+    _productId: number,
+    _retailerId: number,
+    _days?: number
+  ): Promise<PriceHistory[]> {
     return [];
   }
 
@@ -995,15 +1363,25 @@ export class MemStorage implements IStorage {
     return [];
   }
 
-  async getWatchListById(_watchListId: number, _userId: number): Promise<WatchListWithProducts | null> {
+  async getWatchListById(
+    _watchListId: number,
+    _userId: number
+  ): Promise<WatchListWithProducts | null> {
     return null;
   }
 
-  async createWatchList(_userId: number, _data: { name: string; description?: string }): Promise<WatchList> {
+  async createWatchList(
+    _userId: number,
+    _data: { name: string; description?: string }
+  ): Promise<WatchList> {
     throw new Error('Watch lists not supported in memory storage');
   }
 
-  async updateWatchList(_watchListId: number, _userId: number, _updates: { name?: string; description?: string }): Promise<WatchList> {
+  async updateWatchList(
+    _watchListId: number,
+    _userId: number,
+    _updates: { name?: string; description?: string }
+  ): Promise<WatchList> {
     throw new Error('Watch lists not supported in memory storage');
   }
 
@@ -1011,15 +1389,26 @@ export class MemStorage implements IStorage {
     throw new Error('Watch lists not supported in memory storage');
   }
 
-  async addProductToWatchList(_watchListId: number, _productId: number, _userId: number): Promise<ProductWatch> {
+  async addProductToWatchList(
+    _watchListId: number,
+    _productId: number,
+    _userId: number
+  ): Promise<ProductWatch> {
     throw new Error('Watch lists not supported in memory storage');
   }
 
-  async removeProductFromWatchList(_watchListId: number, _productId: number, _userId: number): Promise<ProductWatch> {
+  async removeProductFromWatchList(
+    _watchListId: number,
+    _productId: number,
+    _userId: number
+  ): Promise<ProductWatch> {
     throw new Error('Watch lists not supported in memory storage');
   }
 
-  async getWatchedProducts(_userId: number, _options?: WatchedProductsOptions): Promise<WatchedProductsResult> {
+  async getWatchedProducts(
+    _userId: number,
+    _options?: WatchedProductsOptions
+  ): Promise<WatchedProductsResult> {
     return { products: [], hasMore: false, nextCursor: null };
   }
 
@@ -1079,7 +1468,10 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async updateUserProfile(_userId: number, _updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
+  async updateUserProfile(
+    _userId: number,
+    _updates: { bio?: string; location?: string; website?: string; avatarUrl?: string }
+  ): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -1092,7 +1484,11 @@ export class MemStorage implements IStorage {
   }
 
   // SECURITY: passwordHash handled internally, NEVER exposed
-  async registerUser(_userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser> {
+  async registerUser(_userData: {
+    username: string;
+    email: string;
+    passwordHash: string;
+  }): Promise<SafeUser> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -1125,16 +1521,27 @@ export class MemStorage implements IStorage {
     return [];
   }
 
-  async getWeeklyAggregates(_productId: number, _options?: { year?: number; week?: number; retailerId?: number; limit?: number }): Promise<WeeklyAggregate[]> {
+  async getWeeklyAggregates(
+    _productId: number,
+    _options?: { year?: number; week?: number; retailerId?: number; limit?: number }
+  ): Promise<WeeklyAggregate[]> {
     return [];
   }
 
-  async getMonthlyAggregates(_productId: number, _options?: { year?: number; month?: number; retailerId?: number; limit?: number }): Promise<MonthlyAggregate[]> {
+  async getMonthlyAggregates(
+    _productId: number,
+    _options?: { year?: number; month?: number; retailerId?: number; limit?: number }
+  ): Promise<MonthlyAggregate[]> {
     return [];
   }
 
   async getAnalyticsOverview(): Promise<AnalyticsOverview> {
-    return { weeklyAggregates: 0, monthlyAggregates: 0, totalTrends: 0, trendBreakdown: { uptrend: 0, downtrend: 0, stable: 0 } };
+    return {
+      weeklyAggregates: 0,
+      monthlyAggregates: 0,
+      totalTrends: 0,
+      trendBreakdown: { uptrend: 0, downtrend: 0, stable: 0 },
+    };
   }
 
   async getJobLocks(): Promise<JobLock[]> {
@@ -1142,7 +1549,11 @@ export class MemStorage implements IStorage {
   }
 
   // Job Lock Operations (stub implementations - job locking not supported in memory storage)
-  async acquireJobLock(_jobName: string, _lockedBy: string, _ttlSeconds: number): Promise<{ success: boolean; id?: number }> {
+  async acquireJobLock(
+    _jobName: string,
+    _lockedBy: string,
+    _ttlSeconds: number
+  ): Promise<{ success: boolean; id?: number }> {
     return { success: false };
   }
 
@@ -1150,7 +1561,11 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async updateExpiredJobLock(_jobName: string, _lockedBy: string, _newExpiresAt: Date): Promise<{ success: boolean; id?: number }> {
+  async updateExpiredJobLock(
+    _jobName: string,
+    _lockedBy: string,
+    _newExpiresAt: Date
+  ): Promise<{ success: boolean; id?: number }> {
     return { success: false };
   }
 
@@ -1158,7 +1573,11 @@ export class MemStorage implements IStorage {
     return false;
   }
 
-  async extendJobLock(_jobName: string, _lockedBy: string, _additionalSeconds: number): Promise<boolean> {
+  async extendJobLock(
+    _jobName: string,
+    _lockedBy: string,
+    _additionalSeconds: number
+  ): Promise<boolean> {
     return false;
   }
 
@@ -1171,7 +1590,12 @@ export class MemStorage implements IStorage {
   }
 
   // Password Reset Token Operations (stub implementations)
-  async createPasswordResetToken(_userId: number, _token: string, _expiresAt: Date, _metadata?: { ipAddress?: string; userAgent?: string }): Promise<void> {
+  async createPasswordResetToken(
+    _userId: number,
+    _token: string,
+    _expiresAt: Date,
+    _metadata?: { ipAddress?: string; userAgent?: string }
+  ): Promise<void> {
     // Not supported in memory storage
   }
 
@@ -1233,7 +1657,10 @@ export class MemStorage implements IStorage {
     return [];
   }
 
-  async updateRetailerAffiliateConfig(_id: number, _config: AffiliateConfig): Promise<Retailer | null> {
+  async updateRetailerAffiliateConfig(
+    _id: number,
+    _config: AffiliateConfig
+  ): Promise<Retailer | null> {
     throw new Error('Affiliate operations not supported in memory storage');
   }
 
@@ -1247,91 +1674,215 @@ export class MemStorage implements IStorage {
   }
 
   // Wishlist stubs for MemStorage
-  async getUserWishlists(_userId: number): Promise<WishlistWithItems[]> { return []; }
-  async getWishlistById(_wishlistId: number, _userId: number): Promise<WishlistWithItems | null> { return null; }
-  async createWishlist(_userId: number, _data: { name: string; description?: string; isPublic?: boolean }): Promise<Wishlist> {
+  async getUserWishlists(_userId: number): Promise<WishlistWithItems[]> {
+    return [];
+  }
+  async getWishlistById(_wishlistId: number, _userId: number): Promise<WishlistWithItems | null> {
+    return null;
+  }
+  async createWishlist(
+    _userId: number,
+    _data: { name: string; description?: string; isPublic?: boolean }
+  ): Promise<Wishlist> {
     throw new Error('Wishlists not supported in memory storage');
   }
-  async updateWishlist(_wishlistId: number, _userId: number, _updates: Partial<InsertWishlist>): Promise<Wishlist | null> { return null; }
-  async deleteWishlist(_wishlistId: number, _userId: number): Promise<boolean> { return false; }
-  async addToWishlist(_wishlistId: number, _userId: number, _productId: number, _data?: { notes?: string; priority?: number }): Promise<WishlistItem> {
+  async updateWishlist(
+    _wishlistId: number,
+    _userId: number,
+    _updates: Partial<InsertWishlist>
+  ): Promise<Wishlist | null> {
+    return null;
+  }
+  async deleteWishlist(_wishlistId: number, _userId: number): Promise<boolean> {
+    return false;
+  }
+  async addToWishlist(
+    _wishlistId: number,
+    _userId: number,
+    _productId: number,
+    _data?: { notes?: string; priority?: number }
+  ): Promise<WishlistItem> {
     throw new Error('Wishlists not supported in memory storage');
   }
-  async removeFromWishlist(_wishlistId: number, _userId: number, _productId: number): Promise<boolean> { return false; }
-  async isInWishlist(_userId: number, _productId: number): Promise<boolean> { return false; }
-  async getUserWishlistItems(_userId: number): Promise<WishlistItemWithProduct[]> { return []; }
+  async removeFromWishlist(
+    _wishlistId: number,
+    _userId: number,
+    _productId: number
+  ): Promise<boolean> {
+    return false;
+  }
+  async isInWishlist(_userId: number, _productId: number): Promise<boolean> {
+    return false;
+  }
+  async getUserWishlistItems(_userId: number): Promise<WishlistItemWithProduct[]> {
+    return [];
+  }
 
   // Product specification stubs for MemStorage
-  async getProductSpecifications(_productId: number): Promise<ProductSpecification[]> { return []; }
-  async getProductSpecificationsGrouped(_productId: number): Promise<SpecificationGroup[]> { return []; }
-  async createProductSpecification(_spec: InsertProductSpecification): Promise<ProductSpecification> {
+  async getProductSpecifications(_productId: number): Promise<ProductSpecification[]> {
+    return [];
+  }
+  async getProductSpecificationsGrouped(_productId: number): Promise<SpecificationGroup[]> {
+    return [];
+  }
+  async createProductSpecification(
+    _spec: InsertProductSpecification
+  ): Promise<ProductSpecification> {
     throw new Error('Product specifications not supported in memory storage');
   }
-  async createProductSpecificationsBatch(_specs: InsertProductSpecification[]): Promise<ProductSpecification[]> { return []; }
-  async updateProductSpecification(_specId: number, _updates: Partial<InsertProductSpecification>): Promise<ProductSpecification | null> { return null; }
-  async deleteProductSpecification(_specId: number): Promise<boolean> { return false; }
-  async deleteProductSpecifications(_productId: number): Promise<number> { return 0; }
-  async getProductFull(_productId: number): Promise<ProductFull | null> { return null; }
+  async createProductSpecificationsBatch(
+    _specs: InsertProductSpecification[]
+  ): Promise<ProductSpecification[]> {
+    return [];
+  }
+  async updateProductSpecification(
+    _specId: number,
+    _updates: Partial<InsertProductSpecification>
+  ): Promise<ProductSpecification | null> {
+    return null;
+  }
+  async deleteProductSpecification(_specId: number): Promise<boolean> {
+    return false;
+  }
+  async deleteProductSpecifications(_productId: number): Promise<number> {
+    return 0;
+  }
+  async getProductFull(_productId: number): Promise<ProductFull | null> {
+    return null;
+  }
 
   // ============================================================================
   // Price Analytics Operations (Phase 3 Storage Migration - Stub Implementations)
   // ============================================================================
 
   // Price Aggregation stubs
-  async getPriceDataForAggregation(_startDate: Date, _endDate: Date, _productId?: number): Promise<PriceAggregationData[]> { return []; }
-  async getWeeklyAggregatesData(_year: number, _week: number): Promise<WeeklyAggregateRecord[]> { return []; }
-  async getDailyAggregatesData(_date: string): Promise<DailyAggregateRecord[]> { return []; }
-  async getMonthlyAggregatesData(_year: number, _month: number): Promise<MonthlyAggregateRecord[]> { return []; }
-  async upsertDailyAggregates(_values: DailyAggregateInsert[]): Promise<void> { /* Not supported in memory storage */ }
-  async upsertWeeklyAggregates(_values: WeeklyAggregateInsert[]): Promise<void> { /* Not supported in memory storage */ }
-  async upsertMonthlyAggregates(_values: MonthlyAggregateInsert[]): Promise<void> { /* Not supported in memory storage */ }
-  async markPriceHistoryAsAggregated(_startDate: Date, _endDate: Date): Promise<void> { /* Not supported in memory storage */ }
-  async deleteOldAggregatedPriceHistory(_cutoffDate: Date): Promise<number> { return 0; }
+  async getPriceDataForAggregation(
+    _startDate: Date,
+    _endDate: Date,
+    _productId?: number
+  ): Promise<PriceAggregationData[]> {
+    return [];
+  }
+  async getWeeklyAggregatesData(_year: number, _week: number): Promise<WeeklyAggregateRecord[]> {
+    return [];
+  }
+  async getDailyAggregatesData(_date: string): Promise<DailyAggregateRecord[]> {
+    return [];
+  }
+  async getMonthlyAggregatesData(_year: number, _month: number): Promise<MonthlyAggregateRecord[]> {
+    return [];
+  }
+  async upsertDailyAggregates(_values: DailyAggregateInsert[]): Promise<void> {
+    /* Not supported in memory storage */
+  }
+  async upsertWeeklyAggregates(_values: WeeklyAggregateInsert[]): Promise<void> {
+    /* Not supported in memory storage */
+  }
+  async upsertMonthlyAggregates(_values: MonthlyAggregateInsert[]): Promise<void> {
+    /* Not supported in memory storage */
+  }
+  async markPriceHistoryAsAggregated(_startDate: Date, _endDate: Date): Promise<void> {
+    /* Not supported in memory storage */
+  }
+  async deleteOldAggregatedPriceHistory(_cutoffDate: Date): Promise<number> {
+    return 0;
+  }
 
   // Price History stubs
-  async getProductOfferWithProduct(_offerId: number): Promise<ProductOfferWithProduct | null> { return null; }
-  async getLatestPriceForOffer(_offerId: number): Promise<PriceHistory | null> { return null; }
+  async getProductOfferWithProduct(_offerId: number): Promise<ProductOfferWithProduct | null> {
+    return null;
+  }
+  async getLatestPriceForOffer(_offerId: number): Promise<PriceHistory | null> {
+    return null;
+  }
   async insertPriceHistory(_data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory> {
     throw new Error('Price history operations not supported in memory storage');
   }
   async insertPriceHistoryBatch(_records: InsertPriceHistoryWithRecordedAt[]): Promise<void> {
     throw new Error('Price history batch operations not supported in memory storage');
   }
-  async getPriceHistoryByQuery(_query: PriceHistoryQueryParams): Promise<PriceHistory[]> { return []; }
-  async getExistingSnapshotsForDate(_date: Date): Promise<PriceSnapshotRecord[]> { return []; }
-  async insertPriceSnapshots(_snapshots: PriceSnapshotInsert[]): Promise<void> { /* Not supported in memory storage */ }
-  async updatePriceSnapshot(_id: number, _data: Partial<PriceSnapshotInsert>): Promise<void> { /* Not supported in memory storage */ }
+  async getPriceHistoryByQuery(_query: PriceHistoryQueryParams): Promise<PriceHistory[]> {
+    return [];
+  }
+  async getExistingSnapshotsForDate(_date: Date): Promise<PriceSnapshotRecord[]> {
+    return [];
+  }
+  async insertPriceSnapshots(_snapshots: PriceSnapshotInsert[]): Promise<void> {
+    /* Not supported in memory storage */
+  }
+  async updatePriceSnapshot(_id: number, _data: Partial<PriceSnapshotInsert>): Promise<void> {
+    /* Not supported in memory storage */
+  }
 
   // Price Snapshot stubs
-  async getProductOffersForSnapshot(_batchSize: number, _offset: number): Promise<ProductOffer[]> { return []; }
-  async getPriceHistoryForOffers(_offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>> { return []; }
+  async getProductOffersForSnapshot(_batchSize: number, _offset: number): Promise<ProductOffer[]> {
+    return [];
+  }
+  async getPriceHistoryForOffers(
+    _offerIds: number[]
+  ): Promise<Array<{ productOfferId: number; price: string }>> {
+    return [];
+  }
 
   // Trend Analysis stubs
-  async getPriceDataGroupedForTrend(_cutoffDate: Date): Promise<TrendPriceData[]> { return []; }
-  async upsertPriceTrends(_values: PriceTrendInsert[]): Promise<void> { /* Not supported in memory storage */ }
-  async getPriceTrendWithRetailer(_productId: number, _retailerId: number): Promise<PriceTrendWithRetailer | null> { return null; }
-  async getPriceTrendsForProduct(_productId: number): Promise<PriceTrendWithRetailer[]> { return []; }
+  async getPriceDataGroupedForTrend(_cutoffDate: Date): Promise<TrendPriceData[]> {
+    return [];
+  }
+  async upsertPriceTrends(_values: PriceTrendInsert[]): Promise<void> {
+    /* Not supported in memory storage */
+  }
+  async getPriceTrendWithRetailer(
+    _productId: number,
+    _retailerId: number
+  ): Promise<PriceTrendWithRetailer | null> {
+    return null;
+  }
+  async getPriceTrendsForProduct(_productId: number): Promise<PriceTrendWithRetailer[]> {
+    return [];
+  }
 
   // Smart Alerts stubs (Phase 8D)
-  async getProductOfferIds(_productId: number): Promise<number[]> { return []; }
-  async getPriceHistoryForOfferIds(_offerIds: number[], _limit?: number): Promise<PriceHistory[]> { return []; }
-  async getUserActiveAlertsWithProducts(_userId: number): Promise<Array<{
-    productId: number;
-    targetPrice: string;
-    productName: string | null;
-  }>> { return []; }
-  async getLowestPricedOffersForProducts(_productIds: number[]): Promise<Array<{
-    productId: number;
-    id: number;
-    price: string;
-  }>> { return []; }
-  async getBatchPriceHistoryForOffers(_offerIds: number[]): Promise<PriceHistory[]> { return []; }
-  async getUserPriceAlertsForEffectiveness(_userId: number): Promise<PriceAlert[]> { return []; }
-  async getUserPriceAlerts(_userId: number): Promise<PriceAlert[]> { return []; }
+  async getProductOfferIds(_productId: number): Promise<number[]> {
+    return [];
+  }
+  async getPriceHistoryForOfferIds(_offerIds: number[], _limit?: number): Promise<PriceHistory[]> {
+    return [];
+  }
+  async getUserActiveAlertsWithProducts(_userId: number): Promise<
+    Array<{
+      productId: number;
+      targetPrice: string;
+      productName: string | null;
+    }>
+  > {
+    return [];
+  }
+  async getLowestPricedOffersForProducts(_productIds: number[]): Promise<
+    Array<{
+      productId: number;
+      id: number;
+      price: string;
+    }>
+  > {
+    return [];
+  }
+  async getBatchPriceHistoryForOffers(_offerIds: number[]): Promise<PriceHistory[]> {
+    return [];
+  }
+  async getUserPriceAlertsForEffectiveness(_userId: number): Promise<PriceAlert[]> {
+    return [];
+  }
+  async getUserPriceAlerts(_userId: number): Promise<PriceAlert[]> {
+    return [];
+  }
   async createPriceAlert(_alert: InsertPriceAlert): Promise<PriceAlert> {
     throw new Error('Not supported in memory storage');
   }
-  async updatePriceAlert(_alertId: number, _userId: number, _updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }): Promise<PriceAlert | null> {
+  async updatePriceAlert(
+    _alertId: number,
+    _userId: number,
+    _updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }
+  ): Promise<PriceAlert | null> {
     return null;
   }
   async deletePriceAlert(_alertId: number, _userId: number): Promise<boolean> {
@@ -1383,11 +1934,13 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
 
-  async getActiveProductOffersGrouped(): Promise<Array<{
-    productId: number;
-    retailerId: number;
-    price: string;
-  }>> {
+  async getActiveProductOffersGrouped(): Promise<
+    Array<{
+      productId: number;
+      retailerId: number;
+      price: string;
+    }>
+  > {
     throw new Error('Not supported in memory storage');
   }
 
@@ -1404,11 +1957,13 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
 
-  async getRecentPriceChanges(_cutoffDate: Date): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>> {
+  async getRecentPriceChanges(_cutoffDate: Date): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  > {
     throw new Error('Not supported in memory storage');
   }
 
@@ -1436,7 +1991,11 @@ export class MemStorage implements IStorage {
   async getOrCreateUserReputation(_userId: number): Promise<UserReputation> {
     throw new Error('Not supported in memory storage');
   }
-  async updateUserReputationAtomic(_userId: number, _points: number, _reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'): Promise<UserReputation> {
+  async updateUserReputationAtomic(
+    _userId: number,
+    _points: number,
+    _reason: 'deal_spotted' | 'accurate_prediction' | 'community_contribution'
+  ): Promise<UserReputation> {
     throw new Error('Not supported in memory storage');
   }
   async getCommunityLeaderboard(_limit: number): Promise<CommunityLeaderboardEntry[]> {
@@ -1457,7 +2016,11 @@ export class MemStorage implements IStorage {
   async getUserBadgeIds(_userId: number): Promise<number[]> {
     throw new Error('Not supported in memory storage');
   }
-  async awardBadgeWithNotification(_userId: number, _badgeId: number, _badgeName: string): Promise<void> {
+  async awardBadgeWithNotification(
+    _userId: number,
+    _badgeId: number,
+    _badgeName: string
+  ): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
   async getNextWatchListSortOrder(_userId: number): Promise<number> {
@@ -1469,22 +2032,40 @@ export class MemStorage implements IStorage {
   async getWatchListsWithStats(_userId: number): Promise<WatchListWithStats[]> {
     throw new Error('Not supported in memory storage');
   }
-  async getWatchListByIdWithStats(_userId: number, _listId: number): Promise<WatchListWithStats | null> {
+  async getWatchListByIdWithStats(
+    _userId: number,
+    _listId: number
+  ): Promise<WatchListWithStats | null> {
     throw new Error('Not supported in memory storage');
   }
-  async updateWatchListRecord(_userId: number, _listId: number, _updates: WatchListUpdates): Promise<WatchList | null> {
+  async updateWatchListRecord(
+    _userId: number,
+    _listId: number,
+    _updates: WatchListUpdates
+  ): Promise<WatchList | null> {
     throw new Error('Not supported in memory storage');
   }
   async deleteWatchListRecord(_userId: number, _listId: number): Promise<boolean> {
     throw new Error('Not supported in memory storage');
   }
-  async getWatchListProductsWithDetails(_userId: number, _listId: number): Promise<WatchListProductWithDetails[]> {
+  async getWatchListProductsWithDetails(
+    _userId: number,
+    _listId: number
+  ): Promise<WatchListProductWithDetails[]> {
     throw new Error('Not supported in memory storage');
   }
-  async updateProductWatchRecord(_userId: number, _watchId: number, _updates: ProductWatchUpdates): Promise<ProductWatch | null> {
+  async updateProductWatchRecord(
+    _userId: number,
+    _watchId: number,
+    _updates: ProductWatchUpdates
+  ): Promise<ProductWatch | null> {
     throw new Error('Not supported in memory storage');
   }
-  async moveProductWatchesBulk(_userId: number, _watchIds: number[], _targetListId: number | null): Promise<number> {
+  async moveProductWatchesBulk(
+    _userId: number,
+    _watchIds: number[],
+    _targetListId: number | null
+  ): Promise<number> {
     throw new Error('Not supported in memory storage');
   }
   async deleteProductWatchesBulk(_userId: number, _watchIds: number[]): Promise<number> {
@@ -1496,13 +2077,19 @@ export class MemStorage implements IStorage {
   async exportUserWatchListsData(_userId: number): Promise<WatchListExportData> {
     throw new Error('Not supported in memory storage');
   }
-  async importWatchListsData(_userId: number, _data: WatchListImportData): Promise<{ created: number; skipped: number }> {
+  async importWatchListsData(
+    _userId: number,
+    _data: WatchListImportData
+  ): Promise<{ created: number; skipped: number }> {
     throw new Error('Not supported in memory storage');
   }
   async getWatchersForProduct(_productId: number): Promise<number[]> {
     throw new Error('Not supported in memory storage');
   }
-  async notifyProductWatchers(_productId: number, _notification: WatcherNotificationData): Promise<void> {
+  async notifyProductWatchers(
+    _productId: number,
+    _notification: WatcherNotificationData
+  ): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -1537,10 +2124,15 @@ export class MemStorage implements IStorage {
   async getPriceHistoryByOfferId(_productOfferId: number, _limit: number): Promise<PriceHistory[]> {
     throw new Error('Not supported in memory storage');
   }
-  async getProductOfferDetailsForAlert(_productOfferId: number): Promise<ProductOfferForAlert | null> {
+  async getProductOfferDetailsForAlert(
+    _productOfferId: number
+  ): Promise<ProductOfferForAlert | null> {
     throw new Error('Not supported in memory storage');
   }
-  async getTriggeredPriceAlerts(_productId: number, _newPrice: number): Promise<TriggeredPriceAlert[]> {
+  async getTriggeredPriceAlerts(
+    _productId: number,
+    _newPrice: number
+  ): Promise<TriggeredPriceAlert[]> {
     throw new Error('Not supported in memory storage');
   }
   async getUsersWithActiveAlertsForProduct(_productId: number): Promise<number[]> {
@@ -1548,30 +2140,52 @@ export class MemStorage implements IStorage {
   }
 
   // Product Discovery (3 methods)
-  async searchProductsByTerms(_searchTerms: string[], _limit: number): Promise<ProductWithOffers[]> {
+  async searchProductsByTerms(
+    _searchTerms: string[],
+    _limit: number
+  ): Promise<ProductWithOffers[]> {
     throw new Error('Not supported in memory storage');
   }
   async getTrendingProductCategories(_limit: number): Promise<ProductCategoryCount[]> {
     throw new Error('Not supported in memory storage');
   }
-  async getProductSearchSuggestions(_searchTerm: string, _limit: number): Promise<ProductSuggestion[]> {
+  async getProductSearchSuggestions(
+    _searchTerm: string,
+    _limit: number
+  ): Promise<ProductSuggestion[]> {
     throw new Error('Not supported in memory storage');
   }
 
   // Advanced Search (7 methods)
-  async searchProductsExact(_searchPattern: string, _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsExact(
+    _searchPattern: string,
+    _limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     throw new Error('Not supported in memory storage');
   }
-  async searchProductsFuzzy(_searchPattern: string, _threshold: number, _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsFuzzy(
+    _searchPattern: string,
+    _threshold: number,
+    _limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     throw new Error('Not supported in memory storage');
   }
-  async searchProductsBySynonyms(_searchTerms: string[], _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsBySynonyms(
+    _searchTerms: string[],
+    _limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     throw new Error('Not supported in memory storage');
   }
-  async searchProductsSemantic(_embedding: number[], _limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsSemantic(
+    _embedding: number[],
+    _limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     throw new Error('Not supported in memory storage');
   }
-  async getProductAutocompleteSuggestions(_query: string, _limit: number): Promise<ProductSuggestion[]> {
+  async getProductAutocompleteSuggestions(
+    _query: string,
+    _limit: number
+  ): Promise<ProductSuggestion[]> {
     throw new Error('Not supported in memory storage');
   }
   async getProductForEmbedding(_productId: number): Promise<ProductForEmbedding | null> {
@@ -1580,16 +2194,25 @@ export class MemStorage implements IStorage {
   async updateProductEmbedding(_productId: number, _embedding: number[]): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
-  async getNotificationCountByType(_userId: number, _type: string, _sinceDate: Date): Promise<number> {
+  async getNotificationCountByType(
+    _userId: number,
+    _type: string,
+    _sinceDate: Date
+  ): Promise<number> {
     return 0; // Stub implementation for testing
   }
   async getUserEmailById(_userId: number): Promise<{ email: string; username: string } | null> {
     return null; // Stub implementation for testing
   }
-  async getUserNotifications(_userId: number, _filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }): Promise<Notification[]> {
+  async getUserNotifications(
+    _userId: number,
+    _filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }
+  ): Promise<Notification[]> {
     return []; // Stub implementation for testing
   }
-  async getNotificationStats(_userId: number): Promise<{ total: number; unread: number; byType: Record<string, number> }> {
+  async getNotificationStats(
+    _userId: number
+  ): Promise<{ total: number; unread: number; byType: Record<string, number> }> {
     return { total: 0, unread: 0, byType: {} }; // Stub implementation for testing
   }
   async markAsRead(_userId: number, _notificationIds: number | number[]): Promise<number> {
@@ -1604,7 +2227,10 @@ export class MemStorage implements IStorage {
   async deleteAllNotifications(_userId: number): Promise<number> {
     return 0; // Stub implementation for testing
   }
-  async createNotification(_notification: InsertNotification, _preferences: NotificationPreferences): Promise<Notification> {
+  async createNotification(
+    _notification: InsertNotification,
+    _preferences: NotificationPreferences
+  ): Promise<Notification> {
     throw new Error('Not supported in memory storage'); // Stub implementation for testing
   }
   async getUserPreferences(_userId: number): Promise<NotificationPreferences | null> {
@@ -1613,7 +2239,10 @@ export class MemStorage implements IStorage {
   async createDefaultPreferences(_userId: number): Promise<NotificationPreferences> {
     throw new Error('Not supported in memory storage'); // Stub implementation for testing
   }
-  async updateUserPreferences(_userId: number, _updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+  async updateUserPreferences(
+    _userId: number,
+    _updates: Partial<InsertNotificationPreferences>
+  ): Promise<NotificationPreferences> {
     throw new Error('Not supported in memory storage'); // Stub implementation for testing
   }
   async getRecentPriceDrops(_userId: number, _days?: number): Promise<Notification[]> {
@@ -1625,24 +2254,28 @@ export class MemStorage implements IStorage {
   async getProductOffersByProductId(_productId: number): Promise<ProductOffer[]> {
     return []; // Stub implementation for testing
   }
-  async getAllOffersWithDetails(): Promise<Array<{
-    offerId: number;
-    productId: number;
-    retailerId: number;
-    currentPrice: string;
-    productName: string;
-    retailerName: string;
-  }>> {
+  async getAllOffersWithDetails(): Promise<
+    Array<{
+      offerId: number;
+      productId: number;
+      retailerId: number;
+      currentPrice: string;
+      productName: string;
+      retailerName: string;
+    }>
+  > {
     return []; // Stub implementation for testing
   }
   async getRetailersByIds(_ids: number[]): Promise<Array<{ id: number; name: string }>> {
     return []; // Stub implementation for testing
   }
-  async getPriceHistoryForAnalysis(_offerIds: number[]): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>> {
+  async getPriceHistoryForAnalysis(_offerIds: number[]): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  > {
     return []; // Stub implementation for testing
   }
 }
@@ -1831,11 +2464,11 @@ export class DatabaseStorage implements IStorage {
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
     this.notificationStorage = new NotificationStorage(db);
-    
+
     // Wire up cross-domain dependencies (avoids circular imports)
     // PriceStorage needs ProductStorage.getProductOffers for trend analysis
-    this.priceStorage.setGetProductOffersCallback(
-      (productId: number) => this.productStorage.getProductOffers(productId)
+    this.priceStorage.setGetProductOffersCallback((productId: number) =>
+      this.productStorage.getProductOffers(productId)
     );
   }
 
@@ -1882,9 +2515,7 @@ export class DatabaseStorage implements IStorage {
   private validateSearchLimit(limit: number | undefined): number {
     const actualLimit = limit ?? PRODUCT_CONSTANTS.SEARCH.DEFAULT_LIMIT;
     if (actualLimit < 1 || actualLimit > PRODUCT_CONSTANTS.SEARCH.MAX_LIMIT) {
-      throw new Error(
-        `Limit must be between 1 and ${PRODUCT_CONSTANTS.SEARCH.MAX_LIMIT}`
-      );
+      throw new Error(`Limit must be between 1 and ${PRODUCT_CONSTANTS.SEARCH.MAX_LIMIT}`);
     }
     return actualLimit;
   }
@@ -1906,8 +2537,10 @@ export class DatabaseStorage implements IStorage {
    * @private
    */
   private validateFuzzyThreshold(threshold: number): void {
-    if (threshold < PRODUCT_CONSTANTS.FUZZY_SEARCH.MIN_THRESHOLD ||
-        threshold > PRODUCT_CONSTANTS.FUZZY_SEARCH.MAX_THRESHOLD) {
+    if (
+      threshold < PRODUCT_CONSTANTS.FUZZY_SEARCH.MIN_THRESHOLD ||
+      threshold > PRODUCT_CONSTANTS.FUZZY_SEARCH.MAX_THRESHOLD
+    ) {
       throw new Error(
         `Fuzzy threshold must be between ${PRODUCT_CONSTANTS.FUZZY_SEARCH.MIN_THRESHOLD} and ${PRODUCT_CONSTANTS.FUZZY_SEARCH.MAX_THRESHOLD}`
       );
@@ -1939,12 +2572,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   // SECURITY: passwordHash handled internally, NEVER exposed in SELECT queries
-  async registerUser(userData: { username: string; email: string; passwordHash: string }): Promise<SafeUser> { // SECURITY: NEVER expose
+  async registerUser(userData: {
+    username: string;
+    email: string;
+    passwordHash: string;
+  }): Promise<SafeUser> {
+    // SECURITY: NEVER expose
     return this.userStorage.registerUser(userData); // SECURITY: NEVER expose
   }
 
   // SECURITY: passwordHash handled internally, NEVER exposed in queries
-  async resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void> { // SECURITY: NEVER expose
+  async resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void> {
+    // SECURITY: NEVER expose
     return this.userStorage.resetPassword(userId, newPasswordHash, token); // SECURITY: NEVER expose
   }
 
@@ -1992,7 +2631,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateProductOfferAffiliateLink(
     offerId: number,
-    data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }
+    data: {
+      affiliateUrl: string;
+      linkHealthStatus: 'healthy' | 'broken' | 'unknown';
+      lastLinkCheck: Date;
+    }
   ): Promise<void> {
     return this.productStorage.updateProductOfferAffiliateLink(offerId, data);
   }
@@ -2009,14 +2652,16 @@ export class DatabaseStorage implements IStorage {
     return this.productStorage.getProductOffersByProductId(productId);
   }
 
-  async getAllOffersWithDetails(): Promise<Array<{
-    offerId: number;
-    productId: number;
-    retailerId: number;
-    currentPrice: string;
-    productName: string;
-    retailerName: string;
-  }>> {
+  async getAllOffersWithDetails(): Promise<
+    Array<{
+      offerId: number;
+      productId: number;
+      retailerId: number;
+      currentPrice: string;
+      productName: string;
+      retailerName: string;
+    }>
+  > {
     return this.productStorage.getAllOffersWithDetails();
   }
 
@@ -2035,13 +2680,15 @@ export class DatabaseStorage implements IStorage {
       ? await baseQuery.where(eq(productOffers.retailerId, retailerId))
       : await baseQuery;
 
-    return result[0] || {
-      total_offers: 0,
-      affiliate_offers: 0,
-      total_clicks: 0,
-      healthy_links: 0,
-      broken_links: 0
-    };
+    return (
+      result[0] || {
+        total_offers: 0,
+        affiliate_offers: 0,
+        total_clicks: 0,
+        healthy_links: 0,
+        broken_links: 0,
+      }
+    );
   }
 
   /**
@@ -2068,7 +2715,11 @@ export class DatabaseStorage implements IStorage {
   /**
    * Get retailer-specific price history with smart data source selection
    */
-  async getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]> {
+  async getRetailerPriceHistory(
+    productId: number,
+    retailerId: number,
+    days?: number
+  ): Promise<PriceHistory[]> {
     return this.priceStorage.getRetailerPriceHistory(productId, retailerId, days);
   }
 
@@ -2095,7 +2746,10 @@ export class DatabaseStorage implements IStorage {
    * PERFORMANCE: Single query with JOINs to get product details and pricing
    * SECURITY: Verifies userId ownership before returning data
    */
-  async getWatchListById(watchListId: number, userId: number): Promise<WatchListWithProducts | null> {
+  async getWatchListById(
+    watchListId: number,
+    userId: number
+  ): Promise<WatchListWithProducts | null> {
     return this.watchListStorage.getWatchListById(watchListId, userId);
   }
 
@@ -2103,7 +2757,10 @@ export class DatabaseStorage implements IStorage {
    * Create a new watch list for a user
    * VALIDATION: Enforces max 20 lists per user
    */
-  async createWatchList(userId: number, data: { name: string; description?: string }): Promise<WatchList> {
+  async createWatchList(
+    userId: number,
+    data: { name: string; description?: string }
+  ): Promise<WatchList> {
     return this.watchListStorage.createWatchList(userId, data);
   }
 
@@ -2174,46 +2831,46 @@ export class DatabaseStorage implements IStorage {
 
   // Admin Product/Retailer Management
   async getAdminProducts(): Promise<AdminProduct[]> {
-    return db.select({
-      id: products.id,
-      name: products.name,
-      description: products.description,
-      category: products.category,
-      brand: products.brand,
-      model: products.model,
-      image: products.image,
-      createdAt: products.createdAt
-    })
-    .from(products)
-    .orderBy(desc(products.createdAt));
+    return db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        category: products.category,
+        brand: products.brand,
+        model: products.model,
+        image: products.image,
+        createdAt: products.createdAt,
+      })
+      .from(products)
+      .orderBy(desc(products.createdAt));
   }
 
   async getAdminProductById(id: number): Promise<AdminProductWithOffers | null> {
-    const [product] = await db.select()
-      .from(products)
-      .where(eq(products.id, id));
+    const [product] = await db.select().from(products).where(eq(products.id, id));
 
     if (!product) {
       return null;
     }
 
     // Get product offers for this product
-    const offers = await db.select({
-      id: productOffers.id,
-      price: productOffers.price,
-      originalPrice: productOffers.originalPrice,
-      availability: productOffers.availability,
-      productUrl: productOffers.productUrl,
-      affiliateUrl: productOffers.affiliateUrl,
-      retailer: {
-        id: retailers.id,
-        name: retailers.name,
-        logo: retailers.logo
-      }
-    })
-    .from(productOffers)
-    .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
-    .where(eq(productOffers.productId, id));
+    const offers = await db
+      .select({
+        id: productOffers.id,
+        price: productOffers.price,
+        originalPrice: productOffers.originalPrice,
+        availability: productOffers.availability,
+        productUrl: productOffers.productUrl,
+        affiliateUrl: productOffers.affiliateUrl,
+        retailer: {
+          id: retailers.id,
+          name: retailers.name,
+          logo: retailers.logo,
+        },
+      })
+      .from(productOffers)
+      .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(eq(productOffers.productId, id));
 
     return {
       id: product.id,
@@ -2224,19 +2881,18 @@ export class DatabaseStorage implements IStorage {
       model: product.model,
       image: product.image,
       createdAt: product.createdAt,
-      offers
+      offers,
     };
   }
 
   async createAdminProduct(data: InsertProduct): Promise<Product> {
-    const [newProduct] = await db.insert(products)
-      .values(data)
-      .returning();
+    const [newProduct] = await db.insert(products).values(data).returning();
     return newProduct;
   }
 
   async updateAdminProduct(id: number, data: Partial<InsertProduct>): Promise<Product | null> {
-    const [updatedProduct] = await db.update(products)
+    const [updatedProduct] = await db
+      .update(products)
       .set(data)
       .where(eq(products.id, id))
       .returning();
@@ -2244,9 +2900,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAdminProduct(id: number): Promise<Product | null> {
-    const [deletedProduct] = await db.delete(products)
-      .where(eq(products.id, id))
-      .returning();
+    const [deletedProduct] = await db.delete(products).where(eq(products.id, id)).returning();
     return deletedProduct || null;
   }
 
@@ -2278,7 +2932,10 @@ export class DatabaseStorage implements IStorage {
     return this.retailerStorage.getRetailersWithAffiliateStats();
   }
 
-  async updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null> {
+  async updateRetailerAffiliateConfig(
+    id: number,
+    config: AffiliateConfig
+  ): Promise<Retailer | null> {
     return this.retailerStorage.updateRetailerAffiliateConfig(id, config);
   }
 
@@ -2295,9 +2952,7 @@ export class DatabaseStorage implements IStorage {
   private validateDays(days: number | undefined): number {
     const actualDays = days ?? USER_CONSTANTS.GROWTH_DATA.DEFAULT_DAYS;
     if (actualDays < 1 || actualDays > USER_CONSTANTS.GROWTH_DATA.MAX_DAYS) {
-      throw new Error(
-        `Days must be between 1 and ${USER_CONSTANTS.GROWTH_DATA.MAX_DAYS}`
-      );
+      throw new Error(`Days must be between 1 and ${USER_CONSTANTS.GROWTH_DATA.MAX_DAYS}`);
     }
     return actualDays;
   }
@@ -2306,7 +2961,10 @@ export class DatabaseStorage implements IStorage {
   // User Profile Management
   // ============================================================================
 
-  async updateUserProfile(userId: number, data: { bio?: string; location?: string; website?: string; avatarUrl?: string }): Promise<void> {
+  async updateUserProfile(
+    userId: number,
+    data: { bio?: string; location?: string; website?: string; avatarUrl?: string }
+  ): Promise<void> {
     return this.userStorage.updateUserProfile(userId, data);
   }
 
@@ -2350,7 +3008,7 @@ export class DatabaseStorage implements IStorage {
       .where(sql`${products.createdAt} >= NOW() - INTERVAL '30 days'`)
       .groupBy(sql`DATE(${products.createdAt})`)
       .orderBy(sql`DATE(${products.createdAt})`);
-    return result.map(r => ({ date: String(r.date), count: Number(r.count) }));
+    return result.map((r) => ({ date: String(r.date), count: Number(r.count) }));
   }
 
   async getTopProductCategories(limit: number): Promise<TopCategory[]> {
@@ -2365,15 +3023,23 @@ export class DatabaseStorage implements IStorage {
       .groupBy(products.category)
       .orderBy(sql`count(*) DESC`)
       .limit(limit);
-    return result.map(r => ({ categoryName: r.categoryName || 'Uncategorized', productCount: Number(r.productCount) }));
+    return result.map((r) => ({
+      categoryName: r.categoryName || 'Uncategorized',
+      productCount: Number(r.productCount),
+    }));
   }
 
   async checkDatabaseHealth(): Promise<boolean> {
     try {
-      await db.select({ count: sql`1` }).from(users).limit(1);
+      await db
+        .select({ count: sql`1` })
+        .from(users)
+        .limit(1);
       return true;
     } catch (error) {
-      logger.error('Database health check failed:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Database health check failed:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
@@ -2393,9 +3059,9 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
 
     // Map to ensure status is never null (filtered by WHERE clause above)
-    return result.map(row => ({
+    return result.map((row) => ({
       ...row,
-      status: row.status || 'unknown'
+      status: row.status || 'unknown',
     }));
   }
 
@@ -2417,14 +3083,14 @@ export class DatabaseStorage implements IStorage {
     // OPTIMIZATION: Use SQL COUNT(*) and GROUP BY instead of fetching all records
     const [weeklyCountResult, monthlyCountResult] = await Promise.all([
       db.select({ count: sql<number>`count(*)::int` }).from(priceAggregatesWeekly),
-      db.select({ count: sql<number>`count(*)::int` }).from(priceAggregatesMonthly)
+      db.select({ count: sql<number>`count(*)::int` }).from(priceAggregatesMonthly),
     ]);
 
     // Use GROUP BY to count trends by direction in a single query
     const trendStatsResult = await db
       .select({
         direction: priceTrends.trendDirection,
-        count: sql<number>`count(*)::int`
+        count: sql<number>`count(*)::int`,
       })
       .from(priceTrends)
       .groupBy(priceTrends.trendDirection);
@@ -2433,7 +3099,7 @@ export class DatabaseStorage implements IStorage {
     const trendCounts = {
       uptrend: 0,
       downtrend: 0,
-      stable: 0
+      stable: 0,
     };
 
     let totalTrends = 0;
@@ -2448,7 +3114,7 @@ export class DatabaseStorage implements IStorage {
       weeklyAggregates: weeklyCountResult[0]?.count || 0,
       monthlyAggregates: monthlyCountResult[0]?.count || 0,
       totalTrends,
-      trendBreakdown: trendCounts
+      trendBreakdown: trendCounts,
     };
   }
 
@@ -2483,7 +3149,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // 2. Batch fetch all items for all wishlists (1 query instead of N)
-    const wishlistIds = userWishlists.map(w => w.id);
+    const wishlistIds = userWishlists.map((w) => w.id);
     const allItems = await db
       .select({
         item: wishlistItems,
@@ -2506,13 +3172,15 @@ export class DatabaseStorage implements IStorage {
       if (wishlistItems) {
         wishlistItems.push(item);
       } else {
-        logger.warn(`Storage: Missing wishlist items array for wishlist ID: ${wishlistId}, initializing`);
+        logger.warn(
+          `Storage: Missing wishlist items array for wishlist ID: ${wishlistId}, initializing`
+        );
         itemsByWishlist.set(wishlistId, [item]);
       }
     }
 
     // 4. Build result with grouped items
-    return userWishlists.map(wishlist => {
+    return userWishlists.map((wishlist) => {
       const items = itemsByWishlist.get(wishlist.id) || [];
       return {
         ...wishlist,
@@ -2547,7 +3215,10 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createWishlist(userId: number, data: { name: string; description?: string; isPublic?: boolean }): Promise<Wishlist> {
+  async createWishlist(
+    userId: number,
+    data: { name: string; description?: string; isPublic?: boolean }
+  ): Promise<Wishlist> {
     const [wishlist] = await db
       .insert(wishlists)
       .values({
@@ -2561,7 +3232,11 @@ export class DatabaseStorage implements IStorage {
     return wishlist;
   }
 
-  async updateWishlist(wishlistId: number, userId: number, updates: Partial<InsertWishlist>): Promise<Wishlist | null> {
+  async updateWishlist(
+    wishlistId: number,
+    userId: number,
+    updates: Partial<InsertWishlist>
+  ): Promise<Wishlist | null> {
     const [wishlist] = await db
       .update(wishlists)
       .set({ ...updates, updatedAt: new Date() })
@@ -2580,7 +3255,12 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async addToWishlist(wishlistId: number, userId: number, productId: number, data?: { notes?: string; priority?: number }): Promise<WishlistItem> {
+  async addToWishlist(
+    wishlistId: number,
+    userId: number,
+    productId: number,
+    data?: { notes?: string; priority?: number }
+  ): Promise<WishlistItem> {
     // Verify wishlist belongs to user
     const [wishlist] = await db
       .select()
@@ -2605,7 +3285,11 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async removeFromWishlist(wishlistId: number, userId: number, productId: number): Promise<boolean> {
+  async removeFromWishlist(
+    wishlistId: number,
+    userId: number,
+    productId: number
+  ): Promise<boolean> {
     const result = await db
       .delete(wishlistItems)
       .where(
@@ -2624,12 +3308,7 @@ export class DatabaseStorage implements IStorage {
     const [item] = await db
       .select({ id: wishlistItems.id })
       .from(wishlistItems)
-      .where(
-        and(
-          eq(wishlistItems.userId, userId),
-          eq(wishlistItems.productId, productId)
-        )
-      )
+      .where(and(eq(wishlistItems.userId, userId), eq(wishlistItems.productId, productId)))
       .limit(1);
 
     return !!item;
@@ -2678,11 +3357,15 @@ export class DatabaseStorage implements IStorage {
           retailer: item.retailer,
         });
       } else {
-        logger.warn(`Storage: Missing product offers array for product ID: ${item.productId}, initializing`);
-        offersByProduct.set(item.productId, [{
-          ...item.offer,
-          retailer: item.retailer,
-        }]);
+        logger.warn(
+          `Storage: Missing product offers array for product ID: ${item.productId}, initializing`
+        );
+        offersByProduct.set(item.productId, [
+          {
+            ...item.offer,
+            retailer: item.retailer,
+          },
+        ]);
       }
     }
 
@@ -2690,9 +3373,8 @@ export class DatabaseStorage implements IStorage {
     const result: WishlistItemWithProduct[] = [];
     for (const { item, product, wishlist } of items) {
       const offers = offersByProduct.get(product.id) || [];
-      const bestPrice = offers.length > 0
-        ? Math.min(...offers.map(o => parseFloat(o.price)))
-        : undefined;
+      const bestPrice =
+        offers.length > 0 ? Math.min(...offers.map((o) => parseFloat(o.price))) : undefined;
 
       result.push({
         ...item,
@@ -2723,14 +3405,17 @@ export class DatabaseStorage implements IStorage {
   async getProductSpecificationsGrouped(productId: number): Promise<SpecificationGroup[]> {
     const specs = await this.getProductSpecifications(productId);
 
-    const grouped = specs.reduce((acc, spec) => {
-      const groupName = spec.specGroup ?? 'General';
-      if (!acc[groupName]) {
-        acc[groupName] = [];
-      }
-      acc[groupName].push(spec);
-      return acc;
-    }, {} as Record<string, ProductSpecification[]>);
+    const grouped = specs.reduce(
+      (acc, spec) => {
+        const groupName = spec.specGroup ?? 'General';
+        if (!acc[groupName]) {
+          acc[groupName] = [];
+        }
+        acc[groupName].push(spec);
+        return acc;
+      },
+      {} as Record<string, ProductSpecification[]>
+    );
 
     return Object.entries(grouped).map(([groupName, specs]) => ({
       groupName,
@@ -2738,25 +3423,26 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async createProductSpecification(spec: InsertProductSpecification): Promise<ProductSpecification> {
-    const [created] = await db
-      .insert(productSpecifications)
-      .values(spec)
-      .returning();
+  async createProductSpecification(
+    spec: InsertProductSpecification
+  ): Promise<ProductSpecification> {
+    const [created] = await db.insert(productSpecifications).values(spec).returning();
 
     return created;
   }
 
-  async createProductSpecificationsBatch(specs: InsertProductSpecification[]): Promise<ProductSpecification[]> {
+  async createProductSpecificationsBatch(
+    specs: InsertProductSpecification[]
+  ): Promise<ProductSpecification[]> {
     if (specs.length === 0) return [];
 
-    return db
-      .insert(productSpecifications)
-      .values(specs)
-      .returning();
+    return db.insert(productSpecifications).values(specs).returning();
   }
 
-  async updateProductSpecification(specId: number, updates: Partial<InsertProductSpecification>): Promise<ProductSpecification | null> {
+  async updateProductSpecification(
+    specId: number,
+    updates: Partial<InsertProductSpecification>
+  ): Promise<ProductSpecification | null> {
     const [spec] = await db
       .update(productSpecifications)
       .set({ ...updates, updatedAt: new Date() })
@@ -2799,7 +3485,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Job Lock Operations
-  async acquireJobLock(jobName: string, lockedBy: string, ttlSeconds: number): Promise<{ success: boolean; id?: number }> {
+  async acquireJobLock(
+    jobName: string,
+    lockedBy: string,
+    ttlSeconds: number
+  ): Promise<{ success: boolean; id?: number }> {
     return this.jobLockStorage.acquireJobLock(jobName, lockedBy, ttlSeconds);
   }
 
@@ -2807,7 +3497,11 @@ export class DatabaseStorage implements IStorage {
     return this.jobLockStorage.getJobLockByName(jobName);
   }
 
-  async updateExpiredJobLock(jobName: string, lockedBy: string, newExpiresAt: Date): Promise<{ success: boolean; id?: number }> {
+  async updateExpiredJobLock(
+    jobName: string,
+    lockedBy: string,
+    newExpiresAt: Date
+  ): Promise<{ success: boolean; id?: number }> {
     return this.jobLockStorage.updateExpiredJobLock(jobName, lockedBy, newExpiresAt);
   }
 
@@ -2815,7 +3509,11 @@ export class DatabaseStorage implements IStorage {
     return this.jobLockStorage.releaseJobLock(jobName, lockedBy);
   }
 
-  async extendJobLock(jobName: string, lockedBy: string, additionalSeconds: number): Promise<boolean> {
+  async extendJobLock(
+    jobName: string,
+    lockedBy: string,
+    additionalSeconds: number
+  ): Promise<boolean> {
     return this.jobLockStorage.extendJobLock(jobName, lockedBy, additionalSeconds);
   }
 
@@ -2838,12 +3536,7 @@ export class DatabaseStorage implements IStorage {
       // Invalidate any existing unused tokens for this user
       await tx
         .delete(passwordResetTokens)
-        .where(
-          and(
-            eq(passwordResetTokens.userId, userId),
-            eq(passwordResetTokens.isUsed, false)
-          )
-        );
+        .where(and(eq(passwordResetTokens.userId, userId), eq(passwordResetTokens.isUsed, false)));
 
       // Create the new token
       await tx.insert(passwordResetTokens).values({
@@ -2937,9 +3630,11 @@ export class DatabaseStorage implements IStorage {
 
   async getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number> {
     // Use COUNT instead of fetching all records for better performance
-    const [result] = await db.select({
-      count: sql<number>`COUNT(*)::int`
-    }).from(passwordResetTokens)
+    const [result] = await db
+      .select({
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(passwordResetTokens)
       .where(
         and(
           eq(passwordResetTokens.userId, userId),
@@ -2962,11 +3657,16 @@ export class DatabaseStorage implements IStorage {
     return this.notificationStorage.getUserEmailById(userId);
   }
 
-  async getUserNotifications(userId: number, filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }): Promise<Notification[]> {
+  async getUserNotifications(
+    userId: number,
+    filters?: { isRead?: boolean; type?: string; limit?: number; offset?: number }
+  ): Promise<Notification[]> {
     return this.notificationStorage.getUserNotifications(userId, filters);
   }
 
-  async getNotificationStats(userId: number): Promise<{ total: number; unread: number; byType: Record<string, number> }> {
+  async getNotificationStats(
+    userId: number
+  ): Promise<{ total: number; unread: number; byType: Record<string, number> }> {
     return this.notificationStorage.getNotificationStats(userId);
   }
 
@@ -2986,7 +3686,10 @@ export class DatabaseStorage implements IStorage {
     return this.notificationStorage.deleteAllNotifications(userId);
   }
 
-  async createNotification(notification: InsertNotification, preferences: NotificationPreferences): Promise<Notification> {
+  async createNotification(
+    notification: InsertNotification,
+    preferences: NotificationPreferences
+  ): Promise<Notification> {
     return this.notificationStorage.createNotification(notification, preferences);
   }
 
@@ -2998,7 +3701,10 @@ export class DatabaseStorage implements IStorage {
     return this.notificationStorage.createDefaultPreferences(userId);
   }
 
-  async updateUserPreferences(userId: number, updates: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+  async updateUserPreferences(
+    userId: number,
+    updates: Partial<InsertNotificationPreferences>
+  ): Promise<NotificationPreferences> {
     return this.notificationStorage.updateUserPreferences(userId, updates);
   }
 
@@ -3015,7 +3721,11 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   // Price Aggregation Data Access
-  async getPriceDataForAggregation(startDate: Date, endDate: Date, productId?: number): Promise<PriceAggregationData[]> {
+  async getPriceDataForAggregation(
+    startDate: Date,
+    endDate: Date,
+    productId?: number
+  ): Promise<PriceAggregationData[]> {
     return this.priceStorage.getPriceDataForAggregation(startDate, endDate, productId);
   }
 
@@ -3099,15 +3809,19 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.getProductOffersForSnapshot(batchSize, offset);
   }
 
-  async getPriceHistoryForOffers(offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>> {
+  async getPriceHistoryForOffers(
+    offerIds: number[]
+  ): Promise<Array<{ productOfferId: number; price: string }>> {
     return this.priceStorage.getPriceHistoryForOffers(offerIds);
   }
 
-  async getPriceHistoryForAnalysis(offerIds: number[]): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>> {
+  async getPriceHistoryForAnalysis(offerIds: number[]): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  > {
     return this.priceStorage.getPriceHistoryForAnalysis(offerIds);
   }
 
@@ -3120,7 +3834,10 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.upsertPriceTrends(values);
   }
 
-  async getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null> {
+  async getPriceTrendWithRetailer(
+    productId: number,
+    retailerId: number
+  ): Promise<PriceTrendWithRetailer | null> {
     return this.priceStorage.getPriceTrendWithRetailer(productId, retailerId);
   }
 
@@ -3137,19 +3854,23 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.getPriceHistoryForOfferIds(offerIds, limit);
   }
 
-  async getUserActiveAlertsWithProducts(userId: number): Promise<Array<{
-    productId: number;
-    targetPrice: string;
-    productName: string | null;
-  }>> {
+  async getUserActiveAlertsWithProducts(userId: number): Promise<
+    Array<{
+      productId: number;
+      targetPrice: string;
+      productName: string | null;
+    }>
+  > {
     return this.priceStorage.getUserActiveAlertsWithProducts(userId);
   }
 
-  async getLowestPricedOffersForProducts(productIds: number[]): Promise<Array<{
-    productId: number;
-    id: number;
-    price: string;
-  }>> {
+  async getLowestPricedOffersForProducts(productIds: number[]): Promise<
+    Array<{
+      productId: number;
+      id: number;
+      price: string;
+    }>
+  > {
     return this.priceStorage.getLowestPricedOffersForProducts(productIds);
   }
 
@@ -3169,8 +3890,13 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.createPriceAlert(alert);
   }
 
-  async updatePriceAlert(alertId: number, userId: number, updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }): Promise<PriceAlert | null> {
-    const [updated] = await db.update(priceAlerts)
+  async updatePriceAlert(
+    alertId: number,
+    userId: number,
+    updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }
+  ): Promise<PriceAlert | null> {
+    const [updated] = await db
+      .update(priceAlerts)
       .set({ ...updates, updatedAt: new Date() })
       .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
       .returning();
@@ -3178,7 +3904,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePriceAlert(alertId: number, userId: number): Promise<boolean> {
-    const [deleted] = await db.delete(priceAlerts)
+    const [deleted] = await db
+      .delete(priceAlerts)
       .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
       .returning();
     return !!deleted;
@@ -3191,7 +3918,12 @@ export class DatabaseStorage implements IStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<Array<{ history: PriceHistory; retailer: Retailer }>> {
-    return this.priceStorage.getRawPriceHistoryWithRetailers(productId, startDate, endDate, retailerId);
+    return this.priceStorage.getRawPriceHistoryWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
   }
 
   async getDailyAggregatesWithRetailers(
@@ -3200,7 +3932,12 @@ export class DatabaseStorage implements IStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<Array<{ agg: DailyAggregateRecord; retailer: Retailer }>> {
-    return this.priceStorage.getDailyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+    return this.priceStorage.getDailyAggregatesWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
   }
 
   async getWeeklyAggregatesWithRetailers(
@@ -3209,7 +3946,12 @@ export class DatabaseStorage implements IStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<Array<{ agg: WeeklyAggregateRecord; retailer: Retailer }>> {
-    return this.priceStorage.getWeeklyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+    return this.priceStorage.getWeeklyAggregatesWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
   }
 
   async getMonthlyAggregatesWithRetailers(
@@ -3218,7 +3960,12 @@ export class DatabaseStorage implements IStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<Array<{ agg: MonthlyAggregateRecord; retailer: Retailer }>> {
-    return this.priceStorage.getMonthlyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+    return this.priceStorage.getMonthlyAggregatesWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
   }
 
   async getPriceHistoryOptimized(
@@ -3229,11 +3976,13 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.getPriceHistoryOptimized(productId, days, retailerId);
   }
 
-  async getActiveProductOffersGrouped(): Promise<Array<{
-    productId: number;
-    retailerId: number;
-    price: string;
-  }>> {
+  async getActiveProductOffersGrouped(): Promise<
+    Array<{
+      productId: number;
+      retailerId: number;
+      price: string;
+    }>
+  > {
     return this.priceStorage.getActiveProductOffersGrouped();
   }
 
@@ -3250,11 +3999,13 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.deleteOldPriceHistory(cutoffDate);
   }
 
-  async getRecentPriceChanges(cutoffDate: Date): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>> {
+  async getRecentPriceChanges(cutoffDate: Date): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  > {
     return this.priceStorage.getRecentPriceChanges(cutoffDate);
   }
 
@@ -3355,27 +4106,34 @@ export class DatabaseStorage implements IStorage {
     // DATA INTEGRITY: Use SERIALIZABLE isolation to prevent concurrent update race conditions
     // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
     const result = await retryWithBackoff(
-      async () => db.transaction(async (tx) => {
-        // Build atomic update with SQL arithmetic to prevent read-modify-write race condition
-        const updateResult = await tx
-          .update(userReputation)
-          .set({
-            reputationPoints: sql`${userReputation.reputationPoints} + ${points}`,
-            dealsSpotted: reason === 'deal_spotted'
-              ? sql`${userReputation.dealsSpotted} + 1`
-              : userReputation.dealsSpotted,
-            accuratePredictions: reason === 'accurate_prediction'
-              ? sql`${userReputation.accuratePredictions} + 1`
-              : userReputation.accuratePredictions,
-            communityContributions: reason === 'community_contribution'
-              ? sql`${userReputation.communityContributions} + 1`
-              : userReputation.communityContributions,
-          })
-          .where(eq(userReputation.userId, userId))
-          .returning();
+      async () =>
+        db.transaction(
+          async (tx) => {
+            // Build atomic update with SQL arithmetic to prevent read-modify-write race condition
+            const updateResult = await tx
+              .update(userReputation)
+              .set({
+                reputationPoints: sql`${userReputation.reputationPoints} + ${points}`,
+                dealsSpotted:
+                  reason === 'deal_spotted'
+                    ? sql`${userReputation.dealsSpotted} + 1`
+                    : userReputation.dealsSpotted,
+                accuratePredictions:
+                  reason === 'accurate_prediction'
+                    ? sql`${userReputation.accuratePredictions} + 1`
+                    : userReputation.accuratePredictions,
+                communityContributions:
+                  reason === 'community_contribution'
+                    ? sql`${userReputation.communityContributions} + 1`
+                    : userReputation.communityContributions,
+              })
+              .where(eq(userReputation.userId, userId))
+              .returning();
 
-        return updateResult[0];
-      }, { isolationLevel: 'serializable' }),
+            return updateResult[0];
+          },
+          { isolationLevel: 'serializable' }
+        ),
       {
         maxAttempts: 3,
         initialDelayMs: 100,
@@ -3434,11 +4192,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('name is required');
     }
 
-    const result = await db
-      .select()
-      .from(badges)
-      .where(eq(badges.name, name))
-      .limit(1);
+    const result = await db.select().from(badges).where(eq(badges.name, name)).limit(1);
 
     return result.length > 0 ? result[0] : null;
   }
@@ -3451,10 +4205,7 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
 
-    return db
-      .select()
-      .from(badges)
-      .where(inArray(badges.name, names));
+    return db.select().from(badges).where(inArray(badges.name, names));
   }
 
   /**
@@ -3471,12 +4222,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select()
       .from(userBadges)
-      .where(
-        and(
-          eq(userBadges.userId, userId),
-          eq(userBadges.badgeId, badgeId)
-        )
-      )
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badgeId)))
       .limit(1);
 
     return result.length > 0;
@@ -3495,14 +4241,18 @@ export class DatabaseStorage implements IStorage {
       .from(userBadges)
       .where(eq(userBadges.userId, userId));
 
-    return result.map(r => r.badgeId);
+    return result.map((r) => r.badgeId);
   }
 
   /**
    * Award badge to user with notification (transactional)
    * UX: Transaction ensures badge award and notification are atomic
    */
-  async awardBadgeWithNotification(userId: number, badgeId: number, badgeName: string): Promise<void> {
+  async awardBadgeWithNotification(
+    userId: number,
+    badgeId: number,
+    badgeName: string
+  ): Promise<void> {
     if (!userId || userId <= 0) {
       throw new Error('userId must be a positive number');
     }
@@ -3554,7 +4304,7 @@ export class DatabaseStorage implements IStorage {
 
     // DATA INTEGRITY: Use transaction to ensure deal spotting and reputation award are atomic
     // If reputation award fails, deal should not be recorded (inconsistent data)
-    let dealSpotting: DealSpotting;
+    let dealSpotting: DealSpotting | undefined;
     await db.transaction(async (tx) => {
       const result = await tx.insert(dealSpottings).values(spotting).returning();
       dealSpotting = result[0];
@@ -3578,7 +4328,10 @@ export class DatabaseStorage implements IStorage {
         });
     });
 
-    return dealSpotting!;
+    if (!dealSpotting) {
+      throw new Error('Failed to create deal spotting');
+    }
+    return dealSpotting;
   }
 
   /**
@@ -3589,11 +4342,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('limit must be between 1 and 100');
     }
 
-    return db
-      .select()
-      .from(dealSpottings)
-      .orderBy(desc(dealSpottings.createdAt))
-      .limit(limit);
+    return db.select().from(dealSpottings).orderBy(desc(dealSpottings.createdAt)).limit(limit);
   }
 
   /**
@@ -3620,7 +4369,10 @@ export class DatabaseStorage implements IStorage {
   /**
    * Get a specific watch list with stats
    */
-  async getWatchListByIdWithStats(userId: number, listId: number): Promise<WatchListWithStats | null> {
+  async getWatchListByIdWithStats(
+    userId: number,
+    listId: number
+  ): Promise<WatchListWithStats | null> {
     return this.watchListStorage.getWatchListByIdWithStats(userId, listId);
   }
 
@@ -3716,7 +4468,10 @@ export class DatabaseStorage implements IStorage {
   /**
    * Notify all product watchers
    */
-  async notifyProductWatchers(productId: number, notification: WatcherNotificationData): Promise<void> {
+  async notifyProductWatchers(
+    productId: number,
+    notification: WatcherNotificationData
+  ): Promise<void> {
     return this.watchListStorage.notifyProductWatchers(productId, notification);
   }
 
@@ -3734,15 +4489,16 @@ export class DatabaseStorage implements IStorage {
 
     const timeThreshold = new Date(Date.now() - hours * 60 * 60 * 1000);
 
-    const sessions = await db.select({
-      id: agentSessions.id,
-      agentType: agentSessions.agentType,
-      status: agentSessions.status,
-      sessionStart: agentSessions.sessionStart,
-      tasksCompleted: agentSessions.tasksCompleted,
-      successRate: agentSessions.successRate,
-      errorsEncountered: agentSessions.errorsEncountered,
-    })
+    const sessions = await db
+      .select({
+        id: agentSessions.id,
+        agentType: agentSessions.agentType,
+        status: agentSessions.status,
+        sessionStart: agentSessions.sessionStart,
+        tasksCompleted: agentSessions.tasksCompleted,
+        successRate: agentSessions.successRate,
+        errorsEncountered: agentSessions.errorsEncountered,
+      })
       .from(agentSessions)
       .where(gte(agentSessions.sessionStart, timeThreshold))
       .orderBy(desc(agentSessions.sessionStart))
@@ -3757,15 +4513,16 @@ export class DatabaseStorage implements IStorage {
       throw new Error('limit must be greater than 0');
     }
 
-    const jobs = await db.select({
-      id: scrapingJobs.id,
-      jobType: scrapingJobs.jobType,
-      status: scrapingJobs.status,
-      createdAt: scrapingJobs.createdAt,
-      startedAt: scrapingJobs.startedAt,
-      completedAt: scrapingJobs.completedAt,
-      errorMessage: scrapingJobs.errorMessage,
-    })
+    const jobs = await db
+      .select({
+        id: scrapingJobs.id,
+        jobType: scrapingJobs.jobType,
+        status: scrapingJobs.status,
+        createdAt: scrapingJobs.createdAt,
+        startedAt: scrapingJobs.startedAt,
+        completedAt: scrapingJobs.completedAt,
+        errorMessage: scrapingJobs.errorMessage,
+      })
       .from(scrapingJobs)
       .orderBy(desc(scrapingJobs.createdAt))
       .limit(limit);
@@ -3775,15 +4532,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getScrapingJobStatusCounts(): Promise<JobStatusCount[]> {
-    const statusCounts = await db.select({
-      status: scrapingJobs.status,
-      count: count(),
-    })
+    const statusCounts = await db
+      .select({
+        status: scrapingJobs.status,
+        count: count(),
+      })
       .from(scrapingJobs)
       .groupBy(scrapingJobs.status);
 
     // Type assertion: status is non-null in database schema
-    return statusCounts.map(row => ({
+    return statusCounts.map((row) => ({
       status: row.status as string,
       count: Number(row.count),
     }));
@@ -3794,22 +4552,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProductOffersCount(): Promise<number> {
-    const result = await db.select({ count: count() })
-      .from(productOffers);
+    const result = await db.select({ count: count() }).from(productOffers);
 
     return Number(result[0]?.count ?? 0);
   }
 
   async getTrendingProductsStatusCounts(): Promise<TrendingProductStatusCount[]> {
-    const statusCounts = await db.select({
-      status: trendingProducts.status,
-      count: count(),
-    })
+    const statusCounts = await db
+      .select({
+        status: trendingProducts.status,
+        count: count(),
+      })
       .from(trendingProducts)
       .groupBy(trendingProducts.status);
 
     // Type assertion: status is non-null in database schema
-    return statusCounts.map(row => ({
+    return statusCounts.map((row) => ({
       status: row.status as string,
       count: Number(row.count),
     }));
@@ -3822,12 +4580,12 @@ export class DatabaseStorage implements IStorage {
 
     const timeThreshold = new Date(Date.now() - minutes * 60 * 1000);
 
-    const result = await db.select({ count: count() })
+    const result = await db
+      .select({ count: count() })
       .from(agentSessions)
-      .where(and(
-        eq(agentSessions.status, 'active'),
-        gte(agentSessions.sessionStart, timeThreshold)
-      ));
+      .where(
+        and(eq(agentSessions.status, 'active'), gte(agentSessions.sessionStart, timeThreshold))
+      );
 
     return Number(result[0]?.count ?? 0);
   }
@@ -3840,18 +4598,21 @@ export class DatabaseStorage implements IStorage {
     return this.priceStorage.getPriceHistoryByOfferId(productOfferId, limit);
   }
 
-  async getProductOfferDetailsForAlert(productOfferId: number): Promise<ProductOfferForAlert | null> {
+  async getProductOfferDetailsForAlert(
+    productOfferId: number
+  ): Promise<ProductOfferForAlert | null> {
     if (productOfferId <= 0) {
       throw new Error('productOfferId must be greater than 0');
     }
 
-    const result = await db.select({
-      productId: productOffers.productId,
-      productName: products.name,
-      retailerName: retailers.name,
-      productUrl: productOffers.productUrl,
-      price: productOffers.price,
-    })
+    const result = await db
+      .select({
+        productId: productOffers.productId,
+        productName: products.name,
+        retailerName: retailers.name,
+        productUrl: productOffers.productUrl,
+        price: productOffers.price,
+      })
       .from(productOffers)
       .leftJoin(products, eq(productOffers.productId, products.id))
       .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
@@ -3861,7 +4622,10 @@ export class DatabaseStorage implements IStorage {
     return result[0] || null;
   }
 
-  async getTriggeredPriceAlerts(productId: number, newPrice: number): Promise<TriggeredPriceAlert[]> {
+  async getTriggeredPriceAlerts(
+    productId: number,
+    newPrice: number
+  ): Promise<TriggeredPriceAlert[]> {
     if (productId <= 0) {
       throw new Error('productId must be greater than 0');
     }
@@ -3869,20 +4633,23 @@ export class DatabaseStorage implements IStorage {
       throw new Error('newPrice must be non-negative');
     }
 
-    const alerts = await db.select({
-      id: priceAlerts.id,
-      userId: priceAlerts.userId,
-      productId: priceAlerts.productId,
-      targetPrice: priceAlerts.targetPrice,
-      isActive: priceAlerts.isActive,
-      createdAt: priceAlerts.createdAt,
-    })
+    const alerts = await db
+      .select({
+        id: priceAlerts.id,
+        userId: priceAlerts.userId,
+        productId: priceAlerts.productId,
+        targetPrice: priceAlerts.targetPrice,
+        isActive: priceAlerts.isActive,
+        createdAt: priceAlerts.createdAt,
+      })
       .from(priceAlerts)
-      .where(and(
-        eq(priceAlerts.productId, productId),
-        eq(priceAlerts.isActive, true),
-        sql`${priceAlerts.targetPrice}::numeric >= ${newPrice}`
-      ));
+      .where(
+        and(
+          eq(priceAlerts.productId, productId),
+          eq(priceAlerts.isActive, true),
+          sql`${priceAlerts.targetPrice}::numeric >= ${newPrice}`
+        )
+      );
 
     // Type assertion: database schema guarantees non-null for required fields
     return alerts as TriggeredPriceAlert[];
@@ -3893,14 +4660,12 @@ export class DatabaseStorage implements IStorage {
       throw new Error('productId must be greater than 0');
     }
 
-    const result = await db.select({ userId: priceAlerts.userId })
+    const result = await db
+      .select({ userId: priceAlerts.userId })
       .from(priceAlerts)
-      .where(and(
-        eq(priceAlerts.productId, productId),
-        eq(priceAlerts.isActive, true)
-      ));
+      .where(and(eq(priceAlerts.productId, productId), eq(priceAlerts.isActive, true)));
 
-    return result.map(row => row.userId);
+    return result.map((row) => row.userId);
   }
 
   // ============================================================================
@@ -3918,21 +4683,23 @@ export class DatabaseStorage implements IStorage {
     // Use Drizzle query builder with nested relations
     const productsResult = await db.query.products.findMany({
       where: or(
-        ...searchTerms.map(term => or(
-          like(products.name, `%${term}%`),
-          like(products.description, `%${term}%`),
-          like(products.category, `%${term}%`),
-          like(products.brand, `%${term}%`)
-        ))
+        ...searchTerms.map((term) =>
+          or(
+            like(products.name, `%${term}%`),
+            like(products.description, `%${term}%`),
+            like(products.category, `%${term}%`),
+            like(products.brand, `%${term}%`)
+          )
+        )
       ),
       with: {
         offers: {
           with: {
-            retailer: true
-          }
-        }
+            retailer: true,
+          },
+        },
       },
-      limit
+      limit,
     });
 
     return productsResult as ProductWithOffers[];
@@ -3951,13 +4718,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(count()))
       .limit(limit);
 
-    return result.map(row => ({
+    return result.map((row) => ({
       category: row.category || 'Unknown',
       count: Number(row.count),
     }));
   }
 
-  async getProductSearchSuggestions(searchTerm: string, limit: number): Promise<ProductSuggestion[]> {
+  async getProductSearchSuggestions(
+    searchTerm: string,
+    limit: number
+  ): Promise<ProductSuggestion[]> {
     if (!searchTerm) {
       return [];
     }
@@ -3987,7 +4757,10 @@ export class DatabaseStorage implements IStorage {
   // Phase 6: Advanced Search Methods
   // ============================================================================
 
-  async searchProductsExact(searchPattern: string, limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsExact(
+    searchPattern: string,
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     if (!searchPattern) {
       return [];
     }
@@ -3996,24 +4769,27 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Complex query with json_agg for nested offers+retailers structure
-    const results = await db.select({
-      id: products.id,
-      name: products.name,
-      description: products.description,
-      category: products.category,
-      brand: products.brand,
-      image: products.image,
-      offers: sql<Array<{
-        id: number;
-        price: string;
-        availability: string | null;
-        productUrl: string | null;
-        retailer: {
-          id: number;
-          name: string;
-          websiteUrl: string | null;
-        } | null;
-      }>>`
+    const results = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        category: products.category,
+        brand: products.brand,
+        image: products.image,
+        offers: sql<
+          Array<{
+            id: number;
+            price: string;
+            availability: string | null;
+            productUrl: string | null;
+            retailer: {
+              id: number;
+              name: string;
+              websiteUrl: string | null;
+            } | null;
+          }>
+        >`
         json_agg(json_build_object(
           'id', ${productOffers.id},
           'price', ${productOffers.price}::text,
@@ -4025,25 +4801,38 @@ export class DatabaseStorage implements IStorage {
             'websiteUrl', ${retailers.website}
           )
         )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
-      `
-    })
+      `,
+      })
       .from(products)
       .leftJoin(productOffers, eq(products.id, productOffers.productId))
       .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(or(
-        sql`LOWER(${products.name}) LIKE LOWER(${searchPattern})`,
-        sql`LOWER(${products.brand}) LIKE LOWER(${searchPattern})`
-      ))
-      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image)
+      .where(
+        or(
+          sql`LOWER(${products.name}) LIKE LOWER(${searchPattern})`,
+          sql`LOWER(${products.brand}) LIKE LOWER(${searchPattern})`
+        )
+      )
+      .groupBy(
+        products.id,
+        products.name,
+        products.description,
+        products.category,
+        products.brand,
+        products.image
+      )
       .limit(limit);
 
-    return results.map(row => ({
+    return results.map((row) => ({
       ...row,
-      offers: row.offers || []
+      offers: row.offers || [],
     }));
   }
 
-  async searchProductsFuzzy(searchPattern: string, threshold: number, limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsFuzzy(
+    searchPattern: string,
+    threshold: number,
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     if (!searchPattern) {
       return [];
     }
@@ -4055,24 +4844,27 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Fuzzy search using similarity function (requires pg_trgm extension)
-    const results = await db.select({
-      id: products.id,
-      name: products.name,
-      description: products.description,
-      category: products.category,
-      brand: products.brand,
-      image: products.image,
-      offers: sql<Array<{
-        id: number;
-        price: string;
-        availability: string | null;
-        productUrl: string | null;
-        retailer: {
-          id: number;
-          name: string;
-          websiteUrl: string | null;
-        } | null;
-      }>>`
+    const results = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        category: products.category,
+        brand: products.brand,
+        image: products.image,
+        offers: sql<
+          Array<{
+            id: number;
+            price: string;
+            availability: string | null;
+            productUrl: string | null;
+            retailer: {
+              id: number;
+              name: string;
+              websiteUrl: string | null;
+            } | null;
+          }>
+        >`
         json_agg(json_build_object(
           'id', ${productOffers.id},
           'price', ${productOffers.price}::text,
@@ -4084,23 +4876,33 @@ export class DatabaseStorage implements IStorage {
             'websiteUrl', ${retailers.website}
           )
         )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
-      `
-    })
+      `,
+      })
       .from(products)
       .leftJoin(productOffers, eq(products.id, productOffers.productId))
       .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
       .where(sql`similarity(${products.name}, ${searchPattern}) > ${threshold}`)
-      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image)
+      .groupBy(
+        products.id,
+        products.name,
+        products.description,
+        products.category,
+        products.brand,
+        products.image
+      )
       .orderBy(sql`similarity(${products.name}, ${searchPattern}) DESC`)
       .limit(limit);
 
-    return results.map(row => ({
+    return results.map((row) => ({
       ...row,
-      offers: row.offers || []
+      offers: row.offers || [],
     }));
   }
 
-  async searchProductsBySynonyms(searchTerms: string[], limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsBySynonyms(
+    searchTerms: string[],
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     if (!searchTerms || searchTerms.length === 0) {
       return [];
     }
@@ -4109,24 +4911,27 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Batch query with multiple OR conditions for synonym matching
-    const results = await db.select({
-      id: products.id,
-      name: products.name,
-      description: products.description,
-      category: products.category,
-      brand: products.brand,
-      image: products.image,
-      offers: sql<Array<{
-        id: number;
-        price: string;
-        availability: string | null;
-        productUrl: string | null;
-        retailer: {
-          id: number;
-          name: string;
-          websiteUrl: string | null;
-        } | null;
-      }>>`
+    const results = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        category: products.category,
+        brand: products.brand,
+        image: products.image,
+        offers: sql<
+          Array<{
+            id: number;
+            price: string;
+            availability: string | null;
+            productUrl: string | null;
+            retailer: {
+              id: number;
+              name: string;
+              websiteUrl: string | null;
+            } | null;
+          }>
+        >`
         json_agg(json_build_object(
           'id', ${productOffers.id},
           'price', ${productOffers.price}::text,
@@ -4138,28 +4943,42 @@ export class DatabaseStorage implements IStorage {
             'websiteUrl', ${retailers.website}
           )
         )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
-      `
-    })
+      `,
+      })
       .from(products)
       .leftJoin(productOffers, eq(products.id, productOffers.productId))
       .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
-      .where(or(
-        ...searchTerms.map(term => or(
-          sql`LOWER(${products.name}) LIKE LOWER('%' || ${term} || '%')`,
-          sql`LOWER(${products.brand}) LIKE LOWER('%' || ${term} || '%')`,
-          sql`LOWER(${products.description}) LIKE LOWER('%' || ${term} || '%')`
-        ))
-      ))
-      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image)
+      .where(
+        or(
+          ...searchTerms.map((term) =>
+            or(
+              sql`LOWER(${products.name}) LIKE LOWER('%' || ${term} || '%')`,
+              sql`LOWER(${products.brand}) LIKE LOWER('%' || ${term} || '%')`,
+              sql`LOWER(${products.description}) LIKE LOWER('%' || ${term} || '%')`
+            )
+          )
+        )
+      )
+      .groupBy(
+        products.id,
+        products.name,
+        products.description,
+        products.category,
+        products.brand,
+        products.image
+      )
       .limit(limit);
 
-    return results.map(row => ({
+    return results.map((row) => ({
       ...row,
-      offers: row.offers || []
+      offers: row.offers || [],
     }));
   }
 
-  async searchProductsSemantic(embedding: number[], limit: number): Promise<ProductWithOffersAndRetailers[]> {
+  async searchProductsSemantic(
+    embedding: number[],
+    limit: number
+  ): Promise<ProductWithOffersAndRetailers[]> {
     if (!embedding || embedding.length === 0) {
       throw new Error('embedding must be a non-empty array');
     }
@@ -4171,25 +4990,28 @@ export class DatabaseStorage implements IStorage {
     const embeddingString = `[${embedding.join(',')}]`;
 
     // Semantic search using pgvector cosine distance operator (<=>)
-    const results = await db.select({
-      id: products.id,
-      name: products.name,
-      description: products.description,
-      category: products.category,
-      brand: products.brand,
-      image: products.image,
-      similarity: sql<number>`1 - (${products.embedding} <=> ${embeddingString}::vector)`,
-      offers: sql<Array<{
-        id: number;
-        price: string;
-        availability: string | null;
-        productUrl: string | null;
-        retailer: {
-          id: number;
-          name: string;
-          websiteUrl: string | null;
-        } | null;
-      }>>`
+    const results = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        category: products.category,
+        brand: products.brand,
+        image: products.image,
+        similarity: sql<number>`1 - (${products.embedding} <=> ${embeddingString}::vector)`,
+        offers: sql<
+          Array<{
+            id: number;
+            price: string;
+            availability: string | null;
+            productUrl: string | null;
+            retailer: {
+              id: number;
+              name: string;
+              websiteUrl: string | null;
+            } | null;
+          }>
+        >`
         json_agg(json_build_object(
           'id', ${productOffers.id},
           'price', ${productOffers.price}::text,
@@ -4201,23 +5023,34 @@ export class DatabaseStorage implements IStorage {
             'websiteUrl', ${retailers.website}
           )
         )) FILTER (WHERE ${productOffers.id} IS NOT NULL)
-      `
-    })
+      `,
+      })
       .from(products)
       .leftJoin(productOffers, eq(products.id, productOffers.productId))
       .leftJoin(retailers, eq(productOffers.retailerId, retailers.id))
       .where(sql`${products.embedding} IS NOT NULL`)
-      .groupBy(products.id, products.name, products.description, products.category, products.brand, products.image, products.embedding)
+      .groupBy(
+        products.id,
+        products.name,
+        products.description,
+        products.category,
+        products.brand,
+        products.image,
+        products.embedding
+      )
       .orderBy(sql`${products.embedding} <=> ${embeddingString}::vector`)
       .limit(limit);
 
-    return results.map(row => ({
+    return results.map((row) => ({
       ...row,
-      offers: row.offers || []
+      offers: row.offers || [],
     }));
   }
 
-  async getProductAutocompleteSuggestions(query: string, limit: number): Promise<ProductSuggestion[]> {
+  async getProductAutocompleteSuggestions(
+    query: string,
+    limit: number
+  ): Promise<ProductSuggestion[]> {
     if (!query) {
       return [];
     }
@@ -4225,17 +5058,20 @@ export class DatabaseStorage implements IStorage {
       throw new Error('limit must be greater than 0');
     }
 
-    const suggestions = await db.select({
-      name: products.name,
-      brand: products.brand,
-      category: products.category,
-    })
+    const suggestions = await db
+      .select({
+        name: products.name,
+        brand: products.brand,
+        category: products.category,
+      })
       .from(products)
-      .where(or(
-        sql`LOWER(${products.name}) LIKE LOWER(${`%${query}%`})`,
-        sql`LOWER(${products.brand}) LIKE LOWER(${`%${query}%`})`,
-        sql`LOWER(${products.category}) LIKE LOWER(${`%${query}%`})`
-      ))
+      .where(
+        or(
+          sql`LOWER(${products.name}) LIKE LOWER(${`%${query}%`})`,
+          sql`LOWER(${products.brand}) LIKE LOWER(${`%${query}%`})`,
+          sql`LOWER(${products.category}) LIKE LOWER(${`%${query}%`})`
+        )
+      )
       .limit(limit);
 
     return suggestions;
@@ -4254,7 +5090,7 @@ export class DatabaseStorage implements IStorage {
         description: true,
         category: true,
         brand: true,
-      }
+      },
     });
 
     return product || null;
@@ -4271,16 +5107,15 @@ export class DatabaseStorage implements IStorage {
     // Convert embedding array to PostgreSQL vector format
     const embeddingString = `[${embedding.join(',')}]`;
 
-    await db.update(products)
+    await db
+      .update(products)
       .set({ embedding: sql`${embeddingString}::vector` })
       .where(eq(products.id, productId));
   }
 }
 
 // Initialize storage - use database when DATABASE_URL is available
-export const storage = process.env.DATABASE_URL
-  ? new DatabaseStorage()
-  : new MemStorage();
+export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();
 
 // Job Lock Type
 export interface JobLock {
