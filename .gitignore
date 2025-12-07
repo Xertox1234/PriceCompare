@@ -1,9 +1,11 @@
+# Dependencies
 node_modules
 dist
-.DS_Store
-server/public
-vite.config.ts.*
 *.tar.gz
+
+# Build artifacts
+vite.config.ts.*
+jscpd-report/
 
 # Environment variables and secrets
 .env
@@ -23,11 +25,13 @@ vite.config.ts.*
 credentials.json
 service-account.json
 
-# IDE
+# IDE and editor files
 .vscode
 .idea
 *.swp
 *.swo
+.replit
+replit.nix
 
 # Logs
 logs
@@ -36,20 +40,138 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Test coverage
+# Test coverage and reports
 coverage
 .nyc_output
-
-# Playwright
-test-results/
 playwright-report/
 playwright/.cache/
+test-results/
 .auth/
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
-server/routes.ts.backup
-.worktrees
-.claude/settings.local.json
+
+# Temporary and backup files
 *.backup*
+*.tmp
+*.temp
+server/routes.ts.backup
+package-lock.json.backup*
+
+# Git worktrees
+.worktrees
+
+# Claude Code (local development only)
+.claude/
+# Exception: Keep hooks configuration for team
+!.claude/hooks.json
+
+# Temporary working documents (root level only)
+/AGGREGATION_IMPROVEMENTS_QUICK_START.md
+/ANY_TYPES_PREVENTION.md
+/API_CALLS_QUICK_REFERENCE.md
+/API_SECURITY_IMPROVEMENTS.md
+/BUILD_PLAN.md
+/CHANGELOG.md
+/CODE_REVIEW_SUMMARY.md
+/COMPLETION_SUMMARY.md
+/COMPREHENSIVE_AUDIT_REPORT_2025.md
+/CONTINUATION_PROMPT.md
+/COVERAGE_ENFORCEMENT_GUIDE.md
+/CSRF_PROTECTION_AUDIT.md
+/ESLINT_GUARANTEE.md
+/FINAL_INTEGRATION_VALIDATION_REPORT.md
+/NEXT_SESSION_PROMPT.md
+/PATTERN_CONSOLIDATION_COMPLETE.md
+/PATTERN_CONSOLIDATION_PLAN.md
+/PATTERN_ENFORCEMENT_FAILURE_ANALYSIS.md
+/PRICE_AGGREGATION_IMPROVEMENTS.md
+/PRICE_HISTORY_NEXT_FEATURES.md
+/PUSH_INSTRUCTIONS.md
+/QUICKSTART_API_TESTING.md
+/REDIS_PRODUCTION_REQUIREMENT.md
+/SUBAGENT_PATTERN_UPDATE_COMPLETE.md
+/TEST_COVERAGE_REPORT.md
+/TEST_RUN_RESULTS.md
+/THIRD_PARTY_LIBRARY_ANALYSIS.md
+/TODO_API_TESTING_MIGRATION.md
+/TODO_VERIFICATION_AUDIT.md
+/TYPESCRIPT_CODE_REVIEW.md
+/TYPESCRIPT_FIXES_STATUS.md
+/VALIDATION_SUMMARY.txt
+/WEBSOCKET_TEST_SUMMARY.md
+/WORK_SUMMARY.md
+
+# Temporary directories
+/todos/
+/workflows/
+/attached_assets/
+
+# Documentation backups and archives (docs/)
+/docs/backup-2025-11-29/
+/docs/archive/
+/docs/completed/
+/docs/history/
+/docs/planning/
+/docs/agents/
+/docs/storage-layer/
+
+# Pattern files - keeping only consolidated numbered patterns (01-08)
+# Exclude old/superseded pattern files
+/docs/*PATTERNS*.md
+!/docs/01_TYPESCRIPT_PATTERNS.md
+!/docs/02_DATABASE_PATTERNS.md
+!/docs/03_API_PATTERNS.md
+!/docs/04_SECURITY_PATTERNS.md
+!/docs/05_FRONTEND_PATTERNS.md
+!/docs/06_ERROR_HANDLING_PATTERNS.md
+!/docs/07_BACKGROUND_JOBS_PATTERNS.md
+!/docs/08_TESTING_PATTERNS.md
+
+# Learnings and session summaries (keep for historical reference but exclude WIP)
+# These are valuable - keep them but exclude phase summaries
+/docs/PHASE_*.md
+/docs/SESSION_*.md
+/docs/*_SUMMARY.md
+!/docs/README.md
+
+# Specific doc exclusions (superseded or WIP)
+/docs/AGENT_SYSTEM_REVIEW.md
+/docs/API_AUDIT_REPORT.md
+/docs/API_ENDPOINTS_REFERENCE.md
+/docs/API_INTEGRATION_STRATEGY.md
+/docs/API_RESPONSE_TEST_COVERAGE.md
+/docs/API_TESTING_CONTINUATION_PLAN.md
+/docs/AUDIT_2025-11-16.md
+/docs/CHANGELOG-Playwright-Update.md
+/docs/CI_CD_IMPROVEMENTS.md
+/docs/DOMAIN_CACHING_STRATEGIES.md
+/docs/ESLINT_NEVER_AGAIN.md
+/docs/ESLINT_SETUP.md
+/docs/HOMEPAGE_REDESIGN.md
+/docs/IMPLEMENTATION_INDEX.md
+/docs/IMPLEMENTATION_PLAN.md
+/docs/LINT_ERROR_PATTERNS.md
+/docs/MONITORING_ASSESSMENT.md
+/docs/PATTERNS_INDEX.md
+/docs/PHASE0_QUICK_REFERENCE.md
+/docs/PHASE1_START_PROMPT.md
+/docs/PRICE_HISTORY_PHASE_*.md
+/docs/PROMETHEUS_SETUP.md
+/docs/PR_DESCRIPTION.md
+/docs/QUICK_START_CHECKLIST.md
+/docs/REDIS_SESSION_TESTING.md
+/docs/SECURITY_PATTERNS_CONSOLIDATION_REPORT.md
+/docs/SENTRY_INTEGRATION.md
+/docs/SMART_NOTIFICATIONS_*.md
+/docs/STORAGE_LAYER_REFACTORING_RESEARCH.md
+/docs/TEST_FIX_SUMMARY.md
+/docs/TYPESCRIPT_ERRORS_ANALYSIS.md
+/docs/TYPE_SAFETY_ENFORCEMENT.md
+/docs/advanced-caching.md
+/docs/google_search_setup.md
+/docs/openapi.yaml
+/docs/react-19-migration.md
+/docs/sample.html
+/docs/scraping_plan.md
