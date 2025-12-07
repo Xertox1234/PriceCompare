@@ -55,7 +55,30 @@ async function runMigrations() {
       console.log(`📄 Running migration: ${file}`);
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
 
-      await pool.query(sql);
+      // Check if migration contains CONCURRENT operations (cannot run in transaction)
+      const hasConcurrentOps = /CREATE\s+INDEX\s+CONCURRENTLY|DROP\s+INDEX\s+CONCURRENTLY|REINDEX\s+CONCURRENTLY/i.test(sql);
+
+      if (hasConcurrentOps) {
+        console.log('   ⚠️  Migration contains CONCURRENT operations - executing outside transaction');
+
+        // Split SQL by semicolons, filter out comments and empty statements
+        const statements = sql
+          .split(';')
+          .map(stmt => stmt.trim())
+          .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'))
+          .filter(stmt => !/^\/\*[\s\S]*?\*\/$/.test(stmt)); // Remove multi-line comments
+
+        // Execute each statement separately (required for CONCURRENT operations)
+        for (const statement of statements) {
+          if (statement.trim()) {
+            await pool.query(statement);
+          }
+        }
+      } else {
+        // Regular migration - can run in single query
+        await pool.query(sql);
+      }
+
       console.log(`✅ Migration ${file} completed successfully\n`);
     }
 

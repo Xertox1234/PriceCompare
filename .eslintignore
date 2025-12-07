@@ -71,3 +71,6 @@ drizzle.config.ts
 
 # Chrome extension (separate JavaScript project, not in tsconfig.json)
 extensions/chrome/
+
+# TODO tracking and archived code (not in tsconfig.json project)
+todos/
