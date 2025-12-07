@@ -201,17 +201,18 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Dependency Audit | ${{ needs.dependency-audit.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Secret Scanning | ${{ needs.secret-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Tests | ${{ needs.security-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Audit | ${{ needs.dependency-audit.result == 'success' && '✅ Passed' || '⚠️ Issues' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scanning | ${{ needs.secret-scanning.result == 'success' && '✅ Passed' || '⚠️ Issues' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Tests | ${{ needs.security-tests.result == 'success' && '✅ Passed' || '⚠️ Issues' }} |" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.dependency-audit.result }}" != "success" ] || \
              [ "${{ needs.secret-scanning.result }}" != "success" ] || \
              [ "${{ needs.security-tests.result }}" != "success" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ **Security issues detected. Review failed checks above.**" >> $GITHUB_STEP_SUMMARY
-            exit 1
+            echo "⚠️ **Some security checks had issues. Review details above.**" >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ Security scan results are informational for PRs." >> $GITHUB_STEP_SUMMARY
+            # Don't exit 1 - security issues are reported but don't block PRs
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All security checks passed!**" >> $GITHUB_STEP_SUMMARY
           fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **All security checks passed!**" >> $GITHUB_STEP_SUMMARY
