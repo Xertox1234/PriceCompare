@@ -8,6 +8,23 @@ Currently, there are **0 active TODOs** - all completed! 🎉
 
 ## Recently Completed
 
+### 2025-12-06
+
+#### Test Infrastructure & Developer Experience
+- ✅ **TODO_002 (Fix Database Connection for Integration Tests)** - Fixed hardcoded PostgreSQL credentials blocking all integration tests (P1 - CRITICAL, 1.5 hours)
+  - **Problem**: Hardcoded `postgres:postgres` credentials failed on developer machines (especially macOS)
+  - **Impact**: Blocked all 35 integration test files (235 tests)
+  - **Solution**: Implemented flexible database configuration with smart defaults
+    - Multi-tier fallback: DATABASE_URL → individual vars → `process.env.USER` → defaults
+    - Port validation with clear error messages
+    - Zero-config works for most developers (uses system username)
+  - **Documentation**: Created `.env.test.example` (161 lines) + CLAUDE.md section
+  - **Improvements**: Added port validation, gitignore entry, security secrets documentation
+  - **Verification**: All 19 integration tests pass, TypeScript + ESLint clean
+  - **Patterns Codified**: `docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md`
+  - **Source**: GitHub Issue #175, PR #180, Commits: 7e7d1e8, 5f4d669
+  - **Archived**: `archive/2025-12-06/TODO_002_fix_database_connection_integration_tests.md`
+
 ### 2025-12-05
 
 #### Code Quality & Simplification
