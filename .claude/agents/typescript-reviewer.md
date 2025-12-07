@@ -2055,6 +2055,9 @@ errors.push({
 - [ ] **No non-null assertions (`!`)** - Use null coalescing or explicit checks
 - [ ] **Map.get() patterns** - Use `?? []` instead of `!` for grouped data
 - [ ] **No logger.warn for expected nulls** - Use null coalescing, not logging
+- [ ] **No hardcoded credentials** - Multi-tier fallback chain for external service config
+- [ ] **Environment variable validation** - Numeric values validated with warnings
+- [ ] **Configuration templates exist** - `.env.*.example` files with documentation
 
 ### 🚨 Critical Issues
 [Pattern violations that break established conventions]
@@ -2170,6 +2173,189 @@ Flag for potential simplification when you see:
 - "Fallback" storage that isn't used in production
 
 **Reference:** `docs/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md`
+
+---
+
+### 26. Environment Configuration Best Practices (NEW - 2025-12-06)
+
+**When reviewing code that configures external services (databases, APIs, Redis, etc.), enforce flexible configuration patterns.**
+
+#### Anti-Pattern: Hardcoded Credentials
+
+**CRITICAL: Hardcoded credentials break across different developer environments and are a security risk.**
+
+```typescript
+// ❌ WRONG - Hardcoded credentials
+process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/db';
+
+// ❌ WRONG - Single fallback that assumes specific setup
+const user = process.env.DATABASE_USER || 'postgres';  // Breaks on macOS
+
+// ❌ WRONG - No validation of environment values
+const port = process.env.DATABASE_PORT;  // Could be "abc" or "99999"
+```
+
+**Problems:**
+- `postgres:postgres` doesn't exist on most macOS/Linux developer machines
+- Different platforms have different default PostgreSQL configurations
+- Invalid values cause cryptic runtime errors
+- No configuration template means developers guess at setup
+
+#### ✅ CORRECT - Multi-Tier Fallback Chain
+
+```typescript
+// Pattern 1: Multi-tier fallback with platform-aware defaults
+const databaseUser = process.env.DATABASE_USER || process.env.USER || 'postgres';
+const databasePassword = process.env.DATABASE_PASSWORD || '';
+const databaseHost = process.env.DATABASE_HOST || 'localhost';
+const databaseName = process.env.DATABASE_NAME || 'myapp_test';
+
+// Construct connection string with or without password
+const credentials = databasePassword ? `${databaseUser}:${databasePassword}` : databaseUser;
+const defaultDatabaseUrl = `postgresql://${credentials}@${databaseHost}:${databasePort}/${databaseName}`;
+
+// Respect explicit configuration, fall back to constructed
+process.env.DATABASE_URL = process.env.DATABASE_URL || defaultDatabaseUrl;
+```
+
+**Fallback Chain Priority:**
+1. Explicit configuration (`DATABASE_URL`)
+2. Constructed from individual vars (`DATABASE_USER`, `DATABASE_HOST`, etc.)
+3. Platform defaults (`process.env.USER` for username)
+4. Universal fallbacks (`localhost`, `5432`)
+
+#### ✅ CORRECT - Environment Variable Validation
+
+```typescript
+// Pattern 2: Validate numeric values with clear warnings
+let databasePort = process.env.DATABASE_PORT || '5432';
+const portNum = parseInt(databasePort, 10);
+if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+  console.warn(`Warning: Invalid DATABASE_PORT '${databasePort}', using default 5432`);
+  databasePort = '5432';
+}
+
+// Pattern 3: Validate boolean flags
+const enableCache = process.env.ENABLE_CACHE;
+if (enableCache !== undefined && enableCache !== 'true' && enableCache !== 'false') {
+  console.warn(`Warning: ENABLE_CACHE should be 'true' or 'false', got '${enableCache}'`);
+}
+```
+
+**Validation Points:**
+- Port numbers: 1-65535 range
+- Boolean flags: must be 'true' or 'false'
+- URLs: valid format (use URL constructor)
+- Numeric values: parse correctly with `parseInt`/`parseFloat`
+
+#### Configuration Template Pattern
+
+**MANDATORY: Provide `.env.*.example` templates for all environment configurations.**
+
+```bash
+# .env.test.example - Configuration template for test environment
+
+# ============================================================
+# DATABASE CONFIGURATION
+# ============================================================
+
+# Full connection string (overrides all individual params below)
+# DATABASE_URL=postgresql://user:pass@host:5432/database
+
+# Individual connection parameters
+# DATABASE_USER - PostgreSQL role/username
+# Default: Your system username (process.env.USER)
+# Common values:
+#   - macOS/Linux (Homebrew): Your system username
+#   - Windows: Usually 'postgres'
+#   - Docker: Usually 'postgres'
+# DATABASE_USER=your_username
+
+# DATABASE_PASSWORD - PostgreSQL password
+# Default: empty (works with trust/peer authentication)
+# DATABASE_PASSWORD=your_password
+
+# DATABASE_HOST - PostgreSQL server hostname
+# Default: localhost
+# DATABASE_HOST=localhost
+
+# DATABASE_PORT - PostgreSQL server port
+# Default: 5432
+# Must be a valid port number (1-65535)
+# DATABASE_PORT=5432
+
+# DATABASE_NAME - Database name for tests
+# Default: pricecompare_test
+# DATABASE_NAME=pricecompare_test
+
+# ============================================================
+# TROUBLESHOOTING
+# ============================================================
+#
+# "role 'postgres' does not exist":
+#   - Set DATABASE_USER to your system username
+#   - Run: whoami (macOS/Linux) or echo %USERNAME% (Windows)
+#
+# "database does not exist":
+#   - Create it: createdb pricecompare_test
+#
+# "password authentication failed":
+#   - Set DATABASE_PASSWORD or configure pg_hba.conf for trust
+```
+
+#### Test-Specific Configuration Documentation
+
+**Document test-specific configurations explicitly to prevent confusion.**
+
+```typescript
+// In test setup files, document WHY test defaults differ from production:
+
+// Set up required environment variables for tests BEFORE any imports
+// Encryption is handled via NODE_ENV='test' check in schema.ts (no-op encryption)
+// Why: Test data is ephemeral, contains no real PII, and encryption adds overhead
+process.env.ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'a'.repeat(64);
+
+// Session and CSRF secrets - test-only values
+// Why: Tests don't need cryptographic security, consistency is more important
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'test-session-secret-min-32-chars-long';
+process.env.CSRF_SECRET = process.env.CSRF_SECRET || 'test-csrf-secret-min-32-chars';
+```
+
+#### Review Checklist for Environment Configuration
+
+- [ ] **No hardcoded credentials** - Search for connection strings in source code
+- [ ] **Multi-tier fallback chain** - Explicit config > constructed > platform defaults > universal fallbacks
+- [ ] **Platform-aware defaults** - Use `process.env.USER` not just `'postgres'`
+- [ ] **Numeric validation** - Port numbers validated with clear warnings
+- [ ] **Configuration template exists** - `.env.*.example` with comprehensive comments
+- [ ] **Troubleshooting documented** - Platform-specific instructions provided
+- [ ] **Test defaults documented** - Explain WHY test config differs from production
+- [ ] **Security secrets documented** - Explain encryption behavior in test mode
+
+#### Detection Commands
+
+```bash
+# Find hardcoded connection strings
+grep -rn "postgresql://.*:.*@" server/ --include="*.ts" | grep -v ".example"
+grep -rn "postgres:postgres" server/ --include="*.ts"
+
+# Find single-fallback patterns (potential platform issues)
+grep -rn "|| 'postgres'" server/ --include="*.ts"
+
+# Find missing validation for numeric env vars
+grep -rn "process.env.*PORT" server/ --include="*.ts" | grep -v "parseInt"
+```
+
+#### Success Metrics
+
+A good environment configuration pattern achieves:
+- Zero-config works for 90% of developers (platform-aware defaults)
+- Clear error messages when configuration is wrong
+- Works across macOS, Linux, Windows, Docker
+- Backward compatible with existing explicit configurations
+- Template file documents all options with troubleshooting
+
+**Reference:** `docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md`
 
 ---
 

@@ -1,24 +1,29 @@
 # Testing Patterns
 
-**Version:** 1.1
-**Last Updated:** 2025-12-03
+**Version:** 1.2
+**Last Updated:** 2025-12-06
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
 - docs/04_SECURITY_PATTERNS.md (security testing)
 - docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md (real database test migration)
+- docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md (environment configuration)
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Integration Test Patterns (NEW)](#integration-test-patterns-new)
+2. [Test Environment Configuration (NEW)](#test-environment-configuration-new)
+   - [Database Connection Setup](#database-connection-setup)
+   - [Environment Variable Patterns](#environment-variable-patterns)
+   - [Configuration Templates](#configuration-templates)
+3. [Integration Test Patterns](#integration-test-patterns-new)
    - [Mock-Based Test Anti-Pattern](#mock-based-test-anti-pattern)
    - [TRUNCATE CASCADE Pattern](#truncate-cascade-pattern)
    - [Strong vs Weak Assertions](#strong-vs-weak-assertions)
    - [Performance Benchmarks](#performance-benchmarks)
-3. [Test Infrastructure](#test-infrastructure)
+4. [Test Infrastructure](#test-infrastructure)
    - [Required Mocks for Route Tests](#required-mocks-for-route-tests)
    - [Redis Mock Pattern](#redis-mock-pattern)
 4. [Date and Time Testing](#date-and-time-testing)
@@ -52,6 +57,100 @@ This document codifies testing patterns to ensure reliable, maintainable tests t
 - **Mock external dependencies only** - Redis, email, external APIs
 - **Test behavior, not implementation** - Focus on what users see/do
 - **Strong assertions over weak** - Use exact values with deterministic test data
+- **Zero-config by default** - Tests should work without explicit environment setup
+
+---
+
+## Test Environment Configuration (NEW - 2025-12-06)
+
+**Source**: Issue #175 - Database connection test failures
+
+Proper environment configuration ensures tests work across all developer machines without manual setup.
+
+### Database Connection Setup
+
+#### ❌ WRONG - Hardcoded Credentials
+
+```typescript
+// Breaks on macOS/Linux where 'postgres' user doesn't exist
+process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/test_db';
+```
+
+#### ✅ CORRECT - Multi-Tier Fallback Chain
+
+```typescript
+// Platform-aware defaults with explicit override support
+const databaseUser = process.env.DATABASE_USER || process.env.USER || 'postgres';
+const databasePassword = process.env.DATABASE_PASSWORD || '';
+const databaseHost = process.env.DATABASE_HOST || 'localhost';
+const databasePort = process.env.DATABASE_PORT || '5432';
+const databaseName = process.env.DATABASE_NAME || 'pricecompare_test';
+
+// Construct connection string with or without password
+const credentials = databasePassword ? `${databaseUser}:${databasePassword}` : databaseUser;
+const defaultDatabaseUrl = `postgresql://${credentials}@${databaseHost}:${databasePort}/${databaseName}`;
+
+// Respect explicit configuration, fall back to constructed
+process.env.DATABASE_URL = process.env.DATABASE_URL || defaultDatabaseUrl;
+```
+
+**Fallback Priority:**
+1. `DATABASE_URL` - Explicit full connection string
+2. Individual `DATABASE_*` variables - Constructed connection
+3. `process.env.USER` - Platform-aware username
+4. Universal defaults - `localhost`, `5432`
+
+### Environment Variable Patterns
+
+#### Validate Numeric Values
+
+```typescript
+// ✅ CORRECT - Validate with clear warnings
+let databasePort = process.env.DATABASE_PORT || '5432';
+const portNum = parseInt(databasePort, 10);
+if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+  console.warn(`Warning: Invalid DATABASE_PORT '${databasePort}', using default 5432`);
+  databasePort = '5432';
+}
+```
+
+#### Document Test-Only Defaults
+
+```typescript
+// ✅ CORRECT - Explain WHY test config differs
+// Encryption is handled via NODE_ENV='test' check in schema.ts (no-op encryption)
+// Why: Test data is ephemeral, contains no real PII, encryption adds overhead
+process.env.ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'a'.repeat(64);
+```
+
+### Configuration Templates
+
+**MANDATORY:** Provide `.env.test.example` for test environment:
+
+```bash
+# .env.test.example
+
+# DATABASE_USER - PostgreSQL role/username
+# Default: Your system username (process.env.USER)
+# Common values:
+#   - macOS/Linux (Homebrew): Your system username
+#   - Windows: Usually 'postgres'
+# DATABASE_USER=your_username
+
+# Troubleshooting:
+# "role 'postgres' does not exist" -> Set DATABASE_USER to your username
+# "database does not exist" -> Run: createdb pricecompare_test
+```
+
+### Test Configuration Checklist
+
+- [ ] Database connection uses multi-tier fallback (no hardcoded credentials)
+- [ ] Numeric environment variables are validated
+- [ ] `.env.test.example` template exists with documentation
+- [ ] Test-only security defaults are documented with WHY
+- [ ] Configuration works on macOS, Linux, Windows, and Docker
+
+**Reference:** `docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md`
 
 ---
 
