@@ -421,9 +421,13 @@ Analyzes historical price data to calculate how stable or volatile prices have b
 - "Should I wait for a potential price drop?"
 - "How much do prices typically fluctuate?"
 
-**Example Request:**
+**Example Requests:**
 ```
+# With custom days parameter
 GET /products/123/volatility?days=90
+
+# Using default (30 days)
+GET /products/123/volatility
 ```
 
 **Response Format:**
@@ -459,6 +463,23 @@ GET /products/123/volatility?days=90
 **Edge Cases:**
 - Returns `{"success": true, "data": null}` if less than 2 price history records exist
 
+**Performance Considerations:**
+- **Computation**: Calculates standard deviation and coefficient of variation (CPU-intensive for large datasets)
+- **Recommended caching**: 6 hours (prices change frequently but not constantly)
+- **Data requirements**: Minimum 2 price records, optimal with 30+ records
+- **Response time**: Typically <100ms for datasets with <1000 records
+
+**Caching Strategy:**
+```typescript
+// Client-side caching example with React Query
+const { data: volatility } = useQuery({
+  queryKey: ['volatility', productId, days],
+  queryFn: () => fetch(`/api/products/${productId}/volatility?days=${days}`),
+  staleTime: 6 * 60 * 60 * 1000, // 6 hours
+  cacheTime: 24 * 60 * 60 * 1000, // 24 hours
+});
+```
+
 ---
 
 #### GET /products/:id/seasonal-patterns
@@ -478,9 +499,13 @@ Analyzes historical price data to identify seasonal trends and patterns. Determi
 - "Should I wait for Black Friday?"
 - "Is there a seasonal pattern I should know about?"
 
-**Example Request:**
+**Example Requests:**
 ```
+# With custom days parameter (full year analysis)
 GET /products/123/seasonal-patterns?days=365
+
+# Using default (365 days)
+GET /products/123/seasonal-patterns
 ```
 
 **Response Format:**
@@ -562,8 +587,26 @@ GET /products/123/seasonal-patterns?days=365
 
 **Edge Cases:**
 - Returns `{"success": true, "data": null}` if less than 10 price history records exist
-- `hasSeasonalPattern` is `false` if price deviations are <10% (no significant pattern)
-- `recommendation` is `null` if savings potential is <5% (not worth waiting)
+- `hasSeasonalPattern` is `false` if price deviations are <10% of overall average (no statistically significant pattern)
+- `recommendation` is `null` if savings potential is <5% (not worth waiting - price difference too small)
+
+**Performance Considerations:**
+- **Computation**: Groups data by month/season/day, calculates averages, identifies patterns (moderately expensive)
+- **Recommended caching**: 24 hours (seasonal patterns change slowly over time)
+- **Data requirements**: Minimum 10 price records, optimal with 1+ year of data across 6+ months
+- **Response time**: Typically <150ms for datasets with <1000 records
+- **Best use**: Products with established pricing history (avoid for newly added products)
+
+**Caching Strategy:**
+```typescript
+// Client-side caching example with React Query
+const { data: patterns } = useQuery({
+  queryKey: ['seasonal-patterns', productId, days],
+  queryFn: () => fetch(`/api/products/${productId}/seasonal-patterns?days=${days || 365}`),
+  staleTime: 24 * 60 * 60 * 1000, // 24 hours (patterns are stable)
+  cacheTime: 7 * 24 * 60 * 60 * 1000, // 7 days
+});
+```
 
 ---
 
@@ -584,9 +627,13 @@ Evaluates retailers based on 4 key metrics: price stability, stock availability,
 - "Is this retailer's price likely to change tomorrow?"
 - "Does this seller keep items in stock?"
 
-**Example Request:**
+**Example Requests:**
 ```
+# Analyze last 90 days
 GET /products/123/retailer-reliability?days=90
+
+# Using default (all available history)
+GET /products/123/retailer-reliability
 ```
 
 **Response Format:**
@@ -647,6 +694,22 @@ GET /products/123/retailer-reliability?days=90
 - `good` (65-79): Generally reliable with minor issues
 - `fair` (50-64): Moderate reliability, compare with others
 - `poor` (<50): Frequent issues, consider alternatives
+
+**Performance Considerations:**
+- **Computation**: Batch processes all retailers for competitiveness comparison (moderately expensive)
+- **Recommended caching**: 12 hours (balances availability updates with performance)
+- **Data requirements**: Minimum 2 records per retailer, optimal with 20+ records across multiple retailers
+- **Response time**: <200ms for <5 retailers with <1000 total records
+
+**Caching Strategy:**
+```typescript
+const { data: reliability } = useQuery({
+  queryKey: ['retailer-reliability', productId, days],
+  queryFn: () => fetch(`/api/products/${productId}/retailer-reliability?days=${days}`).then(r => r.json()),
+  staleTime: 12 * 60 * 60 * 1000, // 12 hours (availability changes slowly)
+  cacheTime: 24 * 60 * 60 * 1000, // 24 hours (keep in cache for comparison)
+});
+```
 
 **Response Codes:**
 - `200 OK`: Success (returns reliability scores or null if insufficient data)
