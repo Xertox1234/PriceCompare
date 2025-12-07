@@ -60,9 +60,10 @@ interface ReliabilityScore {
  * @example
  * ```typescript
  * const score = calculateRetailerReliability(retailer, allRetailers);
- * console.log(`${retailer.name}: ${score.rating} (${score.overallScore}/100)`);
- * console.log(`Strengths: ${score.strengths.join(', ')}`);
- * console.log(`Recommendation: ${score.recommendation}`);
+ * // Example output:
+ * // ${retailer.name}: ${score.rating} (${score.overallScore}/100)
+ * // Strengths: ${score.strengths.join(', ')}
+ * // Recommendation: ${score.recommendation}
  * ```
  */
 export function calculateRetailerReliability(

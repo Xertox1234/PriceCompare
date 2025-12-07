@@ -99,8 +99,8 @@ function getSeasonForMonth(month: number): 'winter' | 'spring' | 'summer' | 'fal
  * ```typescript
  * const analysis = detectSeasonalPatterns(priceHistory);
  * if (analysis?.hasSeasonalPattern && analysis.bestMonthToBuy) {
- *   console.log(`Best time to buy: ${analysis.bestMonthToBuy.monthName}`);
- *   console.log(`Expected savings: ${analysis.recommendation?.expectedSavings}%`);
+ *   // Example: Best time to buy: ${analysis.bestMonthToBuy.monthName}
+ *   // Example: Expected savings: ${analysis.recommendation?.expectedSavings}%
  * }
  * ```
  */
@@ -403,7 +403,7 @@ function generateRecommendation(
  * const analysis = detectSeasonalPatterns(priceHistory);
  * if (analysis) {
  *   const advice = getCurrentSeasonalAdvice(analysis);
- *   console.log(advice); // "Current prices are near their historical low. Good time to buy!"
+ *   // Example: "Current prices are near their historical low. Good time to buy!"
  * }
  * ```
  */
