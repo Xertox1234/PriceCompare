@@ -1313,11 +1313,9 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/LEARNINGS_TODO_2026_ZOD_CHECK_CONSTRAINTS.md` - Zod validation for DECIMAL fields with Drizzle ORM type preservation (2025-12-04)
 - `docs/LEARNINGS_TODO_162_MIDDLEWARE_STANDARDIZATION.md` - Parallel vs sequential execution, flexible API signatures, architectural exceptions (2025-12-04)
 
-### Subagent Documentation (.claude/knowledge/)
-- `claude-code-subagent-setup-guide.md` - Complete subagent system guide
-- `subagent-quick-reference.md` - Quick reference for delegation patterns
-
 **Pattern files save time**: They document what NOT to do (anti-patterns) and what TO do (correct patterns) with real code examples from this codebase.
+
+**Note on .claude/ directory**: As of December 2025, the `.claude/` directory (agent configs, knowledge base, local settings) is gitignored and local-only per developer. Exception: `.claude/hooks.json` is still tracked for team-wide code review hook configuration.
 
 ## Code Review Workflow
 
