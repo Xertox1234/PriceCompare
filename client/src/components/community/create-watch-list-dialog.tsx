@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useCreateWatchList } from '@/hooks/use-community';
+import { COLOR_PRESETS } from '@/lib/chart-colors';
 
 interface CreateWatchListDialogProps {
   open: boolean;
@@ -20,16 +21,6 @@ interface CreateWatchListDialogProps {
 }
 
 const EMOJI_PRESETS = ['📱', '💻', '🎮', '📚', '🎁', '🏠', '👕', '🍔', '✈️', '🎵'];
-const COLOR_PRESETS = [
-  '#ef4444', // red
-  '#f59e0b', // orange
-  '#eab308', // yellow
-  '#22c55e', // green
-  '#3b82f6', // blue
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#64748b', // gray
-];
 
 export function CreateWatchListDialog({ open, onOpenChange }: CreateWatchListDialogProps) {
   const [name, setName] = useState('');

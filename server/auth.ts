@@ -48,6 +48,7 @@ passport.use(
         const lockStatus = await isAccountLockedAsync(email);
         if (lockStatus.locked) {
           // Note: Logging will happen in route handler where we have access to req
+          // TYPE ASSERTION: ExtendedVerifyOptions extends IVerifyOptions with lockout fields
           return done(null, false, {
             message: 'Account temporarily locked',
             locked: true,
@@ -99,6 +100,7 @@ passport.use(
           // Record failed attempt (wrong password) - Redis-backed
           const lockoutResult = await recordFailedLoginAsync(email);
           // Note: Logging will happen in route handler where we have access to req
+          // TYPE ASSERTION: ExtendedVerifyOptions extends IVerifyOptions with lockout fields
           return done(null, false, {
             message: 'Invalid email or password',
             remainingAttempts: lockoutResult.remainingAttempts,
@@ -152,6 +154,7 @@ passport.deserializeUser(async (id: number, done) => {
       .from(users)
       .where(eq(users.id, id))
       .limit(1);
+    // TYPE ASSERTION: Database user shape matches Express.User (defined in express.d.ts)
     done(null, (userResult[0] as Express.User) || null);
   } catch (error) {
     done(error);

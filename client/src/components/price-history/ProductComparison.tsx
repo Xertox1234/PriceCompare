@@ -12,6 +12,7 @@ import {
 import { X, Grid, Layers, BarChart2, TrendingUp } from 'lucide-react';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { useProductComparison, ComparisonProduct } from '@/hooks/useProductComparison';
+import { PRODUCT_COLORS } from '@/lib/chart-colors';
 import {
   LineChart,
   Line,
@@ -43,13 +44,6 @@ interface ProductComparisonProps {
   // Function to fetch price history for a product
   fetchPriceHistory?: (productId: number, days: number) => Promise<PriceHistoryData[]>;
 }
-
-const PRODUCT_COLORS = [
-  '#3b82f6', // Blue
-  '#10b981', // Green
-  '#f59e0b', // Amber
-  '#ef4444', // Red
-];
 
 export function ProductComparison({
   initialProducts = [],

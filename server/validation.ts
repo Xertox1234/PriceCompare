@@ -47,8 +47,10 @@ export function validateRequest(schema: z.ZodSchema, source: 'body' | 'query' | 
       if (source === 'body') {
         req.body = result.data;
       } else if (source === 'query') {
+        // TYPE ASSERTION: Zod validated the query object - Express expects Record<string, string>
         req.query = result.data as Record<string, string>;
       } else {
+        // TYPE ASSERTION: Zod validated the params object - Express expects Record<string, string>
         req.params = result.data as Record<string, string>;
       }
 
@@ -104,6 +106,7 @@ export function validateMultiple(schemas: {
             }))
           );
         } else {
+          // TYPE ASSERTION: Zod validated the query object - Express expects Record<string, string>
           req.query = result.data as Record<string, string>;
         }
       }
@@ -120,6 +123,7 @@ export function validateMultiple(schemas: {
             }))
           );
         } else {
+          // TYPE ASSERTION: Zod validated the params object - Express expects Record<string, string>
           req.params = result.data as Record<string, string>;
         }
       }

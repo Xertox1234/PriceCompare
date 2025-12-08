@@ -38,6 +38,26 @@ export default {
           danger: '#dc3545',
           info: '#17a2b8',
         },
+        // Chart colors - used for data visualization
+        chart: {
+          // Primary chart colors
+          blue: '#3b82f6',
+          green: '#10b981',
+          amber: '#f59e0b',
+          red: '#ef4444',
+          // Secondary chart colors
+          purple: '#8b5cf6',
+          pink: '#ec4899',
+          teal: '#14b8a6',
+          orange: '#f97316',
+          // Aggregates chart colors
+          average: '#8884d8',
+          minimum: '#82ca9d',
+          maximum: '#ff7c7c',
+          median: '#ffc658',
+          // Neutral
+          gray: '#64748b',
+        },
       },
       // Font family
       fontFamily: {

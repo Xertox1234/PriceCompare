@@ -186,7 +186,10 @@ export class UserStorage extends BaseStorage {
         // Update password hash (write operation, not a query)
         await tx
           .update(users)
-          .set({ passwordHash: newPasswordHash }) // SECURITY: NEVER expose passwordHash in SELECT queries
+          .set({
+            passwordHash: newPasswordHash, // SECURITY: NEVER expose passwordHash in SELECT queries
+            updatedAt: new Date(),
+          })
           .where(eq(users.id, userId));
 
         // Mark token as used

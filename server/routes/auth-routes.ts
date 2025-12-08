@@ -1,9 +1,6 @@
 import { Express, Request } from 'express';
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { storage } from '../storage';
-import { db } from '../db';
-import * as schema from '@shared/schema';
 import { passport, findUserByEmail, findUserById, hashPassword, User, SafeUser } from '../auth';
 import { generateCsrfToken, csrfProtection } from '../middleware/security';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
@@ -397,30 +394,12 @@ export function registerAuthRoutes(app: Express): void {
         return;
       }
 
-      // Hash the new password
+      // Hash the new password - SECURITY: NEVER expose in responses, passed to storage layer only
       const newPasswordHash = await hashPassword(password);
 
-      // SECURITY: Use transaction to ensure password update and token marking are atomic
-      // If markTokenAsUsed fails after password update, token remains valid (security vulnerability)
-      await db.transaction(async (tx) => {
-        // Update the user's password
-        await tx
-          .update(schema.users)
-          .set({
-            passwordHash: newPasswordHash, // SECURITY: NEVER expose - used internally for auth
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.users.id, user.id));
-
-        // Mark the token as used - must succeed or rollback password change
-        await tx
-          .update(schema.passwordResetTokens)
-          .set({
-            isUsed: true,
-            usedAt: new Date(),
-          })
-          .where(eq(schema.passwordResetTokens.token, token));
-      });
+      // SECURITY: Use storage layer's transactional resetPassword method
+      // Ensures password update and token marking are atomic
+      await storage.resetPassword(user.id, newPasswordHash, token); // NEVER exposed in API
 
       // Log the successful password reset
       logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {

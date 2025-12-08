@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AGGREGATES_COLORS } from '@/lib/chart-colors';
 import type { WeeklyAggregate, MonthlyAggregate } from '@/hooks/use-price-analytics';
 
 interface AggregatesChartProps {
@@ -99,7 +100,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
             <Line
               type="monotone"
               dataKey="avg"
-              stroke="#8884d8"
+              stroke={AGGREGATES_COLORS.average}
               name="Average"
               strokeWidth={2}
               dot={{ r: 3 }}
@@ -107,7 +108,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
             <Line
               type="monotone"
               dataKey="min"
-              stroke="#82ca9d"
+              stroke={AGGREGATES_COLORS.minimum}
               name="Minimum"
               strokeWidth={1}
               strokeDasharray="5 5"
@@ -115,7 +116,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
             <Line
               type="monotone"
               dataKey="max"
-              stroke="#ff7c7c"
+              stroke={AGGREGATES_COLORS.maximum}
               name="Maximum"
               strokeWidth={1}
               strokeDasharray="5 5"
@@ -124,7 +125,7 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
               <Line
                 type="monotone"
                 dataKey="median"
-                stroke="#ffc658"
+                stroke={AGGREGATES_COLORS.median}
                 name="Median"
                 strokeWidth={1}
                 dot={{ r: 2 }}
