@@ -46,8 +46,10 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: ESLint
-        run: npm run lint
-        continue-on-error: true  # Allow warnings until pre-existing issues are fixed
+        run: npm run lint -- --max-warnings 250
+        # Ratcheting strategy: Allows current 228 warnings (192 intentional in storage.ts)
+        # Fails if warning count increases beyond 250, preventing regression
+        # Current breakdown: 192 storage.ts (interface compliance) + 36 require-await
 
       - name: Prettier formatting check
         run: npm run format:check
