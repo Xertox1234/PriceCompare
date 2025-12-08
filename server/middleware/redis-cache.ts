@@ -7,7 +7,22 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('RedisCache');
 
 /**
- * In-memory fallback cache for when Redis is unavailable
+ * In-Memory Cache Fallback Implementation
+ *
+ * INTENTIONAL ESLint WARNINGS (4 require-await):
+ * This class has async methods without await statements. This is by design for interface
+ * compliance with the Redis cache middleware which requires actual async operations.
+ *
+ * WHY async methods without await:
+ * 1. Interface Compliance: Must match Redis client interface (get, setex, del, scan)
+ * 2. Drop-in Replacement: Can swap with Redis cache without changing middleware code
+ * 3. API Consistency: Same async API whether Redis is available or not
+ * 4. Middleware Compatibility: Calling code expects Promises everywhere
+ *
+ * DO NOT "fix" by removing async keywords - this would break interface compliance
+ * and require changes throughout the caching middleware.
+ *
+ * See: docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md for complete explanation
  */
 class InMemoryCache {
   private store = new Map<string, { value: string; expiry: number }>();

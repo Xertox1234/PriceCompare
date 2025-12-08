@@ -178,8 +178,22 @@ export const REDIS_KEYS = {
 } as const;
 
 /**
- * Mock Redis client for when Redis is not available
- * Provides same interface but stores in memory
+ * In-Memory Redis Fallback Implementation
+ *
+ * INTENTIONAL ESLint WARNINGS (4 require-await):
+ * This class has async methods without await statements. This is by design for interface
+ * compliance with the ioredis Redis client which requires actual async operations.
+ *
+ * WHY async methods without await:
+ * 1. Interface Compliance: Must match ioredis client interface (get, setex, del, keys)
+ * 2. Drop-in Replacement: Can swap with real Redis client without changing calling code
+ * 3. API Consistency: Same async API whether Redis is available or not
+ * 4. Development Fallback: Allows development without Redis dependency
+ *
+ * DO NOT "fix" by removing async keywords - this would break interface compliance
+ * and require changes throughout the codebase.
+ *
+ * See: docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md for complete explanation
  */
 class _InMemoryRedis {
   private store = new Map<string, { value: string; expiry: number | null }>();

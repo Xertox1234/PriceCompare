@@ -714,6 +714,23 @@ export interface IStorage {
   updateProductEmbedding(productId: number, embedding: number[]): Promise<void>;
 }
 
+/**
+ * In-Memory Storage Implementation
+ *
+ * INTENTIONAL ESLint WARNINGS (192 require-await):
+ * This class has async methods without await statements. This is by design for interface
+ * compliance with DatabaseStorage which requires actual async operations.
+ *
+ * WHY async methods without await:
+ * 1. Interface Compliance: Must match IStorage interface defined for DatabaseStorage
+ * 2. API Consistency: Calling code expects Promises everywhere for consistency
+ * 3. Drop-in Replacement: Can swap MemStorage ↔ DatabaseStorage without code changes
+ * 4. Development Fallback: Allows development without PostgreSQL dependency
+ *
+ * DO NOT "fix" by removing async keywords - this would break interface compliance.
+ *
+ * See: docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md for complete explanation
+ */
 export class MemStorage implements IStorage {
   private retailers: Map<number, Retailer>;
   private products: Map<number, Product>;
