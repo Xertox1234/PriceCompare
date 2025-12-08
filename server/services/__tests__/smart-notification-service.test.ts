@@ -248,11 +248,7 @@ describe('Smart Notification Service', () => {
         stockStatus: 'limited_stock',
       };
 
-      const criticalTrigger = analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        criticalData
-      );
+      const criticalTrigger = analyzeNotificationTriggers(testProductId, testUserId, criticalData);
 
       const now = Date.now();
       const expiresIn = criticalTrigger.expiresAt.getTime() - now;

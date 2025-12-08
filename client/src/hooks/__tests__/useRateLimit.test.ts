@@ -89,13 +89,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '100',
-            'X-RateLimit-Remaining': '50',
-            'X-RateLimit-Reset': String(resetTime),
-            'X-RateLimit-Tier': 'user',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '100',
+              'X-RateLimit-Remaining': '50',
+              'X-RateLimit-Reset': String(resetTime),
+              'X-RateLimit-Tier': 'user',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -112,13 +112,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '1000',
-            'X-RateLimit-Remaining': '999',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'moderator',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '1000',
+              'X-RateLimit-Remaining': '999',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'moderator',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -137,13 +137,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '10000',
-            'X-RateLimit-Remaining': '9999',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 3600),
-            'X-RateLimit-Tier': 'admin',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '10000',
+              'X-RateLimit-Remaining': '9999',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 3600),
+              'X-RateLimit-Tier': 'admin',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -161,13 +161,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': 'invalid',
-            'X-RateLimit-Remaining': 'NaN',
-            'X-RateLimit-Reset': 'not-a-number',
-            'X-RateLimit-Tier': 'user',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': 'invalid',
+              'X-RateLimit-Remaining': 'NaN',
+              'X-RateLimit-Reset': 'not-a-number',
+              'X-RateLimit-Tier': 'user',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -186,8 +186,8 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {}, // No rate limit headers
-        })
+            headers: {}, // No rate limit headers
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -205,13 +205,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '',
-            'X-RateLimit-Remaining': '',
-            'X-RateLimit-Reset': '',
-            'X-RateLimit-Tier': '',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '',
+              'X-RateLimit-Remaining': '',
+              'X-RateLimit-Reset': '',
+              'X-RateLimit-Tier': '',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -233,13 +233,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '100',
-            'X-RateLimit-Remaining': '100',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'user',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '100',
+              'X-RateLimit-Remaining': '100',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'user',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -256,13 +256,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '100',
-            'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'user',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '100',
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'user',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -279,13 +279,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '100',
-            'X-RateLimit-Remaining': '50',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'user',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '100',
+              'X-RateLimit-Remaining': '50',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'user',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -302,13 +302,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '100',
-            'X-RateLimit-Remaining': '33',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'user',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '100',
+              'X-RateLimit-Remaining': '33',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'user',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -326,13 +326,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '0',
-            'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'user',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '0',
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'user',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -390,13 +390,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '50',
-            'X-RateLimit-Remaining': '25',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'anonymous',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '50',
+              'X-RateLimit-Remaining': '25',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'anonymous',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -415,13 +415,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '50',
-            'X-RateLimit-Remaining': '40',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'free',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '50',
+              'X-RateLimit-Remaining': '40',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'free',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -439,13 +439,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '500',
-            'X-RateLimit-Remaining': '250',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'premium',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '500',
+              'X-RateLimit-Remaining': '250',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'premium',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -463,13 +463,13 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {
-            'X-RateLimit-Limit': '10000',
-            'X-RateLimit-Remaining': '9950',
-            'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
-            'X-RateLimit-Tier': 'admin',
-          },
-        })
+            headers: {
+              'X-RateLimit-Limit': '10000',
+              'X-RateLimit-Remaining': '9950',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 900),
+              'X-RateLimit-Tier': 'admin',
+            },
+          })
         );
       }) as unknown as typeof fetch;
 
@@ -528,8 +528,8 @@ describe('useRateLimit', () => {
       globalThis.fetch = vi.fn(() => {
         return Promise.resolve(
           new Response('{}', {
-          headers: {}, // No rate limit headers
-        })
+            headers: {}, // No rate limit headers
+          })
         );
       }) as unknown as typeof fetch;
 

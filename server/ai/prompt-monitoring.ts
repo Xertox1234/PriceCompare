@@ -202,9 +202,7 @@ class PromptMonitor {
     const successful = filtered.filter((m) => m.success);
     const failed = filtered.filter((m) => !m.success);
 
-    const latencies = filtered
-      .map((m) => m.latency)
-      .filter((l): l is number => l !== undefined);
+    const latencies = filtered.map((m) => m.latency).filter((l): l is number => l !== undefined);
     const qualityScores = filtered
       .map((m) => m.qualityScore)
       .filter((q): q is number => q !== undefined);

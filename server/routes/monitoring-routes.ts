@@ -35,25 +35,20 @@ export function registerMonitoringRoutes(app: Express): void {
    * GET /api/monitoring/errors
    * Get recent error logs
    */
-  app.get(
-    '/api/monitoring/errors',
-    requireAuth,
-    requireAdmin,
-    (req: Request, res: Response) => {
-      try {
-        const limit =
-          parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
-        const errors = monitoringService.getRecentErrors(limit);
+  app.get('/api/monitoring/errors', requireAuth, requireAdmin, (req: Request, res: Response) => {
+    try {
+      const limit =
+        parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
+      const errors = monitoringService.getRecentErrors(limit);
 
-        sendSuccess(res, {
-          errors,
-          count: errors.length,
-        });
-      } catch (error) {
-        sendErrorFromException(res, error, 'GetRecentErrors');
-      }
+      sendSuccess(res, {
+        errors,
+        count: errors.length,
+      });
+    } catch (error) {
+      sendErrorFromException(res, error, 'GetRecentErrors');
     }
-  );
+  });
 
   /**
    * POST /api/monitoring/errors/clear
@@ -99,25 +94,20 @@ export function registerMonitoringRoutes(app: Express): void {
    * GET /api/monitoring/alerts
    * Get alert history
    */
-  app.get(
-    '/api/monitoring/alerts',
-    requireAuth,
-    requireAdmin,
-    (req: Request, res: Response) => {
-      try {
-        const limit =
-          parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
-        const alerts = alertService.getAlertHistory(limit);
+  app.get('/api/monitoring/alerts', requireAuth, requireAdmin, (req: Request, res: Response) => {
+    try {
+      const limit =
+        parseIntOptional(req.query.limit as string, 'limit', { min: 1, max: 100 }) ?? 20;
+      const alerts = alertService.getAlertHistory(limit);
 
-        sendSuccess(res, {
-          alerts,
-          count: alerts.length,
-        });
-      } catch (error) {
-        sendErrorFromException(res, error, 'GetAlertHistory');
-      }
+      sendSuccess(res, {
+        alerts,
+        count: alerts.length,
+      });
+    } catch (error) {
+      sendErrorFromException(res, error, 'GetAlertHistory');
     }
-  );
+  });
 
   /**
    * POST /api/monitoring/alerts/test

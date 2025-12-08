@@ -1114,17 +1114,13 @@ export class MemStorage implements IStorage {
       // Apply rating filter
       if (filters.minRating) {
         const minRating = filters.minRating;
-        offers = offers.filter(
-          (offer) => offer.rating && parseFloat(offer.rating) >= minRating
-        );
+        offers = offers.filter((offer) => offer.rating && parseFloat(offer.rating) >= minRating);
       }
 
       // Apply availability filter
       if (filters.availability && filters.availability.length > 0) {
         const availability = filters.availability;
-        offers = offers.filter((offer) =>
-          availability.includes(offer.availability || 'in_stock')
-        );
+        offers = offers.filter((offer) => availability.includes(offer.availability || 'in_stock'));
       }
 
       if (offers.length === 0) return null;

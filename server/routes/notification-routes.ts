@@ -36,7 +36,6 @@ export function registerNotificationRoutes(app: Express) {
           return;
         }
 
-
         const filterSchema = z.object({
           isRead: z
             .enum(['true', 'false'])
@@ -95,118 +94,98 @@ export function registerNotificationRoutes(app: Express) {
    * Mark a notification as read
    * @security CSRF protection required
    */
-  app.post(
-    '/api/notifications/:id/read',
-    requireAuth,
-    csrfProtection,
-    async (req, res) => {
-      try {
-        const user = req.user; // Auth verified by requireAuth middleware
-        if (!user) {
-          sendError(res, 'Authentication required', 401);
-          return;
-        }
-
-        const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
-
-        const count = await notificationService.markAsRead(user.id, notificationId);
-
-        if (count === 0) {
-          sendError(res, 'Notification not found', 404);
-          return;
-        }
-
-        sendSuccess(res, {});
-      } catch (error: unknown) {
-        sendErrorFromException(res, error, 'MarkNotificationRead');
+  app.post('/api/notifications/:id/read', requireAuth, csrfProtection, async (req, res) => {
+    try {
+      const user = req.user; // Auth verified by requireAuth middleware
+      if (!user) {
+        sendError(res, 'Authentication required', 401);
+        return;
       }
+
+      const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
+
+      const count = await notificationService.markAsRead(user.id, notificationId);
+
+      if (count === 0) {
+        sendError(res, 'Notification not found', 404);
+        return;
+      }
+
+      sendSuccess(res, {});
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'MarkNotificationRead');
     }
-  );
+  });
 
   /**
    * POST /api/notifications/read-all
    * Mark all notifications as read
    * @security CSRF protection required
    */
-  app.post(
-    '/api/notifications/read-all',
-    requireAuth,
-    csrfProtection,
-    async (req, res) => {
-      try {
-        const user = req.user; // Auth verified by requireAuth middleware
-        if (!user) {
-          sendError(res, 'Authentication required', 401);
-          return;
-        }
-
-        const count = await notificationService.markAllAsRead(user.id);
-
-        sendSuccess(res, { count });
-      } catch (error: unknown) {
-        sendErrorFromException(res, error, 'MarkAllNotificationsRead');
+  app.post('/api/notifications/read-all', requireAuth, csrfProtection, async (req, res) => {
+    try {
+      const user = req.user; // Auth verified by requireAuth middleware
+      if (!user) {
+        sendError(res, 'Authentication required', 401);
+        return;
       }
+
+      const count = await notificationService.markAllAsRead(user.id);
+
+      sendSuccess(res, { count });
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'MarkAllNotificationsRead');
     }
-  );
+  });
 
   /**
    * DELETE /api/notifications/:id
    * Delete a notification
    * @security CSRF protection required
    */
-  app.delete(
-    '/api/notifications/:id',
-    requireAuth,
-    csrfProtection,
-    async (req, res) => {
-      try {
-        const user = req.user; // Auth verified by requireAuth middleware
-        if (!user) {
-          sendError(res, 'Authentication required', 401);
-          return;
-        }
-
-        const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
-
-        const deleted = await notificationService.deleteNotification(user.id, notificationId);
-
-        if (!deleted) {
-          sendError(res, 'Notification not found', 404);
-          return;
-        }
-
-        sendSuccess(res, {});
-      } catch (error: unknown) {
-        sendErrorFromException(res, error, 'DeleteNotification');
+  app.delete('/api/notifications/:id', requireAuth, csrfProtection, async (req, res) => {
+    try {
+      const user = req.user; // Auth verified by requireAuth middleware
+      if (!user) {
+        sendError(res, 'Authentication required', 401);
+        return;
       }
+
+      const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
+
+      const deleted = await notificationService.deleteNotification(user.id, notificationId);
+
+      if (!deleted) {
+        sendError(res, 'Notification not found', 404);
+        return;
+      }
+
+      sendSuccess(res, {});
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'DeleteNotification');
     }
-  );
+  });
 
   /**
    * DELETE /api/notifications
    * Delete all notifications for the user
    * @security CSRF protection required
    */
-  app.delete(
-    '/api/notifications',
-    requireAuth,
-    csrfProtection,
-    async (req, res) => {
-      try {
-        const user = req.user; // Auth verified by requireAuth middleware
-        if (!user) {
-          sendError(res, 'Authentication required', 401);
-          return;
-        }
-
-        const count = await notificationService.deleteAllNotifications(user.id);
-
-        sendSuccess(res, { count });
-      } catch (error: unknown) {
-        sendErrorFromException(res, error, 'DeleteAllNotifications');
+  app.delete('/api/notifications', requireAuth, csrfProtection, async (req, res) => {
+    try {
+      const user = req.user; // Auth verified by requireAuth middleware
+      if (!user) {
+        sendError(res, 'Authentication required', 401);
+        return;
       }
+
+      const count = await notificationService.deleteAllNotifications(user.id);
+
+      sendSuccess(res, { count });
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'DeleteAllNotifications');
     }
-  );
+  });
 
   /**
    * GET /api/notifications/preferences
@@ -236,41 +215,35 @@ export function registerNotificationRoutes(app: Express) {
    * Update user's notification preferences
    * @security CSRF protection required
    */
-  app.patch(
-    '/api/notifications/preferences',
-    requireAuth,
-    csrfProtection,
-    async (req, res) => {
-      try {
-        const user = req.user; // Auth verified by requireAuth middleware
-        if (!user) {
-          sendError(res, 'Authentication required', 401);
-          return;
-        }
-
-
-        const updateSchema = z.object({
-          priceDropEnabled: z.boolean().optional(),
-          priceDropThresholdPercent: z.number().min(1).max(100).optional(),
-          priceDropThresholdAmount: z.string().optional(),
-          priceAlertEnabled: z.boolean().optional(),
-          emailEnabled: z.boolean().optional(),
-          inAppEnabled: z.boolean().optional(),
-          maxDailyNotifications: z.number().min(1).max(100).optional(),
-          quietHoursStart: z.number().min(0).max(23).nullable().optional(),
-          quietHoursEnd: z.number().min(0).max(23).nullable().optional(),
-        });
-
-        const updates = updateSchema.parse(req.body);
-
-        const preferences = await notificationService.updateUserPreferences(user.id, updates);
-
-        sendSuccess(res, preferences);
-      } catch (error: unknown) {
-        sendErrorFromException(res, error, 'UpdateNotificationPreferences');
+  app.patch('/api/notifications/preferences', requireAuth, csrfProtection, async (req, res) => {
+    try {
+      const user = req.user; // Auth verified by requireAuth middleware
+      if (!user) {
+        sendError(res, 'Authentication required', 401);
+        return;
       }
+
+      const updateSchema = z.object({
+        priceDropEnabled: z.boolean().optional(),
+        priceDropThresholdPercent: z.number().min(1).max(100).optional(),
+        priceDropThresholdAmount: z.string().optional(),
+        priceAlertEnabled: z.boolean().optional(),
+        emailEnabled: z.boolean().optional(),
+        inAppEnabled: z.boolean().optional(),
+        maxDailyNotifications: z.number().min(1).max(100).optional(),
+        quietHoursStart: z.number().min(0).max(23).nullable().optional(),
+        quietHoursEnd: z.number().min(0).max(23).nullable().optional(),
+      });
+
+      const updates = updateSchema.parse(req.body);
+
+      const preferences = await notificationService.updateUserPreferences(user.id, updates);
+
+      sendSuccess(res, preferences);
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'UpdateNotificationPreferences');
     }
-  );
+  });
 
   /**
    * GET /api/notifications/price-drops
@@ -346,7 +319,6 @@ export function registerNotificationRoutes(app: Express) {
           return;
         }
 
-
         const filterSchema = z.object({
           urgency: z.enum(['low', 'medium', 'high', 'critical']).optional(),
           unread: z
@@ -404,68 +376,63 @@ export function registerNotificationRoutes(app: Express) {
    * Snooze a smart notification for specified duration
    * @security CSRF protection required
    */
-  app.post(
-    '/api/notifications/smart/:id/snooze',
-    requireAuth,
-    csrfProtection,
-    async (req, res) => {
-      try {
-        const user = req.user; // Auth verified by requireAuth middleware
-        if (!user) {
-          sendError(res, 'Authentication required', 401);
-          return;
-        }
-
-        const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
-
-        const snoozeSchema = z.object({
-          duration: z
-            .number()
-            .min(3600)
-            .max(7 * 24 * 60 * 60), // 1 hour to 7 days in seconds
-        });
-
-        const { duration } = snoozeSchema.parse(req.body);
-
-        // Get the notification to verify ownership
-        const notifications = await notificationService.getUserNotifications(user.id, {
-          limit: 1,
-          offset: 0,
-        });
-
-        const notification = notifications.find((n) => n.id === notificationId);
-
-        if (!notification) {
-          sendError(res, 'Notification not found', 404);
-          return;
-        }
-
-        if (notification.type !== 'smart_alert') {
-          sendError(res, 'Can only snooze smart notifications', 400);
-          return;
-        }
-
-        // Mark as read and update metadata with snooze timestamp
-        await notificationService.markAsRead(user.id, notificationId);
-
-        // Calculate snooze until timestamp
-        const snoozeUntil = new Date(Date.now() + duration * 1000);
-
-        // Note: Full snooze functionality with reactivation requires a metadata field
-        // in the notifications table to store snoozeUntil timestamp. Currently, snooze
-        // only marks the notification as read. To enable full snooze support, add a
-        // metadata column to the notifications schema and implement snooze expiration
-        // checking in getUserNotifications.
-
-        sendSuccess(res, {
-          snoozedUntil: snoozeUntil.toISOString(),
-          message: `Notification snoozed for ${duration / 3600} hours`,
-        });
-      } catch (error: unknown) {
-        sendErrorFromException(res, error, 'SnoozeNotification');
+  app.post('/api/notifications/smart/:id/snooze', requireAuth, csrfProtection, async (req, res) => {
+    try {
+      const user = req.user; // Auth verified by requireAuth middleware
+      if (!user) {
+        sendError(res, 'Authentication required', 401);
+        return;
       }
+
+      const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
+
+      const snoozeSchema = z.object({
+        duration: z
+          .number()
+          .min(3600)
+          .max(7 * 24 * 60 * 60), // 1 hour to 7 days in seconds
+      });
+
+      const { duration } = snoozeSchema.parse(req.body);
+
+      // Get the notification to verify ownership
+      const notifications = await notificationService.getUserNotifications(user.id, {
+        limit: 1,
+        offset: 0,
+      });
+
+      const notification = notifications.find((n) => n.id === notificationId);
+
+      if (!notification) {
+        sendError(res, 'Notification not found', 404);
+        return;
+      }
+
+      if (notification.type !== 'smart_alert') {
+        sendError(res, 'Can only snooze smart notifications', 400);
+        return;
+      }
+
+      // Mark as read and update metadata with snooze timestamp
+      await notificationService.markAsRead(user.id, notificationId);
+
+      // Calculate snooze until timestamp
+      const snoozeUntil = new Date(Date.now() + duration * 1000);
+
+      // Note: Full snooze functionality with reactivation requires a metadata field
+      // in the notifications table to store snoozeUntil timestamp. Currently, snooze
+      // only marks the notification as read. To enable full snooze support, add a
+      // metadata column to the notifications schema and implement snooze expiration
+      // checking in getUserNotifications.
+
+      sendSuccess(res, {
+        snoozedUntil: snoozeUntil.toISOString(),
+        message: `Notification snoozed for ${duration / 3600} hours`,
+      });
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'SnoozeNotification');
     }
-  );
+  });
 
   /**
    * POST /api/notifications/smart/:id/dismiss

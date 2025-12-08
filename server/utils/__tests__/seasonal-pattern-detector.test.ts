@@ -52,9 +52,7 @@ describe('seasonal-pattern-detector', () => {
       if (!result.bestMonthToBuy || !result.worstMonthToBuy) {
         throw new Error('Expected best and worst months to be defined');
       }
-      expect(result.bestMonthToBuy.averagePrice).toBeLessThan(
-        result.worstMonthToBuy.averagePrice
-      );
+      expect(result.bestMonthToBuy.averagePrice).toBeLessThan(result.worstMonthToBuy.averagePrice);
     });
 
     it('should calculate monthly patterns correctly', () => {
