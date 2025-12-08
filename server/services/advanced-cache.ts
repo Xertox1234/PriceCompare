@@ -237,8 +237,44 @@ export class AdvancedCacheService {
       errors: 0,
     };
 
-    // Subscribe to invalidation events
+    // Subscribe to invalidation events (lazy in development if Redis not ready)
+    this.trySubscribeToInvalidations();
+  }
+
+  /**
+   * Attempt to subscribe to invalidation events
+   * In development, gracefully handles missing Redis
+   * In production, logs error but doesn't crash (Redis should be available)
+   */
+  private trySubscribeToInvalidations(): void {
+    if (!redisClient) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        logger.error('Redis not available for cache invalidation pub/sub in production');
+      } else {
+        logger.info('Redis not available yet, skipping cache invalidation subscription');
+      }
+      return;
+    }
     this.subscribeToInvalidations();
+  }
+
+  /**
+   * Initialize Redis subscription (called after Redis is ready)
+   * This allows the cache service to work without Redis initially,
+   * then enable full functionality once Redis connects.
+   */
+  initializeRedisSubscription(): void {
+    if (this.subscriber) {
+      logger.info('Redis subscription already initialized');
+      return;
+    }
+    if (!redisClient) {
+      logger.warn('Cannot initialize Redis subscription: Redis client not available');
+      return;
+    }
+    this.subscribeToInvalidations();
+    logger.info('Redis cache invalidation subscription initialized');
   }
 
   /**

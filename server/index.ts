@@ -255,6 +255,11 @@ app.use(sanitizeInput);
     './cache-initialization'
   );
   initializeAdvancedCache(app);
+  
+  // Initialize Redis subscription for cache invalidation if Redis is available
+  if (redisClient) {
+    advancedCache.initializeRedisSubscription();
+  }
   log('Advanced caching system initialized');
 
   // Initialize WebSocket service for real-time dashboard updates

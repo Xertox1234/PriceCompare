@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants';
+import { getProductImageUrl } from '@/lib/utils';
 
 interface LazyImageProps {
   src: string;
@@ -14,7 +16,7 @@ export function LazyImage({
   src,
   alt,
   className = '',
-  fallback = '/api/placeholder/300/200',
+  fallback = DEFAULT_PRODUCT_IMAGE,
   placeholder,
 }: LazyImageProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -34,7 +36,7 @@ export function LazyImage({
   }, []);
 
   const shouldLoad = isIntersecting;
-  const imageSrc = imageError ? fallback : src;
+  const imageSrc = imageError ? fallback : getProductImageUrl(src);
 
   return (
     <div ref={ref} className={`relative overflow-hidden ${className}`}>

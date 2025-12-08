@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
+import { getProductImageUrl, handleImageError } from '@/lib/utils';
 
 const categories = [
   {
@@ -68,9 +69,10 @@ export function Categories() {
             className="bg-card transform cursor-pointer rounded-2xl p-6 text-center shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl"
           >
             <img
-              src={category.image}
+              src={getProductImageUrl(category.image)}
               alt={category.name}
               className="mb-4 h-32 w-full object-contain"
+              onError={handleImageError}
             />
             <h4 className="text-muted-foreground font-semibold">{category.name}</h4>
           </div>

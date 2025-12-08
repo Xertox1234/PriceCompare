@@ -26,8 +26,14 @@ const isNeonDatabase =
 let pool: NeonPool | PgPool;
 let db: NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
-// Initialize database connection asynchronously
-void (async () => {
+// Promise that resolves when DB is initialized
+let dbReadyResolve: () => void;
+const dbReady = new Promise<void>((resolve) => {
+  dbReadyResolve = resolve;
+});
+
+// Initialize database connection
+async function initializeDatabase() {
   if (isNeonDatabase) {
     // Use Neon serverless driver for cloud deployment
     const { Pool: NeonPool, neonConfig } = await import('@neondatabase/serverless');
@@ -45,6 +51,10 @@ void (async () => {
     const { drizzle: pgDrizzle } = await import('drizzle-orm/node-postgres');
     db = pgDrizzle({ client: pgPool, schema });
   }
-})();
+  dbReadyResolve();
+}
 
-export { pool, db };
+// Start initialization immediately (top-level await in ESM)
+await initializeDatabase();
+
+export { pool, db, dbReady };

@@ -216,7 +216,7 @@ export const EnhancedSearchResults = memo(
                     {/* Product Image */}
                     <div className="flex-shrink-0">
                       <LazyImage
-                        src={product.image || '/placeholder-product.jpg'}
+                        src={product.image || ''}
                         alt={product.name}
                         className="h-20 w-20 rounded-lg border object-cover"
                       />

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Link } from 'wouter';
 import { X, Minus, Plus, Trash2, ShoppingCart, Truck } from 'lucide-react';
 import { useShop } from '@/hooks/use-shop';
-import { cn } from '@/lib/utils';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 
 const FREE_SHIPPING_THRESHOLD = 99;
 
@@ -70,9 +70,10 @@ export function CartSidebar() {
                   <Link href={`/product/${item.id}`} onClick={closeCart} className="flex-shrink-0">
                     <div className="bg-muted h-20 w-20 overflow-hidden rounded-lg">
                       <img
-                        src={item.image}
+                        src={getProductImageUrl(item.image)}
                         alt={item.name}
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        onError={handleImageError}
                       />
                     </div>
                   </Link>

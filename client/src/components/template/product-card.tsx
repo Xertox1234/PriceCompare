@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Link } from 'wouter';
 import { Heart, BarChart2, Eye, TrendingDown, TrendingUp, Minus, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 
 // Random interval options: 5, 10, or 15 seconds
 const TRANSITION_INTERVALS = [5000, 10000, 15000];
@@ -163,12 +163,13 @@ export function ProductCard({
       <Link href={`/product/${product.id}`}>
         <div className="expandable-card-image-container">
           <img
-            src={product.image}
+            src={getProductImageUrl(product.image)}
             alt={product.name}
             className={cn(
               'expandable-card-image expandable-card-image-layer',
               showHoverImage && hasHoverImage && 'opacity-0'
             )}
+            onError={handleImageError}
           />
           {hasHoverImage && (
             <img
@@ -178,6 +179,7 @@ export function ProductCard({
                 'expandable-card-image expandable-card-image-layer',
                 !showHoverImage && 'opacity-0'
               )}
+              onError={handleImageError}
             />
           )}
         </div>
@@ -281,7 +283,7 @@ function HorizontalProductCard({
       {/* Image */}
       <Link href={`/product/${product.id}`} className="flex-shrink-0">
         <div className="bg-muted relative h-24 w-24 overflow-hidden rounded-lg">
-          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <img src={getProductImageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" onError={handleImageError} />
           {discountPercent && discountPercent > 0 && (
             <span className="bg-destructive text-destructive-foreground absolute top-1 left-1 rounded px-1.5 py-0.5 text-2xs font-bold">
               -{discountPercent}%
@@ -339,7 +341,7 @@ function CompactProductCard({
         )}
       >
         <div className="bg-muted h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
-          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <img src={getProductImageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" onError={handleImageError} />
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-foreground truncate text-sm font-medium">{product.name}</h4>
@@ -369,9 +371,10 @@ function FeaturedProductCard({
       {/* Large Image */}
       <div className="bg-muted relative aspect-[4/3] overflow-hidden">
         <img
-          src={product.image}
+          src={getProductImageUrl(product.image)}
           alt={product.name}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={handleImageError}
         />
 
         {/* Gradient Overlay */}

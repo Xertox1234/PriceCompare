@@ -20,7 +20,7 @@ import { MobileMenu, CompareModal, SearchModal } from '@/components/template/mod
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { addToRecentlyViewed } from '@/components/template/recently-viewed';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 import { useProductFull, useProductsByCategory, transformProduct } from '@/hooks/use-home-data';
 
 function ProductDetailContent() {
@@ -54,7 +54,7 @@ function ProductDetailContent() {
   }, [product]);
 
   // Generate image gallery from product
-  const images = product ? [product.image ?? '/placeholder-product.png'] : [];
+  const images = product ? [getProductImageUrl(product.image)] : [];
 
   // Loading state
   if (isLoading) {
@@ -146,6 +146,7 @@ function ProductDetailContent() {
                 src={images[selectedImageIndex]}
                 alt={product.name}
                 className="h-full w-full object-cover"
+                onError={handleImageError}
               />
               {discount && discount > 0 && (
                 <div className="bg-destructive absolute top-4 left-4 rounded-full px-3 py-1 text-sm font-medium text-white">

@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { ProductWithOffers } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
+import { getProductImageUrl } from '@/lib/utils';
 
 // Type for product data expected by template components
 export interface ProductData {
@@ -67,7 +68,7 @@ function transformProduct(product: ProductWithOffers): ProductData {
     category: product.category ?? 'General',
     price,
     originalPrice,
-    image: product.image ?? '/placeholder-product.png',
+    image: getProductImageUrl(product.image),
     rating: bestOffer?.rating ? parseFloat(bestOffer.rating) : 4.0,
     reviewCount: bestOffer?.reviewCount ?? 0,
     retailer: product.brand ?? undefined,
@@ -89,10 +90,10 @@ export function useAllProducts() {
 
 // Fetch trending/most watched products
 export function useTrendingProducts(limit = 6) {
-  return useQuery<Array<{ productId: number; watchCount: number; product: ProductWithOffers }>>({
+  return useQuery<{ products: Array<{ productId: number; watchCount: number; product: ProductWithOffers }>; count: number }>({
     queryKey: ['/api/community/most-watched', limit],
     queryFn: () =>
-      apiRequest<Array<{ productId: number; watchCount: number; product: ProductWithOffers }>>(
+      apiRequest<{ products: Array<{ productId: number; watchCount: number; product: ProductWithOffers }>; count: number }>(
         `/api/community/most-watched?limit=${limit}`
       ),
     staleTime: 5 * 60 * 1000,
@@ -216,7 +217,7 @@ export function useHomePageData() {
   // Transform all products to template format
   const transformedProducts = {
     all: allProducts.data?.map(transformProduct) ?? [],
-    trending: trending.data?.map((item) => transformProduct(item.product)) ?? [],
+    trending: trending.data?.products?.map((item) => transformProduct(item.product)) ?? [],
     deals: deals.data?.results?.map(transformProduct) ?? [],
     newArrivals: newArrivals.data?.map(transformProduct) ?? [],
     bestSellers: bestSellers.data?.results?.map(transformProduct) ?? [],

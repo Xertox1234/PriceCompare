@@ -21,7 +21,7 @@ import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 
 const FREE_SHIPPING_THRESHOLD = 99;
 
@@ -636,9 +636,10 @@ function CheckoutContent() {
                       <div key={item.id} className="flex gap-4">
                         <div className="bg-muted h-16 w-16 overflow-hidden rounded-lg">
                           <img
-                            src={item.image}
+                            src={getProductImageUrl(item.image)}
                             alt={item.name}
                             className="h-full w-full object-cover"
+                            onError={handleImageError}
                           />
                         </div>
                         <div className="flex-1">
@@ -695,9 +696,10 @@ function CheckoutContent() {
                   <div key={item.id} className="flex gap-3">
                     <div className="bg-muted relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
                       <img
-                        src={item.image}
+                        src={getProductImageUrl(item.image)}
                         alt={item.name}
                         className="h-full w-full object-cover"
+                        onError={handleImageError}
                       />
                       <span className="bg-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs text-white">
                         {item.quantity}

@@ -25,6 +25,7 @@ import { MobileMenu, CompareModal, SearchModal } from '@/components/template/mod
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getProductImageUrl, handleImageError } from '@/lib/utils';
 import { bestSellerProducts, type TemplateProduct } from '@/data/template-data';
 
 const FREE_SHIPPING_THRESHOLD = 99;
@@ -203,9 +204,10 @@ function CartContent() {
                       <Link href={`/product/${item.id}`} className="flex-shrink-0">
                         <div className="bg-muted h-24 w-24 overflow-hidden rounded-lg">
                           <img
-                            src={item.image}
+                            src={getProductImageUrl(item.image)}
                             alt={item.name}
                             className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                            onError={handleImageError}
                           />
                         </div>
                       </Link>

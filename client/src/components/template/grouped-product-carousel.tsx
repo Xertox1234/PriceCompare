@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, ShoppingCart, Heart, Eye, GitCompare } from 
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination } from 'swiper/modules';
 import { type ProductData } from './product-card';
-import { cn } from '@/lib/utils';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -144,9 +144,10 @@ function HorizontalProductCard({
       <Link href={`/product/${product.id}`} className="flex-shrink-0">
         <div className="bg-muted h-20 w-20 overflow-hidden rounded-lg sm:h-24 sm:w-24">
           <img
-            src={product.image}
+            src={getProductImageUrl(product.image)}
             alt={product.name}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={handleImageError}
           />
         </div>
       </Link>

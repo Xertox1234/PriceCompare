@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import type { Swiper as SwiperType } from 'swiper';
 import { Flame, Heart, Eye, GitCompare, ShoppingCart } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 import { type ProductData } from './product-card';
 
 // Import Swiper styles
@@ -227,12 +227,13 @@ function HorizontalDealCard({
         <Link href={`/product/${product.id}`} className="flex-shrink-0">
           <div className="bg-muted relative h-24 w-24 overflow-hidden rounded-lg">
             <img
-              src={product.image}
+              src={getProductImageUrl(product.image)}
               alt={product.name}
               className={cn(
                 'h-full w-full object-cover transition-opacity duration-300',
                 isHovered && product.hoverImage ? 'opacity-0' : 'opacity-100'
               )}
+              onError={handleImageError}
             />
             {product.hoverImage && (
               <img
@@ -242,6 +243,7 @@ function HorizontalDealCard({
                   'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
                   isHovered ? 'opacity-100' : 'opacity-0'
                 )}
+                onError={handleImageError}
               />
             )}
           </div>

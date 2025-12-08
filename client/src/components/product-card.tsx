@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Star, ShoppingCart, ExternalLink, TrendingUp } from 'lucide-react';
 import { ProductWithOffers } from '@shared/schema';
-import { cn } from '@/lib/utils';
-import { DEFAULT_PRODUCT_IMAGE } from '@/lib/constants';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 import { ProductDetailDialog } from './product-detail-dialog';
 
 interface ProductCardProps {
@@ -101,10 +100,11 @@ export const ProductCard = memo(
       <Card className="group overflow-hidden rounded-2xl">
         <div className="relative">
           <img
-            src={product.image || DEFAULT_PRODUCT_IMAGE}
+            src={getProductImageUrl(product.image)}
             alt={product.description || product.name}
             className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
+            onError={handleImageError}
           />
 
           {/* Deal badge with modern styling */}

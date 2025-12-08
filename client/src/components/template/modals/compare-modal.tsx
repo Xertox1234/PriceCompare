@@ -2,7 +2,7 @@ import { X, Trash2, Star } from 'lucide-react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/context/shop-context';
-import { cn } from '@/lib/utils';
+import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 
 interface CompareModalProps {
   isOpen: boolean;
@@ -171,9 +171,10 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                           <Link href={`/product/${product.id}`} onClick={onClose}>
                             <div className="bg-muted mx-auto mb-3 h-24 w-24 overflow-hidden rounded-lg">
                               <img
-                                src={product.image}
+                                src={getProductImageUrl(product.image)}
                                 alt={product.name}
                                 className="h-full w-full object-cover"
+                                onError={handleImageError}
                               />
                             </div>
                           </Link>
