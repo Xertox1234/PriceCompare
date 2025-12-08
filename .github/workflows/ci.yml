@@ -59,8 +59,8 @@ jobs:
         continue-on-error: true  # Advisory until codebase is fully formatted
 
       - name: Run ESLint
-        run: npm run lint
-        continue-on-error: true  # Advisory until pre-existing warnings are fixed
+        run: npm run lint --max-warnings 0
+        # Zero-warning policy: All intentional warnings are suppressed at file level
 
       - name: Run database migrations
         run: npm run db:push

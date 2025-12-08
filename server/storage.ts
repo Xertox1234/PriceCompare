@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await -- MemStorage implements IStorage interface which requires async methods for production database implementations. In-memory implementations don't need await but must maintain async signatures for interface compliance. See docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md */
 import {
   retailers,
   products,

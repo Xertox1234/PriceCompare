@@ -47,38 +47,27 @@ jobs:
 
       - name: ESLint
         run: |
-          if ! npm run lint -- --max-warnings 250; then
+          if ! npm run lint -- --max-warnings 0; then
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "❌ ESLint Warning Threshold Exceeded"
+            echo "❌ ESLint Check Failed"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo ""
-            CURRENT=$(npm run lint 2>&1 | grep "problems" | awk '{print $1}')
-            echo "📊 Current warnings: $CURRENT"
-            echo "⚠️  Maximum allowed: 250"
-            echo "🎯 Expected (intentional): 200"
+            echo "🎯 Expected: 0 warnings (interface compliance warnings are suppressed)"
             echo ""
-            echo "🔍 Breakdown of intentional warnings:"
-            echo "   • server/storage.ts: 192 (MemStorage interface compliance)"
-            echo "   • server/config/redis.ts: 4 (InMemoryRedis interface compliance)"
-            echo "   • server/middleware/redis-cache.ts: 4 (InMemoryCache interface compliance)"
-            echo "   • Total intentional: 200"
+            echo "📖 If you see require-await warnings in interface compliance files:"
+            echo "   • server/storage.ts - MemStorage class"
+            echo "   • server/config/redis.ts - InMemoryRedis class"  
+            echo "   • server/middleware/redis-cache.ts - InMemoryCache class"
             echo ""
-            echo "📖 Documentation:"
-            echo "   • Quick Reference: docs/01_TYPESCRIPT_PATTERNS.md#eslint-warning-quick-reference"
-            echo "   • Complete Guide: docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md"
+            echo "   These should be suppressed via eslint-disable comments."
+            echo "   See: docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md"
             echo ""
-            echo "💡 Next Steps:"
-            echo "   1. Run 'npm run lint' locally to see specific warnings"
-            echo "   2. Check if warnings are fixable (not in interface compliance files)"
-            echo "   3. See the 8 documented patterns in docs/01_TYPESCRIPT_PATTERNS.md"
-            echo "   4. If warnings are from new interface methods, document them"
-            echo ""
+            echo "💡 For new warnings, either fix them or document if intentional."
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             exit 1
           fi
-        # Ratcheting strategy: Allows current 200 intentional warnings (interface compliance)
-        # Fails if warning count increases beyond 250, preventing regression
-        # Buffer: 50 warnings allows legitimate interface additions
+        # Zero-warning policy: All intentional warnings are suppressed at file level
+        # with documented justification. New warnings must be fixed.
 
       - name: Prettier formatting check
         run: npm run format:check

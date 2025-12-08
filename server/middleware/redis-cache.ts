@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await -- InMemoryCache implements Redis cache interface requiring async methods. In-memory fallback doesn't need await but must maintain async signatures for middleware compatibility. See docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md */
 import type { Request, Response, NextFunction } from 'express';
 import { getRedisClient } from '../config/redis';
 import type { Redis } from 'ioredis';

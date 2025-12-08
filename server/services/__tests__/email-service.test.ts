@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
+// Valid test token (32+ characters required by validation schema)
+const VALID_TEST_TOKEN = 'test-reset-token-1234567890abcdef';
+const VALID_TEST_TOKEN_2 = 'reset-token-abcdef1234567890xyz123';
+const VALID_TEST_TOKEN_3 = 'token-xyz-1234567890abcdefghijkl';
+
 /**
  * Email Service Test Suite
  *
@@ -147,7 +152,7 @@ describe('Email Service', () => {
 
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('recipient@example.com', 'test-token', 'TestUser');
+      await emailService.sendPasswordResetEmail('recipient@example.com', VALID_TEST_TOKEN, 'TestUser');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -173,7 +178,7 @@ describe('Email Service', () => {
 
       const result = await emailService.sendPasswordResetEmail(
         'user@example.com',
-        'test-token-xyz',
+        VALID_TEST_TOKEN_3,
         'TestUser'
       );
 
@@ -195,7 +200,7 @@ describe('Email Service', () => {
 
       const result = await emailService.sendPasswordResetEmail(
         'user@example.com',
-        'test-token',
+        VALID_TEST_TOKEN,
         'TestUser'
       );
 
@@ -210,7 +215,7 @@ describe('Email Service', () => {
 
       const result = await emailService.sendPasswordResetEmail(
         'user@example.com',
-        'test-token',
+        VALID_TEST_TOKEN,
         'TestUser'
       );
 
@@ -225,7 +230,7 @@ describe('Email Service', () => {
 
       const result = await emailService.sendPasswordResetEmail(
         'user@example.com',
-        'test-token',
+        VALID_TEST_TOKEN,
         'TestUser'
       );
 
@@ -249,7 +254,7 @@ describe('Email Service', () => {
 
       await emailService.sendPasswordResetEmail(
         'recipient@example.com',
-        'reset-token-abc123',
+        VALID_TEST_TOKEN_2,
         'JohnDoe'
       );
 
@@ -257,17 +262,17 @@ describe('Email Service', () => {
 
       // Check reset URL is included
       expect(emailCall.html).toContain(
-        'https://pricecompare.com/reset-password?token=reset-token-abc123'
+        `https://pricecompare.com/reset-password?token=${VALID_TEST_TOKEN_2}`
       );
       expect(emailCall.text).toContain(
-        'https://pricecompare.com/reset-password?token=reset-token-abc123'
+        `https://pricecompare.com/reset-password?token=${VALID_TEST_TOKEN_2}`
       );
     });
 
     it('should include username in email template', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'JaneDoe');
+      await emailService.sendPasswordResetEmail('user@example.com', VALID_TEST_TOKEN, 'JaneDoe');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -278,7 +283,7 @@ describe('Email Service', () => {
     it('should include security warnings in template', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
+      await emailService.sendPasswordResetEmail('user@example.com', VALID_TEST_TOKEN, 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -292,7 +297,7 @@ describe('Email Service', () => {
     it('should include both HTML and plain text versions', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
+      await emailService.sendPasswordResetEmail('user@example.com', VALID_TEST_TOKEN, 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -307,11 +312,11 @@ describe('Email Service', () => {
 
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('user@example.com', 'token-xyz', 'TestUser');
+      await emailService.sendPasswordResetEmail('user@example.com', VALID_TEST_TOKEN_3, 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
-      expect(emailCall.html).toContain('http://localhost:5000/reset-password?token=token-xyz');
+      expect(emailCall.html).toContain(`http://localhost:5000/reset-password?token=${VALID_TEST_TOKEN_3}`);
     });
   });
 
@@ -406,7 +411,7 @@ describe('Email Service', () => {
     it('should include username in HTML template (note: XSS vulnerability exists)', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
+      await emailService.sendPasswordResetEmail('user@example.com', VALID_TEST_TOKEN, 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -422,7 +427,7 @@ describe('Email Service', () => {
     it('should include current year in footer', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
+      await emailService.sendPasswordResetEmail('user@example.com', VALID_TEST_TOKEN, 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
       const currentYear = new Date().getFullYear();
@@ -469,7 +474,7 @@ describe('Email Service', () => {
 
         const result = await emailService.sendPasswordResetEmail(
           'user@example.com',
-          'token',
+          VALID_TEST_TOKEN,
           'User'
         );
 

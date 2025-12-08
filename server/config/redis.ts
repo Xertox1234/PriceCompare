@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await -- InMemoryRedis implements Redis-like interface requiring async methods. In-memory fallback doesn't need await but must maintain async signatures for drop-in compatibility. See docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md */
 /**
  * Redis Configuration
  *
