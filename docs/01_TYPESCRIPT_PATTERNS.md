@@ -13,6 +13,7 @@
 This document codifies TypeScript patterns to ensure type safety and prevent runtime errors in the PriceCompare codebase.
 
 ## Table of Contents
+- [ESLint Warning Quick Reference](#eslint-warning-quick-reference-new---2025-12-07) ⭐ **NEW**
 - [TypeScript Error Resolution Protocol](#typescript-error-resolution-protocol)
 - [Critical Type Safety Violations](#critical-type-safety-violations)
 - [Type Inference Patterns](#type-inference-patterns)
@@ -25,6 +26,257 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
 - [Type Guards & Narrowing](#type-guards--narrowing)
 - [Non-Null Assertion Patterns](#non-null-assertion-patterns-new---2025-12-04)
 - [Generic Patterns](#generic-patterns)
+
+---
+
+## ESLint Warning Quick Reference (NEW - 2025-12-07)
+
+**Purpose:** One-page decision guide for the 8 ESLint patterns discovered during the 2025 cleanup effort.
+
+**Context:** This project maintains exactly **200 intentional ESLint warnings** (all `require-await` for interface compliance). All other warnings should be fixed. See `docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md` for complete details.
+
+### Decision Tree: "Should I fix this ESLint warning?"
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ESLint Warning Detected                                         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+                    ┌─────────────────────┐
+                    │ What type of warning? │
+                    └─────────────────────┘
+                              ↓
+        ┌─────────────────────┼─────────────────────┐
+        ↓                     ↓                     ↓
+   require-await      no-non-null-         await-thenable
+                      assertion
+        ↓                     ↓                     ↓
+  Is it in:           Use type guard         Remove await
+  - storage.ts?       instead (see          from non-Promise
+  - redis.ts?         Pattern 6)             value (see
+  - redis-cache.ts?                          Pattern 1)
+        ↓
+   YES → INTENTIONAL
+   (Interface compliance)
+   DO NOT FIX
+        ↓
+   NO → Add await or
+   remove async
+   (see Pattern 3, 4)
+```
+
+### The 8 ESLint Patterns (Quick Reference)
+
+#### Pattern 1: `await-thenable` - Awaiting Non-Promise Values ❌
+
+**Problem:** Awaiting values that aren't Promises.
+
+```typescript
+// ❌ WRONG
+const count = await parseInt(value); // parseInt returns number, not Promise
+
+// ✅ CORRECT
+const count = parseInt(value); // No await needed
+```
+
+**Fix:** Remove `await` keyword when value isn't a Promise.
+
+---
+
+#### Pattern 2: `require-await` - Unnecessary Async in Tests ❌
+
+**Problem:** Test mock functions declared `async` without `await`.
+
+```typescript
+// ❌ WRONG
+vi.spyOn(storage, 'getProduct').mockImplementation(async (id) => {
+  return testProduct; // No await, returns Promise<Product>
+});
+
+// ✅ CORRECT
+vi.spyOn(storage, 'getProduct').mockImplementation((id) => {
+  return testProduct; // Synchronous, returns Product directly
+});
+```
+
+**Fix:** Remove `async` from test mocks that don't use `await`.
+
+---
+
+#### Pattern 3: `require-await` - Route Handlers Without Await ❌
+
+**Problem:** Route handlers declared `async` but calling only synchronous functions.
+
+```typescript
+// ❌ WRONG
+app.get('/api/stats', requireAuth, requireAdmin, async (req, res) => {
+  const stats = advancedSearchService.getStats(); // Synchronous method
+  sendSuccess(res, stats);
+});
+
+// ✅ CORRECT
+app.get('/api/stats', requireAuth, requireAdmin, (req, res) => {
+  const stats = advancedSearchService.getStats();
+  sendSuccess(res, stats);
+});
+```
+
+**Fix:** Remove `async` if no actual `await` operations occur.
+
+---
+
+#### Pattern 4: `require-await` - Interface Compliance (INTENTIONAL) ✅
+
+**Problem:** In-memory implementations need `async` to match database interface.
+
+```typescript
+// ✅ CORRECT (INTENTIONAL WARNING)
+class MemStorage implements IStorage {
+  // INTENTIONAL: async required for interface compliance with DatabaseStorage
+  async getProductById(id: number): Promise<Product | undefined> {
+    return this.products.get(id); // Synchronous, but must match interface
+  }
+}
+```
+
+**Status:** **DO NOT FIX** - This is intentional for drop-in replacement capability.
+
+**Locations:**
+- `server/storage.ts` (192 warnings)
+- `server/config/redis.ts` (4 warnings)
+- `server/middleware/redis-cache.ts` (4 warnings)
+
+**Total:** 200 intentional warnings
+
+---
+
+#### Pattern 5: `no-non-null-assertion` - Test Setup ❌
+
+**Problem:** Using non-null assertions (`!`) in tests without type guards.
+
+```typescript
+// ❌ WRONG
+const productId = insertedProduct.id!; // Assumes id exists
+
+// ✅ CORRECT
+if (!insertedProduct.id) {
+  throw new Error('Product ID is required');
+}
+const productId = insertedProduct.id; // Type narrowing
+```
+
+**Fix:** Use type guards to narrow types safely.
+
+---
+
+#### Pattern 6: `no-non-null-assertion` - Transaction Safety ⚠️
+
+**Problem:** Using `!` with database operations that might fail.
+
+```typescript
+// ❌ WRONG
+const [user] = await tx.insert(users).values(data).returning();
+await tx.insert(profile).values({ userId: user.id! }); // Could fail if insert failed
+
+// ✅ CORRECT
+const [user] = await tx.insert(users).values(data).returning();
+if (!user?.id) {
+  throw new Error('User creation failed');
+}
+await tx.insert(profile).values({ userId: user.id });
+```
+
+**Fix:** Validate transaction results before proceeding.
+
+---
+
+#### Pattern 7: `no-non-null-assertion` - Map.get() Results ❌
+
+**Problem:** Assuming Map.get() always returns a value.
+
+```typescript
+// ❌ WRONG
+const product = this.products.get(id)!; // Might be undefined
+
+// ✅ CORRECT
+const product = this.products.get(id);
+if (!product) {
+  throw new Error(`Product ${id} not found`);
+}
+return product;
+```
+
+**Fix:** Handle undefined case explicitly.
+
+---
+
+#### Pattern 8: `@typescript-eslint/*` - Route Handler Typing 🆕
+
+**Problem:** Route handlers missing `AuthenticatedRequest` type for `req.user`.
+
+```typescript
+// ❌ WRONG
+app.get('/api/profile', requireAuth, async (req, res) => {
+  const userId = req.user.id; // Error: Property 'user' does not exist
+});
+
+// ✅ CORRECT
+import type { AuthenticatedRequest } from './types';
+
+app.get('/api/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
+  const userId = req.user.id; // ✓ Type-safe
+});
+```
+
+**Fix:** Use `AuthenticatedRequest` type for authenticated routes.
+
+---
+
+### Checklist: Adding New Async Methods
+
+When implementing new async methods:
+
+- [ ] **Does the interface require async?** (DatabaseStorage, Redis client, etc.)
+  - If YES → Add method with `async`, accept intentional warning, document it
+  - If NO → Use synchronous method
+
+- [ ] **Does the method actually await anything?**
+  - If YES → Keep `async` keyword
+  - If NO and interface doesn't require it → Remove `async`
+
+- [ ] **Is this a test mock?**
+  - If YES and no await → Remove `async` (Pattern 2)
+  - If YES and needs Promise → Return `Promise.resolve(value)`
+
+- [ ] **Is this a route handler?**
+  - If YES and no await → Remove `async` (Pattern 3)
+  - If YES and has await → Keep `async`
+
+- [ ] **Using non-null assertion (`!`)?**
+  - AVOID in production code
+  - Use type guards instead (Patterns 5, 6, 7)
+  - Only acceptable in tests with validation
+
+### Verification Commands
+
+```bash
+# Check current warning count (should be 200)
+npm run lint 2>&1 | grep "problems" | awk '{print $1, $3}'
+
+# Check specific file
+npx eslint server/storage.ts 2>&1 | tail -1
+
+# Check if new warnings added
+git diff main...HEAD | grep "async.*Promise" | wc -l
+```
+
+### CI/CD Threshold
+
+- **Current:** 200 intentional warnings
+- **CI Max:** 250 warnings (50 buffer)
+- **Trigger:** Investigation required if count exceeds 250
+
+**For complete examples and context, see:** `docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md`
 
 ---
 
