@@ -1537,64 +1537,77 @@ export class WatchListStorage extends BaseStorage {
         let created = 0;
         let skipped = 0;
 
+        // PERFORMANCE: Batch fetch existing list names to avoid N+1 queries
+        const importNames = data.watchLists.map((l) => l.name);
+        const existingLists = await tx
+          .select({ id: watchLists.id, name: watchLists.name })
+          .from(watchLists)
+          .where(and(eq(watchLists.userId, userId), inArray(watchLists.name, importNames)));
+
+        const existingNameToId = new Map(existingLists.map((l) => [l.name, l.id]));
+
+        // Track list name to ID mapping for product imports
+        const listNameToId = new Map<string, number>();
+
+        // Phase 1: Create all new lists (batch where possible)
+        const listsToCreate = data.watchLists.filter((l) => !existingNameToId.has(l.name));
+
+        if (listsToCreate.length > 0) {
+          const newLists = await tx
+            .insert(watchLists)
+            .values(
+              listsToCreate.map((listData) => ({
+                userId,
+                name: listData.name,
+                description: listData.description || null,
+                color: listData.color || null,
+                icon: listData.icon || null,
+              }))
+            )
+            .returning({ id: watchLists.id, name: watchLists.name });
+
+          for (const newList of newLists) {
+            listNameToId.set(newList.name, newList.id);
+          }
+          created = listsToCreate.length;
+        }
+
+        // Merge existing list IDs into our mapping
+        for (const [name, id] of existingNameToId) {
+          listNameToId.set(name, id);
+          skipped++;
+        }
+
+        // Phase 2: Batch insert all products
+        const allProductWatches: InsertProductWatch[] = [];
+
         for (const listData of data.watchLists) {
+          const listId = listNameToId.get(listData.name);
+          if (!listId) continue;
+
+          if (listData.products && Array.isArray(listData.products)) {
+            for (const productData of listData.products) {
+              allProductWatches.push({
+                userId,
+                productId: productData.productId,
+                watchListId: listId,
+                category: productData.category || null,
+                notes: productData.notes || null,
+                priority: productData.priority || 3,
+                targetPrice: productData.targetPrice || null,
+              });
+            }
+          }
+        }
+
+        // PERFORMANCE: Batch insert all product watches in one query
+        if (allProductWatches.length > 0) {
           try {
-            // Check if list with this name already exists
-            const existing = await tx
-              .select()
-              .from(watchLists)
-              .where(and(eq(watchLists.userId, userId), eq(watchLists.name, listData.name)))
-              .limit(1);
-
-            let listId: number;
-
-            if (existing.length > 0) {
-              listId = existing[0].id;
-              skipped++;
-            } else {
-              // Create new list within transaction
-              const newListResult = await tx
-                .insert(watchLists)
-                .values({
-                  userId,
-                  name: listData.name,
-                  description: listData.description || null,
-                  color: listData.color || null,
-                  icon: listData.icon || null,
-                })
-                .returning();
-              listId = newListResult[0].id;
-              created++;
-            }
-
-            // Import products into the list
-            if (listData.products && Array.isArray(listData.products)) {
-              for (const productData of listData.products) {
-                try {
-                  const watch: InsertProductWatch = {
-                    userId,
-                    productId: productData.productId,
-                    watchListId: listId,
-                    category: productData.category || null,
-                    notes: productData.notes || null,
-                    priority: productData.priority || 3,
-                    targetPrice: productData.targetPrice || null,
-                  };
-
-                  await tx.insert(productWatches).values(watch).onConflictDoNothing();
-                } catch (error) {
-                  logger.error('[WatchListStorage] Error importing product watch', {
-                    error: error instanceof Error ? error.message : String(error),
-                  });
-                  // Continue with next product
-                }
-              }
-            }
+            await tx.insert(productWatches).values(allProductWatches).onConflictDoNothing();
           } catch (error) {
-            logger.error('[WatchListStorage] Error importing watch list', {
+            logger.error('[WatchListStorage] Error batch importing product watches', {
               error: error instanceof Error ? error.message : String(error),
             });
-            skipped++;
           }
         }
 

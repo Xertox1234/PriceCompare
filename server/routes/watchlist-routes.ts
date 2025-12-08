@@ -132,9 +132,9 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.post(
     '/api/watchlists',
+    csrfProtection,
     requireAuth,
     watchlistCreateLimiter,
-    csrfProtection,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -264,8 +264,8 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.patch(
     '/api/watchlists/:id',
-    requireAuth,
     csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -298,8 +298,8 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.delete(
     '/api/watchlists/:id',
-    requireAuth,
     csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -332,9 +332,9 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.post(
     '/api/watchlists/:id/products',
+    csrfProtection,
     requireAuth,
     productAddLimiter,
-    csrfProtection,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -372,8 +372,8 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.delete(
     '/api/watchlists/:id/products/:productId',
-    requireAuth,
     csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware

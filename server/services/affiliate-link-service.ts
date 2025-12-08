@@ -284,22 +284,36 @@ export class AffiliateLinkService {
     try {
       const offers = await storage.getProductOffersByRetailerId(retailerId);
 
-      let healthy = 0;
-      let broken = 0;
+      // PERFORMANCE: Validate all links first, then batch update
+      // This avoids N+1 database updates in the loop
+      const validationResults: Array<{
+        offerId: number;
+        affiliateUrl: string;
+        isHealthy: boolean;
+      }> = [];
 
       for (const offer of offers) {
         if (offer.affiliateUrl) {
           const isHealthy = await this.validateAffiliateLink(offer.affiliateUrl);
-
-          await this.updateOfferWithAffiliateLink(offer.id, offer.affiliateUrl, isHealthy);
-
-          if (isHealthy) {
-            healthy++;
-          } else {
-            broken++;
-          }
+          validationResults.push({
+            offerId: offer.id,
+            affiliateUrl: offer.affiliateUrl,
+            isHealthy,
+          });
         }
       }
+
+      // Batch update all offers after validation
+      // Note: HTTP validation must be sequential to avoid rate limiting,
+      // but DB updates can be batched via Promise.all
+      await Promise.all(
+        validationResults.map((result) =>
+          this.updateOfferWithAffiliateLink(result.offerId, result.affiliateUrl, result.isHealthy)
+        )
+      );
+
+      const healthy = validationResults.filter((r) => r.isHealthy).length;
+      const broken = validationResults.filter((r) => !r.isHealthy).length;
 
       return {
         total: offers.length,
