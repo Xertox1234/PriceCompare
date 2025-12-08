@@ -371,7 +371,7 @@ export function TemplateHeader({
               >
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
-                  <span className="bg-template-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-medium text-white">
+                  <span className="bg-template-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-2xs font-medium text-white">
                     {cartCount}
                   </span>
                 )}
@@ -384,7 +384,7 @@ export function TemplateHeader({
               >
                 <Heart className="h-5 w-5" />
                 {wishlistCount > 0 && (
-                  <span className="bg-template-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-medium text-white">
+                  <span className="bg-template-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-2xs font-medium text-white">
                     {wishlistCount}
                   </span>
                 )}

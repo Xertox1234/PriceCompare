@@ -223,7 +223,7 @@ export function NewsletterBanner({ className }: BannerProps) {
               />
               <button
                 type="submit"
-                className="flex items-center justify-center gap-2 rounded-lg bg-[#ff6b6b] px-6 py-3.5 font-semibold whitespace-nowrap text-white transition-colors hover:bg-[#ff5252]"
+                className="btn-promo flex items-center justify-center gap-2 rounded-lg px-6 py-3.5 font-semibold whitespace-nowrap transition-colors"
               >
                 Subscribe
                 <ArrowRight className="h-4 w-4" />

@@ -48,6 +48,14 @@
   --color-chart-4: 43 74% 66%;
   --color-chart-5: 27 87% 67%;
 
+  /* Promotional/CTA colors */
+  --color-promo: 0 82% 71%; /* #FF6B6B - Coral/Salmon */
+  --color-promo-hover: 0 82% 66%; /* #FF5252 - Darker coral */
+  --color-promo-foreground: 0 0% 100%;
+
+  /* Extended font sizes */
+  --font-size-2xs: 0.625rem; /* 10px - for badges and small labels */
+
   /* Border radius system */
   --radius: 1rem; /* Increased for more rounded corners */
   --radius-lg: 1.5rem;
@@ -198,6 +206,22 @@
 
   .star-empty {
     color: hsl(var(--color-muted-foreground) / 0.3);
+  }
+
+  /* Extra small text - 10px for badges and compact labels */
+  .text-2xs {
+    font-size: var(--font-size-2xs);
+    line-height: 1;
+  }
+
+  /* Promotional button styling */
+  .btn-promo {
+    background-color: hsl(var(--color-promo));
+    color: hsl(var(--color-promo-foreground));
+  }
+
+  .btn-promo:hover {
+    background-color: hsl(var(--color-promo-hover));
   }
 }
 

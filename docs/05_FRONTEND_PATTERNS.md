@@ -1,7 +1,7 @@
 # Frontend Patterns
 
-**Version:** 2.0
-**Last Updated:** 2025-11-29
+**Version:** 2.1
+**Last Updated:** 2025-12-08
 **Migrated From:**
 - docs/FRONTEND_PATTERNS.md (v1.0 - 2025-11-26)
 - docs/PHASE1_WATCHLIST_PATTERNS.md (React Query patterns, form handling, pagination - 2025-11-29)
@@ -35,8 +35,12 @@
    - [Deterministic Sorting for Pagination](#deterministic-sorting-for-pagination)
 8. [Common Anti-Patterns](#common-anti-patterns)
    - [Hardcoded Values](#hardcoded-values)
-9. [Testing Patterns](#testing-patterns)
-10. [Checklist](#frontend-checklist)
+9. [CSS & Tailwind 4 Patterns](#css--tailwind-4-patterns)
+   - [Theme Configuration](#theme-configuration)
+   - [Custom Utility Classes](#custom-utility-classes)
+   - [Avoiding Arbitrary Values](#avoiding-arbitrary-values)
+10. [Testing Patterns](#testing-patterns)
+11. [Checklist](#frontend-checklist)
 
 ---
 
@@ -1700,6 +1704,206 @@ grep -r "queryKey:.*\[.*[0-9]" client/src
 
 ---
 
+## CSS & Tailwind 4 Patterns
+
+This project uses **Tailwind CSS v4** with the Vite plugin (`@tailwindcss/vite`). Configuration is CSS-first using the `@theme` directive.
+
+### Theme Configuration
+
+**Location:** `client/src/index.css`
+
+All design tokens are defined in the `@theme` block using CSS custom properties:
+
+```css
+@import 'tailwindcss';
+
+@theme {
+  /* Brand Colors (HSL format for opacity support) */
+  --color-primary: 217 91% 60%;           /* Blue 500 */
+  --color-primary-hover: 217 91% 55%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-secondary: 38 92% 50%;          /* Amber 500 */
+  --color-secondary-hover: 38 92% 45%;
+  --color-secondary-foreground: 0 0% 100%;
+
+  /* Semantic Colors */
+  --color-destructive: 0 84% 60%;
+  --color-success: 142 71% 45%;
+  --color-warning: 38 92% 50%;
+  --color-error: 0 84% 60%;
+  --color-info: 199 89% 48%;
+
+  /* Promotional Colors (for CTAs, banners) */
+  --color-promo: 0 82% 71%;               /* Coral/Salmon */
+  --color-promo-hover: 0 82% 66%;
+  --color-promo-foreground: 0 0% 100%;
+
+  /* Extended Font Sizes */
+  --font-size-2xs: 0.625rem;              /* 10px - badges, small labels */
+
+  /* Border Radius */
+  --radius: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+```
+
+**Key Points:**
+- Use HSL format for colors to support opacity modifiers (`bg-primary/50`)
+- Add new tokens to `@theme` instead of using arbitrary values
+- Document what each token represents with comments
+
+---
+
+### Custom Utility Classes
+
+Define reusable utilities in `@layer components` within `index.css`:
+
+```css
+@layer components {
+  /* Extra small text - 10px for badges and compact labels */
+  .text-2xs {
+    font-size: var(--font-size-2xs);
+    line-height: 1;
+  }
+
+  /* Promotional button styling */
+  .btn-promo {
+    background-color: hsl(var(--color-promo));
+    color: hsl(var(--color-promo-foreground));
+  }
+
+  .btn-promo:hover {
+    background-color: hsl(var(--color-promo-hover));
+  }
+
+  /* Gradient utilities */
+  .gradient-brand {
+    background: linear-gradient(to right, hsl(var(--color-primary)), hsl(var(--color-secondary)));
+  }
+}
+```
+
+**When to Create Custom Utilities:**
+- Pattern repeated 3+ times across components
+- Complex multi-property styling
+- Semantic meaning (`.btn-promo` vs `bg-[#ff6b6b]`)
+
+---
+
+### Avoiding Arbitrary Values
+
+**NEVER use arbitrary values when a theme token exists or can be created.**
+
+#### ❌ WRONG - Hardcoded Arbitrary Values
+
+```tsx
+// Hardcoded hex colors - breaks design system
+<button className="bg-[#ff6b6b] hover:bg-[#ff5252] text-white">
+  Subscribe
+</button>
+
+// Hardcoded font size - inconsistent, unmaintainable
+<span className="text-[10px] font-bold">
+  SALE
+</span>
+
+// Arbitrary spacing that should be standard
+<div className="p-[13px] mt-[7px]">
+  Content
+</div>
+```
+
+#### ✅ CORRECT - Use Theme Tokens
+
+```tsx
+// Use semantic utility class
+<button className="btn-promo rounded-lg px-6 py-3.5 font-semibold transition-colors">
+  Subscribe
+</button>
+
+// Use defined font size token
+<span className="text-2xs font-bold">
+  SALE
+</span>
+
+// Use standard Tailwind spacing
+<div className="p-3 mt-2">
+  Content
+</div>
+```
+
+#### When to Create New Theme Tokens
+
+If you find yourself needing an arbitrary value repeatedly:
+
+1. **Add the token to `@theme`:**
+```css
+@theme {
+  --font-size-2xs: 0.625rem;  /* 10px */
+  --color-promo: 0 82% 71%;   /* Coral */
+}
+```
+
+2. **Create a utility class if needed:**
+```css
+@layer components {
+  .text-2xs {
+    font-size: var(--font-size-2xs);
+    line-height: 1;
+  }
+}
+```
+
+3. **Update components to use the token:**
+```tsx
+// Before: text-[10px]
+// After:  text-2xs
+<span className="text-2xs font-bold">Badge</span>
+```
+
+---
+
+### Detection Rules
+
+```bash
+# Find hardcoded hex colors in className
+grep -r "bg-\[#" client/src --include="*.tsx"
+grep -r "text-\[#" client/src --include="*.tsx"
+grep -r "border-\[#" client/src --include="*.tsx"
+
+# Find arbitrary font sizes (likely need tokens)
+grep -r "text-\[.*px\]" client/src --include="*.tsx"
+
+# Find inline styles with colors (should use Tailwind)
+grep -r "style=.*backgroundColor" client/src --include="*.tsx"
+grep -r "style=.*color:" client/src --include="*.tsx"
+```
+
+---
+
+### Tailwind 4 Migration Notes
+
+If migrating from Tailwind v3:
+
+| v3 Pattern | v4 Pattern |
+|------------|------------|
+| `@tailwind base;` | `@import 'tailwindcss';` |
+| `@tailwind components;` | (included in import) |
+| `@tailwind utilities;` | (included in import) |
+| `tailwind.config.js` theme | `@theme { }` in CSS |
+| `bg-opacity-50` | `bg-black/50` |
+| `text-opacity-50` | `text-black/50` |
+| `@layer utilities { }` | `@utility name { }` (for variants) |
+
+**Current Setup:**
+- Uses `@tailwindcss/vite` plugin (not PostCSS)
+- Configuration in `index.css` via `@theme`
+- Legacy `tailwind.config.ts` exists for `tailwindcss-animate` plugin
+
+---
+
 ## Testing Patterns
 
 ### Dialog Components
@@ -1874,6 +2078,13 @@ describe('getWatchedProducts - Pagination', () => {
 - [ ] **Cursor pagination** - For large datasets
 - [ ] **Deterministic sorting** - Secondary sort on ID
 
+### CSS & Tailwind
+- [ ] **No arbitrary hex colors** - Use theme tokens (`bg-primary`, not `bg-[#3B82F6]`)
+- [ ] **No arbitrary font sizes** - Use `text-2xs` for 10px, not `text-[10px]`
+- [ ] **New tokens in @theme** - Add reusable values to CSS, not arbitrary
+- [ ] **Custom utilities documented** - In `@layer components`
+- [ ] **Dark mode tested** - Verify theme works in both modes
+
 ### UI/UX
 - [ ] **Loading states** - Show skeletons/spinners
 - [ ] **Dark mode support** - Test in both themes
@@ -1889,7 +2100,7 @@ describe('getWatchedProducts - Pagination', () => {
 - [docs/02_DATABASE_PATTERNS.md](/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md) - Database best practices
 - [docs/03_API_PATTERNS.md](/Users/williamtower/projects/PriceCompare/docs/03_API_PATTERNS.md) - Backend API patterns
 - [docs/04_SECURITY_PATTERNS.md](/Users/williamtower/projects/PriceCompare/docs/04_SECURITY_PATTERNS.md) - Security best practices
-- [docs/ERROR_HANDLING_PATTERNS.md](/Users/williamtower/projects/PriceCompare/docs/ERROR_HANDLING_PATTERNS.md) - Error handling
+- [docs/06_ERROR_HANDLING_PATTERNS.md](/Users/williamtower/projects/PriceCompare/docs/06_ERROR_HANDLING_PATTERNS.md) - Error handling
 - [docs/COMPONENT_GUIDE.md](/Users/williamtower/projects/PriceCompare/docs/COMPONENT_GUIDE.md) - Component architecture
 - [docs/API_DOCUMENTATION.md](/Users/williamtower/projects/PriceCompare/docs/API_DOCUMENTATION.md) - API endpoint reference
 
@@ -1898,3 +2109,4 @@ describe('getWatchedProducts - Pagination', () => {
 **Pattern Consolidation History:**
 - **v1.0** (2025-11-26): Initial FRONTEND_PATTERNS.md covering design system, component reuse, anti-patterns
 - **v2.0** (2025-11-29): Merged React Query patterns (mutations, pagination, async handlers), form handling (dialogs, inline editing), and decimal handling from PHASE1_WATCHLIST_PATTERNS.md
+- **v2.1** (2025-12-08): Added CSS & Tailwind 4 patterns section with theme tokens, custom utilities, and arbitrary value guidance

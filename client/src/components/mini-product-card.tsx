@@ -68,7 +68,7 @@ export const MiniProductCard = memo(
 
           {/* Amazon-style Corner Savings Badge */}
           <div className="absolute top-1 left-1 rounded-sm bg-red-600 px-1.5 py-0.5 text-white shadow-md">
-            <span className="text-[10px] leading-none font-bold">{displayBadge}</span>
+            <span className="text-2xs font-bold">{displayBadge}</span>
           </div>
         </div>
 
@@ -82,7 +82,7 @@ export const MiniProductCard = memo(
               ${product.currentPrice.toFixed(2)}
             </span>
             {product.originalPrice > product.currentPrice && (
-              <span className="text-muted-foreground text-[10px] line-through">
+              <span className="text-muted-foreground text-2xs line-through">
                 ${product.originalPrice.toFixed(2)}
               </span>
             )}

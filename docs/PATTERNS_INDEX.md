@@ -24,7 +24,7 @@ Essential patterns that apply across the entire codebase:
 
 ### Frontend Patterns
 
-- **[05_FRONTEND_PATTERNS.md](05_FRONTEND_PATTERNS.md)** - v2.0 - React components, hooks, state management, React Query
+- **[05_FRONTEND_PATTERNS.md](05_FRONTEND_PATTERNS.md)** - v2.1 - React components, hooks, state management, React Query, CSS/Tailwind 4
 
 ### Testing Patterns
 
@@ -64,6 +64,8 @@ Find patterns by common concerns:
 | **Testing** | TESTING_PATTERNS | FRONTEND_PATTERNS, SECURITY_PATTERNS |
 | **Date/Time in Tests** | TESTING_PATTERNS | FRONTEND_PATTERNS |
 | **Mocking Redis** | TESTING_PATTERNS | API_PATTERNS |
+| **CSS/Tailwind 4** | FRONTEND_PATTERNS | COMPONENT_GUIDE, DESIGN_SYSTEM |
+| **Theme Tokens** | FRONTEND_PATTERNS | DESIGN_SYSTEM |
 
 ## Pattern Relationships
 

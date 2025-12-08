@@ -97,7 +97,7 @@ function DualBannerCard({ banner }: { banner: DualBannerItem }) {
           {/* Price Badge */}
           {banner.priceFrom && (
             <div className="bg-template-gold self-start rounded-lg px-3 py-1.5 text-black">
-              <p className="text-[10px] font-medium uppercase">From</p>
+              <p className="text-2xs font-medium uppercase">From</p>
               <p className="text-lg font-bold sm:text-xl">${banner.priceFrom.toLocaleString()}</p>
             </div>
           )}
