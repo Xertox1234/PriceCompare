@@ -16,10 +16,10 @@ const log = createLogger('AgentQueryLimiter');
 
 // Query types that count against daily limit
 export type AgentQueryType =
-  | 'google_search'      // Google Custom Search API
-  | 'openai_completion'  // OpenAI Chat Completions
-  | 'web_scrape'         // Playwright/Cheerio scraping operations
-  | 'trend_discovery'    // Trend analysis (uses OpenAI)
+  | 'google_search' // Google Custom Search API
+  | 'openai_completion' // OpenAI Chat Completions
+  | 'web_scrape' // Playwright/Cheerio scraping operations
+  | 'trend_discovery' // Trend analysis (uses OpenAI)
   | 'product_extraction'; // Product data extraction
 
 export interface QueryUsageStats {
@@ -99,7 +99,7 @@ class AgentQueryLimiter {
         allowed: true,
         remaining: this.DAILY_LIMIT,
         resetTime: this.getResetTime(),
-        reason: 'Redis unavailable - limits not enforced'
+        reason: 'Redis unavailable - limits not enforced',
       };
     }
 
@@ -118,7 +118,7 @@ class AgentQueryLimiter {
           allowed: false,
           remaining: Math.max(0, this.DAILY_LIMIT - used),
           resetTime: this.getResetTime(),
-          reason: `Daily limit of ${this.DAILY_LIMIT} queries exceeded. Resets at midnight UTC.`
+          reason: `Daily limit of ${this.DAILY_LIMIT} queries exceeded. Resets at midnight UTC.`,
         };
       }
 
@@ -135,13 +135,13 @@ class AgentQueryLimiter {
       log.debug(`Agent query allowed: ${queryType}`, {
         used: used + count,
         remaining,
-        limit: this.DAILY_LIMIT
+        limit: this.DAILY_LIMIT,
       });
 
       return {
         allowed: true,
         remaining,
-        resetTime: this.getResetTime()
+        resetTime: this.getResetTime(),
       };
     } catch (error) {
       log.error('Error checking agent query limit', { error });
@@ -150,7 +150,7 @@ class AgentQueryLimiter {
         allowed: true,
         remaining: this.DAILY_LIMIT,
         resetTime: this.getResetTime(),
-        reason: 'Error checking limit - query allowed'
+        reason: 'Error checking limit - query allowed',
       };
     }
   }
@@ -192,9 +192,9 @@ class AgentQueryLimiter {
         openai_completion: 0,
         web_scrape: 0,
         trend_discovery: 0,
-        product_extraction: 0
+        product_extraction: 0,
       },
-      isLimited: false
+      isLimited: false,
     };
 
     if (!redis) {
@@ -207,13 +207,13 @@ class AgentQueryLimiter {
         'openai_completion',
         'web_scrape',
         'trend_discovery',
-        'product_extraction'
+        'product_extraction',
       ];
 
       // Fetch all counters
       const pipeline = redis.pipeline();
       pipeline.get(this.getDailyKey());
-      queryTypes.forEach(type => pipeline.get(this.getTypeKey(type)));
+      queryTypes.forEach((type) => pipeline.get(this.getTypeKey(type)));
 
       const results = await pipeline.exec();
 
@@ -235,7 +235,7 @@ class AgentQueryLimiter {
         remaining: Math.max(0, this.DAILY_LIMIT - totalUsed),
         resetTime,
         breakdown,
-        isLimited: totalUsed >= this.DAILY_LIMIT
+        isLimited: totalUsed >= this.DAILY_LIMIT,
       };
     } catch (error) {
       log.error('Error getting usage stats', { error });
@@ -260,12 +260,12 @@ class AgentQueryLimiter {
         'openai_completion',
         'web_scrape',
         'trend_discovery',
-        'product_extraction'
+        'product_extraction',
       ];
 
       const pipeline = redis.pipeline();
       pipeline.del(this.getDailyKey());
-      queryTypes.forEach(type => pipeline.del(this.getTypeKey(type)));
+      queryTypes.forEach((type) => pipeline.del(this.getTypeKey(type)));
       await pipeline.exec();
 
       log.info('Agent query daily limit reset');

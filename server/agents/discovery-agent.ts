@@ -11,7 +11,7 @@ import { agentQueryLimiter } from '../services/agent-query-limiter';
 
 // Local abstract base class for trend sources (distinct from the type in ./types)
 abstract class BaseTrendSource {
-  abstract getTrends(categories?: string[], limit?: number): Promise<TrendData[]>;
+  abstract getTrends(categories?: string[], limit?: number): TrendData[] | Promise<TrendData[]>;
 }
 
 export class ProductDiscoveryAgent extends BaseAgent {
@@ -24,34 +24,30 @@ export class ProductDiscoveryAgent extends BaseAgent {
       type: 'discovery',
       maxConcurrentTasks: 3,
       retryAttempts: 2,
-      retryDelay: 1000
+      retryDelay: 1000,
     };
 
     super(config);
-    
+
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+      apiKey: process.env.OPENAI_API_KEY,
     });
 
     this.trendSources = new Map([
       ['google_trends', new GoogleTrendsSource()],
       ['social_media', new SocialMediaSource()],
       ['news', new NewsSource()],
-      ['seasonal', new SeasonalSource()]
+      ['seasonal', new SeasonalSource()],
     ]);
   }
 
   async processTask(taskData: DiscoveryTaskData): Promise<TrendData[]> {
     const taskId = `discovery_${Date.now()}`;
-    
-    const result = await this.executeTask(
-      taskId,
-      () => this.discoverTrendingProducts(taskData),
-      {
-        jobType: 'discovery',
-        targetData: JSON.stringify(taskData)
-      }
-    );
+
+    const result = await this.executeTask(taskId, () => this.discoverTrendingProducts(taskData), {
+      jobType: 'discovery',
+      targetData: JSON.stringify(taskData),
+    });
 
     if (result.success) {
       return result.data as TrendData[];
@@ -62,7 +58,7 @@ export class ProductDiscoveryAgent extends BaseAgent {
 
   private async discoverTrendingProducts(taskData: DiscoveryTaskData): Promise<TrendData[]> {
     const allTrends: TrendData[] = [];
-    
+
     // Discover trends from each requested source
     for (const sourceName of taskData.sources) {
       const source = this.trendSources.get(sourceName);
@@ -77,17 +73,17 @@ export class ProductDiscoveryAgent extends BaseAgent {
       } catch (error) {
         logger.error(`Error getting trends from ${sourceName}`, {
           error: error instanceof Error ? error.message : String(error),
-          sourceName
+          sourceName,
         });
       }
     }
 
     // Use AI to analyze and categorize trends
     const analyzedTrends = await this.analyzeTrendsWithAI(allTrends);
-    
+
     // Store trending products in database
     await this.storeTrendingProducts(analyzedTrends);
-    
+
     return analyzedTrends;
   }
 
@@ -104,7 +100,7 @@ export class ProductDiscoveryAgent extends BaseAgent {
         - Users: Price-conscious shoppers comparing prices across retailers
 
         TRENDING ITEMS TO ANALYZE:
-        ${trends.map(t => `- "${t.query}" (source: ${t.source}, trending score: ${t.score})`).join('\n')}
+        ${trends.map((t) => `- "${t.query}" (source: ${t.source}, trending score: ${t.score})`).join('\n')}
 
         ANALYSIS CRITERIA:
 
@@ -235,15 +231,15 @@ OUTPUT QUALITY STANDARDS:
 - Confidence scores must reflect true commercial viability
 - Reasons must be concise, factual, and actionable
 
-CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code blocks. Just the JSON array.`
+CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code blocks. Just the JSON array.`,
           },
           {
             role: 'user',
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         temperature: 0.1,
-        max_tokens: 2000
+        max_tokens: 2000,
       });
 
       const rawResponse = response.choices[0].message.content || '[]';
@@ -257,26 +253,25 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
         if (!validationResult.success) {
           logger.error('AI response validation failed', {
             errors: validationResult.error.issues,
-            rawResponse: rawResponse.substring(0, 500)
+            rawResponse: rawResponse.substring(0, 500),
           });
           throw new Error('Invalid AI response format');
         }
 
         aiAnalysis = validationResult.data;
         logger.debug('AI response validated successfully', {
-          validatedCount: aiAnalysis.length
+          validatedCount: aiAnalysis.length,
         });
-
       } catch (parseError) {
         logger.error('Failed to parse or validate AI response', {
           error: parseError instanceof Error ? parseError.message : String(parseError),
-          rawResponse: rawResponse.substring(0, 500)
+          rawResponse: rawResponse.substring(0, 500),
         });
         throw parseError;
       }
 
       // Merge AI analysis with original trend data
-      const mappedTrends = trends.map(trend => {
+      const mappedTrends = trends.map((trend) => {
         const analysis = aiAnalysis.find((a) => a.originalQuery === trend.query);
         if (analysis && analysis.isProduct && analysis.confidence > 60) {
           return {
@@ -286,35 +281,39 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
             score: Math.round(trend.score * (analysis.confidence / 100)),
             metadata: {
               ...trend.metadata,
-              aiAnalysis: analysis
-            }
+              aiAnalysis: analysis,
+            },
           };
         }
         return trend;
       });
       return mappedTrends.filter((trend): trend is TrendData => {
         const aiAnalysis = trend.metadata?.aiAnalysis;
-        return typeof aiAnalysis === 'object' && aiAnalysis !== null && 'isProduct' in aiAnalysis && Boolean(aiAnalysis.isProduct);
+        return (
+          typeof aiAnalysis === 'object' &&
+          aiAnalysis !== null &&
+          'isProduct' in aiAnalysis &&
+          Boolean(aiAnalysis.isProduct)
+        );
       });
-
     } catch (error) {
       logger.error('AI analysis failed, returning original trends', {
         error: error instanceof Error ? error.message : String(error),
-        trendCount: trends.length
+        trendCount: trends.length,
       });
       return trends;
     }
   }
 
   private async storeTrendingProducts(trends: TrendData[]): Promise<void> {
-    const productsToInsert: InsertTrendingProduct[] = trends.map(trend => ({
+    const productsToInsert: InsertTrendingProduct[] = trends.map((trend) => ({
       name: trend.query,
       category: trend.category,
       trendScore: trend.score,
       searchVolume: trend.volume,
       source: trend.source,
       sourceData: JSON.stringify(trend.metadata),
-      status: 'discovered'
+      status: 'discovered',
     }));
 
     if (productsToInsert.length > 0) {
@@ -324,14 +323,15 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
       } catch (error) {
         logger.error('Failed to store trending products', {
           error: error instanceof Error ? error.message : String(error),
-          productCount: productsToInsert.length
+          productCount: productsToInsert.length,
         });
       }
     }
   }
 
   async getStoredTrendingProducts(limit = 50) {
-    return db.select()
+    return db
+      .select()
       .from(trendingProducts)
       .where(eq(trendingProducts.status, 'discovered'))
       .orderBy(desc(trendingProducts.trendScore))
@@ -341,15 +341,45 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
 
 // Google Trends implementation
 class GoogleTrendsSource extends BaseTrendSource {
-  async getTrends(categories?: string[], limit = 20): Promise<TrendData[]> {
+  getTrends(categories?: string[], limit = 20): TrendData[] {
     // Note: This would require Google Trends API or web scraping
     // For now, returning simulated trending products
     const simulatedTrends = [
-      { query: 'iPhone 15 Pro', score: 95, volume: 50000, category: 'Electronics', source: 'google_trends' },
-      { query: 'Nintendo Switch OLED', score: 88, volume: 35000, category: 'Electronics', source: 'google_trends' },
-      { query: 'Air Fryer Ninja', score: 82, volume: 28000, category: 'Home & Kitchen', source: 'google_trends' },
-      { query: 'Stanley Cup Tumbler', score: 78, volume: 25000, category: 'Home & Kitchen', source: 'google_trends' },
-      { query: 'Lululemon Leggings', score: 75, volume: 22000, category: 'Fashion', source: 'google_trends' }
+      {
+        query: 'iPhone 15 Pro',
+        score: 95,
+        volume: 50000,
+        category: 'Electronics',
+        source: 'google_trends',
+      },
+      {
+        query: 'Nintendo Switch OLED',
+        score: 88,
+        volume: 35000,
+        category: 'Electronics',
+        source: 'google_trends',
+      },
+      {
+        query: 'Air Fryer Ninja',
+        score: 82,
+        volume: 28000,
+        category: 'Home & Kitchen',
+        source: 'google_trends',
+      },
+      {
+        query: 'Stanley Cup Tumbler',
+        score: 78,
+        volume: 25000,
+        category: 'Home & Kitchen',
+        source: 'google_trends',
+      },
+      {
+        query: 'Lululemon Leggings',
+        score: 75,
+        volume: 22000,
+        category: 'Fashion',
+        source: 'google_trends',
+      },
     ];
 
     return simulatedTrends.slice(0, limit);
@@ -358,12 +388,17 @@ class GoogleTrendsSource extends BaseTrendSource {
 
 // Social Media trends implementation
 class SocialMediaSource extends BaseTrendSource {
-  async getTrends(categories?: string[], limit = 15): Promise<TrendData[]> {
+  getTrends(categories?: string[], limit = 15): TrendData[] {
     // This would integrate with Twitter API, Reddit API, etc.
     const socialTrends = [
       { query: 'Viral TikTok LED Lights', score: 70, volume: 18000, source: 'social_media' },
-      { query: 'Trending Skincare Routine Products', score: 65, volume: 15000, source: 'social_media' },
-      { query: 'Popular Gaming Headset', score: 60, volume: 12000, source: 'social_media' }
+      {
+        query: 'Trending Skincare Routine Products',
+        score: 65,
+        volume: 15000,
+        source: 'social_media',
+      },
+      { query: 'Popular Gaming Headset', score: 60, volume: 12000, source: 'social_media' },
     ];
 
     return socialTrends.slice(0, limit);
@@ -372,11 +407,11 @@ class SocialMediaSource extends BaseTrendSource {
 
 // News source implementation
 class NewsSource extends BaseTrendSource {
-  async getTrends(categories?: string[], limit = 10): Promise<TrendData[]> {
+  getTrends(categories?: string[], limit = 10): TrendData[] {
     // This would integrate with News API
     const newsTrends = [
       { query: 'CES 2024 Best Products', score: 85, volume: 30000, source: 'news' },
-      { query: 'Black Friday Top Deals', score: 90, volume: 40000, source: 'news' }
+      { query: 'Black Friday Top Deals', score: 90, volume: 40000, source: 'news' },
     ];
 
     return newsTrends.slice(0, limit);
@@ -385,27 +420,30 @@ class NewsSource extends BaseTrendSource {
 
 // Seasonal trends implementation
 class SeasonalSource extends BaseTrendSource {
-  async getTrends(categories?: string[], limit = 10): Promise<TrendData[]> {
+  getTrends(categories?: string[], limit = 10): TrendData[] {
     const month = new Date().getMonth();
     const seasonalTrends = this.getSeasonalProducts(month);
-    
+
     return seasonalTrends.slice(0, limit);
   }
 
   private getSeasonalProducts(month: number): TrendData[] {
     const seasonalMap: Record<number, TrendData[]> = {
-      11: [ // December - Holiday season
+      11: [
+        // December - Holiday season
         { query: 'Christmas Gift Ideas Tech', score: 85, volume: 35000, source: 'seasonal' },
-        { query: 'Holiday Decoration Lights', score: 80, volume: 28000, source: 'seasonal' }
+        { query: 'Holiday Decoration Lights', score: 80, volume: 28000, source: 'seasonal' },
       ],
-      0: [ // January - New Year fitness
+      0: [
+        // January - New Year fitness
         { query: 'Home Gym Equipment', score: 75, volume: 25000, source: 'seasonal' },
-        { query: 'Fitness Tracker Watches', score: 70, volume: 20000, source: 'seasonal' }
+        { query: 'Fitness Tracker Watches', score: 70, volume: 20000, source: 'seasonal' },
       ],
-      5: [ // June - Summer products
+      5: [
+        // June - Summer products
         { query: 'Portable Air Conditioner', score: 80, volume: 30000, source: 'seasonal' },
-        { query: 'Outdoor Grill BBQ', score: 75, volume: 25000, source: 'seasonal' }
-      ]
+        { query: 'Outdoor Grill BBQ', score: 75, volume: 25000, source: 'seasonal' },
+      ],
     };
 
     return seasonalMap[month] || [];

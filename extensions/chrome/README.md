@@ -24,11 +24,13 @@ A Chrome/Edge browser extension that displays price history charts directly on r
 ### From Source (Development)
 
 1. **Clone the repository**
+
    ```bash
    cd /path/to/PriceCompare/extensions/chrome
    ```
 
 2. **Create placeholder icons** (temporary - replace with actual icons later)
+
    ```bash
    mkdir -p icons
    # Create simple placeholder icons (you can replace these with real icons)
@@ -60,6 +62,7 @@ By default, the extension connects to `http://localhost:3000/api`. To change thi
 4. Save changes
 
 You can also modify the default in:
+
 - `shared/api-client.js` - Change the `baseUrl` property
 - `manifest.json` - Update permissions if using a different domain
 
@@ -119,6 +122,7 @@ extensions/chrome/
 ### Adding a New Retailer
 
 1. **Create a new content script** (or extend `generic-overlay.js`)
+
    ```javascript
    // content-scripts/newretailer-overlay.js
    function isProductPage() {
@@ -131,21 +135,22 @@ extensions/chrome/
    ```
 
 2. **Update manifest.json**
+
    ```json
    {
-     "content_scripts": [{
-       "matches": ["*://*.newretailer.com/*"],
-       "js": ["shared/utils.js", "shared/api-client.js", "content-scripts/newretailer-overlay.js"]
-     }]
+     "content_scripts": [
+       {
+         "matches": ["*://*.newretailer.com/*"],
+         "js": ["shared/utils.js", "shared/api-client.js", "content-scripts/newretailer-overlay.js"]
+       }
+     ]
    }
    ```
 
 3. **Add host permissions**
    ```json
    {
-     "host_permissions": [
-       "*://*.newretailer.com/*"
-     ]
+     "host_permissions": ["*://*.newretailer.com/*"]
    }
    ```
 
@@ -168,24 +173,28 @@ extensions/chrome/
 The extension requires the following API endpoints:
 
 ### Product Search
+
 ```
 GET /api/products/search?url={productUrl}
 Response: { product: { id, title, ... } }
 ```
 
 ### Price History
+
 ```
 GET /api/products/{id}/price-history?days={days}
 Response: { history: [{ price, recordedAt, retailer }] }
 ```
 
 ### Price Trend
+
 ```
 GET /api/products/{id}/price-trend
 Response: { trend: { direction, percentage, ... } }
 ```
 
 ### Create Alert
+
 ```
 POST /api/products/{id}/alerts
 Body: { targetPrice, email, createdFromChart }
@@ -193,6 +202,7 @@ Response: { alert: { id, ... } }
 ```
 
 ### Price Predictions (Optional)
+
 ```
 GET /api/products/{id}/price-predictions?days={days}
 Response: { predictions: [{ date, predictedPrice, confidence }] }
@@ -273,6 +283,7 @@ npm run test:integration   # Integration tests only
 - **Mocks**: Complete Chrome API mocks
 
 **Current Coverage**: ~85%
+
 - Lines: 80%+
 - Functions: 75%+
 - Branches: 70%+
@@ -283,6 +294,7 @@ See `__tests__/README.md` for detailed testing documentation.
 ### CI/CD
 
 Tests run automatically on:
+
 - Pull requests
 - Pushes to main/develop branches
 - Manual workflow dispatch
@@ -306,6 +318,7 @@ This extension is part of the PriceCompare project.
 ## Support
 
 For issues or questions:
+
 - Check the [main project documentation](../../README.md)
 - Open an issue on GitHub
 - Contact the development team

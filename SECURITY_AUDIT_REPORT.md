@@ -1,4 +1,5 @@
 # Security Audit Report
+
 **Date:** 2025-11-11
 **Auditor:** Claude Code  
 **Project:** PriceCompare
@@ -11,8 +12,9 @@
 This comprehensive security audit identified **23 issues** across the codebase, ranging from critical security vulnerabilities to code quality concerns. The application has good security foundations with proper authentication, rate limiting, and input sanitization, but several high-priority issues need immediate attention.
 
 ### Summary of Findings
+
 - **Critical:** 3 issues
-- **High:** 6 issues  
+- **High:** 6 issues
 - **Medium:** 8 issues
 - **Low:** 6 issues
 
@@ -21,6 +23,7 @@ This comprehensive security audit identified **23 issues** across the codebase, 
 ## Critical Issues (Priority 1)
 
 ### 1. Missing Authentication on Public Discourse Webhook Endpoint
+
 **File:** `server/discourse-routes.ts:112`
 **Severity:** Critical
 **CWE:** CWE-306 (Missing Authentication for Critical Function)
@@ -34,7 +37,8 @@ The `/discourse/webhook` endpoint accepts POST requests without any authenticati
 
 ---
 
-### 2. Slug Generation Vulnerable to Collision Attacks  
+### 2. Slug Generation Vulnerable to Collision Attacks
+
 **File:** `server/forum-storage.ts:142`
 **Severity:** Critical
 **CWE:** CWE-330 (Use of Insufficiently Random Values)
@@ -49,6 +53,7 @@ Topic slugs are generated without uniqueness checks, allowing collisions and ove
 ---
 
 ### 3. Password Hash Exposure in Forum Queries
+
 **File:** `server/forum-storage.ts:64,113`  
 **Severity:** Critical
 **CWE:** CWE-200 (Exposure of Sensitive Information)
@@ -65,6 +70,7 @@ User password hashes are selected and returned in forum topic queries.
 ## High Severity Issues (Priority 2)
 
 ### 4. Inconsistent Authorization Checks
+
 **File:** `server/advanced-search-routes.ts:290-294,312-315`
 **Severity:** High
 **CWE:** CWE-863 (Incorrect Authorization)
@@ -76,6 +82,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 5. Type Safety Violations with Session Data
+
 **File:** `server/advanced-search-routes.ts:30,146,212`
 **Severity:** High  
 **CWE:** CWE-843 (Access of Resource Using Incompatible Type)
@@ -87,6 +94,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 6. Missing Input Validation on Query Parameters
+
 **File:** `server/scraping-routes.ts:121,173,254`
 **Severity:** High
 **CWE:** CWE-20 (Improper Input Validation)
@@ -98,6 +106,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 7. Integer Parsing Without Validation
+
 **File:** Multiple files (routes.ts, affiliate-routes.ts, etc.)
 **Severity:** High
 **CWE:** CWE-20 (Improper Input Validation)
@@ -108,7 +117,8 @@ User password hashes are selected and returned in forum topic queries.
 
 ---
 
-### 8. Error Messages Leaking Implementation Details  
+### 8. Error Messages Leaking Implementation Details
+
 **File:** Multiple files (scraping-routes.ts:104,139,164,199)
 **Severity:** High
 **CWE:** CWE-209 (Generation of Error Message Containing Sensitive Information)
@@ -120,6 +130,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 9. Rate Limit Store Grows Unbounded
+
 **File:** `server/middleware/security.ts:16-28`
 **Severity:** High
 **CWE:** CWE-400 (Uncontrolled Resource Consumption)
@@ -133,6 +144,7 @@ User password hashes are selected and returned in forum topic queries.
 ## Medium Severity Issues (Priority 3)
 
 ### 10. Missing Rate Limiting on Search Endpoints
+
 **File:** `server/advanced-search-routes.ts`
 **Severity:** Medium
 
@@ -141,6 +153,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 11. Overly Broad CORS Origins
+
 **File:** `server/middleware/security.ts:242`  
 **Severity:** Medium
 
@@ -149,6 +162,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 12. Global Agent Instances Create Race Conditions
+
 **File:** `server/scraping-routes.ts:19-39`
 **Severity:** Medium
 
@@ -157,6 +171,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 13. Missing Validation on Affiliate Routes
+
 **File:** `server/affiliate-routes.ts:58-93`
 **Severity:** Medium
 
@@ -165,6 +180,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 14. SQL Injection Risk via Raw SQL
+
 **File:** `server/storage.ts:403,412,416,424`
 **Severity:** Medium
 
@@ -172,7 +188,8 @@ User password hashes are selected and returned in forum topic queries.
 
 ---
 
-### 15. Insufficient CSRF Protection  
+### 15. Insufficient CSRF Protection
+
 **File:** `server/middleware/security.ts:94-117`
 **Severity:** Medium
 
@@ -181,6 +198,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 16. Unsafe Redirect in Discourse SSO
+
 **File:** `server/discourse-routes.ts:84,100`
 **Severity:** Medium  
 **CWE:** CWE-601 (URL Redirection to Untrusted Site)
@@ -190,6 +208,7 @@ User password hashes are selected and returned in forum topic queries.
 ---
 
 ### 17. Missing Input Sanitization on Forum Content
+
 **File:** `server/routes.ts:290,334`
 **Severity:** Medium
 
@@ -200,7 +219,7 @@ User password hashes are selected and returned in forum topic queries.
 ## Low Severity Issues (Priority 4)
 
 18. Verbose error logging in production
-19. Hardcoded pagination limits  
+19. Hardcoded pagination limits
 20. Weak slug generation algorithm
 21. Unvalidated retailer input
 22. Incomplete type safety in forum storage
@@ -211,10 +230,12 @@ User password hashes are selected and returned in forum topic queries.
 ## Dependency Vulnerabilities
 
 **npm audit Results:**
+
 - esbuild: CVE moderate severity (<=0.24.2)
 - Fix: Update to esbuild ^0.25.0
 
 **Recommendation:**
+
 ```bash
 npm update esbuild
 npm audit fix
@@ -240,15 +261,17 @@ npm audit fix
 ## Recommendations Summary
 
 ### Immediate Actions (Critical/High)
+
 1. Remove password hash from forum user queries
-2. Add authentication to Discourse webhook endpoint  
+2. Add authentication to Discourse webhook endpoint
 3. Implement unique slug generation with collision handling
 4. Fix authorization inconsistencies (use requireAdmin consistently)
 5. Add input validation to all query parameters
 6. Validate parsed integers before use
 7. Sanitize error messages in production
 
-### Short-term (Medium)  
+### Short-term (Medium)
+
 1. Add rate limiting to search endpoints
 2. Implement CSRF tokens for all state-changing operations
 3. Validate redirect URLs to prevent open redirects
@@ -256,6 +279,7 @@ npm audit fix
 5. Apply validation middleware to affiliate routes
 
 ### Long-term (Low)
+
 1. Implement centralized logging system
 2. Move rate limiting to Redis for production
 3. Add monitoring and alerting for security events
@@ -266,12 +290,14 @@ npm audit fix
 ## Testing Recommendations
 
 **Security Testing:**
+
 - Add integration tests for authentication flows
-- Test rate limiting under load  
+- Test rate limiting under load
 - Verify CSRF protection on all endpoints
 - Test input validation with malicious payloads
 
 **Static Analysis:**
+
 - Run `npm audit` regularly
 - Add ESLint security plugins
 - Use SonarQube for code quality

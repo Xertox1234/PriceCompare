@@ -106,19 +106,13 @@ export function useNotificationUpdates() {
     };
 
     // Handle notification marked as read
-    const handleNotificationRead = (data: {
-      notificationId: number;
-      unreadCount: number;
-    }) => {
+    const handleNotificationRead = (data: { notificationId: number; unreadCount: number }) => {
       setUnreadCount(data.unreadCount);
       void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     };
 
     // Handle unread count update
-    const handleCountUpdated = (data: {
-      unreadCount: number;
-      timestamp: string;
-    }) => {
+    const handleCountUpdated = (data: { unreadCount: number; timestamp: string }) => {
       setUnreadCount(data.unreadCount);
     };
 

@@ -21,46 +21,54 @@ export function startPriceHistoryJobs(): void {
   logger.info('Starting price history scheduled jobs...');
 
   // Daily snapshot generation - runs at 1:00 AM every day
-  snapshotJob = cron.schedule('0 1 * * *', async () => {
-    // Use distributed lock to prevent duplicate execution (1 hour TTL)
-    const result = await jobLockService.withLock(
-      'price-history:daily-snapshots',
-      async () => {
-        logger.info('Starting daily price snapshot generation...');
-        const count = await generateDailySnapshots();
-        logger.info(`Daily price snapshots completed: ${count} snapshots generated`);
-        return count;
-      },
-      3600 // 1 hour lock
-    );
+  snapshotJob = cron.schedule(
+    '0 1 * * *',
+    async () => {
+      // Use distributed lock to prevent duplicate execution (1 hour TTL)
+      const result = await jobLockService.withLock(
+        'price-history:daily-snapshots',
+        async () => {
+          logger.info('Starting daily price snapshot generation...');
+          const count = await generateDailySnapshots();
+          logger.info(`Daily price snapshots completed: ${count} snapshots generated`);
+          return count;
+        },
+        3600 // 1 hour lock
+      );
 
-    if (result === null) {
-      logger.info('Snapshot generation skipped - already running on another server');
+      if (result === null) {
+        logger.info('Snapshot generation skipped - already running on another server');
+      }
+    },
+    {
+      timezone: 'America/New_York',
     }
-  }, {
-    timezone: 'America/New_York'
-  });
+  );
 
   // Weekly cleanup - runs every Sunday at 2:00 AM
-  cleanupJob = cron.schedule('0 2 * * 0', async () => {
-    // Use distributed lock to prevent duplicate execution (1 hour TTL)
-    const result = await jobLockService.withLock(
-      'price-history:cleanup',
-      async () => {
-        logger.info('Starting price history cleanup...');
-        const deletedCount = await cleanupOldPriceHistory(90); // Keep 90 days
-        logger.info(`Price history cleanup completed: ${deletedCount} records removed`);
-        return deletedCount;
-      },
-      3600 // 1 hour lock
-    );
+  cleanupJob = cron.schedule(
+    '0 2 * * 0',
+    async () => {
+      // Use distributed lock to prevent duplicate execution (1 hour TTL)
+      const result = await jobLockService.withLock(
+        'price-history:cleanup',
+        async () => {
+          logger.info('Starting price history cleanup...');
+          const deletedCount = await cleanupOldPriceHistory(90); // Keep 90 days
+          logger.info(`Price history cleanup completed: ${deletedCount} records removed`);
+          return deletedCount;
+        },
+        3600 // 1 hour lock
+      );
 
-    if (result === null) {
-      logger.info('Price history cleanup skipped - already running on another server');
+      if (result === null) {
+        logger.info('Price history cleanup skipped - already running on another server');
+      }
+    },
+    {
+      timezone: 'America/New_York',
     }
-  }, {
-    timezone: 'America/New_York'
-  });
+  );
 
   logger.info('Price history jobs scheduled:');
   logger.info('- Daily snapshots: 1:00 AM every day');
@@ -95,7 +103,7 @@ export function getPriceHistoryJobsStatus(): {
 } {
   return {
     snapshotJob: snapshotJob !== null,
-    cleanupJob: cleanupJob !== null
+    cleanupJob: cleanupJob !== null,
   };
 }
 

@@ -13,6 +13,7 @@ docker-compose -f docker-compose.monitoring.yml ps
 ```
 
 Expected output:
+
 ```
 NAME                       STATUS    PORTS
 pricecompare-prometheus    Up        0.0.0.0:9090->9090/tcp
@@ -22,17 +23,18 @@ pricecompare-grafana       Up        0.0.0.0:3001->3000/tcp
 
 ## 2. Access Dashboards
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **Prometheus** | http://localhost:9090 | None |
-| **AlertManager** | http://localhost:9093 | None |
-| **Grafana** | http://localhost:3001 | admin / admin |
+| Service          | URL                   | Credentials   |
+| ---------------- | --------------------- | ------------- |
+| **Prometheus**   | http://localhost:9090 | None          |
+| **AlertManager** | http://localhost:9093 | None          |
+| **Grafana**      | http://localhost:3001 | admin / admin |
 
 ## 3. Verify Metrics Collection
 
 Open Prometheus: http://localhost:9090
 
 Click **Status > Targets** - You should see:
+
 - ✅ `price-aggregation` (1/1 up)
 - ✅ `prometheus` (1/1 up)
 - ✅ `alertmanager` (1/1 up)
@@ -55,6 +57,7 @@ increase(aggregation_records_total[1h])
 ## 5. Check Alert Rules
 
 Click **Alerts** in Prometheus to see:
+
 - AggregationSuccessRateLow
 - AggregationStalled
 - AggregationOperationsSlow
@@ -77,6 +80,7 @@ global:
 ```
 
 Restart AlertManager:
+
 ```bash
 docker-compose -f docker-compose.monitoring.yml restart alertmanager
 ```
@@ -118,7 +122,7 @@ Check your email/Slack in ~30 seconds.
 # View Prometheus logs
 docker logs pricecompare-prometheus
 
-# View AlertManager logs  
+# View AlertManager logs
 docker logs pricecompare-alertmanager
 
 # Reload Prometheus config (after changes)
@@ -133,24 +137,27 @@ docker-compose -f docker-compose.monitoring.yml restart
 
 ## Alert Severity Guide
 
-| Severity | Meaning | Response Time |
-|----------|---------|---------------|
+| Severity     | Meaning                          | Response Time        |
+| ------------ | -------------------------------- | -------------------- |
 | **Critical** | Service degraded, users impacted | Immediate (< 15 min) |
-| **Warning** | Issue detected, not yet critical | Next business day |
+| **Warning**  | Issue detected, not yet critical | Next business day    |
 
 ## Key Alerts to Watch
 
 ### 🚨 AggregationStalled (CRITICAL)
+
 - **Trigger**: No successful aggregations in 25 hours
 - **Impact**: Stale price data shown to users
 - **Action**: Check logs, verify job queue, trigger manually
 
 ### ⚠️ AggregationSuccessRateLow (WARNING)
+
 - **Trigger**: Success rate < 95% for 5 minutes
 - **Impact**: Some price updates failing
 - **Action**: Monitor logs for error patterns
 
 ### ⚠️ AggregationOperationsSlow (WARNING)
+
 - **Trigger**: Average duration > 60 seconds
 - **Impact**: Slow price updates
 - **Action**: Check database performance
@@ -160,6 +167,7 @@ docker-compose -f docker-compose.monitoring.yml restart
 📖 **Full Documentation**: `/docs/PROMETHEUS_SETUP.md`
 
 Covers:
+
 - Complete architecture overview
 - Alert rule details and runbooks
 - Production deployment checklist
@@ -169,6 +177,7 @@ Covers:
 ## Support
 
 Having issues? Check:
+
 1. Application metrics: `curl http://localhost:5000/api/aggregation-metrics/prometheus`
 2. Prometheus targets: http://localhost:9090/targets
 3. AlertManager status: http://localhost:9093

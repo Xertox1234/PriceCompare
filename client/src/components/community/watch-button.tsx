@@ -85,12 +85,12 @@ export function WatchButton({
       >
         {isWatching ? (
           <>
-            <Eye className="w-4 h-4" />
+            <Eye className="h-4 w-4" />
             Watching
           </>
         ) : (
           <>
-            <EyeOff className="w-4 h-4" />
+            <EyeOff className="h-4 w-4" />
             Watch
           </>
         )}
@@ -98,7 +98,7 @@ export function WatchButton({
 
       {showCount && watchCount > 0 && (
         <Badge variant="secondary" className="flex items-center gap-1">
-          <Users className="w-3 h-3" />
+          <Users className="h-3 w-3" />
           {watchCount} {watchCount === 1 ? 'watcher' : 'watchers'}
         </Badge>
       )}

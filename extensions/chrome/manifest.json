@@ -3,11 +3,7 @@
   "name": "PriceCompare History",
   "version": "1.0.0",
   "description": "See price history charts directly on retailer websites",
-  "permissions": [
-    "storage",
-    "tabs",
-    "activeTab"
-  ],
+  "permissions": ["storage", "tabs", "activeTab"],
   "host_permissions": [
     "*://*.amazon.com/*",
     "*://*.bestbuy.com/*",
@@ -37,11 +33,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": [
-        "*://*.walmart.com/*",
-        "*://*.target.com/*",
-        "*://*.ebay.com/*"
-      ],
+      "matches": ["*://*.walmart.com/*", "*://*.target.com/*", "*://*.ebay.com/*"],
       "js": ["shared/utils.js", "shared/api-client.js", "content-scripts/generic-overlay.js"],
       "css": ["content-scripts/overlay-styles.css"],
       "run_at": "document_idle"

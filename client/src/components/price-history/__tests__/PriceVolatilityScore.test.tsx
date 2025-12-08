@@ -12,7 +12,7 @@ describe('PriceVolatilityScore', () => {
       min: 95,
       max: 105,
     },
-    recommendation: "Prices are very stable.",
+    recommendation: 'Prices are very stable.',
   };
 
   const mockModerateVolatility = {
@@ -24,7 +24,7 @@ describe('PriceVolatilityScore', () => {
       min: 85,
       max: 115,
     },
-    recommendation: "Prices show moderate fluctuation.",
+    recommendation: 'Prices show moderate fluctuation.',
   };
 
   const mockHighVolatility = {
@@ -36,7 +36,7 @@ describe('PriceVolatilityScore', () => {
       min: 70,
       max: 130,
     },
-    recommendation: "Prices fluctuate significantly.",
+    recommendation: 'Prices fluctuate significantly.',
   };
 
   const mockVeryHighVolatility = {
@@ -48,7 +48,7 @@ describe('PriceVolatilityScore', () => {
       min: 50,
       max: 150,
     },
-    recommendation: "Extreme price volatility detected.",
+    recommendation: 'Extreme price volatility detected.',
   };
 
   describe('Rendering', () => {

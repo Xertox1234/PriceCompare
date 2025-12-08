@@ -15,7 +15,7 @@ export const aiTrendAnalysisSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   confidence: z.number().min(0).max(100, 'Confidence must be 0-100'),
   isProduct: z.boolean(),
-  reason: z.string().max(150, 'Reason should be concise (<150 chars)')
+  reason: z.string().max(150, 'Reason should be concise (<150 chars)'),
 });
 
 // Schema for array of trend analyses
@@ -25,11 +25,10 @@ export const aiTrendAnalysisArraySchema = z.array(aiTrendAnalysisSchema);
 export type AITrendAnalysis = z.infer<typeof aiTrendAnalysisSchema>;
 
 // Schema for search query generation from SearchOrchestrationAgent
-export const aiSearchQueriesSchema = z.array(
-  z.string()
-    .min(2, 'Query too short')
-    .max(100, 'Query too long')
-).min(1, 'Must generate at least one query').max(10, 'Too many queries');
+export const aiSearchQueriesSchema = z
+  .array(z.string().min(2, 'Query too short').max(100, 'Query too long'))
+  .min(1, 'Must generate at least one query')
+  .max(10, 'Too many queries');
 
 // Type inference
 export type AISearchQueries = z.infer<typeof aiSearchQueriesSchema>;

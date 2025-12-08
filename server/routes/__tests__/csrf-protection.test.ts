@@ -361,11 +361,7 @@ describe('CSRF Protection', () => {
       };
 
       it('should require CSRF token', async () => {
-        await request(app)
-          .post(endpoint)
-          .set('Cookie', adminCookie)
-          .send(validBody)
-          .expect(403);
+        await request(app).post(endpoint).set('Cookie', adminCookie).send(validBody).expect(403);
 
         expect(logSecurityEvent).toHaveBeenCalled();
       });
@@ -433,11 +429,7 @@ describe('CSRF Protection', () => {
       };
 
       it('should require CSRF token', async () => {
-        await request(app)
-          .post(endpoint)
-          .set('Cookie', adminCookie)
-          .send(validBody)
-          .expect(403);
+        await request(app).post(endpoint).set('Cookie', adminCookie).send(validBody).expect(403);
       });
 
       it('should create retailer with valid CSRF token', async () => {
@@ -506,10 +498,7 @@ describe('CSRF Protection', () => {
       const endpoint = '/api/monitoring/errors/clear';
 
       it('should require CSRF token', async () => {
-        await request(app)
-          .post(endpoint)
-          .set('Cookie', adminCookie)
-          .expect(403);
+        await request(app).post(endpoint).set('Cookie', adminCookie).expect(403);
 
         expect(logSecurityEvent).toHaveBeenCalled();
       });
@@ -531,10 +520,7 @@ describe('CSRF Protection', () => {
       const endpoint = '/api/monitoring/alerts/test';
 
       it('should require CSRF token', async () => {
-        await request(app)
-          .post(endpoint)
-          .set('Cookie', adminCookie)
-          .expect(403);
+        await request(app).post(endpoint).set('Cookie', adminCookie).expect(403);
       });
 
       it('should send test alert with valid CSRF token', async () => {
@@ -571,7 +557,7 @@ describe('CSRF Protection', () => {
       expect(response.body.success).toBe(false);
     });
 
-    it('should not accept tokens after they expire', async () => {
+    it('should not accept tokens after they expire', () => {
       // This would require session expiry simulation
       // Placeholder for future implementation
       expect(true).toBe(true);

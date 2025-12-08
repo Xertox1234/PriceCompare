@@ -165,9 +165,7 @@ export function expectValidatedPaginatedResponse<T extends z.ZodTypeAny>(
 /**
  * Expect 201 Created response
  */
-export function expectCreatedResponse<T = unknown>(
-  response: { status: number; body: unknown }
-): T {
+export function expectCreatedResponse<T = unknown>(response: { status: number; body: unknown }): T {
   return expectSuccessResponse<T>(response, 201);
 }
 

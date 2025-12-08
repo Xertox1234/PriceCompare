@@ -159,9 +159,9 @@ class LRUCache<T> {
  * Cache tier definitions based on data access patterns
  */
 export enum CacheTier {
-  HOT = 'hot',       // Frequently accessed - 30 min TTL
-  WARM = 'warm',     // Moderately accessed - 10 min TTL
-  COLD = 'cold',     // Rarely accessed - 3 min TTL
+  HOT = 'hot', // Frequently accessed - 30 min TTL
+  WARM = 'warm', // Moderately accessed - 10 min TTL
+  COLD = 'cold', // Rarely accessed - 3 min TTL
   STATIC = 'static', // Rarely changes - 1 hour TTL
   COMPUTED = 'computed', // Expensive calculations - 30 min TTL
 }
@@ -170,10 +170,10 @@ export enum CacheTier {
  * TTL configurations for different cache tiers (in seconds)
  */
 const TIER_TTL: Record<CacheTier, number> = {
-  [CacheTier.HOT]: 1800,      // 30 minutes
-  [CacheTier.WARM]: 600,      // 10 minutes
-  [CacheTier.COLD]: 180,      // 3 minutes
-  [CacheTier.STATIC]: 3600,   // 1 hour
+  [CacheTier.HOT]: 1800, // 30 minutes
+  [CacheTier.WARM]: 600, // 10 minutes
+  [CacheTier.COLD]: 180, // 3 minutes
+  [CacheTier.STATIC]: 3600, // 1 hour
   [CacheTier.COMPUTED]: 1800, // 30 minutes
 };
 
@@ -208,7 +208,7 @@ interface CacheStats {
   sets: number;
   invalidations: number;
   patternInvalidations: number; // Number of pattern-based invalidation operations
-  patternKeysDeleted: number;   // Total keys deleted via pattern matching
+  patternKeysDeleted: number; // Total keys deleted via pattern matching
   errors: number;
 }
 
@@ -387,18 +387,12 @@ export class AdvancedCacheService {
 
       // Use SCAN to iterate through keys matching pattern (non-blocking)
       do {
-        const [nextCursor, keys] = await redis.scan(
-          cursor,
-          'MATCH',
-          pattern,
-          'COUNT',
-          100
-        );
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
         cursor = nextCursor;
 
         if (keys.length > 0) {
           // Remove from L1
-          keys.forEach(key => this.l1Cache.delete(key));
+          keys.forEach((key) => this.l1Cache.delete(key));
 
           // Remove from L2
           await redis.del(...keys);
@@ -567,14 +561,14 @@ export class AdvancedCacheService {
    */
   getStats() {
     const l1Stats = this.l1Cache.getStats();
-    const totalRequests = this.stats.l1Hits + this.stats.l1Misses +
-                         this.stats.l2Hits + this.stats.l2Misses;
-    const l1HitRate = totalRequests > 0
-      ? (this.stats.l1Hits / totalRequests * 100).toFixed(2)
-      : '0.00';
-    const l2HitRate = totalRequests > 0
-      ? ((this.stats.l1Hits + this.stats.l2Hits) / totalRequests * 100).toFixed(2)
-      : '0.00';
+    const totalRequests =
+      this.stats.l1Hits + this.stats.l1Misses + this.stats.l2Hits + this.stats.l2Misses;
+    const l1HitRate =
+      totalRequests > 0 ? ((this.stats.l1Hits / totalRequests) * 100).toFixed(2) : '0.00';
+    const l2HitRate =
+      totalRequests > 0
+        ? (((this.stats.l1Hits + this.stats.l2Hits) / totalRequests) * 100).toFixed(2)
+        : '0.00';
 
     return {
       l1: {
@@ -597,9 +591,10 @@ export class AdvancedCacheService {
       patternInvalidation: {
         operations: this.stats.patternInvalidations,
         keysDeleted: this.stats.patternKeysDeleted,
-        avgKeysPerOperation: this.stats.patternInvalidations > 0
-          ? (this.stats.patternKeysDeleted / this.stats.patternInvalidations).toFixed(2)
-          : '0.00',
+        avgKeysPerOperation:
+          this.stats.patternInvalidations > 0
+            ? (this.stats.patternKeysDeleted / this.stats.patternInvalidations).toFixed(2)
+            : '0.00',
       },
     };
   }
@@ -608,8 +603,8 @@ export class AdvancedCacheService {
    * Get simplified statistics for monitoring (matches RedisCache interface)
    */
   getSimpleStats() {
-    const totalRequests = this.stats.l1Hits + this.stats.l1Misses +
-                         this.stats.l2Hits + this.stats.l2Misses;
+    const totalRequests =
+      this.stats.l1Hits + this.stats.l1Misses + this.stats.l2Hits + this.stats.l2Misses;
     const totalHits = this.stats.l1Hits + this.stats.l2Hits;
     const totalMisses = this.stats.l1Misses + this.stats.l2Misses;
 
@@ -669,7 +664,9 @@ export class AdvancedCacheService {
 
     void this.subscriber.subscribe(this.PUBSUB_CHANNEL, (err) => {
       if (err) {
-        logger.error('Failed to subscribe to cache invalidations:', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('Failed to subscribe to cache invalidations:', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } else {
         logger.info('Subscribed to cache invalidation channel');
       }
@@ -698,7 +695,9 @@ export class AdvancedCacheService {
             this.l1Cache.delete(key);
           }
         } catch (error) {
-          logger.error('Error processing invalidation message:', { error: this.getErrorMessage(error) });
+          logger.error('Error processing invalidation message:', {
+            error: this.getErrorMessage(error),
+          });
         }
       }
     });
@@ -716,7 +715,9 @@ export class AdvancedCacheService {
         await this.subscriber.quit();
         logger.info('Advanced cache pub/sub subscriber closed');
       } catch (error) {
-        logger.error('Error closing advanced cache subscriber:', { error: this.getErrorMessage(error) });
+        logger.error('Error closing advanced cache subscriber:', {
+          error: this.getErrorMessage(error),
+        });
       }
       this.subscriber = null;
     }
@@ -726,7 +727,7 @@ export class AdvancedCacheService {
    * Generate cache key from prefix and parameters
    */
   static generateKey(prefix: string, ...params: (string | number | boolean | undefined)[]): string {
-    const filteredParams = params.filter(p => p !== undefined).join(':');
+    const filteredParams = params.filter((p) => p !== undefined).join(':');
     return filteredParams ? `${prefix}:${filteredParams}` : prefix;
   }
 }
@@ -918,7 +919,7 @@ class SpecializedCache {
    * Get multiple values from cache
    */
   async getMany<T = unknown>(keys: string[]): Promise<Map<string, T>> {
-    const fullKeys = keys.map(key => this.getFullKey(key));
+    const fullKeys = keys.map((key) => this.getFullKey(key));
     const result = await advancedCache.getMany<T>(fullKeys, false);
 
     // Convert back to original keys
@@ -967,9 +968,11 @@ class SpecializedCache {
   /**
    * Close cache connection (no-op - managed by advancedCache singleton)
    */
-  async close(): Promise<void> {
+  close(): void {
     // No-op: Connection managed by advancedCache singleton
-    logger.debug(`SpecializedCache.close() called for ${this.keyPrefix} - connection managed by advancedCache`);
+    logger.debug(
+      `SpecializedCache.close() called for ${this.keyPrefix} - connection managed by advancedCache`
+    );
   }
 
   /**

@@ -17,7 +17,9 @@ async function applySingleMigration() {
 
   if (!migrationFile) {
     console.error('❌ Usage: tsx scripts/apply-single-migration.ts <migration-file>');
-    console.error('   Example: tsx scripts/apply-single-migration.ts 0021_add_performance_indexes.sql');
+    console.error(
+      '   Example: tsx scripts/apply-single-migration.ts 0021_add_performance_indexes.sql'
+    );
     process.exit(1);
   }
 
@@ -26,8 +28,9 @@ async function applySingleMigration() {
   }
 
   // Detect database type
-  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
-                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+  const isNeonDatabase =
+    process.env.DATABASE_URL?.includes('neon.tech') ||
+    process.env.DATABASE_URL?.includes('.pooler.neon.tech');
 
   type PoolClient = { query: (text: string) => Promise<unknown>; end: () => Promise<void> };
   let pool: PoolClient;
@@ -59,13 +62,13 @@ async function applySingleMigration() {
     // Remove line comments before splitting to avoid parsing issues
     const withoutComments = sql
       .split('\n')
-      .filter(line => !line.trim().startsWith('--'))
+      .filter((line) => !line.trim().startsWith('--'))
       .join('\n');
 
     const statements = withoutComments
       .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
     for (const statement of statements) {
       if (statement.length > 0) {
@@ -75,7 +78,6 @@ async function applySingleMigration() {
     }
 
     console.log(`✅ Migration ${migrationFile} completed successfully!\n`);
-
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;
@@ -84,7 +86,7 @@ async function applySingleMigration() {
   }
 }
 
-applySingleMigration().catch(error => {
+applySingleMigration().catch((error) => {
   console.error(error);
   process.exit(1);
 });

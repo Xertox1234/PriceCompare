@@ -16,7 +16,7 @@
  * Phase 3C: Watch List Domain Extraction - 30 methods migrated from monolithic storage.ts
  */
 
-import { and, eq, desc, asc, sql, inArray, count, gt } from "drizzle-orm";
+import { and, eq, desc, asc, sql, inArray, count, gt } from 'drizzle-orm';
 import {
   watchLists,
   productWatches,
@@ -29,11 +29,11 @@ import {
   type ProductWatch,
   type InsertWatchList,
   type InsertProductWatch,
-} from "@shared/schema";
-import { BaseStorage } from "../base-storage";
-import { logger } from "../../utils/logger";
-import { eventBus, AppEvents } from "../../utils/event-bus";
-import { retryWithBackoff, isTransientDatabaseError } from "../../utils/retry-with-backoff";
+} from '@shared/schema';
+import { BaseStorage } from '../base-storage';
+import { logger } from '../../utils/logger';
+import { eventBus, AppEvents } from '../../utils/event-bus';
+import { retryWithBackoff, isTransientDatabaseError } from '../../utils/retry-with-backoff';
 import type {
   WatchListWithCount,
   WatchListWithProducts,
@@ -49,7 +49,7 @@ import type {
   WatchListImportData,
   CommunityWatchStats,
   WatcherNotificationData,
-} from "../types";
+} from '../types';
 
 /**
  * WatchListStorage - Domain repository for watch list operations
@@ -147,7 +147,10 @@ export class WatchListStorage extends BaseStorage {
    * SECURITY: Verifies userId ownership
    * PERFORMANCE: Two-query pattern (verify ownership, then get products)
    */
-  async getWatchListById(watchListId: number, userId: number): Promise<WatchListWithProducts | null> {
+  async getWatchListById(
+    watchListId: number,
+    userId: number
+  ): Promise<WatchListWithProducts | null> {
     try {
       this.validateWatchListId(watchListId);
       this.validateUserId(userId);
@@ -166,10 +169,12 @@ export class WatchListStorage extends BaseStorage {
           updatedAt: watchLists.updatedAt,
         })
         .from(watchLists)
-        .where(and(
-          eq(watchLists.id, watchListId),
-          eq(watchLists.userId, userId) // Ownership verification
-        ))
+        .where(
+          and(
+            eq(watchLists.id, watchListId),
+            eq(watchLists.userId, userId) // Ownership verification
+          )
+        )
         .limit(1);
 
       if (!watchList) {
@@ -206,12 +211,11 @@ export class WatchListStorage extends BaseStorage {
         .orderBy(desc(productWatches.createdAt));
 
       // Calculate price drop percentage
-      const productsWithCalcs = productResults.map(p => {
+      const productsWithCalcs = productResults.map((p) => {
         const currentPrice = p.currentPrice || 0;
         const lowestPrice = p.lowestHistoricalPrice || currentPrice;
-        const priceDropPercent = lowestPrice > 0
-          ? Math.round(((currentPrice - lowestPrice) / lowestPrice) * 100)
-          : 0;
+        const priceDropPercent =
+          lowestPrice > 0 ? Math.round(((currentPrice - lowestPrice) / lowestPrice) * 100) : 0;
 
         return {
           id: p.id,
@@ -243,14 +247,17 @@ export class WatchListStorage extends BaseStorage {
    * VALIDATION: Max 20 lists per user, name required (1-100 chars)
    * WEBSOCKET: Emits real-time update (don't fail if WS unavailable)
    */
-  async createWatchList(userId: number, data: { name: string; description?: string }): Promise<WatchList> {
+  async createWatchList(
+    userId: number,
+    data: { name: string; description?: string }
+  ): Promise<WatchList> {
     try {
       this.validateUserId(userId);
 
       // Check user limit (max 20 lists)
       const [countResult] = await this.db
         .select({
-          count: sql<number>`COUNT(*)::int`
+          count: sql<number>`COUNT(*)::int`,
         })
         .from(watchLists)
         .where(eq(watchLists.userId, userId));
@@ -278,7 +285,7 @@ export class WatchListStorage extends BaseStorage {
           id: result.id,
           name: result.name,
           productCount: 0,
-        }
+        },
       });
 
       return result;
@@ -319,10 +326,12 @@ export class WatchListStorage extends BaseStorage {
       const [result] = await this.db
         .update(watchLists)
         .set(updateData)
-        .where(and(
-          eq(watchLists.id, watchListId),
-          eq(watchLists.userId, userId) // Ownership verification
-        ))
+        .where(
+          and(
+            eq(watchLists.id, watchListId),
+            eq(watchLists.userId, userId) // Ownership verification
+          )
+        )
         .returning();
 
       if (!result) {
@@ -338,7 +347,7 @@ export class WatchListStorage extends BaseStorage {
           id: result.id,
           name: result.name,
           productCount: 0, // We don't have the count here, but it's optional
-        }
+        },
       });
 
       return result;
@@ -361,10 +370,12 @@ export class WatchListStorage extends BaseStorage {
 
       const [result] = await this.db
         .delete(watchLists)
-        .where(and(
-          eq(watchLists.id, watchListId),
-          eq(watchLists.userId, userId) // Ownership verification
-        ))
+        .where(
+          and(
+            eq(watchLists.id, watchListId),
+            eq(watchLists.userId, userId) // Ownership verification
+          )
+        )
         .returning();
 
       if (!result) {
@@ -380,7 +391,7 @@ export class WatchListStorage extends BaseStorage {
           id: result.id,
           name: result.name,
           productCount: 0,
-        }
+        },
       });
 
       return result;
@@ -520,19 +531,21 @@ export class WatchListStorage extends BaseStorage {
         totalPotentialSavings: parseFloat(row.total_potential_savings),
         activeAlerts: row.active_alerts,
         triggeredAlerts: row.triggered_alerts,
-        bestDeals: bestDeals.map((deal: {
-          productId: number;
-          productName: string;
-          currentPrice: string;
-          lowestPrice: string;
-          discountPercent: number;
-        }) => ({
-          productId: deal.productId,
-          productName: deal.productName,
-          currentPrice: parseFloat(deal.currentPrice),
-          lowestPrice: parseFloat(deal.lowestPrice),
-          discountPercent: deal.discountPercent,
-        })),
+        bestDeals: bestDeals.map(
+          (deal: {
+            productId: number;
+            productName: string;
+            currentPrice: string;
+            lowestPrice: string;
+            discountPercent: number;
+          }) => ({
+            productId: deal.productId,
+            productName: deal.productName,
+            currentPrice: parseFloat(deal.currentPrice),
+            lowestPrice: parseFloat(deal.lowestPrice),
+            discountPercent: deal.discountPercent,
+          })
+        ),
         weeklyStats: {
           newDeals: row.weekly_new_deals,
           triggeredAlerts: row.triggered_alerts,
@@ -549,7 +562,10 @@ export class WatchListStorage extends BaseStorage {
    * PERFORMANCE: Complex aggregations with price history for sparkline data
    * PAGINATION: Cursor-based pagination using product watch ID
    */
-  async getWatchedProducts(userId: number, options?: WatchedProductsOptions): Promise<WatchedProductsResult> {
+  async getWatchedProducts(
+    userId: number,
+    options?: WatchedProductsOptions
+  ): Promise<WatchedProductsResult> {
     try {
       this.validateUserId(userId);
 
@@ -666,22 +682,18 @@ export class WatchListStorage extends BaseStorage {
         .innerJoin(watchLists, eq(productWatches.watchListId, watchLists.id))
         .where(
           cursor
-            ? and(
-                eq(productWatches.userId, userId),
-                gt(productWatches.id, cursor)
-              )
+            ? and(eq(productWatches.userId, userId), gt(productWatches.id, cursor))
             : eq(productWatches.userId, userId)
         )
         .limit(fetchLimit);
 
       // Post-process to calculate derived values and sort
-      const enrichedResults = results.map(r => {
+      const enrichedResults = results.map((r) => {
         const currentPrice = r.currentPrice || 0;
         const lowestPrice = r.lowestPrice || currentPrice;
         const averagePrice = r.averagePrice || currentPrice;
-        const priceDropPercent = lowestPrice > 0
-          ? ((currentPrice - lowestPrice) / lowestPrice) * 100
-          : 0;
+        const priceDropPercent =
+          lowestPrice > 0 ? ((currentPrice - lowestPrice) / lowestPrice) * 100 : 0;
         const savingsPotential = currentPrice > lowestPrice ? currentPrice - lowestPrice : 0;
 
         // Determine alert status
@@ -734,9 +746,8 @@ export class WatchListStorage extends BaseStorage {
       // Check if more products exist beyond the requested limit
       const hasMore = enrichedResults.length > limit;
       const resultProducts = hasMore ? enrichedResults.slice(0, limit) : enrichedResults;
-      const nextCursor = hasMore && resultProducts.length > 0
-        ? resultProducts[resultProducts.length - 1].id
-        : null;
+      const nextCursor =
+        hasMore && resultProducts.length > 0 ? resultProducts[resultProducts.length - 1].id : null;
 
       return {
         products: resultProducts,
@@ -810,99 +821,105 @@ export class WatchListStorage extends BaseStorage {
 
       // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
       const result = await retryWithBackoff(
-        async () => this.db.transaction(async (tx) => {
-          // Verify watch list ownership
-          const [watchList] = await tx
-            .select({ id: watchLists.id })
-            .from(watchLists)
-            .where(and(
-              eq(watchLists.id, watchListId),
-              eq(watchLists.userId, userId)
-            ))
-            .limit(1);
+        async () =>
+          this.db.transaction(
+            async (tx) => {
+              // Verify watch list ownership
+              const [watchList] = await tx
+                .select({ id: watchLists.id })
+                .from(watchLists)
+                .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, userId)))
+                .limit(1);
 
-          if (!watchList) {
-            throw new Error('Watch list not found or unauthorized');
-          }
+              if (!watchList) {
+                throw new Error('Watch list not found or unauthorized');
+              }
 
-          // Check product exists and get details for WebSocket event
-          const [product] = await tx
-            .select({
-              id: products.id,
-              name: products.name,
-              image: products.image,
-            })
-            .from(products)
-            .where(eq(products.id, productId))
-            .limit(1);
+              // Check product exists and get details for WebSocket event
+              const [product] = await tx
+                .select({
+                  id: products.id,
+                  name: products.name,
+                  image: products.image,
+                })
+                .from(products)
+                .where(eq(products.id, productId))
+                .limit(1);
 
-          if (!product) {
-            throw new Error('Product not found');
-          }
+              if (!product) {
+                throw new Error('Product not found');
+              }
 
-          // Check if already in watch list
-          const [existing] = await tx
-            .select({ id: productWatches.id })
-            .from(productWatches)
-            .where(and(
-              eq(productWatches.watchListId, watchListId),
-              eq(productWatches.productId, productId)
-            ))
-            .limit(1);
+              // Check if already in watch list
+              const [existing] = await tx
+                .select({ id: productWatches.id })
+                .from(productWatches)
+                .where(
+                  and(
+                    eq(productWatches.watchListId, watchListId),
+                    eq(productWatches.productId, productId)
+                  )
+                )
+                .limit(1);
 
-          if (existing) {
-            throw new Error('Product already in watch list');
-          }
+              if (existing) {
+                throw new Error('Product already in watch list');
+              }
 
-          // Check product limit per list (max 100 products)
-          const [countResult] = await tx
-            .select({
-              count: sql<number>`COUNT(*)::int`
-            })
-            .from(productWatches)
-            .where(eq(productWatches.watchListId, watchListId));
+              // Check product limit per list (max 100 products)
+              const [countResult] = await tx
+                .select({
+                  count: sql<number>`COUNT(*)::int`,
+                })
+                .from(productWatches)
+                .where(eq(productWatches.watchListId, watchListId));
 
-          if (countResult.count >= 100) {
-            throw new Error('Watch list is full (max 100 products per list)');
-          }
+              if (countResult.count >= 100) {
+                throw new Error('Watch list is full (max 100 products per list)');
+              }
 
-          // Add product to watch list
-          const [result] = await tx
-            .insert(productWatches)
-            .values({
-              userId,
-              productId,
-              watchListId,
-            })
-            .returning();
+              // Add product to watch list
+              const [result] = await tx
+                .insert(productWatches)
+                .values({
+                  userId,
+                  productId,
+                  watchListId,
+                })
+                .returning();
 
-          // Get current price for WebSocket event (optional - outside transaction critical path)
-          const offers = await tx
-            .select({ price: productOffers.price })
-            .from(productOffers)
-            .where(eq(productOffers.productId, productId))
-            .orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`))
-            .limit(1);
+              // Get current price for WebSocket event (optional - outside transaction critical path)
+              const offers = await tx
+                .select({ price: productOffers.price })
+                .from(productOffers)
+                .where(eq(productOffers.productId, productId))
+                .orderBy(asc(sql`CAST(${productOffers.price} AS DECIMAL)`))
+                .limit(1);
 
-          const currentPrice = offers.length > 0 ? parseFloat(offers[0].price) : null;
+              const currentPrice = offers.length > 0 ? parseFloat(offers[0].price) : null;
 
-          return { result, product, currentPrice };
-        }, {
-          isolationLevel: 'serializable' // Prevent race conditions on concurrent adds
-        }),
+              return { result, product, currentPrice };
+            },
+            {
+              isolationLevel: 'serializable', // Prevent race conditions on concurrent adds
+            }
+          ),
         {
           maxAttempts: 3,
           initialDelayMs: 100,
           isRetryable: isTransientDatabaseError,
           context: { operation: 'addProductToWatchList', watchListId, productId, userId },
           onRetry: (error: unknown, attempt: number, delayMs: number) => {
-            logger.warn('[WatchListStorage] Retrying addProductToWatchList after serialization error', {
-              error: error instanceof Error ? error.message : String(error),
-              attempt,
-              delayMs,
-              watchListId,
-              productId,
-            });
+            logger.warn(
+              '[WatchListStorage] Retrying addProductToWatchList after serialization error',
+              {
+                error: error instanceof Error ? error.message : String(error),
+                attempt,
+                delayMs,
+                watchListId,
+                productId,
+              }
+            );
           },
         }
       );
@@ -916,7 +933,7 @@ export class WatchListStorage extends BaseStorage {
           id: result.product.id,
           name: result.product.name,
           imageUrl: result.product.image ?? undefined,
-        }
+        },
       });
 
       return result.result;
@@ -925,19 +942,22 @@ export class WatchListStorage extends BaseStorage {
       if (error instanceof Error && 'code' in error) {
         const dbError = error as { code?: string; constraint?: string };
 
-        if (dbError.code === '23505') { // Unique violation
+        if (dbError.code === '23505') {
+          // Unique violation
           // Check multiple ways constraint info might be provided (defensive)
           const constraintName = (dbError.constraint || '').toLowerCase();
           const errorMsg = error.message.toLowerCase();
 
-          if (constraintName.includes('unique_user_product') ||
-              errorMsg.includes('unique_user_product') ||
-              constraintName.includes('product_watch')) {
+          if (
+            constraintName.includes('unique_user_product') ||
+            errorMsg.includes('unique_user_product') ||
+            constraintName.includes('product_watch')
+          ) {
             logger.warn('Duplicate product watch detected', {
               userId,
               watchListId,
               productId,
-              constraint: dbError.constraint
+              constraint: dbError.constraint,
             });
             // Return 400 validation error instead of 500
             throw new Error('Product already added to this watch list');
@@ -967,11 +987,13 @@ export class WatchListStorage extends BaseStorage {
 
       const [result] = await this.db
         .delete(productWatches)
-        .where(and(
-          eq(productWatches.watchListId, watchListId),
-          eq(productWatches.productId, productId),
-          eq(productWatches.userId, userId) // Ownership verification
-        ))
+        .where(
+          and(
+            eq(productWatches.watchListId, watchListId),
+            eq(productWatches.productId, productId),
+            eq(productWatches.userId, userId) // Ownership verification
+          )
+        )
         .returning();
 
       if (!result) {
@@ -1028,12 +1050,7 @@ export class WatchListStorage extends BaseStorage {
 
       const result = await this.db
         .delete(productWatches)
-        .where(
-          and(
-            eq(productWatches.userId, userId),
-            eq(productWatches.productId, productId)
-          )
-        )
+        .where(and(eq(productWatches.userId, userId), eq(productWatches.productId, productId)))
         .returning();
 
       return result.length > 0;
@@ -1055,7 +1072,7 @@ export class WatchListStorage extends BaseStorage {
         .from(productWatches)
         .where(eq(productWatches.userId, userId));
 
-      return watches.map(w => w.productId);
+      return watches.map((w) => w.productId);
     } catch (error) {
       this.handleError(error, 'getUserProductWatchIds');
     }
@@ -1073,12 +1090,7 @@ export class WatchListStorage extends BaseStorage {
       const result = await this.db
         .select()
         .from(productWatches)
-        .where(
-          and(
-            eq(productWatches.userId, userId),
-            eq(productWatches.productId, productId)
-          )
-        )
+        .where(and(eq(productWatches.userId, userId), eq(productWatches.productId, productId)))
         .limit(1);
 
       return result.length > 0;
@@ -1186,7 +1198,10 @@ export class WatchListStorage extends BaseStorage {
    * Used for: Watch list detail view with stats
    * SECURITY: Verifies userId ownership
    */
-  async getWatchListByIdWithStats(userId: number, listId: number): Promise<WatchListWithStats | null> {
+  async getWatchListByIdWithStats(
+    userId: number,
+    listId: number
+  ): Promise<WatchListWithStats | null> {
     try {
       this.validateUserId(userId);
       this.validateWatchListId(listId);
@@ -1266,7 +1281,7 @@ export class WatchListStorage extends BaseStorage {
       }
 
       if (list[0].isDefault) {
-        throw new Error("Cannot delete default watch list");
+        throw new Error('Cannot delete default watch list');
       }
 
       const result = await this.db
@@ -1310,18 +1325,13 @@ export class WatchListStorage extends BaseStorage {
         })
         .from(productWatches)
         .innerJoin(products, eq(products.id, productWatches.productId))
-        .where(
-          and(
-            eq(productWatches.userId, userId),
-            eq(productWatches.watchListId, listId)
-          )
-        )
+        .where(and(eq(productWatches.userId, userId), eq(productWatches.watchListId, listId)))
         .orderBy(desc(productWatches.priority), desc(productWatches.updatedAt));
 
       // Map null to undefined for productImage to match interface
-      return result.map(row => ({
+      return result.map((row) => ({
         ...row,
-        productImage: row.productImage ?? undefined
+        productImage: row.productImage ?? undefined,
       }));
     } catch (error) {
       this.handleError(error, 'getWatchListProductsWithDetails');
@@ -1341,7 +1351,7 @@ export class WatchListStorage extends BaseStorage {
         .from(productWatches)
         .where(eq(productWatches.productId, productId));
 
-      return watchers.map(w => w.userId);
+      return watchers.map((w) => w.userId);
     } catch (error) {
       this.handleError(error, 'getWatchersForProduct');
     }
@@ -1379,19 +1389,14 @@ export class WatchListStorage extends BaseStorage {
           .limit(1);
 
         if (targetList.length === 0) {
-          throw new Error("Target watch list not found");
+          throw new Error('Target watch list not found');
         }
       }
 
       const result = await this.db
         .update(productWatches)
         .set({ watchListId: targetListId })
-        .where(
-          and(
-            inArray(productWatches.id, watchIds),
-            eq(productWatches.userId, userId)
-          )
-        )
+        .where(and(inArray(productWatches.id, watchIds), eq(productWatches.userId, userId)))
         .returning();
 
       return result.length;
@@ -1415,12 +1420,7 @@ export class WatchListStorage extends BaseStorage {
 
       const result = await this.db
         .delete(productWatches)
-        .where(
-          and(
-            inArray(productWatches.id, watchIds),
-            eq(productWatches.userId, userId)
-          )
-        )
+        .where(and(inArray(productWatches.id, watchIds), eq(productWatches.userId, userId)))
         .returning();
 
       return result.length;
@@ -1446,27 +1446,25 @@ export class WatchListStorage extends BaseStorage {
       const lists = await this.getWatchListsWithStats(userId);
 
       // Step 2: Batch query ALL products for ALL lists at once (prevents N+1)
-      const listIds = lists.map(list => list.id);
-      const allProducts = listIds.length > 0
-        ? await this.db
-            .select({
-              watchListId: productWatches.watchListId,
-              productId: productWatches.productId,
-              productName: products.name,
-              category: productWatches.category,
-              notes: productWatches.notes,
-              priority: productWatches.priority,
-              targetPrice: productWatches.targetPrice,
-            })
-            .from(productWatches)
-            .innerJoin(products, eq(products.id, productWatches.productId))
-            .where(
-              and(
-                eq(productWatches.userId, userId),
-                inArray(productWatches.watchListId, listIds)
+      const listIds = lists.map((list) => list.id);
+      const allProducts =
+        listIds.length > 0
+          ? await this.db
+              .select({
+                watchListId: productWatches.watchListId,
+                productId: productWatches.productId,
+                productName: products.name,
+                category: productWatches.category,
+                notes: productWatches.notes,
+                priority: productWatches.priority,
+                targetPrice: productWatches.targetPrice,
+              })
+              .from(productWatches)
+              .innerJoin(products, eq(products.id, productWatches.productId))
+              .where(
+                and(eq(productWatches.userId, userId), inArray(productWatches.watchListId, listIds))
               )
-            )
-        : [];
+          : [];
 
       // Step 3: Group products by listId using Map for O(n) lookup
       const productsByListId = new Map<number, typeof allProducts>();
@@ -1484,18 +1482,20 @@ export class WatchListStorage extends BaseStorage {
         if (listProducts) {
           listProducts.push(product);
         } else {
-          logger.warn(`Storage: Missing products array for watchlist ID: ${product.watchListId}, initializing`);
+          logger.warn(
+            `Storage: Missing products array for watchlist ID: ${product.watchListId}, initializing`
+          );
           productsByListId.set(product.watchListId, [product]);
         }
       }
 
       // Step 4: Build export data
-      const exportData = lists.map(list => ({
+      const exportData = lists.map((list) => ({
         name: list.name,
         description: list.description,
         color: list.color,
         icon: list.icon,
-        products: (productsByListId.get(list.id) || []).map(p => ({
+        products: (productsByListId.get(list.id) || []).map((p) => ({
           productId: p.productId,
           productName: p.productName,
           category: p.category,
@@ -1543,12 +1543,7 @@ export class WatchListStorage extends BaseStorage {
             const existing = await tx
               .select()
               .from(watchLists)
-              .where(
-                and(
-                  eq(watchLists.userId, userId),
-                  eq(watchLists.name, listData.name)
-                )
-              )
+              .where(and(eq(watchLists.userId, userId), eq(watchLists.name, listData.name)))
               .limit(1);
 
             let listId: number;
@@ -1558,13 +1553,16 @@ export class WatchListStorage extends BaseStorage {
               skipped++;
             } else {
               // Create new list within transaction
-              const newListResult = await tx.insert(watchLists).values({
-                userId,
-                name: listData.name,
-                description: listData.description || null,
-                color: listData.color || null,
-                icon: listData.icon || null,
-              }).returning();
+              const newListResult = await tx
+                .insert(watchLists)
+                .values({
+                  userId,
+                  name: listData.name,
+                  description: listData.description || null,
+                  color: listData.color || null,
+                  icon: listData.icon || null,
+                })
+                .returning();
               listId = newListResult[0].id;
               created++;
             }
@@ -1583,13 +1581,10 @@ export class WatchListStorage extends BaseStorage {
                     targetPrice: productData.targetPrice || null,
                   };
 
-                  await tx
-                    .insert(productWatches)
-                    .values(watch)
-                    .onConflictDoNothing();
+                  await tx.insert(productWatches).values(watch).onConflictDoNothing();
                 } catch (error) {
                   logger.error('[WatchListStorage] Error importing product watch', {
-                    error: error instanceof Error ? error.message : String(error)
+                    error: error instanceof Error ? error.message : String(error),
                   });
                   // Continue with next product
                 }
@@ -1597,7 +1592,7 @@ export class WatchListStorage extends BaseStorage {
             }
           } catch (error) {
             logger.error('[WatchListStorage] Error importing watch list', {
-              error: error instanceof Error ? error.message : String(error)
+              error: error instanceof Error ? error.message : String(error),
             });
             skipped++;
           }
@@ -1669,7 +1664,10 @@ export class WatchListStorage extends BaseStorage {
    * Used for: Price drop notifications, availability alerts
    * VALIDATION: Checks notification has required fields
    */
-  async notifyProductWatchers(productId: number, notification: WatcherNotificationData): Promise<void> {
+  async notifyProductWatchers(
+    productId: number,
+    notification: WatcherNotificationData
+  ): Promise<void> {
     try {
       this.validateProductId(productId);
 
@@ -1680,7 +1678,7 @@ export class WatchListStorage extends BaseStorage {
       const watchers = await this.getWatchersForProduct(productId);
 
       if (watchers.length > 0) {
-        const notificationList = watchers.map(userId => ({
+        const notificationList = watchers.map((userId) => ({
           userId,
           type: notification.type,
           title: notification.title,

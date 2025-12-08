@@ -4,9 +4,9 @@
  * Fetches real product data from the backend for the home page.
  * Replaces static template-data.ts with live API data.
  */
-import { useQuery } from "@tanstack/react-query";
-import { ProductWithOffers } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from '@tanstack/react-query';
+import { ProductWithOffers } from '@shared/schema';
+import { apiRequest } from '@/lib/queryClient';
 
 // Type for product data expected by template components
 export interface ProductData {
@@ -56,9 +56,10 @@ function transformProduct(product: ProductWithOffers): ProductData {
   const bestOffer = product.offers?.[0];
   const price = product.bestPrice ?? (bestOffer ? parseFloat(bestOffer.price) : 0);
   const originalPrice = bestOffer?.originalPrice ? parseFloat(bestOffer.originalPrice) : undefined;
-  const discount = originalPrice && originalPrice > price
-    ? Math.round(((originalPrice - price) / originalPrice) * 100)
-    : undefined;
+  const discount =
+    originalPrice && originalPrice > price
+      ? Math.round(((originalPrice - price) / originalPrice) * 100)
+      : undefined;
 
   return {
     id: product.id,
@@ -90,7 +91,10 @@ export function useAllProducts() {
 export function useTrendingProducts(limit = 6) {
   return useQuery<Array<{ productId: number; watchCount: number; product: ProductWithOffers }>>({
     queryKey: ['/api/community/most-watched', limit],
-    queryFn: () => apiRequest<Array<{ productId: number; watchCount: number; product: ProductWithOffers }>>(`/api/community/most-watched?limit=${limit}`),
+    queryFn: () =>
+      apiRequest<Array<{ productId: number; watchCount: number; product: ProductWithOffers }>>(
+        `/api/community/most-watched?limit=${limit}`
+      ),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -99,7 +103,10 @@ export function useTrendingProducts(limit = 6) {
 export function useProductsByCategory(category: string, limit = 8) {
   return useQuery<{ results: ProductWithOffers[] }>({
     queryKey: ['/api/products/search', category, limit],
-    queryFn: () => apiRequest<{ results: ProductWithOffers[] }>(`/api/products/search?category=${encodeURIComponent(category)}&limit=${limit}`),
+    queryFn: () =>
+      apiRequest<{ results: ProductWithOffers[] }>(
+        `/api/products/search?category=${encodeURIComponent(category)}&limit=${limit}`
+      ),
     staleTime: 5 * 60 * 1000,
     enabled: !!category,
   });
@@ -109,15 +116,19 @@ export function useProductsByCategory(category: string, limit = 8) {
 export function useDealProducts(limit = 6) {
   return useQuery<{ results: ProductWithOffers[] }>({
     queryKey: ['/api/products/search', 'deals', limit],
-    queryFn: () => apiRequest<{ results: ProductWithOffers[] }>(`/api/products/search?sortBy=price_low&limit=${limit * 2}`),
+    queryFn: () =>
+      apiRequest<{ results: ProductWithOffers[] }>(
+        `/api/products/search?sortBy=price_low&limit=${limit * 2}`
+      ),
     staleTime: 5 * 60 * 1000,
     select: (data) => {
       // Filter to products that have original price > current price
-      const deals = data.results?.filter(p => {
-        const offer = p.offers?.[0];
-        if (!offer?.originalPrice) return false;
-        return parseFloat(offer.originalPrice) > parseFloat(offer.price);
-      }) ?? [];
+      const deals =
+        data.results?.filter((p) => {
+          const offer = p.offers?.[0];
+          if (!offer?.originalPrice) return false;
+          return parseFloat(offer.originalPrice) > parseFloat(offer.price);
+        }) ?? [];
       return { results: deals.slice(0, limit) };
     },
   });
@@ -141,7 +152,10 @@ export function useNewArrivals(limit = 8) {
 export function useBestSellers(limit = 8) {
   return useQuery<{ results: ProductWithOffers[] }>({
     queryKey: ['/api/products/search', 'best-sellers', limit],
-    queryFn: () => apiRequest<{ results: ProductWithOffers[] }>(`/api/products/search?sortBy=rating&limit=${limit}`),
+    queryFn: () =>
+      apiRequest<{ results: ProductWithOffers[] }>(
+        `/api/products/search?sortBy=rating&limit=${limit}`
+      ),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -158,9 +172,20 @@ export function useProduct(productId: number | null) {
 
 // Fetch product with full details including specifications
 export function useProductFull(productId: number | null) {
-  return useQuery<ProductWithOffers & { specifications?: ProductSpecification[]; specGroups?: ProductSpecificationGroup[] }>({
+  return useQuery<
+    ProductWithOffers & {
+      specifications?: ProductSpecification[];
+      specGroups?: ProductSpecificationGroup[];
+    }
+  >({
     queryKey: ['/api/products', productId, 'full'],
-    queryFn: () => apiRequest<ProductWithOffers & { specifications?: ProductSpecification[]; specGroups?: ProductSpecificationGroup[] }>(`/api/products/${productId}/full`),
+    queryFn: () =>
+      apiRequest<
+        ProductWithOffers & {
+          specifications?: ProductSpecification[];
+          specGroups?: ProductSpecificationGroup[];
+        }
+      >(`/api/products/${productId}/full`),
     staleTime: 5 * 60 * 1000,
     enabled: !!productId,
   });
@@ -191,7 +216,7 @@ export function useHomePageData() {
   // Transform all products to template format
   const transformedProducts = {
     all: allProducts.data?.map(transformProduct) ?? [],
-    trending: trending.data?.map(item => transformProduct(item.product)) ?? [],
+    trending: trending.data?.map((item) => transformProduct(item.product)) ?? [],
     deals: deals.data?.results?.map(transformProduct) ?? [],
     newArrivals: newArrivals.data?.map(transformProduct) ?? [],
     bestSellers: bestSellers.data?.results?.map(transformProduct) ?? [],

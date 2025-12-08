@@ -1,4 +1,4 @@
-import "../setup.js";
+import '../setup.js';
 
 /**
  * Integration tests for Amazon content script
@@ -8,8 +8,9 @@ import "../setup.js";
 describe('Amazon Overlay Integration', () => {
   // Helper functions that mirror the content script logic
   function isProductPage() {
-    return window.location.pathname.includes('/dp/') ||
-      window.location.pathname.includes('/gp/product/');
+    return (
+      window.location.pathname.includes('/dp/') || window.location.pathname.includes('/gp/product/')
+    );
   }
 
   function extractASIN() {
@@ -27,12 +28,7 @@ describe('Amazon Overlay Integration', () => {
   }
 
   function extractTitle() {
-    const selectors = [
-      '#productTitle',
-      '#title',
-      'h1.product-title',
-      'span#productTitle'
-    ];
+    const selectors = ['#productTitle', '#title', 'h1.product-title', 'span#productTitle'];
 
     for (const selector of selectors) {
       const element = document.querySelector(selector);
@@ -246,12 +242,11 @@ describe('Amazon Overlay Integration', () => {
       const mockTitleElement = { textContent: 'Test Product' };
       const mockPriceElement = { textContent: '$29.99' };
 
-      document.querySelector
-        .mockImplementation((selector) => {
-          if (selector === '#productTitle') return mockTitleElement;
-          if (selector === '.a-price .a-offscreen') return mockPriceElement;
-          return null;
-        });
+      document.querySelector.mockImplementation((selector) => {
+        if (selector === '#productTitle') return mockTitleElement;
+        if (selector === '.a-price .a-offscreen') return mockPriceElement;
+        return null;
+      });
 
       // Extract data
       expect(isProductPage()).toBe(true);

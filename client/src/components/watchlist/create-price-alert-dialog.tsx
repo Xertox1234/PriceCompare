@@ -1,12 +1,12 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { Bell } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+import { Bell } from 'lucide-react';
 
 interface CreatePriceAlertDialogProps {
   productId: number;
@@ -26,7 +26,7 @@ export function CreatePriceAlertDialog({
   productName,
   currentPrice,
   open,
-  onOpenChange
+  onOpenChange,
 }: CreatePriceAlertDialogProps) {
   // Default to 10% off current price
   const defaultTargetPrice = Math.round(currentPrice * 0.9 * 100) / 100;
@@ -48,7 +48,7 @@ export function CreatePriceAlertDialog({
       void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
 
       toast({
-        title: "Alert created",
+        title: 'Alert created',
         description: `You'll be notified when ${productName} drops to $${targetPrice.toFixed(2)}`,
       });
 
@@ -57,9 +57,9 @@ export function CreatePriceAlertDialog({
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to create alert",
-        description: error.message || "Please try again later",
-        variant: "destructive",
+        title: 'Failed to create alert',
+        description: error.message || 'Please try again later',
+        variant: 'destructive',
       });
     },
   });
@@ -67,18 +67,18 @@ export function CreatePriceAlertDialog({
   const handleCreate = () => {
     if (targetPrice <= 0) {
       toast({
-        title: "Invalid price",
-        description: "Target price must be greater than $0",
-        variant: "destructive",
+        title: 'Invalid price',
+        description: 'Target price must be greater than $0',
+        variant: 'destructive',
       });
       return;
     }
 
     if (targetPrice >= currentPrice) {
       toast({
-        title: "Invalid price",
-        description: "Target price should be lower than current price",
-        variant: "destructive",
+        title: 'Invalid price',
+        description: 'Target price should be lower than current price',
+        variant: 'destructive',
       });
       return;
     }
@@ -102,7 +102,7 @@ export function CreatePriceAlertDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Bell className="w-5 h-5 text-primary" />
+            <Bell className="text-primary h-5 w-5" />
             Set Price Alert
           </DialogTitle>
         </DialogHeader>
@@ -110,22 +110,14 @@ export function CreatePriceAlertDialog({
         <div className="space-y-4 py-4">
           {/* Product Name */}
           <div>
-            <Label className="text-sm font-medium text-muted-foreground">
-              Product
-            </Label>
-            <p className="text-sm font-medium mt-1 line-clamp-2">
-              {productName}
-            </p>
+            <Label className="text-muted-foreground text-sm font-medium">Product</Label>
+            <p className="mt-1 line-clamp-2 text-sm font-medium">{productName}</p>
           </div>
 
           {/* Current Price */}
           <div>
-            <Label className="text-sm font-medium text-muted-foreground">
-              Current Price
-            </Label>
-            <p className="text-lg font-bold mt-1">
-              ${currentPrice.toFixed(2)}
-            </p>
+            <Label className="text-muted-foreground text-sm font-medium">Current Price</Label>
+            <p className="mt-1 text-lg font-bold">${currentPrice.toFixed(2)}</p>
           </div>
 
           {/* Target Price Input */}
@@ -133,8 +125,8 @@ export function CreatePriceAlertDialog({
             <Label htmlFor="target-price" className="text-sm font-medium">
               Alert me when price drops to:
             </Label>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-2xl font-medium text-muted-foreground">$</span>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-muted-foreground text-2xl font-medium">$</span>
               <Input
                 id="target-price"
                 type="number"
@@ -147,17 +139,16 @@ export function CreatePriceAlertDialog({
                 autoFocus
               />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-xs">
               {targetPrice > 0 && targetPrice < currentPrice
                 ? `Save $${(currentPrice - targetPrice).toFixed(2)} (${Math.round(((currentPrice - targetPrice) / currentPrice) * 100)}% off)`
-                : '\u00A0'
-              }
+                : '\u00A0'}
             </p>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 justify-end">
+        <div className="flex justify-end gap-3">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -169,7 +160,7 @@ export function CreatePriceAlertDialog({
             onClick={handleCreate}
             disabled={createAlert.isPending || targetPrice <= 0 || targetPrice >= currentPrice}
           >
-            {createAlert.isPending ? "Creating..." : "Create Alert"}
+            {createAlert.isPending ? 'Creating...' : 'Create Alert'}
           </Button>
         </div>
       </DialogContent>

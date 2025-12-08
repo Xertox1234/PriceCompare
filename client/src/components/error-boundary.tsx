@@ -50,39 +50,37 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-          <div className="max-w-md w-full space-y-6 text-center">
+        <div className="bg-background flex min-h-screen items-center justify-center p-4">
+          <div className="w-full max-w-md space-y-6 text-center">
             <div className="flex justify-center">
-              <div className="rounded-full bg-destructive/10 p-4">
-                <AlertTriangle className="h-12 w-12 text-destructive" />
+              <div className="bg-destructive/10 rounded-full p-4">
+                <AlertTriangle className="text-destructive h-12 w-12" />
               </div>
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-foreground">
-                Something went wrong
-              </h1>
+              <h1 className="text-foreground text-2xl font-bold">Something went wrong</h1>
               <p className="text-muted-foreground">
                 We're sorry, but something unexpected happened. Please try refreshing the page.
               </p>
             </div>
 
             {this.state.error && process.env.NODE_ENV === 'development' && (
-              <div className="mt-4 p-4 bg-muted rounded-lg text-left overflow-auto">
-                <p className="text-sm font-mono text-destructive break-all">
+              <div className="bg-muted mt-4 overflow-auto rounded-lg p-4 text-left">
+                <p className="text-destructive font-mono text-sm break-all">
                   {this.state.error.message}
                 </p>
               </div>
             )}
 
-            <div className="flex gap-3 justify-center">
+            <div className="flex justify-center gap-3">
               <Button onClick={this.handleReset} variant="default">
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="mr-2 h-4 w-4" />
                 Try Again
               </Button>
               <Button asChild variant="outline">
                 <a href="/">
-                  <Home className="h-4 w-4 mr-2" />
+                  <Home className="mr-2 h-4 w-4" />
                   Go Home
                 </a>
               </Button>
@@ -101,14 +99,12 @@ export function RouteErrorBoundary({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary
       fallback={
-        <div className="flex items-center justify-center min-h-[400px] p-8">
-          <div className="text-center space-y-4">
-            <AlertTriangle className="h-8 w-8 text-destructive mx-auto" />
+        <div className="flex min-h-[400px] items-center justify-center p-8">
+          <div className="space-y-4 text-center">
+            <AlertTriangle className="text-destructive mx-auto h-8 w-8" />
             <div>
               <h2 className="text-lg font-semibold">Failed to load this section</h2>
-              <p className="text-sm text-muted-foreground mt-2">
-                Please try refreshing the page
-              </p>
+              <p className="text-muted-foreground mt-2 text-sm">Please try refreshing the page</p>
             </div>
             <Button
               onClick={() => {

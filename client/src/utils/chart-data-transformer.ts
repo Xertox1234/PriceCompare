@@ -1,4 +1,4 @@
-import { format, parseISO, startOfWeek, startOfMonth } from "date-fns";
+import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
 
 export interface PriceDataPoint {
   id: number;
@@ -62,9 +62,8 @@ export function aggregatePriceData(
     const grouped = new Map<string, PriceDataPoint[]>();
 
     points.forEach((point) => {
-      const date = typeof point.recordedAt === 'string'
-        ? parseISO(point.recordedAt)
-        : point.recordedAt;
+      const date =
+        typeof point.recordedAt === 'string' ? parseISO(point.recordedAt) : point.recordedAt;
 
       let groupKey: string;
       switch (level) {
@@ -128,10 +127,8 @@ export function transformForChart(
   const dataByDate = new Map<string, AggregatedDataPoint>();
 
   processedData.forEach((item) => {
-    const date = typeof item.recordedAt === 'string'
-      ? new Date(item.recordedAt)
-      : item.recordedAt;
-    const dateKey = format(date, "yyyy-MM-dd");
+    const date = typeof item.recordedAt === 'string' ? new Date(item.recordedAt) : item.recordedAt;
+    const dateKey = format(date, 'yyyy-MM-dd');
 
     if (!dataByDate.has(dateKey)) {
       dataByDate.set(dateKey, {
@@ -150,8 +147,7 @@ export function transformForChart(
   });
 
   // Convert to array and sort by date
-  return Array.from(dataByDate.values())
-    .sort((a, b) => a.timestamp - b.timestamp);
+  return Array.from(dataByDate.values()).sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /**
@@ -193,8 +189,9 @@ class ChartDataCache {
 
     // Cleanup old entries if cache gets too large
     if (this.cache.size > 100) {
-      const oldestKey = Array.from(this.cache.entries())
-        .sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0];
+      const oldestKey = Array.from(this.cache.entries()).sort(
+        (a, b) => a[1].timestamp - b[1].timestamp
+      )[0][0];
       this.cache.delete(oldestKey);
     }
   }

@@ -1,18 +1,18 @@
 // React hooks
-import { useRoute, Link } from "wouter";
-import { Helmet } from "react-helmet-async";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendIndicator, AggregatesChart } from "@/components/analytics";
+import { useRoute, Link } from 'wouter';
+import { Helmet } from 'react-helmet-async';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TrendIndicator, AggregatesChart } from '@/components/analytics';
 import {
   useWeeklyAggregates,
   useMonthlyAggregates,
   useProductTrends,
   useAnalyticsOverview,
-} from "@/hooks/use-price-analytics";
+} from '@/hooks/use-price-analytics';
 import {
   ArrowLeft,
   TrendingUp,
@@ -21,23 +21,29 @@ import {
   BarChart3,
   Calendar,
   AlertCircle,
-} from "lucide-react";
+} from 'lucide-react';
 
 export default function AnalyticsPage() {
-  const [, params] = useRoute("/products/:id/analytics");
+  const [, params] = useRoute('/products/:id/analytics');
   const productId = params?.id ? parseInt(params.id) : undefined;
 
-  const { data: weeklyData, isLoading: weeklyLoading, error: weeklyError } = useWeeklyAggregates(
-    productId,
-    { limit: 12 }
-  );
+  const {
+    data: weeklyData,
+    isLoading: weeklyLoading,
+    error: weeklyError,
+  } = useWeeklyAggregates(productId, { limit: 12 });
 
-  const { data: monthlyData, isLoading: monthlyLoading, error: monthlyError } = useMonthlyAggregates(
-    productId,
-    { limit: 12 }
-  );
+  const {
+    data: monthlyData,
+    isLoading: monthlyLoading,
+    error: monthlyError,
+  } = useMonthlyAggregates(productId, { limit: 12 });
 
-  const { data: trends, isLoading: trendsLoading, error: trendsError } = useProductTrends(productId);
+  const {
+    data: trends,
+    isLoading: trendsLoading,
+    error: trendsError,
+  } = useProductTrends(productId);
 
   const { data: overview, isLoading: _overviewLoading } = useAnalyticsOverview();
 
@@ -62,7 +68,7 @@ export default function AnalyticsPage() {
         <meta name="description" content="Advanced price analytics and trend analysis" />
       </Helmet>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="mb-6">
           <Link href={`/products/${productId}`}>
@@ -71,7 +77,7 @@ export default function AnalyticsPage() {
               Back to Product
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold mb-2">Price Analytics</h1>
+          <h1 className="mb-2 text-3xl font-bold">Price Analytics</h1>
           <p className="text-muted-foreground">
             Comprehensive price trends, aggregates, and predictions
           </p>
@@ -88,10 +94,10 @@ export default function AnalyticsPage() {
 
         {/* Overview Stats */}
         {overview && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-muted-foreground text-sm font-medium">
                   Total Trends
                 </CardTitle>
               </CardHeader>
@@ -101,7 +107,7 @@ export default function AnalyticsPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <CardTitle className="text-muted-foreground flex items-center gap-1 text-sm font-medium">
                   <TrendingUp className="h-4 w-4 text-red-600" />
                   Uptrends
                 </CardTitle>
@@ -114,7 +120,7 @@ export default function AnalyticsPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <CardTitle className="text-muted-foreground flex items-center gap-1 text-sm font-medium">
                   <TrendingDown className="h-4 w-4 text-green-600" />
                   Downtrends
                 </CardTitle>
@@ -127,7 +133,7 @@ export default function AnalyticsPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <CardTitle className="text-muted-foreground flex items-center gap-1 text-sm font-medium">
                   <Minus className="h-4 w-4 text-gray-600" />
                   Stable
                 </CardTitle>
@@ -185,10 +191,10 @@ export default function AnalyticsPage() {
                   (!monthlyData || monthlyData.length === 0) && (
                     <Card>
                       <CardContent className="py-12">
-                        <div className="text-center text-muted-foreground">
-                          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <div className="text-muted-foreground text-center">
+                          <Calendar className="mx-auto mb-4 h-12 w-12 opacity-50" />
                           <p>No aggregate data available yet.</p>
-                          <p className="text-sm mt-2">
+                          <p className="mt-2 text-sm">
                             Aggregates are calculated weekly and monthly by the system.
                           </p>
                         </div>
@@ -204,7 +210,7 @@ export default function AnalyticsPage() {
             {trendsLoading ? (
               <Skeleton className="h-[300px] w-full" />
             ) : trends && trends.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {trends.map((trend) => (
                   <Card key={trend.id}>
                     <CardHeader>
@@ -212,7 +218,7 @@ export default function AnalyticsPage() {
                         {trend.retailerLogo && (
                           <img
                             src={trend.retailerLogo}
-                            alt={trend.retailerName || "Retailer"}
+                            alt={trend.retailerName || 'Retailer'}
                             className="h-6 w-6 rounded object-contain"
                           />
                         )}
@@ -233,10 +239,10 @@ export default function AnalyticsPage() {
             ) : (
               <Card>
                 <CardContent className="py-12">
-                  <div className="text-center text-muted-foreground">
-                    <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <div className="text-muted-foreground text-center">
+                    <TrendingUp className="mx-auto mb-4 h-12 w-12 opacity-50" />
                     <p>No trend data available yet.</p>
-                    <p className="text-sm mt-2">
+                    <p className="mt-2 text-sm">
                       Trend analysis is performed daily on products with sufficient price history.
                     </p>
                   </div>

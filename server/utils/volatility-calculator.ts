@@ -35,7 +35,7 @@ export function calculateVolatility(priceHistory: PriceData[]): VolatilityResult
   }
 
   // Extract prices as numbers
-  const prices = priceHistory.map(item => parseFloat(item.price));
+  const prices = priceHistory.map((item) => parseFloat(item.price));
 
   // Calculate basic statistics
   const n = prices.length;
@@ -43,7 +43,7 @@ export function calculateVolatility(priceHistory: PriceData[]): VolatilityResult
   const mean = sum / n;
 
   // Calculate standard deviation
-  const squaredDiffs = prices.map(price => Math.pow(price - mean, 2));
+  const squaredDiffs = prices.map((price) => Math.pow(price - mean, 2));
   const variance = squaredDiffs.reduce((acc, val) => acc + val, 0) / n;
   const standardDeviation = Math.sqrt(variance);
 
@@ -91,11 +91,7 @@ export function calculateVolatility(priceHistory: PriceData[]): VolatilityResult
   };
 }
 
-function getRecommendation(
-  level: string,
-  cv: number,
-  rangePercent: number
-): string {
+function getRecommendation(level: string, cv: number, rangePercent: number): string {
   switch (level) {
     case 'low':
       return "Prices are very stable. This is a good product to buy anytime as prices don't fluctuate much. Consider setting up a price alert for small drops to get the best deal.";
@@ -110,7 +106,7 @@ function getRecommendation(
       return `Extreme price volatility detected (±${rangePercent.toFixed(0)}% from average). Strongly recommend waiting for a significant price drop. Prices can swing dramatically - patience will likely save you ${rangePercent.toFixed(0)}% or more. Set aggressive price alerts.`;
 
     default:
-      return "Monitor prices before making a purchase decision.";
+      return 'Monitor prices before making a purchase decision.';
   }
 }
 
@@ -138,12 +134,12 @@ export function calculateVolatilityTrend(
   const cutoffDate = new Date(now.getTime() - recentDays * 24 * 60 * 60 * 1000);
 
   // Split into recent and older data
-  const recentData = sorted.filter(item => {
+  const recentData = sorted.filter((item) => {
     const date = typeof item.recordedAt === 'string' ? new Date(item.recordedAt) : item.recordedAt;
     return date >= cutoffDate;
   });
 
-  const olderData = sorted.filter(item => {
+  const olderData = sorted.filter((item) => {
     const date = typeof item.recordedAt === 'string' ? new Date(item.recordedAt) : item.recordedAt;
     return date < cutoffDate;
   });

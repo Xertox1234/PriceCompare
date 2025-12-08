@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from '@tanstack/react-query';
 
 // Types for analytics data
 export interface WeeklyAggregate {
@@ -42,7 +42,7 @@ export interface PriceTrend {
   retailerId: number;
   retailerName: string | null;
   retailerLogo: string | null;
-  trendDirection: "uptrend" | "downtrend" | "stable";
+  trendDirection: 'uptrend' | 'downtrend' | 'stable';
   trendSlope: string | null;
   trendStrength: string | null;
   predictedNextPrice: string | null;
@@ -72,21 +72,21 @@ export function useWeeklyAggregates(
   options?: { year?: number; week?: number; limit?: number }
 ) {
   return useQuery({
-    queryKey: ["weeklyAggregates", productId, options],
+    queryKey: ['weeklyAggregates', productId, options],
     queryFn: async () => {
       if (!productId) return null;
 
       const params = new URLSearchParams();
-      if (options?.year) params.append("year", options.year.toString());
-      if (options?.week) params.append("week", options.week.toString());
-      if (options?.limit) params.append("limit", options.limit.toString());
+      if (options?.year) params.append('year', options.year.toString());
+      if (options?.week) params.append('week', options.week.toString());
+      if (options?.limit) params.append('limit', options.limit.toString());
 
       const response = await fetch(
         `/api/products/${productId}/aggregates/weekly?${params.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch weekly aggregates");
+        throw new Error('Failed to fetch weekly aggregates');
       }
 
       return response.json() as Promise<WeeklyAggregate[]>;
@@ -103,21 +103,21 @@ export function useMonthlyAggregates(
   options?: { year?: number; month?: number; limit?: number }
 ) {
   return useQuery({
-    queryKey: ["monthlyAggregates", productId, options],
+    queryKey: ['monthlyAggregates', productId, options],
     queryFn: async () => {
       if (!productId) return null;
 
       const params = new URLSearchParams();
-      if (options?.year) params.append("year", options.year.toString());
-      if (options?.month) params.append("month", options.month.toString());
-      if (options?.limit) params.append("limit", options.limit.toString());
+      if (options?.year) params.append('year', options.year.toString());
+      if (options?.month) params.append('month', options.month.toString());
+      if (options?.limit) params.append('limit', options.limit.toString());
 
       const response = await fetch(
         `/api/products/${productId}/aggregates/monthly?${params.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch monthly aggregates");
+        throw new Error('Failed to fetch monthly aggregates');
       }
 
       return response.json() as Promise<MonthlyAggregate[]>;
@@ -135,19 +135,19 @@ export function useRetailerWeeklyAggregates(
   options?: { limit?: number }
 ) {
   return useQuery({
-    queryKey: ["retailerWeeklyAggregates", productId, retailerId, options],
+    queryKey: ['retailerWeeklyAggregates', productId, retailerId, options],
     queryFn: async () => {
       if (!productId || !retailerId) return null;
 
       const params = new URLSearchParams();
-      if (options?.limit) params.append("limit", options.limit.toString());
+      if (options?.limit) params.append('limit', options.limit.toString());
 
       const response = await fetch(
         `/api/products/${productId}/retailers/${retailerId}/aggregates/weekly?${params.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch retailer weekly aggregates");
+        throw new Error('Failed to fetch retailer weekly aggregates');
       }
 
       return response.json() as Promise<WeeklyAggregate[]>;
@@ -165,19 +165,19 @@ export function useRetailerMonthlyAggregates(
   options?: { limit?: number }
 ) {
   return useQuery({
-    queryKey: ["retailerMonthlyAggregates", productId, retailerId, options],
+    queryKey: ['retailerMonthlyAggregates', productId, retailerId, options],
     queryFn: async () => {
       if (!productId || !retailerId) return null;
 
       const params = new URLSearchParams();
-      if (options?.limit) params.append("limit", options.limit.toString());
+      if (options?.limit) params.append('limit', options.limit.toString());
 
       const response = await fetch(
         `/api/products/${productId}/retailers/${retailerId}/aggregates/monthly?${params.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch retailer monthly aggregates");
+        throw new Error('Failed to fetch retailer monthly aggregates');
       }
 
       return response.json() as Promise<MonthlyAggregate[]>;
@@ -191,14 +191,14 @@ export function useRetailerMonthlyAggregates(
  */
 export function useProductTrends(productId: number | undefined) {
   return useQuery({
-    queryKey: ["productTrends", productId],
+    queryKey: ['productTrends', productId],
     queryFn: async () => {
       if (!productId) return null;
 
       const response = await fetch(`/api/products/${productId}/trends`);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch product trends");
+        throw new Error('Failed to fetch product trends');
       }
 
       return response.json() as Promise<PriceTrend[]>;
@@ -210,24 +210,19 @@ export function useProductTrends(productId: number | undefined) {
 /**
  * Fetch price trend for a specific product-retailer combination
  */
-export function useRetailerTrend(
-  productId: number | undefined,
-  retailerId: number | undefined
-) {
+export function useRetailerTrend(productId: number | undefined, retailerId: number | undefined) {
   return useQuery({
-    queryKey: ["retailerTrend", productId, retailerId],
+    queryKey: ['retailerTrend', productId, retailerId],
     queryFn: async () => {
       if (!productId || !retailerId) return null;
 
-      const response = await fetch(
-        `/api/products/${productId}/retailers/${retailerId}/trend`
-      );
+      const response = await fetch(`/api/products/${productId}/retailers/${retailerId}/trend`);
 
       if (!response.ok) {
         if (response.status === 404) {
           return null;
         }
-        throw new Error("Failed to fetch retailer trend");
+        throw new Error('Failed to fetch retailer trend');
       }
 
       return response.json() as Promise<PriceTrend>;
@@ -241,12 +236,12 @@ export function useRetailerTrend(
  */
 export function useAnalyticsOverview() {
   return useQuery({
-    queryKey: ["analyticsOverview"],
+    queryKey: ['analyticsOverview'],
     queryFn: async () => {
-      const response = await fetch("/api/analytics/overview");
+      const response = await fetch('/api/analytics/overview');
 
       if (!response.ok) {
-        throw new Error("Failed to fetch analytics overview");
+        throw new Error('Failed to fetch analytics overview');
       }
 
       return response.json() as Promise<AnalyticsOverview>;

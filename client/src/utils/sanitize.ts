@@ -25,16 +25,49 @@ export function sanitizeHtml(
 ): string {
   // Default configuration for forum posts
   const defaultAllowedTags = [
-    'p', 'br', 'strong', 'em', 'u', 's', 'del', 'ins',
-    'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'table', 'thead', 'tbody', 'tr', 'th', 'td',
-    'img', 'span', 'div'
+    'p',
+    'br',
+    'strong',
+    'em',
+    'u',
+    's',
+    'del',
+    'ins',
+    'a',
+    'ul',
+    'ol',
+    'li',
+    'blockquote',
+    'code',
+    'pre',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
+    'img',
+    'span',
+    'div',
   ];
 
   const defaultAllowedAttributes = [
-    'href', 'title', 'alt', 'src', 'class', 'id',
-    'target', 'rel', 'width', 'height'
+    'href',
+    'title',
+    'alt',
+    'src',
+    'class',
+    'id',
+    'target',
+    'rel',
+    'width',
+    'height',
   ];
 
   const allowedTags = options.allowedTags || defaultAllowedTags;
@@ -99,15 +132,17 @@ export function sanitizeUrl(url: string): string {
 
   // Block dangerous protocols
   const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
-  if (dangerousProtocols.some(protocol => trimmed.startsWith(protocol))) {
+  if (dangerousProtocols.some((protocol) => trimmed.startsWith(protocol))) {
     return '';
   }
 
   // Only allow http, https, and relative URLs
-  if (!trimmed.startsWith('http://') &&
-      !trimmed.startsWith('https://') &&
-      !trimmed.startsWith('/') &&
-      !trimmed.startsWith('#')) {
+  if (
+    !trimmed.startsWith('http://') &&
+    !trimmed.startsWith('https://') &&
+    !trimmed.startsWith('/') &&
+    !trimmed.startsWith('#')
+  ) {
     return '';
   }
 
@@ -131,7 +166,8 @@ export async function loadDOMPurify(): Promise<void> {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js';
-      script.integrity = 'sha512-HpEGpWBk2RQXZ4AqR4B5HGZf3VHhKIqfNYNI5t0FP9GQx1HfPZ/+dB1wAb8jYVW0qUgG9p5mBSUbYGN3H/Y0A==';
+      script.integrity =
+        'sha512-HpEGpWBk2RQXZ4AqR4B5HGZf3VHhKIqfNYNI5t0FP9GQx1HfPZ/+dB1wAb8jYVW0qUgG9p5mBSUbYGN3H/Y0A==';
       script.crossOrigin = 'anonymous';
       script.referrerPolicy = 'no-referrer';
       script.onload = () => resolve();

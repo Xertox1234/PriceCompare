@@ -121,7 +121,7 @@ export function CreateWatchListDialog({ open, onOpenChange }: CreateWatchListDia
             {/* Icon */}
             <div className="space-y-2">
               <Label>Icon (Optional)</Label>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-wrap gap-2">
                 {EMOJI_PRESETS.map((emoji) => (
                   <Button
                     key={emoji}
@@ -147,14 +147,16 @@ export function CreateWatchListDialog({ open, onOpenChange }: CreateWatchListDia
             {/* Color */}
             <div className="space-y-2">
               <Label>Color (Optional)</Label>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-wrap gap-2">
                 {COLOR_PRESETS.map((colorPreset) => (
                   <button
                     key={colorPreset}
                     type="button"
                     onClick={() => setColor(color === colorPreset ? '' : colorPreset)}
-                    className={`w-8 h-8 rounded-full border-2 ${
-                      color === colorPreset ? 'border-primary ring-2 ring-primary/50' : 'border-border'
+                    className={`h-8 w-8 rounded-full border-2 ${
+                      color === colorPreset
+                        ? 'border-primary ring-primary/50 ring-2'
+                        : 'border-border'
                     }`}
                     style={{ backgroundColor: colorPreset }}
                   />
@@ -163,7 +165,7 @@ export function CreateWatchListDialog({ open, onOpenChange }: CreateWatchListDia
                   type="color"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  className="w-16 h-8"
+                  className="h-8 w-16"
                 />
               </div>
             </div>
@@ -172,12 +174,9 @@ export function CreateWatchListDialog({ open, onOpenChange }: CreateWatchListDia
             {(name || icon || color) && (
               <div className="space-y-2">
                 <Label>Preview</Label>
-                <div className="flex items-center gap-2 p-3 border rounded-lg">
+                <div className="flex items-center gap-2 rounded-lg border p-3">
                   {color && (
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
                   )}
                   {icon && <span className="text-base">{icon}</span>}
                   <span className="font-medium">{name || 'Your List Name'}</span>

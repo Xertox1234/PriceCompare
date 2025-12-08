@@ -142,7 +142,7 @@ export function validateEnvironment(): void {
       if (value.length !== 64) {
         keyErrors.push(
           `${envVar.name} must be exactly 64 hex characters (32 bytes for AES-256). ` +
-          `Current: ${value.length} characters`
+            `Current: ${value.length} characters`
         );
       }
 
@@ -156,7 +156,7 @@ export function validateEnvironment(): void {
 
       if (keyErrors.length > 0) {
         log.error(`\n❌ SECURITY: Invalid encryption key for ${envVar.name}:`);
-        keyErrors.forEach(e => log.error(`  ${e}`));
+        keyErrors.forEach((e) => log.error(`  ${e}`));
         log.error('\n💡 Generate a valid encryption key with: openssl rand -hex 32');
         errors.push(...keyErrors);
       }
@@ -168,11 +168,13 @@ export function validateEnvironment(): void {
         // SECURITY: Enforce strong secrets in all environments (including dev)
         // This prevents weak secrets from accidentally making it to production
         log.error(`\n❌ SECURITY: Weak secret detected for ${envVar.name}:`);
-        secretErrors.forEach(e => log.error(`  ${e}`));
+        secretErrors.forEach((e) => log.error(`  ${e}`));
 
         if (isDevelopment || isTest) {
           log.error('\n💡 TIP: Even in development, use strong secrets.');
-          log.error('   Generate a secure secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+          log.error(
+            "   Generate a secure secret with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+          );
         }
 
         errors.push(...secretErrors);
@@ -218,13 +220,13 @@ export function validateEnvironment(): void {
   // Display warnings
   if (warnings.length > 0) {
     log.warn('\n⚠️  Environment Warnings:');
-    warnings.forEach(w => log.warn(`  ${w}`));
+    warnings.forEach((w) => log.warn(`  ${w}`));
   }
 
   // Handle errors
   if (errors.length > 0) {
     log.error('\n❌ Environment Validation Failed:\n');
-    errors.forEach(e => log.error(`  ${e}`));
+    errors.forEach((e) => log.error(`  ${e}`));
     log.error('\n');
 
     // SECURITY: Fail fast in all environments (including dev)
@@ -252,7 +254,7 @@ export function getRequiredEnv(name: string): string {
   if (!value) {
     throw new Error(
       `Required environment variable ${name} is not set. ` +
-      'Please check your .env file or environment configuration.'
+        'Please check your .env file or environment configuration.'
     );
   }
   return value;

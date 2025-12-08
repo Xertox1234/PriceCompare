@@ -35,12 +35,7 @@ export async function onProductOfferPriceChange(
   originalPrice?: number,
   options: PriceChangeHookOptions = {}
 ) {
-  const {
-    source = 'scraper',
-    confidence = 1.0,
-    metadata = {},
-    notifyUsers = true
-  } = options;
+  const { source = 'scraper', confidence = 1.0, metadata = {}, notifyUsers = true } = options;
 
   try {
     // Record the price change
@@ -59,7 +54,7 @@ export async function onProductOfferPriceChange(
       // This handles both price alerts and general price drop notifications
       await processPriceChange(productOfferId, newPrice, {
         percentageThreshold: 10,
-        absoluteThreshold: 5.00,
+        absoluteThreshold: 5.0,
         recentPeakDays: 30,
         cooldownHours: 24,
       });
@@ -100,7 +95,7 @@ async function _checkAndNotifyPriceAlerts(productOfferId: number, newPrice: numb
         targetPrice: priceAlerts.targetPrice,
         notifyForum: priceAlerts.notifyForum,
         username: users.username,
-        email: users.email
+        email: users.email,
       })
       .from(priceAlerts)
       .innerJoin(users, eq(priceAlerts.userId, users.id))
@@ -123,7 +118,7 @@ async function _checkAndNotifyPriceAlerts(productOfferId: number, newPrice: numb
           content: `The price has dropped to $${newPrice.toFixed(2)}, meeting your target of $${parseFloat(alert.targetPrice).toFixed(2)}`,
           relatedPostId: null,
           relatedTopicId: null,
-          isRead: false
+          isRead: false,
         });
 
         // Optionally deactivate the alert (one-time notification)
@@ -133,7 +128,9 @@ async function _checkAndNotifyPriceAlerts(productOfferId: number, newPrice: numb
           .set({ isActive: false })
           .where(eq(priceAlerts.id, alert.alertId));
 
-        log.info(`Price alert notification sent to user ${alert.username} for product ${offer.productId}`);
+        log.info(
+          `Price alert notification sent to user ${alert.username} for product ${offer.productId}`
+        );
       } catch (error) {
         log.error(`Error creating notification for alert ${alert.alertId}:`, { error });
         // Continue with other alerts
@@ -159,26 +156,21 @@ export async function onBulkProductOfferPriceChange(
   }>,
   options: PriceChangeHookOptions = {}
 ): Promise<void> {
-  const {
-    source = 'scraper',
-    confidence = 1.0,
-    metadata = {},
-    notifyUsers = true
-  } = options;
+  const { source = 'scraper', confidence = 1.0, metadata = {}, notifyUsers = true } = options;
 
   const results = await Promise.allSettled(
-    offers.map(offer =>
-      onProductOfferPriceChange(
-        offer.productOfferId,
-        offer.newPrice,
-        offer.originalPrice,
-        { source, confidence, metadata, notifyUsers }
-      )
+    offers.map((offer) =>
+      onProductOfferPriceChange(offer.productOfferId, offer.newPrice, offer.originalPrice, {
+        source,
+        confidence,
+        metadata,
+        notifyUsers,
+      })
     )
   );
 
-  const successCount = results.filter(r => r.status === 'fulfilled').length;
-  const failureCount = results.filter(r => r.status === 'rejected').length;
+  const successCount = results.filter((r) => r.status === 'fulfilled').length;
+  const failureCount = results.filter((r) => r.status === 'rejected').length;
 
   log.info(`Bulk price update: ${successCount} succeeded, ${failureCount} failed`);
 }
@@ -218,7 +210,7 @@ export function calculatePriceChange(oldPrice: number, newPrice: number) {
     changePercent,
     isIncrease: change > 0,
     isDecrease: change < 0,
-    isSignificant: isSignificantPriceChange(oldPrice, newPrice)
+    isSignificant: isSignificantPriceChange(oldPrice, newPrice),
   };
 }
 

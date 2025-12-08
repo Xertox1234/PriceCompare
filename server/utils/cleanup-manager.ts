@@ -110,12 +110,15 @@ export class CleanupManager {
     );
 
     // Report failures
-    const failures = results.filter(r => r.status === 'rejected');
+    const failures = results.filter((r) => r.status === 'rejected');
     if (failures.length > 0) {
       log.error(`${failures.length} cleanup handlers failed`);
       failures.forEach((result, index) => {
         if (result.status === 'rejected') {
-          log.error(`Failed handler ${this.cleanupHandlers[index].name}:`, result.reason as Record<string, unknown>);
+          log.error(
+            `Failed handler ${this.cleanupHandlers[index].name}:`,
+            result.reason as Record<string, unknown>
+          );
         }
       });
     }

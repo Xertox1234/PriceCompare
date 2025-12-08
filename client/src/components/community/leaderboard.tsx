@@ -19,7 +19,7 @@ export function Leaderboard({ limit = 10, showBadges = true, compact = false }: 
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-48 mt-2" />
+          <Skeleton className="mt-2 h-4 w-48" />
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -45,7 +45,7 @@ export function Leaderboard({ limit = 10, showBadges = true, compact = false }: 
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-amber-600" />
+          <Trophy className="h-5 w-5 text-amber-600" />
           Community Leaderboard
         </CardTitle>
         {!compact && (
@@ -93,14 +93,14 @@ function LeaderboardEntry({
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
-        return <Trophy className="w-5 h-5 text-amber-500" />;
+        return <Trophy className="h-5 w-5 text-amber-500" />;
       case 2:
-        return <Medal className="w-5 h-5 text-gray-400" />;
+        return <Medal className="h-5 w-5 text-gray-400" />;
       case 3:
-        return <Medal className="w-5 h-5 text-amber-700" />;
+        return <Medal className="h-5 w-5 text-amber-700" />;
       default:
         return (
-          <div className="w-5 h-5 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+          <div className="text-muted-foreground flex h-5 w-5 items-center justify-center text-sm font-semibold">
             {rank}
           </div>
         );
@@ -121,28 +121,28 @@ function LeaderboardEntry({
   };
 
   return (
-    <div className={`p-3 rounded-lg border-2 ${getRankColor(rank)}`}>
+    <div className={`rounded-lg border-2 p-3 ${getRankColor(rank)}`}>
       <div className="flex items-center gap-3">
         {/* Rank Icon */}
         <div className="flex-shrink-0">{getRankIcon(rank)}</div>
 
         {/* User Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-semibold truncate">{entry.username}</h4>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center gap-2">
+            <h4 className="truncate font-semibold">{entry.username}</h4>
             <Badge variant="outline" className="text-xs">
               Level {entry.level}
             </Badge>
           </div>
 
           {!compact && (
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
+                <TrendingUp className="h-3 w-3" />
                 <span>{entry.reputationPoints} pts</span>
               </div>
               <div className="flex items-center gap-1">
-                <Award className="w-3 h-3" />
+                <Award className="h-3 w-3" />
                 <span>{entry.dealsSpotted} deals</span>
               </div>
             </div>
@@ -150,7 +150,7 @@ function LeaderboardEntry({
 
           {/* Badges */}
           {showBadges && entry.badges && entry.badges.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
+            <div className="mt-2 flex flex-wrap gap-1">
               {entry.badges.map((badge: string) => (
                 <Badge key={badge} variant="secondary" className="text-xs">
                   {getBadgeEmoji(badge)} {badge}
@@ -163,8 +163,8 @@ function LeaderboardEntry({
         {/* Reputation Points */}
         {compact && (
           <div className="flex-shrink-0 text-right">
-            <div className="text-lg font-bold text-primary">{entry.reputationPoints}</div>
-            <div className="text-xs text-muted-foreground">points</div>
+            <div className="text-primary text-lg font-bold">{entry.reputationPoints}</div>
+            <div className="text-muted-foreground text-xs">points</div>
           </div>
         )}
       </div>

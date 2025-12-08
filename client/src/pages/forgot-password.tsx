@@ -1,13 +1,20 @@
-import { useState } from "react";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { createLogger } from "@/utils/logger";
+import { useState } from 'react';
+import { Link } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { createLogger } from '@/utils/logger';
 
 const log = createLogger('ForgotPassword');
 
@@ -26,7 +33,7 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,24 +44,24 @@ export default function ForgotPassword() {
     setError(null);
 
     if (!email) {
-      setError("Please enter your email address");
+      setError('Please enter your email address');
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
+      setError('Please enter a valid email address');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email }),
       });
@@ -64,15 +71,15 @@ export default function ForgotPassword() {
       if (response.ok) {
         setIsSubmitted(true);
         toast({
-          title: "Email sent",
-          description: "If an account exists with this email, a password reset link has been sent.",
+          title: 'Email sent',
+          description: 'If an account exists with this email, a password reset link has been sent.',
         });
       } else {
-        setError(data.error ?? "An error occurred. Please try again.");
+        setError(data.error ?? 'An error occurred. Please try again.');
       }
     } catch (err) {
-      log.error("Forgot password error:", { error: err });
-      setError("Unable to process request. Please try again later.");
+      log.error('Forgot password error:', { error: err });
+      setError('Unable to process request. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -80,22 +87,23 @@ export default function ForgotPassword() {
 
   if (isSubmitted) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
             </div>
             <CardTitle className="text-2xl">Check your email</CardTitle>
             <CardDescription>
-              If an account exists with <strong>{email}</strong>, we've sent you a password reset link.
+              If an account exists with <strong>{email}</strong>, we've sent you a password reset
+              link.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert>
               <Mail className="h-4 w-4" />
               <AlertDescription>
-                <ul className="list-disc list-inside space-y-1 text-sm mt-2">
+                <ul className="mt-2 list-inside list-disc space-y-1 text-sm">
                   <li>The link will expire in 1 hour</li>
                   <li>Check your spam folder if you don't see it</li>
                   <li>The link can only be used once</li>
@@ -109,7 +117,7 @@ export default function ForgotPassword() {
               className="w-full"
               onClick={() => {
                 setIsSubmitted(false);
-                setEmail("");
+                setEmail('');
               }}
             >
               Send another email
@@ -127,7 +135,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex min-h-[60vh] items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Forgot password?</CardTitle>
@@ -160,7 +168,8 @@ export default function ForgotPassword() {
 
             <Alert>
               <AlertDescription className="text-sm">
-                For security reasons, we'll send the reset link to the email address associated with your account.
+                For security reasons, we'll send the reset link to the email address associated with
+                your account.
               </AlertDescription>
             </Alert>
           </CardContent>

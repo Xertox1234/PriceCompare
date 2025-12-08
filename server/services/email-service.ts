@@ -22,12 +22,8 @@ function escapeHtml(unsafe: string): string {
  */
 const sendPasswordResetEmailSchema = z.object({
   email: z.string().email('Invalid email format'),
-  resetToken: z.string()
-    .min(32, 'Reset token too short')
-    .max(256, 'Reset token too long'),
-  username: z.string()
-    .min(1, 'Username required')
-    .max(200, 'Username too long'),
+  resetToken: z.string().min(32, 'Reset token too short').max(256, 'Reset token too long'),
+  username: z.string().min(1, 'Username required').max(200, 'Username too long'),
 });
 
 /**
@@ -35,9 +31,7 @@ const sendPasswordResetEmailSchema = z.object({
  */
 const sendPasswordResetConfirmationEmailSchema = z.object({
   email: z.string().email('Invalid email format'),
-  username: z.string()
-    .min(1, 'Username required')
-    .max(200, 'Username too long'),
+  username: z.string().min(1, 'Username required').max(200, 'Username too long'),
 });
 
 interface EmailConfig {
@@ -74,7 +68,9 @@ class EmailService {
     const smtpPass = process.env.SMTP_PASSWORD;
 
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      logger.info('Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_PASSWORD environment variables.');
+      logger.info(
+        'Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_PASSWORD environment variables.'
+      );
       this.isConfigured = false;
       return;
     }
@@ -106,13 +102,13 @@ class EmailService {
     }
 
     try {
-      const info: { messageId?: string } = await this.transporter.sendMail({
+      const info: { messageId?: string } = (await this.transporter.sendMail({
         from: this.fromAddress,
         to: options.to,
         subject: options.subject,
         text: options.text,
         html: options.html,
-      }) as { messageId?: string };
+      })) as { messageId?: string };
 
       logger.info(`Email sent successfully to ${options.to}: ${info.messageId ?? 'unknown'}`);
       return true;
@@ -122,7 +118,11 @@ class EmailService {
     }
   }
 
-  async sendPasswordResetEmail(email: string, resetToken: string, username: string): Promise<boolean> {
+  async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+    username: string
+  ): Promise<boolean> {
     // Validate inputs
     const validated = sendPasswordResetEmailSchema.parse({
       email,

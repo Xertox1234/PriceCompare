@@ -51,11 +51,9 @@ describe('Input Sanitization Middleware', () => {
 
   describe('XSS Attack Prevention', () => {
     it('should remove script tags from input', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<script>alert("XSS")</script>Hello',
-        });
+      await request(app).post('/test').send({
+        content: '<script>alert("XSS")</script>Hello',
+      });
 
       expect(capturedBody.content).not.toContain('<script>');
       expect(capturedBody.content).not.toContain('alert');
@@ -63,88 +61,72 @@ describe('Input Sanitization Middleware', () => {
     });
 
     it('should remove script tags with src attribute', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<script src="evil.js"></script>',
-        });
+      await request(app).post('/test').send({
+        content: '<script src="evil.js"></script>',
+      });
 
       expect(capturedBody.content).not.toContain('<script>');
       expect(capturedBody.content).not.toContain('evil.js');
     });
 
     it('should remove case-variant script tags', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<SCRIPT>alert("XSS")</SCRIPT>',
-        });
+      await request(app).post('/test').send({
+        content: '<SCRIPT>alert("XSS")</SCRIPT>',
+      });
 
       expect(capturedBody.content).not.toContain('<SCRIPT>');
       expect(capturedBody.content).not.toContain('alert');
     });
 
     it('should remove event handlers from HTML elements', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<img src=x onerror="alert(1)">',
-        });
+      await request(app).post('/test').send({
+        content: '<img src=x onerror="alert(1)">',
+      });
 
       expect(capturedBody.content).not.toContain('onerror');
       expect(capturedBody.content).not.toContain('alert');
     });
 
     it('should remove onclick handlers', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<div onclick="alert(1)">Click me</div>',
-        });
+      await request(app).post('/test').send({
+        content: '<div onclick="alert(1)">Click me</div>',
+      });
 
       expect(capturedBody.content).not.toContain('onclick');
       expect(capturedBody.content).not.toContain('alert');
     });
 
     it('should remove onload handlers', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<body onload="alert(1)">',
-        });
+      await request(app).post('/test').send({
+        content: '<body onload="alert(1)">',
+      });
 
       expect(capturedBody.content).not.toContain('onload');
       expect(capturedBody.content).not.toContain('alert');
     });
 
     it('should block javascript: protocol in links', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<a href="javascript:alert(1)">Click</a>',
-        });
+      await request(app).post('/test').send({
+        content: '<a href="javascript:alert(1)">Click</a>',
+      });
 
       expect(capturedBody.content).not.toContain('javascript:');
       expect(capturedBody.content).not.toContain('alert');
     });
 
     it('should block data: URIs', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<a href="data:text/html,<script>alert(1)</script>">Click</a>',
-        });
+      await request(app).post('/test').send({
+        content: '<a href="data:text/html,<script>alert(1)</script>">Click</a>',
+      });
 
       expect(capturedBody.content).not.toContain('data:');
       expect(capturedBody.content).not.toContain('<script>');
     });
 
     it('should sanitize SVG-based XSS', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<svg onload="alert(1)">',
-        });
+      await request(app).post('/test').send({
+        content: '<svg onload="alert(1)">',
+      });
 
       expect(capturedBody.content).not.toContain('onload');
       expect(capturedBody.content).not.toContain('alert');
@@ -152,9 +134,7 @@ describe('Input Sanitization Middleware', () => {
 
     it('should handle all XSS test cases from sanitization utility', async () => {
       for (const xssVector of XSS_TEST_CASES) {
-        await request(app)
-          .post('/test')
-          .send({ content: xssVector });
+        await request(app).post('/test').send({ content: xssVector });
 
         // Check for dangerous patterns
         expect(capturedBody.content).not.toMatch(/<script/i);
@@ -166,11 +146,9 @@ describe('Input Sanitization Middleware', () => {
 
   describe('SQL Injection Pattern Sanitization', () => {
     it('should preserve SQL-like strings but strip HTML', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          search: "'; DROP TABLE users; --",
-        });
+      await request(app).post('/test').send({
+        search: "'; DROP TABLE users; --",
+      });
 
       // Sanitization removes HTML, but SQL strings are harmless if parameterized queries used
       expect(capturedBody.search).toBeDefined();
@@ -180,11 +158,9 @@ describe('Input Sanitization Middleware', () => {
     });
 
     it('should handle OR 1=1 pattern', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          search: "admin' OR '1'='1",
-        });
+      await request(app).post('/test').send({
+        search: "admin' OR '1'='1",
+      });
 
       expect(capturedBody.search).toBeDefined();
       // Should not contain HTML
@@ -194,11 +170,9 @@ describe('Input Sanitization Middleware', () => {
 
   describe('HTML Entity Encoding', () => {
     it('should handle HTML entities', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '&lt;script&gt;alert(1)&lt;/script&gt;',
-        });
+      await request(app).post('/test').send({
+        content: '&lt;script&gt;alert(1)&lt;/script&gt;',
+      });
 
       // DOMPurify preserves HTML entities when sanitizing as PLAIN_TEXT
       // The entities themselves are safe and won't execute
@@ -209,11 +183,9 @@ describe('Input Sanitization Middleware', () => {
     });
 
     it('should handle mixed encoding', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<img src=x onerror=&#97;&#108;&#101;&#114;&#116;&#40;&#49;&#41;>',
-        });
+      await request(app).post('/test').send({
+        content: '<img src=x onerror=&#97;&#108;&#101;&#114;&#116;&#40;&#49;&#41;>',
+      });
 
       expect(capturedBody.content).not.toContain('onerror');
       expect(capturedBody.content).not.toContain('alert');
@@ -277,11 +249,7 @@ describe('Input Sanitization Middleware', () => {
       await request(app)
         .post('/test')
         .send({
-          tags: [
-            'safe tag',
-            '<script>alert(1)</script>',
-            '<img src=x onerror="alert(1)">',
-          ],
+          tags: ['safe tag', '<script>alert(1)</script>', '<img src=x onerror="alert(1)">'],
         });
 
       expect(Array.isArray(capturedBody.tags)).toBe(true);
@@ -309,13 +277,7 @@ describe('Input Sanitization Middleware', () => {
       await request(app)
         .post('/test')
         .send({
-          mixed: [
-            'text',
-            42,
-            true,
-            { key: '<script>XSS</script>' },
-            null,
-          ],
+          mixed: ['text', 42, true, { key: '<script>XSS</script>' }, null],
         });
 
       expect(capturedBody.mixed[0]).toBe('text');
@@ -351,24 +313,19 @@ describe('Input Sanitization Middleware', () => {
 
   describe('Request Body Sanitization', () => {
     it('should sanitize request body', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          title: '<script>XSS</script>Product',
-          description: '<img src=x onerror="alert(1)">',
-        });
+      await request(app).post('/test').send({
+        title: '<script>XSS</script>Product',
+        description: '<img src=x onerror="alert(1)">',
+      });
 
       expect(capturedBody.title).not.toContain('<script>');
       expect(capturedBody.description).not.toContain('onerror');
     });
 
     it('should sanitize form-encoded data', async () => {
-      await request(app)
-        .post('/test')
-        .type('form')
-        .send({
-          name: '<script>alert(1)</script>',
-        });
+      await request(app).post('/test').type('form').send({
+        name: '<script>alert(1)</script>',
+      });
 
       expect(capturedBody.name).not.toContain('<script>');
     });
@@ -376,21 +333,17 @@ describe('Input Sanitization Middleware', () => {
 
   describe('Allowed HTML Tags (if applicable)', () => {
     it('should preserve safe text content', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: 'This is safe text without HTML',
-        });
+      await request(app).post('/test').send({
+        content: 'This is safe text without HTML',
+      });
 
       expect(capturedBody.content).toBe('This is safe text without HTML');
     });
 
     it('should preserve text with special characters', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: 'Price: $99.99 & free shipping!',
-        });
+      await request(app).post('/test').send({
+        content: 'Price: $99.99 & free shipping!',
+      });
 
       expect(capturedBody.content).toContain('$99.99');
       expect(capturedBody.content).toContain('&');
@@ -398,11 +351,9 @@ describe('Input Sanitization Middleware', () => {
     });
 
     it('should handle emojis and unicode', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '😀 Hello 世界',
-        });
+      await request(app).post('/test').send({
+        content: '😀 Hello 世界',
+      });
 
       expect(capturedBody.content).toContain('😀');
       expect(capturedBody.content).toContain('世界');
@@ -411,54 +362,44 @@ describe('Input Sanitization Middleware', () => {
 
   describe('Edge Cases', () => {
     it('should handle empty strings', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '',
-        });
+      await request(app).post('/test').send({
+        content: '',
+      });
 
       expect(capturedBody.content).toBe('');
     });
 
     it('should handle undefined values', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          defined: 'value',
-        });
+      await request(app).post('/test').send({
+        defined: 'value',
+      });
 
       expect(capturedBody.undefined).toBeUndefined();
     });
 
     it('should handle null values', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          nullValue: null,
-        });
+      await request(app).post('/test').send({
+        nullValue: null,
+      });
 
       expect(capturedBody.nullValue).toBe(null);
     });
 
     it('should handle numbers', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          count: 42,
-          price: 99.99,
-        });
+      await request(app).post('/test').send({
+        count: 42,
+        price: 99.99,
+      });
 
       expect(capturedBody.count).toBe(42);
       expect(capturedBody.price).toBe(99.99);
     });
 
     it('should handle booleans', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          active: true,
-          deleted: false,
-        });
+      await request(app).post('/test').send({
+        active: true,
+        deleted: false,
+      });
 
       expect(capturedBody.active).toBe(true);
       expect(capturedBody.deleted).toBe(false);
@@ -467,29 +408,23 @@ describe('Input Sanitization Middleware', () => {
     it('should handle very long strings', async () => {
       const longString = '<script>alert(1)</script>'.repeat(100);
 
-      await request(app)
-        .post('/test')
-        .send({
-          content: longString,
-        });
+      await request(app).post('/test').send({
+        content: longString,
+      });
 
       expect(capturedBody.content).not.toContain('<script>');
     });
 
     it('should handle empty objects', async () => {
-      await request(app)
-        .post('/test')
-        .send({});
+      await request(app).post('/test').send({});
 
       expect(capturedBody).toEqual({});
     });
 
     it('should handle empty arrays', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          items: [],
-        });
+      await request(app).post('/test').send({
+        items: [],
+      });
 
       expect(capturedBody.items).toEqual([]);
     });
@@ -497,11 +432,9 @@ describe('Input Sanitization Middleware', () => {
 
   describe('Security - No Bypass', () => {
     it('should not allow XSS through double encoding', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '&lt;script&gt;alert(1)&lt;/script&gt;',
-        });
+      await request(app).post('/test').send({
+        content: '&lt;script&gt;alert(1)&lt;/script&gt;',
+      });
 
       // HTML entities are preserved but won't execute as script
       // The important thing is no actual <script> tags exist
@@ -510,11 +443,9 @@ describe('Input Sanitization Middleware', () => {
     });
 
     it('should not allow XSS through nested encoding', async () => {
-      await request(app)
-        .post('/test')
-        .send({
-          content: '<img src="x" onerror="&#97;&#108;&#101;&#114;&#116;(1)">',
-        });
+      await request(app).post('/test').send({
+        content: '<img src="x" onerror="&#97;&#108;&#101;&#114;&#116;(1)">',
+      });
 
       expect(capturedBody.content).not.toContain('onerror');
     });
@@ -530,9 +461,7 @@ describe('Input Sanitization Middleware', () => {
       ];
 
       for (const { input, checks } of dangerousInputs) {
-        await request(app)
-          .post('/test')
-          .send({ content: input });
+        await request(app).post('/test').send({ content: input });
 
         // Verify dangerous patterns are removed
         for (const check of checks) {

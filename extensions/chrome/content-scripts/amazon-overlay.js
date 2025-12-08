@@ -13,8 +13,9 @@
    * Check if we're on a product page
    */
   function isProductPage() {
-    return window.location.pathname.includes('/dp/') ||
-      window.location.pathname.includes('/gp/product/');
+    return (
+      window.location.pathname.includes('/dp/') || window.location.pathname.includes('/gp/product/')
+    );
   }
 
   /**
@@ -50,12 +51,7 @@
    * Extract product title
    */
   function extractTitle() {
-    const selectors = [
-      '#productTitle',
-      '#title',
-      'h1.product-title',
-      'span#productTitle'
-    ];
+    const selectors = ['#productTitle', '#title', 'h1.product-title', 'span#productTitle'];
 
     for (const selector of selectors) {
       const element = document.querySelector(selector);
@@ -130,17 +126,29 @@
       className: 'pricecompare-header'
     });
 
-    const title = createElement('h3', {
-      className: 'pricecompare-title'
-    }, 'Price History');
+    const title = createElement(
+      'h3',
+      {
+        className: 'pricecompare-title'
+      },
+      'Price History'
+    );
 
-    const badge = createElement('span', {
-      className: 'pricecompare-badge'
-    }, 'PriceCompare');
+    const badge = createElement(
+      'span',
+      {
+        className: 'pricecompare-badge'
+      },
+      'PriceCompare'
+    );
 
-    const closeBtn = createElement('button', {
-      className: 'pricecompare-close'
-    }, '×');
+    const closeBtn = createElement(
+      'button',
+      {
+        className: 'pricecompare-close'
+      },
+      '×'
+    );
 
     closeBtn.addEventListener('click', () => {
       overlay.remove();
@@ -195,7 +203,7 @@
       return '';
     }
 
-    const prices = history.map(h => h.price);
+    const prices = history.map((h) => h.price);
     const currentPrice = prices[prices.length - 1];
     const lowestPrice = Math.min(...prices);
     const highestPrice = Math.max(...prices);
@@ -234,7 +242,7 @@
       return '<p>No price history available.</p>';
     }
 
-    const prices = history.map(h => h.price);
+    const prices = history.map((h) => h.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const range = max - min;
@@ -246,10 +254,10 @@
 
     for (let y = height; y >= 0; y--) {
       let line = '';
-      const threshold = min + (range * y / height);
+      const threshold = min + (range * y) / height;
 
       for (let x = 0; x < width; x++) {
-        const dataIndex = Math.floor(x * history.length / width);
+        const dataIndex = Math.floor((x * history.length) / width);
         const price = prices[dataIndex];
 
         if (price >= threshold) {
@@ -331,7 +339,9 @@
       if (alertBtn) {
         alertBtn.addEventListener('click', async () => {
           const email = document.getElementById('pricecompare-email').value;
-          const targetPrice = parseFloat(document.getElementById('pricecompare-target-price').value);
+          const targetPrice = parseFloat(
+            document.getElementById('pricecompare-target-price').value
+          );
 
           if (!email || !targetPrice) {
             alert('Please enter both email and target price');
@@ -344,7 +354,9 @@
 
             await api.createPriceAlert(productId, targetPrice, email);
             await storage.set('userEmail', email);
-            await storage.updateStats({ alertsCreated: (await storage.getStats()).alertsCreated + 1 });
+            await storage.updateStats({
+              alertsCreated: (await storage.getStats()).alertsCreated + 1
+            });
 
             alert('Price alert created successfully!');
             alertBtn.textContent = 'Alert Created ✓';
@@ -357,8 +369,9 @@
       }
 
       // Update stats
-      await storage.updateStats({ chartsDisplayed: (await storage.getStats()).chartsDisplayed + 1 });
-
+      await storage.updateStats({
+        chartsDisplayed: (await storage.getStats()).chartsDisplayed + 1
+      });
     } catch (error) {
       logError('Failed to render chart', error);
       showError(container, 'Failed to load price data. Please try again later.');

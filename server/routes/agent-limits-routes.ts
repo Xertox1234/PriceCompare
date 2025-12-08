@@ -20,80 +20,94 @@ export function registerAgentLimitsRoutes(app: Express): void {
    * Get current agent query usage statistics
    * Requires authentication
    */
-  app.get('/api/agent-limits/status', withAuth(async (req, res) => {
-    try {
-      const stats = await agentQueryLimiter.getUsageStats();
+  app.get(
+    '/api/agent-limits/status',
+    withAuth(async (req, res) => {
+      try {
+        const stats = await agentQueryLimiter.getUsageStats();
 
-      sendSuccess(res, {
-        ...stats,
-        percentUsed: Math.round((stats.totalUsed / stats.dailyLimit) * 100),
-        resetTimeFormatted: stats.resetTime.toISOString()
-      });
-    } catch (error) {
-      sendErrorFromException(res, error, 'GetAgentLimitStatus');
-    }
-  }));
+        sendSuccess(res, {
+          ...stats,
+          percentUsed: Math.round((stats.totalUsed / stats.dailyLimit) * 100),
+          resetTimeFormatted: stats.resetTime.toISOString(),
+        });
+      } catch (error) {
+        sendErrorFromException(res, error, 'GetAgentLimitStatus');
+      }
+    })
+  );
 
   /**
    * GET /api/agent-limits/remaining
    * Quick check of remaining queries
    * Requires authentication
    */
-  app.get('/api/agent-limits/remaining', withAuth(async (req, res) => {
-    try {
-      const remaining = await agentQueryLimiter.checkRemaining();
-      const limit = agentQueryLimiter.getDailyLimit();
+  app.get(
+    '/api/agent-limits/remaining',
+    withAuth(async (req, res) => {
+      try {
+        const remaining = await agentQueryLimiter.checkRemaining();
+        const limit = agentQueryLimiter.getDailyLimit();
 
-      sendSuccess(res, {
-        remaining,
-        limit,
-        percentRemaining: Math.round((remaining / limit) * 100)
-      });
-    } catch (error) {
-      sendErrorFromException(res, error, 'GetRemainingQueries');
-    }
-  }));
+        sendSuccess(res, {
+          remaining,
+          limit,
+          percentRemaining: Math.round((remaining / limit) * 100),
+        });
+      } catch (error) {
+        sendErrorFromException(res, error, 'GetRemainingQueries');
+      }
+    })
+  );
 
   /**
    * POST /api/agent-limits/reset
    * Reset daily query counter (admin only)
    * Use with caution - mainly for testing or emergency situations
    */
-  app.post('/api/agent-limits/reset', csrfProtection, withAdmin(async (req, res) => {
-    try {
-      await agentQueryLimiter.resetDailyLimit();
+  app.post(
+    '/api/agent-limits/reset',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        await agentQueryLimiter.resetDailyLimit();
 
-      logger.info('Agent query limit reset by admin', {
-        userId: req.user?.id,
-        username: req.user?.username
-      });
+        logger.info('Agent query limit reset by admin', {
+          userId: req.user?.id,
+          username: req.user?.username,
+        });
 
-      sendSuccess(res, {
-        message: 'Daily agent query limit has been reset'
-      });
-    } catch (error) {
-      sendErrorFromException(res, error, 'ResetAgentLimit');
-    }
-  }));
+        sendSuccess(res, {
+          message: 'Daily agent query limit has been reset',
+        });
+      } catch (error) {
+        sendErrorFromException(res, error, 'ResetAgentLimit');
+      }
+    })
+  );
 
   /**
    * GET /api/agent-limits/config
    * Get limit configuration (admin only)
    */
-  app.get('/api/agent-limits/config', withAdmin(async (req, res) => {
-    try {
-      const limit = agentQueryLimiter.getDailyLimit();
-      const configuredLimit = process.env.AGENT_DAILY_QUERY_LIMIT || '100 (default)';
+  app.get(
+    '/api/agent-limits/config',
+    withAdmin((req, res) => {
+      try {
+        const limit = agentQueryLimiter.getDailyLimit();
+        const configuredLimit = process.env.AGENT_DAILY_QUERY_LIMIT || '100 (default)';
 
-      sendSuccess(res, {
-        dailyLimit: limit,
-        configuredValue: configuredLimit,
-        envVariable: 'AGENT_DAILY_QUERY_LIMIT',
-        description: 'Maximum number of AI agent queries allowed per day (Google Search, OpenAI, etc.)',
-        resetSchedule: 'Midnight UTC daily'
-      });
-    } catch (error) {
-      sendErrorFromException(res, error, 'GetAgentLimitConfig');
-    }
-  }));
+        sendSuccess(res, {
+          dailyLimit: limit,
+          configuredValue: configuredLimit,
+          envVariable: 'AGENT_DAILY_QUERY_LIMIT',
+          description:
+            'Maximum number of AI agent queries allowed per day (Google Search, OpenAI, etc.)',
+          resetSchedule: 'Midnight UTC daily',
+        });
+      } catch (error) {
+        sendErrorFromException(res, error, 'GetAgentLimitConfig');
+      }
+    })
+  );
 }

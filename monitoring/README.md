@@ -32,12 +32,14 @@ monitoring/
 ## Configuration Files
 
 ### prometheus.yml
+
 - Scrapes metrics from `/api/aggregation-metrics/prometheus` every 15s
 - Evaluates alert rules every 15s
 - Retains metrics for 30 days
 - Sends alerts to AlertManager
 
 ### alertmanager.yml
+
 - Routes alerts based on severity and component
 - Sends notifications via Email and Slack
 - Groups alerts to reduce noise
@@ -46,6 +48,7 @@ monitoring/
 **IMPORTANT**: Update SMTP and Slack credentials before production use!
 
 ### aggregation-alerts.yml
+
 - 12+ alert rules covering:
   - Success rate monitoring
   - Performance degradation
@@ -59,6 +62,7 @@ monitoring/
 Before deploying to production, configure these in `alertmanager.yml`:
 
 1. **Email (SMTP)**:
+
    ```yaml
    smtp_smarthost: 'smtp.gmail.com:587'
    smtp_auth_username: 'your-email@example.com'
@@ -66,6 +70,7 @@ Before deploying to production, configure these in `alertmanager.yml`:
    ```
 
 2. **Slack**:
+
    ```yaml
    slack_api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK'
    ```
@@ -89,6 +94,7 @@ Before deploying to production, configure these in `alertmanager.yml`:
 ## Testing
 
 ### Test Alert Rules
+
 ```bash
 # Verify Prometheus loaded alerts
 curl http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[].name'
@@ -98,6 +104,7 @@ curl http://localhost:9090/api/v1/alerts
 ```
 
 ### Test Notifications
+
 ```bash
 # Send test alert to AlertManager
 curl -X POST http://localhost:9093/api/v1/alerts \
@@ -134,6 +141,7 @@ docker exec -it pricecompare-alertmanager amtool check-config /etc/alertmanager/
 ## Documentation
 
 See `/docs/PROMETHEUS_SETUP.md` for complete documentation including:
+
 - Architecture overview
 - Alert rule details and runbooks
 - Customization guide
@@ -172,6 +180,7 @@ Before deploying to production:
 ## Support
 
 For issues or questions:
+
 - Application metrics: Check `/api/aggregation-metrics/*` endpoints
 - Prometheus issues: Review Prometheus logs and targets page
 - Alert issues: Check AlertManager UI and logs

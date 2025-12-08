@@ -28,9 +28,7 @@ interface FlashDealsSectionProps {
  * - Displays flash deal products using ProductDealCard with variant="flash"
  * - Urgency messaging for time-limited offers
  */
-export const FlashDealsSection = memo(({
-  className,
-}: FlashDealsSectionProps) => {
+export const FlashDealsSection = memo(({ className }: FlashDealsSectionProps) => {
   const flashDeals = getFlashDeals();
 
   // Handle view deal action
@@ -55,9 +53,9 @@ export const FlashDealsSection = memo(({
       {/* Urgency background accent */}
       <div
         className={cn(
-          'absolute inset-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-6 -my-6 rounded-xl',
-          'bg-gradient-to-r from-destructive/5 via-orange-500/5 to-destructive/5',
-          'border border-destructive/10'
+          'absolute inset-0 -mx-4 -my-6 rounded-xl px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8',
+          'from-destructive/5 to-destructive/5 bg-gradient-to-r via-orange-500/5',
+          'border-destructive/10 border'
         )}
         aria-hidden="true"
       />
@@ -65,23 +63,21 @@ export const FlashDealsSection = memo(({
       {/* Content container with relative positioning */}
       <div className="relative">
         {/* Urgency banner */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="mb-2 flex items-center gap-2">
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full',
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-1',
               'bg-destructive text-destructive-foreground text-xs font-bold',
               'animate-pulse'
             )}
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive-foreground opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive-foreground" />
+              <span className="bg-destructive-foreground absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+              <span className="bg-destructive-foreground relative inline-flex h-2 w-2 rounded-full" />
             </span>
             LIVE NOW
           </span>
-          <span className="text-sm font-medium text-destructive">
-            Ends Soon!
-          </span>
+          <span className="text-destructive text-sm font-medium">Ends Soon!</span>
         </div>
 
         <ProductCarousel

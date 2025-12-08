@@ -87,11 +87,11 @@ class ExtensionStorage {
   async addRecentProduct(product) {
     try {
       const recent = await this.getRecentProducts(50);
-      const filtered = recent.filter(p => p.id !== product.id);
-      const updated = [
-        { ...product, viewedAt: new Date().toISOString() },
-        ...filtered
-      ].slice(0, 50);
+      const filtered = recent.filter((p) => p.id !== product.id);
+      const updated = [{ ...product, viewedAt: new Date().toISOString() }, ...filtered].slice(
+        0,
+        50
+      );
       await chrome.storage.local.set({ recentProducts: updated });
     } catch (error) {
       console.error('Failed to add recent product', error);
@@ -101,12 +101,14 @@ class ExtensionStorage {
   async getStats() {
     try {
       const result = await chrome.storage.local.get(['stats']);
-      return result.stats || {
-        productsViewed: 0,
-        chartsDisplayed: 0,
-        alertsCreated: 0,
-        lastUsed: null
-      };
+      return (
+        result.stats || {
+          productsViewed: 0,
+          chartsDisplayed: 0,
+          alertsCreated: 0,
+          lastUsed: null
+        }
+      );
     } catch (error) {
       console.error('Failed to get stats', error);
       return {
@@ -403,7 +405,7 @@ describe('ExtensionStorage', () => {
       const firstTimestamp = stats1.lastUsed;
 
       // Wait a bit
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       await storage.updateStats({ chartsDisplayed: 1 });
 

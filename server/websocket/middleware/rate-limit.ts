@@ -110,10 +110,7 @@ export async function checkRateLimit(
  *
  * Useful for testing or administrative resets
  */
-export async function clearRateLimit(
-  eventType: string,
-  userId: number
-): Promise<void> {
+export async function clearRateLimit(eventType: string, userId: number): Promise<void> {
   const key = `ws:ratelimit:${eventType}:${userId}`;
   const redisClient = getRedisClient();
 
@@ -139,10 +136,7 @@ export async function clearRateLimit(
  *
  * Useful for monitoring and debugging
  */
-export async function getRateLimitCount(
-  eventType: string,
-  userId: number
-): Promise<number> {
+export async function getRateLimitCount(eventType: string, userId: number): Promise<number> {
   const key = `ws:ratelimit:${eventType}:${userId}`;
   const redisClient = getRedisClient();
 

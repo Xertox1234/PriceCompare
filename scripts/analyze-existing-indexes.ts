@@ -8,10 +8,14 @@ async function analyzeIndexes() {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
-                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+  const isNeonDatabase =
+    process.env.DATABASE_URL?.includes('neon.tech') ||
+    process.env.DATABASE_URL?.includes('.pooler.neon.tech');
 
-  type PoolClient = { query: (text: string) => Promise<{ rows: Array<Record<string, unknown>> }>; end: () => Promise<void> };
+  type PoolClient = {
+    query: (text: string) => Promise<{ rows: Array<Record<string, unknown>> }>;
+    end: () => Promise<void>;
+  };
   let pool: PoolClient;
 
   if (isNeonDatabase) {
@@ -49,7 +53,6 @@ async function analyzeIndexes() {
       console.log(`Definition: ${row.indexdef}`);
       console.log('---');
     }
-
   } catch (error) {
     console.error('❌ Analysis failed:', error);
     throw error;
@@ -58,7 +61,7 @@ async function analyzeIndexes() {
   }
 }
 
-analyzeIndexes().catch(error => {
+analyzeIndexes().catch((error) => {
   console.error(error);
   process.exit(1);
 });

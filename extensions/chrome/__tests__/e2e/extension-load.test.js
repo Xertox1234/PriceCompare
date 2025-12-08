@@ -1,4 +1,4 @@
-import "../setup.js";
+import '../setup.js';
 
 /**
  * E2E Tests for PriceCompare Extension
@@ -140,7 +140,6 @@ describe('Extension E2E Tests', () => {
       // 2. Verify popup content loads
       // 3. Use Playwright locators to interact with elements
       // 4. Verify functionality with expect() assertions
-
       // Placeholder for manual testing checklist:
       // - [ ] Extension icon appears in toolbar
       // - [ ] Clicking icon opens popup

@@ -13,19 +13,19 @@
  */
 
 // Re-export the IStorage interface (will be assembled from domain interfaces in later phases)
-export type { IStorage } from "../storage";
+export type { IStorage } from '../storage';
 
 // Re-export all type definitions from the new centralized types module
-export * from "./types";
+export * from './types';
 
 // Re-export the base storage class for domain repositories (Phase 2+)
-export { BaseStorage } from "./base-storage";
+export { BaseStorage } from './base-storage';
 
 // For now, re-export the storage implementation from parent
 // In future phases, this will be replaced with:
 // export const storage = new DatabaseStorage(db);
 // where DatabaseStorage composes domain repositories
-export { storage } from "../storage";
+export { storage } from '../storage';
 
 /**
  * Phase 2+ Domain Extraction Roadmap (11 Domain Repositories):

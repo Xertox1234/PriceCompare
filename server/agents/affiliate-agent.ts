@@ -57,7 +57,7 @@ export class AffiliateLinkAgent extends BaseAgent {
       type: 'affiliate',
       maxConcurrentTasks: 5,
       retryAttempts: 2,
-      retryDelay: 1000
+      retryDelay: 1000,
     };
 
     super(config);
@@ -84,7 +84,9 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Generate affiliate links for offers without them
    */
-  private async generateAffiliateLinks(params: Record<string, unknown>): Promise<GenerateLinksResult> {
+  private async generateAffiliateLinks(
+    params: Record<string, unknown>
+  ): Promise<GenerateLinksResult> {
     const limit = typeof params.limit === 'number' ? params.limit : 50;
     const retailerId = typeof params.retailerId === 'number' ? params.retailerId : undefined;
 
@@ -96,7 +98,8 @@ export class AffiliateLinkAgent extends BaseAgent {
         whereConditions.push(eq(productOffers.retailerId, retailerId));
       }
 
-      const query = db.select()
+      const query = db
+        .select()
         .from(productOffers)
         .where(and(...whereConditions))
         .limit(limit);
@@ -106,35 +109,30 @@ export class AffiliateLinkAgent extends BaseAgent {
 
       for (const offer of offers) {
         const taskId = `affiliate_${offer.id}`;
-        
-        const result = await this.executeTask(
-          taskId,
-          () => this.processOfferAffiliateLink(offer),
-          {
-            jobType: 'affiliate_generation',
-            targetData: JSON.stringify({ offerId: offer.id, retailerId: offer.retailerId })
-          }
-        );
+
+        const result = await this.executeTask(taskId, () => this.processOfferAffiliateLink(offer), {
+          jobType: 'affiliate_generation',
+          targetData: JSON.stringify({ offerId: offer.id, retailerId: offer.retailerId }),
+        });
 
         const resultData = result.data as ProcessOfferResult | undefined;
         results.push({
           offerId: offer.id,
           success: result.success,
           affiliateUrl: resultData?.affiliateUrl,
-          error: result.error
+          error: result.error,
         });
       }
 
       return {
         processed: results.length,
-        successful: results.filter(r => r.success).length,
-        failed: results.filter(r => !r.success).length,
-        results
+        successful: results.filter((r) => r.success).length,
+        failed: results.filter((r) => !r.success).length,
+        results,
       };
-
     } catch (error) {
       logger.error('Affiliate link generation failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -156,7 +154,7 @@ export class AffiliateLinkAgent extends BaseAgent {
     if (linkResult.success && linkResult.affiliateUrl) {
       // Validate the generated link
       const isHealthy = await affiliateLinkService.validateAffiliateLink(linkResult.affiliateUrl);
-      
+
       // Update the offer
       await affiliateLinkService.updateOfferWithAffiliateLink(
         offer.id,
@@ -167,7 +165,7 @@ export class AffiliateLinkAgent extends BaseAgent {
       return {
         affiliateUrl: linkResult.affiliateUrl,
         isHealthy,
-        originalUrl: offer.productUrl
+        originalUrl: offer.productUrl,
       };
     }
 
@@ -177,7 +175,9 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Health check existing affiliate links
    */
-  private async healthCheckLinks(params: LinkHealthCheckTask): Promise<HealthCheckResult | SingleHealthCheckResult> {
+  private async healthCheckLinks(
+    params: LinkHealthCheckTask
+  ): Promise<HealthCheckResult | SingleHealthCheckResult> {
     try {
       if (params.offerId) {
         return await this.healthCheckSingleOffer(params.offerId);
@@ -189,7 +189,8 @@ export class AffiliateLinkAgent extends BaseAgent {
 
       // Health check all links older than 24 hours
       const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const staleOffers = await db.select()
+      const staleOffers = await db
+        .select()
         .from(productOffers)
         .where(
           and(
@@ -205,15 +206,11 @@ export class AffiliateLinkAgent extends BaseAgent {
       for (const offer of staleOffers) {
         if (offer.affiliateUrl) {
           const taskId = `health_${offer.id}`;
-          
-          const result = await this.executeTask(
-            taskId,
-            () => this.checkOfferLinkHealth(offer),
-            {
-              jobType: 'link_health_check',
-              targetData: JSON.stringify({ offerId: offer.id })
-            }
-          );
+
+          const result = await this.executeTask(taskId, () => this.checkOfferLinkHealth(offer), {
+            jobType: 'link_health_check',
+            targetData: JSON.stringify({ offerId: offer.id }),
+          });
 
           const healthData = result.data as { isHealthy: boolean } | undefined;
           if (result.success && healthData?.isHealthy) {
@@ -227,12 +224,11 @@ export class AffiliateLinkAgent extends BaseAgent {
       return {
         total: staleOffers.length,
         healthy,
-        broken
+        broken,
       };
-
     } catch (error) {
       logger.error('Link health check failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -242,7 +238,8 @@ export class AffiliateLinkAgent extends BaseAgent {
    * Health check a single offer's affiliate link
    */
   private async healthCheckSingleOffer(offerId: number): Promise<SingleHealthCheckResult> {
-    const [offer] = await db.select()
+    const [offer] = await db
+      .select()
       .from(productOffers)
       .where(eq(productOffers.id, offerId))
       .limit(1);
@@ -252,12 +249,8 @@ export class AffiliateLinkAgent extends BaseAgent {
     }
 
     const isHealthy = await affiliateLinkService.validateAffiliateLink(offer.affiliateUrl);
-    
-    await affiliateLinkService.updateOfferWithAffiliateLink(
-      offerId,
-      offer.affiliateUrl,
-      isHealthy
-    );
+
+    await affiliateLinkService.updateOfferWithAffiliateLink(offerId, offer.affiliateUrl, isHealthy);
 
     return { isHealthy, affiliateUrl: offer.affiliateUrl };
   }
@@ -271,7 +264,7 @@ export class AffiliateLinkAgent extends BaseAgent {
     }
 
     const isHealthy = await affiliateLinkService.validateAffiliateLink(offer.affiliateUrl);
-    
+
     await affiliateLinkService.updateOfferWithAffiliateLink(
       offer.id,
       offer.affiliateUrl,
@@ -284,10 +277,13 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Update affiliate link for a single offer
    */
-  private async updateSingleOffer(params: AffiliateLinkTask): Promise<UpdateOfferResult | ProcessOfferResult> {
+  private async updateSingleOffer(
+    params: AffiliateLinkTask
+  ): Promise<UpdateOfferResult | ProcessOfferResult> {
     const { offerId, retailerId: _retailerId, productUrl: _productUrl, forceRegenerate } = params;
 
-    const [offer] = await db.select()
+    const [offer] = await db
+      .select()
       .from(productOffers)
       .where(eq(productOffers.id, offerId))
       .limit(1);
@@ -298,10 +294,10 @@ export class AffiliateLinkAgent extends BaseAgent {
 
     // Skip if affiliate link exists and not forcing regeneration
     if (offer.affiliateUrl && !forceRegenerate) {
-      return { 
-        skipped: true, 
+      return {
+        skipped: true,
         reason: 'Affiliate link already exists',
-        affiliateUrl: offer.affiliateUrl 
+        affiliateUrl: offer.affiliateUrl,
       };
     }
 
@@ -315,7 +311,8 @@ export class AffiliateLinkAgent extends BaseAgent {
     const { retailerId } = params;
 
     // Verify retailer has affiliate configuration
-    const [retailer] = await db.select()
+    const [retailer] = await db
+      .select()
       .from(retailers)
       .where(eq(retailers.id, retailerId))
       .limit(1);
@@ -335,33 +332,39 @@ export class AffiliateLinkAgent extends BaseAgent {
   /**
    * Schedule periodic affiliate link maintenance
    */
-  async scheduleMaintenance(): Promise<void> {
+  scheduleMaintenance(): void {
     // Health check links every 6 hours
-    const healthCheckInterval = setInterval(() => {
-      void (async () => {
-        try {
-          await this.processTask({ action: 'health_check_links' });
-        } catch (error) {
-          logger.error('Scheduled health check failed', {
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      })();
-    }, 6 * 60 * 60 * 1000);
+    const healthCheckInterval = setInterval(
+      () => {
+        void (async () => {
+          try {
+            await this.processTask({ action: 'health_check_links' });
+          } catch (error) {
+            logger.error('Scheduled health check failed', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        })();
+      },
+      6 * 60 * 60 * 1000
+    );
     cleanupManager.addInterval('affiliate-health-check', healthCheckInterval);
 
     // Generate missing affiliate links every hour
-    const affiliateGenInterval = setInterval(() => {
-      void (async () => {
-        try {
-          await this.processTask({ action: 'generate_affiliate_links', limit: 25 });
-        } catch (error) {
-          logger.error('Scheduled affiliate generation failed', {
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      })();
-    }, 60 * 60 * 1000);
+    const affiliateGenInterval = setInterval(
+      () => {
+        void (async () => {
+          try {
+            await this.processTask({ action: 'generate_affiliate_links', limit: 25 });
+          } catch (error) {
+            logger.error('Scheduled affiliate generation failed', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        })();
+      },
+      60 * 60 * 1000
+    );
     cleanupManager.addInterval('affiliate-generation', affiliateGenInterval);
   }
 
@@ -374,12 +377,14 @@ export class AffiliateLinkAgent extends BaseAgent {
       const baseStatus = this.getStatus();
 
       // Transform AffiliateLinkStats from storage to AffiliateStats.links format
-      const links = dbStats ? {
-        total: dbStats.total_offers,
-        active: dbStats.affiliate_offers,
-        broken: dbStats.broken_links,
-        byRetailer: {} as Record<string, number>, // TODO: Add retailer breakdown
-      } : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
+      const links = dbStats
+        ? {
+            total: dbStats.total_offers,
+            active: dbStats.affiliate_offers,
+            broken: dbStats.broken_links,
+            byRetailer: {} as Record<string, number>, // TODO: Add retailer breakdown
+          }
+        : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
 
       return {
         agent: {
@@ -389,11 +394,11 @@ export class AffiliateLinkAgent extends BaseAgent {
           errorCount: 0, // Not tracked in base status
         },
         links,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
       logger.error('Failed to get affiliate agent stats', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     }

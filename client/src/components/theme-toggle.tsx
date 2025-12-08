@@ -11,21 +11,21 @@ import {
 import { useTheme } from './theme-provider';
 
 export function ThemeToggle() {
-  const { theme, contrastMode, setTheme, setContrastMode, resolvedTheme: _resolvedTheme } = useTheme();
+  const {
+    theme,
+    contrastMode,
+    setTheme,
+    setContrastMode,
+    resolvedTheme: _resolvedTheme,
+  } = useTheme();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="relative gap-1"
-        >
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          {contrastMode === 'high' && (
-            <Contrast className="h-3 w-3 text-primary" />
-          )}
+        <Button variant="ghost" size="sm" className="relative gap-1">
+          <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+          <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+          {contrastMode === 'high' && <Contrast className="text-primary h-3 w-3" />}
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
@@ -76,14 +76,9 @@ export function ThemeToggleSimple() {
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={toggleTheme}
-      className="relative"
-    >
-      <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+    <Button variant="ghost" size="sm" onClick={toggleTheme} className="relative">
+      <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+      <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
       <span className="sr-only">Toggle theme</span>
     </Button>
   );

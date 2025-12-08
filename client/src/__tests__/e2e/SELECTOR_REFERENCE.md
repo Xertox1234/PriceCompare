@@ -3,78 +3,83 @@
 ## Your PriceCompare UI Selectors
 
 ### Authentication
+
 ```typescript
 // Open modals
-page.getByRole('button', { name: 'Sign In' }).first().click()
-page.getByRole('button', { name: 'Sign Up' }).first().click()
+page.getByRole('button', { name: 'Sign In' }).first().click();
+page.getByRole('button', { name: 'Sign Up' }).first().click();
 
 // Login form
-page.locator('#email').fill('user@example.com')
-page.locator('#password').fill('password123')
-page.getByRole('button', { name: 'Sign In' }).click()
+page.locator('#email').fill('user@example.com');
+page.locator('#password').fill('password123');
+page.getByRole('button', { name: 'Sign In' }).click();
 
 // Register form
-page.locator('#username').fill('username')
-page.locator('#email').fill('email@example.com')
-page.locator('#password').fill('password')
-page.locator('#confirmPassword').fill('password')
-page.getByRole('button', { name: 'Create Account' }).click()
+page.locator('#username').fill('username');
+page.locator('#email').fill('email@example.com');
+page.locator('#password').fill('password');
+page.locator('#confirmPassword').fill('password');
+page.getByRole('button', { name: 'Create Account' }).click();
 
 // Check if logged in
-page.getByRole('button', { name: 'Sign out' })
+page.getByRole('button', { name: 'Sign out' });
 ```
 
 ### Navigation
+
 ```typescript
 // Main navigation
-page.getByRole('link', { name: 'Home' })
-page.getByRole('link', { name: 'Products' })
+page.getByRole('link', { name: 'Home' });
+page.getByRole('link', { name: 'Products' });
 
 // Brand
-page.getByText('PriceCompare')
+page.getByText('PriceCompare');
 ```
 
 ### Search
+
 ```typescript
 // Hero search (homepage)
-page.getByPlaceholder('What are you looking for?')
+page.getByPlaceholder('What are you looking for?');
 
 // Enhanced search (products page)
-page.getByPlaceholder(/Search for products to compare prices/i)
+page.getByPlaceholder(/Search for products to compare prices/i);
 
 // Perform search
-const search = page.getByPlaceholder('What are you looking for?')
-await search.fill('laptop')
-await search.press('Enter')
+const search = page.getByPlaceholder('What are you looking for?');
+await search.fill('laptop');
+await search.press('Enter');
 ```
 
 ### Products
+
 ```typescript
 // Products grid
-page.locator('section[aria-label="Product comparison results"]')
+page.locator('section[aria-label="Product comparison results"]');
 
 // Empty state
-page.getByText(/No products found|Try adjusting/i)
+page.getByText(/No products found|Try adjusting/i);
 
 // Results heading
-page.getByRole('heading', { name: /Results for|Featured Products/i })
+page.getByRole('heading', { name: /Results for|Featured Products/i });
 ```
 
 ### Common Patterns
+
 ```typescript
 // Wait for page to load
-await page.waitForLoadState('networkidle')
+await page.waitForLoadState('networkidle');
 
 // Check URL
-await expect(page).toHaveURL(/\/products/)
+await expect(page).toHaveURL(/\/products/);
 
 // Check for errors in console
 page.on('console', (msg) => {
-  if (msg.type() === 'error') console.log(msg.text())
-})
+  if (msg.type() === 'error') console.log(msg.text());
+});
 
 // Take screenshot
-await page.screenshot({ path: 'screenshot.png' })
+await page.screenshot({ path: 'screenshot.png' });
 ```
 
 ## Playwright UI Mode Commands
@@ -96,6 +101,7 @@ npm run test:e2e:debug    # Pause and inspect
 ## Best Practices
 
 ✅ **DO**:
+
 - Use `getByRole()` for accessibility
 - Use `getByLabel()` for form fields
 - Use `data-testid` for complex components
@@ -103,6 +109,7 @@ npm run test:e2e:debug    # Pause and inspect
 - Use `.first()` when multiple elements match
 
 ❌ **DON'T**:
+
 - Use CSS selectors like `.class-name`
 - Use XPath unless necessary
 - Use `page.waitForTimeout()` (flaky)

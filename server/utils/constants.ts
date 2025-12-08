@@ -22,12 +22,12 @@ export const PASSWORD = {
  * Cache duration constants (in seconds)
  */
 export const CACHE_DURATION = {
-  SHORT: 60,                  // 1 minute
-  MEDIUM: 180,                // 3 minutes
-  LONG: 300,                  // 5 minutes
-  VERY_LONG: 600,             // 10 minutes
-  HOUR: 3600,                 // 1 hour
-  DAY: 86400,                 // 24 hours
+  SHORT: 60, // 1 minute
+  MEDIUM: 180, // 3 minutes
+  LONG: 300, // 5 minutes
+  VERY_LONG: 600, // 10 minutes
+  HOUR: 3600, // 1 hour
+  DAY: 86400, // 24 hours
 } as const;
 
 /**
@@ -44,9 +44,9 @@ export const PAGINATION = {
  * Rate limiting constants
  */
 export const RATE_LIMIT = {
-  WINDOW_MS: 15 * 60 * 1000,  // 15 minutes
-  MAX_REQUESTS: 100,           // per window
-  AUTH_MAX_REQUESTS: process.env.NODE_ENV === 'production' ? 5 : 50,  // for auth endpoints (lenient in dev)
+  WINDOW_MS: 15 * 60 * 1000, // 15 minutes
+  MAX_REQUESTS: 100, // per window
+  AUTH_MAX_REQUESTS: process.env.NODE_ENV === 'production' ? 5 : 50, // for auth endpoints (lenient in dev)
   SKIP_SUCCESSFUL_REQUESTS: false,
 } as const;
 
@@ -69,15 +69,15 @@ export const RATE_LIMIT_TIERS = {
  */
 export const WATCHLIST_RATE_LIMITS = {
   CREATE: {
-    windowMs: 60 * 1000,  // 1 minute
+    windowMs: 60 * 1000, // 1 minute
     maxRequests: 10,
-    message: 'Too many watch list creation attempts. Please try again later.'
+    message: 'Too many watch list creation attempts. Please try again later.',
   },
   PRODUCT_ADD: {
-    windowMs: 60 * 1000,  // 1 minute
+    windowMs: 60 * 1000, // 1 minute
     maxRequests: 30,
-    message: 'Too many product add attempts. Please try again later.'
-  }
+    message: 'Too many product add attempts. Please try again later.',
+  },
 } as const;
 
 /**
@@ -127,7 +127,7 @@ export const TRUST_LEVEL = {
  */
 export const PRICE_ALERT = {
   DEFAULT_THRESHOLD_PERCENT: 10,
-  DEFAULT_THRESHOLD_AMOUNT: 5.00,
+  DEFAULT_THRESHOLD_AMOUNT: 5.0,
   MAX_ALERTS_PER_USER: 50,
 } as const;
 

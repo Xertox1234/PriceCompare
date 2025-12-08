@@ -3,17 +3,14 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAlertAnalytics, useAlertEffectiveness, usePredictiveAlerts, PredictiveAlert, AlertEffectiveness } from '@/hooks/use-smart-alerts';
 import {
-  Bell,
-  TrendingDown,
-  DollarSign,
-  Clock,
-  Target,
-  Award,
-  Sparkles,
-  Info,
-} from 'lucide-react';
+  useAlertAnalytics,
+  useAlertEffectiveness,
+  usePredictiveAlerts,
+  PredictiveAlert,
+  AlertEffectiveness,
+} from '@/hooks/use-smart-alerts';
+import { Bell, TrendingDown, DollarSign, Clock, Target, Award, Sparkles, Info } from 'lucide-react';
 
 export function AlertManagementDashboard() {
   const { data: analytics, isLoading: analyticsLoading } = useAlertAnalytics();
@@ -24,7 +21,7 @@ export function AlertManagementDashboard() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-32 w-full" />
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-48 w-full" />
@@ -38,14 +35,16 @@ export function AlertManagementDashboard() {
   return (
     <div className="space-y-6">
       {/* Overview Stats */}
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Alerts</CardTitle>
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              Total Alerts
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-muted-foreground" />
+              <Bell className="text-muted-foreground h-5 w-5" />
               <span className="text-3xl font-bold">{stats?.totalAlerts || 0}</span>
             </div>
           </CardContent>
@@ -53,35 +52,41 @@ export function AlertManagementDashboard() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Active Alerts</CardTitle>
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              Active Alerts
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              <span className="text-3xl font-bold text-primary">{stats?.activeAlerts || 0}</span>
+              <Target className="text-primary h-5 w-5" />
+              <span className="text-primary text-3xl font-bold">{stats?.activeAlerts || 0}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Triggered</CardTitle>
+            <CardTitle className="text-muted-foreground text-sm font-medium">Triggered</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-green-600" />
-              <span className="text-3xl font-bold text-green-600">{stats?.triggeredAlerts || 0}</span>
+              <Award className="h-5 w-5 text-green-600" />
+              <span className="text-3xl font-bold text-green-600">
+                {stats?.triggeredAlerts || 0}
+              </span>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Savings</CardTitle>
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              Total Savings
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-emerald-600" />
+              <DollarSign className="h-5 w-5 text-emerald-600" />
               <span className="text-3xl font-bold text-emerald-600">
                 ${(stats?.totalSavings || 0).toFixed(2)}
               </span>
@@ -95,7 +100,7 @@ export function AlertManagementDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
+              <Sparkles className="text-primary h-5 w-5" />
               Predictive Insights
             </CardTitle>
             <CardDescription>AI-powered predictions for your watched products</CardDescription>
@@ -113,7 +118,7 @@ export function AlertManagementDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
+              <Clock className="h-5 w-5" />
               Alert Performance
             </CardTitle>
             <CardDescription>How quickly your alerts get triggered</CardDescription>
@@ -121,7 +126,7 @@ export function AlertManagementDashboard() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Average Time to Trigger</span>
+                <span className="text-muted-foreground text-sm">Average Time to Trigger</span>
                 <span className="text-2xl font-bold">{stats.averageTimeToTrigger} days</span>
               </div>
 
@@ -151,7 +156,7 @@ export function AlertManagementDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-amber-600" />
+              <Award className="h-5 w-5 text-amber-600" />
               Most Effective Alerts
             </CardTitle>
             <CardDescription>Your best-performing price alerts</CardDescription>
@@ -206,10 +211,10 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
   const Icon = config.icon;
 
   return (
-    <div className={`p-4 rounded-lg border-2 ${config.bgColor}`}>
-      <div className="flex items-start justify-between mb-2">
+    <div className={`rounded-lg border-2 p-4 ${config.bgColor}`}>
+      <div className="mb-2 flex items-start justify-between">
         <div className="flex items-center gap-2">
-          <Icon className={`w-5 h-5 ${config.color}`} />
+          <Icon className={`h-5 w-5 ${config.color}`} />
           <h3 className="font-semibold">{config.title}</h3>
         </div>
         <Badge variant="outline" className="text-xs">
@@ -217,8 +222,8 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
         </Badge>
       </div>
 
-      <p className="font-medium text-sm mb-1">{alert.productName}</p>
-      <p className="text-sm text-muted-foreground mb-2">{alert.reason}</p>
+      <p className="mb-1 text-sm font-medium">{alert.productName}</p>
+      <p className="text-muted-foreground mb-2 text-sm">{alert.reason}</p>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
@@ -232,8 +237,8 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
       </div>
 
       {alert.predictedPrice && (
-        <div className="mt-2 pt-2 border-t">
-          <span className="text-xs text-muted-foreground">Predicted Price: </span>
+        <div className="mt-2 border-t pt-2">
+          <span className="text-muted-foreground text-xs">Predicted Price: </span>
           <span className="text-sm font-semibold text-green-600">
             ${alert.predictedPrice.toFixed(2)}
           </span>
@@ -252,15 +257,13 @@ function EffectivenessCard({ alert }: { alert: AlertEffectiveness }) {
   } as const;
 
   return (
-    <div className="p-3 rounded-lg border bg-card">
-      <div className="flex items-center justify-between mb-2">
+    <div className="bg-card rounded-lg border p-3">
+      <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Target className="w-4 h-4 text-muted-foreground" />
+          <Target className="text-muted-foreground h-4 w-4" />
           <span className="font-medium">${alert.targetPrice.toFixed(2)}</span>
         </div>
-        <Badge className={effectivenessColor[alert.effectiveness]}>
-          {alert.effectiveness}
-        </Badge>
+        <Badge className={effectivenessColor[alert.effectiveness]}>{alert.effectiveness}</Badge>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-xs">
@@ -279,7 +282,7 @@ function EffectivenessCard({ alert }: { alert: AlertEffectiveness }) {
       </div>
 
       {alert.lastTriggeredAt && (
-        <p className="text-xs text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-2 text-xs">
           Last triggered: {alert.daysSinceLastTrigger} days ago
         </p>
       )}

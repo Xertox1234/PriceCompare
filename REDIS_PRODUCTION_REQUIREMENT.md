@@ -52,6 +52,7 @@ Production deployments require Redis for:
 ### Test 1: Development Mode Without Redis
 
 **Setup:**
+
 ```bash
 # Ensure Redis is NOT running
 redis-cli ping  # Should fail
@@ -64,6 +65,7 @@ export NODE_ENV=development
 ```
 
 **Expected Behavior:**
+
 ```
 ✅ Environment validation passed
 ⚠️  Redis not available, falling back to in-memory storage
@@ -83,6 +85,7 @@ Rate limiting using: in-memory (single server)
 ```
 
 **Test Steps:**
+
 1. Start server: `npm run dev`
 2. Verify server starts with warnings
 3. Test authentication endpoints (sessions will work but not persist)
@@ -91,6 +94,7 @@ Rate limiting using: in-memory (single server)
 6. Verify functionality degrades gracefully
 
 **Success Criteria:**
+
 - ✅ Server starts successfully
 - ✅ Multiple prominent warnings displayed
 - ✅ Sessions work but don't persist across restarts
@@ -102,6 +106,7 @@ Rate limiting using: in-memory (single server)
 ### Test 2: Production Mode Without Redis (Should Fail)
 
 **Setup:**
+
 ```bash
 # Ensure Redis is NOT running
 redis-cli ping  # Should fail
@@ -121,6 +126,7 @@ export DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ```
 
 **Expected Behavior:**
+
 ```
 🔍 Validating environment configuration...
 ❌ CRITICAL: REDIS_URL is not set (Redis connection URL (required in production for distributed features))
@@ -145,12 +151,14 @@ Process exits with code 1
 ```
 
 **Test Steps:**
+
 1. Attempt to start server: `npm start` (or `node dist/index.js`)
 2. Verify server exits immediately
 3. Check exit code is 1
 4. Verify clear error message
 
 **Success Criteria:**
+
 - ✅ Server fails to start
 - ✅ Exit code is 1
 - ✅ Clear error message about missing REDIS_URL
@@ -162,6 +170,7 @@ Process exits with code 1
 ### Test 3: Production Mode With Invalid Redis URL (Should Fail)
 
 **Setup:**
+
 ```bash
 # Set invalid Redis URL
 export REDIS_URL="redis://invalid-host:6379"
@@ -178,6 +187,7 @@ export DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ```
 
 **Expected Behavior:**
+
 ```
 🔍 Validating environment configuration...
 ✅ REDIS_URL is set (production requirement)
@@ -201,12 +211,14 @@ Process exits with code 1
 ```
 
 **Test Steps:**
+
 1. Attempt to start server: `npm start`
 2. Verify environment validation passes
 3. Verify Redis initialization fails
 4. Check exit code is 1
 
 **Success Criteria:**
+
 - ✅ Environment validation passes
 - ✅ Server fails during Redis initialization
 - ✅ Exit code is 1
@@ -218,6 +230,7 @@ Process exits with code 1
 ### Test 4: Production Mode With Redis (Should Succeed)
 
 **Setup:**
+
 ```bash
 # Start Redis server
 redis-server &  # Or use Docker: docker run -d -p 6379:6379 redis:alpine
@@ -240,6 +253,7 @@ export DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ```
 
 **Expected Behavior:**
+
 ```
 🔍 Validating environment configuration...
 ✅ REDIS_URL is set (production requirement)
@@ -254,6 +268,7 @@ serving on port 5000
 ```
 
 **Test Steps:**
+
 1. Start Redis server
 2. Start application: `npm start`
 3. Verify successful startup
@@ -262,6 +277,7 @@ serving on port 5000
 6. Test session persistence across restarts
 
 **Success Criteria:**
+
 - ✅ Server starts successfully
 - ✅ Both Redis clients connected (ioredis and session client)
 - ✅ Redis-based rate limiting active
@@ -277,12 +293,14 @@ serving on port 5000
 Start with Test 4 setup (production with Redis), then kill Redis while running.
 
 **Test Steps:**
+
 1. Start application with Redis (Test 4)
 2. Verify server running normally
 3. Stop Redis: `redis-cli shutdown` or kill Docker container
 4. Observe application logs
 
 **Expected Behavior:**
+
 ```
 ✅ Server running normally...
 Redis error: Connection lost
@@ -293,6 +311,7 @@ Process exits with code 1
 ```
 
 **Success Criteria:**
+
 - ✅ Application detects Redis connection loss
 - ✅ Logs fatal error message
 - ✅ Process exits with code 1
@@ -312,11 +331,11 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -335,7 +354,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "5000:5000"
+      - '5000:5000'
 
 volumes:
   redis-data:
@@ -360,31 +379,31 @@ spec:
         app: pricecompare
     spec:
       containers:
-      - name: pricecompare
-        image: pricecompare:latest
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: REDIS_URL
-          value: "redis://redis-service:6379"
-        - name: SESSION_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: pricecompare-secrets
-              key: session-secret
-        # ... other secrets
-        livenessProbe:
-          httpGet:
-            path: /api/health
-            port: 5000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /api/health
-            port: 5000
-          initialDelaySeconds: 10
-          periodSeconds: 5
+        - name: pricecompare
+          image: pricecompare:latest
+          env:
+            - name: NODE_ENV
+              value: 'production'
+            - name: REDIS_URL
+              value: 'redis://redis-service:6379'
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pricecompare-secrets
+                  key: session-secret
+          # ... other secrets
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -394,8 +413,8 @@ spec:
   selector:
     app: redis
   ports:
-  - port: 6379
-    targetPort: 6379
+    - port: 6379
+      targetPort: 6379
 ```
 
 ## Rollback Instructions
@@ -411,11 +430,11 @@ If you need to temporarily disable Redis requirement (NOT recommended):
 
 ## Summary
 
-| Environment | REDIS_URL Required | Behavior Without Redis |
-|-------------|-------------------|------------------------|
-| Development | ❌ No (optional) | Warnings + in-memory fallback |
-| Test | ❌ No (optional) | Warnings + in-memory fallback |
-| Production | ✅ Yes (mandatory) | **Fatal error + exit code 1** |
+| Environment | REDIS_URL Required | Behavior Without Redis        |
+| ----------- | ------------------ | ----------------------------- |
+| Development | ❌ No (optional)   | Warnings + in-memory fallback |
+| Test        | ❌ No (optional)   | Warnings + in-memory fallback |
+| Production  | ✅ Yes (mandatory) | **Fatal error + exit code 1** |
 
 ## Related Files
 

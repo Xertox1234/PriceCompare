@@ -179,22 +179,28 @@ describe('Price Alert Routes - Integration Tests', () => {
     }
 
     // Create test product
-    const [product] = await db.insert(products).values({
-      name: 'Test Product for Alerts',
-      category: 'Electronics',
-      brand: 'TestBrand',
-      model: 'ALERT-001',
-    }).returning();
+    const [product] = await db
+      .insert(products)
+      .values({
+        name: 'Test Product for Alerts',
+        category: 'Electronics',
+        brand: 'TestBrand',
+        model: 'ALERT-001',
+      })
+      .returning();
     testProductId = product.id;
 
     // Create test alert
-    const [alert] = await db.insert(priceAlerts).values({
-      userId: testUserId,
-      productId: testProductId,
-      targetPrice: '79.99',
-      isActive: true,
-      notifyForum: false,
-    }).returning();
+    const [alert] = await db
+      .insert(priceAlerts)
+      .values({
+        userId: testUserId,
+        productId: testProductId,
+        targetPrice: '79.99',
+        isActive: true,
+        notifyForum: false,
+      })
+      .returning();
     testAlertId = alert.id;
 
     vi.clearAllMocks();
@@ -223,7 +229,13 @@ describe('Price Alert Routes - Integration Tests', () => {
           notifyForum: false,
         });
 
-      const alert = expectSuccessResponse<{ userId: number; productId: number; targetPrice: string; isActive: boolean; notifyForum: boolean }>(response, 201);
+      const alert = expectSuccessResponse<{
+        userId: number;
+        productId: number;
+        targetPrice: string;
+        isActive: boolean;
+        notifyForum: boolean;
+      }>(response, 201);
       expect(alert).toMatchObject({
         userId: testUserId,
         productId: testProductId,
@@ -263,12 +275,10 @@ describe('Price Alert Routes - Integration Tests', () => {
     });
 
     it('should reject unauthenticated request', async () => {
-      const response = await request(app)
-        .post('/api/price-alerts')
-        .send({
-          productId: testProductId,
-          targetPrice: 89.99,
-        });
+      const response = await request(app).post('/api/price-alerts').send({
+        productId: testProductId,
+        targetPrice: 89.99,
+      });
 
       // CSRF check happens before auth, so expect 403 (CSRF missing)
       expectErrorResponse(response, 403, 'CSRF token missing');
@@ -333,9 +343,7 @@ describe('Price Alert Routes - Integration Tests', () => {
         isActive: true,
       });
 
-      const response = await request(app)
-        .get('/api/price-alerts')
-        .set('Cookie', authCookie);
+      const response = await request(app).get('/api/price-alerts').set('Cookie', authCookie);
 
       const alerts = expectSuccessResponse<Array<{ userId: number }>>(response, 200);
       expect(Array.isArray(alerts)).toBe(true);
@@ -349,11 +357,12 @@ describe('Price Alert Routes - Integration Tests', () => {
 
     it('should include product details in alerts', async () => {
       // Product details now included via LEFT JOIN in storage layer
-      const response = await request(app)
-        .get('/api/price-alerts')
-        .set('Cookie', authCookie);
+      const response = await request(app).get('/api/price-alerts').set('Cookie', authCookie);
 
-      const alerts = expectSuccessResponse<Array<{ product?: { id: number; name: string } }>>(response, 200);
+      const alerts = expectSuccessResponse<Array<{ product?: { id: number; name: string } }>>(
+        response,
+        200
+      );
       expect(alerts[0]).toHaveProperty('product');
       expect(alerts[0].product).toBeDefined();
       expect(alerts[0].product).toMatchObject({
@@ -382,9 +391,7 @@ describe('Price Alert Routes - Integration Tests', () => {
       const newUserSetCookie = newUserRes.headers['set-cookie'];
       const newUserCookie = Array.isArray(newUserSetCookie) ? newUserSetCookie : [newUserSetCookie];
 
-      const response = await request(app)
-        .get('/api/price-alerts')
-        .set('Cookie', newUserCookie);
+      const response = await request(app).get('/api/price-alerts').set('Cookie', newUserCookie);
 
       const alerts = expectSuccessResponse<unknown[]>(response, 200);
       expect(alerts).toEqual([]);
@@ -411,9 +418,7 @@ describe('Price Alert Routes - Integration Tests', () => {
       });
 
       // Get alerts for first user
-      const response = await request(app)
-        .get('/api/price-alerts')
-        .set('Cookie', authCookie);
+      const response = await request(app).get('/api/price-alerts').set('Cookie', authCookie);
 
       const alerts = expectSuccessResponse<Array<{ userId: number }>>(response, 200);
       // Should only see own alerts, not user2's
@@ -475,7 +480,11 @@ describe('Price Alert Routes - Integration Tests', () => {
           notifyForum: true,
         });
 
-      const alert = expectSuccessResponse<{ targetPrice: string; isActive: boolean; notifyForum: boolean }>(response, 200);
+      const alert = expectSuccessResponse<{
+        targetPrice: string;
+        isActive: boolean;
+        notifyForum: boolean;
+      }>(response, 200);
       expect(alert).toMatchObject({
         targetPrice: '59.99',
         isActive: false,
@@ -484,11 +493,9 @@ describe('Price Alert Routes - Integration Tests', () => {
     });
 
     it('should reject unauthenticated request', async () => {
-      const response = await request(app)
-        .patch(`/api/price-alerts/${testAlertId}`)
-        .send({
-          targetPrice: 69.99,
-        });
+      const response = await request(app).patch(`/api/price-alerts/${testAlertId}`).send({
+        targetPrice: 69.99,
+      });
 
       // CSRF check happens before auth, so expect 403 (CSRF missing)
       expectErrorResponse(response, 403, 'CSRF token missing');
@@ -640,9 +647,7 @@ describe('Price Alert Routes - Integration Tests', () => {
 
     it('should allow deletion of inactive alerts', async () => {
       // Deactivate alert first
-      await db.update(priceAlerts)
-        .set({ isActive: false })
-        .where(eq(priceAlerts.id, testAlertId));
+      await db.update(priceAlerts).set({ isActive: false }).where(eq(priceAlerts.id, testAlertId));
 
       const response = await request(app)
         .delete(`/api/price-alerts/${testAlertId}`)
@@ -722,9 +727,7 @@ describe('Price Alert Routes - Integration Tests', () => {
       const user1AlertId = alert1.id;
 
       // User 2 tries to access User 1's alert (GET)
-      const getRes = await request(app)
-        .get('/api/price-alerts')
-        .set('Cookie', user2Cookie);
+      const getRes = await request(app).get('/api/price-alerts').set('Cookie', user2Cookie);
 
       const alerts = expectSuccessResponse<Array<{ id: number }>>(getRes, 200);
       expect(alerts.find((a) => a.id === user1AlertId)).toBeUndefined();
@@ -768,9 +771,7 @@ describe('Price Alert Routes - Integration Tests', () => {
       expect(dbAlerts[0].productId).toBe(testProductId);
 
       // Verify alert is retrievable via API
-      const getRes = await request(app)
-        .get('/api/price-alerts')
-        .set('Cookie', authCookie);
+      const getRes = await request(app).get('/api/price-alerts').set('Cookie', authCookie);
 
       const alerts = expectSuccessResponse<Array<{ id: number }>>(getRes, 200);
       expect(alerts.find((a) => a.id === alertId)).toBeDefined();

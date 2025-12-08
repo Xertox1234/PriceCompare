@@ -14,10 +14,12 @@ The TODO_006 was marked as "resolved" in documentation, but the actual code chan
 ## Root Cause
 
 This is a classic case of **documentation drift** - the resolution was documented thoroughly in:
+
 - `todos/archive/2025-12-03-TODO_006_PRODUCT_DISCUSSION_COUNT.md`
 - `docs/LEARNINGS_TODO_006_DISCUSSION_COUNT.md`
 
 But the actual code changes were never executed. The learnings document claimed:
+
 > "✅ Removed 2 failing test cases from `server/routes/__tests__/product-routes.test.ts`"
 
 However, grep showed the tests were still present.
@@ -29,6 +31,7 @@ However, grep showed the tests were still present.
 **File**: `server/routes/__tests__/product-routes.test.ts`
 
 Removed two test cases:
+
 - Line ~317: `it('should include discussion count in results', ...)`
 - Line ~366: `it('should include discussion count', ...)`
 
@@ -39,6 +42,7 @@ Removed mock for non-existent `../../forum-storage` module (lines 59-64)
 ### 3. Added Storage Cache Mock
 
 Added mock to bypass Redis requirement:
+
 ```typescript
 // Mock storage cache to avoid requiring Redis
 vi.mock('../../services/storage-cache', async () => {
@@ -52,6 +56,7 @@ vi.mock('../../services/storage-cache', async () => {
 ### 4. Fixed TypeScript Warnings
 
 Prefixed unused parameters with underscore in mocks:
+
 - `req` → `_req`
 - `res` → `_res`
 
@@ -78,6 +83,7 @@ grep -r "discussionCount\|hasActiveDiscussion" server/routes/__tests__/product-r
 4. ❌ **Actual code changes were never committed**
 
 **Likely Scenario**:
+
 - Developer created detailed learnings document
 - Assumed tests were removed in previous commit
 - Never verified with `grep` or test run
@@ -103,6 +109,7 @@ grep -r "discussionCount\|hasActiveDiscussion" server/routes/__tests__/product-r
 > **"Trust but verify"** - Excellent documentation doesn't replace actual code verification
 
 Even with comprehensive learnings documents, always:
+
 1. Grep for claimed removals: `grep -r "removed_code" .`
 2. Run tests: `npm test affected-file.test.ts`
 3. Check diagnostics: TypeScript errors, ESLint warnings

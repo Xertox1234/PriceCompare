@@ -152,20 +152,28 @@ export const createdResourceValidator = createSuccessValidator(createdResourceSc
 /**
  * Assert response is a success response
  */
-export function assertSuccessResponse(response: unknown): asserts response is { success: true; data: unknown } {
+export function assertSuccessResponse(
+  response: unknown
+): asserts response is { success: true; data: unknown } {
   const result = successResponseSchema.safeParse(response);
   if (!result.success) {
-    throw new Error(`Expected success response, got: ${JSON.stringify(result.error.issues, null, 2)}`);
+    throw new Error(
+      `Expected success response, got: ${JSON.stringify(result.error.issues, null, 2)}`
+    );
   }
 }
 
 /**
  * Assert response is an error response
  */
-export function assertErrorResponse(response: unknown): asserts response is { success: false; error: string } {
+export function assertErrorResponse(
+  response: unknown
+): asserts response is { success: false; error: string } {
   const result = errorResponseSchema.safeParse(response);
   if (!result.success) {
-    throw new Error(`Expected error response, got: ${JSON.stringify(result.error.issues, null, 2)}`);
+    throw new Error(
+      `Expected error response, got: ${JSON.stringify(result.error.issues, null, 2)}`
+    );
   }
 }
 
@@ -179,7 +187,9 @@ export function assertPaginatedResponse(response: unknown): asserts response is 
 } {
   const result = paginatedResponseSchema.safeParse(response);
   if (!result.success) {
-    throw new Error(`Expected paginated response, got: ${JSON.stringify(result.error.issues, null, 2)}`);
+    throw new Error(
+      `Expected paginated response, got: ${JSON.stringify(result.error.issues, null, 2)}`
+    );
   }
 }
 
@@ -222,7 +232,9 @@ export function validatePaginatedResponse<T extends z.ZodTypeAny>(
  */
 export type SuccessResponse<T = unknown> = z.infer<typeof successResponseSchema> & { data: T };
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
-export type PaginatedResponse<T = unknown> = z.infer<typeof paginatedResponseSchema> & { data: T[] };
+export type PaginatedResponse<T = unknown> = z.infer<typeof paginatedResponseSchema> & {
+  data: T[];
+};
 export type ApiResponse = z.infer<typeof apiResponseSchema>;
 export type PaginationMeta = z.infer<typeof paginationMetaSchema>;
 export type ApiResponseMeta = z.infer<typeof apiResponseMetaSchema>;

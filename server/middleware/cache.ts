@@ -15,7 +15,7 @@ export function cacheMiddleware(duration = 300) {
     // Set cache headers
     res.setHeader('Cache-Control', `public, max-age=${duration}`);
     res.setHeader('Vary', 'Accept-Encoding');
-    
+
     next();
   };
 }
@@ -25,6 +25,6 @@ export function apiCacheMiddleware(req: Request, res: Response, next: NextFuncti
   if (req.path.startsWith('/api/products') || req.path.startsWith('/api/retailers')) {
     res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   }
-  
+
   next();
 }

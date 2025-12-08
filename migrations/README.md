@@ -40,6 +40,7 @@ npm run migrate
 ```
 
 The migration script (`scripts/run-migrations.ts`) will:
+
 - ✅ Automatically run all `.sql` files in order
 - ✅ Skip already-applied migrations (using `CREATE TABLE IF NOT EXISTS`)
 - ✅ Provide clear success/error messages
@@ -67,16 +68,19 @@ psql "postgresql://user:password@host:5432/database" -f migrations/0010_add_job_
 **Purpose**: Adds distributed locking mechanism for scheduled jobs
 
 **What it creates**:
+
 - `job_locks` table with unique job names
 - Indexes on `job_name` and `expires_at`
 - Comments for documentation
 
 **Why it's needed**:
+
 - Prevents duplicate job execution in multi-server deployments
 - Ensures only one server runs a scheduled job at a time
 - Automatic lock expiration handles server crashes gracefully
 
 **Used by**:
+
 - Price analytics jobs (weekly/monthly aggregation, trend analysis)
 - Price history jobs (daily snapshots, weekly cleanup)
 
@@ -99,6 +103,7 @@ SELECT tablename FROM pg_tables WHERE tablename = 'job_locks';
 ```
 
 Expected output:
+
 ```
 Table "public.job_locks"
    Column   |            Type             | Nullable | Default
@@ -125,24 +130,24 @@ Indexes:
 
 Each migration has a specific rollback procedure with risk levels:
 
-| Migration | Risk Level | Data Loss |
-|-----------|------------|-----------|
-| 0001 - pgvector | MEDIUM | Yes (embeddings) |
-| 0002 - Performance indexes | LOW | No |
-| 0003 - Password reset | HIGH | Yes (tokens) |
-| 0004 - Price history | HIGH | Yes (all history) |
-| 0005 - Notifications | MEDIUM | Yes (preferences) |
-| 0006 - Price alerts | MEDIUM | Yes (tracking data) |
-| 0007 - Community | HIGH | Yes (reputation, watches) |
-| 0008 - Watch lists | HIGH | Yes (list organization) |
-| 0009 - Price aggregation | HIGH | Yes (analytics) |
-| 0010 - Job locks | LOW | Minimal |
-| 0011 - Cascade rules | MEDIUM | No |
-| 0012 - PII encryption | **CRITICAL** | Requires key |
-| 0013 - Daily aggregates | MEDIUM | Yes |
-| 0014 - Aggregation indexes | LOW | No |
-| 0015 - SET NULL constraints | MEDIUM | No |
-| 0016 - Data integrity | MEDIUM | No |
+| Migration                   | Risk Level   | Data Loss                 |
+| --------------------------- | ------------ | ------------------------- |
+| 0001 - pgvector             | MEDIUM       | Yes (embeddings)          |
+| 0002 - Performance indexes  | LOW          | No                        |
+| 0003 - Password reset       | HIGH         | Yes (tokens)              |
+| 0004 - Price history        | HIGH         | Yes (all history)         |
+| 0005 - Notifications        | MEDIUM       | Yes (preferences)         |
+| 0006 - Price alerts         | MEDIUM       | Yes (tracking data)       |
+| 0007 - Community            | HIGH         | Yes (reputation, watches) |
+| 0008 - Watch lists          | HIGH         | Yes (list organization)   |
+| 0009 - Price aggregation    | HIGH         | Yes (analytics)           |
+| 0010 - Job locks            | LOW          | Minimal                   |
+| 0011 - Cascade rules        | MEDIUM       | No                        |
+| 0012 - PII encryption       | **CRITICAL** | Requires key              |
+| 0013 - Daily aggregates     | MEDIUM       | Yes                       |
+| 0014 - Aggregation indexes  | LOW          | No                        |
+| 0015 - SET NULL constraints | MEDIUM       | No                        |
+| 0016 - Data integrity       | MEDIUM       | No                        |
 
 ### Simple Rollback Example (Job Locks)
 
@@ -157,11 +162,13 @@ DROP TABLE IF EXISTS job_locks CASCADE;
 ### "DATABASE_URL must be set"
 
 Set the environment variable:
+
 ```bash
 export DATABASE_URL="your-connection-string"
 ```
 
 Or create a `.env` file:
+
 ```
 DATABASE_URL=postgresql://user:password@host:5432/database
 ```
@@ -173,6 +180,7 @@ This is normal - migrations use `IF NOT EXISTS` to be idempotent. The migration 
 ### "permission denied"
 
 Ensure your database user has CREATE TABLE and CREATE INDEX permissions:
+
 ```sql
 GRANT CREATE ON SCHEMA public TO your_user;
 ```

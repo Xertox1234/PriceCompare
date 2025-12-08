@@ -49,9 +49,7 @@ export function sanitizeError(error: unknown): string {
     ];
 
     // Check if error message contains sensitive information
-    const hasSensitiveInfo = sensitivePatterns.some(pattern =>
-      pattern.test(error.message)
-    );
+    const hasSensitiveInfo = sensitivePatterns.some((pattern) => pattern.test(error.message));
 
     // Return generic error in production if sensitive info detected
     if (hasSensitiveInfo) {
@@ -81,7 +79,7 @@ export function sendErrorResponse(
       error,
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : '[redacted]',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } else {
     log.error(`[${context || 'Error'}]:`, { error });
@@ -90,7 +88,7 @@ export function sendErrorResponse(
   // Send sanitized error to client
   const errorResponse: ErrorResponse = {
     error: sanitizeError(error),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 
   res.status(statusCode).json(errorResponse);
@@ -137,12 +135,7 @@ export class AppError extends Error {
   public readonly code: string;
   public readonly isOperational: boolean;
 
-  constructor(
-    message: string,
-    statusCode = 500,
-    code = 'INTERNAL_ERROR',
-    isOperational = true
-  ) {
+  constructor(message: string, statusCode = 500, code = 'INTERNAL_ERROR', isOperational = true) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
@@ -208,7 +201,7 @@ export function errorHandlerMiddleware(
     const errorResponse: ErrorResponse = {
       error: sanitizeError(error),
       code: error.code,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // Log error server-side
@@ -218,7 +211,7 @@ export function errorHandlerMiddleware(
       statusCode: error.statusCode,
       path: req.path,
       method: req.method,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     res.status(error.statusCode).json(errorResponse);
@@ -232,13 +225,13 @@ export function errorHandlerMiddleware(
     stack: error.stack,
     path: req.path,
     method: req.method,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   // Send generic error to client
   const errorResponse: ErrorResponse = {
     error: ErrorMessages.INTERNAL_ERROR,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 
   res.status(500).json(errorResponse);

@@ -36,13 +36,14 @@ async function invalidateProductAnalytics(productId: number): Promise<void> {
       `${CachePrefix.ANALYTICS}:history:${productId}:*`,
     ];
 
-    await Promise.all(
-      patterns.map(pattern => advancedCache.invalidatePattern(pattern))
-    );
+    await Promise.all(patterns.map((pattern) => advancedCache.invalidatePattern(pattern)));
 
     logger.info(`Invalidated analytics cache for product ${productId}`);
   } catch (error: unknown) {
-    logger.error(`Error invalidating analytics cache for product ${productId}:`, getErrorMessage(error));
+    logger.error(
+      `Error invalidating analytics cache for product ${productId}:`,
+      getErrorMessage(error)
+    );
   }
 }
 
@@ -115,7 +116,9 @@ export class CacheInvalidationService {
 
       logger.info(`Cache invalidation completed for product ${productId}`);
     } catch (error) {
-      logger.error(`Error invalidating cache for product ${productId}:`, { error: getErrorMessage(error) });
+      logger.error(`Error invalidating cache for product ${productId}:`, {
+        error: getErrorMessage(error),
+      });
     }
   }
 
@@ -138,7 +141,9 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for product ${productId}:`, { error: getErrorMessage(error) });
+      logger.error(`Error invalidating cache for product ${productId}:`, {
+        error: getErrorMessage(error),
+      });
     }
   }
 
@@ -164,7 +169,9 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for deleted product ${productId}:`, { error: getErrorMessage(error) });
+      logger.error(`Error invalidating cache for deleted product ${productId}:`, {
+        error: getErrorMessage(error),
+      });
     }
   }
 
@@ -187,7 +194,9 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for product ${productId}:`, { error: getErrorMessage(error) });
+      logger.error(`Error invalidating cache for product ${productId}:`, {
+        error: getErrorMessage(error),
+      });
     }
   }
 
@@ -210,7 +219,9 @@ export class CacheInvalidationService {
         timestamp: Date.now(),
       });
     } catch (error) {
-      logger.error(`Error invalidating cache for retailer ${retailerId}:`, { error: getErrorMessage(error) });
+      logger.error(`Error invalidating cache for retailer ${retailerId}:`, {
+        error: getErrorMessage(error),
+      });
     }
   }
 
@@ -225,9 +236,7 @@ export class CacheInvalidationService {
       const batchSize = 10;
       for (let i = 0; i < productIds.length; i += batchSize) {
         const batch = productIds.slice(i, i + batchSize);
-        await Promise.all(
-          batch.map(productId => this.onPriceUpdate(productId))
-        );
+        await Promise.all(batch.map((productId) => this.onPriceUpdate(productId)));
       }
 
       logger.info(`Batch invalidation completed for ${productIds.length} products`);
@@ -265,10 +274,7 @@ export class CacheInvalidationService {
     }
 
     try {
-      await redisClient.publish(
-        this.INVALIDATION_CHANNEL,
-        JSON.stringify(payload)
-      );
+      await redisClient.publish(this.INVALIDATION_CHANNEL, JSON.stringify(payload));
     } catch (error) {
       logger.error('Error publishing invalidation event:', { error: getErrorMessage(error) });
     }
@@ -298,7 +304,10 @@ export class CacheInvalidationService {
         try {
           const parsed: unknown = JSON.parse(message);
           const payload = parsed as InvalidationPayload;
-          logger.debug('Received invalidation event:', { event: payload.event, productId: payload.productId });
+          logger.debug('Received invalidation event:', {
+            event: payload.event,
+            productId: payload.productId,
+          });
 
           // Additional processing can be added here
           // For example, updating metrics, logging, etc.
@@ -312,7 +321,7 @@ export class CacheInvalidationService {
   /**
    * Get invalidation statistics
    */
-  async getStats() {
+  getStats() {
     const cacheStats = advancedCache.getStats();
     return {
       cacheStats,

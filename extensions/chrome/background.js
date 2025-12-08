@@ -269,7 +269,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       'ebay.com'
     ];
 
-    const isSupported = supportedRetailers.some(retailer => url.includes(retailer));
+    const isSupported = supportedRetailers.some((retailer) => url.includes(retailer));
 
     if (isSupported) {
       console.log('[PriceCompare] Supported retailer page detected', tab.url);

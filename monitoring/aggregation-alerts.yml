@@ -29,7 +29,7 @@ groups:
           service: price-compare
           alert_type: success_rate
         annotations:
-          summary: "Low success rate for {{ $labels.operation }} aggregation"
+          summary: 'Low success rate for {{ $labels.operation }} aggregation'
           description: |
             The {{ $labels.operation }} aggregation operation has a success rate of {{ $value | humanizePercentage }}
             over the last 5 minutes. This is below the 95% threshold.
@@ -38,7 +38,7 @@ groups:
             Threshold: 95%
 
             Check logs for error details and investigate failed operations.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-success-rate-low"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-success-rate-low'
 
       # Alert when NO successful aggregations in 25 hours (critical - data staleness)
       - alert: AggregationStalled
@@ -53,7 +53,7 @@ groups:
           service: price-compare
           alert_type: data_staleness
         annotations:
-          summary: "CRITICAL: {{ $labels.operation }} aggregation has stalled"
+          summary: 'CRITICAL: {{ $labels.operation }} aggregation has stalled'
           description: |
             The {{ $labels.operation }} aggregation has not completed successfully in over 25 hours.
             This indicates a critical failure in the aggregation pipeline.
@@ -69,7 +69,7 @@ groups:
             5. Manual trigger may be required
 
             Users are seeing stale price data!
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-stalled"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-stalled'
 
   # ============================================
   # Aggregation Performance
@@ -88,7 +88,7 @@ groups:
           service: price-compare
           alert_type: performance
         annotations:
-          summary: "{{ $labels.operation }} aggregations are running slow"
+          summary: '{{ $labels.operation }} aggregations are running slow'
           description: |
             The {{ $labels.operation }} aggregation operations are taking an average of {{ $value }}s
             to complete, which exceeds the 60s threshold.
@@ -103,7 +103,7 @@ groups:
             - Network issues
 
             Check database query performance and system resources.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-slow"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-slow'
 
       # Alert when max duration is extremely high (> 300s = 5 minutes)
       - alert: AggregationOperationsTimeout
@@ -116,7 +116,7 @@ groups:
           service: price-compare
           alert_type: performance
         annotations:
-          summary: "{{ $labels.operation }} aggregation operations timing out"
+          summary: '{{ $labels.operation }} aggregation operations timing out'
           description: |
             The maximum duration for {{ $labels.operation }} aggregation operations has exceeded 5 minutes.
 
@@ -125,7 +125,7 @@ groups:
 
             This suggests serious performance issues or hanging operations.
             Immediate investigation required.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-timeout"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-timeout'
 
   # ============================================
   # Data Quality & Record Counts
@@ -148,7 +148,7 @@ groups:
           service: price-compare
           alert_type: data_quality
         annotations:
-          summary: "{{ $labels.operation }} aggregation processing fewer records than normal"
+          summary: '{{ $labels.operation }} aggregation processing fewer records than normal'
           description: |
             The {{ $labels.operation }} aggregation is processing significantly fewer records than the 7-day average.
 
@@ -160,7 +160,7 @@ groups:
             - Data quality problems
 
             Investigate data sources and aggregation logic.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-record-anomaly"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-record-anomaly'
 
       # Alert when NO records are being aggregated
       - alert: AggregationNoRecordsProcessed
@@ -173,7 +173,7 @@ groups:
           service: price-compare
           alert_type: data_quality
         annotations:
-          summary: "CRITICAL: {{ $labels.operation }} aggregation processing zero records"
+          summary: 'CRITICAL: {{ $labels.operation }} aggregation processing zero records'
           description: |
             The {{ $labels.operation }} aggregation has not processed any records in the last 2 hours.
 
@@ -186,7 +186,7 @@ groups:
             - Date range miscalculation
 
             IMMEDIATE ACTION REQUIRED to restore data flow.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-no-records"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-no-records'
 
   # ============================================
   # Failure Rate & Error Tracking
@@ -213,7 +213,7 @@ groups:
           service: price-compare
           alert_type: failure_rate
         annotations:
-          summary: "High failure rate for {{ $labels.operation }} aggregation"
+          summary: 'High failure rate for {{ $labels.operation }} aggregation'
           description: |
             The {{ $labels.operation }} aggregation is experiencing a failure rate of {{ $value | humanizePercentage }}
             over the last 10 minutes.
@@ -223,7 +223,7 @@ groups:
 
             This indicates systematic issues with the aggregation process.
             Check error logs immediately.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-high-failures"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-high-failures'
 
       # Alert when failures are consistently occurring
       - alert: AggregationConsistentFailures
@@ -236,14 +236,14 @@ groups:
           service: price-compare
           alert_type: failure_rate
         annotations:
-          summary: "{{ $labels.operation }} aggregation experiencing repeated failures"
+          summary: '{{ $labels.operation }} aggregation experiencing repeated failures'
           description: |
             The {{ $labels.operation }} aggregation has failed {{ $value }} times in the last 30 minutes.
 
             While not yet critical, this pattern suggests an underlying issue that needs investigation.
 
             Check recent error logs and metrics for patterns.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-consistent-failures"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-consistent-failures'
 
   # ============================================
   # Retry & Recovery Monitoring
@@ -267,7 +267,7 @@ groups:
           service: price-compare
           alert_type: retry_rate
         annotations:
-          summary: "{{ $labels.operation }} aggregation experiencing high retry rate"
+          summary: '{{ $labels.operation }} aggregation experiencing high retry rate'
           description: |
             The {{ $labels.operation }} aggregation is retrying more than 10% of operations.
 
@@ -281,7 +281,7 @@ groups:
             - Resource exhaustion
 
             Monitor for escalation to failures.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-high-retries"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-high-retries'
 
   # ============================================
   # System Resource Alerts
@@ -301,7 +301,7 @@ groups:
           service: price-compare
           alert_type: resource
         annotations:
-          summary: "{{ $labels.operation }} aggregation queue has backlog"
+          summary: '{{ $labels.operation }} aggregation queue has backlog'
           description: |
             The {{ $labels.operation }} aggregation queue has {{ $value }} pending operations.
 
@@ -312,7 +312,7 @@ groups:
             - Optimize aggregation queries
             - Reduce aggregation frequency
             - Investigate resource constraints
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-queue-backlog"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-queue-backlog'
 
   # ============================================
   # Data Gaps Detection
@@ -332,7 +332,7 @@ groups:
           service: price-compare
           alert_type: data_quality
         annotations:
-          summary: "Data gaps detected in {{ $labels.operation }} aggregation"
+          summary: 'Data gaps detected in {{ $labels.operation }} aggregation'
           description: |
             The health check has detected {{ $value }} warnings for {{ $labels.operation }} aggregation.
 
@@ -342,4 +342,4 @@ groups:
             - Data quality issues
 
             Check the /api/aggregation-metrics/health endpoint for detailed warnings.
-          runbook_url: "https://docs.pricecompare.example.com/runbooks/aggregation-gaps"
+          runbook_url: 'https://docs.pricecompare.example.com/runbooks/aggregation-gaps'

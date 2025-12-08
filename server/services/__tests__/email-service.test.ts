@@ -147,11 +147,7 @@ describe('Email Service', () => {
 
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail(
-        'recipient@example.com',
-        'test-token',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetEmail('recipient@example.com', 'test-token', 'TestUser');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -162,7 +158,7 @@ describe('Email Service', () => {
   });
 
   describe('Email Sending', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       // Configure SMTP for sending tests
       process.env.SMTP_HOST = 'smtp.example.com';
       process.env.SMTP_PORT = '587';
@@ -238,7 +234,7 @@ describe('Email Service', () => {
   });
 
   describe('Password Reset Email Template', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       process.env.SMTP_HOST = 'smtp.example.com';
       process.env.SMTP_PORT = '587';
       process.env.SMTP_USERNAME = 'user@example.com';
@@ -260,18 +256,18 @@ describe('Email Service', () => {
       const emailCall = mockSendMail.mock.calls[0][0];
 
       // Check reset URL is included
-      expect(emailCall.html).toContain('https://pricecompare.com/reset-password?token=reset-token-abc123');
-      expect(emailCall.text).toContain('https://pricecompare.com/reset-password?token=reset-token-abc123');
+      expect(emailCall.html).toContain(
+        'https://pricecompare.com/reset-password?token=reset-token-abc123'
+      );
+      expect(emailCall.text).toContain(
+        'https://pricecompare.com/reset-password?token=reset-token-abc123'
+      );
     });
 
     it('should include username in email template', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail(
-        'user@example.com',
-        'token-123',
-        'JaneDoe'
-      );
+      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'JaneDoe');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -282,11 +278,7 @@ describe('Email Service', () => {
     it('should include security warnings in template', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail(
-        'user@example.com',
-        'token-123',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -300,11 +292,7 @@ describe('Email Service', () => {
     it('should include both HTML and plain text versions', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail(
-        'user@example.com',
-        'token-123',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -319,11 +307,7 @@ describe('Email Service', () => {
 
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail(
-        'user@example.com',
-        'token-xyz',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetEmail('user@example.com', 'token-xyz', 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -332,7 +316,7 @@ describe('Email Service', () => {
   });
 
   describe('Password Reset Confirmation Email', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       process.env.SMTP_HOST = 'smtp.example.com';
       process.env.SMTP_PORT = '587';
       process.env.SMTP_USERNAME = 'user@example.com';
@@ -362,10 +346,7 @@ describe('Email Service', () => {
     it('should include username in confirmation email', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetConfirmationEmail(
-        'user@example.com',
-        'JohnSmith'
-      );
+      await emailService.sendPasswordResetConfirmationEmail('user@example.com', 'JohnSmith');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -377,10 +358,7 @@ describe('Email Service', () => {
       const { emailService } = await import('../email-service');
 
       const _beforeTime = new Date();
-      await emailService.sendPasswordResetConfirmationEmail(
-        'user@example.com',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetConfirmationEmail('user@example.com', 'TestUser');
       const _afterTime = new Date();
 
       const emailCall = mockSendMail.mock.calls[0][0];
@@ -393,10 +371,7 @@ describe('Email Service', () => {
     it('should include security warning about unauthorized changes', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetConfirmationEmail(
-        'user@example.com',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetConfirmationEmail('user@example.com', 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -407,10 +382,7 @@ describe('Email Service', () => {
     it('should include both HTML and plain text versions', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetConfirmationEmail(
-        'user@example.com',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetConfirmationEmail('user@example.com', 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -422,7 +394,7 @@ describe('Email Service', () => {
   });
 
   describe('Email Template Rendering', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       process.env.SMTP_HOST = 'smtp.example.com';
       process.env.SMTP_PORT = '587';
       process.env.SMTP_USERNAME = 'user@example.com';
@@ -434,11 +406,7 @@ describe('Email Service', () => {
     it('should include username in HTML template (note: XSS vulnerability exists)', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail(
-        'user@example.com',
-        'token-123',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
@@ -454,11 +422,7 @@ describe('Email Service', () => {
     it('should include current year in footer', async () => {
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail(
-        'user@example.com',
-        'token-123',
-        'TestUser'
-      );
+      await emailService.sendPasswordResetEmail('user@example.com', 'token-123', 'TestUser');
 
       const emailCall = mockSendMail.mock.calls[0][0];
       const currentYear = new Date().getFullYear();

@@ -1,10 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type {
-  ProductWatch,
-  WatchList,
-  UserReputation,
-  DealSpotting
-} from '@shared/schema';
+import type { ProductWatch, WatchList, UserReputation, DealSpotting } from '@shared/schema';
 
 // Type-safe error extraction from unknown JSON response
 interface ApiErrorResponse {
@@ -61,9 +56,10 @@ export function useAddProductWatch() {
 
       if (!response.ok) {
         const errorData: unknown = await response.json();
-        const errorMessage = typeof errorData === 'object' && errorData !== null && 'message' in errorData
-          ? String((errorData as { message: unknown }).message)
-          : 'Failed to add product watch';
+        const errorMessage =
+          typeof errorData === 'object' && errorData !== null && 'message' in errorData
+            ? String((errorData as { message: unknown }).message)
+            : 'Failed to add product watch';
         throw new Error(errorMessage);
       }
 
@@ -92,9 +88,10 @@ export function useRemoveProductWatch() {
 
       if (!response.ok) {
         const errorData: unknown = await response.json();
-        const errorMessage = typeof errorData === 'object' && errorData !== null && 'message' in errorData
-          ? String((errorData as { message: unknown }).message)
-          : 'Failed to remove product watch';
+        const errorMessage =
+          typeof errorData === 'object' && errorData !== null && 'message' in errorData
+            ? String((errorData as { message: unknown }).message)
+            : 'Failed to remove product watch';
         throw new Error(errorMessage);
       }
 
@@ -454,7 +451,7 @@ export function useUpdateProductWatch() {
       // If moving to a different list, invalidate that list's products
       if (updates.watchListId !== undefined) {
         void queryClient.invalidateQueries({
-          queryKey: ['/api/community/watch-lists', updates.watchListId, 'products']
+          queryKey: ['/api/community/watch-lists', updates.watchListId, 'products'],
         });
       }
     },

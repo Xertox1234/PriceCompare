@@ -61,10 +61,16 @@ describe('useNotificationUpdates', () => {
     renderHook(() => useNotificationUpdates(), { wrapper });
 
     expect(websocketClient.emit).toHaveBeenCalledWith('notification:subscribe');
-    expect(websocketClient.on).toHaveBeenCalledWith('notification:subscribed', expect.any(Function));
+    expect(websocketClient.on).toHaveBeenCalledWith(
+      'notification:subscribed',
+      expect.any(Function)
+    );
     expect(websocketClient.on).toHaveBeenCalledWith('notification:new', expect.any(Function));
     expect(websocketClient.on).toHaveBeenCalledWith('notification:read', expect.any(Function));
-    expect(websocketClient.on).toHaveBeenCalledWith('notification:count_updated', expect.any(Function));
+    expect(websocketClient.on).toHaveBeenCalledWith(
+      'notification:count_updated',
+      expect.any(Function)
+    );
   });
 
   it('should not subscribe when disconnected', async () => {
@@ -144,7 +150,7 @@ describe('useNotificationUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
@@ -187,7 +193,7 @@ describe('useNotificationUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
@@ -226,7 +232,7 @@ describe('useNotificationUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
@@ -349,10 +355,16 @@ describe('useNotificationUpdates', () => {
 
     unmount();
 
-    expect(websocketClient.off).toHaveBeenCalledWith('notification:subscribed', expect.any(Function));
+    expect(websocketClient.off).toHaveBeenCalledWith(
+      'notification:subscribed',
+      expect.any(Function)
+    );
     expect(websocketClient.off).toHaveBeenCalledWith('notification:new', expect.any(Function));
     expect(websocketClient.off).toHaveBeenCalledWith('notification:read', expect.any(Function));
-    expect(websocketClient.off).toHaveBeenCalledWith('notification:count_updated', expect.any(Function));
+    expect(websocketClient.off).toHaveBeenCalledWith(
+      'notification:count_updated',
+      expect.any(Function)
+    );
     expect(websocketClient.emit).toHaveBeenCalledWith('notification:unsubscribe');
   });
 
@@ -421,7 +433,7 @@ describe('useNotificationUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation

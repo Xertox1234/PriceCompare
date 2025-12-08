@@ -6,10 +6,7 @@ This document shows how to connect to and use the WebSocket event system from a 
 
 ```typescript
 import { io, Socket } from 'socket.io-client';
-import type {
-  ServerToClientEvents,
-  ClientToServerEvents,
-} from '@shared/websocket-types'; // You'll need to export types
+import type { ServerToClientEvents, ClientToServerEvents } from '@shared/websocket-types'; // You'll need to export types
 
 // Create typed socket
 const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io('http://localhost:5000/ws', {
@@ -88,10 +85,7 @@ function subscribeToWatchLists() {
 
     // Update watch list UI
     addProductToWatchListUI(data.watchListId, data.product);
-    showNotification(
-      `Added ${data.product.name} to watch list`,
-      'success'
-    );
+    showNotification(`Added ${data.product.name} to watch list`, 'success');
   });
 
   // Listen for product removed from watch list

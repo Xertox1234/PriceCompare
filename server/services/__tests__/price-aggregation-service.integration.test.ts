@@ -45,23 +45,32 @@ describe('PriceAggregationService (Integration)', () => {
 
     // Create base test data that most tests need
     // Foreign key order: retailers → products → productOffers → priceHistory
-    [testRetailer] = await db.insert(retailers).values({
-      name: 'Test Retailer',
-      website: 'https://test-retailer.com',
-      logo: 'https://test-retailer.com/logo.png',
-    }).returning();
+    [testRetailer] = await db
+      .insert(retailers)
+      .values({
+        name: 'Test Retailer',
+        website: 'https://test-retailer.com',
+        logo: 'https://test-retailer.com/logo.png',
+      })
+      .returning();
 
-    [testProduct] = await db.insert(products).values({
-      name: 'Test Product',
-      description: 'Test product for aggregation testing',
-    }).returning();
+    [testProduct] = await db
+      .insert(products)
+      .values({
+        name: 'Test Product',
+        description: 'Test product for aggregation testing',
+      })
+      .returning();
 
-    [testOffer] = await db.insert(productOffers).values({
-      productId: testProduct.id,
-      retailerId: testRetailer.id,
-      price: '100.00',
-      productUrl: 'https://test-retailer.com/product/test',
-    }).returning();
+    [testOffer] = await db
+      .insert(productOffers)
+      .values({
+        productId: testProduct.id,
+        retailerId: testRetailer.id,
+        price: '100.00',
+        productUrl: 'https://test-retailer.com/product/test',
+      })
+      .returning();
 
     service = new PriceAggregationService();
   });
@@ -69,19 +78,24 @@ describe('PriceAggregationService (Integration)', () => {
   /**
    * Helper to insert price history with required productOfferId
    */
-  async function insertPriceHistory(values: Array<{
-    price: string;
-    recordedAt: Date;
-  }>) {
-    return db.insert(priceHistory).values(
-      values.map(v => ({
-        productOfferId: testOffer.id,
-        productId: testProduct.id,
-        retailerId: testRetailer.id,
-        price: v.price,
-        recordedAt: v.recordedAt,
-      }))
-    ).returning();
+  async function insertPriceHistory(
+    values: Array<{
+      price: string;
+      recordedAt: Date;
+    }>
+  ) {
+    return db
+      .insert(priceHistory)
+      .values(
+        values.map((v) => ({
+          productOfferId: testOffer.id,
+          productId: testProduct.id,
+          retailerId: testRetailer.id,
+          price: v.price,
+          recordedAt: v.recordedAt,
+        }))
+      )
+      .returning();
   }
 
   describe('calculateDailyAggregates', () => {
@@ -205,10 +219,12 @@ describe('PriceAggregationService (Integration)', () => {
       yesterday.setDate(yesterday.getDate() - 1);
       yesterday.setHours(12, 0, 0, 0);
 
-      await insertPriceHistory([{
-        price: '110.00',
-        recordedAt: yesterday,
-      }]);
+      await insertPriceHistory([
+        {
+          price: '110.00',
+          recordedAt: yesterday,
+        },
+      ]);
 
       await service.calculateDailyAggregates();
 
@@ -226,10 +242,12 @@ describe('PriceAggregationService (Integration)', () => {
       yesterday.setDate(yesterday.getDate() - 1);
       yesterday.setHours(12, 0, 0, 0);
 
-      const [historyRecord] = await insertPriceHistory([{
-        price: '100.00',
-        recordedAt: yesterday,
-      }]);
+      const [historyRecord] = await insertPriceHistory([
+        {
+          price: '100.00',
+          recordedAt: yesterday,
+        },
+      ]);
 
       // Initially no aggregatedAt
       expect(historyRecord.aggregatedAt).toBeNull();
@@ -351,8 +369,8 @@ describe('PriceAggregationService (Integration)', () => {
       expect(aggregates).toHaveLength(3);
 
       // Verify each aggregate has correct price
-      const sortedAggregates = aggregates.sort((a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
+      const sortedAggregates = aggregates.sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
       );
       expect(sortedAggregates[0].avgPrice).toBe('100.00');
       expect(sortedAggregates[1].avgPrice).toBe('101.00');
@@ -377,10 +395,12 @@ describe('PriceAggregationService (Integration)', () => {
 
       // Insert price history for the same day
       const day1 = new Date('2024-01-01T12:00:00.000Z');
-      await insertPriceHistory([{
-        price: '200.00', // Different price to detect if re-aggregated
-        recordedAt: day1,
-      }]);
+      await insertPriceHistory([
+        {
+          price: '200.00', // Different price to detect if re-aggregated
+          recordedAt: day1,
+        },
+      ]);
 
       // Execute - should skip because aggregate exists
       const startDate = new Date('2024-01-01T00:00:00.000Z');
@@ -401,21 +421,27 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should return correct count of aggregates created', async () => {
       // Setup: 2 products × 2 days = 4 aggregates expected
-      const [product2] = await db.insert(products).values({
-        name: 'Test Product 2',
-        description: 'Second test product',
-      }).returning();
+      const [product2] = await db
+        .insert(products)
+        .values({
+          name: 'Test Product 2',
+          description: 'Second test product',
+        })
+        .returning();
 
       const day1 = new Date('2024-01-01T12:00:00.000Z');
       const day2 = new Date('2024-01-02T12:00:00.000Z');
 
       // Create offer for second product
-      const [offer2] = await db.insert(productOffers).values({
-        productId: product2.id,
-        retailerId: testRetailer.id,
-        price: '200.00',
-        productUrl: 'https://test-retailer.com/product/test2',
-      }).returning();
+      const [offer2] = await db
+        .insert(productOffers)
+        .values({
+          productId: product2.id,
+          retailerId: testRetailer.id,
+          price: '200.00',
+          productUrl: 'https://test-retailer.com/product/test2',
+        })
+        .returning();
 
       // Insert history for first product
       await insertPriceHistory([
@@ -425,8 +451,20 @@ describe('PriceAggregationService (Integration)', () => {
 
       // Insert history for second product
       await db.insert(priceHistory).values([
-        { productOfferId: offer2.id, productId: product2.id, retailerId: testRetailer.id, price: '200.00', recordedAt: day1 },
-        { productOfferId: offer2.id, productId: product2.id, retailerId: testRetailer.id, price: '201.00', recordedAt: day2 },
+        {
+          productOfferId: offer2.id,
+          productId: product2.id,
+          retailerId: testRetailer.id,
+          price: '200.00',
+          recordedAt: day1,
+        },
+        {
+          productOfferId: offer2.id,
+          productId: product2.id,
+          retailerId: testRetailer.id,
+          price: '201.00',
+          recordedAt: day2,
+        },
       ]);
 
       const startDate = new Date('2024-01-01T00:00:00.000Z');
@@ -463,10 +501,12 @@ describe('PriceAggregationService (Integration)', () => {
       const day1 = new Date(baseDate);
 
       // First, create initial aggregate with one price
-      await insertPriceHistory([{
-        price: '100.00',
-        recordedAt: day1,
-      }]);
+      await insertPriceHistory([
+        {
+          price: '100.00',
+          recordedAt: day1,
+        },
+      ]);
 
       // Run aggregation to create initial aggregate
       const startDate = new Date(day1);
@@ -484,10 +524,12 @@ describe('PriceAggregationService (Integration)', () => {
       expect(aggregates[0].recordCount).toBe(1);
 
       // Now add MORE price history for the same day
-      await insertPriceHistory([{
-        price: '200.00',
-        recordedAt: new Date(day1.getTime() + 60000), // 1 minute later
-      }]);
+      await insertPriceHistory([
+        {
+          price: '200.00',
+          recordedAt: new Date(day1.getTime() + 60000), // 1 minute later
+        },
+      ]);
 
       // Run aggregation again WITHOUT force - should skip (already aggregated)
       const count1 = await service.aggregateToDaily(startDate, endDate, false);
@@ -556,10 +598,12 @@ describe('PriceAggregationService (Integration)', () => {
       yesterday.setDate(yesterday.getDate() - 1);
       yesterday.setHours(12, 0, 0, 0);
 
-      await insertPriceHistory([{
-        price: '100.00',
-        recordedAt: yesterday,
-      }]);
+      await insertPriceHistory([
+        {
+          price: '100.00',
+          recordedAt: yesterday,
+        },
+      ]);
 
       await service.calculateDailyAggregates();
 
@@ -614,29 +658,37 @@ describe('PriceAggregationService (Integration)', () => {
   describe('edge cases', () => {
     it('should handle products with multiple retailers', async () => {
       // Create second retailer
-      const [retailer2] = await db.insert(retailers).values({
-        name: 'Second Retailer',
-        website: 'https://retailer2.com',
-        logo: 'https://retailer2.com/logo.png',
-      }).returning();
+      const [retailer2] = await db
+        .insert(retailers)
+        .values({
+          name: 'Second Retailer',
+          website: 'https://retailer2.com',
+          logo: 'https://retailer2.com/logo.png',
+        })
+        .returning();
 
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       yesterday.setHours(12, 0, 0, 0);
 
       // Create offer for second retailer
-      const [offer2] = await db.insert(productOffers).values({
-        productId: testProduct.id,
-        retailerId: retailer2.id,
-        price: '95.00',
-        productUrl: 'https://retailer2.com/product/test',
-      }).returning();
+      const [offer2] = await db
+        .insert(productOffers)
+        .values({
+          productId: testProduct.id,
+          retailerId: retailer2.id,
+          price: '95.00',
+          productUrl: 'https://retailer2.com/product/test',
+        })
+        .returning();
 
       // Insert prices for same product at two retailers
-      await insertPriceHistory([{
-        price: '100.00',
-        recordedAt: yesterday,
-      }]);
+      await insertPriceHistory([
+        {
+          price: '100.00',
+          recordedAt: yesterday,
+        },
+      ]);
 
       await db.insert(priceHistory).values({
         productOfferId: offer2.id,
@@ -659,7 +711,7 @@ describe('PriceAggregationService (Integration)', () => {
       expect(aggregates).toHaveLength(2);
 
       // Verify both retailers have aggregates
-      const retailerIds = aggregates.map(a => a.retailerId).sort();
+      const retailerIds = aggregates.map((a) => a.retailerId).sort();
       expect(retailerIds).toEqual([testRetailer.id, retailer2.id].sort());
     });
 
@@ -668,10 +720,12 @@ describe('PriceAggregationService (Integration)', () => {
       yesterday.setDate(yesterday.getDate() - 1);
       yesterday.setHours(12, 0, 0, 0);
 
-      await insertPriceHistory([{
-        price: '100.00',
-        recordedAt: yesterday,
-      }]);
+      await insertPriceHistory([
+        {
+          price: '100.00',
+          recordedAt: yesterday,
+        },
+      ]);
 
       // Run aggregation twice
       const count1 = await service.calculateDailyAggregates();

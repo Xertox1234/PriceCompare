@@ -47,12 +47,9 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full">
+    <form onSubmit={handleSubmit} className="w-full space-y-4">
       <div className="space-y-2">
-        <Label
-          htmlFor="email"
-          className="font-medium text-foreground"
-        >
+        <Label htmlFor="email" className="text-foreground font-medium">
           Email
         </Label>
         <Input
@@ -66,12 +63,9 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
           required
         />
       </div>
-      
+
       <div className="space-y-2">
-        <Label
-          htmlFor="password"
-          className="font-medium text-foreground"
-        >
+        <Label htmlFor="password" className="text-foreground font-medium">
           Password
         </Label>
         <div className="relative">
@@ -89,14 +83,10 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-0 top-0 h-full px-3 py-2 text-foreground"
+            className="text-foreground absolute top-0 right-0 h-full px-3 py-2"
             onClick={() => setShowPassword(!showPassword)}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         </div>
         <div className="flex justify-end">
@@ -104,7 +94,7 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
             <Button
               type="button"
               variant="link"
-              className="p-0 h-auto text-sm hover:underline text-primary hover:text-primary/90"
+              className="text-primary hover:text-primary/90 h-auto p-0 text-sm hover:underline"
             >
               Forgot password?
             </Button>
@@ -124,18 +114,18 @@ export function LoginForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       <Button
         type="submit"
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
         disabled={loginMutation.isPending || !email.trim() || !password.trim()}
       >
         {loginMutation.isPending ? 'Signing In...' : 'Sign In'}
       </Button>
 
       {onToggleMode && (
-        <div className="text-center text-sm pt-2">
+        <div className="pt-2 text-center text-sm">
           <span className="text-muted-foreground">Don't have an account? </span>
           <Button
             variant="link"
-            className="p-0 hover:underline text-primary hover:text-primary/90"
+            className="text-primary hover:text-primary/90 p-0 hover:underline"
             onClick={onToggleMode}
           >
             Sign up
@@ -179,10 +169,10 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       return;
     }
     if (username.trim() && email.trim() && password.trim()) {
-      registerMutation.mutate({ 
-        username: username.trim(), 
-        email: email.trim(), 
-        password: password.trim() 
+      registerMutation.mutate({
+        username: username.trim(),
+        email: email.trim(),
+        password: password.trim(),
       });
     }
   };
@@ -190,12 +180,9 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
   const passwordMismatch = password !== confirmPassword && confirmPassword.length > 0;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full">
+    <form onSubmit={handleSubmit} className="w-full space-y-4">
       <div className="space-y-2">
-        <Label
-          htmlFor="username"
-          className="font-medium text-foreground"
-        >
+        <Label htmlFor="username" className="text-foreground font-medium">
           Username
         </Label>
         <Input
@@ -211,10 +198,7 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label
-          htmlFor="email"
-          className="font-medium text-foreground"
-        >
+        <Label htmlFor="email" className="text-foreground font-medium">
           Email
         </Label>
         <Input
@@ -228,12 +212,9 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           required
         />
       </div>
-      
+
       <div className="space-y-2">
-        <Label
-          htmlFor="password"
-          className="font-medium text-foreground"
-        >
+        <Label htmlFor="password" className="text-foreground font-medium">
           Password
         </Label>
         <div className="relative">
@@ -251,23 +232,16 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-0 top-0 h-full px-3 py-2 text-foreground"
+            className="text-foreground absolute top-0 right-0 h-full px-3 py-2"
             onClick={() => setShowPassword(!showPassword)}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label
-          htmlFor="confirmPassword"
-          className="font-medium text-foreground"
-        >
+        <Label htmlFor="confirmPassword" className="text-foreground font-medium">
           Confirm Password
         </Label>
         <Input
@@ -281,17 +255,15 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
           required
         />
         {passwordMismatch && (
-          <p className="text-sm font-medium text-destructive">
-            Passwords do not match
-          </p>
+          <p className="text-destructive text-sm font-medium">Passwords do not match</p>
         )}
       </div>
 
       {registerMutation.isError && (
         <Alert variant="destructive" className="bg-destructive border-red-200">
           <AlertDescription className="text-destructive">
-            {registerMutation.error instanceof Error 
-              ? registerMutation.error.message 
+            {registerMutation.error instanceof Error
+              ? registerMutation.error.message
               : 'Registration failed. Please try again.'}
           </AlertDescription>
         </Alert>
@@ -299,7 +271,7 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
 
       <Button
         type="submit"
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
         disabled={
           registerMutation.isPending ||
           !username.trim() ||
@@ -312,11 +284,11 @@ export function RegisterForm({ onSuccess, onToggleMode }: LoginFormProps) {
       </Button>
 
       {onToggleMode && (
-        <div className="text-center text-sm pt-2">
+        <div className="pt-2 text-center text-sm">
           <span className="text-muted-foreground">Already have an account? </span>
           <Button
             variant="link"
-            className="p-0 hover:underline text-primary hover:text-primary/90"
+            className="text-primary hover:text-primary/90 p-0 hover:underline"
             onClick={onToggleMode}
           >
             Sign in

@@ -17,8 +17,9 @@ async function runMigrations() {
   }
 
   // Detect database type (same logic as server/db.ts)
-  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
-                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+  const isNeonDatabase =
+    process.env.DATABASE_URL?.includes('neon.tech') ||
+    process.env.DATABASE_URL?.includes('.pooler.neon.tech');
 
   // Union type for either Neon or pg Pool
   type PoolClient = { query: (text: string) => Promise<unknown>; end: () => Promise<void> };
@@ -41,8 +42,9 @@ async function runMigrations() {
 
     // Read all migration files
     const migrationsDir = path.join(__dirname, '..', 'migrations');
-    const migrationFiles = fs.readdirSync(migrationsDir)
-      .filter(file => file.endsWith('.sql'))
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((file) => file.endsWith('.sql'))
       .sort(); // Ensure migrations run in order
 
     if (migrationFiles.length === 0) {
@@ -60,7 +62,6 @@ async function runMigrations() {
     }
 
     console.log('✨ All migrations completed successfully!');
-
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;
@@ -69,7 +70,7 @@ async function runMigrations() {
   }
 }
 
-runMigrations().catch(error => {
+runMigrations().catch((error) => {
   console.error(error);
   process.exit(1);
 });

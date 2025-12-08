@@ -27,27 +27,32 @@ Thank you for your interest in contributing to PriceCompare! This document provi
 ### Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/Xertox1234/PriceCompare.git
    cd PriceCompare
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
    If you encounter peer dependency issues:
+
    ```bash
    PUPPETEER_SKIP_DOWNLOAD=true npm install --legacy-peer-deps
    ```
 
 3. **Set up environment variables**
+
    ```bash
    cp .env.example .env
    ```
 
    **IMPORTANT:** Generate strong secrets (minimum 32 characters):
+
    ```bash
    # Generate SESSION_SECRET
    openssl rand -base64 32
@@ -62,6 +67,7 @@ Thank you for your interest in contributing to PriceCompare! This document provi
    Update `.env` with these generated values.
 
 4. **Set up the database**
+
    ```bash
    # Run migrations
    npm run migrate
@@ -71,6 +77,7 @@ Thank you for your interest in contributing to PriceCompare! This document provi
    ```
 
 5. **Start the development server**
+
    ```bash
    npm run dev
    ```
@@ -80,17 +87,20 @@ Thank you for your interest in contributing to PriceCompare! This document provi
 ### Troubleshooting Setup
 
 **Port 5000 already in use:**
+
 ```bash
 # Find and kill the process using port 5000
 lsof -ti:5000 | xargs kill -9
 ```
 
 **Database connection issues:**
+
 - Verify PostgreSQL is running
 - Check `DATABASE_URL` in `.env`
 - Ensure database exists: `createdb price_db`
 
 **Redis connection issues:**
+
 - Redis is optional for development
 - App will fall back to in-memory storage
 - To use Redis: ensure `REDIS_URL` is set and Redis is running
@@ -107,6 +117,7 @@ lsof -ti:5000 | xargs kill -9
 - Use Zod schemas for runtime validation
 
 **Example:**
+
 ```typescript
 // Good
 interface User {
@@ -163,6 +174,7 @@ client/
 - ❌ **Never trust client input** - validate on the server
 
 **Example:**
+
 ```typescript
 // Good - using safe parsing
 const productId = parseIntSafe(req.params.id, 'productId', { min: 1 });
@@ -178,11 +190,10 @@ const productId = parseInt(req.params.id); // No validation!
 - ❌ **Never concatenate user input** into SQL strings
 
 **Example:**
+
 ```typescript
 // Good - using Drizzle ORM
-const user = await db.select()
-  .from(users)
-  .where(eq(users.id, userId));
+const user = await db.select().from(users).where(eq(users.id, userId));
 
 // Bad - raw SQL (DON'T DO THIS)
 const user = await db.execute(`SELECT * FROM users WHERE id = ${userId}`);
@@ -242,6 +253,7 @@ npm run test:ai
 ### Writing Tests
 
 **Unit Tests:**
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { parseIntSafe } from './validation-helpers';
@@ -258,6 +270,7 @@ describe('parseIntSafe', () => {
 ```
 
 **Integration Tests:**
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
@@ -265,9 +278,7 @@ import { app } from '../server';
 
 describe('GET /api/products', () => {
   it('should return products list', async () => {
-    const response = await request(app)
-      .get('/api/products')
-      .expect(200);
+    const response = await request(app).get('/api/products').expect(200);
 
     expect(response.body).toHaveProperty('results');
   });
@@ -341,6 +352,7 @@ git commit -m "docs: update API documentation for search endpoint"
 ### Before Submitting
 
 1. **Create a feature branch**
+
    ```bash
    git checkout -b feat/your-feature-name
    ```
@@ -351,6 +363,7 @@ git commit -m "docs: update API documentation for search endpoint"
    - Update documentation
 
 3. **Test thoroughly**
+
    ```bash
    npm test
    npm run check  # TypeScript type checking
@@ -358,6 +371,7 @@ git commit -m "docs: update API documentation for search endpoint"
    ```
 
 4. **Commit your changes**
+
    ```bash
    git add .
    git commit -m "feat: add your feature"
@@ -375,6 +389,7 @@ git commit -m "docs: update API documentation for search endpoint"
 ```
 
 Examples:
+
 - `feat: Add price volatility calculator`
 - `fix: Resolve CSRF token validation issue`
 - `security: Implement SSRF prevention for scraping`
@@ -383,25 +398,30 @@ Examples:
 
 ```markdown
 ## Description
+
 Brief description of what this PR does.
 
 ## Changes Made
+
 - Change 1
 - Change 2
 - Change 3
 
 ## Testing
+
 - [ ] Unit tests added/updated
 - [ ] Integration tests added/updated
 - [ ] Manual testing completed
 
 ## Security Considerations
+
 - [ ] Input validation added
 - [ ] No SQL injection risks
 - [ ] No XSS vulnerabilities
 - [ ] Authentication/authorization checked
 
 ## Checklist
+
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
 - [ ] Tests pass locally
@@ -429,6 +449,7 @@ Brief description of what this PR does.
 ### For Reviewers
 
 **Security:**
+
 - [ ] Input is validated (Zod schemas or safe parsing)
 - [ ] No SQL injection risks (using Drizzle ORM)
 - [ ] No XSS vulnerabilities (DOMPurify used)
@@ -438,6 +459,7 @@ Brief description of what this PR does.
 - [ ] Rate limiting considered
 
 **Code Quality:**
+
 - [ ] TypeScript strict mode compliance
 - [ ] Clear variable/function names
 - [ ] No unnecessary complexity
@@ -446,12 +468,14 @@ Brief description of what this PR does.
 - [ ] No performance regressions
 
 **Testing:**
+
 - [ ] Tests included for new features
 - [ ] Edge cases covered
 - [ ] Security tests for security features
 - [ ] Tests are meaningful (not just coverage)
 
 **Documentation:**
+
 - [ ] Code comments for complex logic
 - [ ] API changes documented
 - [ ] README updated if needed

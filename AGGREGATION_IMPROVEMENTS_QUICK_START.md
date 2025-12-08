@@ -6,33 +6,39 @@
 ## What's New
 
 ### 1. Database Performance (10-100x faster)
+
 - **Migration Applied**: `migrations/0014_add_aggregation_indexes.sql`
 - **Impact**: Queries on large datasets are 10-100x faster
 - **Action Required**: None - already applied
 
 ### 2. Data Quality Protection
+
 - **Validation**: All inputs validated with clear error messages
 - **Protection**: Prevents empty price arrays, invalid dates, suspicious prices
 - **Action Required**: None - automatic
 
 ### 3. Automatic Retry on Failures
+
 - **Retry Logic**: 3 attempts with exponential backoff for transient errors
 - **Smart Detection**: Only retries database connection issues, not validation errors
 - **Action Required**: None - automatic
 
 ### 4. Full Observability
+
 - **Metrics Dashboard**: http://localhost:5000/api/aggregation-metrics/summary
 - **Health Check**: http://localhost:5000/api/aggregation-metrics/health
 - **Prometheus**: http://localhost:5000/api/aggregation-metrics/prometheus
 - **Action Required**: Configure Prometheus scraping (optional)
 
 ### 5. Gap Detection & Healing
+
 - **Detect Gaps**: Find missing aggregates in any date range
 - **Fill Gaps**: Automatically re-aggregate missing data
 - **Force Re-aggregation**: Fix corrupted data by re-aggregating
 - **Action Required**: Use admin endpoints when needed
 
 ### 6. Rich Contextual Logging
+
 - **Structured Logs**: All operations log with product ID, date, error context
 - **Easy Debugging**: Filter logs by operation, product, retailer, date
 - **Action Required**: None - automatic
@@ -48,6 +54,7 @@ All endpoints require admin authentication.
 **Endpoint**: `POST /api/admin/aggregation/detect-gaps`
 
 **Request**:
+
 ```json
 {
   "startDate": "2025-01-01",
@@ -56,6 +63,7 @@ All endpoints require admin authentication.
 ```
 
 **Response**:
+
 ```json
 {
   "gaps": ["2025-01-05", "2025-01-12", "2025-01-19"],
@@ -65,6 +73,7 @@ All endpoints require admin authentication.
 ```
 
 **Use When**:
+
 - After service outage
 - Suspected data gaps
 - Regular health checks
@@ -76,6 +85,7 @@ All endpoints require admin authentication.
 **Endpoint**: `POST /api/admin/aggregation/fill-gaps`
 
 **Request**:
+
 ```json
 {
   "startDate": "2025-01-01",
@@ -84,6 +94,7 @@ All endpoints require admin authentication.
 ```
 
 **Response**:
+
 ```json
 {
   "daysFilled": 3,
@@ -94,6 +105,7 @@ All endpoints require admin authentication.
 ```
 
 **Use When**:
+
 - Recovering from outage
 - Healing data quality issues
 - Regular maintenance
@@ -105,6 +117,7 @@ All endpoints require admin authentication.
 **Endpoint**: `POST /api/admin/aggregation/force-daily`
 
 **Request**:
+
 ```json
 {
   "startDate": "2025-01-15",
@@ -113,6 +126,7 @@ All endpoints require admin authentication.
 ```
 
 **Response**:
+
 ```json
 {
   "daysAggregated": 6,
@@ -123,6 +137,7 @@ All endpoints require admin authentication.
 ```
 
 **Use When**:
+
 - After fixing aggregation bugs
 - Correcting data quality issues
 - Schema changes require recalculation
@@ -135,6 +150,7 @@ All endpoints require admin authentication.
 **Endpoint**: `POST /api/admin/aggregation/single-product`
 
 **Request**:
+
 ```json
 {
   "productId": 123
@@ -142,6 +158,7 @@ All endpoints require admin authentication.
 ```
 
 **Response**:
+
 ```json
 {
   "message": "Successfully re-aggregated product 123",
@@ -150,6 +167,7 @@ All endpoints require admin authentication.
 ```
 
 **Use When**:
+
 - Product data updated
 - Product-specific issues
 - Testing aggregation logic
@@ -163,6 +181,7 @@ All endpoints require admin authentication.
 **Endpoint**: `GET /api/aggregation-metrics/health`
 
 **Response (Healthy)**:
+
 ```json
 {
   "status": "healthy",
@@ -178,6 +197,7 @@ All endpoints require admin authentication.
 ```
 
 **Response (Degraded)**:
+
 ```json
 {
   "status": "degraded",
@@ -190,6 +210,7 @@ All endpoints require admin authentication.
 ```
 
 **Use For**:
+
 - Automated health monitoring
 - Alerting rules
 - Status dashboards
@@ -201,6 +222,7 @@ All endpoints require admin authentication.
 **Endpoint**: `GET /api/aggregation-metrics/summary`
 
 **Response** (text/plain):
+
 ```
 Aggregation Metrics Summary:
 
@@ -220,6 +242,7 @@ WEEKLY:
 ```
 
 **Use For**:
+
 - Human-readable reports
 - Quick status checks
 - Dashboard displays
@@ -231,6 +254,7 @@ WEEKLY:
 **Endpoint**: `GET /api/aggregation-metrics/prometheus`
 
 **Response** (text/plain):
+
 ```
 # HELP aggregation_duration_seconds Duration of aggregation operations
 # TYPE aggregation_duration_seconds histogram
@@ -244,6 +268,7 @@ aggregation_records_total{operation="daily"} 125430
 ```
 
 **Use For**:
+
 - Prometheus scraping
 - Grafana dashboards
 - Alerting rules
@@ -257,6 +282,7 @@ aggregation_records_total{operation="daily"} 125430
 **Problem**: Aggregation jobs didn't run for January 10-11, 2025
 
 **Solution**:
+
 ```bash
 # 1. Detect gaps
 curl -X POST http://localhost:5000/api/admin/aggregation/detect-gaps \
@@ -274,6 +300,7 @@ curl -X POST http://localhost:5000/api/admin/aggregation/fill-gaps \
 **Problem**: Volatility scores were calculated incorrectly for last week
 
 **Solution**:
+
 ```bash
 # Force re-aggregation with corrected logic
 curl -X POST http://localhost:5000/api/admin/aggregation/force-daily \
@@ -287,6 +314,7 @@ curl -X POST http://localhost:5000/api/admin/aggregation/force-daily \
 **Problem**: Product #456 had wrong pricing data, now fixed
 
 **Solution**:
+
 ```bash
 # Re-aggregate just this product
 curl -X POST http://localhost:5000/api/admin/aggregation/single-product \
@@ -300,6 +328,7 @@ curl -X POST http://localhost:5000/api/admin/aggregation/single-product \
 **Problem**: Daily aggregation is taking longer than usual
 
 **Solution**:
+
 ```bash
 # 1. Check health status
 curl http://localhost:5000/api/aggregation-metrics/health
@@ -328,7 +357,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Aggregation success rate below 95%"
+          summary: 'Aggregation success rate below 95%'
 
       # Alert if operations are too slow (> 60s)
       - alert: AggregationOperationsSlow
@@ -337,7 +366,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Aggregation operations taking longer than 60s"
+          summary: 'Aggregation operations taking longer than 60s'
 
       # Alert if no aggregations in last 25 hours (daily should run at 1 AM)
       - alert: AggregationStalled
@@ -346,7 +375,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "No aggregations in last 25 hours"
+          summary: 'No aggregations in last 25 hours'
 ```
 
 ---
@@ -358,6 +387,7 @@ groups:
 **Cause**: Raw price_history data might have been deleted before aggregation
 
 **Solution**: Check price_history table for the date range:
+
 ```sql
 SELECT date(recorded_at), count(*)
 FROM price_history
@@ -374,6 +404,7 @@ If no data exists, gaps can't be filled (data is gone).
 **Cause**: Invalid data in price_history table
 
 **Solution**: Check structured logs for validation errors:
+
 - Empty prices arrays
 - Negative prices
 - Suspiciously high prices (> $1M)
@@ -388,6 +419,7 @@ Fix source data before re-aggregating.
 **Cause**: Database connection issues or deadlocks
 
 **Solution**:
+
 1. Check database connection pool settings
 2. Review database logs for errors
 3. Check if concurrent aggregation jobs are conflicting
@@ -400,10 +432,10 @@ Fix source data before re-aggregating.
 ### After Index Deployment
 
 | Dataset Size | Before Indexes | After Indexes | Improvement |
-|-------------|---------------|---------------|-------------|
-| 1M records | 45s | 3s | 15x faster |
-| 10M records | 8m | 25s | 19x faster |
-| 50M records | 45m | 6m | 7.5x faster |
+| ------------ | -------------- | ------------- | ----------- |
+| 1M records   | 45s            | 3s            | 15x faster  |
+| 10M records  | 8m             | 25s           | 19x faster  |
+| 50M records  | 45m            | 6m            | 7.5x faster |
 
 ### Success Rates
 
@@ -444,6 +476,7 @@ See `PRICE_AGGREGATION_IMPROVEMENTS.md` for full Phase 2+ roadmap.
 ## Support
 
 For issues or questions:
+
 1. Check structured logs for error context
 2. Review health endpoint for warnings
 3. Check metrics for anomalies

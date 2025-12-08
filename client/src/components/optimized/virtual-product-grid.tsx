@@ -8,10 +8,10 @@ interface VirtualProductGridProps {
   containerHeight?: number;
 }
 
-export function VirtualProductGrid({ 
-  products, 
-  onAddToComparison, 
-  containerHeight = 600 
+export function VirtualProductGrid({
+  products,
+  onAddToComparison,
+  containerHeight = 600,
 }: VirtualProductGridProps) {
   const { visibleItems, totalHeight, offsetY, onScroll } = useVirtualList(products, {
     itemHeight: 300, // Approximate height of a product card
@@ -22,7 +22,7 @@ export function VirtualProductGrid({
   if (products.length <= 20) {
     // For small lists, use regular rendering
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {products.map((product) => (
           <MemoizedProductCard
             key={product.id}
@@ -35,11 +35,7 @@ export function VirtualProductGrid({
   }
 
   return (
-    <div
-      className="overflow-auto"
-      style={{ height: containerHeight }}
-      onScroll={onScroll}
-    >
+    <div className="overflow-auto" style={{ height: containerHeight }} onScroll={onScroll}>
       <div style={{ height: totalHeight, position: 'relative' }}>
         <div
           style={{
@@ -50,7 +46,7 @@ export function VirtualProductGrid({
             right: 0,
           }}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visibleItems.map(({ item: product, index: _index }) => (
               <MemoizedProductCard
                 key={product.id}

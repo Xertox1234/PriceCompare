@@ -68,10 +68,7 @@ export interface ApiPaginatedResponse<T> {
  * Discriminated union of all possible API responses
  * The 'success' field acts as the discriminator
  */
-export type ApiResponse<T> =
-  | ApiSuccessResponse<T>
-  | ApiErrorResponse
-  | ApiPaginatedResponse<T>;
+export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse | ApiPaginatedResponse<T>;
 
 /**
  * Type guard to check if response is successful
@@ -85,9 +82,7 @@ export function isSuccessResponse<T>(
 /**
  * Type guard to check if response is an error
  */
-export function isErrorResponse<T>(
-  response: ApiResponse<T>
-): response is ApiErrorResponse {
+export function isErrorResponse<T>(response: ApiResponse<T>): response is ApiErrorResponse {
   return response.success === false;
 }
 

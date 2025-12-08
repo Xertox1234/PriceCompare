@@ -5,6 +5,7 @@ This document describes the API endpoints specifically designed for the PriceCom
 ## Overview
 
 The backend has been extended to support the browser extension with several new endpoints that provide:
+
 - Product search by URL
 - Price history data
 - Price trend analysis
@@ -32,14 +33,17 @@ Production: Configure via extension settings
 **Description:** Search for a product in the database by its URL. Used when the extension detects a product page.
 
 **Query Parameters:**
+
 - `url` (string, required): The product page URL (will be URL-encoded)
 
 **Request Example:**
+
 ```bash
 GET /api/products/search?url=https%3A%2F%2Famazon.com%2Fiphone
 ```
 
 **Response Format:**
+
 ```json
 {
   "product": {
@@ -70,6 +74,7 @@ GET /api/products/search?url=https%3A%2F%2Famazon.com%2Fiphone
 ```
 
 **Error Response (Not Found):**
+
 ```json
 {
   "product": null
@@ -85,18 +90,22 @@ GET /api/products/search?url=https%3A%2F%2Famazon.com%2Fiphone
 **Description:** Get historical price data for a product. Used to render the price chart in the extension overlay.
 
 **Path Parameters:**
+
 - `id` (number, required): Product ID
 
 **Query Parameters:**
+
 - `days` (number, optional): Number of days of history to return (default: 30)
 - `retailerId` (number, optional): Filter by specific retailer
 
 **Request Example:**
+
 ```bash
 GET /api/products/1/price-history?days=30
 ```
 
 **Response Format:**
+
 ```json
 {
   "history": [
@@ -127,14 +136,17 @@ GET /api/products/1/price-history?days=30
 **Description:** Get price trend analysis including direction (rising/falling/stable) and predictions.
 
 **Path Parameters:**
+
 - `id` (number, required): Product ID
 
 **Request Example:**
+
 ```bash
 GET /api/products/1/price-trend
 ```
 
 **Response Format:**
+
 ```json
 {
   "trend": {
@@ -142,7 +154,7 @@ GET /api/products/1/price-trend
     "change": -5.2,
     "changePercent": -5.2,
     "currentPrice": 999.99,
-    "averagePrice": 1050.00,
+    "averagePrice": 1050.0,
     "lowestPrice": 989.99,
     "highestPrice": 1199.99
   },
@@ -151,6 +163,7 @@ GET /api/products/1/price-trend
 ```
 
 **Prediction Values:**
+
 - `good_time`: Good time to buy (price is stable or low)
 - `might_drop`: Price might drop further (wait)
 - `wait`: Price is rising (wait for it to stabilize)
@@ -164,14 +177,17 @@ GET /api/products/1/price-trend
 **Description:** Get current offers from all retailers for a product.
 
 **Path Parameters:**
+
 - `id` (number, required): Product ID
 
 **Request Example:**
+
 ```bash
 GET /api/products/1/offers
 ```
 
 **Response Format:**
+
 ```json
 {
   "offers": [
@@ -218,28 +234,32 @@ GET /api/products/1/offers
 **Description:** Get AI-powered price predictions for future dates.
 
 **Path Parameters:**
+
 - `id` (number, required): Product ID
 
 **Query Parameters:**
+
 - `days` (number, optional): Number of days to predict (default: 7, max: 30)
 
 **Request Example:**
+
 ```bash
 GET /api/products/1/price-predictions?days=7
 ```
 
 **Response Format:**
+
 ```json
 {
   "predictions": [
     {
       "date": "2025-01-15",
-      "predictedPrice": 995.50,
+      "predictedPrice": 995.5,
       "confidence": 0.85
     },
     {
       "date": "2025-01-16",
-      "predictedPrice": 992.30,
+      "predictedPrice": 992.3,
       "confidence": 0.78
     }
   ],
@@ -250,11 +270,13 @@ GET /api/products/1/price-predictions?days=7
 ```
 
 **Confidence Levels:**
+
 - `high`: 30+ days of historical data, stable trends
 - `medium`: 7-29 days of historical data
 - `low`: Less than 7 days of historical data
 
 **Error Response (Insufficient Data):**
+
 ```json
 {
   "predictions": [],
@@ -272,6 +294,7 @@ GET /api/products/1/price-predictions?days=7
 **Description:** Track when a user views a product via the extension. Fire-and-forget endpoint for analytics.
 
 **Request Body:**
+
 ```json
 {
   "productId": 1,
@@ -281,6 +304,7 @@ GET /api/products/1/price-predictions?days=7
 ```
 
 **Request Example:**
+
 ```bash
 POST /api/analytics/product-view
 Content-Type: application/json
@@ -293,6 +317,7 @@ Content-Type: application/json
 ```
 
 **Response Format:**
+
 ```json
 {
   "success": true
@@ -312,6 +337,7 @@ Content-Type: application/json
 **Authentication:** Required (session cookie)
 
 **Request Body:**
+
 ```json
 {
   "productId": 1,
@@ -321,6 +347,7 @@ Content-Type: application/json
 ```
 
 **Request Example:**
+
 ```bash
 POST /api/price-alerts
 Content-Type: application/json
@@ -334,6 +361,7 @@ Cookie: connect.sid=...
 ```
 
 **Response Format:**
+
 ```json
 {
   "success": true,
@@ -355,6 +383,7 @@ Cookie: connect.sid=...
 ### API Client Usage
 
 The extension uses a centralized API client (`shared/api-client.js`) that:
+
 - Caches responses for 5 minutes
 - Handles errors gracefully
 - Supports configurable base URL
@@ -363,6 +392,7 @@ The extension uses a centralized API client (`shared/api-client.js`) that:
 ### Response Caching
 
 The extension caches responses locally to reduce API calls:
+
 - Product searches: 5 minutes
 - Price history: 5 minutes
 - Price trends: 5 minutes
@@ -371,6 +401,7 @@ The extension caches responses locally to reduce API calls:
 ### Error Handling
 
 All endpoints return appropriate HTTP status codes:
+
 - `200`: Success
 - `400`: Bad request (invalid parameters)
 - `401`: Unauthorized (authentication required)
@@ -386,31 +417,37 @@ The extension should handle these gracefully and show appropriate messages to us
 ### Example cURL Commands
 
 **Search by URL:**
+
 ```bash
 curl "http://localhost:3000/api/products/search?url=https%3A%2F%2Famazon.com%2Fiphone"
 ```
 
 **Get Price History:**
+
 ```bash
 curl "http://localhost:3000/api/products/1/price-history?days=30"
 ```
 
 **Get Price Trend:**
+
 ```bash
 curl "http://localhost:3000/api/products/1/price-trend"
 ```
 
 **Get Offers:**
+
 ```bash
 curl "http://localhost:3000/api/products/1/offers"
 ```
 
 **Get Predictions:**
+
 ```bash
 curl "http://localhost:3000/api/products/1/price-predictions?days=7"
 ```
 
 **Track View:**
+
 ```bash
 curl -X POST "http://localhost:3000/api/analytics/product-view" \
   -H "Content-Type: application/json" \

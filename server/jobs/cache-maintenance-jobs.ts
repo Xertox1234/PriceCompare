@@ -99,11 +99,11 @@ export function getCacheJobsStatus(): {
  * Manually trigger cache warming (for testing)
  * @deprecated Cache warming service has been removed as dead code
  */
-export async function triggerCacheWarming(_options?: {
+export function triggerCacheWarming(_options?: {
   topProductsCount?: number;
   includeAnalytics?: boolean;
   includeSearches?: boolean;
-}): Promise<number> {
+}): number {
   logger.warn('Cache warming service has been removed - returning 0');
   return 0;
 }

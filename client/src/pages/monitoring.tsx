@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { Activity, AlertCircle, CheckCircle2, Database, Server, AlertTriangle } from "lucide-react";
-import { io, Socket } from "socket.io-client";
-import { createLogger } from "@/utils/logger";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Activity, AlertCircle, CheckCircle2, Database, Server, AlertTriangle } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
+import { createLogger } from '@/utils/logger';
 
 const log = createLogger('Monitoring');
 
@@ -76,7 +76,7 @@ interface DashboardMetrics {
     contentionRate: number;
   };
   health: {
-    overall: "healthy" | "degraded" | "unhealthy";
+    overall: 'healthy' | 'degraded' | 'unhealthy';
     services: {
       database: boolean;
       redis: boolean;
@@ -88,7 +88,7 @@ interface DashboardMetrics {
 
 interface Alert {
   id: string;
-  level: "info" | "warning" | "critical";
+  level: 'info' | 'warning' | 'critical';
   title: string;
   message: string;
   timestamp: string;
@@ -99,7 +99,7 @@ export default function MonitoringDashboard() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [_socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [lastUpdate, setLastUpdate] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -108,33 +108,36 @@ export default function MonitoringDashboard() {
 
     // Connect to WebSocket
     const socketInstance = io(window.location.origin, {
-      path: "/socket.io",
-      transports: ["websocket", "polling"],
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
     });
 
-    socketInstance.on("connect", () => {
+    socketInstance.on('connect', () => {
       setConnected(true);
-      log.info("✅ WebSocket connected");
+      log.info('✅ WebSocket connected');
     });
 
-    socketInstance.on("disconnect", () => {
+    socketInstance.on('disconnect', () => {
       setConnected(false);
-      log.info("❌ WebSocket disconnected");
+      log.info('❌ WebSocket disconnected');
     });
 
-    socketInstance.on("metrics:update", (data: { metrics: DashboardMetrics; timestamp: string }) => {
-      setMetrics(data.metrics);
-      setLastUpdate(new Date(data.timestamp).toLocaleTimeString());
-    });
+    socketInstance.on(
+      'metrics:update',
+      (data: { metrics: DashboardMetrics; timestamp: string }) => {
+        setMetrics(data.metrics);
+        setLastUpdate(new Date(data.timestamp).toLocaleTimeString());
+      }
+    );
 
-    socketInstance.on("alert:triggered", (alert: Alert) => {
+    socketInstance.on('alert:triggered', (alert: Alert) => {
       setAlerts((prev) => [alert, ...prev].slice(0, 10));
 
       // Show toast notification
       toast({
         title: alert.title,
         description: alert.message,
-        variant: alert.level === "critical" ? "destructive" : "default",
+        variant: alert.level === 'critical' ? 'destructive' : 'default',
       });
     });
 
@@ -148,23 +151,23 @@ export default function MonitoringDashboard() {
 
   const fetchMetrics = async () => {
     try {
-      const response = await fetch("/api/monitoring/dashboard");
+      const response = await fetch('/api/monitoring/dashboard');
       if (response.ok) {
-        const result = await response.json() as { data: DashboardMetrics };
+        const result = (await response.json()) as { data: DashboardMetrics };
         setMetrics(result.data);
         setLastUpdate(new Date().toLocaleTimeString());
       }
     } catch (error) {
-      log.error("Failed to fetch metrics:", { error });
+      log.error('Failed to fetch metrics:', { error });
     }
   };
 
   if (!metrics) {
     return (
       <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
+        <div className="flex h-64 items-center justify-center">
           <div className="text-center">
-            <Activity className="h-12 w-12 animate-spin mx-auto mb-4 text-gray-400" />
+            <Activity className="mx-auto mb-4 h-12 w-12 animate-spin text-gray-400" />
             <p className="text-gray-500">Loading dashboard...</p>
           </div>
         </div>
@@ -174,24 +177,24 @@ export default function MonitoringDashboard() {
 
   const getHealthColor = (status: string) => {
     switch (status) {
-      case "healthy":
-        return "text-green-600";
-      case "degraded":
-        return "text-yellow-600";
-      case "unhealthy":
-        return "text-red-600";
+      case 'healthy':
+        return 'text-green-600';
+      case 'degraded':
+        return 'text-yellow-600';
+      case 'unhealthy':
+        return 'text-red-600';
       default:
-        return "text-gray-600";
+        return 'text-gray-600';
     }
   };
 
   const getHealthBadge = (status: string) => {
     switch (status) {
-      case "healthy":
+      case 'healthy':
         return <Badge className="bg-green-600">Healthy</Badge>;
-      case "degraded":
+      case 'degraded':
         return <Badge className="bg-yellow-600">Degraded</Badge>;
-      case "unhealthy":
+      case 'unhealthy':
         return <Badge className="bg-red-600">Unhealthy</Badge>;
       default:
         return <Badge>Unknown</Badge>;
@@ -199,20 +202,18 @@ export default function MonitoringDashboard() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">AI Agent Monitoring</h1>
-          <p className="text-gray-500 mt-1">Real-time system metrics and health status</p>
+          <p className="mt-1 text-gray-500">Real-time system metrics and health status</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">
-            Last update: {lastUpdate}
-          </div>
+          <div className="text-sm text-gray-500">Last update: {lastUpdate}</div>
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
-            <span className="text-sm">{connected ? "Connected" : "Disconnected"}</span>
+            <div className={`h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-sm">{connected ? 'Connected' : 'Disconnected'}</span>
           </div>
         </div>
       </div>
@@ -227,42 +228,48 @@ export default function MonitoringDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="flex items-center gap-3">
-              <Database className={`h-8 w-8 ${metrics.health.services.database ? "text-green-600" : "text-red-600"}`} />
+              <Database
+                className={`h-8 w-8 ${metrics.health.services.database ? 'text-green-600' : 'text-red-600'}`}
+              />
               <div>
                 <div className="font-medium">Database</div>
                 <div className="text-sm text-gray-500">
-                  {metrics.health.services.database ? "Connected" : "Disconnected"}
+                  {metrics.health.services.database ? 'Connected' : 'Disconnected'}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Server className={`h-8 w-8 ${metrics.health.services.redis ? "text-green-600" : "text-red-600"}`} />
+              <Server
+                className={`h-8 w-8 ${metrics.health.services.redis ? 'text-green-600' : 'text-red-600'}`}
+              />
               <div>
                 <div className="font-medium">Redis Cache</div>
                 <div className="text-sm text-gray-500">
-                  {metrics.health.services.redis ? "Connected" : "Disconnected"}
+                  {metrics.health.services.redis ? 'Connected' : 'Disconnected'}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Activity className={`h-8 w-8 ${metrics.health.services.agents ? "text-green-600" : "text-red-600"}`} />
+              <Activity
+                className={`h-8 w-8 ${metrics.health.services.agents ? 'text-green-600' : 'text-red-600'}`}
+              />
               <div>
                 <div className="font-medium">AI Agents</div>
                 <div className="text-sm text-gray-500">
-                  {metrics.health.services.agents ? "Active" : "Inactive"}
+                  {metrics.health.services.agents ? 'Active' : 'Inactive'}
                 </div>
               </div>
             </div>
           </div>
           {metrics.health.issues.length > 0 && (
-            <div className="mt-4 p-3 bg-red-50 rounded-lg">
+            <div className="mt-4 rounded-lg bg-red-50 p-3">
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                <AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
                 <div>
                   <div className="font-medium text-red-900">Issues Detected</div>
-                  <ul className="mt-1 text-sm text-red-700 space-y-1">
+                  <ul className="mt-1 space-y-1 text-sm text-red-700">
                     {metrics.health.issues.map((issue, i) => (
                       <li key={i}>• {issue}</li>
                     ))}
@@ -275,7 +282,7 @@ export default function MonitoringDashboard() {
       </Card>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Active Agents */}
         <Card>
           <CardHeader className="pb-3">
@@ -283,9 +290,7 @@ export default function MonitoringDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{metrics.agents.active}</div>
-            <p className="text-sm text-gray-500 mt-1">
-              {metrics.agents.total} total sessions
-            </p>
+            <p className="mt-1 text-sm text-gray-500">{metrics.agents.total} total sessions</p>
           </CardContent>
         </Card>
 
@@ -296,9 +301,7 @@ export default function MonitoringDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{metrics.jobs.pending}</div>
-            <p className="text-sm text-gray-500 mt-1">
-              {metrics.jobs.running} running
-            </p>
+            <p className="mt-1 text-sm text-gray-500">{metrics.jobs.running} running</p>
           </CardContent>
         </Card>
 
@@ -308,12 +311,8 @@ export default function MonitoringDashboard() {
             <CardTitle className="text-sm font-medium text-gray-500">Success Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
-              {Math.round(metrics.jobs.successRate * 100)}%
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
-              {metrics.jobs.completed} completed
-            </p>
+            <div className="text-3xl font-bold">{Math.round(metrics.jobs.successRate * 100)}%</div>
+            <p className="mt-1 text-sm text-gray-500">{metrics.jobs.completed} completed</p>
           </CardContent>
         </Card>
 
@@ -326,9 +325,7 @@ export default function MonitoringDashboard() {
             <div className="text-3xl font-bold">
               {Math.round(metrics.cache.overall.combinedHitRate * 100)}%
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              {metrics.cache.overall.totalHits} hits
-            </p>
+            <p className="mt-1 text-sm text-gray-500">{metrics.cache.overall.totalHits} hits</p>
           </CardContent>
         </Card>
       </div>
@@ -339,26 +336,26 @@ export default function MonitoringDashboard() {
           <CardTitle>Job Queue Status</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
             <div>
               <div className="text-sm text-gray-500">Total</div>
-              <div className="text-2xl font-bold mt-1">{metrics.jobs.total}</div>
+              <div className="mt-1 text-2xl font-bold">{metrics.jobs.total}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Pending</div>
-              <div className="text-2xl font-bold mt-1 text-yellow-600">{metrics.jobs.pending}</div>
+              <div className="mt-1 text-2xl font-bold text-yellow-600">{metrics.jobs.pending}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Running</div>
-              <div className="text-2xl font-bold mt-1 text-blue-600">{metrics.jobs.running}</div>
+              <div className="mt-1 text-2xl font-bold text-blue-600">{metrics.jobs.running}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Completed</div>
-              <div className="text-2xl font-bold mt-1 text-green-600">{metrics.jobs.completed}</div>
+              <div className="mt-1 text-2xl font-bold text-green-600">{metrics.jobs.completed}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Failed</div>
-              <div className="text-2xl font-bold mt-1 text-red-600">{metrics.jobs.failed}</div>
+              <div className="mt-1 text-2xl font-bold text-red-600">{metrics.jobs.failed}</div>
             </div>
           </div>
           {metrics.jobs.avgDuration && (
@@ -383,32 +380,32 @@ export default function MonitoringDashboard() {
               {alerts.slice(0, 5).map((alert) => (
                 <div
                   key={alert.id}
-                  className={`p-3 rounded-lg border ${
-                    alert.level === "critical"
-                      ? "bg-red-50 border-red-200"
-                      : alert.level === "warning"
-                      ? "bg-yellow-50 border-yellow-200"
-                      : "bg-blue-50 border-blue-200"
+                  className={`rounded-lg border p-3 ${
+                    alert.level === 'critical'
+                      ? 'border-red-200 bg-red-50'
+                      : alert.level === 'warning'
+                        ? 'border-yellow-200 bg-yellow-50'
+                        : 'border-blue-200 bg-blue-50'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-medium">{alert.title}</div>
-                      <div className="text-sm mt-1">{alert.message}</div>
+                      <div className="mt-1 text-sm">{alert.message}</div>
                     </div>
                     <Badge
                       className={
-                        alert.level === "critical"
-                          ? "bg-red-600"
-                          : alert.level === "warning"
-                          ? "bg-yellow-600"
-                          : "bg-blue-600"
+                        alert.level === 'critical'
+                          ? 'bg-red-600'
+                          : alert.level === 'warning'
+                            ? 'bg-yellow-600'
+                            : 'bg-blue-600'
                       }
                     >
                       {alert.level}
                     </Badge>
                   </div>
-                  <div className="text-xs text-gray-500 mt-2">
+                  <div className="mt-2 text-xs text-gray-500">
                     {new Date(alert.timestamp).toLocaleString()}
                   </div>
                 </div>
@@ -419,7 +416,7 @@ export default function MonitoringDashboard() {
       )}
 
       {/* Cache & Lock Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Query Cache</CardTitle>
@@ -440,8 +437,10 @@ export default function MonitoringDashboard() {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Status</span>
-                <Badge className={metrics.cache.queryCache.connected ? "bg-green-600" : "bg-red-600"}>
-                  {metrics.cache.queryCache.connected ? "Connected" : "Disconnected"}
+                <Badge
+                  className={metrics.cache.queryCache.connected ? 'bg-green-600' : 'bg-red-600'}
+                >
+                  {metrics.cache.queryCache.connected ? 'Connected' : 'Disconnected'}
                 </Badge>
               </div>
             </div>
@@ -468,7 +467,9 @@ export default function MonitoringDashboard() {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Contention</span>
-                <Badge className={metrics.locks.contentionRate > 0.1 ? "bg-yellow-600" : "bg-green-600"}>
+                <Badge
+                  className={metrics.locks.contentionRate > 0.1 ? 'bg-yellow-600' : 'bg-green-600'}
+                >
                   {Math.round(metrics.locks.contentionRate * 100)}%
                 </Badge>
               </div>
@@ -483,22 +484,26 @@ export default function MonitoringDashboard() {
           <CardTitle className="text-base">Trending Products</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
               <div className="text-sm text-gray-500">Discovered</div>
-              <div className="text-2xl font-bold mt-1">{metrics.products.trendingDiscovered}</div>
+              <div className="mt-1 text-2xl font-bold">{metrics.products.trendingDiscovered}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Processed</div>
-              <div className="text-2xl font-bold mt-1 text-green-600">{metrics.products.trendingProcessed}</div>
+              <div className="mt-1 text-2xl font-bold text-green-600">
+                {metrics.products.trendingProcessed}
+              </div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Failed</div>
-              <div className="text-2xl font-bold mt-1 text-red-600">{metrics.products.trendingFailed}</div>
+              <div className="mt-1 text-2xl font-bold text-red-600">
+                {metrics.products.trendingFailed}
+              </div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Total Offers</div>
-              <div className="text-2xl font-bold mt-1">{metrics.products.totalOffers}</div>
+              <div className="mt-1 text-2xl font-bold">{metrics.products.totalOffers}</div>
             </div>
           </div>
         </CardContent>

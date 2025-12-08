@@ -35,12 +35,14 @@ export function PromotionalBanner({
 
   if (variant === 'compact') {
     return (
-      <section className={cn("py-4", className)}>
+      <section className={cn('py-4', className)}>
         <div className="container mx-auto px-4">
-          <div className={cn(
-            "rounded-xl px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4",
-            bgClasses[backgroundColor]
-          )}>
+          <div
+            className={cn(
+              'flex flex-col items-center justify-between gap-4 rounded-xl px-6 py-4 sm:flex-row',
+              bgClasses[backgroundColor]
+            )}
+          >
             <div className="flex items-center gap-3 text-center sm:text-left">
               <Zap className="h-6 w-6 flex-shrink-0" />
               <div>
@@ -51,7 +53,7 @@ export function PromotionalBanner({
             <Link href={ctaLink}>
               <Button variant="secondary" className="whitespace-nowrap">
                 {ctaText}
-                <ArrowRight className="h-4 w-4 ml-2" />
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -61,38 +63,41 @@ export function PromotionalBanner({
   }
 
   return (
-    <section className={cn("py-8", className)}>
+    <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
-        <div className={cn(
-          "relative overflow-hidden rounded-2xl min-h-[200px] lg:min-h-[280px]",
-          !backgroundImage && bgClasses[backgroundColor]
-        )}>
+        <div
+          className={cn(
+            'relative min-h-[200px] overflow-hidden rounded-2xl lg:min-h-[280px]',
+            !backgroundImage && bgClasses[backgroundColor]
+          )}
+        >
           {/* Background Image */}
           {backgroundImage && (
             <>
               <img
                 src={backgroundImage}
                 alt=""
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
               />
               <div className="absolute inset-0 bg-slate-900/80" />
             </>
           )}
 
           {/* Content */}
-          <div className="relative h-full flex flex-col justify-center p-8 lg:p-12">
+          <div className="relative flex h-full flex-col justify-center p-8 lg:p-12">
             <div className="max-w-xl">
-              <h2 className={cn(
-                "text-2xl lg:text-4xl font-bold mb-3",
-                backgroundImage ? "text-white" : ""
-              )}>
+              <h2
+                className={cn(
+                  'mb-3 text-2xl font-bold lg:text-4xl',
+                  backgroundImage ? 'text-white' : ''
+                )}
+              >
                 {title}
               </h2>
               {subtitle && (
-                <p className={cn(
-                  "text-lg mb-6",
-                  backgroundImage ? "text-slate-200" : "opacity-90"
-                )}>
+                <p
+                  className={cn('mb-6 text-lg', backgroundImage ? 'text-slate-200' : 'opacity-90')}
+                >
                   {subtitle}
                 </p>
               )}
@@ -101,11 +106,13 @@ export function PromotionalBanner({
                   size="lg"
                   variant={backgroundImage || backgroundColor === 'dark' ? 'secondary' : 'outline'}
                   className={cn(
-                    !backgroundImage && backgroundColor !== 'dark' && "border-white text-white hover:bg-white hover:text-primary"
+                    !backgroundImage &&
+                      backgroundColor !== 'dark' &&
+                      'hover:text-primary border-white text-white hover:bg-white'
                   )}
                 >
                   {ctaText}
-                  <ArrowRight className="h-5 w-5 ml-2" />
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
             </div>
@@ -119,55 +126,51 @@ export function PromotionalBanner({
 // Side-by-side banner grid
 export function BannerGrid({ className }: BannerProps) {
   return (
-    <section className={cn("py-8", className)}>
+    <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-6">
           {/* Price Alert Banner */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 p-6 lg:p-8 min-h-[200px]">
+          <div className="relative min-h-[200px] overflow-hidden rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 p-6 lg:p-8">
             <div className="relative z-10">
-              <div className="flex items-center gap-2 text-blue-200 mb-2">
+              <div className="mb-2 flex items-center gap-2 text-blue-200">
                 <Bell className="h-5 w-5" />
-                <span className="text-sm font-medium uppercase tracking-wider">Price Alerts</span>
+                <span className="text-sm font-medium tracking-wider uppercase">Price Alerts</span>
               </div>
-              <h3 className="text-2xl lg:text-3xl font-bold text-white mb-2">
-                Never Miss a Deal
-              </h3>
-              <p className="text-blue-100 mb-4">
+              <h3 className="mb-2 text-2xl font-bold text-white lg:text-3xl">Never Miss a Deal</h3>
+              <p className="mb-4 text-blue-100">
                 Set price alerts and get notified instantly when prices drop.
               </p>
               <Link href="/price-watch">
                 <Button variant="secondary" size="sm">
                   Set Alert
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
             </div>
             {/* Decorative element */}
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500 rounded-full blur-3xl" />
+            <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-blue-500 blur-3xl" />
           </div>
 
           {/* Comparison Banner */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 p-6 lg:p-8 min-h-[200px]">
+          <div className="relative min-h-[200px] overflow-hidden rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 p-6 lg:p-8">
             <div className="relative z-10">
-              <div className="flex items-center gap-2 text-amber-100 mb-2">
+              <div className="mb-2 flex items-center gap-2 text-amber-100">
                 <Percent className="h-5 w-5" />
-                <span className="text-sm font-medium uppercase tracking-wider">Compare & Save</span>
+                <span className="text-sm font-medium tracking-wider uppercase">Compare & Save</span>
               </div>
-              <h3 className="text-2xl lg:text-3xl font-bold text-white mb-2">
+              <h3 className="mb-2 text-2xl font-bold text-white lg:text-3xl">
                 Find the Best Price
               </h3>
-              <p className="text-amber-50 mb-4">
-                Compare prices across 100+ retailers instantly.
-              </p>
+              <p className="mb-4 text-amber-50">Compare prices across 100+ retailers instantly.</p>
               <Link href="/comparison">
                 <Button variant="secondary" size="sm">
                   Compare Now
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
             </div>
             {/* Decorative element */}
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-amber-400 rounded-full blur-3xl" />
+            <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-amber-400 blur-3xl" />
           </div>
         </div>
       </div>
@@ -178,40 +181,49 @@ export function BannerGrid({ className }: BannerProps) {
 // Newsletter signup banner
 export function NewsletterBanner({ className }: BannerProps) {
   return (
-    <section className={cn("py-8", className)}>
+    <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 p-8 lg:p-12">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-full h-full" style={{
-              backgroundImage: 'radial-gradient(circle at 25% 25%, white 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-            }} />
+            <div
+              className="absolute top-0 left-0 h-full w-full"
+              style={{
+                backgroundImage: 'radial-gradient(circle at 25% 25%, white 1px, transparent 1px)',
+                backgroundSize: '40px 40px',
+              }}
+            />
           </div>
 
-          <div className="relative flex flex-col lg:flex-row items-center justify-between gap-8">
+          <div className="relative flex flex-col items-center justify-between gap-8 lg:flex-row">
             <div className="text-center lg:text-left">
-              <div className="flex items-center justify-center lg:justify-start gap-2 text-primary mb-2">
+              <div className="text-primary mb-2 flex items-center justify-center gap-2 lg:justify-start">
                 <Gift className="h-5 w-5" />
-                <span className="text-sm font-medium uppercase tracking-wider">Exclusive Deals</span>
+                <span className="text-sm font-medium tracking-wider uppercase">
+                  Exclusive Deals
+                </span>
               </div>
-              <h3 className="text-2xl lg:text-3xl font-bold text-white mb-2">
+              <h3 className="mb-2 text-2xl font-bold text-white lg:text-3xl">
                 Get Price Drop Alerts
               </h3>
-              <p className="text-slate-300 max-w-md">
-                Subscribe to our newsletter and never miss a deal. Get personalized price alerts delivered to your inbox.
+              <p className="max-w-md text-slate-300">
+                Subscribe to our newsletter and never miss a deal. Get personalized price alerts
+                delivered to your inbox.
               </p>
             </div>
 
-            <form className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto" onSubmit={(e) => e.preventDefault()}>
+            <form
+              className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto"
+              onSubmit={(e) => e.preventDefault()}
+            >
               <input
                 type="email"
                 placeholder="Enter your email address"
-                className="px-5 py-3.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-80"
+                className="focus:ring-primary w-full rounded-lg border border-slate-200 bg-white px-5 py-3.5 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:outline-none sm:w-80"
               />
               <button
                 type="submit"
-                className="px-6 py-3.5 bg-[#ff6b6b] hover:bg-[#ff5252] text-white font-semibold rounded-lg transition-colors whitespace-nowrap flex items-center justify-center gap-2"
+                className="flex items-center justify-center gap-2 rounded-lg bg-[#ff6b6b] px-6 py-3.5 font-semibold whitespace-nowrap text-white transition-colors hover:bg-[#ff5252]"
               >
                 Subscribe
                 <ArrowRight className="h-4 w-4" />
@@ -227,27 +239,27 @@ export function NewsletterBanner({ className }: BannerProps) {
 // App download banner
 export function AppBanner({ className }: BannerProps) {
   return (
-    <section className={cn("py-8", className)}>
+    <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
-        <div className="relative overflow-hidden rounded-2xl bg-primary p-8 lg:p-12">
-          <div className="flex flex-col lg:flex-row items-center gap-8">
+        <div className="bg-primary relative overflow-hidden rounded-2xl p-8 lg:p-12">
+          <div className="flex flex-col items-center gap-8 lg:flex-row">
             <div className="flex-1 text-center lg:text-left">
-              <h3 className="text-2xl lg:text-3xl font-bold text-primary-foreground mb-2">
+              <h3 className="text-primary-foreground mb-2 text-2xl font-bold lg:text-3xl">
                 Track Prices on the Go
               </h3>
               <p className="text-primary-foreground mb-6 max-w-md">
                 Download our browser extension and mobile app to track prices anywhere, anytime.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+              <div className="flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
                 <Button variant="secondary" size="lg">
-                  <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
                   </svg>
                   App Store
                 </Button>
                 <Button variant="secondary" size="lg">
-                  <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 20.5v-17c0-.83.67-1.5 1.5-1.5h15c.83 0 1.5.67 1.5 1.5v17c0 .83-.67 1.5-1.5 1.5h-15c-.83 0-1.5-.67-1.5-1.5zm3.5-11.5l5.5 4-5.5 4v-8zm6.5 0v8l5.5-4-5.5-4z"/>
+                  <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 20.5v-17c0-.83.67-1.5 1.5-1.5h15c.83 0 1.5.67 1.5 1.5v17c0 .83-.67 1.5-1.5 1.5h-15c-.83 0-1.5-.67-1.5-1.5zm3.5-11.5l5.5 4-5.5 4v-8zm6.5 0v8l5.5-4-5.5-4z" />
                   </svg>
                   Chrome Extension
                 </Button>

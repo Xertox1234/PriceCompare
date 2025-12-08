@@ -1,9 +1,17 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { TrendingDown, TrendingUp, Activity, Calendar, ShoppingCart, Sparkles, AlertTriangle } from "lucide-react";
-import { usePriceStats, usePriceHistory } from "@/hooks/use-price-history";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  TrendingDown,
+  TrendingUp,
+  Activity,
+  Calendar,
+  ShoppingCart,
+  Sparkles,
+  AlertTriangle,
+} from 'lucide-react';
+import { usePriceStats, usePriceHistory } from '@/hooks/use-price-history';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PriceInsightsWidgetProps {
   productId: number;
@@ -27,7 +35,9 @@ interface BuyRecommendation {
 
 export function PriceInsightsWidget({ productId, offerId, className }: PriceInsightsWidgetProps) {
   const { data: stats, isLoading: statsLoading } = usePriceStats(productId, offerId, 365);
-  const { data: history, isLoading: historyLoading } = usePriceHistory(productId, offerId, { days: 365 });
+  const { data: history, isLoading: historyLoading } = usePriceHistory(productId, offerId, {
+    days: 365,
+  });
 
   const isLoading = statsLoading || historyLoading;
 
@@ -35,7 +45,10 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
   const seasonalPatterns = calculateSeasonalPatterns(history || []);
 
   // Generate buy recommendation
-  const buyRecommendation = generateBuyRecommendation(stats as LocalPriceStats | undefined, history || []);
+  const buyRecommendation = generateBuyRecommendation(
+    stats as LocalPriceStats | undefined,
+    history || []
+  );
 
   // Calculate price volatility
   const volatility = stats ? calculateVolatility(stats as LocalPriceStats) : null;
@@ -45,7 +58,7 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
       <Card className={className}>
         <CardHeader>
           <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-48 mt-2" />
+          <Skeleton className="mt-2 h-4 w-48" />
         </CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-24 w-full" />
@@ -61,7 +74,7 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
       <Card className={className}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
+            <Sparkles className="h-5 w-5" />
             Price Insights
           </CardTitle>
           <CardDescription>Smart recommendations based on historical data</CardDescription>
@@ -69,7 +82,8 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
         <CardContent>
           <Alert>
             <AlertDescription>
-              Not enough historical data to generate insights. Check back after more price data is collected.
+              Not enough historical data to generate insights. Check back after more price data is
+              collected.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -81,22 +95,25 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
     <Card className={className}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5" />
+          <Sparkles className="h-5 w-5" />
           Price Insights
         </CardTitle>
-        <CardDescription>Smart recommendations based on {history.length} days of data</CardDescription>
+        <CardDescription>
+          Smart recommendations based on {history.length} days of data
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Buy Recommendation */}
-        <BuyRecommendationSection recommendation={buyRecommendation} currentPrice={stats.currentPrice} />
+        <BuyRecommendationSection
+          recommendation={buyRecommendation}
+          currentPrice={stats.currentPrice}
+        />
 
         {/* Price Volatility */}
         {volatility && <PriceVolatilitySection volatility={volatility} />}
 
         {/* Seasonal Patterns */}
-        {seasonalPatterns.length > 0 && (
-          <SeasonalPatternsSection patterns={seasonalPatterns} />
-        )}
+        {seasonalPatterns.length > 0 && <SeasonalPatternsSection patterns={seasonalPatterns} />}
 
         {/* Historical Insights */}
         <HistoricalInsightsSection stats={stats} history={history} />
@@ -106,7 +123,13 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
 }
 
 // Buy Recommendation Section
-function BuyRecommendationSection({ recommendation, currentPrice }: { recommendation: BuyRecommendation; currentPrice: number }) {
+function BuyRecommendationSection({
+  recommendation,
+  currentPrice,
+}: {
+  recommendation: BuyRecommendation;
+  currentPrice: number;
+}) {
   const statusConfig = {
     excellent: {
       icon: TrendingDown,
@@ -138,32 +161,38 @@ function BuyRecommendationSection({ recommendation, currentPrice }: { recommenda
   const Icon = config.icon;
 
   return (
-    <div className={`p-4 rounded-lg border-2 ${config.color}`}>
-      <div className="flex items-start justify-between mb-2">
+    <div className={`rounded-lg border-2 p-4 ${config.color}`}>
+      <div className="mb-2 flex items-start justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="w-5 h-5" />
+          <Icon className="h-5 w-5" />
           <h3 className="font-semibold">{config.title}</h3>
         </div>
-        <Badge className={config.badgeColor}>{Math.round(recommendation.confidence * 100)}% confidence</Badge>
+        <Badge className={config.badgeColor}>
+          {Math.round(recommendation.confidence * 100)}% confidence
+        </Badge>
       </div>
-      <p className="text-sm mb-2">{recommendation.reason}</p>
+      <p className="mb-2 text-sm">{recommendation.reason}</p>
       {recommendation.savingsPercent !== undefined && recommendation.savingsPercent > 0 && (
         <p className="text-sm font-medium">
           Potential savings: {recommendation.savingsPercent.toFixed(1)}% compared to average
         </p>
       )}
-      <p className="text-xs mt-2 opacity-75">Current price: ${currentPrice.toFixed(2)}</p>
+      <p className="mt-2 text-xs opacity-75">Current price: ${currentPrice.toFixed(2)}</p>
     </div>
   );
 }
 
 // Price Volatility Section
-function PriceVolatilitySection({ volatility }: { volatility: { level: string; percentage: number; description: string } }) {
+function PriceVolatilitySection({
+  volatility,
+}: {
+  volatility: { level: string; percentage: number; description: string };
+}) {
   const colorMap: Record<string, string> = {
     'Very Stable': 'text-green-600',
-    'Stable': 'text-blue-600',
-    'Moderate': 'text-yellow-600',
-    'Volatile': 'text-orange-600',
+    Stable: 'text-blue-600',
+    Moderate: 'text-yellow-600',
+    Volatile: 'text-orange-600',
     'Very Volatile': 'text-red-600',
   };
 
@@ -171,14 +200,14 @@ function PriceVolatilitySection({ volatility }: { volatility: { level: string; p
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4" />
+          <Activity className="h-4 w-4" />
           <h4 className="font-medium">Price Volatility</h4>
         </div>
         <Badge variant="outline" className={colorMap[volatility.level]}>
           {volatility.level}
         </Badge>
       </div>
-      <p className="text-sm text-muted-foreground">{volatility.description}</p>
+      <p className="text-muted-foreground text-sm">{volatility.description}</p>
       <div className="flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">Volatility Index:</span>
         <span className="font-medium">{volatility.percentage.toFixed(1)}%</span>
@@ -200,23 +229,23 @@ function SeasonalPatternsSection({ patterns }: { patterns: SeasonalPattern[] }) 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Calendar className="w-4 h-4" />
+        <Calendar className="h-4 w-4" />
         <h4 className="font-medium">Seasonal Patterns</h4>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-          <div className="flex items-center gap-1 mb-1">
-            <TrendingDown className="w-4 h-4 text-green-600" />
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+          <div className="mb-1 flex items-center gap-1">
+            <TrendingDown className="h-4 w-4 text-green-600" />
             <span className="text-xs font-medium text-green-800">Best Month</span>
           </div>
           <p className="text-sm font-semibold text-green-900">{bestMonth.month}</p>
           <p className="text-xs text-green-700">${bestMonth.averagePrice.toFixed(2)} avg</p>
         </div>
 
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-          <div className="flex items-center gap-1 mb-1">
-            <TrendingUp className="w-4 h-4 text-red-600" />
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+          <div className="mb-1 flex items-center gap-1">
+            <TrendingUp className="h-4 w-4 text-red-600" />
             <span className="text-xs font-medium text-red-800">Worst Month</span>
           </div>
           <p className="text-sm font-semibold text-red-900">{worstMonth.month}</p>
@@ -224,46 +253,53 @@ function SeasonalPatternsSection({ patterns }: { patterns: SeasonalPattern[] }) 
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Save up to ${(worstMonth.averagePrice - bestMonth.averagePrice).toFixed(2)} by buying in {bestMonth.month}
+      <p className="text-muted-foreground text-xs">
+        Save up to ${(worstMonth.averagePrice - bestMonth.averagePrice).toFixed(2)} by buying in{' '}
+        {bestMonth.month}
       </p>
     </div>
   );
 }
 
 // Historical Insights Section
-function HistoricalInsightsSection({ stats, history }: { stats: LocalPriceStats | undefined; history: LocalPriceHistoryItem[] }) {
+function HistoricalInsightsSection({
+  stats,
+  history,
+}: {
+  stats: LocalPriceStats | undefined;
+  history: LocalPriceHistoryItem[];
+}) {
   if (!stats) return null;
 
-  const daysSinceLowest = history.findIndex(h => parseFloat(h.price) === stats.lowestPrice);
-  const daysSinceHighest = history.findIndex(h => parseFloat(h.price) === stats.highestPrice);
+  const daysSinceLowest = history.findIndex((h) => parseFloat(h.price) === stats.lowestPrice);
+  const daysSinceHighest = history.findIndex((h) => parseFloat(h.price) === stats.highestPrice);
 
   const priceRange = stats.highestPrice - stats.lowestPrice;
   const avgDailyChange = priceRange / history.length;
 
   return (
-    <div className="space-y-2 pt-2 border-t">
-      <h4 className="font-medium text-sm">Historical Facts</h4>
+    <div className="space-y-2 border-t pt-2">
+      <h4 className="text-sm font-medium">Historical Facts</h4>
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="p-2 rounded bg-muted/50">
+        <div className="bg-muted/50 rounded p-2">
           <p className="text-muted-foreground">Lowest Price</p>
           <p className="font-semibold">${stats.lowestPrice.toFixed(2)}</p>
           {daysSinceLowest >= 0 && (
             <p className="text-muted-foreground">{daysSinceLowest} days ago</p>
           )}
         </div>
-        <div className="p-2 rounded bg-muted/50">
+        <div className="bg-muted/50 rounded p-2">
           <p className="text-muted-foreground">Highest Price</p>
           <p className="font-semibold">${stats.highestPrice.toFixed(2)}</p>
           {daysSinceHighest >= 0 && (
             <p className="text-muted-foreground">{daysSinceHighest} days ago</p>
           )}
         </div>
-        <div className="p-2 rounded bg-muted/50">
+        <div className="bg-muted/50 rounded p-2">
           <p className="text-muted-foreground">Average Price</p>
           <p className="font-semibold">${stats.averagePrice.toFixed(2)}</p>
         </div>
-        <div className="p-2 rounded bg-muted/50">
+        <div className="bg-muted/50 rounded p-2">
           <p className="text-muted-foreground">Avg Daily Change</p>
           <p className="font-semibold">${avgDailyChange.toFixed(2)}</p>
         </div>
@@ -279,7 +315,7 @@ function calculateSeasonalPatterns(history: LocalPriceHistoryItem[]): SeasonalPa
 
   const monthlyData: Record<string, number[]> = {};
 
-  history.forEach(entry => {
+  history.forEach((entry) => {
     const dateValue = entry.recordedAt || entry.createdAt || new Date();
     const date = new Date(dateValue);
     const month = date.toLocaleString('default', { month: 'short' });
@@ -296,7 +332,7 @@ function calculateSeasonalPatterns(history: LocalPriceHistoryItem[]): SeasonalPa
     if (prices.length < 3) continue; // Need at least 3 data points
 
     const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
-    const allPrices = history.map(h => parseFloat(h.price));
+    const allPrices = history.map((h) => parseFloat(h.price));
     const overallAverage = allPrices.reduce((sum, p) => sum + p, 0) / allPrices.length;
 
     const deviation = ((averagePrice - overallAverage) / overallAverage) * 100;
@@ -330,7 +366,10 @@ interface LocalPriceHistoryItem {
   [key: string]: unknown;
 }
 
-function generateBuyRecommendation(stats: LocalPriceStats | undefined, history: LocalPriceHistoryItem[]): BuyRecommendation {
+function generateBuyRecommendation(
+  stats: LocalPriceStats | undefined,
+  history: LocalPriceHistoryItem[]
+): BuyRecommendation {
   if (!stats || history.length === 0) {
     return {
       status: 'fair',
@@ -349,7 +388,8 @@ function generateBuyRecommendation(stats: LocalPriceStats | undefined, history: 
 
   // Calculate trend (last 7 days)
   const recentHistory = history.slice(0, Math.min(7, history.length));
-  const recentAvg = recentHistory.reduce((sum, h) => sum + parseFloat(h.price), 0) / recentHistory.length;
+  const recentAvg =
+    recentHistory.reduce((sum, h) => sum + parseFloat(h.price), 0) / recentHistory.length;
   const isDropping = currentPrice < recentAvg;
 
   // Confidence based on data points
@@ -413,7 +453,11 @@ function generateBuyRecommendation(stats: LocalPriceStats | undefined, history: 
   };
 }
 
-function calculateVolatility(stats: LocalPriceStats): { level: string; percentage: number; description: string } {
+function calculateVolatility(stats: LocalPriceStats): {
+  level: string;
+  percentage: number;
+  description: string;
+} {
   const range = stats.highestPrice - stats.lowestPrice;
   const percentage = (range / stats.averagePrice) * 100;
 
@@ -433,7 +477,8 @@ function calculateVolatility(stats: LocalPriceStats): { level: string; percentag
     return {
       level: 'Moderate',
       percentage,
-      description: 'Price experiences moderate fluctuations. Good opportunity for timing purchases.',
+      description:
+        'Price experiences moderate fluctuations. Good opportunity for timing purchases.',
     };
   } else if (percentage < 35) {
     return {

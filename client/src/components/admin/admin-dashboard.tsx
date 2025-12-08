@@ -1,7 +1,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Package, Store, Bell, TrendingUp, Activity } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import type { AnalyticsOverview, UserGrowthData, ProductActivityData, TopCategoryData } from '@shared/types';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from 'recharts';
+import type {
+  AnalyticsOverview,
+  UserGrowthData,
+  ProductActivityData,
+  TopCategoryData,
+} from '@shared/types';
 
 interface AdminDashboardProps {
   overviewData?: AnalyticsOverview;
@@ -14,7 +29,7 @@ export function AdminDashboard({
   overviewData,
   userGrowthData,
   productActivityData,
-  topCategoriesData
+  topCategoriesData,
 }: AdminDashboardProps) {
   return (
     <div className="space-y-6">
@@ -23,44 +38,44 @@ export function AdminDashboard({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Users className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overviewData?.totalUsers || 0}</div>
-            <p className="text-xs text-muted-foreground">Registered users</p>
+            <p className="text-muted-foreground text-xs">Registered users</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Products</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <Package className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overviewData?.totalProducts || 0}</div>
-            <p className="text-xs text-muted-foreground">Tracked products</p>
+            <p className="text-muted-foreground text-xs">Tracked products</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Retailers</CardTitle>
-            <Store className="h-4 w-4 text-muted-foreground" />
+            <Store className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overviewData?.totalRetailers || 0}</div>
-            <p className="text-xs text-muted-foreground">Connected retailers</p>
+            <p className="text-muted-foreground text-xs">Connected retailers</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Price Alerts</CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
+            <Bell className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overviewData?.totalAlerts || 0}</div>
-            <p className="text-xs text-muted-foreground">Active alerts</p>
+            <p className="text-muted-foreground text-xs">Active alerts</p>
           </CardContent>
         </Card>
       </div>
@@ -83,7 +98,12 @@ export function AdminDashboard({
                 <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

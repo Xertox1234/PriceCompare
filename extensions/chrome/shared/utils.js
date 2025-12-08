@@ -14,7 +14,7 @@ function normalizeUrl(url) {
     const paramsToKeep = ['asin', 'skuId', 'productId', 'item_id'];
     const newParams = new URLSearchParams();
 
-    paramsToKeep.forEach(param => {
+    paramsToKeep.forEach((param) => {
       if (urlObj.searchParams.has(param)) {
         newParams.set(param, urlObj.searchParams.get(param));
       }

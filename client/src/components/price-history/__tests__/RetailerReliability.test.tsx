@@ -16,7 +16,8 @@ describe('RetailerReliability', () => {
     },
     strengths: ['Stable pricing', 'Excellent stock availability', 'Competitive prices'],
     weaknesses: [],
-    recommendation: 'Highly reliable retailer with stable pricing, excellent stock availability, competitive prices. Excellent choice for purchasing this product.',
+    recommendation:
+      'Highly reliable retailer with stable pricing, excellent stock availability, competitive prices. Excellent choice for purchasing this product.',
   };
 
   const mockGoodRetailer = {
@@ -32,7 +33,8 @@ describe('RetailerReliability', () => {
     },
     strengths: ['Good stock availability', 'Fair pricing'],
     weaknesses: [],
-    recommendation: 'Reliable retailer with good stock availability, fair pricing. Good choice for purchasing.',
+    recommendation:
+      'Reliable retailer with good stock availability, fair pricing. Good choice for purchasing.',
   };
 
   const mockFairRetailer = {
@@ -48,7 +50,8 @@ describe('RetailerReliability', () => {
     },
     strengths: [],
     weaknesses: ['Volatile pricing'],
-    recommendation: 'Moderate reliability. Be aware of volatile pricing. Consider comparing with other retailers before purchasing.',
+    recommendation:
+      'Moderate reliability. Be aware of volatile pricing. Consider comparing with other retailers before purchasing.',
   };
 
   const mockPoorRetailer = {
@@ -64,7 +67,8 @@ describe('RetailerReliability', () => {
     },
     strengths: [],
     weaknesses: ['Volatile pricing', 'Frequent stock issues', 'Higher prices than competitors'],
-    recommendation: 'Lower reliability rating. Issues include volatile pricing and frequent stock issues and higher prices than competitors. Recommend purchasing from alternative retailers if available.',
+    recommendation:
+      'Lower reliability rating. Issues include volatile pricing and frequent stock issues and higher prices than competitors. Recommend purchasing from alternative retailers if available.',
   };
 
   describe('Rendering', () => {
@@ -76,7 +80,9 @@ describe('RetailerReliability', () => {
     it('should render no data state', () => {
       render(<RetailerReliability data={null} isLoading={false} />);
       expect(screen.getByText('No retailer reliability data available')).toBeInTheDocument();
-      expect(screen.getByText(/Requires price history from multiple retailers/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Requires price history from multiple retailers/)
+      ).toBeInTheDocument();
     });
 
     it('should render empty array as no data', () => {

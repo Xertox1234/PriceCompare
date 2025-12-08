@@ -139,7 +139,7 @@ chromeMock.storage.sync.get.mockImplementation((keys) => {
   const data = chromeMock.__storageData?.sync || {};
   if (Array.isArray(keys)) {
     const result = {};
-    keys.forEach(key => {
+    keys.forEach((key) => {
       if (data[key] !== undefined) {
         result[key] = data[key];
       }
@@ -151,7 +151,7 @@ chromeMock.storage.sync.get.mockImplementation((keys) => {
     return Promise.resolve(data);
   } else if (typeof keys === 'object') {
     const result = { ...keys };
-    Object.keys(keys).forEach(key => {
+    Object.keys(keys).forEach((key) => {
       if (data[key] !== undefined) {
         result[key] = data[key];
       }
@@ -165,7 +165,7 @@ chromeMock.storage.local.get.mockImplementation((keys) => {
   const data = chromeMock.__storageData?.local || {};
   if (Array.isArray(keys)) {
     const result = {};
-    keys.forEach(key => {
+    keys.forEach((key) => {
       if (data[key] !== undefined) {
         result[key] = data[key];
       }
@@ -177,7 +177,7 @@ chromeMock.storage.local.get.mockImplementation((keys) => {
     return Promise.resolve(data);
   } else if (typeof keys === 'object') {
     const result = { ...keys };
-    Object.keys(keys).forEach(key => {
+    Object.keys(keys).forEach((key) => {
       if (data[key] !== undefined) {
         result[key] = data[key];
       }
@@ -199,7 +199,7 @@ chromeMock.storage.local.set.mockImplementation((items) => {
 
 chromeMock.storage.sync.remove.mockImplementation((keys) => {
   if (Array.isArray(keys)) {
-    keys.forEach(key => delete chromeMock.__storageData.sync[key]);
+    keys.forEach((key) => delete chromeMock.__storageData.sync[key]);
   } else {
     delete chromeMock.__storageData.sync[keys];
   }
@@ -208,7 +208,7 @@ chromeMock.storage.sync.remove.mockImplementation((keys) => {
 
 chromeMock.storage.local.remove.mockImplementation((keys) => {
   if (Array.isArray(keys)) {
-    keys.forEach(key => delete chromeMock.__storageData.local[key]);
+    keys.forEach((key) => delete chromeMock.__storageData.local[key]);
   } else {
     delete chromeMock.__storageData.local[keys];
   }

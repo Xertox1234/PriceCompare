@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import type { PriceHistory, PriceSnapshot } from "@shared/schema";
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import type { PriceHistory, PriceSnapshot } from '@shared/schema';
 
 export interface PriceStats {
   currentPrice: number;
@@ -251,12 +251,10 @@ export function useRecentPriceDrops(thresholdPercent = 10, hours = 24) {
     queryFn: async () => {
       const queryParams = new URLSearchParams({
         thresholdPercent: thresholdPercent.toString(),
-        hours: hours.toString()
+        hours: hours.toString(),
       });
 
-      return apiRequest<PriceDrop[]>(
-        `/api/price-history/recent-drops?${queryParams.toString()}`
-      );
+      return apiRequest<PriceDrop[]>(`/api/price-history/recent-drops?${queryParams.toString()}`);
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)

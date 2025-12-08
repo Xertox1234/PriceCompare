@@ -49,7 +49,7 @@ export function TabbedProductSection({
     <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
         {/* Header with tabs and navigation */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           {/* Tab Navigation */}
           <div className="flex items-center gap-1 sm:gap-2">
             {tabs.map((tab) => (
@@ -57,9 +57,9 @@ export function TabbedProductSection({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold transition-colors rounded-lg',
+                  'rounded-lg px-3 py-2 text-sm font-semibold transition-colors sm:px-4 sm:text-base',
                   activeTab === tab.id
-                    ? 'text-primary border-b-2 border-primary'
+                    ? 'text-primary border-primary border-b-2'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -72,13 +72,13 @@ export function TabbedProductSection({
           <div className="flex items-center gap-2">
             <button
               ref={navigationPrevRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               ref={navigationNextRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -114,17 +114,13 @@ export function TabbedProductSection({
         >
           {filteredProducts.map((product) => (
             <SwiperSlide key={product.id}>
-              <ProductCard
-                product={product}
-                onWatchlist={onWatchlist}
-                onCompare={onCompare}
-              />
+              <ProductCard product={product} onWatchlist={onWatchlist} onCompare={onCompare} />
             </SwiperSlide>
           ))}
         </Swiper>
 
         {/* Mobile Pagination Dots */}
-        <div className="flex xl:hidden tabbed-pagination justify-center mt-4 gap-1" />
+        <div className="tabbed-pagination mt-4 flex justify-center gap-1 xl:hidden" />
       </div>
     </section>
   );

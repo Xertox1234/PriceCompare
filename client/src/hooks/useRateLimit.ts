@@ -81,7 +81,9 @@ export function useRateLimit(): RateLimitInfo {
     // Intercept fetch to capture rate limit headers
     const interceptedFetch: typeof fetch = async (input, init?) => {
       if (!originalFetchRef.current) {
-        throw new Error('Rate limit hook: Fetch ref not initialized. This indicates a timing issue in hook lifecycle.');
+        throw new Error(
+          'Rate limit hook: Fetch ref not initialized. This indicates a timing issue in hook lifecycle.'
+        );
       }
       const response = await originalFetchRef.current(input, init);
 

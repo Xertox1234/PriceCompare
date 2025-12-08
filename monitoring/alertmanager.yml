@@ -196,7 +196,6 @@ receivers:
       - channel: '#data-quality'
         title: '🔍 Data Quality: {{ .GroupLabels.alertname }}'
         color: '#FF9800'
-
 # Mute timers - silence alerts during maintenance windows
 # mute_time_intervals:
 #   - name: maintenance_window

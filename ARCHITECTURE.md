@@ -77,6 +77,7 @@ The application follows a strict layered architecture:
 ```
 
 **Benefits:**
+
 - Clear separation of concerns
 - Easy to test each layer independently
 - Maintainable and scalable
@@ -125,19 +126,33 @@ interface IStorage {
   getPriceHistory(productId: number): Promise<PriceHistory[]>;
 
   // Job lock operations
-  acquireJobLock(jobName: string, owner: string, ttl: number): Promise<{success: boolean}>;
+  acquireJobLock(jobName: string, owner: string, ttl: number): Promise<{ success: boolean }>;
 
   // ... 99 methods across 8 domains
 }
 
 // Domain repositories (7 domains)
-class UserStorage extends BaseStorage { /* 15 methods */ }
-class ProductStorage extends BaseStorage { /* 20 methods */ }
-class PriceStorage extends BaseStorage { /* 28 methods */ }
-class WatchListStorage extends BaseStorage { /* 13 methods */ }
-class ForumStorage extends BaseStorage { /* 6 methods */ }
-class RetailerStorage extends BaseStorage { /* 12 methods */ }
-class JobLockStorage extends BaseStorage { /* 9 methods */ }
+class UserStorage extends BaseStorage {
+  /* 15 methods */
+}
+class ProductStorage extends BaseStorage {
+  /* 20 methods */
+}
+class PriceStorage extends BaseStorage {
+  /* 28 methods */
+}
+class WatchListStorage extends BaseStorage {
+  /* 13 methods */
+}
+class ForumStorage extends BaseStorage {
+  /* 6 methods */
+}
+class RetailerStorage extends BaseStorage {
+  /* 12 methods */
+}
+class JobLockStorage extends BaseStorage {
+  /* 9 methods */
+}
 
 // Facade pattern for delegation
 class DatabaseStorage implements IStorage {
@@ -170,12 +185,14 @@ server/storage/
 ```
 
 **Refactoring Impact:**
+
 - **Before**: 1 monolithic file (7,035 lines, 99 methods)
 - **After**: 8 well-organized files (9,752 lines total)
 - **Reduction in main file**: 54% (4,418 lines from 7,035)
 - **Methods extracted**: 99/99 (100% complete)
 
 **Benefits:**
+
 - **Maintainability**: Each domain is self-contained and independently testable
 - **Type Safety**: Specialized types per domain (no inline types)
 - **Security**: Comprehensive input validation in every domain
@@ -205,36 +222,36 @@ server/services/
 
 ### Backend
 
-| Technology | Purpose | Why Chosen |
-|------------|---------|-----------|
-| **Express.js** | Web framework | Mature, flexible, extensive middleware ecosystem |
-| **TypeScript** | Language | Type safety, better tooling, catches bugs at compile time |
-| **Drizzle ORM** | Database ORM | Type-safe SQL, lightweight, excellent TypeScript integration |
-| **PostgreSQL** | Primary database | ACID compliance, powerful features, great for analytics |
-| **Redis** | Caching/sessions | Fast, distributed sessions, rate limiting |
-| **Passport.js** | Authentication | Battle-tested, supports multiple strategies |
-| **Zod** | Validation | Runtime type checking, excellent TypeScript integration |
-| **Bull** | Job queue | Reliable background jobs, Redis-based |
+| Technology      | Purpose          | Why Chosen                                                   |
+| --------------- | ---------------- | ------------------------------------------------------------ |
+| **Express.js**  | Web framework    | Mature, flexible, extensive middleware ecosystem             |
+| **TypeScript**  | Language         | Type safety, better tooling, catches bugs at compile time    |
+| **Drizzle ORM** | Database ORM     | Type-safe SQL, lightweight, excellent TypeScript integration |
+| **PostgreSQL**  | Primary database | ACID compliance, powerful features, great for analytics      |
+| **Redis**       | Caching/sessions | Fast, distributed sessions, rate limiting                    |
+| **Passport.js** | Authentication   | Battle-tested, supports multiple strategies                  |
+| **Zod**         | Validation       | Runtime type checking, excellent TypeScript integration      |
+| **Bull**        | Job queue        | Reliable background jobs, Redis-based                        |
 
 ### Frontend
 
-| Technology | Purpose | Why Chosen |
-|------------|---------|-----------|
-| **React 19** | UI framework | Component-based, large ecosystem, performant |
-| **TypeScript** | Language | Same as backend - consistency |
-| **Vite** | Build tool | Fast HMR, modern ESM, better DX than webpack |
-| **TanStack Query** | Data fetching | Caching, background refetch, optimistic updates |
-| **Tailwind CSS** | Styling | Utility-first, consistent design, fast development |
-| **Radix UI** | Headless components | Accessible, unstyled, composable |
-| **Wouter** | Routing | Lightweight alternative to React Router |
+| Technology         | Purpose             | Why Chosen                                         |
+| ------------------ | ------------------- | -------------------------------------------------- |
+| **React 19**       | UI framework        | Component-based, large ecosystem, performant       |
+| **TypeScript**     | Language            | Same as backend - consistency                      |
+| **Vite**           | Build tool          | Fast HMR, modern ESM, better DX than webpack       |
+| **TanStack Query** | Data fetching       | Caching, background refetch, optimistic updates    |
+| **Tailwind CSS**   | Styling             | Utility-first, consistent design, fast development |
+| **Radix UI**       | Headless components | Accessible, unstyled, composable                   |
+| **Wouter**         | Routing             | Lightweight alternative to React Router            |
 
 ### AI/Scraping
 
-| Technology | Purpose | Why Chosen |
-|------------|---------|-----------|
-| **OpenAI API** | AI analysis | Best-in-class LLM for content understanding |
-| **Playwright** | Web scraping | Headless Chromium, handles dynamic content |
-| **Cheerio** | HTML parsing | Fast, jQuery-like API |
+| Technology     | Purpose      | Why Chosen                                  |
+| -------------- | ------------ | ------------------------------------------- |
+| **OpenAI API** | AI analysis  | Best-in-class LLM for content understanding |
+| **Playwright** | Web scraping | Headless Chromium, handles dynamic content  |
+| **Cheerio**    | HTML parsing | Fast, jQuery-like API                       |
 
 ---
 
@@ -299,6 +316,7 @@ PriceCompare implements multiple layers of security:
    - Stricter limits on authentication endpoints
 
 3. **Input Validation**
+
    ```typescript
    // Every input goes through validation
    Request → Zod Schema → Safe Parsing → Business Logic
@@ -417,6 +435,7 @@ Needed a TypeScript ORM for PostgreSQL that provides type safety and good DX.
 Chose Drizzle ORM over Prisma.
 
 **Rationale:**
+
 - **Lightweight:** No heavy runtime, compiles to SQL
 - **Type Safety:** Excellent TypeScript integration without codegen
 - **SQL-Like API:** Close to raw SQL, easier to optimize
@@ -424,6 +443,7 @@ Chose Drizzle ORM over Prisma.
 - **Performance:** Generates efficient SQL
 
 **Consequences:**
+
 - ✅ Better performance than Prisma
 - ✅ More control over SQL generation
 - ❌ Smaller ecosystem than Prisma
@@ -443,12 +463,14 @@ Need distributed session management for horizontal scaling.
 Use Redis with in-memory fallback.
 
 **Rationale:**
+
 - **Distributed:** Works across multiple server instances
 - **Fast:** In-memory performance
 - **Reliability:** Persistent sessions survive server restarts
 - **Fallback:** Graceful degradation to in-memory if Redis unavailable
 
 **Consequences:**
+
 - ✅ Horizontal scaling supported
 - ✅ Session persistence
 - ❌ Additional infrastructure dependency
@@ -468,12 +490,14 @@ E-commerce platforms are high-value targets for attacks.
 Implement defense-in-depth with 5+ security layers.
 
 **Rationale:**
+
 - **OWASP Top 10:** Address all major web vulnerabilities
 - **Redundancy:** If one layer fails, others provide protection
 - **Standards:** Industry best practices for sensitive data
 - **Compliance:** Prepares for SOC 2, ISO 27001 if needed
 
 **Consequences:**
+
 - ✅ Excellent security posture (98/100 audit score)
 - ✅ Production-ready for sensitive data
 - ❌ Slightly more complex setup
@@ -493,12 +517,14 @@ Need fast development experience with HMR.
 Use Vite for frontend build tooling.
 
 **Rationale:**
+
 - **Speed:** Native ESM, instant HMR
 - **DX:** Pre-configured for React + TypeScript
 - **Modern:** Built for modern browsers
 - **Plugins:** Good ecosystem, compatible with Rollup
 
 **Consequences:**
+
 - ✅ Significantly faster dev server
 - ✅ Better developer experience
 - ❌ Newer tool (less battle-tested than webpack)
@@ -541,15 +567,18 @@ Use Vite for frontend build tooling.
 ### Environment Variables (Required)
 
 **Critical Secrets (32+ chars required):**
+
 - `SESSION_SECRET` - Session encryption
 - `CSRF_SECRET` - CSRF token generation
 - `DISCOURSE_SSO_SECRET` - SSO signing
 
 **Database:**
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_URL` - Redis connection (optional)
 
 **External Services (Optional):**
+
 - `OPENAI_API_KEY` - AI features
 - `GOOGLE_CUSTOM_SEARCH_API_KEY` - Product search
 - `SMTP_*` - Email service
@@ -615,6 +644,7 @@ server/middleware/
 ### Microservices (If Scale Requires)
 
 Potential split:
+
 - **Price Service:** Product data, price tracking
 - **Auth Service:** User management, authentication
 - **Forum Service:** Community features
@@ -623,6 +653,7 @@ Potential split:
 ### Event-Driven Architecture
 
 Potential events:
+
 - `PriceChanged` → Trigger notifications
 - `UserRegistered` → Send welcome email
 - `ProductAdded` → Start price tracking
@@ -630,6 +661,7 @@ Potential events:
 ### GraphQL API (Optional)
 
 If frontend complexity grows:
+
 - Single endpoint for all data
 - Client-specified queries
 - Better mobile app support

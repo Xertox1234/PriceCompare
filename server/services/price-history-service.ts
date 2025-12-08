@@ -1,10 +1,7 @@
 import { storage } from '../storage';
 import { logger } from '../utils/logger';
 import type { PriceSnapshotInsert, NormalizedPricePoint } from '../storage/types';
-import {
-  type PriceHistory,
-  type PriceSnapshot
-} from '@shared/schema';
+import { type PriceHistory, type PriceSnapshot } from '@shared/schema';
 
 // Re-export NormalizedPricePoint for backward compatibility
 export type { NormalizedPricePoint } from '../storage/types';
@@ -83,7 +80,7 @@ export async function recordPriceChange(
     if (previousPrice !== null && Math.abs(previousPrice - price) < 0.01) {
       return {
         recorded: false,
-        previousPrice
+        previousPrice,
       };
     }
 
@@ -97,26 +94,29 @@ export async function recordPriceChange(
       source,
       confidence: confidence.toString(),
       metadata: metadata ? JSON.stringify(metadata) : null,
-      recordedAt: new Date()
+      recordedAt: new Date(),
     };
 
     const result = await storage.insertPriceHistory(insertData);
 
     // Calculate price change
     const priceChange = previousPrice !== null ? price - previousPrice : 0;
-    const priceChangePercent = previousPrice !== null && previousPrice > 0
-      ? ((price - previousPrice) / previousPrice) * 100
-      : 0;
+    const priceChangePercent =
+      previousPrice !== null && previousPrice > 0
+        ? ((price - previousPrice) / previousPrice) * 100
+        : 0;
 
     return {
       recorded: true,
       priceHistoryId: result.id,
       previousPrice: previousPrice ?? undefined,
       priceChange: priceChange !== 0 ? priceChange : undefined,
-      priceChangePercent: priceChangePercent !== 0 ? priceChangePercent : undefined
+      priceChangePercent: priceChangePercent !== 0 ? priceChangePercent : undefined,
     };
   } catch (error) {
-    logger.error('Error recording price change:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error recording price change:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
@@ -139,7 +139,9 @@ export async function getPriceHistory(query: PriceHistoryQuery): Promise<PriceHi
       limit: query.limit,
     });
   } catch (error) {
-    logger.error('Error getting price history:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error getting price history:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
@@ -175,10 +177,7 @@ export async function getPriceHistoryOptimized(
  * @param days - Number of days to analyze (default: 90)
  * @returns Price statistics
  */
-export async function getPriceStats(
-  productOfferId: number,
-  days = 90
-): Promise<PriceStats | null> {
+export async function getPriceStats(productOfferId: number, days = 90): Promise<PriceStats | null> {
   try {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
@@ -195,7 +194,7 @@ export async function getPriceStats(
     // Get historical data
     const history = await storage.getPriceHistoryByQuery({
       productOfferId,
-      startDate
+      startDate,
     });
 
     if (history.length === 0) {
@@ -203,12 +202,12 @@ export async function getPriceStats(
         currentPrice,
         lowestPrice: currentPrice,
         highestPrice: currentPrice,
-        averagePrice: currentPrice
+        averagePrice: currentPrice,
       };
     }
 
     // Calculate statistics
-    const prices = history.map(h => parseFloat(h.price));
+    const prices = history.map((h) => parseFloat(h.price));
     const lowestPrice = Math.min(...prices, currentPrice);
     const highestPrice = Math.max(...prices, currentPrice);
     const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
@@ -219,15 +218,17 @@ export async function getPriceStats(
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const price24hAgo = history.find(h => h.recordedAt && new Date(h.recordedAt) <= oneDayAgo);
-    const price7dAgo = history.find(h => h.recordedAt && new Date(h.recordedAt) <= sevenDaysAgo);
-    const price30dAgo = history.find(h => h.recordedAt && new Date(h.recordedAt) <= thirtyDaysAgo);
+    const price24hAgo = history.find((h) => h.recordedAt && new Date(h.recordedAt) <= oneDayAgo);
+    const price7dAgo = history.find((h) => h.recordedAt && new Date(h.recordedAt) <= sevenDaysAgo);
+    const price30dAgo = history.find(
+      (h) => h.recordedAt && new Date(h.recordedAt) <= thirtyDaysAgo
+    );
 
     const stats: PriceStats = {
       currentPrice,
       lowestPrice,
       highestPrice,
-      averagePrice
+      averagePrice,
     };
 
     if (price24hAgo) {
@@ -250,7 +251,9 @@ export async function getPriceStats(
 
     return stats;
   } catch (error) {
-    logger.error('Error getting price stats:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error getting price stats:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
@@ -283,13 +286,15 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
 
     // Step 3: Create Map for O(1) lookup - no more queries in loop!
     const existingMap = new Map(
-      existingSnapshots.map(snapshot => [
+      existingSnapshots.map((snapshot) => [
         `${snapshot.productId}-${snapshot.retailerId}`,
-        snapshot
+        snapshot,
       ])
     );
 
-    logger.info(`Found ${existingSnapshots.length} existing snapshots for ${snapshotDate.toISOString()}`);
+    logger.info(
+      `Found ${existingSnapshots.length} existing snapshots for ${snapshotDate.toISOString()}`
+    );
 
     // Step 4: Group offers by product and retailer
     const groupedOffers = new Map<string, number[]>();
@@ -326,7 +331,7 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
         highestPrice: highestPrice.toString(),
         averagePrice: averagePrice.toString(),
         offerCount: prices.length,
-        snapshotDate
+        snapshotDate,
       };
 
       // Check if snapshot exists using O(1) Map lookup (no query!)
@@ -340,8 +345,8 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
             lowestPrice: snapshotData.lowestPrice,
             highestPrice: snapshotData.highestPrice,
             averagePrice: snapshotData.averagePrice,
-            offerCount: snapshotData.offerCount
-          }
+            offerCount: snapshotData.offerCount,
+          },
         });
       } else {
         // Queue for insert
@@ -364,11 +369,15 @@ export async function generateDailySnapshots(date: Date = new Date()): Promise<n
     const snapshotCount = snapshotsToInsert.length + snapshotsToUpdate.length;
 
     const duration = Date.now() - startTime;
-    logger.info(`Generated ${snapshotCount} price snapshots for ${snapshotDate.toISOString()} in ${duration}ms (${Math.round(snapshotCount / (duration / 1000))} snapshots/sec)`);
+    logger.info(
+      `Generated ${snapshotCount} price snapshots for ${snapshotDate.toISOString()} in ${duration}ms (${Math.round(snapshotCount / (duration / 1000))} snapshots/sec)`
+    );
 
     return snapshotCount;
   } catch (error) {
-    logger.error('Error generating daily snapshots:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error generating daily snapshots:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
@@ -389,14 +398,11 @@ export async function getPriceSnapshots(
   endDate?: Date
 ): Promise<PriceSnapshot[]> {
   try {
-    return await storage.getPriceSnapshotsByFilters(
-      productId,
-      retailerId,
-      startDate,
-      endDate
-    );
+    return await storage.getPriceSnapshotsByFilters(productId, retailerId, startDate, endDate);
   } catch (error) {
-    logger.error('Error getting price snapshots:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error getting price snapshots:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
@@ -418,7 +424,9 @@ export async function cleanupOldPriceHistory(daysToKeep = 90): Promise<number> {
     logger.info(`Cleaned up price history records older than ${cutoffDate.toISOString()}`);
     return deletedCount;
   } catch (error) {
-    logger.error('Error cleaning up old price history:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error cleaning up old price history:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
@@ -433,7 +441,14 @@ export async function cleanupOldPriceHistory(daysToKeep = 90): Promise<number> {
 export async function detectSignificantPriceDrops(
   thresholdPercent = 10,
   hours = 24
-): Promise<Array<{ productOfferId: number; previousPrice: number; currentPrice: number; dropPercent: number }>> {
+): Promise<
+  Array<{
+    productOfferId: number;
+    previousPrice: number;
+    currentPrice: number;
+    dropPercent: number;
+  }>
+> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setHours(cutoffDate.getHours() - hours);
@@ -442,7 +457,12 @@ export async function detectSignificantPriceDrops(
     const recentChanges = await storage.getRecentPriceChanges(cutoffDate);
 
     // Group by product offer and find drops
-    const drops: Array<{ productOfferId: number; previousPrice: number; currentPrice: number; dropPercent: number }> = [];
+    const drops: Array<{
+      productOfferId: number;
+      previousPrice: number;
+      currentPrice: number;
+      dropPercent: number;
+    }> = [];
     const offerMap = new Map<number, number[]>();
 
     for (const change of recentChanges) {
@@ -453,7 +473,9 @@ export async function detectSignificantPriceDrops(
       if (offerPrices) {
         offerPrices.push(parseFloat(change.price));
       } else {
-        logger.warn(`Price history: Missing offer map entry for offer ID: ${change.productOfferId}, initializing`);
+        logger.warn(
+          `Price history: Missing offer map entry for offer ID: ${change.productOfferId}, initializing`
+        );
         offerMap.set(change.productOfferId, [parseFloat(change.price)]);
       }
     }
@@ -472,7 +494,7 @@ export async function detectSignificantPriceDrops(
             productOfferId: offerId,
             previousPrice,
             currentPrice,
-            dropPercent
+            dropPercent,
           });
         }
       }
@@ -480,7 +502,9 @@ export async function detectSignificantPriceDrops(
 
     return drops;
   } catch (error) {
-    logger.error('Error detecting price drops:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error detecting price drops:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }

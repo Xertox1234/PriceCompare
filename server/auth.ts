@@ -35,85 +35,87 @@ declare global {
 }
 
 // Configure Passport Local Strategy
-passport.use(new LocalStrategy(
-  {
-    usernameField: 'email',
-    passwordField: 'password'
-  },
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Passport supports async verify callbacks
-  async (email, password, done) => {
-    try {
-      // Check if account is locked before attempting authentication (Redis-backed)
-      const lockStatus = await isAccountLockedAsync(email);
-      if (lockStatus.locked) {
-        // Note: Logging will happen in route handler where we have access to req
-        return done(null, false, {
-          message: 'Account temporarily locked',
-          locked: true,
-          remainingTime: lockStatus.remainingTime
-        } as ExtendedVerifyOptions);
+passport.use(
+  new LocalStrategy(
+    {
+      usernameField: 'email',
+      passwordField: 'password',
+    },
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Passport supports async verify callbacks
+    async (email, password, done) => {
+      try {
+        // Check if account is locked before attempting authentication (Redis-backed)
+        const lockStatus = await isAccountLockedAsync(email);
+        if (lockStatus.locked) {
+          // Note: Logging will happen in route handler where we have access to req
+          return done(null, false, {
+            message: 'Account temporarily locked',
+            locked: true,
+            remainingTime: lockStatus.remainingTime,
+          } as ExtendedVerifyOptions);
+        }
+
+        // Case-insensitive email lookup using LOWER() for better UX
+        const userResult = await db
+          .select({
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            passwordHash: users.passwordHash, // SECURITY: Only for internal password verification, never exposed in API
+            role: users.role,
+            trustLevel: users.trustLevel,
+            isActive: users.isActive,
+            isSuspended: users.isSuspended,
+            reputation: users.reputation,
+            avatarUrl: users.avatarUrl,
+            bio: users.bio,
+            location: users.location,
+            website: users.website,
+            lastSeenAt: users.lastSeenAt,
+            postCount: users.postCount,
+            topicCount: users.topicCount,
+            likesGiven: users.likesGiven,
+            likesReceived: users.likesReceived,
+            timeReadPosts: users.timeReadPosts,
+            daysVisited: users.daysVisited,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+          })
+          .from(users)
+          .where(sql`LOWER(${users.email}) = LOWER(${email})`)
+          .limit(1);
+
+        if (!userResult.length) {
+          // Record failed attempt (user not found) - Redis-backed
+          await recordFailedLoginAsync(email);
+          // Note: Logging will happen in route handler where we have access to req
+          return done(null, false, { message: 'Invalid email or password' });
+        }
+
+        const user = userResult[0];
+        const isValid = await bcrypt.compare(password, user.passwordHash);
+
+        if (!isValid) {
+          // Record failed attempt (wrong password) - Redis-backed
+          const lockoutResult = await recordFailedLoginAsync(email);
+          // Note: Logging will happen in route handler where we have access to req
+          return done(null, false, {
+            message: 'Invalid email or password',
+            remainingAttempts: lockoutResult.remainingAttempts,
+            locked: lockoutResult.locked,
+          } as ExtendedVerifyOptions);
+        }
+
+        // Successful login - clear any failed attempts (Redis-backed)
+        await clearFailedLoginsAsync(email);
+        // Note: Success logging will happen in route handler where we have access to req
+        return done(null, user);
+      } catch (error) {
+        return done(error);
       }
-
-      // Case-insensitive email lookup using LOWER() for better UX
-      const userResult = await db
-        .select({
-          id: users.id,
-          username: users.username,
-          email: users.email,
-          passwordHash: users.passwordHash, // SECURITY: Only for internal password verification, never exposed in API
-          role: users.role,
-          trustLevel: users.trustLevel,
-          isActive: users.isActive,
-          isSuspended: users.isSuspended,
-          reputation: users.reputation,
-          avatarUrl: users.avatarUrl,
-          bio: users.bio,
-          location: users.location,
-          website: users.website,
-          lastSeenAt: users.lastSeenAt,
-          postCount: users.postCount,
-          topicCount: users.topicCount,
-          likesGiven: users.likesGiven,
-          likesReceived: users.likesReceived,
-          timeReadPosts: users.timeReadPosts,
-          daysVisited: users.daysVisited,
-          createdAt: users.createdAt,
-          updatedAt: users.updatedAt,
-        })
-        .from(users)
-        .where(sql`LOWER(${users.email}) = LOWER(${email})`)
-        .limit(1);
-
-      if (!userResult.length) {
-        // Record failed attempt (user not found) - Redis-backed
-        await recordFailedLoginAsync(email);
-        // Note: Logging will happen in route handler where we have access to req
-        return done(null, false, { message: 'Invalid email or password' });
-      }
-
-      const user = userResult[0];
-      const isValid = await bcrypt.compare(password, user.passwordHash);
-
-      if (!isValid) {
-        // Record failed attempt (wrong password) - Redis-backed
-        const lockoutResult = await recordFailedLoginAsync(email);
-        // Note: Logging will happen in route handler where we have access to req
-        return done(null, false, {
-          message: 'Invalid email or password',
-          remainingAttempts: lockoutResult.remainingAttempts,
-          locked: lockoutResult.locked
-        } as ExtendedVerifyOptions);
-      }
-
-      // Successful login - clear any failed attempts (Redis-backed)
-      await clearFailedLoginsAsync(email);
-      // Note: Success logging will happen in route handler where we have access to req
-      return done(null, user);
-    } catch (error) {
-      return done(error);
     }
-  }
-));
+  )
+);
 
 passport.serializeUser((user: Express.User, done) => {
   done(null, user.id);
@@ -150,7 +152,7 @@ passport.deserializeUser(async (id: number, done) => {
       .from(users)
       .where(eq(users.id, id))
       .limit(1);
-    done(null, userResult[0] as Express.User || null);
+    done(null, (userResult[0] as Express.User) || null);
   } catch (error) {
     done(error);
   }
@@ -162,15 +164,23 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, PASSWORD.BCRYPT_ROUNDS);
 }
 
-export async function createUser(userData: { username: string; email: string; password: string; role?: string }): Promise<SafeUser> {
+export async function createUser(userData: {
+  username: string;
+  email: string;
+  password: string;
+  role?: string;
+}): Promise<SafeUser> {
   const passwordHash = await hashPassword(userData.password);
 
-  const newUserResult = await db.insert(users).values({
-    username: userData.username,
-    email: userData.email,
-    passwordHash,
-    role: userData.role || 'user',
-  }).returning();
+  const newUserResult = await db
+    .insert(users)
+    .values({
+      username: userData.username,
+      email: userData.email,
+      passwordHash,
+      role: userData.role || 'user',
+    })
+    .returning();
 
   const user = newUserResult[0];
 

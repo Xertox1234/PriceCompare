@@ -24,10 +24,10 @@ export function ConnectionStatus() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">
+    <div className="animate-in slide-in-from-bottom-5 fixed right-4 bottom-4 z-50">
       <div
         className={cn(
-          'flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg backdrop-blur-sm',
+          'flex items-center gap-2 rounded-lg px-4 py-2 shadow-lg backdrop-blur-sm',
           'transition-all duration-300',
           connectionState === 'connecting' && 'bg-yellow-500/90 text-white',
           connectionState === 'reconnecting' && 'bg-orange-500/90 text-white',
@@ -35,15 +35,9 @@ export function ConnectionStatus() {
         )}
       >
         {/* Icon based on connection state */}
-        {connectionState === 'connecting' && (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        )}
-        {connectionState === 'reconnecting' && (
-          <RefreshCw className="h-4 w-4 animate-spin" />
-        )}
-        {connectionState === 'disconnected' && (
-          <WifiOff className="h-4 w-4" />
-        )}
+        {connectionState === 'connecting' && <Loader2 className="h-4 w-4 animate-spin" />}
+        {connectionState === 'reconnecting' && <RefreshCw className="h-4 w-4 animate-spin" />}
+        {connectionState === 'disconnected' && <WifiOff className="h-4 w-4" />}
 
         {/* Status text */}
         <span className="text-sm font-medium">

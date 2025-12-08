@@ -31,9 +31,7 @@ describe('BestTimeToBuy', () => {
     render(<BestTimeToBuy data={mockData} isLoading={false} />);
 
     expect(screen.getByText(/great deal/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/this is an excellent time to buy/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/this is an excellent time to buy/i)).toBeInTheDocument();
     expect(screen.getByText('90% confidence')).toBeInTheDocument();
     expect(screen.getByText('$85.99')).toBeInTheDocument();
     expect(screen.getByText('$84.99')).toBeInTheDocument();
@@ -54,9 +52,7 @@ describe('BestTimeToBuy', () => {
     render(<BestTimeToBuy data={mockData} isLoading={false} />);
 
     expect(screen.getByText(/consider waiting/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/the price may drop further/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/the price may drop further/i)).toBeInTheDocument();
     expect(screen.getByText('70% confidence')).toBeInTheDocument();
   });
 
@@ -75,9 +71,7 @@ describe('BestTimeToBuy', () => {
     render(<BestTimeToBuy data={mockData} isLoading={false} />);
 
     expect(screen.getByText(/fair price/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/the current price is reasonable/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/the current price is reasonable/i)).toBeInTheDocument();
     expect(screen.getByText('60% confidence')).toBeInTheDocument();
   });
 

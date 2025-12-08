@@ -45,8 +45,12 @@ function sortNotifications(
     case 'expiring':
       // Sort by expiration date (soonest first)
       return sorted.sort((a, b) => {
-        const aExpires = a.metadata?.expiresAt ? new Date(a.metadata.expiresAt).getTime() : Infinity;
-        const bExpires = b.metadata?.expiresAt ? new Date(b.metadata.expiresAt).getTime() : Infinity;
+        const aExpires = a.metadata?.expiresAt
+          ? new Date(a.metadata.expiresAt).getTime()
+          : Infinity;
+        const bExpires = b.metadata?.expiresAt
+          ? new Date(b.metadata.expiresAt).getTime()
+          : Infinity;
         return aExpires - bExpires;
       });
 
@@ -68,7 +72,7 @@ function filterByUrgency(
 ): SmartNotification[] {
   if (urgencyFilter === 'all') return notifications;
 
-  return notifications.filter(n => {
+  return notifications.filter((n) => {
     const urgency = n.metadata?.urgency || 'low';
 
     switch (urgencyFilter) {
@@ -108,7 +112,7 @@ export function NotificationCenter() {
   const sortedNotifications = sortNotifications(filteredNotifications, sortBy);
 
   // Count unread smart notifications
-  const unreadSmartCount = smartNotifications.filter(n => !n.isRead).length;
+  const unreadSmartCount = smartNotifications.filter((n) => !n.isRead).length;
   const unreadGeneralCount = stats?.unread || 0;
 
   const handleSnooze = (id: number, duration: number) => {
@@ -120,9 +124,9 @@ export function NotificationCenter() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="mx-auto w-full max-w-4xl">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'smart' | 'general')}>
-        <TabsList className="w-full grid grid-cols-2">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="smart" className="relative">
             Smart Alerts
             {unreadSmartCount > 0 && (
@@ -144,9 +148,9 @@ export function NotificationCenter() {
         {/* Smart Alerts Tab */}
         <TabsContent value="smart" className="space-y-4">
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Filter className="w-4 h-4" aria-hidden="true" />
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              <Filter className="h-4 w-4" aria-hidden="true" />
               <span>Filters:</span>
             </div>
 
@@ -166,10 +170,7 @@ export function NotificationCenter() {
               </SelectContent>
             </Select>
 
-            <Select
-              value={sortBy}
-              onValueChange={(value) => setSortBy(value as SortOption)}
-            >
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
               <SelectTrigger className="w-full sm:w-40" aria-label="Sort notifications">
                 <SelectValue placeholder="Sort By" />
               </SelectTrigger>
@@ -189,16 +190,16 @@ export function NotificationCenter() {
               ))}
             </div>
           ) : sortedNotifications.length === 0 ? (
-            <div className="text-center py-12 bg-muted/20 rounded-lg">
-              <Bell className="w-12 h-12 mx-auto text-muted-foreground mb-3" aria-hidden="true" />
-              <p className="text-lg font-medium text-muted-foreground">No smart alerts yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
+            <div className="bg-muted/20 rounded-lg py-12 text-center">
+              <Bell className="text-muted-foreground mx-auto mb-3 h-12 w-12" aria-hidden="true" />
+              <p className="text-muted-foreground text-lg font-medium">No smart alerts yet</p>
+              <p className="text-muted-foreground mt-1 text-sm">
                 Add products to your watchlist to receive intelligent notifications
               </p>
             </div>
           ) : (
             <div className="space-y-3" role="list" aria-label="Smart notifications">
-              {sortedNotifications.map(notification => (
+              {sortedNotifications.map((notification) => (
                 <SmartAlertCard
                   key={notification.id}
                   notification={notification}
@@ -211,7 +212,7 @@ export function NotificationCenter() {
 
           {/* Results Count */}
           {!isLoadingSmartNotifications && sortedNotifications.length > 0 && (
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-muted-foreground text-center text-sm">
               Showing {sortedNotifications.length} of {smartNotifications.length} notifications
             </p>
           )}
@@ -226,37 +227,35 @@ export function NotificationCenter() {
               ))}
             </div>
           ) : generalData?.notifications.length === 0 ? (
-            <div className="text-center py-12 bg-muted/20 rounded-lg">
-              <Bell className="w-12 h-12 mx-auto text-muted-foreground mb-3" aria-hidden="true" />
-              <p className="text-lg font-medium text-muted-foreground">No notifications</p>
+            <div className="bg-muted/20 rounded-lg py-12 text-center">
+              <Bell className="text-muted-foreground mx-auto mb-3 h-12 w-12" aria-hidden="true" />
+              <p className="text-muted-foreground text-lg font-medium">No notifications</p>
             </div>
           ) : (
             <div className="space-y-2" role="list" aria-label="General notifications">
               {generalData?.notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 rounded-lg border ${
+                  className={`rounded-lg border p-4 ${
                     !notification.isRead ? 'bg-primary/5 border-primary/20' : 'bg-background'
                   }`}
                   role="listitem"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm mb-1 line-clamp-2">
-                        {notification.title}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="mb-1 line-clamp-2 text-sm font-medium">{notification.title}</p>
                       {notification.content && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-muted-foreground line-clamp-2 text-sm">
                           {notification.content}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground mt-2">
+                      <p className="text-muted-foreground mt-2 text-xs">
                         {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                       </p>
                     </div>
                     {!notification.isRead && (
                       <div
-                        className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2"
+                        className="bg-primary mt-2 h-2 w-2 flex-shrink-0 rounded-full"
                         aria-label="Unread indicator"
                       />
                     )}

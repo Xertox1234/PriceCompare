@@ -131,7 +131,7 @@ class ExtensionStorage {
       const recent = await this.getRecentProducts(50);
 
       // Remove if already exists
-      const filtered = recent.filter(p => p.id !== product.id);
+      const filtered = recent.filter((p) => p.id !== product.id);
 
       // Add to front
       const updated = [
@@ -203,12 +203,14 @@ class ExtensionStorage {
   async getStats() {
     try {
       const result = await chrome.storage.local.get(['stats']);
-      return result.stats || {
-        productsViewed: 0,
-        chartsDisplayed: 0,
-        alertsCreated: 0,
-        lastUsed: null
-      };
+      return (
+        result.stats || {
+          productsViewed: 0,
+          chartsDisplayed: 0,
+          alertsCreated: 0,
+          lastUsed: null
+        }
+      );
     } catch (error) {
       logError('Failed to get stats', error);
       return {

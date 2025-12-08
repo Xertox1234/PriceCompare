@@ -129,7 +129,7 @@ describe('Smart Notification Service', () => {
   });
 
   describe('analyzeNotificationTriggers', () => {
-    it('should trigger critical notification for price at low + limited stock', async () => {
+    it('should trigger critical notification for price at low + limited stock', () => {
       const productData: ProductData = {
         currentPrice: 299.99,
         lowestPrice: 299.99,
@@ -138,11 +138,7 @@ describe('Smart Notification Service', () => {
         stockStatus: 'limited_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        productData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, productData);
 
       expect(trigger.shouldNotify).toBe(true);
       expect(trigger.urgency).toBe('critical');
@@ -152,7 +148,7 @@ describe('Smart Notification Service', () => {
       expect(trigger.metadata.productId).toBe(testProductId);
     });
 
-    it('should trigger high notification for 15%+ price drop', async () => {
+    it('should trigger high notification for 15%+ price drop', () => {
       const productData: ProductData = {
         currentPrice: 250.0,
         lowestPrice: 280.0,
@@ -161,20 +157,16 @@ describe('Smart Notification Service', () => {
         stockStatus: 'in_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        productData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, productData);
 
       expect(trigger.shouldNotify).toBe(true);
       expect(trigger.urgency).toBe('high');
       // reasoning is an array of strings - check if any includes "Price dropped"
-      expect(trigger.reasoning.some(r => r.includes('Price dropped'))).toBe(true);
+      expect(trigger.reasoning.some((r) => r.includes('Price dropped'))).toBe(true);
       expect(trigger.metadata.savings).toBeGreaterThan(0);
     });
 
-    it('should trigger medium notification for 10%+ price drop', async () => {
+    it('should trigger medium notification for 10%+ price drop', () => {
       const productData: ProductData = {
         currentPrice: 310.0,
         lowestPrice: 320.0,
@@ -183,17 +175,13 @@ describe('Smart Notification Service', () => {
         stockStatus: 'in_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        productData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, productData);
 
       expect(trigger.shouldNotify).toBe(true);
       expect(trigger.urgency).toBe('medium');
     });
 
-    it('should trigger low notification for 5%+ price drop', async () => {
+    it('should trigger low notification for 5%+ price drop', () => {
       const productData: ProductData = {
         currentPrice: 330.0,
         lowestPrice: 340.0,
@@ -202,17 +190,13 @@ describe('Smart Notification Service', () => {
         stockStatus: 'in_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        productData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, productData);
 
       expect(trigger.shouldNotify).toBe(true);
       expect(trigger.urgency).toBe('low');
     });
 
-    it('should not trigger for small price drops (<5%)', async () => {
+    it('should not trigger for small price drops (<5%)', () => {
       const productData: ProductData = {
         currentPrice: 345.0,
         lowestPrice: 350.0,
@@ -221,16 +205,12 @@ describe('Smart Notification Service', () => {
         stockStatus: 'in_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        productData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, productData);
 
       expect(trigger.shouldNotify).toBe(false);
     });
 
-    it('should include historical low reasoning when applicable', async () => {
+    it('should include historical low reasoning when applicable', () => {
       const productData: ProductData = {
         currentPrice: 280.0,
         lowestPrice: 280.0,
@@ -239,17 +219,13 @@ describe('Smart Notification Service', () => {
         stockStatus: 'in_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        productData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, productData);
 
       expect(trigger.shouldNotify).toBe(true);
       expect(trigger.reasoning).toContain('At lowest price in 90 days');
     });
 
-    it('should calculate savings correctly', async () => {
+    it('should calculate savings correctly', () => {
       const productData: ProductData = {
         currentPrice: 250.0,
         lowestPrice: 280.0,
@@ -258,16 +234,12 @@ describe('Smart Notification Service', () => {
         stockStatus: 'in_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        productData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, productData);
 
       expect(trigger.metadata.savings).toBe(100.0); // 350 - 250
     });
 
-    it('should set expiration date based on urgency', async () => {
+    it('should set expiration date based on urgency', () => {
       const criticalData: ProductData = {
         currentPrice: 299.99,
         lowestPrice: 299.99,
@@ -276,7 +248,7 @@ describe('Smart Notification Service', () => {
         stockStatus: 'limited_stock',
       };
 
-      const criticalTrigger = await analyzeNotificationTriggers(
+      const criticalTrigger = analyzeNotificationTriggers(
         testProductId,
         testUserId,
         criticalData
@@ -290,7 +262,7 @@ describe('Smart Notification Service', () => {
       expect(expiresIn).toBeLessThan(25 * 60 * 60 * 1000);
     });
 
-    it('should set confidence score based on urgency', async () => {
+    it('should set confidence score based on urgency', () => {
       const criticalData: ProductData = {
         currentPrice: 299.99,
         lowestPrice: 299.99,
@@ -299,18 +271,14 @@ describe('Smart Notification Service', () => {
         stockStatus: 'limited_stock',
       };
 
-      const trigger = await analyzeNotificationTriggers(
-        testProductId,
-        testUserId,
-        criticalData
-      );
+      const trigger = analyzeNotificationTriggers(testProductId, testUserId, criticalData);
 
       expect(trigger.metadata.confidence).toBe(0.95); // Critical has highest confidence
     });
   });
 
   describe('prioritizeNotifications', () => {
-    it('should sort by priority score (urgency + savings + time)', async () => {
+    it('should sort by priority score (urgency + savings + time)', () => {
       const now = new Date();
       const soonDate = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours
       const laterDate = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours
@@ -364,7 +332,7 @@ describe('Smart Notification Service', () => {
       expect(sorted[2].urgency).toBe('low');
     });
 
-    it('should prioritize higher savings when urgency is equal', async () => {
+    it('should prioritize higher savings when urgency is equal', () => {
       const laterDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
       const notifications: NotificationTrigger[] = [
@@ -399,7 +367,7 @@ describe('Smart Notification Service', () => {
       expect(sorted[1].metadata.savings).toBe(10);
     });
 
-    it('should prioritize expiring soon when urgency and savings are equal', async () => {
+    it('should prioritize expiring soon when urgency and savings are equal', () => {
       const soonDate = new Date(Date.now() + 6 * 60 * 60 * 1000);
       const laterDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
 

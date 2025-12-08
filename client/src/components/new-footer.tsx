@@ -25,7 +25,7 @@ export function NewFooter() {
     // });
 
     // Simulate brief delay for UX
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     toast({
       title: 'Thanks for subscribing!',
@@ -37,33 +37,33 @@ export function NewFooter() {
   };
 
   return (
-    <footer className="bg-card text-card-foreground border-t border-border mt-12">
+    <footer className="bg-card text-card-foreground border-border mt-12 border-t">
       <div className="container mx-auto px-6 py-10">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <div>
-            <h4 className="font-bold text-lg mb-4">Be in touch</h4>
+            <h4 className="mb-4 text-lg font-bold">Be in touch</h4>
             <form className="flex" onSubmit={(e) => void handleFooterSubmit(e)}>
               <input
                 type="email"
                 placeholder="Your Email"
                 value={footerEmail}
                 onChange={(e) => setFooterEmail(e.target.value)}
-                className="bg-muted text-foreground rounded-l-md py-2 px-3 w-full focus:outline-none disabled:opacity-50"
+                className="bg-muted text-foreground w-full rounded-l-md px-3 py-2 focus:outline-none disabled:opacity-50"
                 required
                 disabled={isSubmitting}
               />
               <Button
                 type="submit"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-r-md"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-r-md px-4 py-2 font-semibold"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Signing up...' : 'Sign Up'}
               </Button>
             </form>
           </div>
-          
+
           <div>
-            <h4 className="font-bold text-lg mb-4">PriceGrabber</h4>
+            <h4 className="mb-4 text-lg font-bold">PriceGrabber</h4>
             <ul>
               <li className="mb-2">
                 <Link href="/about">
@@ -87,9 +87,9 @@ export function NewFooter() {
               </li>
             </ul>
           </div>
-          
+
           <div>
-            <h4 className="font-bold text-lg mb-4">Support</h4>
+            <h4 className="mb-4 text-lg font-bold">Support</h4>
             <ul>
               <li className="mb-2">
                 <Link href="/merchant-login">
@@ -103,9 +103,9 @@ export function NewFooter() {
               </li>
             </ul>
           </div>
-          
+
           <div>
-            <h4 className="font-bold text-lg mb-4">Legal</h4>
+            <h4 className="mb-4 text-lg font-bold">Legal</h4>
             <ul>
               <li className="mb-2">
                 <Link href="/ad-choices">
@@ -124,14 +124,16 @@ export function NewFooter() {
               </li>
               <li>
                 <Link href="/california-privacy">
-                  <span className="hover:text-primary cursor-pointer">California Privacy Notice</span>
+                  <span className="hover:text-primary cursor-pointer">
+                    California Privacy Notice
+                  </span>
                 </Link>
               </li>
             </ul>
           </div>
         </div>
-        
-        <div className="text-center text-muted-foreground mt-10 border-t border-border pt-6">
+
+        <div className="text-muted-foreground border-border mt-10 border-t pt-6 text-center">
           <p>&copy; 2023 PriceGrabber. All Rights Reserved.</p>
         </div>
       </div>

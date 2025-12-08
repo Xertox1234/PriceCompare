@@ -110,5 +110,5 @@ export const TEST_DATES = {
   LEAP_YEAR_FEB_29: createTestDate(2024, 2, 29),
 
   /** Mar 1, 2024 - After leap day */
-  LEAP_YEAR_MAR_1: createTestDate(2024, 3, 1),
+  LEAP_YEAR_MAR_1: createTestDate(2024, 3, 1)
 };

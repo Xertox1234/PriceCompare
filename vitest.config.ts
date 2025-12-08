@@ -1,7 +1,7 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
@@ -18,7 +18,7 @@ export default defineConfig({
       '**/download_package/**',
       '**/attached_assets/**',
       '**/docs/**',
-      '**/.worktrees/**'
+      '**/.worktrees/**',
     ],
     css: true,
     coverage: {
@@ -68,45 +68,41 @@ export default defineConfig({
 
         // Generated files
         '**/*.generated.ts',
-        '**/generated/**'
+        '**/generated/**',
       ],
-      include: [
-        'client/src/**/*.{ts,tsx}',
-        'server/**/*.{ts,tsx}',
-        'shared/**/*.{ts,tsx}'
-      ],
+      include: ['client/src/**/*.{ts,tsx}', 'server/**/*.{ts,tsx}', 'shared/**/*.{ts,tsx}'],
       thresholds: {
         global: {
           branches: 80,
           functions: 80,
           lines: 80,
-          statements: 80
+          statements: 80,
         },
         // Per-file thresholds can be stricter for critical files
         'server/auth.ts': {
           branches: 90,
           functions: 90,
           lines: 90,
-          statements: 90
+          statements: 90,
         },
         'server/middleware/csrf.ts': {
           branches: 90,
           functions: 90,
           lines: 90,
-          statements: 90
-        }
+          statements: 90,
+        },
       },
       // Fail CI if coverage drops below thresholds
       all: true,
       skipFull: false,
-      clean: true
-    }
+      clean: true,
+    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './client/src'),
       '@shared': path.resolve(__dirname, './shared'),
       '@server': path.resolve(__dirname, './server'),
-    }
-  }
-})
+    },
+  },
+});

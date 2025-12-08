@@ -64,12 +64,7 @@ type UserInfo = {
  * Express error handling middleware
  * Must be placed after all routes
  */
-export function errorHandler(
-  err: Error,
-  req: Request,
-  res: Response,
-  _next: NextFunction
-) {
+export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
   // Log the error
   logError(err, req);
 
@@ -133,11 +128,16 @@ export function asyncHandler(
  * Should be placed before error handler middleware
  */
 export function notFoundHandler(req: Request, res: Response, _next: NextFunction) {
-  sendError(res, 'Route not found', 404, JSON.stringify({
-    code: 'NOT_FOUND',
-    path: req.originalUrl,
-    method: req.method,
-  }));
+  sendError(
+    res,
+    'Route not found',
+    404,
+    JSON.stringify({
+      code: 'NOT_FOUND',
+      path: req.originalUrl,
+      method: req.method,
+    })
+  );
 }
 
 /**
@@ -175,10 +175,12 @@ function logError(err: Error, req: Request) {
   // Send non-operational errors to Sentry for tracking
   if (!isOperational) {
     captureException(err, {
-      user: reqWithUser.user ? {
-        id: reqWithUser.user.id,
-        email: reqWithUser.user.email,
-      } : undefined,
+      user: reqWithUser.user
+        ? {
+            id: reqWithUser.user.id,
+            email: reqWithUser.user.email,
+          }
+        : undefined,
       extra: errorLog,
       tags: {
         errorType: isOperational ? 'operational' : 'programming',

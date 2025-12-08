@@ -102,33 +102,33 @@ export function ChartExport({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" disabled={isExporting}>
-          <Download className="h-4 w-4 mr-2" />
+          <Download className="mr-2 h-4 w-4" />
           Export
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem onClick={() => void handleExportPNG()} disabled={isExporting}>
-          <Image className="h-4 w-4 mr-2" />
+          <Image className="mr-2 h-4 w-4" />
           Export as PNG
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleExportCSV} disabled={isExporting}>
-          <FileText className="h-4 w-4 mr-2" />
+          <FileText className="mr-2 h-4 w-4" />
           Export as CSV
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void handleCopyImage()} disabled={isExporting}>
           {copied ? (
-            <Check className="h-4 w-4 mr-2 text-green-600" />
+            <Check className="mr-2 h-4 w-4 text-green-600" />
           ) : (
-            <Copy className="h-4 w-4 mr-2" />
+            <Copy className="mr-2 h-4 w-4" />
           )}
           Copy Chart Image
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleCopyLink}>
           {copied ? (
-            <Check className="h-4 w-4 mr-2 text-green-600" />
+            <Check className="mr-2 h-4 w-4 text-green-600" />
           ) : (
-            <Share2 className="h-4 w-4 mr-2" />
+            <Share2 className="mr-2 h-4 w-4" />
           )}
           Copy Share Link
         </DropdownMenuItem>

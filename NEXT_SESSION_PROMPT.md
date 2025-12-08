@@ -57,6 +57,7 @@ Fixed 3 critical production bugs in forum storage layer:
 ### Completed Test Suites (6/15+)
 
 #### High Priority (Core Routes) - ALL COMPLETE ✅
+
 1. ✅ **alert-routes.test.ts** - 29/30 passing (96.7%)
    - 1 test skipped (Drizzle bug)
 
@@ -70,6 +71,7 @@ Fixed 3 critical production bugs in forum storage layer:
 5. ✅ **watchlist-routes.test.ts** - 32/32 passing (100%)
 
 #### Medium Priority (Feature Routes)
+
 6. ✅ **forum-routes.test.ts** - 44/44 passing (100%) ✅
    - All 3 production bugs FIXED
    - Patterns codified
@@ -105,6 +107,7 @@ Pick one of these for the next session:
 ### Recommended Order
 
 Start with **notification-routes.test.ts** because:
+
 - Simpler CRUD operations
 - Well-defined authorization patterns
 - Good foundation for smart-alerts (which builds on notifications)
@@ -114,12 +117,14 @@ Start with **notification-routes.test.ts** because:
 ## Migration Checklist (For Next Session)
 
 ### 1. Preparation
+
 - [ ] Read the test file to understand current structure
 - [ ] Read the corresponding route file to understand endpoints
 - [ ] Check storage layer for data access patterns
 - [ ] Review any service layer logic
 
 ### 2. Code Changes
+
 - [ ] Import validation helpers
 - [ ] Replace `response.body` with `expectSuccessResponse()`
 - [ ] Add TypeScript types to validation calls
@@ -128,6 +133,7 @@ Start with **notification-routes.test.ts** because:
 - [ ] Add CSRF protection checks for mutations
 
 ### 3. Testing
+
 - [ ] Run specific test file
 - [ ] Fix failures (expectations vs behavior)
 - [ ] Watch for N+1 queries
@@ -135,6 +141,7 @@ Start with **notification-routes.test.ts** because:
 - [ ] Verify all tests pass
 
 ### 4. Documentation
+
 - [ ] Update TODO_API_TESTING_MIGRATION.md
 - [ ] Document any bugs discovered
 - [ ] Add patterns to docs/API_TESTING_PATTERNS.md
@@ -145,6 +152,7 @@ Start with **notification-routes.test.ts** because:
 ## Common Issues (Reference)
 
 ### Variable Naming Conflicts ⚠️
+
 ```typescript
 import { notifications } from '@shared/schema';
 
@@ -156,6 +164,7 @@ const result = expectSuccessResponse(...);
 ```
 
 ### Status Codes
+
 - **201** - Creation (POST)
 - **200** - Success (GET, PUT)
 - **204** - No content (DELETE)
@@ -164,12 +173,14 @@ const result = expectSuccessResponse(...);
 - **404** - Not found
 
 ### Authorization Pattern
+
 ```typescript
 // Don't reveal resource existence to unauthorized users
 sendError(res, 'Resource not found or unauthorized', 404);
 ```
 
 ### N+1 Query Prevention
+
 ```typescript
 // ❌ BAD
 for (const item of items) {
@@ -200,6 +211,7 @@ For the next test suite migration:
 ## Resources
 
 ### Documentation
+
 - `TODO_API_TESTING_MIGRATION.md` - Current status
 - `docs/API_TESTING_PATTERNS.md` - Testing patterns
 - `docs/DATABASE_PATTERNS.md` - Database patterns
@@ -207,11 +219,13 @@ For the next test suite migration:
 - `docs/archive/SESSION_2025-11-28_FORUM_STORAGE_BUGS.md` - Latest session
 
 ### Helper Files
+
 - `server/__tests__/helpers/response-validators.ts` - Validation helpers
 - `server/utils/api-response.ts` - Response helpers
 - `server/utils/validation-helpers.ts` - Input validation
 
 ### Reviewer Agents
+
 - `.claude/agents/code-review-specialist.md`
 - `.claude/agents/database-engineer.md`
 - `.claude/agents/typescript-reviewer.md`

@@ -1,9 +1,6 @@
-import { storage } from "../storage";
-import {
-  type PriceHistory,
-  type InsertNotification
-} from "@shared/schema";
-import { createLogger } from "../utils/logger";
+import { storage } from '../storage';
+import { type PriceHistory, type InsertNotification } from '@shared/schema';
+import { createLogger } from '../utils/logger';
 
 const logger = createLogger('PriceDropDetection');
 
@@ -60,7 +57,7 @@ export interface PriceDropNotification {
 // Default configuration
 const DEFAULT_CONFIG: PriceDropConfig = {
   percentageThreshold: 10, // 10% drop
-  absoluteThreshold: 5.00, // $5 drop
+  absoluteThreshold: 5.0, // $5 drop
   recentPeakDays: 30,
   cooldownHours: 24,
 };
@@ -142,7 +139,7 @@ function analyzeDropPattern(
 ): 'seasonal' | 'promotional' | 'clearance' | 'regular' {
   if (history.length < 10) return 'regular';
 
-  const prices = history.map(h => parseFloat(h.price));
+  const prices = history.map((h) => parseFloat(h.price));
   const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
   const minPrice = Math.min(...prices);
   const _maxPrice = Math.max(...prices);
@@ -153,7 +150,7 @@ function analyzeDropPattern(
   }
 
   // Seasonal: price has been to this level before recently
-  const similarPrices = prices.filter(p => Math.abs(p - newPrice) < avgPrice * 0.05);
+  const similarPrices = prices.filter((p) => Math.abs(p - newPrice) < avgPrice * 0.05);
   if (similarPrices.length >= 3) {
     return 'seasonal';
   }
@@ -216,8 +213,8 @@ export async function checkPriceAlertsForDrop(
     };
 
     // Phase 2 pattern: notification creation uses direct db insert
-    const { db } = await import("../db");
-    const { notifications } = await import("@shared/schema");
+    const { db } = await import('../db');
+    const { notifications } = await import('@shared/schema');
     const [created] = await db.insert(notifications).values(notification).returning();
 
     // Emit WebSocket price alert event
@@ -275,8 +272,8 @@ export async function createPriceDropNotification(
   };
 
   // Phase 2 pattern: notification creation uses direct db insert
-  const { db } = await import("../db");
-  const { notifications } = await import("@shared/schema");
+  const { db } = await import('../db');
+  const { notifications } = await import('@shared/schema');
   await db.insert(notifications).values(notificationData);
 }
 
@@ -321,12 +318,11 @@ export async function processPriceChange(
     const offer = await storage.getProductOfferDetailsForAlert(productOfferId);
 
     if (offer) {
-
       // Get users interested in this product
       const userIds = await getUsersToNotify(offer.productId, detection.dropPercentage);
 
       // Send notifications to interested users
-      const notificationPromises = userIds.map(userId =>
+      const notificationPromises = userIds.map((userId) =>
         createPriceDropNotification({
           userId,
           productId: offer.productId,
@@ -371,10 +367,10 @@ export async function batchProcessPriceChanges(
   let notificationsSent = 0;
 
   const results = await Promise.all(
-    changes.map(change => processPriceChange(change.productOfferId, change.newPrice, config))
+    changes.map((change) => processPriceChange(change.productOfferId, change.newPrice, config))
   );
 
-  results.forEach(result => {
+  results.forEach((result) => {
     if (result.detection.detected) dropsDetected++;
     alertsTriggered += result.alertsTriggered;
     notificationsSent += result.notificationsSent;

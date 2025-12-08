@@ -67,11 +67,13 @@ describe('Rate Limiter Middleware Integration', () => {
     it('sets X-RateLimit-Limit header', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 15 * 60 * 1000,
-        maxRequests: 100,
-        keyGenerator: () => testId,
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 15 * 60 * 1000,
+          maxRequests: 100,
+          keyGenerator: () => testId,
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -86,11 +88,13 @@ describe('Rate Limiter Middleware Integration', () => {
     it('sets X-RateLimit-Remaining header', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 15 * 60 * 1000,
-        maxRequests: 100,
-        keyGenerator: () => testId,
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 15 * 60 * 1000,
+          maxRequests: 100,
+          keyGenerator: () => testId,
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -106,11 +110,13 @@ describe('Rate Limiter Middleware Integration', () => {
     it('sets X-RateLimit-Reset header with Unix timestamp', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 15 * 60 * 1000,
-        maxRequests: 100,
-        keyGenerator: () => testId,
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 15 * 60 * 1000,
+          maxRequests: 100,
+          keyGenerator: () => testId,
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -124,18 +130,20 @@ describe('Rate Limiter Middleware Integration', () => {
 
       // Reset time should be in the future (within 15 minutes + 1 second tolerance)
       expect(resetTime).toBeGreaterThan(beforeRequest);
-      expect(resetTime).toBeLessThanOrEqual(beforeRequest + (15 * 60) + 2); // +2s tolerance
+      expect(resetTime).toBeLessThanOrEqual(beforeRequest + 15 * 60 + 2); // +2s tolerance
     });
 
     it('sets X-RateLimit-Tier header for anonymous users', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 15 * 60 * 1000,
-        maxRequests: 100,
-        keyGenerator: () => testId,
-        tiers: {}, // Enable tiered limits
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 15 * 60 * 1000,
+          maxRequests: 100,
+          keyGenerator: () => testId,
+          tiers: {}, // Enable tiered limits
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -156,12 +164,14 @@ describe('Rate Limiter Middleware Integration', () => {
         next();
       });
 
-      app.use(createRateLimiter({
-        windowMs: 15 * 60 * 1000,
-        maxRequests: 100,
-        keyGenerator: () => testId,
-        tiers: {}, // Enable tiered limits
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 15 * 60 * 1000,
+          maxRequests: 100,
+          keyGenerator: () => testId,
+          tiers: {}, // Enable tiered limits
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -178,12 +188,14 @@ describe('Rate Limiter Middleware Integration', () => {
     it('allows requests within limit for anonymous users', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000, // 1 minute for faster testing
-        maxRequests: 4, // Anonymous: 4 * 0.5 = 2 requests
-        keyGenerator: () => testId,
-        tiers: {}, // Enable tiered limits
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000, // 1 minute for faster testing
+          maxRequests: 4, // Anonymous: 4 * 0.5 = 2 requests
+          keyGenerator: () => testId,
+          tiers: {}, // Enable tiered limits
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -200,12 +212,14 @@ describe('Rate Limiter Middleware Integration', () => {
     it('blocks requests after limit exceeded for anonymous users', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 4, // Anonymous: 4 * 0.5 = 2 requests
-        keyGenerator: () => testId,
-        tiers: {},
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 4, // Anonymous: 4 * 0.5 = 2 requests
+          keyGenerator: () => testId,
+          tiers: {},
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -229,12 +243,14 @@ describe('Rate Limiter Middleware Integration', () => {
         next();
       });
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 5, // User: 5 * 1 = 5 requests
-        keyGenerator: () => testId,
-        tiers: {},
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 5, // User: 5 * 1 = 5 requests
+          keyGenerator: () => testId,
+          tiers: {},
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -255,16 +271,23 @@ describe('Rate Limiter Middleware Integration', () => {
       const testId = createTestId();
 
       app.use((req: Request, res: Response, next: NextFunction) => {
-        req.user = { id: 1, role: 'premium', username: 'premiumuser', email: 'premium@test.com' } as any;
+        req.user = {
+          id: 1,
+          role: 'premium',
+          username: 'premiumuser',
+          email: 'premium@test.com',
+        } as any;
         next();
       });
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 10, // Premium: 10 * 5 = 50 requests
-        keyGenerator: () => testId,
-        tiers: {},
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 10, // Premium: 10 * 5 = 50 requests
+          keyGenerator: () => testId,
+          tiers: {},
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -289,12 +312,14 @@ describe('Rate Limiter Middleware Integration', () => {
         next();
       });
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 10, // Admin: 10 * 100 = 1000 requests
-        keyGenerator: () => testId,
-        tiers: {},
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 10, // Admin: 10 * 100 = 1000 requests
+          keyGenerator: () => testId,
+          tiers: {},
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -318,11 +343,13 @@ describe('Rate Limiter Middleware Integration', () => {
     it('includes Retry-After header when limit exceeded', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 15 * 60 * 1000, // 15 minutes
-        maxRequests: 1,
-        keyGenerator: () => testId,
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 15 * 60 * 1000, // 15 minutes
+          maxRequests: 1,
+          keyGenerator: () => testId,
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -345,12 +372,14 @@ describe('Rate Limiter Middleware Integration', () => {
     it('includes error message in response body', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 1,
-        keyGenerator: () => testId,
-        message: 'Custom rate limit message',
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 1,
+          keyGenerator: () => testId,
+          message: 'Custom rate limit message',
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -366,11 +395,13 @@ describe('Rate Limiter Middleware Integration', () => {
     it('uses default error message when none provided', async () => {
       const testId = createTestId();
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 1,
-        keyGenerator: () => testId,
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 1,
+          keyGenerator: () => testId,
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -387,16 +418,23 @@ describe('Rate Limiter Middleware Integration', () => {
       const testId = createTestId();
 
       app.use((req: Request, res: Response, next: NextFunction) => {
-        req.user = { id: 1, role: 'premium', username: 'premium', email: 'premium@test.com' } as any;
+        req.user = {
+          id: 1,
+          role: 'premium',
+          username: 'premium',
+          email: 'premium@test.com',
+        } as any;
         next();
       });
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 1, // Premium: 1 * 5 = 5 requests
-        keyGenerator: () => testId,
-        tiers: {},
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 1, // Premium: 1 * 5 = 5 requests
+          keyGenerator: () => testId,
+          tiers: {},
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -419,14 +457,16 @@ describe('Rate Limiter Middleware Integration', () => {
   describe('Custom key generator', () => {
     it('uses custom key generator when provided', async () => {
       const customKeyGen = (req: Request) => {
-        return req.headers['x-api-key'] as string || 'default';
+        return (req.headers['x-api-key'] as string) || 'default';
       };
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 2,
-        keyGenerator: customKeyGen,
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 2,
+          keyGenerator: customKeyGen,
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -447,18 +487,25 @@ describe('Rate Limiter Middleware Integration', () => {
       const testId = createTestId();
 
       app.use((req: Request, res: Response, next: NextFunction) => {
-        req.user = { id: 1, role: 'premium', username: 'premium', email: 'premium@test.com' } as any;
+        req.user = {
+          id: 1,
+          role: 'premium',
+          username: 'premium',
+          email: 'premium@test.com',
+        } as any;
         next();
       });
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 10,
-        keyGenerator: () => testId,
-        tiers: {
-          premium: 15, // Override: premium gets 15 instead of 50 (10 * 5)
-        },
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 10,
+          keyGenerator: () => testId,
+          tiers: {
+            premium: 15, // Override: premium gets 15 instead of 50 (10 * 5)
+          },
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });
@@ -481,14 +528,16 @@ describe('Rate Limiter Middleware Integration', () => {
         next();
       });
 
-      app.use(createRateLimiter({
-        windowMs: 60 * 1000,
-        maxRequests: 10,
-        keyGenerator: () => testId,
-        tiers: {
-          admin: 0, // Unlimited
-        },
-      }));
+      app.use(
+        createRateLimiter({
+          windowMs: 60 * 1000,
+          maxRequests: 10,
+          keyGenerator: () => testId,
+          tiers: {
+            admin: 0, // Unlimited
+          },
+        })
+      );
 
       app.get('/test', (req: Request, res: Response) => {
         res.json({ success: true });

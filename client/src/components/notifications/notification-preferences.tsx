@@ -4,7 +4,10 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/use-notifications';
+import {
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from '@/hooks/use-notifications';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Bell, Mail, Clock } from 'lucide-react';
@@ -58,7 +61,7 @@ export function NotificationPreferences() {
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
+          <Skeleton className="mt-2 h-4 w-64" />
         </CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-24 w-full" />
@@ -74,7 +77,7 @@ export function NotificationPreferences() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bell className="w-5 h-5" />
+            <Bell className="h-5 w-5" />
             Price Drop Notifications
           </CardTitle>
           <CardDescription>Get notified when prices drop significantly</CardDescription>
@@ -92,23 +95,21 @@ export function NotificationPreferences() {
           {prefs.priceDropEnabled && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="priceDropThresholdPercent">
-                  Minimum percentage drop (%)
-                </Label>
+                <Label htmlFor="priceDropThresholdPercent">Minimum percentage drop (%)</Label>
                 <Input
                   id="priceDropThresholdPercent"
                   type="number"
                   min="1"
                   max="100"
                   value={prefs.priceDropThresholdPercent}
-                  onChange={(e) => setPrefs({ ...prefs, priceDropThresholdPercent: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setPrefs({ ...prefs, priceDropThresholdPercent: parseInt(e.target.value) })
+                  }
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="priceDropThresholdAmount">
-                  Minimum dollar amount drop ($)
-                </Label>
+                <Label htmlFor="priceDropThresholdAmount">Minimum dollar amount drop ($)</Label>
                 <Input
                   id="priceDropThresholdAmount"
                   type="number"
@@ -145,7 +146,7 @@ export function NotificationPreferences() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5" />
+            <Mail className="h-5 w-5" />
             Notification Channels
           </CardTitle>
           <CardDescription>Choose how you receive notifications</CardDescription>
@@ -175,31 +176,29 @@ export function NotificationPreferences() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="w-5 h-5" />
+            <Clock className="h-5 w-5" />
             Frequency Settings
           </CardTitle>
           <CardDescription>Control notification frequency</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="maxDailyNotifications">
-              Maximum notifications per day
-            </Label>
+            <Label htmlFor="maxDailyNotifications">Maximum notifications per day</Label>
             <Input
               id="maxDailyNotifications"
               type="number"
               min="1"
               max="100"
               value={prefs.maxDailyNotifications}
-              onChange={(e) => setPrefs({ ...prefs, maxDailyNotifications: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setPrefs({ ...prefs, maxDailyNotifications: parseInt(e.target.value) })
+              }
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quietHoursStart">
-                Quiet hours start (0-23, optional)
-              </Label>
+              <Label htmlFor="quietHoursStart">Quiet hours start (0-23, optional)</Label>
               <Input
                 id="quietHoursStart"
                 type="number"
@@ -207,14 +206,17 @@ export function NotificationPreferences() {
                 max="23"
                 placeholder="22 (10 PM)"
                 value={prefs.quietHoursStart ?? ''}
-                onChange={(e) => setPrefs({ ...prefs, quietHoursStart: e.target.value ? parseInt(e.target.value) : null })}
+                onChange={(e) =>
+                  setPrefs({
+                    ...prefs,
+                    quietHoursStart: e.target.value ? parseInt(e.target.value) : null,
+                  })
+                }
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="quietHoursEnd">
-                Quiet hours end (0-23, optional)
-              </Label>
+              <Label htmlFor="quietHoursEnd">Quiet hours end (0-23, optional)</Label>
               <Input
                 id="quietHoursEnd"
                 type="number"
@@ -222,18 +224,19 @@ export function NotificationPreferences() {
                 max="23"
                 placeholder="8 (8 AM)"
                 value={prefs.quietHoursEnd ?? ''}
-                onChange={(e) => setPrefs({ ...prefs, quietHoursEnd: e.target.value ? parseInt(e.target.value) : null })}
+                onChange={(e) =>
+                  setPrefs({
+                    ...prefs,
+                    quietHoursEnd: e.target.value ? parseInt(e.target.value) : null,
+                  })
+                }
               />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Button
-        onClick={handleSave}
-        disabled={updatePrefs.isPending}
-        className="w-full"
-      >
+      <Button onClick={handleSave} disabled={updatePrefs.isPending} className="w-full">
         {updatePrefs.isPending ? 'Saving...' : 'Save Preferences'}
       </Button>
     </div>

@@ -87,10 +87,7 @@ const defaultDealCards = [
   },
 ];
 
-export function HeroGrid({
-  slides = defaultSlides,
-  dealCards = defaultDealCards,
-}: HeroGridProps) {
+export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards }: HeroGridProps) {
   const [items, setItems] = React.useState(slides);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isPaused, setIsPaused] = React.useState(false);
@@ -99,7 +96,7 @@ export function HeroGrid({
     if (isAnimating) return;
     setIsAnimating(true);
     // Move first item to end
-    setItems(prev => [...prev.slice(1), prev[0]]);
+    setItems((prev) => [...prev.slice(1), prev[0]]);
     setTimeout(() => setIsAnimating(false), 500);
   }, [isAnimating]);
 
@@ -107,7 +104,7 @@ export function HeroGrid({
     if (isAnimating) return;
     setIsAnimating(true);
     // Move last item to beginning
-    setItems(prev => [prev[prev.length - 1], ...prev.slice(0, -1)]);
+    setItems((prev) => [prev[prev.length - 1], ...prev.slice(0, -1)]);
     setTimeout(() => setIsAnimating(false), 500);
   };
 
@@ -141,7 +138,7 @@ export function HeroGrid({
         >
           {/* Main Featured Banner with Slider - Takes 2x2 */}
           <div
-            className="relative overflow-hidden rounded-[10px] min-h-[550px]"
+            className="relative min-h-[550px] overflow-hidden rounded-[10px]"
             style={{ gridArea: 'main' }}
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
@@ -177,16 +174,16 @@ export function HeroGrid({
             </div>
 
             {/* Navigation Buttons */}
-            <div className="absolute bottom-6 left-10 flex gap-3 z-10">
+            <div className="absolute bottom-6 left-10 z-10 flex gap-3">
               <button
                 onClick={handlePrev}
-                className="w-10 h-9 rounded-lg border-2 border-black/70 bg-white/60 hover:bg-white hover:scale-110 transition-all flex items-center justify-center"
+                className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
                 onClick={handleNext}
-                className="w-10 h-9 rounded-lg border-2 border-black/70 bg-white/60 hover:bg-white hover:scale-110 transition-all flex items-center justify-center"
+                className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -220,43 +217,37 @@ interface DealCardProps {
 function DealCard({ title, subtitle, discount, image, link, category }: DealCardProps) {
   return (
     <Link href={link}>
-      <div className="group relative overflow-hidden rounded-[10px] h-full min-h-[265px] cursor-pointer">
+      <div className="group relative h-full min-h-[265px] cursor-pointer overflow-hidden rounded-[10px]">
         {/* Background Image */}
         <img
           src={image}
           alt={`${title} ${subtitle}`}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
 
         {/* Dark Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-slate-900/40" />
 
         {/* Content */}
-        <div className="absolute inset-0 p-6 flex flex-col justify-between">
+        <div className="absolute inset-0 flex flex-col justify-between p-6">
           {/* Text Content - Top */}
           <div>
-            <p className="text-slate-200 text-sm uppercase tracking-wider">
-              {title}
-            </p>
-            <p className="text-white text-2xl font-bold uppercase">
-              {subtitle}
-            </p>
-            <p className="text-slate-200 text-sm uppercase">
-              {category}
-            </p>
+            <p className="text-sm tracking-wider text-slate-200 uppercase">{title}</p>
+            <p className="text-2xl font-bold text-white uppercase">{subtitle}</p>
+            <p className="text-sm text-slate-200 uppercase">{category}</p>
           </div>
 
           {/* CTA Button - Bottom */}
-          <button className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-fit">
+          <button className="inline-flex w-fit items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700">
             <span>Shop now</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
 
         {/* Sale Badge - Top Right */}
-        <div className="absolute top-6 right-6 bg-template-gold text-black rounded-lg px-3 py-2 text-center min-w-[60px]">
-          <p className="text-[10px] uppercase font-medium leading-tight">Sale</p>
-          <p className="text-xl font-bold leading-tight">{discount}%</p>
+        <div className="bg-template-gold absolute top-6 right-6 min-w-[60px] rounded-lg px-3 py-2 text-center text-black">
+          <p className="text-[10px] leading-tight font-medium uppercase">Sale</p>
+          <p className="text-xl leading-tight font-bold">{discount}%</p>
         </div>
       </div>
     </Link>
@@ -274,32 +265,26 @@ export function HeroCompact({
   backgroundImage?: string;
 }) {
   return (
-    <section className="relative py-12 lg:py-16 overflow-hidden">
+    <section className="relative overflow-hidden py-12 lg:py-16">
       {/* Background */}
       {backgroundImage ? (
         <div className="absolute inset-0">
           <img
             src={backgroundImage}
             alt=""
-            className="w-full h-full object-cover opacity-20 dark:opacity-10"
+            className="h-full w-full object-cover opacity-20 dark:opacity-10"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background to-muted" />
+          <div className="from-background via-background to-muted absolute inset-0 bg-gradient-to-r" />
         </div>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-muted via-background to-muted" />
+        <div className="from-muted via-background to-muted absolute inset-0 bg-gradient-to-br" />
       )}
 
       {/* Content */}
-      <div className="container mx-auto px-4 relative">
+      <div className="relative container mx-auto px-4">
         <div className="max-w-2xl">
-          <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-lg text-muted-foreground">
-              {subtitle}
-            </p>
-          )}
+          <h1 className="text-foreground mb-2 text-3xl font-bold lg:text-4xl">{title}</h1>
+          {subtitle && <p className="text-muted-foreground text-lg">{subtitle}</p>}
         </div>
       </div>
     </section>

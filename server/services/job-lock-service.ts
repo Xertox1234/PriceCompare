@@ -1,7 +1,7 @@
-import { storage } from "../storage";
-import { logger } from "../utils/logger";
-import os from "os";
-import crypto from "crypto";
+import { storage } from '../storage';
+import { logger } from '../utils/logger';
+import os from 'os';
+import crypto from 'crypto';
 
 /**
  * Job Lock Service
@@ -100,9 +100,12 @@ export class JobLockService {
         return true;
       }
 
-      logger.warn(`[JobLock] Failed to release lock for job "${jobName}" - not owned by this instance`, {
-        instanceId: this.instanceId,
-      });
+      logger.warn(
+        `[JobLock] Failed to release lock for job "${jobName}" - not owned by this instance`,
+        {
+          instanceId: this.instanceId,
+        }
+      );
       return false;
     } catch (error) {
       logger.error(`[JobLock] Error releasing lock for job "${jobName}":`, {

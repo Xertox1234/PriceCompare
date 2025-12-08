@@ -10,18 +10,21 @@ interface CompareModalProps {
 }
 
 // Mock product data for comparison (in real app, this would come from API)
-const mockProductDetails: Record<number, {
-  id: number;
-  name: string;
-  image: string;
-  price: number;
-  originalPrice?: number;
-  rating: number;
-  reviewCount: number;
-  category: string;
-  retailer: string;
-  specs: Record<string, string>;
-}> = {
+const mockProductDetails: Record<
+  number,
+  {
+    id: number;
+    name: string;
+    image: string;
+    price: number;
+    originalPrice?: number;
+    rating: number;
+    reviewCount: number;
+    category: string;
+    retailer: string;
+    specs: Record<string, string>;
+  }
+> = {
   1: {
     id: 1,
     name: 'Apple Watch Series 9',
@@ -32,7 +35,7 @@ const mockProductDetails: Record<number, {
     reviewCount: 1256,
     category: 'Wearables',
     retailer: 'Amazon',
-    specs: { 'Display': '45mm OLED', 'Battery': '18 hours', 'Water Resistant': '50m', 'Storage': '64GB' }
+    specs: { Display: '45mm OLED', Battery: '18 hours', 'Water Resistant': '50m', Storage: '64GB' },
   },
   2: {
     id: 2,
@@ -44,7 +47,12 @@ const mockProductDetails: Record<number, {
     reviewCount: 892,
     category: 'Wearables',
     retailer: 'Best Buy',
-    specs: { 'Display': '44mm AMOLED', 'Battery': '40 hours', 'Water Resistant': '50m', 'Storage': '16GB' }
+    specs: {
+      Display: '44mm AMOLED',
+      Battery: '40 hours',
+      'Water Resistant': '50m',
+      Storage: '16GB',
+    },
   },
   3: {
     id: 3,
@@ -56,7 +64,7 @@ const mockProductDetails: Record<number, {
     reviewCount: 2341,
     category: 'Audio',
     retailer: 'Amazon',
-    specs: { 'Driver': '30mm', 'Battery': '30 hours', 'ANC': 'Yes', 'Bluetooth': '5.2' }
+    specs: { Driver: '30mm', Battery: '30 hours', ANC: 'Yes', Bluetooth: '5.2' },
   },
   4: {
     id: 4,
@@ -68,27 +76,25 @@ const mockProductDetails: Record<number, {
     reviewCount: 1089,
     category: 'Audio',
     retailer: 'Bose',
-    specs: { 'Driver': '35mm', 'Battery': '24 hours', 'ANC': 'Yes', 'Bluetooth': '5.3' }
-  }
+    specs: { Driver: '35mm', Battery: '24 hours', ANC: 'Yes', Bluetooth: '5.3' },
+  },
 };
 
 export function CompareModal({ isOpen, onClose }: CompareModalProps) {
   const { compare, toggleCompare, clearCompare } = useShop();
 
-  const compareProducts = compare.map(id => mockProductDetails[id]).filter(Boolean);
+  const compareProducts = compare.map((id) => mockProductDetails[id]).filter(Boolean);
 
   // Get all unique spec keys from compared products
-  const allSpecs = Array.from(
-    new Set(compareProducts.flatMap(p => Object.keys(p.specs)))
-  );
+  const allSpecs = Array.from(new Set(compareProducts.flatMap((p) => Object.keys(p.specs))));
 
   return (
     <>
       {/* Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 bg-slate-900 z-50 transition-opacity duration-300",
-          isOpen ? "opacity-80" : "opacity-0 pointer-events-none"
+          'fixed inset-0 z-50 bg-slate-900 transition-opacity duration-300',
+          isOpen ? 'opacity-80' : 'pointer-events-none opacity-0'
         )}
         onClick={onClose}
       />
@@ -96,16 +102,16 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
       {/* Modal */}
       <div
         className={cn(
-          "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl max-h-[90vh] rounded-2xl z-50 shadow-2xl transition-all duration-300 overflow-hidden flex flex-col",
-          isOpen ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
+          'fixed top-1/2 left-1/2 z-50 flex max-h-[90vh] w-full max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl shadow-2xl transition-all duration-300',
+          isOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'
         )}
         style={{ backgroundColor: 'var(--floating-header-bg, white)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="border-border flex items-center justify-between border-b p-4">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold">Compare Products</h2>
-            <span className="bg-secondary text-secondary-foreground text-xs font-bold px-2 py-1 rounded-full">
+            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-1 text-xs font-bold">
               {compare.length} of 4
             </span>
           </div>
@@ -117,15 +123,11 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                 onClick={clearCompare}
                 className="text-muted-foreground hover:text-destructive"
               >
-                <Trash2 className="h-4 w-4 mr-1" />
+                <Trash2 className="mr-1 h-4 w-4" />
                 Clear All
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-            >
+            <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -134,12 +136,15 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
         {/* Content */}
         <div className="flex-1 overflow-auto p-4">
           {compare.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
-              <p className="text-lg font-medium text-foreground mb-2">No products to compare</p>
-              <p className="text-sm text-muted-foreground mb-6">
+            <div className="flex h-64 flex-col items-center justify-center text-center">
+              <p className="text-foreground mb-2 text-lg font-medium">No products to compare</p>
+              <p className="text-muted-foreground mb-6 text-sm">
                 Add products to compare by clicking the compare icon on product cards
               </p>
-              <Button onClick={onClose} className="bg-template-primary hover:bg-template-primary-hover">
+              <Button
+                onClick={onClose}
+                className="bg-template-primary hover:bg-template-primary-hover"
+              >
                 Browse Products
               </Button>
             </div>
@@ -148,34 +153,34 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr>
-                    <th className="text-left p-3 w-40 bg-muted sticky left-0">
-                      <span className="text-sm font-medium text-muted-foreground">Product</span>
+                    <th className="bg-muted sticky left-0 w-40 p-3 text-left">
+                      <span className="text-muted-foreground text-sm font-medium">Product</span>
                     </th>
                     {compareProducts.map((product) => (
-                      <th key={product.id} className="p-3 text-center min-w-[180px]">
-                        <div className="relative group">
+                      <th key={product.id} className="min-w-[180px] p-3 text-center">
+                        <div className="group relative">
                           {/* Remove Button */}
                           <button
                             onClick={() => toggleCompare(product.id)}
-                            className="absolute -top-1 -right-1 p-1 bg-destructive hover:bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-all z-10"
+                            className="bg-destructive hover:bg-destructive text-destructive-foreground absolute -top-1 -right-1 z-10 rounded-full p-1 opacity-0 transition-all group-hover:opacity-100"
                           >
                             <X className="h-3 w-3" />
                           </button>
 
                           {/* Product Image */}
                           <Link href={`/product/${product.id}`} onClick={onClose}>
-                            <div className="w-24 h-24 mx-auto mb-3 bg-muted rounded-lg overflow-hidden">
+                            <div className="bg-muted mx-auto mb-3 h-24 w-24 overflow-hidden rounded-lg">
                               <img
                                 src={product.image}
                                 alt={product.name}
-                                className="w-full h-full object-cover"
+                                className="h-full w-full object-cover"
                               />
                             </div>
                           </Link>
 
                           {/* Product Name */}
                           <Link href={`/product/${product.id}`} onClick={onClose}>
-                            <h3 className="font-medium text-foreground text-sm line-clamp-2 hover:text-template-primary transition-colors">
+                            <h3 className="text-foreground hover:text-template-primary line-clamp-2 text-sm font-medium transition-colors">
                               {product.name}
                             </h3>
                           </Link>
@@ -184,9 +189,9 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                     ))}
                     {/* Empty slots */}
                     {Array.from({ length: 4 - compare.length }).map((_, i) => (
-                      <th key={`empty-${i}`} className="p-3 text-center min-w-[180px]">
-                        <div className="w-24 h-24 mx-auto mb-3 bg-muted rounded-lg border-2 border-dashed border-border flex items-center justify-center">
-                          <span className="text-xs text-muted-foreground">Add product</span>
+                      <th key={`empty-${i}`} className="min-w-[180px] p-3 text-center">
+                        <div className="bg-muted border-border mx-auto mb-3 flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed">
+                          <span className="text-muted-foreground text-xs">Add product</span>
                         </div>
                       </th>
                     ))}
@@ -194,16 +199,16 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                 </thead>
                 <tbody>
                   {/* Price Row */}
-                  <tr className="border-t border-border">
-                    <td className="p-3 bg-muted sticky left-0 font-medium text-sm">Price</td>
+                  <tr className="border-border border-t">
+                    <td className="bg-muted sticky left-0 p-3 text-sm font-medium">Price</td>
                     {compareProducts.map((product) => (
                       <td key={product.id} className="p-3 text-center">
                         <div className="flex flex-col items-center">
-                          <span className="text-lg font-bold text-template-primary">
+                          <span className="text-template-primary text-lg font-bold">
                             ${product.price.toFixed(2)}
                           </span>
                           {product.originalPrice && (
-                            <span className="text-sm text-muted-foreground line-through">
+                            <span className="text-muted-foreground text-sm line-through">
                               ${product.originalPrice.toFixed(2)}
                             </span>
                           )}
@@ -211,13 +216,18 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                       </td>
                     ))}
                     {Array.from({ length: 4 - compare.length }).map((_, i) => (
-                      <td key={`empty-price-${i}`} className="p-3 text-center text-muted-foreground">-</td>
+                      <td
+                        key={`empty-price-${i}`}
+                        className="text-muted-foreground p-3 text-center"
+                      >
+                        -
+                      </td>
                     ))}
                   </tr>
 
                   {/* Rating Row */}
-                  <tr className="border-t border-border">
-                    <td className="p-3 bg-muted sticky left-0 font-medium text-sm">Rating</td>
+                  <tr className="border-border border-t">
+                    <td className="bg-muted sticky left-0 p-3 text-sm font-medium">Rating</td>
                     {compareProducts.map((product) => (
                       <td key={product.id} className="p-3 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -226,63 +236,90 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                               <Star
                                 key={i}
                                 className={cn(
-                                  "h-3 w-3",
-                                  i < Math.floor(product.rating) ? "fill-template-gold text-template-gold" : "text-muted"
+                                  'h-3 w-3',
+                                  i < Math.floor(product.rating)
+                                    ? 'fill-template-gold text-template-gold'
+                                    : 'text-muted'
                                 )}
                               />
                             ))}
                           </div>
-                          <span className="text-xs text-muted-foreground">({product.reviewCount})</span>
+                          <span className="text-muted-foreground text-xs">
+                            ({product.reviewCount})
+                          </span>
                         </div>
                       </td>
                     ))}
                     {Array.from({ length: 4 - compare.length }).map((_, i) => (
-                      <td key={`empty-rating-${i}`} className="p-3 text-center text-muted-foreground">-</td>
+                      <td
+                        key={`empty-rating-${i}`}
+                        className="text-muted-foreground p-3 text-center"
+                      >
+                        -
+                      </td>
                     ))}
                   </tr>
 
                   {/* Retailer Row */}
-                  <tr className="border-t border-border">
-                    <td className="p-3 bg-muted sticky left-0 font-medium text-sm">Retailer</td>
+                  <tr className="border-border border-t">
+                    <td className="bg-muted sticky left-0 p-3 text-sm font-medium">Retailer</td>
                     {compareProducts.map((product) => (
                       <td key={product.id} className="p-3 text-center">
-                        <span className="text-sm text-template-secondary">{product.retailer}</span>
+                        <span className="text-template-secondary text-sm">{product.retailer}</span>
                       </td>
                     ))}
                     {Array.from({ length: 4 - compare.length }).map((_, i) => (
-                      <td key={`empty-retailer-${i}`} className="p-3 text-center text-muted-foreground">-</td>
+                      <td
+                        key={`empty-retailer-${i}`}
+                        className="text-muted-foreground p-3 text-center"
+                      >
+                        -
+                      </td>
                     ))}
                   </tr>
 
                   {/* Spec Rows */}
                   {allSpecs.map((spec) => (
-                    <tr key={spec} className="border-t border-border">
-                      <td className="p-3 bg-muted sticky left-0 font-medium text-sm">{spec}</td>
+                    <tr key={spec} className="border-border border-t">
+                      <td className="bg-muted sticky left-0 p-3 text-sm font-medium">{spec}</td>
                       {compareProducts.map((product) => (
                         <td key={product.id} className="p-3 text-center text-sm">
                           {product.specs[spec] || '-'}
                         </td>
                       ))}
                       {Array.from({ length: 4 - compare.length }).map((_, i) => (
-                        <td key={`empty-${spec}-${i}`} className="p-3 text-center text-muted-foreground">-</td>
+                        <td
+                          key={`empty-${spec}-${i}`}
+                          className="text-muted-foreground p-3 text-center"
+                        >
+                          -
+                        </td>
                       ))}
                     </tr>
                   ))}
 
                   {/* Action Row */}
-                  <tr className="border-t border-border">
-                    <td className="p-3 bg-muted sticky left-0 font-medium text-sm">Action</td>
+                  <tr className="border-border border-t">
+                    <td className="bg-muted sticky left-0 p-3 text-sm font-medium">Action</td>
                     {compareProducts.map((product) => (
                       <td key={product.id} className="p-3 text-center">
                         <Link href={`/product/${product.id}`} onClick={onClose}>
-                          <Button size="sm" className="bg-template-primary hover:bg-template-primary-hover">
+                          <Button
+                            size="sm"
+                            className="bg-template-primary hover:bg-template-primary-hover"
+                          >
                             View Details
                           </Button>
                         </Link>
                       </td>
                     ))}
                     {Array.from({ length: 4 - compare.length }).map((_, i) => (
-                      <td key={`empty-action-${i}`} className="p-3 text-center text-muted-foreground">-</td>
+                      <td
+                        key={`empty-action-${i}`}
+                        className="text-muted-foreground p-3 text-center"
+                      >
+                        -
+                      </td>
                     ))}
                   </tr>
                 </tbody>

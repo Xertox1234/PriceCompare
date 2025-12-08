@@ -1,13 +1,20 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle, Eye, EyeOff, Lock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { createLogger } from "@/utils/logger";
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2, AlertCircle, Eye, EyeOff, Lock } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { createLogger } from '@/utils/logger';
 
 const log = createLogger('ResetPassword');
 
@@ -35,8 +42,8 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 export default function ResetPassword() {
   const [, setLocation] = useLocation();
   const [token, setToken] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,10 +57,10 @@ export default function ResetPassword() {
   // Extract token from URL query parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tokenParam = params.get("token");
+    const tokenParam = params.get('token');
 
     if (!tokenParam) {
-      setTokenError("Invalid password reset link. No token provided.");
+      setTokenError('Invalid password reset link. No token provided.');
       setIsValidating(false);
       return;
     }
@@ -70,11 +77,11 @@ export default function ResetPassword() {
       if (response.ok && data.email && data.username) {
         setUserInfo({ email: data.email, username: data.username });
       } else {
-        setTokenError(data.error ?? "Invalid or expired password reset token");
+        setTokenError(data.error ?? 'Invalid or expired password reset token');
       }
     } catch (err) {
-      log.error("Token validation error:", { error: err });
-      setTokenError("Unable to validate reset token. Please try again.");
+      log.error('Token validation error:', { error: err });
+      setTokenError('Unable to validate reset token. Please try again.');
     } finally {
       setIsValidating(false);
     }
@@ -82,16 +89,16 @@ export default function ResetPassword() {
 
   const validatePassword = (pass: string): string | null => {
     if (pass.length < 8) {
-      return "Password must be at least 8 characters long";
+      return 'Password must be at least 8 characters long';
     }
     if (!/[a-z]/.test(pass)) {
-      return "Password must contain at least one lowercase letter";
+      return 'Password must contain at least one lowercase letter';
     }
     if (!/[A-Z]/.test(pass)) {
-      return "Password must contain at least one uppercase letter";
+      return 'Password must contain at least one uppercase letter';
     }
     if (!/[0-9]/.test(pass)) {
-      return "Password must contain at least one number";
+      return 'Password must contain at least one number';
     }
     return null;
   };
@@ -101,7 +108,7 @@ export default function ResetPassword() {
     setError(null);
 
     if (!token) {
-      setError("Invalid reset token");
+      setError('Invalid reset token');
       return;
     }
 
@@ -112,17 +119,17 @@ export default function ResetPassword() {
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/reset-password", {
-        method: "POST",
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ token, password }),
       });
@@ -132,20 +139,20 @@ export default function ResetPassword() {
       if (response.ok) {
         setIsSuccess(true);
         toast({
-          title: "Password reset successful",
-          description: "You can now log in with your new password.",
+          title: 'Password reset successful',
+          description: 'You can now log in with your new password.',
         });
 
         // Redirect to login after 3 seconds
         setTimeout(() => {
-          setLocation("/");
+          setLocation('/');
         }, 3000);
       } else {
-        setError(data.error ?? "Failed to reset password. Please try again.");
+        setError(data.error ?? 'Failed to reset password. Please try again.');
       }
     } catch (err) {
-      log.error("Reset password error:", { error: err });
-      setError("Unable to process request. Please try again later.");
+      log.error('Reset password error:', { error: err });
+      setError('Unable to process request. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -154,11 +161,11 @@ export default function ResetPassword() {
   // Loading state while validating token
   if (isValidating) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center space-y-4">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+              <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"></div>
               <p className="text-muted-foreground">Validating reset link...</p>
             </div>
           </CardContent>
@@ -170,10 +177,10 @@ export default function ResetPassword() {
   // Token error state
   if (tokenError) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
               <AlertCircle className="h-6 w-6 text-red-600" />
             </div>
             <CardTitle className="text-2xl">Invalid Reset Link</CardTitle>
@@ -182,7 +189,7 @@ export default function ResetPassword() {
           <CardContent>
             <Alert variant="destructive">
               <AlertDescription>
-                <ul className="list-disc list-inside space-y-1 text-sm">
+                <ul className="list-inside list-disc space-y-1 text-sm">
                   <li>The link may have expired (valid for 1 hour)</li>
                   <li>The link may have already been used</li>
                   <li>The link may be invalid or corrupted</li>
@@ -195,7 +202,9 @@ export default function ResetPassword() {
               <Button className="w-full">Request a new reset link</Button>
             </Link>
             <Link href="/">
-              <Button variant="ghost" className="w-full">Back to home</Button>
+              <Button variant="ghost" className="w-full">
+                Back to home
+              </Button>
             </Link>
           </CardFooter>
         </Card>
@@ -206,10 +215,10 @@ export default function ResetPassword() {
   // Success state
   if (isSuccess) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
             </div>
             <CardTitle className="text-2xl">Password Reset Successful</CardTitle>
@@ -237,7 +246,7 @@ export default function ResetPassword() {
 
   // Reset password form
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex min-h-[60vh] items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Reset your password</CardTitle>
@@ -259,7 +268,7 @@ export default function ResetPassword() {
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your new password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -271,14 +280,14 @@ export default function ResetPassword() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  className="absolute top-0 right-0 h-full px-3 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                   tabIndex={-1}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    <EyeOff className="text-muted-foreground h-4 w-4" />
                   ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <Eye className="text-muted-foreground h-4 w-4" />
                   )}
                 </Button>
               </div>
@@ -289,7 +298,7 @@ export default function ResetPassword() {
               <div className="relative">
                 <Input
                   id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm your new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -300,14 +309,14 @@ export default function ResetPassword() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  className="absolute top-0 right-0 h-full px-3 hover:bg-transparent"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   tabIndex={-1}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    <EyeOff className="text-muted-foreground h-4 w-4" />
                   ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <Eye className="text-muted-foreground h-4 w-4" />
                   )}
                 </Button>
               </div>
@@ -316,8 +325,8 @@ export default function ResetPassword() {
             <Alert>
               <Lock className="h-4 w-4" />
               <AlertDescription>
-                <p className="font-semibold mb-2">Password requirements:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm">
+                <p className="mb-2 font-semibold">Password requirements:</p>
+                <ul className="list-inside list-disc space-y-1 text-sm">
                   <li>At least 8 characters long</li>
                   <li>Contains at least one uppercase letter</li>
                   <li>Contains at least one lowercase letter</li>

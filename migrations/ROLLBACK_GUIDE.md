@@ -48,6 +48,7 @@ This document provides comprehensive rollback procedures for all database migrat
 **CRITICAL**: Rollbacks must be executed in REVERSE order of migration application.
 
 If you need to rollback to migration 0005:
+
 1. Rollback 0016 first
 2. Then 0015, 0014, 0013... down to 0006
 3. Stop at 0005 (do not rollback)
@@ -81,12 +82,12 @@ pg_restore -h hostname -U username -d pricecompare backup.dump
 
 ## Risk Classification
 
-| Risk Level | Description | Examples |
-|------------|-------------|----------|
-| **LOW** | Safe to rollback, no data loss | Index creation, adding nullable columns |
-| **MEDIUM** | May require code changes | Trigger/function changes, constraint modifications |
-| **HIGH** | Causes data loss | Dropping tables, removing columns with data |
-| **CRITICAL** | Irreversible or requires decryption keys | Encryption migrations |
+| Risk Level   | Description                              | Examples                                           |
+| ------------ | ---------------------------------------- | -------------------------------------------------- |
+| **LOW**      | Safe to rollback, no data loss           | Index creation, adding nullable columns            |
+| **MEDIUM**   | May require code changes                 | Trigger/function changes, constraint modifications |
+| **HIGH**     | Causes data loss                         | Dropping tables, removing columns with data        |
+| **CRITICAL** | Irreversible or requires decryption keys | Encryption migrations                              |
 
 ---
 
@@ -118,6 +119,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable AI-powered product search endpoints
 - Update frontend to use basic text search
 - Remove embedding generation from product creation flow
@@ -184,6 +186,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Monitor query performance
 - Consider adding back critical indexes individually
 
@@ -211,6 +214,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable password reset endpoint
 - Remove password reset email functionality
 - Update authentication routes to return 503 for reset requests
@@ -242,6 +246,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable price history API endpoints
 - Remove price trend charts from product pages
 - Stop price snapshot scheduled jobs
@@ -279,6 +284,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable notification preference settings in UI
 - Use default notification behavior
 - Remove price drop notification logic
@@ -317,6 +323,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable smart alert suggestions
 - Remove alert effectiveness tracking from dashboard
 
@@ -359,6 +366,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable community features in UI
 - Remove leaderboard endpoints
 - Remove deal spotting notifications
@@ -419,6 +427,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable watch list management UI
 - Revert to simple product watch functionality
 - Remove priority and category filtering
@@ -462,6 +471,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable price analytics dashboard
 - Stop weekly/monthly aggregation jobs
 - Remove trend analysis endpoints
@@ -489,6 +499,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Warning: Jobs may execute concurrently on multiple servers
 - Consider disabling scheduled jobs temporarily
 - Implement application-level locking as fallback
@@ -554,6 +565,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Implement manual cleanup for orphaned records
 - Add application-level deletion handlers
 - Schedule regular orphan cleanup jobs
@@ -567,6 +579,7 @@ COMMIT;
 **Code Impact**: All PII fields become unreadable
 
 **WARNING**: This rollback is ONLY possible if:
+
 1. You have the original `ENCRYPTION_KEY`
 2. You have not lost access to encrypted data
 
@@ -604,11 +617,13 @@ COMMIT;
 ```
 
 **Pre-Rollback Requirements**:
+
 1. Have `ENCRYPTION_KEY` available
 2. Run decryption script to convert encrypted data back to plaintext
 3. Verify decryption succeeded before changing column types
 
 **Post-Rollback Actions**:
+
 - Update Drizzle schema to remove encryptedText type
 - Update application to not use encryption utilities
 - Document security posture change (GDPR implications)
@@ -643,6 +658,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable daily aggregation jobs
 - Update aggregation service to skip daily processing
 - Adjust data lifecycle configuration
@@ -668,6 +684,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Monitor query performance on price_history table
 - Consider adding back critical indexes if performance degrades
 
@@ -711,6 +728,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - User deletion will cascade-delete all their forum content
 - Update user deletion logic to handle constraint failures
 - Consider soft-delete instead of hard-delete for users
@@ -752,6 +770,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Add application-level duplicate prevention
 - User deletion will fail if they sent private messages
 - Monitor for duplicate data creation
@@ -785,6 +804,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Disable wishlist features in UI
 - Remove product specifications from product detail pages
 - Update API to return 404 for wishlist endpoints
@@ -808,6 +828,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Check for truncated titles after rollback
 - Add title length validation in UI (255 char limit)
 
@@ -830,14 +851,15 @@ DROP INDEX IF EXISTS unique_user_product_no_list;
 ALTER TABLE product_watches DROP CONSTRAINT IF EXISTS unique_user_product_list;
 
 -- Restore original simple unique constraint
-ALTER TABLE product_watches 
-  ADD CONSTRAINT product_watches_user_id_product_id_watch_list_id_key 
+ALTER TABLE product_watches
+  ADD CONSTRAINT product_watches_user_id_product_id_watch_list_id_key
   UNIQUE(user_id, product_id, watch_list_id);
 
 COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - Duplicate product watches possible when watch_list_id is NULL
 - Add application-level duplicate checking
 - Monitor for duplicate entries
@@ -876,6 +898,7 @@ COMMIT;
 ```
 
 **Post-Rollback Actions**:
+
 - **WARNING**: Invalid prices can be inserted without database-level validation
 - Add application-level price validation as fallback
 - Consider adding Zod validation for all price fields
@@ -954,11 +977,12 @@ SELECT indexname, tablename FROM pg_indexes WHERE schemaname = 'public';
 ## Contact Information
 
 For emergency database assistance:
+
 - **On-call DBA**: Check PagerDuty rotation
 - **Database Documentation**: See `docs/DATABASE_PATTERNS.md`
 - **Schema Reference**: See `shared/schema.ts`
 
 ---
 
-*Last updated: 2025-12-01*
-*Document version: 1.1*
+_Last updated: 2025-12-01_
+_Document version: 1.1_

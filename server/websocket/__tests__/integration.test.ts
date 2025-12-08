@@ -21,7 +21,11 @@ import {
   spyOnSocketEvent,
 } from './test-utils';
 import { getSocketIO } from '../index';
-import { emitWatchListUpdate, emitProductAdded, emitProductRemoved } from '../handlers/watch-list-handler';
+import {
+  emitWatchListUpdate,
+  emitProductAdded,
+  emitProductRemoved,
+} from '../handlers/watch-list-handler';
 import { emitUnreadCountUpdate } from '../handlers/notification-handler';
 import { emitPriceAlert } from '../handlers/price-update-handler';
 import { eventBus, AppEvents } from '../../utils/event-bus';
@@ -41,8 +45,8 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 vi.mock('../../services/notification-service', () => ({
-  markAsRead: vi.fn(async () => 1),
-  getNotificationStats: vi.fn(async () => ({
+  markAsRead: vi.fn(() => 1),
+  getNotificationStats: vi.fn(() => ({
     total: 10,
     unread: 3,
     byType: {},
@@ -185,10 +189,7 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         // Connect both clients
-        await Promise.all([
-          waitForEvent(client1, 'connect'),
-          waitForEvent(client2, 'connect'),
-        ]);
+        await Promise.all([waitForEvent(client1, 'connect'), waitForEvent(client2, 'connect')]);
 
         // Subscribe both to watch lists
         client1.emit('subscribe:watchlists');
@@ -240,10 +241,7 @@ describe('WebSocket Integration Tests', () => {
       const client2 = createAuthenticatedSocket(userId, port);
 
       try {
-        await Promise.all([
-          waitForEvent(client1, 'connect'),
-          waitForEvent(client2, 'connect'),
-        ]);
+        await Promise.all([waitForEvent(client1, 'connect'), waitForEvent(client2, 'connect')]);
 
         client1.emit('subscribe:watchlists');
         client2.emit('subscribe:watchlists');
@@ -290,10 +288,7 @@ describe('WebSocket Integration Tests', () => {
       const clientB = createAuthenticatedSocket(userB, port);
 
       try {
-        await Promise.all([
-          waitForEvent(clientA, 'connect'),
-          waitForEvent(clientB, 'connect'),
-        ]);
+        await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -337,10 +332,7 @@ describe('WebSocket Integration Tests', () => {
       const clientB = createAuthenticatedSocket(userB, port);
 
       try {
-        await Promise.all([
-          waitForEvent(clientA, 'connect'),
-          waitForEvent(clientB, 'connect'),
-        ]);
+        await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -497,10 +489,7 @@ describe('WebSocket Integration Tests', () => {
       const clientB = createAuthenticatedSocket(userB, port);
 
       try {
-        await Promise.all([
-          waitForEvent(clientA, 'connect'),
-          waitForEvent(clientB, 'connect'),
-        ]);
+        await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
 
         const spyA = spyOnSocketEvent(clientA, 'price:alert');
         const spyB = spyOnSocketEvent(clientB, 'price:alert');

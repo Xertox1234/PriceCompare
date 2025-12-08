@@ -1,14 +1,14 @@
 /**
  * Lazy-loaded components for code splitting
- * 
+ *
  * Route-based code splitting reduces initial bundle size by loading page components
  * on demand. This improves First Contentful Paint (FCP) and Time to Interactive (TTI).
- * 
+ *
  * Guidelines:
  * - Eager load: Home page, login/register (needed immediately)
  * - Lazy load: All other routes (loaded on navigation)
  * - Chart-heavy pages: Always lazy (recharts is 367KB)
- * 
+ *
  * @see docs/PERFORMANCE_GUIDE.md for code splitting best practices
  */
 import { lazy } from 'react';
@@ -28,7 +28,7 @@ export const LazyAdminPage = lazy(() => import('@/pages/admin'));
  * Named export requires module transform
  */
 export const LazyAdvancedSearchPage = lazy(() =>
-  import('@/pages/advanced-search').then(module => ({ default: module.AdvancedSearchPage }))
+  import('@/pages/advanced-search').then((module) => ({ default: module.AdvancedSearchPage }))
 );
 
 /**
@@ -48,7 +48,7 @@ export const LazyAnalyticsPage = lazy(() => import('@/pages/analytics'));
  * Named export requires module transform
  */
 export const LazyWatchListManager = lazy(() =>
-  import('@/components/community/watch-list-manager').then(m => ({ default: m.WatchListManager }))
+  import('@/components/community/watch-list-manager').then((m) => ({ default: m.WatchListManager }))
 );
 
 /**

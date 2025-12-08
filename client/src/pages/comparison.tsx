@@ -1,10 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { ProductComparison } from "@/components/price-history/ProductComparison";
-import { ArrowLeft } from "lucide-react";
-import { useLocation, useSearch } from "wouter";
-import { useMemo } from "react";
-import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { ProductComparison } from '@/components/price-history/ProductComparison';
+import { ArrowLeft } from 'lucide-react';
+import { useLocation, useSearch } from 'wouter';
+import { useMemo } from 'react';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 // API response types
 interface ProductResponse {
@@ -50,13 +50,13 @@ export default function ComparisonPage() {
 
     return productsParam
       .split(',')
-      .map(id => parseInt(id.trim(), 10))
-      .filter(id => !isNaN(id));
+      .map((id) => parseInt(id.trim(), 10))
+      .filter((id) => !isNaN(id));
   }, [searchParams]);
 
   // Fetch products data
   const { data: products, isLoading } = useQuery({
-    queryKey: ["comparison-products", productIds],
+    queryKey: ['comparison-products', productIds],
     queryFn: async () => {
       if (productIds.length === 0) return [];
 
@@ -77,12 +77,13 @@ export default function ComparisonPage() {
   });
 
   // Fetch price history function
-  const fetchPriceHistory = async (productId: number, days: number): Promise<PriceHistoryEntry[]> => {
-    const response = await fetch(
-      `/api/products/${productId}/price-history?days=${days}`
-    );
+  const fetchPriceHistory = async (
+    productId: number,
+    days: number
+  ): Promise<PriceHistoryEntry[]> => {
+    const response = await fetch(`/api/products/${productId}/price-history?days=${days}`);
     if (!response.ok) {
-      throw new Error("Failed to fetch price history");
+      throw new Error('Failed to fetch price history');
     }
     const data = await parseJsonResponse<PriceHistoryResponse>(response);
     return data.history ?? [];
@@ -94,16 +95,16 @@ export default function ComparisonPage() {
       <div className="mb-6">
         <Button
           variant="ghost"
-          onClick={() => setLocation("/products")}
+          onClick={() => setLocation('/products')}
           className="mb-4"
-          size={isMobile ? "sm" : "default"}
+          size={isMobile ? 'sm' : 'default'}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="mr-2 h-4 w-4" />
           {isMobile ? 'Back' : 'Back to Products'}
         </Button>
 
         <div>
-          <h1 className={`font-bold mb-2 ${isMobile ? 'text-xl' : 'text-3xl'}`}>
+          <h1 className={`mb-2 font-bold ${isMobile ? 'text-xl' : 'text-3xl'}`}>
             {isMobile ? 'Price Comparison' : 'Product Price Comparison'}
           </h1>
           <p className={`text-muted-foreground ${isMobile ? 'text-sm' : ''}`}>
@@ -114,30 +115,28 @@ export default function ComparisonPage() {
 
       {/* Comparison Component */}
       {isLoading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading comparison data...</p>
+        <div className="py-12 text-center">
+          <div className="border-primary mx-auto h-12 w-12 animate-spin rounded-full border-b-2"></div>
+          <p className="text-muted-foreground mt-4">Loading comparison data...</p>
         </div>
       ) : (
         <ProductComparison
           initialProducts={products || []}
           fetchPriceHistory={fetchPriceHistory}
-          onClose={() => setLocation("/products")}
+          onClose={() => setLocation('/products')}
         />
       )}
 
       {/* Help Text */}
       {products && products.length === 0 && (
-        <div className="text-center py-12">
-          <div className="max-w-md mx-auto">
-            <h3 className="text-lg font-semibold mb-2">No Products Selected</h3>
+        <div className="py-12 text-center">
+          <div className="mx-auto max-w-md">
+            <h3 className="mb-2 text-lg font-semibold">No Products Selected</h3>
             <p className="text-muted-foreground mb-4">
-              Add products to comparison from the products page to see their
-              price history charts side-by-side.
+              Add products to comparison from the products page to see their price history charts
+              side-by-side.
             </p>
-            <Button onClick={() => setLocation("/products")}>
-              Browse Products
-            </Button>
+            <Button onClick={() => setLocation('/products')}>Browse Products</Button>
           </div>
         </div>
       )}

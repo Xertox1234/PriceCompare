@@ -2,41 +2,55 @@
 import 'dotenv/config';
 
 // IMPORTANT: Sentry must be initialized FIRST before any other imports
-import { initializeSentry, sentryRequestHandler, sentryTracingHandler, sentryErrorHandler } from "./config/sentry";
+import {
+  initializeSentry,
+  sentryRequestHandler,
+  sentryTracingHandler,
+  sentryErrorHandler,
+} from './config/sentry';
 
 // Initialize Sentry error monitoring
 initializeSentry();
 
-import express from "express";
-import compression from "compression";
-import session from "express-session";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { websocketService } from "./services/websocket-service";
-import { passport } from "./auth";
-import { apiCacheMiddleware } from "./middleware/cache";
-import { securityHeaders, rateLimiter, sanitizeInput, corsMiddleware, attachCsrfToken } from "./middleware/security";
-import { sentryContextMiddleware } from "./middleware/sentry-context";
-import { createRateLimiter as redisRateLimiter } from "./middleware/redis-rate-limiter";
-import { performanceMonitoring } from "./middleware/performance";
-import { validateEnvironment, getRequiredEnv } from "./config/env-validation";
-import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from "./middleware/request-limits";
-import { initializeRedis, getRedisSessionClient, closeRedis } from "./config/redis";
-import { createSessionStore } from "./config/session-store";
-import { cleanupExpiredTokens } from "./services/password-reset-service";
-import { initializePriceSnapshotScheduler } from "./jobs/price-snapshot-queue";
-import { startPriceHistoryJobs } from "./jobs/price-history-jobs";
-import { startPriceAnalyticsJobs } from "./jobs/price-analytics-jobs";
-import { startPriceAggregationJobs } from "./jobs/price-aggregation-job";
-import { initializeNotificationProcessor } from "./jobs/notification-processor";
-import { errorHandler, setupGlobalErrorHandlers } from "./middleware/error-handler";
-import { RATE_LIMIT, SESSION } from "./utils/constants";
-import { cleanupManager } from "./utils/cleanup-manager";
-import { createLogger } from "./utils/logger";
-import { initializeWebSocket, shutdownWebSocket } from "./websocket/index";
-import { advancedCache } from "./services/advanced-cache";
-import { initializeEventSubscriptions, cleanupEventSubscriptions } from "./services/event-subscriptions";
-import { storageCache } from "./services/storage-cache";
+import express from 'express';
+import compression from 'compression';
+import session from 'express-session';
+import { registerRoutes } from './routes';
+import { setupVite, serveStatic, log } from './vite';
+import { websocketService } from './services/websocket-service';
+import { passport } from './auth';
+import { apiCacheMiddleware } from './middleware/cache';
+import {
+  securityHeaders,
+  rateLimiter,
+  sanitizeInput,
+  corsMiddleware,
+  attachCsrfToken,
+} from './middleware/security';
+import { sentryContextMiddleware } from './middleware/sentry-context';
+import { createRateLimiter as redisRateLimiter } from './middleware/redis-rate-limiter';
+import { performanceMonitoring } from './middleware/performance';
+import { validateEnvironment, getRequiredEnv } from './config/env-validation';
+import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from './middleware/request-limits';
+import { initializeRedis, getRedisSessionClient, closeRedis } from './config/redis';
+import { createSessionStore } from './config/session-store';
+import { cleanupExpiredTokens } from './services/password-reset-service';
+import { initializePriceSnapshotScheduler } from './jobs/price-snapshot-queue';
+import { startPriceHistoryJobs } from './jobs/price-history-jobs';
+import { startPriceAnalyticsJobs } from './jobs/price-analytics-jobs';
+import { startPriceAggregationJobs } from './jobs/price-aggregation-job';
+import { initializeNotificationProcessor } from './jobs/notification-processor';
+import { errorHandler, setupGlobalErrorHandlers } from './middleware/error-handler';
+import { RATE_LIMIT, SESSION } from './utils/constants';
+import { cleanupManager } from './utils/cleanup-manager';
+import { createLogger } from './utils/logger';
+import { initializeWebSocket, shutdownWebSocket } from './websocket/index';
+import { advancedCache } from './services/advanced-cache';
+import {
+  initializeEventSubscriptions,
+  cleanupEventSubscriptions,
+} from './services/event-subscriptions';
+import { storageCache } from './services/storage-cache';
 
 const serverLog = createLogger('Server');
 
@@ -117,35 +131,47 @@ app.use(sanitizeInput);
     // - Premium: 500 req/15min (5x multiplier)
     // - Moderator: 1000 req/15min (10x multiplier)
     // - Admin: 10,000 req/15min (100x multiplier)
-    app.use('/api', redisRateLimiter({
-      windowMs: RATE_LIMIT.WINDOW_MS,
-      maxRequests: RATE_LIMIT.MAX_REQUESTS,
-      message: 'Too many requests from this IP, please try again later',
-      tiers: {}, // Enable tiered limits with default multipliers from RATE_LIMIT_TIERS
-    }));
+    app.use(
+      '/api',
+      redisRateLimiter({
+        windowMs: RATE_LIMIT.WINDOW_MS,
+        maxRequests: RATE_LIMIT.MAX_REQUESTS,
+        message: 'Too many requests from this IP, please try again later',
+        tiers: {}, // Enable tiered limits with default multipliers from RATE_LIMIT_TIERS
+      })
+    );
 
     // Stricter rate limiting for authentication endpoints (NO TIERS for security)
     // All users get same strict limit to prevent credential stuffing attacks
-    app.use('/api/auth', redisRateLimiter({
-      windowMs: RATE_LIMIT.WINDOW_MS,
-      maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
-      message: 'Too many authentication attempts, please try again later',
-      // No tiers property = strict limit for all users
-    }));
+    app.use(
+      '/api/auth',
+      redisRateLimiter({
+        windowMs: RATE_LIMIT.WINDOW_MS,
+        maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
+        message: 'Too many authentication attempts, please try again later',
+        // No tiers property = strict limit for all users
+      })
+    );
   } else {
     // Redis unavailable: Use in-memory rate limiting (development only)
     // No tiered limits - all users get same flat limit
-    app.use('/api', rateLimiter({
-      windowMs: RATE_LIMIT.WINDOW_MS,
-      maxRequests: RATE_LIMIT.MAX_REQUESTS,
-      message: 'Too many requests from this IP, please try again later',
-    }));
+    app.use(
+      '/api',
+      rateLimiter({
+        windowMs: RATE_LIMIT.WINDOW_MS,
+        maxRequests: RATE_LIMIT.MAX_REQUESTS,
+        message: 'Too many requests from this IP, please try again later',
+      })
+    );
 
-    app.use('/api/auth', rateLimiter({
-      windowMs: RATE_LIMIT.WINDOW_MS,
-      maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
-      message: 'Too many authentication attempts, please try again later',
-    }));
+    app.use(
+      '/api/auth',
+      rateLimiter({
+        windowMs: RATE_LIMIT.WINDOW_MS,
+        maxRequests: RATE_LIMIT.AUTH_MAX_REQUESTS,
+        message: 'Too many authentication attempts, please try again later',
+      })
+    );
   }
 
   // Create session store (Redis or in-memory fallback)
@@ -204,16 +230,16 @@ app.use(sanitizeInput);
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
 
-    res.on("finish", () => {
+    res.on('finish', () => {
       const duration = Date.now() - start;
-      if (path.startsWith("/api")) {
+      if (path.startsWith('/api')) {
         let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
         if (capturedJsonResponse) {
           logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
         }
 
         if (logLine.length > 80) {
-          logLine = logLine.slice(0, 79) + "…";
+          logLine = logLine.slice(0, 79) + '…';
         }
 
         log(logLine);
@@ -222,26 +248,28 @@ app.use(sanitizeInput);
 
     next();
   });
-  const server = await registerRoutes(app);
+  const server = registerRoutes(app);
 
   // Initialize advanced caching system
-  const { initializeAdvancedCache, performInitialCacheWarming } = await import("./cache-initialization");
-  await initializeAdvancedCache(app);
-  log("Advanced caching system initialized");
+  const { initializeAdvancedCache, performInitialCacheWarming } = await import(
+    './cache-initialization'
+  );
+  initializeAdvancedCache(app);
+  log('Advanced caching system initialized');
 
   // Initialize WebSocket service for real-time dashboard updates
   websocketService.initialize(server);
-  log("WebSocket service initialized for real-time monitoring");
+  log('WebSocket service initialized for real-time monitoring');
 
   // Initialize WebSocket server for watch list real-time notifications
   // Pass session middleware for authentication
   initializeWebSocket(server, sessionMiddleware);
-  log("WebSocket server initialized for watch list notifications (path: /ws)");
+  log('WebSocket server initialized for watch list notifications (path: /ws)');
 
   // Initialize event bus subscriptions (must be after services are loaded)
   // This connects services via event bus to avoid circular dependencies
   initializeEventSubscriptions();
-  log("Event subscriptions initialized");
+  log('Event subscriptions initialized');
 
   // SENTRY: Error handler must be BEFORE custom error handler
   app.use(sentryErrorHandler);
@@ -252,7 +280,7 @@ app.use(sanitizeInput);
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  if (app.get('env') === 'development') {
     await setupVite(app, server);
   } else {
     serveStatic(app);
@@ -261,16 +289,19 @@ app.use(sanitizeInput);
   // Serve the app on configured port (defaults to 5000)
   // this serves both the API and the client.
   const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-  }, () => {
-    log(`serving on port ${port}`);
+  server.listen(
+    {
+      port,
+      host: '0.0.0.0',
+    },
+    () => {
+      log(`serving on port ${port}`);
 
-    // Warm critical caches (retailers) to eliminate first-request cache misses
-    // Using void to explicitly mark fire-and-forget async operation
-    void storageCache.warmCaches();
-  });
+      // Warm critical caches (retailers) to eliminate first-request cache misses
+      // Using void to explicitly mark fire-and-forget async operation
+      void storageCache.warmCaches();
+    }
+  );
 
   // Log cache performance metrics every minute
   const CACHE_METRICS_INTERVAL = 60 * 1000; // 1 minute
@@ -341,13 +372,13 @@ app.use(sanitizeInput);
   }
 
   // Perform initial cache warming (non-blocking)
-  performInitialCacheWarming().catch(error => {
+  performInitialCacheWarming().catch((error) => {
     log(`Error during initial cache warming: ${error}`, 'error');
   });
-})().catch(error => {
+})().catch((error) => {
   serverLog.error('Fatal error during server startup', {
     error: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined
+    stack: error instanceof Error ? error.stack : undefined,
   });
   process.exit(1);
 });
@@ -366,7 +397,7 @@ async function gracefulShutdown(signal: string) {
     // Step 2: Close WebSocket connections
     log('Closing WebSocket connections...');
     await websocketService.shutdown();
-    await shutdownWebSocket();
+    shutdownWebSocket();
     log('WebSocket connections closed');
 
     // Step 2.5: Cleanup event bus subscriptions
@@ -390,7 +421,7 @@ async function gracefulShutdown(signal: string) {
   } catch (error) {
     serverLog.error('Error during graceful shutdown', {
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
     process.exit(1);
   }

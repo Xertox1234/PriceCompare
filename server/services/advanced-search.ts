@@ -838,11 +838,11 @@ Return only 3 product names, one per line, no formatting or explanations.`,
   /**
    * Analyze search query intent
    */
-  async analyzeQueryIntent(query: string): Promise<{
+  analyzeQueryIntent(query: string): {
     intent: 'product_search' | 'price_comparison' | 'brand_search' | 'category_browse';
     confidence: number;
     suggestions: string[];
-  }> {
+  } {
     const queryLower = query.toLowerCase();
 
     // Price-related keywords

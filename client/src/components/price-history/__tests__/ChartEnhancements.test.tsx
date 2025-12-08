@@ -46,13 +46,7 @@ describe.skip('Chart Enhancements', () => {
 
   describe('Price Drop Annotations', () => {
     it('should detect and display price drops greater than 15%', () => {
-      render(
-        <PriceHistoryChart
-          data={mockData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={mockData} productName="Test Product" productId={1} />);
 
       // Should show Amazon's 20% drop
       expect(screen.getByText(/Amazon.*20% drop/)).toBeInTheDocument();
@@ -83,13 +77,7 @@ describe.skip('Chart Enhancements', () => {
         },
       ];
 
-      render(
-        <PriceHistoryChart
-          data={smallDropData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={smallDropData} productName="Test Product" productId={1} />);
 
       // Should not show any drop annotations
       expect(screen.queryByText(/drop/)).not.toBeInTheDocument();
@@ -103,17 +91,11 @@ describe.skip('Chart Enhancements', () => {
         retailerId: 1,
         retailerName: 'Amazon',
         retailerLogo: null,
-        price: (100 - (i * 20)).toFixed(2), // Each drops >15%
+        price: (100 - i * 20).toFixed(2), // Each drops >15%
         recordedAt: new Date(`2024-01-${String(i + 1).padStart(2, '0')}`),
       }));
 
-      render(
-        <PriceHistoryChart
-          data={manyDropsData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={manyDropsData} productName="Test Product" productId={1} />);
 
       // Should show overflow badge
       const overflowBadge = screen.getByText(/\+\d+ more/);
@@ -121,13 +103,7 @@ describe.skip('Chart Enhancements', () => {
     });
 
     it('should format drop percentage correctly', () => {
-      render(
-        <PriceHistoryChart
-          data={mockData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={mockData} productName="Test Product" productId={1} />);
 
       // Percentage should be rounded to whole number
       const amazonDrop = screen.getByText(/Amazon.*20% drop/);
@@ -136,13 +112,7 @@ describe.skip('Chart Enhancements', () => {
     });
 
     it('should show date of price drop', () => {
-      render(
-        <PriceHistoryChart
-          data={mockData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={mockData} productName="Test Product" productId={1} />);
 
       // Should include formatted date
       expect(screen.getByText(/Jan 5/)).toBeInTheDocument(); // Amazon drop date
@@ -153,11 +123,7 @@ describe.skip('Chart Enhancements', () => {
   describe('Zoom and Pan Functionality', () => {
     it('should render chart with data', () => {
       const { container } = render(
-        <PriceHistoryChart
-          data={mockData}
-          productName="Test Product"
-          productId={1}
-        />
+        <PriceHistoryChart data={mockData} productName="Test Product" productId={1} />
       );
 
       // Chart container should be in the DOM
@@ -168,13 +134,7 @@ describe.skip('Chart Enhancements', () => {
 
   describe('Reference Lines', () => {
     it('should render chart with historical context', () => {
-      render(
-        <PriceHistoryChart
-          data={mockData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={mockData} productName="Test Product" productId={1} />);
 
       // Chart should render with data
       expect(screen.getByText('Price History')).toBeInTheDocument();
@@ -183,13 +143,7 @@ describe.skip('Chart Enhancements', () => {
 
   describe('Integration with existing features', () => {
     it('should render with product name and ID', () => {
-      render(
-        <PriceHistoryChart
-          data={mockData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={mockData} productName="Test Product" productId={1} />);
 
       // Chart title should be present
       expect(screen.getByText('Price History')).toBeInTheDocument();
@@ -210,13 +164,7 @@ describe.skip('Chart Enhancements', () => {
     });
 
     it('should display annotations with all data', () => {
-      render(
-        <PriceHistoryChart
-          data={mockData}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={mockData} productName="Test Product" productId={1} />);
 
       // Should show price drop annotations (multiple drops exist)
       const dropAnnotations = screen.getAllByText(/drop/);
@@ -228,13 +176,7 @@ describe.skip('Chart Enhancements', () => {
     it('should handle single data point without errors', () => {
       const singlePoint = [mockData[0]];
 
-      render(
-        <PriceHistoryChart
-          data={singlePoint}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={singlePoint} productName="Test Product" productId={1} />);
 
       // Should render without errors
       expect(screen.getByText('Price History')).toBeInTheDocument();
@@ -244,13 +186,7 @@ describe.skip('Chart Enhancements', () => {
     });
 
     it('should handle empty data gracefully', () => {
-      render(
-        <PriceHistoryChart
-          data={[]}
-          productName="Test Product"
-          productId={1}
-        />
-      );
+      render(<PriceHistoryChart data={[]} productName="Test Product" productId={1} />);
 
       // Should show empty state
       expect(screen.getByText(/No price history available/)).toBeInTheDocument();
@@ -279,11 +215,7 @@ describe.skip('Chart Enhancements', () => {
       ];
 
       render(
-        <PriceHistoryChart
-          data={increasingPrices}
-          productName="Test Product"
-          productId={1}
-        />
+        <PriceHistoryChart data={increasingPrices} productName="Test Product" productId={1} />
       );
 
       // Should not show drop annotations for price increases

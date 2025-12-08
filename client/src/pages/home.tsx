@@ -102,7 +102,7 @@ export default function Home() {
 
       {/* 4. Amazon-style Grid Cards Section */}
       <section className="px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <DealGridCard
             title="Top Deals"
             products={topDeals.slice(0, 4)}
@@ -135,7 +135,7 @@ export default function Home() {
 
       {/* 5. Second Row of Grid Cards */}
       <section className="px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <DealGridCard
             title="Fashion Finds"
             products={fashionProducts.slice(0, 4)}
@@ -226,10 +226,7 @@ export default function Home() {
 
       {/* 7. Retailer Spotlight - Amazon featured deals */}
       <section className="px-4 sm:px-6 lg:px-8">
-        <RetailerSpotlight
-          retailerId="1"
-          tagline="Top deals from the world's largest retailer"
-        />
+        <RetailerSpotlight retailerId="1" tagline="Top deals from the world's largest retailer" />
       </section>
 
       {/* 8. Trending Now Carousel */}

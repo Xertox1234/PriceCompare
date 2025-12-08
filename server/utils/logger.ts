@@ -42,9 +42,8 @@ function formatLog(entry: LogEntry): string {
 
   // Human-readable format for development
   const contextStr = context ? `[${context}] ` : '';
-  const metadataStr = metadata && Object.keys(metadata).length > 0
-    ? `\n${JSON.stringify(metadata, null, 2)}`
-    : '';
+  const metadataStr =
+    metadata && Object.keys(metadata).length > 0 ? `\n${JSON.stringify(metadata, null, 2)}` : '';
   return `[${timestamp}] ${level.toUpperCase()}: ${contextStr}${message}${metadataStr}`;
 }
 
@@ -103,19 +102,35 @@ function log(
  * Logger instance with convenience methods
  */
 export const logger = {
-  error(message: string, contextOrMetadata?: string | Record<string, unknown>, metadata?: Record<string, unknown>) {
+  error(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+    metadata?: Record<string, unknown>
+  ) {
     log(LogLevel.ERROR, message, contextOrMetadata, metadata);
   },
 
-  warn(message: string, contextOrMetadata?: string | Record<string, unknown>, metadata?: Record<string, unknown>) {
+  warn(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+    metadata?: Record<string, unknown>
+  ) {
     log(LogLevel.WARN, message, contextOrMetadata, metadata);
   },
 
-  info(message: string, contextOrMetadata?: string | Record<string, unknown>, metadata?: Record<string, unknown>) {
+  info(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+    metadata?: Record<string, unknown>
+  ) {
     log(LogLevel.INFO, message, contextOrMetadata, metadata);
   },
 
-  debug(message: string, contextOrMetadata?: string | Record<string, unknown>, metadata?: Record<string, unknown>) {
+  debug(
+    message: string,
+    contextOrMetadata?: string | Record<string, unknown>,
+    metadata?: Record<string, unknown>
+  ) {
     log(LogLevel.DEBUG, message, contextOrMetadata, metadata);
   },
 

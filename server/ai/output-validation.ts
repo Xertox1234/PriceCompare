@@ -101,15 +101,22 @@ export const outputSchemas = {
     itemConstraints: {
       minLength: 2,
       maxLength: 100,
-      pattern: /^[a-zA-Z0-9\s-]+$/
-    }
+      pattern: /^[a-zA-Z0-9\s-]+$/,
+    },
   },
 
   'trend-analysis': {
     type: 'array',
     items: {
       type: 'object',
-      required: ['originalQuery', 'normalizedName', 'category', 'confidence', 'isProduct', 'reason'],
+      required: [
+        'originalQuery',
+        'normalizedName',
+        'category',
+        'confidence',
+        'isProduct',
+        'reason',
+      ],
       properties: {
         originalQuery: { type: 'string', minLength: 1 },
         normalizedName: { type: 'string' },
@@ -126,14 +133,14 @@ export const outputSchemas = {
             'Automotive',
             'Office & School',
             'Pet Supplies',
-            'Other'
-          ]
+            'Other',
+          ],
         },
         confidence: { type: 'number', min: 0, max: 100 },
         isProduct: { type: 'boolean' },
-        reason: { type: 'string', maxLength: 200 }
-      }
-    }
+        reason: { type: 'string', maxLength: 200 },
+      },
+    },
   },
 
   'search-suggestions': {
@@ -141,11 +148,11 @@ export const outputSchemas = {
     items: 'string',
     itemConstraints: {
       minLength: 3,
-      maxLength: 100
+      maxLength: 100,
     },
     minItems: 3,
-    maxItems: 3
-  }
+    maxItems: 3,
+  },
 };
 
 /**
@@ -192,7 +199,7 @@ export function validateOutput(
   if (!(schemaName in outputSchemas)) {
     return {
       valid: false,
-      errors: [{ field: 'schema', message: VALIDATION_MESSAGES.UNKNOWN_SCHEMA(schemaName) }]
+      errors: [{ field: 'schema', message: VALIDATION_MESSAGES.UNKNOWN_SCHEMA(schemaName) }],
     };
   }
 
@@ -207,7 +214,7 @@ export function validateOutput(
         field: 'root',
         message: VALIDATION_MESSAGES.EXPECTED_ARRAY,
         expected: 'array',
-        received: typeof data
+        received: typeof data,
       });
       return { valid: false, errors };
     }
@@ -219,7 +226,7 @@ export function validateOutput(
         field: 'array',
         message: VALIDATION_MESSAGES.ARRAY_MIN_ITEMS(arraySchema.minItems),
         expected: `>= ${arraySchema.minItems}`,
-        received: data.length
+        received: data.length,
       });
     }
 
@@ -228,7 +235,7 @@ export function validateOutput(
         field: 'array',
         message: VALIDATION_MESSAGES.ARRAY_MAX_ITEMS(arraySchema.maxItems),
         expected: `<= ${arraySchema.maxItems}`,
-        received: data.length
+        received: data.length,
       });
     }
 
@@ -241,41 +248,53 @@ export function validateOutput(
             field: `[${index}]`,
             message: VALIDATION_MESSAGES.ITEM_TYPE_MISMATCH(schema.items as string),
             expected: schema.items as string,
-            received: typeof item
+            received: typeof item,
           });
         }
 
         // Additional string constraints (only if item is actually a string)
-        if (schema.items === 'string' && typeof item === 'string' && (schema as ArraySchema).itemConstraints) {
+        if (
+          schema.items === 'string' &&
+          typeof item === 'string' &&
+          (schema as ArraySchema).itemConstraints
+        ) {
           const constraints = (schema as ArraySchema).itemConstraints as ItemConstraints;
           const itemLength = item.length;
           if (constraints.minLength && itemLength < constraints.minLength) {
             errors.push({
               field: `[${index}]`,
               message: VALIDATION_MESSAGES.STRING_MIN_LENGTH(constraints.minLength),
-              received: itemLength
+              received: itemLength,
             });
           }
           if (constraints.maxLength && itemLength > constraints.maxLength) {
             errors.push({
               field: `[${index}]`,
               message: VALIDATION_MESSAGES.STRING_MAX_LENGTH(constraints.maxLength),
-              received: itemLength
+              received: itemLength,
             });
           }
           if (constraints.pattern && !constraints.pattern.test(item)) {
             errors.push({
               field: `[${index}]`,
               message: VALIDATION_MESSAGES.PATTERN_MISMATCH,
-              received: item
+              received: item,
             });
           }
         }
       });
-    } else if (typeof schema.items === 'object' && schema.items !== null && !Array.isArray(schema.items)) {
+    } else if (
+      typeof schema.items === 'object' &&
+      schema.items !== null &&
+      !Array.isArray(schema.items)
+    ) {
       // Object validation
       data.forEach((item: unknown, index) => {
-        const itemErrors = validateObject(item, schema.items as Record<string, unknown>, `[${index}]`);
+        const itemErrors = validateObject(
+          item,
+          schema.items as Record<string, unknown>,
+          `[${index}]`
+        );
         errors.push(...itemErrors);
       });
     }
@@ -288,7 +307,7 @@ export function validateOutput(
     // The data parameter contains validated output but TypeScript cannot narrow the type precisely.
     // This is safe because: (1) we validate structure above, (2) errors.length check ensures validity.
     // TODO: Can be removed once TypeScript improves union type inference in conditional paths.
-    data: errors.length === 0 ? data : undefined
+    data: errors.length === 0 ? data : undefined,
   };
 }
 
@@ -307,7 +326,7 @@ function validateObject(
       field: path,
       message: VALIDATION_MESSAGES.EXPECTED_OBJECT,
       expected: 'object',
-      received: Array.isArray(obj) ? 'array' : typeof obj
+      received: Array.isArray(obj) ? 'array' : typeof obj,
     });
     return errors;
   }
@@ -320,7 +339,7 @@ function validateObject(
           field: `${path}.${field}`,
           message: VALIDATION_MESSAGES.REQUIRED_FIELD_MISSING(field),
           expected: 'present',
-          received: 'missing'
+          received: 'missing',
         });
       }
     });
@@ -344,7 +363,7 @@ function validateObject(
             field: fieldPath,
             message: VALIDATION_MESSAGES.TYPE_MISMATCH,
             expected: propSchema.type,
-            received: actualType
+            received: actualType,
           });
           return;
         }
@@ -356,14 +375,14 @@ function validateObject(
           errors.push({
             field: fieldPath,
             message: VALIDATION_MESSAGES.STRING_TOO_SHORT(propSchema.minLength),
-            received: value.length
+            received: value.length,
           });
         }
         if (propSchema.maxLength && value.length > propSchema.maxLength) {
           errors.push({
             field: fieldPath,
             message: VALIDATION_MESSAGES.STRING_TOO_LONG(propSchema.maxLength),
-            received: value.length
+            received: value.length,
           });
         }
         if (propSchema.enum && Array.isArray(propSchema.enum) && !propSchema.enum.includes(value)) {
@@ -371,7 +390,7 @@ function validateObject(
             field: fieldPath,
             message: VALIDATION_MESSAGES.VALUE_NOT_IN_LIST,
             expected: propSchema.enum.join(', '),
-            received: value
+            received: value,
           });
         }
       }
@@ -382,14 +401,14 @@ function validateObject(
           errors.push({
             field: fieldPath,
             message: VALIDATION_MESSAGES.NUMBER_TOO_SMALL(propSchema.min),
-            received: value
+            received: value,
           });
         }
         if (propSchema.max !== undefined && value > propSchema.max) {
           errors.push({
             field: fieldPath,
             message: VALIDATION_MESSAGES.NUMBER_TOO_LARGE(propSchema.max),
-            received: value
+            received: value,
           });
         }
       }
@@ -516,7 +535,6 @@ export function parseAndValidateJSON(
 
     // Validate against schema
     return validateOutput(schemaName, parsed);
-
   } catch (error) {
     return {
       valid: false,
@@ -524,9 +542,9 @@ export function parseAndValidateJSON(
         {
           field: 'json',
           message: VALIDATION_MESSAGES.JSON_PARSE_ERROR((error as Error).message),
-          received: rawOutput.substring(0, 100)
-        }
-      ]
+          received: rawOutput.substring(0, 100),
+        },
+      ],
     };
   }
 }
@@ -553,6 +571,9 @@ export function parseAndValidateJSON(
  */
 export function formatValidationErrors(errors: ValidationError[]): string {
   return errors
-    .map(err => `  - ${err.field}: ${err.message}${err.expected ? ` (expected: ${err.expected}, got: ${err.received})` : ''}`)
+    .map(
+      (err) =>
+        `  - ${err.field}: ${err.message}${err.expected ? ` (expected: ${err.expected}, got: ${err.received})` : ''}`
+    )
     .join('\n');
 }

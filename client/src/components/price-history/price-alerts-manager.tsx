@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -15,9 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Bell, BellOff, Trash2, Edit, Plus, CheckCircle2, AlertCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+} from '@/components/ui/dialog';
+import { Bell, BellOff, Trash2, Edit, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface PriceAlert {
   id: number;
@@ -34,7 +34,11 @@ interface PriceAlertsManagerProps {
   className?: string;
 }
 
-export function PriceAlertsManager({ productId, currentPrice, className }: PriceAlertsManagerProps) {
+export function PriceAlertsManager({
+  productId,
+  currentPrice,
+  className,
+}: PriceAlertsManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAlert, setEditingAlert] = useState<PriceAlert | null>(null);
   const queryClient = useQueryClient();
@@ -48,26 +52,26 @@ export function PriceAlertsManager({ productId, currentPrice, className }: Price
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch alerts');
-      const data = await res.json() as PriceAlert[];
+      const data = (await res.json()) as PriceAlert[];
       // Filter for this product
       return data.filter((alert) => alert.productId === productId);
     },
   });
 
-  const activeAlerts = alerts.filter(a => a.isActive);
+  const activeAlerts = alerts.filter((a) => a.isActive);
 
   const handleSuccess = (message: string) => {
     void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
-    toast({ title: "Success", description: message });
+    toast({ title: 'Success', description: message });
     setIsDialogOpen(false);
     setEditingAlert(null);
   };
 
   const handleError = (error: Error, action: string) => {
     toast({
-      title: "Error",
+      title: 'Error',
       description: `Failed to ${action}: ${error.message}`,
-      variant: "destructive",
+      variant: 'destructive',
     });
   };
 
@@ -76,7 +80,7 @@ export function PriceAlertsManager({ productId, currentPrice, className }: Price
       <Card className={className}>
         <CardHeader>
           <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-48 mt-2" />
+          <Skeleton className="mt-2 h-4 w-48" />
         </CardHeader>
         <CardContent>
           <Skeleton className="h-24 w-full" />
@@ -91,17 +95,15 @@ export function PriceAlertsManager({ productId, currentPrice, className }: Price
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
+              <Bell className="h-5 w-5" />
               Price Alerts
             </CardTitle>
-            <CardDescription>
-              Get notified when the price drops to your target
-            </CardDescription>
+            <CardDescription>Get notified when the price drops to your target</CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setEditingAlert(null)}>
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="mr-2 h-4 w-4" />
                 New Alert
               </Button>
             </DialogTrigger>
@@ -117,9 +119,9 @@ export function PriceAlertsManager({ productId, currentPrice, className }: Price
       </CardHeader>
       <CardContent className="space-y-4">
         {currentPrice && (
-          <div className="p-3 rounded-lg bg-muted/50">
+          <div className="bg-muted/50 rounded-lg p-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Current Price</span>
+              <span className="text-muted-foreground text-sm">Current Price</span>
               <span className="text-lg font-semibold">${currentPrice.toFixed(2)}</span>
             </div>
           </div>
@@ -152,9 +154,10 @@ export function PriceAlertsManager({ productId, currentPrice, className }: Price
         )}
 
         {activeAlerts.length > 0 && (
-          <div className="pt-3 border-t">
-            <p className="text-xs text-muted-foreground">
-              {activeAlerts.length} active {activeAlerts.length === 1 ? 'alert' : 'alerts'} monitoring this product
+          <div className="border-t pt-3">
+            <p className="text-muted-foreground text-xs">
+              {activeAlerts.length} active {activeAlerts.length === 1 ? 'alert' : 'alerts'}{' '}
+              monitoring this product
             </p>
           </div>
         )}
@@ -217,25 +220,31 @@ function AlertItem({
   });
 
   return (
-    <div className={`p-3 rounded-lg border-2 ${isTriggered ? 'border-green-500 bg-green-50' : 'border-border bg-card'}`}>
-      <div className="flex items-start justify-between mb-2">
+    <div
+      className={`rounded-lg border-2 p-3 ${isTriggered ? 'border-green-500 bg-green-50' : 'border-border bg-card'}`}
+    >
+      <div className="mb-2 flex items-start justify-between">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-lg">${targetPrice.toFixed(2)}</span>
+          <div className="mb-1 flex items-center gap-2">
+            <span className="text-lg font-semibold">${targetPrice.toFixed(2)}</span>
             {alert.isActive ? (
-              <Badge variant="default" className="text-xs">Active</Badge>
+              <Badge variant="default" className="text-xs">
+                Active
+              </Badge>
             ) : (
-              <Badge variant="secondary" className="text-xs">Paused</Badge>
+              <Badge variant="secondary" className="text-xs">
+                Paused
+              </Badge>
             )}
           </div>
           {isTriggered && (
-            <div className="flex items-center gap-1 text-green-700 text-sm font-medium">
-              <CheckCircle2 className="w-4 h-4" />
+            <div className="flex items-center gap-1 text-sm font-medium text-green-700">
+              <CheckCircle2 className="h-4 w-4" />
               Target price reached!
             </div>
           )}
           {!isTriggered && currentPrice && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {currentPrice > targetPrice
                 ? `$${(currentPrice - targetPrice).toFixed(2)} away from target`
                 : 'Below target price'}
@@ -252,18 +261,13 @@ function AlertItem({
             disabled={toggleMutation.isPending}
           >
             {alert.isActive ? (
-              <Bell className="w-4 h-4" />
+              <Bell className="h-4 w-4" />
             ) : (
-              <BellOff className="w-4 h-4 text-muted-foreground" />
+              <BellOff className="text-muted-foreground h-4 w-4" />
             )}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={onEdit}
-          >
-            <Edit className="w-4 h-4" />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+            <Edit className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -272,12 +276,12 @@ function AlertItem({
             onClick={() => deleteMutation.mutate()}
             disabled={deleteMutation.isPending}
           >
-            <Trash2 className="w-4 h-4 text-destructive" />
+            <Trash2 className="text-destructive h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-muted-foreground text-xs">
         Created {new Date(alert.createdAt).toLocaleDateString()}
       </p>
     </div>
@@ -349,12 +353,14 @@ function CreateEditAlertDialog({
     }
   };
 
-  const suggestedPrices = currentPrice ? [
-    { label: '5% off', value: (currentPrice * 0.95).toFixed(2) },
-    { label: '10% off', value: (currentPrice * 0.90).toFixed(2) },
-    { label: '15% off', value: (currentPrice * 0.85).toFixed(2) },
-    { label: '20% off', value: (currentPrice * 0.80).toFixed(2) },
-  ] : [];
+  const suggestedPrices = currentPrice
+    ? [
+        { label: '5% off', value: (currentPrice * 0.95).toFixed(2) },
+        { label: '10% off', value: (currentPrice * 0.9).toFixed(2) },
+        { label: '15% off', value: (currentPrice * 0.85).toFixed(2) },
+        { label: '20% off', value: (currentPrice * 0.8).toFixed(2) },
+      ]
+    : [];
 
   return (
     <DialogContent className="sm:max-w-md">
@@ -379,7 +385,7 @@ function CreateEditAlertDialog({
             required
           />
           {currentPrice && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               Current price: ${currentPrice.toFixed(2)}
             </p>
           )}
@@ -387,7 +393,7 @@ function CreateEditAlertDialog({
 
         {suggestedPrices.length > 0 && (
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Quick Suggestions</Label>
+            <Label className="text-muted-foreground text-xs">Quick Suggestions</Label>
             <div className="grid grid-cols-4 gap-2">
               {suggestedPrices.map((suggested) => (
                 <Button
@@ -406,12 +412,11 @@ function CreateEditAlertDialog({
         )}
 
         <DialogFooter>
-          <Button
-            type="submit"
-            disabled={createMutation.isPending || updateMutation.isPending}
-          >
-            {(createMutation.isPending || updateMutation.isPending) && "Saving..."}
-            {!createMutation.isPending && !updateMutation.isPending && (alert ? 'Update Alert' : 'Create Alert')}
+          <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+            {(createMutation.isPending || updateMutation.isPending) && 'Saving...'}
+            {!createMutation.isPending &&
+              !updateMutation.isPending &&
+              (alert ? 'Update Alert' : 'Create Alert')}
           </Button>
         </DialogFooter>
       </form>

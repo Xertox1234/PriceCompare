@@ -47,7 +47,7 @@ document.createElement = vi.fn((tag) => {
       remove: vi.fn(),
       contains: vi.fn()
     },
-    setAttribute: vi.fn(function(key, value) {
+    setAttribute: vi.fn(function (key, value) {
       attributes[key] = String(value);
       if (key in this) {
         this[key] = value;
@@ -58,7 +58,7 @@ document.createElement = vi.fn((tag) => {
     }),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    appendChild: vi.fn(function(child) {
+    appendChild: vi.fn(function (child) {
       this.children.push(child);
       return child;
     }),
@@ -71,13 +71,21 @@ document.createElement = vi.fn((tag) => {
 
   // Make innerHTML and textContent writable
   Object.defineProperty(element, 'innerHTML', {
-    get() { return this._innerHTML || ''; },
-    set(value) { this._innerHTML = value; }
+    get() {
+      return this._innerHTML || '';
+    },
+    set(value) {
+      this._innerHTML = value;
+    }
   });
 
   Object.defineProperty(element, 'textContent', {
-    get() { return this._textContent || ''; },
-    set(value) { this._textContent = value; }
+    get() {
+      return this._textContent || '';
+    },
+    set(value) {
+      this._textContent = value;
+    }
   });
 
   return element;
@@ -90,7 +98,9 @@ global.MutationObserver = class MutationObserver {
   }
   observe() {}
   disconnect() {}
-  takeRecords() { return []; }
+  takeRecords() {
+    return [];
+  }
 };
 
 // Add custom matchers
@@ -99,14 +109,12 @@ expect.extend({
     const pass = received >= floor && received <= ceiling;
     if (pass) {
       return {
-        message: () =>
-          `expected ${received} not to be within range ${floor} - ${ceiling}`,
+        message: () => `expected ${received} not to be within range ${floor} - ${ceiling}`,
         pass: true
       };
     } else {
       return {
-        message: () =>
-          `expected ${received} to be within range ${floor} - ${ceiling}`,
+        message: () => `expected ${received} to be within range ${floor} - ${ceiling}`,
         pass: false
       };
     }

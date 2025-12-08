@@ -12,12 +12,7 @@ export {
   NewArrivals,
   CategoryGrid,
 } from './product-section';
-export {
-  PromotionalBanner,
-  BannerGrid,
-  NewsletterBanner,
-  AppBanner,
-} from './promotional-banner';
+export { PromotionalBanner, BannerGrid, NewsletterBanner, AppBanner } from './promotional-banner';
 export { TemplateFooter, CompactFooter } from './footer';
 
 // New Carousel Components (Swiper-based)

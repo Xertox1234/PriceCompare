@@ -92,4 +92,8 @@ export type TextareaChangeHandler = (event: React.ChangeEvent<HTMLTextAreaElemen
 // Route handler types
 import type { Response, NextFunction } from 'express';
 export type RouteHandler = (req: Request, res: Response, next: NextFunction) => void;
-export type AuthenticatedRouteHandler = (req: AuthenticatedRequest, res: Response, next: NextFunction) => void;
+export type AuthenticatedRouteHandler = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => void;

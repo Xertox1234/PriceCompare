@@ -13,27 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import {
   useUpdateProductWatch,
   type WatchListProduct,
   type WatchListWithStats,
 } from '@/hooks/use-community';
-import {
-  ChevronDown,
-  ChevronUp,
-  Save,
-  Star,
-  Tag,
-  FileText,
-  DollarSign,
-  List,
-} from 'lucide-react';
+import { ChevronDown, ChevronUp, Save, Star, Tag, FileText, DollarSign, List } from 'lucide-react';
 
 interface WatchListProductCardProps {
   product: WatchListProduct;
@@ -100,47 +87,43 @@ export function WatchListProductCard({
   };
 
   return (
-    <Card className={isSelected ? 'ring-2 ring-primary' : ''}>
+    <Card className={isSelected ? 'ring-primary ring-2' : ''}>
       <CardContent className="p-4">
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <div className="flex items-start gap-4">
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={onToggleSelect}
-              className="mt-1"
-            />
+            <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="mt-1" />
 
             {product.productImage && (
               <img
                 src={product.productImage}
                 alt={product.productName || 'Product'}
-                className="w-20 h-20 object-cover rounded"
+                className="h-20 w-20 rounded object-cover"
               />
             )}
 
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-lg truncate">
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-lg font-medium">
                     {product.productName || `Product #${product.productId}`}
                   </h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {product.priority && getPriorityBadge(product.priority)}
                     {product.category && (
                       <Badge variant="outline" className="flex items-center gap-1">
-                        <Tag className="w-3 h-3" />
+                        <Tag className="h-3 w-3" />
                         {product.category}
                       </Badge>
                     )}
                     {product.targetPrice && (
                       <Badge variant="outline" className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" />
+                        <DollarSign className="h-3 w-3" />
                         Target: ${product.targetPrice}
                       </Badge>
                     )}
                   </div>
                   {product.notes && !isExpanded && (
-                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                    <p className="text-muted-foreground mt-2 line-clamp-2 text-sm">
                       {product.notes}
                     </p>
                   )}
@@ -149,9 +132,9 @@ export function WatchListProductCard({
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm">
                     {isExpanded ? (
-                      <ChevronUp className="w-4 h-4" />
+                      <ChevronUp className="h-4 w-4" />
                     ) : (
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="h-4 w-4" />
                     )}
                   </Button>
                 </CollapsibleTrigger>
@@ -159,12 +142,12 @@ export function WatchListProductCard({
             </div>
           </div>
 
-          <CollapsibleContent className="mt-4 space-y-4 pt-4 border-t">
+          <CollapsibleContent className="mt-4 space-y-4 border-t pt-4">
             <div className="grid grid-cols-2 gap-4">
               {/* Priority */}
               <div className="space-y-2">
                 <Label htmlFor={`priority-${product.id}`} className="flex items-center gap-2">
-                  <Star className="w-4 h-4" />
+                  <Star className="h-4 w-4" />
                   Priority
                 </Label>
                 <Select value={priority} onValueChange={setPriority}>
@@ -184,7 +167,7 @@ export function WatchListProductCard({
               {/* Target Price */}
               <div className="space-y-2">
                 <Label htmlFor={`target-${product.id}`} className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4" />
+                  <DollarSign className="h-4 w-4" />
                   Target Price
                 </Label>
                 <Input
@@ -200,7 +183,7 @@ export function WatchListProductCard({
               {/* Category */}
               <div className="space-y-2">
                 <Label htmlFor={`category-${product.id}`} className="flex items-center gap-2">
-                  <Tag className="w-4 h-4" />
+                  <Tag className="h-4 w-4" />
                   Category
                 </Label>
                 <Input
@@ -214,7 +197,7 @@ export function WatchListProductCard({
               {/* Watch List */}
               <div className="space-y-2">
                 <Label htmlFor={`list-${product.id}`} className="flex items-center gap-2">
-                  <List className="w-4 h-4" />
+                  <List className="h-4 w-4" />
                   Watch List
                 </Label>
                 <Select value={watchListId} onValueChange={setWatchListId}>
@@ -236,7 +219,7 @@ export function WatchListProductCard({
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor={`notes-${product.id}`} className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+                <FileText className="h-4 w-4" />
                 Notes
               </Label>
               <Textarea
@@ -268,7 +251,7 @@ export function WatchListProductCard({
                 onClick={() => void handleSave()}
                 disabled={!hasChanges || updateWatch.isPending}
               >
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="mr-2 h-4 w-4" />
                 Save Changes
               </Button>
             </div>

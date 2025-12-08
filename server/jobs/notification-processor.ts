@@ -1,19 +1,19 @@
-import Queue from "bull";
-import cron from "node-cron";
-import { db } from "../db";
-import { productWatches } from "../../shared/schema";
-import { storage } from "../storage";
-import { createLogger } from "../utils/logger";
-import { jobLockService } from "../services/job-lock-service";
+import Queue from 'bull';
+import cron from 'node-cron';
+import { db } from '../db';
+import { productWatches } from '../../shared/schema';
+import { storage } from '../storage';
+import { createLogger } from '../utils/logger';
+import { jobLockService } from '../services/job-lock-service';
 import {
   analyzeNotificationTriggers,
   prioritizeNotifications,
   shouldNotifyUser,
   createSmartNotification,
-  type NotificationTrigger
-} from "../services/smart-notification-service";
+  type NotificationTrigger,
+} from '../services/smart-notification-service';
 
-const log = createLogger("NotificationProcessor");
+const log = createLogger('NotificationProcessor');
 
 /**
  * Notification Processor
@@ -26,15 +26,16 @@ const log = createLogger("NotificationProcessor");
 const redisConfig = process.env.REDIS_URL
   ? process.env.REDIS_URL
   : {
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379'),
       password: process.env.REDIS_PASSWORD,
     };
 
 // Create Bull queue for notification processing
-export const notificationQueue = typeof redisConfig === 'string'
-  ? new Queue("smart-notifications", redisConfig)
-  : new Queue("smart-notifications", { redis: redisConfig });
+export const notificationQueue =
+  typeof redisConfig === 'string'
+    ? new Queue('smart-notifications', redisConfig)
+    : new Queue('smart-notifications', { redis: redisConfig });
 
 /**
  * Process watched products and send notifications
@@ -59,7 +60,7 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
         // Get user's watched products with current pricing
         const result = await storage.getWatchedProducts(userId, {
           sortBy: 'priceDropPercent',
-          limit: 50 // Process top 50 products per user
+          limit: 50, // Process top 50 products per user
         });
         const watchedProducts = result.products;
 
@@ -71,20 +72,16 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
         for (const product of watchedProducts) {
           processedCount++;
 
-          const trigger = await analyzeNotificationTriggers(
-            product.productId,
-            userId,
-            {
-              currentPrice: product.currentPrice,
-              lowestPrice: product.lowestPrice,
-              averagePrice: product.averagePrice,
-              priceDropPercent: product.priceDropPercent,
-              // NOTE: Stock status not yet implemented in getWatchedProducts
-              // Defaulting to 'in_stock' - future enhancement to fetch from product offers
-              stockStatus: 'in_stock',
-              alertStatus: product.alertStatus
-            }
-          );
+          const trigger = analyzeNotificationTriggers(product.productId, userId, {
+            currentPrice: product.currentPrice,
+            lowestPrice: product.lowestPrice,
+            averagePrice: product.averagePrice,
+            priceDropPercent: product.priceDropPercent,
+            // NOTE: Stock status not yet implemented in getWatchedProducts
+            // Defaulting to 'in_stock' - future enhancement to fetch from product offers
+            stockStatus: 'in_stock',
+            alertStatus: product.alertStatus,
+          });
 
           if (trigger.shouldNotify) {
             triggers.push(trigger);
@@ -122,7 +119,7 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
         }
       } catch (userError) {
         log.error(`Error processing notifications for user ${userId}`, {
-          error: userError instanceof Error ? userError.message : String(userError)
+          error: userError instanceof Error ? userError.message : String(userError),
         });
         // Continue with next user
       }
@@ -133,7 +130,7 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
     return { processed: processedCount, notified: notifiedCount };
   } catch (error) {
     log.error('Notification processor failed', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
@@ -152,27 +149,27 @@ void notificationQueue.process('check-watched-products', async (job) => {
     return { success: true, ...result };
   } catch (error) {
     log.error(`Notification job ${job.id} failed`, {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 });
 
 // Handle job completion
-notificationQueue.on("completed", (job, result: unknown) => {
+notificationQueue.on('completed', (job, result: unknown) => {
   log.info(`Notification job ${job.id} completed`, result as Record<string, unknown>);
 });
 
 // Handle job failures
-notificationQueue.on("failed", (job, err) => {
+notificationQueue.on('failed', (job, err) => {
   log.error('Notification job failed', {
     jobId: job?.id,
-    error: err.message
+    error: err.message,
   });
 });
 
 // Handle job stalling
-notificationQueue.on("stalled", (job) => {
+notificationQueue.on('stalled', (job) => {
   log.warn(`Notification job ${job.id} stalled`);
 });
 
@@ -181,7 +178,7 @@ notificationQueue.on("stalled", (job) => {
  * Runs every 15 minutes with distributed locking
  */
 export function initializeNotificationProcessor() {
-  const cronSchedule = process.env.NOTIFICATION_PROCESSOR_CRON || "*/15 * * * *";
+  const cronSchedule = process.env.NOTIFICATION_PROCESSOR_CRON || '*/15 * * * *';
 
   log.info(`Initializing notification processor with schedule: ${cronSchedule}`);
 
@@ -199,16 +196,16 @@ export function initializeNotificationProcessor() {
             'check-watched-products',
             {
               type: 'scheduled',
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
             },
             {
               attempts: 3,
               backoff: {
                 type: 'exponential',
-                delay: 2000
+                delay: 2000,
               },
               removeOnComplete: true,
-              removeOnFail: false
+              removeOnFail: false,
             }
           );
           return true;
@@ -221,7 +218,7 @@ export function initializeNotificationProcessor() {
       }
     } catch (error) {
       log.error('Error triggering notification processor', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });
@@ -240,11 +237,11 @@ export async function triggerManualNotificationProcessor(): Promise<void> {
     'check-watched-products',
     {
       type: 'manual',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     {
       attempts: 1,
-      priority: 1 // High priority
+      priority: 1, // High priority
     }
   );
 }
@@ -274,9 +271,9 @@ export async function getNotificationQueueStats() {
  */
 export async function cleanupNotificationJobs() {
   // Remove completed jobs older than 24 hours
-  await notificationQueue.clean(24 * 60 * 60 * 1000, "completed");
+  await notificationQueue.clean(24 * 60 * 60 * 1000, 'completed');
   // Remove failed jobs older than 7 days
-  await notificationQueue.clean(7 * 24 * 60 * 60 * 1000, "failed");
+  await notificationQueue.clean(7 * 24 * 60 * 60 * 1000, 'failed');
 
   log.info('Cleaned up old notification jobs');
 }

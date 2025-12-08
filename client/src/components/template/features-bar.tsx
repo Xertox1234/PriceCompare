@@ -43,9 +43,9 @@ interface FeaturesBarProps {
 export function FeaturesBar({ className, variant = 'default' }: FeaturesBarProps) {
   if (variant === 'card') {
     return (
-      <section className={cn("py-8", className)}>
+      <section className={cn('py-8', className)}>
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             {features.map((feature, index) => (
               <FeatureCard key={index} {...feature} />
             ))}
@@ -57,9 +57,9 @@ export function FeaturesBar({ className, variant = 'default' }: FeaturesBarProps
 
   if (variant === 'compact') {
     return (
-      <section className={cn("py-4 bg-muted border-y border-border", className)}>
+      <section className={cn('bg-muted border-border border-y py-4', className)}>
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between overflow-x-auto gap-8 scrollbar-hide">
+          <div className="scrollbar-hide flex items-center justify-between gap-8 overflow-x-auto">
             {features.map((feature, index) => (
               <FeatureCompact key={index} {...feature} />
             ))}
@@ -71,9 +71,9 @@ export function FeaturesBar({ className, variant = 'default' }: FeaturesBarProps
 
   // Default variant
   return (
-    <section className={cn("py-6 lg:py-8 bg-muted", className)}>
+    <section className={cn('bg-muted py-6 lg:py-8', className)}>
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
           {features.map((feature, index) => (
             <FeatureItem key={index} {...feature} />
           ))}
@@ -85,17 +85,13 @@ export function FeaturesBar({ className, variant = 'default' }: FeaturesBarProps
 
 function FeatureItem({ icon: Icon, title, description }: Feature) {
   return (
-    <div className="flex items-center gap-4 group">
-      <div className="flex-shrink-0 w-12 h-12 bg-muted text-primary rounded-xl flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+    <div className="group flex items-center gap-4">
+      <div className="bg-muted text-primary group-hover:bg-primary group-hover:text-primary-foreground flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl transition-colors">
         <Icon className="h-6 w-6" />
       </div>
       <div className="min-w-0">
-        <p className="font-semibold text-foreground text-sm lg:text-base truncate">
-          {title}
-        </p>
-        <p className="text-muted-foreground text-xs lg:text-sm truncate">
-          {description}
-        </p>
+        <p className="text-foreground truncate text-sm font-semibold lg:text-base">{title}</p>
+        <p className="text-muted-foreground truncate text-xs lg:text-sm">{description}</p>
       </div>
     </div>
   );
@@ -104,11 +100,11 @@ function FeatureItem({ icon: Icon, title, description }: Feature) {
 function FeatureCompact({ icon: Icon, title, description: _description }: Feature) {
   return (
     <div className="flex items-center gap-3 whitespace-nowrap">
-      <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-lg flex items-center justify-center">
+      <div className="bg-muted text-primary flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg">
         <Icon className="h-4 w-4" />
       </div>
       <div>
-        <p className="font-medium text-foreground text-sm">{title}</p>
+        <p className="text-foreground text-sm font-medium">{title}</p>
       </div>
     </div>
   );
@@ -116,11 +112,11 @@ function FeatureCompact({ icon: Icon, title, description: _description }: Featur
 
 function FeatureCard({ icon: Icon, title, description }: Feature) {
   return (
-    <div className="bg-card border border-border rounded-xl p-4 lg:p-6 hover:shadow-lg hover:border-primary transition-all group">
-      <div className="w-12 h-12 bg-muted text-primary rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+    <div className="bg-card border-border hover:border-primary group rounded-xl border p-4 transition-all hover:shadow-lg lg:p-6">
+      <div className="bg-muted text-primary group-hover:bg-primary group-hover:text-primary-foreground mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-colors">
         <Icon className="h-6 w-6" />
       </div>
-      <h3 className="font-semibold text-foreground mb-1">{title}</h3>
+      <h3 className="text-foreground mb-1 font-semibold">{title}</h3>
       <p className="text-muted-foreground text-sm">{description}</p>
     </div>
   );
@@ -141,12 +137,12 @@ const stats: Stat[] = [
 
 export function StatsBar({ className }: { className?: string }) {
   return (
-    <section className={cn("py-8 bg-primary text-primary-foreground", className)}>
+    <section className={cn('bg-primary text-primary-foreground py-8', className)}>
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div className="grid grid-cols-2 gap-6 text-center md:grid-cols-4">
           {stats.map((stat, index) => (
             <div key={index}>
-              <p className="text-3xl lg:text-4xl font-bold mb-1">{stat.value}</p>
+              <p className="mb-1 text-3xl font-bold lg:text-4xl">{stat.value}</p>
               <p className="text-primary-foreground text-sm">{stat.label}</p>
             </div>
           ))}

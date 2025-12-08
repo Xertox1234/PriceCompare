@@ -103,16 +103,19 @@ useRealtimeNotifications()
 ## State Management
 
 ### Global State (React Query)
+
 - `/api/notifications/smart` - Smart notifications list
 - `/api/notifications` - General notifications list
 - `/api/notifications/stats` - Unread counts
 
 ### Local State (NotificationCenter)
+
 - `urgencyFilter: UrgencyFilter` - Current urgency filter
 - `sortBy: SortOption` - Current sort option
 - `activeTab: 'smart' | 'general'` - Current tab
 
 ### WebSocket State (useRealtimeNotifications)
+
 - `isConnected: boolean` - Connection status
 - `socket: Socket | null` - Socket instance
 
@@ -216,7 +219,7 @@ import {
   useSmartNotifications,
   useSnoozeNotification,
   useDismissNotification,
-  useRealtimeNotifications
+  useRealtimeNotifications,
 } from '@/hooks/useSmartNotifications';
 
 // Components

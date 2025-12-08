@@ -79,7 +79,7 @@ export function useSmartNotifications(filters?: SmartNotificationFilters) {
     queryKey: ['/api/notifications/smart', filters],
     queryFn: async () => {
       const res = await fetch(`/api/notifications/smart?${params}`, {
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (!res.ok) {
@@ -106,7 +106,13 @@ export function useSnoozeNotification() {
   }
 
   return useMutation({
-    mutationFn: async ({ id, duration }: { id: number; duration: number }): Promise<SnoozeResponse> => {
+    mutationFn: async ({
+      id,
+      duration,
+    }: {
+      id: number;
+      duration: number;
+    }): Promise<SnoozeResponse> => {
       const res = await fetch(`/api/notifications/smart/${id}/snooze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -216,47 +222,50 @@ export function useRealtimeNotifications() {
     });
 
     // Listen for new notifications
-    socketInstance.on('notification:new', (data: { userId: number; notification: SmartNotification }) => {
-      const notification = data.notification;
+    socketInstance.on(
+      'notification:new',
+      (data: { userId: number; notification: SmartNotification }) => {
+        const notification = data.notification;
 
-      // Only handle smart_alert notifications
-      if (notification.type !== 'smart_alert') {
-        return;
-      }
+        // Only handle smart_alert notifications
+        if (notification.type !== 'smart_alert') {
+          return;
+        }
 
-      // Update query cache optimistically
-      queryClient.setQueryData(
-        ['/api/notifications/smart'],
-        (old: SmartNotificationsResponse | undefined) => {
-          if (!old) {
+        // Update query cache optimistically
+        queryClient.setQueryData(
+          ['/api/notifications/smart'],
+          (old: SmartNotificationsResponse | undefined) => {
+            if (!old) {
+              return {
+                success: true,
+                data: [notification],
+                count: 1,
+              };
+            }
+
             return {
-              success: true,
-              data: [notification],
-              count: 1
+              ...old,
+              data: [notification, ...old.data],
+              count: old.count + 1,
             };
           }
+        );
 
-          return {
-            ...old,
-            data: [notification, ...old.data],
-            count: old.count + 1
-          };
+        // Invalidate queries to ensure consistency
+        void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
+
+        // Show toast for high or critical urgency
+        const urgency = notification.metadata?.urgency;
+        if (urgency === 'critical' || urgency === 'high') {
+          toast({
+            title: notification.title,
+            description: notification.content,
+            variant: urgency === 'critical' ? 'destructive' : 'default',
+          });
         }
-      );
-
-      // Invalidate queries to ensure consistency
-      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
-
-      // Show toast for high or critical urgency
-      const urgency = notification.metadata?.urgency;
-      if (urgency === 'critical' || urgency === 'high') {
-        toast({
-          title: notification.title,
-          description: notification.content,
-          variant: urgency === 'critical' ? 'destructive' : 'default',
-        });
       }
-    });
+    );
 
     setSocket(socketInstance);
 
@@ -268,6 +277,6 @@ export function useRealtimeNotifications() {
 
   return {
     isConnected,
-    socket
+    socket,
   };
 }

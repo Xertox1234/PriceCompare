@@ -20,8 +20,9 @@ async function runSingleMigration() {
   }
 
   // Detect database type
-  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
-                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+  const isNeonDatabase =
+    process.env.DATABASE_URL?.includes('neon.tech') ||
+    process.env.DATABASE_URL?.includes('.pooler.neon.tech');
 
   // Union type for either Neon or pg Pool
   type PoolClient = { query: (text: string) => Promise<unknown>; end: () => Promise<void> };
@@ -52,7 +53,7 @@ async function runSingleMigration() {
   }
 }
 
-runSingleMigration().catch(error => {
+runSingleMigration().catch((error) => {
   console.error(error);
   process.exit(1);
 });

@@ -38,7 +38,6 @@ vi.mock('../../middleware/redis-cache', () => ({
   redisCacheMiddleware: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
-
 // Mock logger to avoid console noise
 vi.mock('../../utils/logger', () => ({
   logger: {
@@ -107,34 +106,43 @@ describe('Product Routes - Integration Tests', () => {
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create test data
-    const [retailer] = await db.insert(retailers).values({
-      name: 'Test Retailer',
-      website: 'https://test.com',
-      logo: 'https://test.com/logo.png',
-      isActive: true,
-    }).returning();
+    const [retailer] = await db
+      .insert(retailers)
+      .values({
+        name: 'Test Retailer',
+        website: 'https://test.com',
+        logo: 'https://test.com/logo.png',
+        isActive: true,
+      })
+      .returning();
     testRetailerId = retailer.id;
 
-    const [product] = await db.insert(products).values({
-      name: 'Test Product',
-      description: 'A test product for integration testing',
-      category: 'Electronics',
-      brand: 'TestBrand',
-      model: 'TEST-001',
-      image: 'https://test.com/image.png',
-    }).returning();
+    const [product] = await db
+      .insert(products)
+      .values({
+        name: 'Test Product',
+        description: 'A test product for integration testing',
+        category: 'Electronics',
+        brand: 'TestBrand',
+        model: 'TEST-001',
+        image: 'https://test.com/image.png',
+      })
+      .returning();
     testProductId = product.id;
 
-    const [offer] = await db.insert(productOffers).values({
-      productId: testProductId,
-      retailerId: testRetailerId,
-      price: '99.99',
-      originalPrice: '149.99',
-      availability: 'in_stock',
-      rating: '4.5',
-      reviewCount: 100,
-      productUrl: 'https://test.com/product',
-    }).returning();
+    const [offer] = await db
+      .insert(productOffers)
+      .values({
+        productId: testProductId,
+        retailerId: testRetailerId,
+        price: '99.99',
+        originalPrice: '149.99',
+        availability: 'in_stock',
+        rating: '4.5',
+        reviewCount: 100,
+        productUrl: 'https://test.com/product',
+      })
+      .returning();
 
     // Create price history records for analytics tests
     const now = new Date();
@@ -261,11 +269,11 @@ describe('Product Routes - Integration Tests', () => {
     it('should search by product URL for browser extension', async () => {
       const productUrl = encodeURIComponent('https://test.com/product');
 
-      const response = await request(app)
-        .get('/api/products/search')
-        .query({ url: productUrl });
+      const response = await request(app).get('/api/products/search').query({ url: productUrl });
 
-      const data = expectSuccessResponse<{ product: { id: number; offers: unknown; bestPrice: number } }>(response, 200);
+      const data = expectSuccessResponse<{
+        product: { id: number; offers: unknown; bestPrice: number };
+      }>(response, 200);
       expect(data.product).toBeDefined();
       expect(data.product.id).toBe(testProductId);
       expect(data.product.offers).toBeDefined();
@@ -283,16 +291,22 @@ describe('Product Routes - Integration Tests', () => {
 
     it('should sort by price low to high', async () => {
       // Create products with different prices
-      const [retailer2] = await db.insert(retailers).values({
-        name: 'Retailer 2',
-        website: 'https://test2.com',
-      }).returning();
+      const [retailer2] = await db
+        .insert(retailers)
+        .values({
+          name: 'Retailer 2',
+          website: 'https://test2.com',
+        })
+        .returning();
 
-      const [product2] = await db.insert(products).values({
-        name: 'Cheaper Product',
-        category: 'Electronics',
-        brand: 'TestBrand',
-      }).returning();
+      const [product2] = await db
+        .insert(products)
+        .values({
+          name: 'Cheaper Product',
+          category: 'Electronics',
+          brand: 'TestBrand',
+        })
+        .returning();
 
       await db.insert(productOffers).values({
         productId: product2.id,
@@ -329,7 +343,12 @@ describe('Product Routes - Integration Tests', () => {
     it('should return product with offers', async () => {
       const response = await request(app).get(`/api/products/${testProductId}`);
 
-      const product = expectSuccessResponse<{ id: number; name: string; category: string; offers: unknown[] }>(response, 200);
+      const product = expectSuccessResponse<{
+        id: number;
+        name: string;
+        category: string;
+        offers: unknown[];
+      }>(response, 200);
       expect(product).toMatchObject({
         id: testProductId,
         name: 'Test Product',
@@ -343,7 +362,9 @@ describe('Product Routes - Integration Tests', () => {
     it('should include retailer details in offers', async () => {
       const response = await request(app).get(`/api/products/${testProductId}`);
 
-      const product = expectSuccessResponse<{ offers: Array<{ retailer: { id: number; name: string } }> }>(response, 200);
+      const product = expectSuccessResponse<{
+        offers: Array<{ retailer: { id: number; name: string } }>;
+      }>(response, 200);
       expect(product.offers[0]).toHaveProperty('retailer');
       expect(product.offers[0].retailer).toMatchObject({
         id: testRetailerId,
@@ -386,7 +407,9 @@ describe('Product Routes - Integration Tests', () => {
     it('should format history with date and price', async () => {
       const response = await request(app).get(`/api/products/${testProductId}/price-history`);
 
-      const data = expectSuccessResponse<{ history: Array<{ date: string; price: number; retailerId: number; availability: string }> }>(response, 200);
+      const data = expectSuccessResponse<{
+        history: Array<{ date: string; price: number; retailerId: number; availability: string }>;
+      }>(response, 200);
       expect(data.history[0]).toMatchObject({
         date: expect.any(String),
         price: expect.any(Number),
@@ -413,7 +436,9 @@ describe('Product Routes - Integration Tests', () => {
 
       const data = expectSuccessResponse<{ history: Array<{ retailerId: number }> }>(response, 200);
       expect(data.history).toBeDefined();
-      expect(data.history.every((h: { retailerId: number }) => h.retailerId === testRetailerId)).toBe(true);
+      expect(
+        data.history.every((h: { retailerId: number }) => h.retailerId === testRetailerId)
+      ).toBe(true);
     });
 
     it('should return 404 for non-existent product', async () => {
@@ -463,7 +488,7 @@ describe('Product Routes - Integration Tests', () => {
           currentPrice: number;
           averagePrice: number;
           lowestPrice: number;
-          highestPrice: number
+          highestPrice: number;
         };
         prediction: string;
       }>(response, 200);
@@ -483,7 +508,10 @@ describe('Product Routes - Integration Tests', () => {
     it('should detect falling trend', async () => {
       const response = await request(app).get(`/api/products/${testProductId}/price-trend`);
 
-      const data = expectSuccessResponse<{ trend: { direction: string }; prediction: string }>(response, 200);
+      const data = expectSuccessResponse<{ trend: { direction: string }; prediction: string }>(
+        response,
+        200
+      );
       // Our test data has falling prices: 119.99 -> 109.99 -> 99.99
       expect(data.trend.direction).toBe('falling');
       expect(data.prediction).toBe('might_drop');
@@ -509,7 +537,7 @@ describe('Product Routes - Integration Tests', () => {
           price: number;
           availability: string;
           url: string;
-        }>
+        }>;
       }>(response, 200);
       expect(data.offers).toBeDefined();
       expect(Array.isArray(data.offers)).toBe(true);
@@ -526,7 +554,9 @@ describe('Product Routes - Integration Tests', () => {
     it('should include rating and review count if available', async () => {
       const response = await request(app).get(`/api/products/${testProductId}/offers`);
 
-      const data = expectSuccessResponse<{ offers: Array<{ rating: number; reviewCount: number }> }>(response, 200);
+      const data = expectSuccessResponse<{
+        offers: Array<{ rating: number; reviewCount: number }>;
+      }>(response, 200);
       expect(data.offers[0].rating).toBe(4.5);
       expect(data.offers[0].reviewCount).toBe(100);
     });
@@ -576,10 +606,13 @@ describe('Product Routes - Integration Tests', () => {
 
     it('should handle insufficient data gracefully', async () => {
       // Create product with minimal history
-      const [newProduct] = await db.insert(products).values({
-        name: 'New Product',
-        category: 'Test',
-      }).returning();
+      const [newProduct] = await db
+        .insert(products)
+        .values({
+          name: 'New Product',
+          category: 'Test',
+        })
+        .returning();
 
       const response = await request(app).get(`/api/products/${newProduct.id}/price-predictions`);
 
@@ -616,17 +649,23 @@ describe('Product Routes - Integration Tests', () => {
 
     it('should return null for insufficient data', async () => {
       // Create product with only 1 price point
-      const [newProduct] = await db.insert(products).values({
-        name: 'New Product',
-        category: 'Test',
-      }).returning();
+      const [newProduct] = await db
+        .insert(products)
+        .values({
+          name: 'New Product',
+          category: 'Test',
+        })
+        .returning();
 
-      const [newOffer] = await db.insert(productOffers).values({
-        productId: newProduct.id,
-        retailerId: testRetailerId,
-        price: '100.00',
-        availability: 'in_stock',
-      }).returning();
+      const [newOffer] = await db
+        .insert(productOffers)
+        .values({
+          productId: newProduct.id,
+          retailerId: testRetailerId,
+          price: '100.00',
+          availability: 'in_stock',
+        })
+        .returning();
 
       await db.insert(priceHistory).values({
         productOfferId: newOffer.id,
@@ -652,35 +691,29 @@ describe('Product Routes - Integration Tests', () => {
 
   describe('POST /api/analytics/product-view - Track Product View', () => {
     it('should track product view event', async () => {
-      const response = await request(app)
-        .post('/api/analytics/product-view')
-        .send({
-          productId: testProductId,
-          source: 'browser_extension',
-          retailer: 'Test Retailer',
-        });
+      const response = await request(app).post('/api/analytics/product-view').send({
+        productId: testProductId,
+        source: 'browser_extension',
+        retailer: 'Test Retailer',
+      });
 
       const data = expectSuccessResponse<{ success: boolean }>(response, 200);
       expect(data.success).toBe(true);
     });
 
     it('should reject missing productId', async () => {
-      const response = await request(app)
-        .post('/api/analytics/product-view')
-        .send({
-          source: 'browser_extension',
-        });
+      const response = await request(app).post('/api/analytics/product-view').send({
+        source: 'browser_extension',
+      });
 
       const error = expectErrorResponse(response, 400);
       expect(error.error).toContain('productId is required');
     });
 
     it('should accept view without source or retailer', async () => {
-      const response = await request(app)
-        .post('/api/analytics/product-view')
-        .send({
-          productId: testProductId,
-        });
+      const response = await request(app).post('/api/analytics/product-view').send({
+        productId: testProductId,
+      });
 
       const data = expectSuccessResponse<{ success: boolean }>(response, 200);
       expect(data.success).toBe(true);

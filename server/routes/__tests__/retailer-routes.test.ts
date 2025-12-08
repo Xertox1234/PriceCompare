@@ -193,7 +193,7 @@ describe('Retailer Routes - Integration Tests', () => {
       expect(result).toEqual([]);
     });
 
-    it('should handle database errors gracefully', async () => {
+    it('should handle database errors gracefully', () => {
       // Mock storage to throw error
       vi.doMock('../../storage', () => ({
         storage: {

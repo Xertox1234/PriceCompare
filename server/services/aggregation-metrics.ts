@@ -94,11 +94,13 @@ class AggregationMetricsStore {
     const cutoff = now - this.metricTTLMs;
 
     const beforeCount = this.metrics.length;
-    this.metrics = this.metrics.filter(m => m.startTime >= cutoff);
+    this.metrics = this.metrics.filter((m) => m.startTime >= cutoff);
     const removedCount = beforeCount - this.metrics.length;
 
     if (removedCount > 0) {
-      logger.info(`[AggregationMetrics] Cleaned up ${removedCount} expired metrics (older than 24h)`);
+      logger.info(
+        `[AggregationMetrics] Cleaned up ${removedCount} expired metrics (older than 24h)`
+      );
     }
   }
 
@@ -124,7 +126,7 @@ class AggregationMetricsStore {
    */
   getMetrics(operation?: string): AggregationMetric[] {
     if (!operation) return [...this.metrics];
-    return this.metrics.filter(m => m.operation === operation);
+    return this.metrics.filter((m) => m.operation === operation);
   }
 
   /**
@@ -137,10 +139,10 @@ class AggregationMetricsStore {
       return null;
     }
 
-    const successMetrics = operationMetrics.filter(m => m.success);
-    const failureMetrics = operationMetrics.filter(m => !m.success);
-    const durations = operationMetrics.map(m => m.durationMs);
-    const recordCounts = operationMetrics.map(m => m.recordCount);
+    const successMetrics = operationMetrics.filter((m) => m.success);
+    const failureMetrics = operationMetrics.filter((m) => !m.success);
+    const durations = operationMetrics.map((m) => m.durationMs);
+    const recordCounts = operationMetrics.map((m) => m.recordCount);
 
     return {
       operation,
@@ -162,7 +164,7 @@ class AggregationMetricsStore {
    * Get all operation names
    */
   getOperations(): string[] {
-    const operations = new Set(this.metrics.map(m => m.operation));
+    const operations = new Set(this.metrics.map((m) => m.operation));
     return Array.from(operations);
   }
 
@@ -213,11 +215,19 @@ class AggregationMetricsStore {
       const stats = this.getStats(operation);
       if (!stats) continue;
 
-      lines.push(`aggregation_duration_seconds{operation="${operation}",quantile="avg"} ${(stats.avgDurationMs / 1000).toFixed(3)}`);
-      lines.push(`aggregation_duration_seconds{operation="${operation}",quantile="min"} ${(stats.minDurationMs / 1000).toFixed(3)}`);
-      lines.push(`aggregation_duration_seconds{operation="${operation}",quantile="max"} ${(stats.maxDurationMs / 1000).toFixed(3)}`);
+      lines.push(
+        `aggregation_duration_seconds{operation="${operation}",quantile="avg"} ${(stats.avgDurationMs / 1000).toFixed(3)}`
+      );
+      lines.push(
+        `aggregation_duration_seconds{operation="${operation}",quantile="min"} ${(stats.minDurationMs / 1000).toFixed(3)}`
+      );
+      lines.push(
+        `aggregation_duration_seconds{operation="${operation}",quantile="max"} ${(stats.maxDurationMs / 1000).toFixed(3)}`
+      );
 
-      lines.push(`aggregation_records_total{operation="${operation}"} ${stats.totalRecordsProcessed}`);
+      lines.push(
+        `aggregation_records_total{operation="${operation}"} ${stats.totalRecordsProcessed}`
+      );
       lines.push(`aggregation_success_total{operation="${operation}"} ${stats.successCount}`);
       lines.push(`aggregation_failure_total{operation="${operation}"} ${stats.failureCount}`);
     }

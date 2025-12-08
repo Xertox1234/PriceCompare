@@ -12,7 +12,7 @@
  * Phase 3B: Price & PriceHistory Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { eq, and, gte, lte, inArray, sql, desc, asc, isNotNull } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, sql, desc, asc, isNotNull } from 'drizzle-orm';
 import {
   priceHistory,
   priceAggregatesDaily,
@@ -29,9 +29,9 @@ import {
   type PriceAlert,
   type InsertPriceAlert,
   type Retailer,
-} from "@shared/schema";
-import { BaseStorage } from "../base-storage";
-import { logger } from "../../utils/logger";
+} from '@shared/schema';
+import { BaseStorage } from '../base-storage';
+import { logger } from '../../utils/logger';
 import type {
   PriceHistoryWithDetails,
   PriceTrendAnalysis,
@@ -53,14 +53,16 @@ import type {
   TrendPriceData,
   PriceTrendInsert,
   PriceTrendWithRetailer,
-} from "../types";
-import type { db as DbType } from "../../db";
+} from '../types';
+import type { db as DbType } from '../../db';
 
 /**
  * Type for the getProductOffers callback to avoid circular dependency
  * Injected from parent storage to allow price analytics to access current offers
  */
-export type GetProductOffersCallback = (productId: number) => Promise<(ProductOffer & { retailer: Retailer })[]>;
+export type GetProductOffersCallback = (
+  productId: number
+) => Promise<(ProductOffer & { retailer: Retailer })[]>;
 
 /**
  * PriceStorage - Domain repository for price operations
@@ -176,7 +178,9 @@ export class PriceStorage extends BaseStorage {
       const startDate = new Date(now);
       startDate.setDate(now.getDate() - days);
 
-      logger.debug(`[PriceStorage] Fetching ${days} days of data for product ${productId}${retailerId ? ` from retailer ${retailerId}` : ''}`);
+      logger.debug(
+        `[PriceStorage] Fetching ${days} days of data for product ${productId}${retailerId ? ` from retailer ${retailerId}` : ''}`
+      );
 
       // Strategy 1: Last 30 days - use raw data only
       if (days <= 30) {
@@ -188,8 +192,18 @@ export class PriceStorage extends BaseStorage {
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(now.getDate() - 30);
 
-        const recentRaw = await this.getRawPriceHistoryNormalized(productId, thirtyDaysAgo, now, retailerId);
-        const dailyAgg = await this.getDailyAggregatesNormalized(productId, startDate, thirtyDaysAgo, retailerId);
+        const recentRaw = await this.getRawPriceHistoryNormalized(
+          productId,
+          thirtyDaysAgo,
+          now,
+          retailerId
+        );
+        const dailyAgg = await this.getDailyAggregatesNormalized(
+          productId,
+          startDate,
+          thirtyDaysAgo,
+          retailerId
+        );
 
         return [...dailyAgg, ...recentRaw];
       }
@@ -202,9 +216,24 @@ export class PriceStorage extends BaseStorage {
         const ninetyDaysAgo = new Date(now);
         ninetyDaysAgo.setDate(now.getDate() - 90);
 
-        const recentRaw = await this.getRawPriceHistoryNormalized(productId, thirtyDaysAgo, now, retailerId);
-        const dailyAgg = await this.getDailyAggregatesNormalized(productId, ninetyDaysAgo, thirtyDaysAgo, retailerId);
-        const weeklyAgg = await this.getWeeklyAggregatesNormalized(productId, startDate, ninetyDaysAgo, retailerId);
+        const recentRaw = await this.getRawPriceHistoryNormalized(
+          productId,
+          thirtyDaysAgo,
+          now,
+          retailerId
+        );
+        const dailyAgg = await this.getDailyAggregatesNormalized(
+          productId,
+          ninetyDaysAgo,
+          thirtyDaysAgo,
+          retailerId
+        );
+        const weeklyAgg = await this.getWeeklyAggregatesNormalized(
+          productId,
+          startDate,
+          ninetyDaysAgo,
+          retailerId
+        );
 
         return [...weeklyAgg, ...dailyAgg, ...recentRaw];
       }
@@ -219,10 +248,30 @@ export class PriceStorage extends BaseStorage {
       const oneYearAgo = new Date(now);
       oneYearAgo.setFullYear(now.getFullYear() - 1);
 
-      const recentRaw = await this.getRawPriceHistoryNormalized(productId, thirtyDaysAgo, now, retailerId);
-      const dailyAgg = await this.getDailyAggregatesNormalized(productId, ninetyDaysAgo, thirtyDaysAgo, retailerId);
-      const weeklyAgg = await this.getWeeklyAggregatesNormalized(productId, oneYearAgo, ninetyDaysAgo, retailerId);
-      const monthlyAgg = await this.getMonthlyAggregatesNormalized(productId, startDate, oneYearAgo, retailerId);
+      const recentRaw = await this.getRawPriceHistoryNormalized(
+        productId,
+        thirtyDaysAgo,
+        now,
+        retailerId
+      );
+      const dailyAgg = await this.getDailyAggregatesNormalized(
+        productId,
+        ninetyDaysAgo,
+        thirtyDaysAgo,
+        retailerId
+      );
+      const weeklyAgg = await this.getWeeklyAggregatesNormalized(
+        productId,
+        oneYearAgo,
+        ninetyDaysAgo,
+        retailerId
+      );
+      const monthlyAgg = await this.getMonthlyAggregatesNormalized(
+        productId,
+        startDate,
+        oneYearAgo,
+        retailerId
+      );
 
       return [...monthlyAgg, ...weeklyAgg, ...dailyAgg, ...recentRaw];
     } catch (error) {
@@ -240,15 +289,20 @@ export class PriceStorage extends BaseStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<NormalizedPricePoint[]> {
-    const result = await this.getRawPriceHistoryWithRetailers(productId, startDate, endDate, retailerId);
+    const result = await this.getRawPriceHistoryWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
 
-    return result.map(row => ({
+    return result.map((row) => ({
       date: row.history.recordedAt || new Date(),
       price: parseFloat(row.history.price),
       retailerId: row.history.retailerId,
       retailerName: row.retailer.name,
       availability: row.history.availability,
-      source: 'raw' as const
+      source: 'raw' as const,
     }));
   }
 
@@ -262,9 +316,14 @@ export class PriceStorage extends BaseStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<NormalizedPricePoint[]> {
-    const result = await this.getDailyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+    const result = await this.getDailyAggregatesWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
 
-    return result.map(row => ({
+    return result.map((row) => ({
       date: new Date(row.agg.date + 'T00:00:00'),
       price: parseFloat(row.agg.avgPrice),
       minPrice: parseFloat(row.agg.minPrice),
@@ -273,7 +332,7 @@ export class PriceStorage extends BaseStorage {
       medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
       retailerId: row.agg.retailerId,
       retailerName: row.retailer.name,
-      source: 'daily' as const
+      source: 'daily' as const,
     }));
   }
 
@@ -287,9 +346,14 @@ export class PriceStorage extends BaseStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<NormalizedPricePoint[]> {
-    const result = await this.getWeeklyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+    const result = await this.getWeeklyAggregatesWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
 
-    return result.map(row => {
+    return result.map((row) => {
       const weekDate = this.getDateFromWeek(row.agg.year, row.agg.week);
 
       return {
@@ -301,7 +365,7 @@ export class PriceStorage extends BaseStorage {
         medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
         retailerId: row.agg.retailerId,
         retailerName: row.retailer.name,
-        source: 'weekly' as const
+        source: 'weekly' as const,
       };
     });
   }
@@ -316,9 +380,14 @@ export class PriceStorage extends BaseStorage {
     endDate: Date,
     retailerId?: number
   ): Promise<NormalizedPricePoint[]> {
-    const result = await this.getMonthlyAggregatesWithRetailers(productId, startDate, endDate, retailerId);
+    const result = await this.getMonthlyAggregatesWithRetailers(
+      productId,
+      startDate,
+      endDate,
+      retailerId
+    );
 
-    return result.map(row => ({
+    return result.map((row) => ({
       date: new Date(row.agg.year, row.agg.month - 1, 1),
       price: parseFloat(row.agg.avgPrice || '0'),
       minPrice: parseFloat(row.agg.minPrice || '0'),
@@ -327,7 +396,7 @@ export class PriceStorage extends BaseStorage {
       medianPrice: row.agg.medianPrice ? parseFloat(row.agg.medianPrice) : undefined,
       retailerId: row.agg.retailerId,
       retailerName: row.retailer.name,
-      source: 'monthly' as const
+      source: 'monthly' as const,
     }));
   }
 
@@ -395,7 +464,11 @@ export class PriceStorage extends BaseStorage {
    * @param days - Number of days of history to retrieve (default: 30)
    * @returns Array of price history records
    */
-  async getRetailerPriceHistory(productId: number, retailerId: number, days?: number): Promise<PriceHistory[]> {
+  async getRetailerPriceHistory(
+    productId: number,
+    retailerId: number,
+    days?: number
+  ): Promise<PriceHistory[]> {
     try {
       this.validateProductId(productId);
       this.validateRetailerId(retailerId);
@@ -441,7 +514,8 @@ export class PriceStorage extends BaseStorage {
         throw new Error('limit must be greater than 0');
       }
 
-      const history = await this.db.select()
+      const history = await this.db
+        .select()
         .from(priceHistory)
         .where(eq(priceHistory.productOfferId, productOfferId))
         .orderBy(desc(priceHistory.recordedAt))
@@ -485,10 +559,7 @@ export class PriceStorage extends BaseStorage {
    */
   async insertPriceHistory(data: InsertPriceHistoryWithRecordedAt): Promise<PriceHistory> {
     try {
-      const [result] = await this.db
-        .insert(priceHistory)
-        .values(data)
-        .returning();
+      const [result] = await this.db.insert(priceHistory).values(data).returning();
       return result;
     } catch (error) {
       this.handleError(error, 'insertPriceHistory');
@@ -578,10 +649,7 @@ export class PriceStorage extends BaseStorage {
           .orderBy(desc(priceHistory.recordedAt))
           .limit(query.limit);
       } else {
-        return this.db
-          .select()
-          .from(priceHistory)
-          .orderBy(desc(priceHistory.recordedAt));
+        return this.db.select().from(priceHistory).orderBy(desc(priceHistory.recordedAt));
       }
     } catch (error) {
       this.handleError(error, 'getPriceHistoryByQuery');
@@ -614,16 +682,17 @@ export class PriceStorage extends BaseStorage {
           recordedAt: priceHistory.recordedAt,
         })
         .from(priceHistory)
-        .where(and(
-          eq(priceHistory.productId, productId),
-          gte(priceHistory.recordedAt, thirtyDaysAgo)
-        ))
+        .where(
+          and(eq(priceHistory.productId, productId), gte(priceHistory.recordedAt, thirtyDaysAgo))
+        )
         .orderBy(asc(priceHistory.recordedAt));
 
       if (history.length === 0) {
         // No history, use current price from offers (requires ProductStorage integration)
         if (!this.getProductOffers) {
-          logger.warn('getProductOffers callback not set, returning zero price for product', { productId });
+          logger.warn('getProductOffers callback not set, returning zero price for product', {
+            productId,
+          });
           return {
             productId,
             currentPrice: 0,
@@ -635,11 +704,10 @@ export class PriceStorage extends BaseStorage {
             daysAnalyzed: 0,
           };
         }
-        
+
         const offers = await this.getProductOffers(productId);
-        const currentPrice = offers.length > 0
-          ? Math.min(...offers.map(o => parseFloat(o.price)))
-          : 0;
+        const currentPrice =
+          offers.length > 0 ? Math.min(...offers.map((o) => parseFloat(o.price))) : 0;
 
         return {
           productId,
@@ -653,7 +721,7 @@ export class PriceStorage extends BaseStorage {
         };
       }
 
-      const prices = history.map(h => parseFloat(h.price));
+      const prices = history.map((h) => parseFloat(h.price));
       const currentPrice = prices[prices.length - 1];
       const oldestPrice = prices[0];
       const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
@@ -662,9 +730,7 @@ export class PriceStorage extends BaseStorage {
 
       // Calculate trend
       const priceChange = currentPrice - oldestPrice;
-      const changePercentage = oldestPrice > 0
-        ? ((priceChange / oldestPrice) * 100)
-        : 0;
+      const changePercentage = oldestPrice > 0 ? (priceChange / oldestPrice) * 100 : 0;
 
       let trend: 'rising' | 'falling' | 'stable' = 'stable';
       if (Math.abs(changePercentage) > 5) {
@@ -708,21 +774,20 @@ export class PriceStorage extends BaseStorage {
           recordedAt: priceHistory.recordedAt,
         })
         .from(priceHistory)
-        .where(and(
-          eq(priceHistory.productId, productId),
-          gte(priceHistory.recordedAt, ninetyDaysAgo)
-        ))
+        .where(
+          and(eq(priceHistory.productId, productId), gte(priceHistory.recordedAt, ninetyDaysAgo))
+        )
         .orderBy(asc(priceHistory.recordedAt));
 
       // Get current price (requires ProductStorage integration via injected callback)
       let currentPrice = 0;
       if (this.getProductOffers) {
         const offers = await this.getProductOffers(productId);
-        currentPrice = offers.length > 0
-          ? Math.min(...offers.map(o => parseFloat(o.price)))
-          : 0;
+        currentPrice = offers.length > 0 ? Math.min(...offers.map((o) => parseFloat(o.price))) : 0;
       } else {
-        logger.warn('getProductOffers callback not set, using zero for current price', { productId });
+        logger.warn('getProductOffers callback not set, using zero for current price', {
+          productId,
+        });
       }
 
       if (history.length === 0) {
@@ -738,7 +803,7 @@ export class PriceStorage extends BaseStorage {
         };
       }
 
-      const prices = history.map(h => parseFloat(h.price));
+      const prices = history.map((h) => parseFloat(h.price));
       const historicalAverage = prices.reduce((sum, p) => sum + p, 0) / prices.length;
       const lowestPriceLast90Days = Math.min(...prices);
 
@@ -751,9 +816,11 @@ export class PriceStorage extends BaseStorage {
 
       // Calculate price change velocity (change per day over last 7 days)
       const sevenDaysOfPrices = prices.slice(-7);
-      const priceChangeVelocity = sevenDaysOfPrices.length >= 2
-        ? (sevenDaysOfPrices[sevenDaysOfPrices.length - 1] - sevenDaysOfPrices[0]) / sevenDaysOfPrices.length
-        : 0;
+      const priceChangeVelocity =
+        sevenDaysOfPrices.length >= 2
+          ? (sevenDaysOfPrices[sevenDaysOfPrices.length - 1] - sevenDaysOfPrices[0]) /
+            sevenDaysOfPrices.length
+          : 0;
 
       // Determine recommendation
       let recommendation: 'buy_now' | 'wait' | 'good_deal' = 'buy_now';
@@ -839,7 +906,7 @@ export class PriceStorage extends BaseStorage {
         .orderBy(desc(priceAggregatesWeekly.year), desc(priceAggregatesWeekly.week))
         .limit(limit);
 
-      return result.map(row => ({
+      return result.map((row) => ({
         id: row.id,
         productId: row.productId,
         retailerId: row.retailerId,
@@ -853,7 +920,7 @@ export class PriceStorage extends BaseStorage {
         recordCount: row.recordCount,
         weekOverWeekChange: row.weekOverWeekChange,
         createdAt: row.createdAt,
-        updatedAt: row.updatedAt
+        updatedAt: row.updatedAt,
       }));
     } catch (error) {
       this.handleError(error, 'getWeeklyAggregates');
@@ -898,7 +965,7 @@ export class PriceStorage extends BaseStorage {
         .orderBy(desc(priceAggregatesMonthly.year), desc(priceAggregatesMonthly.month))
         .limit(limit);
 
-      return result.map(row => ({
+      return result.map((row) => ({
         id: row.id,
         productId: row.productId,
         retailerId: row.retailerId,
@@ -913,7 +980,7 @@ export class PriceStorage extends BaseStorage {
         monthOverMonthChange: row.monthOverMonthChange,
         yearOverYearChange: row.yearOverYearChange,
         createdAt: row.createdAt,
-        updatedAt: row.updatedAt
+        updatedAt: row.updatedAt,
       }));
     } catch (error) {
       this.handleError(error, 'getMonthlyAggregates');
@@ -929,11 +996,15 @@ export class PriceStorage extends BaseStorage {
    * @param productId - Optional product ID filter
    * @returns Array of aggregated price data grouped by product and retailer
    */
-  async getPriceDataForAggregation(startDate: Date, endDate: Date, productId?: number): Promise<PriceAggregationData[]> {
+  async getPriceDataForAggregation(
+    startDate: Date,
+    endDate: Date,
+    productId?: number
+  ): Promise<PriceAggregationData[]> {
     try {
       const conditions = [
         gte(priceHistory.recordedAt, startDate),
-        lte(priceHistory.recordedAt, endDate)
+        lte(priceHistory.recordedAt, endDate),
       ];
 
       if (productId !== undefined) {
@@ -970,10 +1041,7 @@ export class PriceStorage extends BaseStorage {
       const result = await this.db
         .select()
         .from(priceAggregatesWeekly)
-        .where(and(
-          eq(priceAggregatesWeekly.year, year),
-          eq(priceAggregatesWeekly.week, week)
-        ));
+        .where(and(eq(priceAggregatesWeekly.year, year), eq(priceAggregatesWeekly.week, week)));
       return result;
     } catch (error) {
       this.handleError(error, 'getWeeklyAggregatesData');
@@ -1010,10 +1078,7 @@ export class PriceStorage extends BaseStorage {
       const result = await this.db
         .select()
         .from(priceAggregatesMonthly)
-        .where(and(
-          eq(priceAggregatesMonthly.year, year),
-          eq(priceAggregatesMonthly.month, month)
-        ));
+        .where(and(eq(priceAggregatesMonthly.year, year), eq(priceAggregatesMonthly.month, month)));
       return result;
     } catch (error) {
       this.handleError(error, 'getMonthlyAggregatesData');
@@ -1137,10 +1202,7 @@ export class PriceStorage extends BaseStorage {
       await this.db
         .update(priceHistory)
         .set({ aggregatedAt: new Date() })
-        .where(and(
-          gte(priceHistory.recordedAt, startDate),
-          lte(priceHistory.recordedAt, endDate)
-        ));
+        .where(and(gte(priceHistory.recordedAt, startDate), lte(priceHistory.recordedAt, endDate)));
     } catch (error) {
       this.handleError(error, 'markPriceHistoryAsAggregated');
     }
@@ -1157,10 +1219,7 @@ export class PriceStorage extends BaseStorage {
     try {
       const result = await this.db
         .delete(priceHistory)
-        .where(and(
-          lte(priceHistory.recordedAt, cutoffDate),
-          isNotNull(priceHistory.aggregatedAt)
-        ));
+        .where(and(lte(priceHistory.recordedAt, cutoffDate), isNotNull(priceHistory.aggregatedAt)));
       return result.rowCount || 0;
     } catch (error) {
       this.handleError(error, 'deleteOldAggregatedPriceHistory');
@@ -1215,10 +1274,7 @@ export class PriceStorage extends BaseStorage {
         throw new Error('id must be greater than 0');
       }
 
-      await this.db
-        .update(priceSnapshots)
-        .set(data)
-        .where(eq(priceSnapshots.id, id));
+      await this.db.update(priceSnapshots).set(data).where(eq(priceSnapshots.id, id));
     } catch (error) {
       this.handleError(error, 'updatePriceSnapshot');
     }
@@ -1240,11 +1296,7 @@ export class PriceStorage extends BaseStorage {
         throw new Error('offset must be greater than or equal to 0');
       }
 
-      return await this.db
-        .select()
-        .from(productOffers)
-        .limit(batchSize)
-        .offset(offset);
+      return await this.db.select().from(productOffers).limit(batchSize).offset(offset);
     } catch (error) {
       this.handleError(error, 'getProductOffersForSnapshot');
     }
@@ -1257,12 +1309,14 @@ export class PriceStorage extends BaseStorage {
    * @param offerIds - Array of offer IDs to get prices for
    * @returns Array of price records with offer ID and price
    */
-  async getPriceHistoryForOffers(offerIds: number[]): Promise<Array<{ productOfferId: number; price: string }>> {
+  async getPriceHistoryForOffers(
+    offerIds: number[]
+  ): Promise<Array<{ productOfferId: number; price: string }>> {
     try {
       if (offerIds.length === 0) return [];
 
       // Validate all IDs
-      offerIds.forEach(id => this.validateOfferId(id));
+      offerIds.forEach((id) => this.validateOfferId(id));
 
       return await this.db
         .select({
@@ -1284,16 +1338,18 @@ export class PriceStorage extends BaseStorage {
    * @param offerIds - Array of product offer IDs
    * @returns Array of price records with productOfferId, price, and recordedAt
    */
-  async getPriceHistoryForAnalysis(offerIds: number[]): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>> {
+  async getPriceHistoryForAnalysis(offerIds: number[]): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  > {
     try {
       if (offerIds.length === 0) return [];
 
       // Validate all IDs
-      offerIds.forEach(id => this.validateOfferId(id));
+      offerIds.forEach((id) => this.validateOfferId(id));
 
       return await this.db
         .select({
@@ -1326,7 +1382,7 @@ export class PriceStorage extends BaseStorage {
         .select({
           productId: priceHistory.productId,
           retailerId: priceHistory.retailerId,
-          prices: sql<Array<{price: number, timestamp: string}>>`
+          prices: sql<Array<{ price: number; timestamp: string }>>`
             json_agg(
               json_build_object(
                 'price', ${priceHistory.price}::numeric,
@@ -1390,7 +1446,10 @@ export class PriceStorage extends BaseStorage {
    * @param retailerId - Retailer ID (validated as positive integer)
    * @returns Price trend with retailer name and logo, or null if not found
    */
-  async getPriceTrendWithRetailer(productId: number, retailerId: number): Promise<PriceTrendWithRetailer | null> {
+  async getPriceTrendWithRetailer(
+    productId: number,
+    retailerId: number
+  ): Promise<PriceTrendWithRetailer | null> {
     try {
       this.validateProductId(productId);
       this.validateRetailerId(retailerId);
@@ -1414,12 +1473,7 @@ export class PriceStorage extends BaseStorage {
         })
         .from(priceTrends)
         .leftJoin(retailers, eq(priceTrends.retailerId, retailers.id))
-        .where(
-          and(
-            eq(priceTrends.productId, productId),
-            eq(priceTrends.retailerId, retailerId)
-          )
-        )
+        .where(and(eq(priceTrends.productId, productId), eq(priceTrends.retailerId, retailerId)))
         .limit(1);
 
       return result || null;
@@ -1484,7 +1538,7 @@ export class PriceStorage extends BaseStorage {
         .from(productOffers)
         .where(eq(productOffers.productId, productId));
 
-      return offers.map(o => o.id);
+      return offers.map((o) => o.id);
     } catch (error) {
       this.handleError(error, 'getProductOfferIds');
     }
@@ -1503,7 +1557,7 @@ export class PriceStorage extends BaseStorage {
       if (offerIds.length === 0) return [];
 
       // Validate all IDs
-      offerIds.forEach(id => this.validateOfferId(id));
+      offerIds.forEach((id) => this.validateOfferId(id));
 
       return await this.db
         .select()
@@ -1523,11 +1577,13 @@ export class PriceStorage extends BaseStorage {
    * @param userId - User ID
    * @returns Array of alerts with product IDs, target prices, and product names
    */
-  async getUserActiveAlertsWithProducts(userId: number): Promise<Array<{
-    productId: number;
-    targetPrice: string;
-    productName: string | null;
-  }>> {
+  async getUserActiveAlertsWithProducts(userId: number): Promise<
+    Array<{
+      productId: number;
+      targetPrice: string;
+      productName: string | null;
+    }>
+  > {
     try {
       if (!userId || userId < 1) {
         throw new Error(`Invalid userId: ${userId}`);
@@ -1541,10 +1597,7 @@ export class PriceStorage extends BaseStorage {
         })
         .from(priceAlerts)
         .innerJoin(products, eq(priceAlerts.productId, products.id))
-        .where(and(
-          eq(priceAlerts.userId, userId),
-          eq(priceAlerts.isActive, true)
-        ));
+        .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.isActive, true)));
     } catch (error) {
       this.handleError(error, 'getUserActiveAlertsWithProducts');
     }
@@ -1557,16 +1610,18 @@ export class PriceStorage extends BaseStorage {
    * @param productIds - Array of product IDs
    * @returns Array of offers with product ID, offer ID, and price
    */
-  async getLowestPricedOffersForProducts(productIds: number[]): Promise<Array<{
-    productId: number;
-    id: number;
-    price: string;
-  }>> {
+  async getLowestPricedOffersForProducts(productIds: number[]): Promise<
+    Array<{
+      productId: number;
+      id: number;
+      price: string;
+    }>
+  > {
     try {
       if (productIds.length === 0) return [];
 
       // Validate all IDs
-      productIds.forEach(id => this.validateProductId(id));
+      productIds.forEach((id) => this.validateProductId(id));
 
       return await this.db
         .select({
@@ -1594,7 +1649,7 @@ export class PriceStorage extends BaseStorage {
       if (offerIds.length === 0) return [];
 
       // Validate all IDs
-      offerIds.forEach(id => this.validateOfferId(id));
+      offerIds.forEach((id) => this.validateOfferId(id));
 
       return await this.db
         .select()
@@ -1670,10 +1725,7 @@ export class PriceStorage extends BaseStorage {
    */
   async createPriceAlert(alert: InsertPriceAlert): Promise<PriceAlert> {
     try {
-      const [result] = await this.db
-        .insert(priceAlerts)
-        .values(alert)
-        .returning();
+      const [result] = await this.db.insert(priceAlerts).values(alert).returning();
 
       if (!result) {
         throw new Error('Failed to create price alert');
@@ -1704,17 +1756,19 @@ export class PriceStorage extends BaseStorage {
     startDate: Date,
     endDate: Date,
     retailerId?: number
-  ): Promise<Array<{
-    history: PriceHistory;
-    retailer: Retailer;
-  }>> {
+  ): Promise<
+    Array<{
+      history: PriceHistory;
+      retailer: Retailer;
+    }>
+  > {
     try {
       this.validateProductId(productId);
 
       const conditions = [
         eq(priceHistory.productId, productId),
         gte(priceHistory.recordedAt, startDate),
-        lte(priceHistory.recordedAt, endDate)
+        lte(priceHistory.recordedAt, endDate),
       ];
 
       if (retailerId !== undefined) {
@@ -1725,7 +1779,7 @@ export class PriceStorage extends BaseStorage {
       const result = await this.db
         .select({
           history: priceHistory,
-          retailer: retailers
+          retailer: retailers,
         })
         .from(priceHistory)
         .innerJoin(retailers, eq(priceHistory.retailerId, retailers.id))
@@ -1753,10 +1807,12 @@ export class PriceStorage extends BaseStorage {
     startDate: Date,
     endDate: Date,
     retailerId?: number
-  ): Promise<Array<{
-    agg: DailyAggregateRecord;
-    retailer: Retailer;
-  }>> {
+  ): Promise<
+    Array<{
+      agg: DailyAggregateRecord;
+      retailer: Retailer;
+    }>
+  > {
     try {
       this.validateProductId(productId);
 
@@ -1766,7 +1822,7 @@ export class PriceStorage extends BaseStorage {
       const conditions = [
         eq(priceAggregatesDaily.productId, productId),
         gte(priceAggregatesDaily.date, startDateStr),
-        lte(priceAggregatesDaily.date, endDateStr)
+        lte(priceAggregatesDaily.date, endDateStr),
       ];
 
       if (retailerId !== undefined) {
@@ -1777,7 +1833,7 @@ export class PriceStorage extends BaseStorage {
       const result = await this.db
         .select({
           agg: priceAggregatesDaily,
-          retailer: retailers
+          retailer: retailers,
         })
         .from(priceAggregatesDaily)
         .innerJoin(retailers, eq(priceAggregatesDaily.retailerId, retailers.id))
@@ -1805,10 +1861,12 @@ export class PriceStorage extends BaseStorage {
     startDate: Date,
     endDate: Date,
     retailerId?: number
-  ): Promise<Array<{
-    agg: WeeklyAggregateRecord;
-    retailer: Retailer;
-  }>> {
+  ): Promise<
+    Array<{
+      agg: WeeklyAggregateRecord;
+      retailer: Retailer;
+    }>
+  > {
     try {
       this.validateProductId(productId);
 
@@ -1818,7 +1876,7 @@ export class PriceStorage extends BaseStorage {
       const conditions = [
         eq(priceAggregatesWeekly.productId, productId),
         gte(priceAggregatesWeekly.year, startYear),
-        lte(priceAggregatesWeekly.year, endYear)
+        lte(priceAggregatesWeekly.year, endYear),
       ];
 
       if (retailerId !== undefined) {
@@ -1829,7 +1887,7 @@ export class PriceStorage extends BaseStorage {
       const result = await this.db
         .select({
           agg: priceAggregatesWeekly,
-          retailer: retailers
+          retailer: retailers,
         })
         .from(priceAggregatesWeekly)
         .innerJoin(retailers, eq(priceAggregatesWeekly.retailerId, retailers.id))
@@ -1857,10 +1915,12 @@ export class PriceStorage extends BaseStorage {
     startDate: Date,
     endDate: Date,
     retailerId?: number
-  ): Promise<Array<{
-    agg: MonthlyAggregateRecord;
-    retailer: Retailer;
-  }>> {
+  ): Promise<
+    Array<{
+      agg: MonthlyAggregateRecord;
+      retailer: Retailer;
+    }>
+  > {
     try {
       this.validateProductId(productId);
 
@@ -1870,7 +1930,7 @@ export class PriceStorage extends BaseStorage {
       const conditions = [
         eq(priceAggregatesMonthly.productId, productId),
         gte(priceAggregatesMonthly.year, startYear),
-        lte(priceAggregatesMonthly.year, endYear)
+        lte(priceAggregatesMonthly.year, endYear),
       ];
 
       if (retailerId !== undefined) {
@@ -1881,7 +1941,7 @@ export class PriceStorage extends BaseStorage {
       const result = await this.db
         .select({
           agg: priceAggregatesMonthly,
-          retailer: retailers
+          retailer: retailers,
         })
         .from(priceAggregatesMonthly)
         .innerJoin(retailers, eq(priceAggregatesMonthly.retailerId, retailers.id))
@@ -1900,17 +1960,19 @@ export class PriceStorage extends BaseStorage {
    *
    * @returns Array of active offers with product ID, retailer ID, and price
    */
-  async getActiveProductOffersGrouped(): Promise<Array<{
-    productId: number;
-    retailerId: number;
-    price: string;
-  }>> {
+  async getActiveProductOffersGrouped(): Promise<
+    Array<{
+      productId: number;
+      retailerId: number;
+      price: string;
+    }>
+  > {
     try {
       const result = await this.db
         .select({
           productId: products.id,
           retailerId: productOffers.retailerId,
-          price: productOffers.price
+          price: productOffers.price,
         })
         .from(productOffers)
         .innerJoin(products, eq(productOffers.productId, products.id))
@@ -1992,17 +2054,19 @@ export class PriceStorage extends BaseStorage {
    * @param cutoffDate - Only include price changes after this date
    * @returns Array of recent price changes with offer ID, price, and recordedAt
    */
-  async getRecentPriceChanges(cutoffDate: Date): Promise<Array<{
-    productOfferId: number;
-    price: string;
-    recordedAt: Date | null;
-  }>> {
+  async getRecentPriceChanges(cutoffDate: Date): Promise<
+    Array<{
+      productOfferId: number;
+      price: string;
+      recordedAt: Date | null;
+    }>
+  > {
     try {
       const result = await this.db
         .select({
           productOfferId: priceHistory.productOfferId,
           price: priceHistory.price,
-          recordedAt: priceHistory.recordedAt
+          recordedAt: priceHistory.recordedAt,
         })
         .from(priceHistory)
         .where(gte(priceHistory.recordedAt, cutoffDate))

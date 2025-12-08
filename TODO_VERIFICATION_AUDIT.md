@@ -13,10 +13,12 @@
 ### Key Findings
 
 ✅ **Good News**: Most TODOs demonstrate excellent completion practices
+
 - TODO_010: Comprehensive verification with specific line numbers and performance metrics
 - Most TODOs include resolution sections with verification commands
 
 ❌ **Issue Found & Fixed**: TODO_006 (Discussion Count)
+
 - Documentation claimed tests were removed
 - Actual code still contained the tests
 - **Root cause**: Documentation-implementation gap
@@ -44,6 +46,7 @@ todos/archive/2025-12-03-TODO_TEST_FIXES.md
 ### Audit Criteria
 
 For each TODO, checked:
+
 1. ✅ Has resolution section
 2. ✅ Lists specific file changes with line numbers
 3. ✅ Includes verification commands/results
@@ -57,6 +60,7 @@ For each TODO, checked:
 **File**: `2025-12-03-TODO_010_PRICE_HISTORY_BATCH_INSERT.md`
 
 **Strengths:**
+
 - **Specific line numbers**: Lists exact locations (e.g., "Line 54", "Line 121")
 - **Performance metrics**: "20x improvement (95% reduction)"
 - **Verification results**: TypeScript passes, tests pass (1147 passed)
@@ -64,6 +68,7 @@ For each TODO, checked:
 - **Multiple locations**: Tracks changes across 5 files
 
 **Verification Commands Used:**
+
 ```bash
 npm run check        # TypeScript compilation
 npm test            # Test suite
@@ -76,12 +81,14 @@ npm test            # Test suite
 **File**: `2025-12-03-TODO_006_PRODUCT_DISCUSSION_COUNT.md`
 
 **Strengths:**
+
 - 232 lines with comprehensive resolution
 - Documents decision to remove tests vs implement feature
 - Created cleanup plan (`.github/ISSUE_TEMPLATE_FORUM_CLEANUP.md`)
 - Links to learnings document
 
 **Weakness:**
+
 - Did not verify with grep that tests were actually removed
 - **This led to the duplicate issue**
 
@@ -90,6 +97,7 @@ npm test            # Test suite
 **File**: `2025-12-03-TODO_006_PRODUCT_DISCUSSION_COUNT-duplicate.md`
 
 **Issues:**
+
 - Marked as "Not Started" status
 - Only 185 lines (vs 232 in original)
 - Missing resolution section
@@ -102,11 +110,13 @@ npm test            # Test suite
 **File**: `2025-12-03-TODO_TEST_FIXES.md`
 
 **Strengths:**
+
 - Documents all 6 sub-TODOs
 - Clear categorization by priority
 - Related documentation references
 
 **Could Improve:**
+
 - No specific "RESOLUTION" section
 - No verification commands shown
 
@@ -119,6 +129,7 @@ npm test            # Test suite
 ### Why TODO_006 Had a Gap
 
 **Timeline Reconstruction:**
+
 1. 2025-12-03: Developer created comprehensive documentation
 2. Developer wrote resolution claiming tests were removed
 3. Developer **assumed** tests were removed (possibly saw them in diff)
@@ -139,6 +150,7 @@ grep -r "discussionCount\|hasActiveDiscussion" server/routes/__tests__/product-r
 ### 1. Adopt Pre-Close Verification Checklist (IMPLEMENTED ✅)
 
 Created `todos/TODO_TEMPLATE.md` with mandatory checklist:
+
 - Grep verification for claimed changes
 - Run affected tests
 - TypeScript compilation check
@@ -148,11 +160,13 @@ Created `todos/TODO_TEMPLATE.md` with mandatory checklist:
 ### 2. Update todos/README.md (IMPLEMENTED ✅)
 
 Added workflow step:
+
 > **3. Pre-Close Verification**: Complete the **PRE-CLOSE VERIFICATION CHECKLIST** (mandatory!)
 
 ### 3. Use TODO_010 as Gold Standard
 
 When completing TODOs, follow TODO_010's pattern:
+
 - Specific line numbers for changes
 - Verification command outputs
 - Performance metrics (if applicable)
@@ -190,6 +204,7 @@ echo "✅ All verification checks passed"
 
 ```markdown
 ## ✅ RESOLUTION
+
 - Removed 2 test cases from product-routes.test.ts
 - Removed unused mock
 ```
@@ -204,12 +219,17 @@ echo "✅ All verification checks passed"
 ### Verification Results
 
 bash
+
 # Check tests removed
-grep -r "discussionCount" server/routes/__tests__/product-routes.test.ts
+
+grep -r "discussionCount" server/routes/**tests**/product-routes.test.ts
+
 # Result: No matches found ✅
 
 # Verify test count
-npm test server/routes/__tests__/product-routes.test.ts
+
+npm test server/routes/**tests**/product-routes.test.ts
+
 # Result: 43/43 tests passing (was 45/47) ✅
 ```
 
@@ -218,11 +238,13 @@ npm test server/routes/__tests__/product-routes.test.ts
 ## Success Metrics
 
 ### Before Audit
+
 - ❌ 1 TODO with documentation-implementation gap
 - ⚠️ No verification template
 - ⚠️ Inconsistent resolution documentation
 
 ### After Audit
+
 - ✅ TODO_006 gap fixed and committed
 - ✅ `TODO_TEMPLATE.md` created with mandatory checklist
 - ✅ `todos/README.md` updated with verification requirement
@@ -252,6 +274,7 @@ The PriceCompare TODO system is generally well-maintained with good documentatio
 ### Prevention Strategy
 
 **Going Forward:**
+
 - Use `TODO_TEMPLATE.md` for all new TODOs
 - Complete Pre-Close Verification Checklist before archiving
 - Reference TODO_010 as the gold standard

@@ -627,12 +627,42 @@ export const features: TemplateFeature[] = [
 // =============================================================================
 
 export const brands: TemplateBrand[] = [
-  { id: 1, name: 'Apple', logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/apple.svg', link: '/products?brand=apple' },
-  { id: 2, name: 'Samsung', logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/samsung.svg', link: '/products?brand=samsung' },
-  { id: 3, name: 'Sony', logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/sony.svg', link: '/products?brand=sony' },
-  { id: 4, name: 'Microsoft', logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/microsoft.svg', link: '/products?brand=microsoft' },
-  { id: 5, name: 'LG', logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/lg.svg', link: '/products?brand=lg' },
-  { id: 6, name: 'Canon', logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/canon.svg', link: '/products?brand=canon' },
+  {
+    id: 1,
+    name: 'Apple',
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/apple.svg',
+    link: '/products?brand=apple',
+  },
+  {
+    id: 2,
+    name: 'Samsung',
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/samsung.svg',
+    link: '/products?brand=samsung',
+  },
+  {
+    id: 3,
+    name: 'Sony',
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/sony.svg',
+    link: '/products?brand=sony',
+  },
+  {
+    id: 4,
+    name: 'Microsoft',
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/microsoft.svg',
+    link: '/products?brand=microsoft',
+  },
+  {
+    id: 5,
+    name: 'LG',
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/lg.svg',
+    link: '/products?brand=lg',
+  },
+  {
+    id: 6,
+    name: 'Canon',
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/canon.svg',
+    link: '/products?brand=canon',
+  },
 ];
 
 // =============================================================================
@@ -645,7 +675,8 @@ export const blogs: TemplateBlog[] = [
     title: 'Best Budget Smartphones of 2024',
     slug: 'best-budget-smartphones-2024',
     image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80',
-    excerpt: 'Discover the top affordable smartphones that offer premium features without breaking the bank.',
+    excerpt:
+      'Discover the top affordable smartphones that offer premium features without breaking the bank.',
     category: 'Smartphones',
     author: 'Tech Team',
     date: '2024-03-15',
@@ -965,7 +996,7 @@ export const allProducts: TemplateProduct[] = [
   ...trendingProducts,
   ...laptopsProducts,
   ...smartHomeProducts,
-].filter(product => {
+].filter((product) => {
   if (seenIds.has(product.id)) {
     return false;
   }

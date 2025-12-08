@@ -17,7 +17,7 @@ const log = createLogger('Security');
 interface RateLimitEntry {
   count: number;
   resetTime: number;
-  lastAccess: number;  // SECURITY: Track last access for LRU eviction
+  lastAccess: number; // SECURITY: Track last access for LRU eviction
 }
 
 interface RateLimitStore {
@@ -46,8 +46,9 @@ const rateLimitCleanupInterval = setInterval(() => {
   // SECURITY: If still too many entries, perform LRU eviction
   const remainingEntries = Object.keys(rateLimitStore).length;
   if (remainingEntries > MAX_RATE_LIMIT_ENTRIES) {
-    const sortedByAccess = Object.entries(rateLimitStore)
-      .sort((a, b) => a[1].lastAccess - b[1].lastAccess);
+    const sortedByAccess = Object.entries(rateLimitStore).sort(
+      (a, b) => a[1].lastAccess - b[1].lastAccess
+    );
 
     // Remove oldest 20% of entries
     const toRemove = Math.floor(remainingEntries * 0.2);
@@ -55,7 +56,9 @@ const rateLimitCleanupInterval = setInterval(() => {
       delete rateLimitStore[key];
     });
 
-    log.warn(`Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`);
+    log.warn(
+      `Rate limit store exceeded ${MAX_RATE_LIMIT_ENTRIES} entries. Evicted ${toRemove} least recently used entries.`
+    );
   }
 }, CLEANUP_INTERVAL_MS);
 cleanupManager.addInterval('rate-limit-cleanup', rateLimitCleanupInterval);
@@ -82,11 +85,7 @@ cleanupManager.addInterval('rate-limit-cleanup', rateLimitCleanupInterval);
  * @param options.maxRequests - Maximum requests per window
  * @param options.message - Error message for rate limit exceeded
  */
-export function rateLimiter(options: {
-  windowMs: number;
-  maxRequests: number;
-  message?: string;
-}) {
+export function rateLimiter(options: { windowMs: number; maxRequests: number; message?: string }) {
   const { windowMs, maxRequests, message = 'Too many requests, please try again later' } = options;
 
   return (req: Request, res: Response, next: NextFunction) => {
@@ -99,7 +98,7 @@ export function rateLimiter(options: {
       // When at capacity, reject new IPs with rate limit error
       res.setHeader('Retry-After', '60');
       sendError(res, 'Service temporarily unavailable due to high load', 429, {
-        code: ErrorCodes.RATE_LIMIT_EXCEEDED
+        code: ErrorCodes.RATE_LIMIT_EXCEEDED,
       });
       return;
     }
@@ -108,13 +107,13 @@ export function rateLimiter(options: {
       rateLimitStore[ip] = {
         count: 1,
         resetTime: now + windowMs,
-        lastAccess: now
+        lastAccess: now,
       };
       return next();
     }
 
     const record = rateLimitStore[ip];
-    record.lastAccess = now;  // Update last access time
+    record.lastAccess = now; // Update last access time
 
     if (now > record.resetTime) {
       record.count = 1;
@@ -126,7 +125,7 @@ export function rateLimiter(options: {
       const retryAfter = Math.ceil((record.resetTime - now) / 1000);
       res.setHeader('Retry-After', retryAfter.toString());
       sendError(res, message, 429, {
-        code: ErrorCodes.RATE_LIMIT_EXCEEDED
+        code: ErrorCodes.RATE_LIMIT_EXCEEDED,
       });
       return;
     }
@@ -179,16 +178,17 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
   }
 
   // Check if path is exempt from CSRF protection
-  const isExempt = CSRF_EXEMPT_PATHS.some(path => req.path.startsWith(path));
+  const isExempt = CSRF_EXEMPT_PATHS.some((path) => req.path.startsWith(path));
   if (isExempt) {
     return next();
   }
 
   // Get CSRF token from request
   // req.body is typed as any by Express, but _csrf may not be present
-  const bodyToken = typeof req.body === 'object' && req.body !== null && '_csrf' in req.body
-    ? String((req.body as { _csrf?: unknown })._csrf ?? '')
-    : '';
+  const bodyToken =
+    typeof req.body === 'object' && req.body !== null && '_csrf' in req.body
+      ? String((req.body as { _csrf?: unknown })._csrf ?? '')
+      : '';
   const headerToken = req.headers['x-csrf-token'];
   const token = bodyToken || (typeof headerToken === 'string' ? headerToken : '');
   const sessionToken = req.session?.csrfToken;
@@ -204,7 +204,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
         path: req.path,
         hasToken: !!token,
         hasSessionToken: !!sessionToken,
-      }
+      },
     });
 
     sendError(res, 'CSRF token missing', 403, 'CSRF token is required for this request');
@@ -213,10 +213,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
 
   // Use timing-safe comparison to prevent timing attacks
   try {
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(token),
-      Buffer.from(sessionToken)
-    );
+    const isValid = crypto.timingSafeEqual(Buffer.from(token), Buffer.from(sessionToken));
 
     if (!isValid) {
       // SECURITY: Log CSRF token mismatch violation
@@ -227,7 +224,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
           method: req.method,
           path: req.path,
           reason: 'Token mismatch',
-        }
+        },
       });
 
       sendError(res, 'Invalid CSRF token', 403);
@@ -243,7 +240,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
         method: req.method,
         path: req.path,
         reason: 'Token length mismatch',
-      }
+      },
     });
 
     sendError(res, 'Invalid CSRF token', 403);
@@ -304,27 +301,27 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 
   // Build connect-src directive based on environment
   // Development needs WebSocket for Vite HMR (Hot Module Replacement)
-  const connectSrc = isDevelopment
-    ? "connect-src 'self' ws: wss:"
-    : "connect-src 'self'";
+  const connectSrc = isDevelopment ? "connect-src 'self' ws: wss:" : "connect-src 'self'";
 
-  const cspDirectives = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
-    `style-src 'self' 'nonce-${nonce}'`,
-    "img-src 'self' data: https:",
-    "font-src 'self' data:",
-    connectSrc,
-    "frame-ancestors 'none'",
-    "report-uri /api/csp-violation-report"
-  ].join('; ') + ';';
+  const cspDirectives =
+    [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}'`,
+      `style-src 'self' 'nonce-${nonce}'`,
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      connectSrc,
+      "frame-ancestors 'none'",
+      'report-uri /api/csp-violation-report',
+    ].join('; ') + ';';
 
   // SECURITY: Start with Report-Only mode to monitor violations
   // Set CSP_ENFORCE=true in environment to enable full enforcement
   // After 24-48 hours of no violations in report-only mode, enable enforcement
-  const cspHeader = process.env.CSP_ENFORCE === 'true'
-    ? 'Content-Security-Policy'
-    : 'Content-Security-Policy-Report-Only';
+  const cspHeader =
+    process.env.CSP_ENFORCE === 'true'
+      ? 'Content-Security-Policy'
+      : 'Content-Security-Policy-Report-Only';
 
   res.setHeader(cspHeader, cspDirectives);
 
@@ -354,7 +351,10 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   // Sanitize body (most user input comes through body)
   if (req.body && typeof req.body === 'object') {
     // req.body is typed as any - sanitizeObject expects Record<string, unknown>
-    const sanitizedBody = sanitizeObject(req.body as Record<string, unknown>, SanitizationContext.PLAIN_TEXT);
+    const sanitizedBody = sanitizeObject(
+      req.body as Record<string, unknown>,
+      SanitizationContext.PLAIN_TEXT
+    );
     req.body = sanitizedBody;
   }
 
@@ -365,10 +365,13 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
       const value = req.query[key];
       if (typeof value === 'string') {
         // Sanitize string values directly on the query object
-        (req.query as Record<string, unknown>)[key] = sanitizeObject({ v: value }, SanitizationContext.PLAIN_TEXT).v;
+        (req.query as Record<string, unknown>)[key] = sanitizeObject(
+          { v: value },
+          SanitizationContext.PLAIN_TEXT
+        ).v;
       } else if (Array.isArray(value)) {
         // Sanitize array values
-        (req.query as Record<string, unknown>)[key] = value.map(v =>
+        (req.query as Record<string, unknown>)[key] = value.map((v) =>
           typeof v === 'string' ? sanitizeObject({ v }, SanitizationContext.PLAIN_TEXT).v : v
         );
       }
@@ -393,7 +396,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
   let allowedOrigins: string[];
 
   if (allowedOriginsEnv) {
-    allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim());
+    allowedOrigins = allowedOriginsEnv.split(',').map((origin) => origin.trim());
   } else {
     // SECURITY: Default to localhost only in development
     if (isDevelopment) {
@@ -427,7 +430,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
         allowedOrigins,
         method: req.method,
         path: req.path,
-      }
+      },
     });
 
     // SECURITY: Don't set CORS headers for disallowed origins
@@ -441,7 +444,10 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
 
   // Allowed headers - be specific about what headers are allowed
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-CSRF-Token, X-Requested-With'
+  );
 
   // Expose headers that client-side code can access
   res.setHeader('Access-Control-Expose-Headers', 'X-CSRF-Token, X-Cache, X-Cache-Key');

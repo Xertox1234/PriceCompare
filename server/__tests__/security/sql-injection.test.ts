@@ -53,7 +53,7 @@ describe('SQL Injection Prevention', () => {
         '1/*',
 
         // Union-based injection // SECURITY: Example attack payloads for testing
-        "1 UNION SELECT passwordHash FROM users--", // NEVER expose in production
+        '1 UNION SELECT passwordHash FROM users--', // NEVER expose in production
         "1' UNION SELECT NULL, username, passwordHash FROM users--", // NEVER expose in production
 
         // Boolean-based blind injection
@@ -65,7 +65,7 @@ describe('SQL Injection Prevention', () => {
         "1' AND SLEEP(5)--",
 
         // Stacked queries
-        "1; SELECT * FROM users",
+        '1; SELECT * FROM users',
         "1'; EXEC xp_cmdshell('dir')--",
       ];
 
@@ -82,8 +82,7 @@ describe('SQL Injection Prevention', () => {
     test('should handle array of malicious integers safely', () => {
       // Test with numeric-looking SQL injection attempts
       const maliciousIds = [
-        1,
-        2,
+        1, 2,
         // In the vulnerable code, this would become: "1, 2, 3; DROP TABLE users--"
         // But with inArray, it's safely parameterized
       ];
@@ -184,7 +183,7 @@ describe('SQL Injection Prevention', () => {
       // Attack scenario: Attacker tries to delete tables
       // Payload: [1, "2; DROP TABLE forumPosts--"]
 
-      const attackPayload = [1, "2; DROP TABLE forumPosts--"];
+      const attackPayload = [1, '2; DROP TABLE forumPosts--'];
       const mockColumn = { name: 'id' } as any;
 
       // With inArray, the malicious SQL is safely parameterized
@@ -221,12 +220,7 @@ describe('SQL Injection Prevention', () => {
 
     test('prevents tautology-based injection', () => {
       // Tautology: Always true conditions
-      const tautologyPayloads = [
-        "' OR '1'='1",
-        "' OR 1=1--",
-        "admin' OR '1'='1'--",
-        "' OR 'x'='x",
-      ];
+      const tautologyPayloads = ["' OR '1'='1", "' OR 1=1--", "admin' OR '1'='1'--", "' OR 'x'='x"];
 
       const mockColumn = { name: 'username' } as any;
 
@@ -237,12 +231,7 @@ describe('SQL Injection Prevention', () => {
 
     test('prevents comment-based injection', () => {
       // Comments: Used to ignore rest of query
-      const commentPayloads = [
-        "admin'--",
-        "admin'#",
-        "admin'/*",
-        "admin'; --",
-      ];
+      const commentPayloads = ["admin'--", "admin'#", "admin'/*", "admin'; --"];
 
       const mockColumn = { name: 'username' } as any;
 
@@ -254,7 +243,7 @@ describe('SQL Injection Prevention', () => {
     test('prevents piggy-backed query injection', () => {
       // Piggy-backed queries: Additional queries after semicolon
       const piggybackPayloads = [
-        "1; DROP TABLE users",
+        '1; DROP TABLE users',
         "1'; DELETE FROM users WHERE '1'='1",
         "1; UPDATE users SET password='hacked'",
       ];

@@ -55,6 +55,7 @@ npm test
 #### VS Code (Recommended)
 
 Install recommended extensions:
+
 ```json
 {
   "recommendations": [
@@ -67,6 +68,7 @@ Install recommended extensions:
 ```
 
 Settings (`.vscode/settings.json`):
+
 ```json
 {
   "editor.formatOnSave": true,
@@ -147,6 +149,7 @@ Edit files in your editor. The extension will need to be reloaded in Chrome afte
 ### 3. Reload Extension
 
 After making changes:
+
 1. Go to `chrome://extensions/`
 2. Click the refresh icon on the PriceCompare extension
 3. Reload any open retailer pages to see changes
@@ -172,11 +175,13 @@ npm run test:coverage
 ### 5. Manual Testing
 
 Test on actual retailer pages:
+
 - Amazon: https://www.amazon.com/dp/B08N5WRWNW
 - Best Buy: https://www.bestbuy.com/site/[product-sku].p
 - Walmart: https://www.walmart.com/ip/[product-id]
 
 Checklist:
+
 - [ ] Product detected correctly
 - [ ] Price history displays
 - [ ] Alert creation works
@@ -235,18 +240,12 @@ Checklist:
   "content_scripts": [
     {
       "matches": ["*://*.newretailer.com/*"],
-      "js": [
-        "shared/utils.js",
-        "shared/api-client.js",
-        "content-scripts/newretailer-overlay.js"
-      ],
+      "js": ["shared/utils.js", "shared/api-client.js", "content-scripts/newretailer-overlay.js"],
       "css": ["content-scripts/overlay-styles.css"],
       "run_at": "document_idle"
     }
   ],
-  "host_permissions": [
-    "*://*.newretailer.com/*"
-  ]
+  "host_permissions": ["*://*.newretailer.com/*"]
 }
 ```
 
@@ -390,6 +389,7 @@ npm test -- --watch
 - **Statements**: 80% minimum
 
 Check coverage:
+
 ```bash
 npm run test:coverage
 ```
@@ -397,6 +397,7 @@ npm run test:coverage
 ### Writing Good Tests
 
 ✅ **DO**:
+
 ```javascript
 // Clear test names
 it('should return empty array when product not found', () => {});
@@ -420,6 +421,7 @@ it('should handle null price', () => {
 ```
 
 ❌ **DON'T**:
+
 ```javascript
 // Vague test names
 it('should work', () => {});
@@ -429,11 +431,15 @@ it('should call internal helper function', () => {});
 
 // Tests that depend on each other
 let sharedState;
-it('test 1', () => { sharedState = 'value'; });
-it('test 2', () => { expect(sharedState).toBe('value'); });
+it('test 1', () => {
+  sharedState = 'value';
+});
+it('test 2', () => {
+  expect(sharedState).toBe('value');
+});
 ```
 
-See [__tests__/README.md](__tests__/README.md) for comprehensive testing guide.
+See [**tests**/README.md](__tests__/README.md) for comprehensive testing guide.
 
 ---
 
@@ -449,7 +455,7 @@ const apiUrl = 'http://localhost:3000/api';
 let counter = 0;
 
 // Use arrow functions for callbacks
-const filtered = items.filter(item => item.active);
+const filtered = items.filter((item) => item.active);
 
 // Use template literals
 const message = `Hello, ${name}!`;
@@ -523,6 +529,7 @@ npm run format
 ```
 
 Prettier config (in `package.json`):
+
 ```json
 {
   "prettier": {
@@ -600,12 +607,14 @@ Closes #123"
 ### Commit Best Practices
 
 ✅ **DO**:
+
 - Write clear, descriptive commit messages
 - Make atomic commits (one logical change per commit)
 - Reference issues: `Closes #123` or `Fixes #456`
 - Use present tense: "add feature" not "added feature"
 
 ❌ **DON'T**:
+
 - Commit commented-out code
 - Commit debug logs (`console.log`)
 - Make huge commits with multiple unrelated changes
@@ -618,16 +627,19 @@ Closes #123"
 ### Before Creating PR
 
 1. **Ensure all tests pass**:
+
    ```bash
    npm test
    ```
 
 2. **Check code coverage**:
+
    ```bash
    npm run test:coverage
    ```
 
 3. **Lint code**:
+
    ```bash
    npm run lint
    ```
@@ -639,6 +651,7 @@ Closes #123"
 ### Creating the PR
 
 1. **Push your branch**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -650,6 +663,7 @@ Closes #123"
    - Fill out the PR template
 
 3. **PR Title Format**:
+
    ```
    feat(scope): Brief description
    ```
@@ -658,15 +672,18 @@ Closes #123"
 
    ```markdown
    ## Description
+
    Brief description of what this PR does
 
    ## Type of Change
+
    - [ ] Bug fix
    - [ ] New feature
    - [ ] Breaking change
    - [ ] Documentation update
 
    ## Testing
+
    - [ ] Unit tests pass
    - [ ] Integration tests pass
    - [ ] Manual testing completed
@@ -675,9 +692,11 @@ Closes #123"
    - [ ] Tested on Generic retailers
 
    ## Screenshots (if applicable)
+
    Add screenshots of UI changes
 
    ## Checklist
+
    - [ ] Code follows style guidelines
    - [ ] Self-review completed
    - [ ] Comments added for complex logic
@@ -716,7 +735,7 @@ Closes #123"
 ### Resources
 
 - **Architecture Documentation**: [ARCHITECTURE.md](ARCHITECTURE.md)
-- **Testing Guide**: [__tests__/README.md](__tests__/README.md)
+- **Testing Guide**: [**tests**/README.md](__tests__/README.md)
 - **User Documentation**: [README.md](README.md)
 - **Chrome Extension Docs**: https://developer.chrome.com/docs/extensions/
 

@@ -17,6 +17,7 @@ Several tables use `timestamp` (without timezone) instead of `timestamptz` (with
 ## Affected Tables
 
 ### Confirmed Issues
+
 1. **`password_reset_tokens`** (2 columns)
    - `expires_at` - timestamp without timezone
    - `created_at` - timestamp without timezone
@@ -30,7 +31,9 @@ Several tables use `timestamp` (without timezone) instead of `timestamptz` (with
    - **Location:** `server/storage/domains/job-lock-storage.ts`
 
 ### Needs Audit
+
 Run this command to find all timestamp columns:
+
 ```bash
 grep "timestamp(" shared/schema.ts | grep -v "withTimezone: true"
 ```
@@ -38,24 +41,28 @@ grep "timestamp(" shared/schema.ts | grep -v "withTimezone: true"
 ## Technical Details
 
 ### Current Anti-Pattern
+
 ```typescript
 // shared/schema.ts - WRONG
 expiresAt: timestamp("expires_at").notNull(),  // ❌ No timezone
 ```
 
 **Problem:**
+
 - JavaScript `Date` objects are UTC
 - PostgreSQL stores them as-is (no timezone metadata)
 - `NOW()` returns `timestamptz` (timezone-aware)
 - Comparison requires workaround: `(expires_at AT TIME ZONE 'UTC') > NOW()`
 
 ### Correct Pattern
+
 ```typescript
 // shared/schema.ts - CORRECT
 expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),  // ✅ With timezone
 ```
 
 **Benefits:**
+
 - Stores UTC internally, eliminates ambiguity
 - Comparisons with `NOW()` work without workarounds
 - PostgreSQL best practice
@@ -66,6 +73,7 @@ expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),  // ✅ Wi
 ### Phase 1: Schema Migration (Safe)
 
 **Migration SQL:**
+
 ```sql
 -- password_reset_tokens
 ALTER TABLE password_reset_tokens
@@ -89,6 +97,7 @@ ALTER TABLE job_locks
 ```
 
 **Why This is Safe:**
+
 - `USING expires_at AT TIME ZONE 'UTC'` tells PostgreSQL to treat existing timestamps as UTC
 - No data loss
 - Preserves existing timestamps correctly
@@ -97,23 +106,27 @@ ALTER TABLE job_locks
 ### Phase 2: Update Schema Definitions
 
 **Update `shared/schema.ts`:**
+
 ```typescript
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  token: varchar("token", { length: 255 }).notNull().unique(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),  // ✅ Fixed
-  isUsed: boolean("is_used").notNull().default(false),
-  usedAt: timestamp("used_at", { withTimezone: true }),                  // ✅ Fixed
-  ipAddress: varchar("ip_address", { length: 45 }),
-  userAgent: varchar("user_agent", { length: 500 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),  // ✅ Fixed
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id')
+    .references(() => users.id)
+    .notNull(),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(), // ✅ Fixed
+  isUsed: boolean('is_used').notNull().default(false),
+  usedAt: timestamp('used_at', { withTimezone: true }), // ✅ Fixed
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: varchar('user_agent', { length: 500 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(), // ✅ Fixed
 });
 ```
 
 ### Phase 3: Remove Workarounds
 
 **Clean up `server/storage.ts`:**
+
 ```typescript
 // BEFORE (with workaround)
 async validatePasswordResetToken(token: string): Promise<PasswordResetToken | null> {
@@ -144,6 +157,7 @@ async validatePasswordResetToken(token: string): Promise<PasswordResetToken | nu
 ```
 
 **Benefits:**
+
 - Can use Drizzle query builder instead of raw SQL
 - Better TypeScript type safety
 - Cleaner, more maintainable code
@@ -152,11 +166,13 @@ async validatePasswordResetToken(token: string): Promise<PasswordResetToken | nu
 ## Testing Plan
 
 ### Before Migration
+
 1. Run full test suite: `npm test`
 2. Document current behavior
 3. Backup database
 
 ### During Migration
+
 1. Apply migration in development first
 2. Verify existing timestamps preserved correctly
 3. Run test suite: `npm test`
@@ -173,12 +189,14 @@ async validatePasswordResetToken(token: string): Promise<PasswordResetToken | nu
    ```
 
 ### After Migration
+
 1. Remove `AT TIME ZONE 'UTC'` workarounds from code
 2. Update to use Drizzle query builder
 3. Run full test suite again
 4. Verify no regressions
 
 ### Rollback Plan (If Needed)
+
 ```sql
 -- Rollback to timestamp (without timezone)
 ALTER TABLE password_reset_tokens
@@ -201,28 +219,34 @@ ALTER TABLE password_reset_tokens
 ## Related Files
 
 **Schema:**
+
 - `shared/schema.ts` - Table definitions
 
 **Storage Layer:**
+
 - `server/storage.ts:2832-2908` - Password reset token methods
 - `server/storage/domains/job-lock-storage.ts` - Job lock methods
 
 **Tests:**
+
 - `server/routes/__tests__/auth-routes.test.ts` - Password reset tests
 - Tests for job locking (TBD)
 
 **Documentation:**
+
 - `docs/LEARNINGS_TODO_005_AUTH_EXPIRED_TOKEN.md` - Complete learnings
 - `docs/02_DATABASE_PATTERNS.md` - Section 5.3 (Timestamp vs Timestamptz)
 
 ## Follow-Up Actions
 
 1. **Audit Command:**
+
    ```bash
    grep "timestamp(" shared/schema.ts | grep -v "withTimezone: true"
    ```
 
 2. **Find Workarounds:**
+
    ```bash
    grep -r "AT TIME ZONE" server/ | grep -v node_modules
    ```
@@ -241,16 +265,19 @@ ALTER TABLE password_reset_tokens
 ## Risk Assessment
 
 **Low Risk:**
+
 - Migration SQL is safe (uses `AT TIME ZONE 'UTC'`)
 - Can be rolled back if issues found
 - Comprehensive testing plan
 
 **Medium Impact:**
+
 - Requires schema migration
 - Code changes needed after migration
 - Multiple files affected
 
 **Mitigation:**
+
 - Test in development first
 - Backup database before migration
 - Incremental rollout (one table at a time)

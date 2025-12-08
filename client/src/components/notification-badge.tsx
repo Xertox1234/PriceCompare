@@ -24,7 +24,7 @@ export function NotificationBadge() {
   }
 
   return (
-    <span className="absolute -top-1 -right-1 h-5 min-w-[1.25rem] px-1 rounded-full bg-red-500 flex items-center justify-center text-xs font-bold text-white animate-pulse">
+    <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
       {unreadCount > 9 ? '9+' : unreadCount}
     </span>
   );

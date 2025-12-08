@@ -175,8 +175,12 @@ export function createMockRedis(): MockRedisClient {
     zcard: vi.fn(() => Promise.resolve(0)),
     zpopmin: vi.fn(() => Promise.resolve([])),
     pipeline: vi.fn(() => ({
-      zincrby: vi.fn(function (this: unknown) { return this; }),
-      expire: vi.fn(function (this: unknown) { return this; }),
+      zincrby: vi.fn(function (this: unknown) {
+        return this;
+      }),
+      expire: vi.fn(function (this: unknown) {
+        return this;
+      }),
       exec: vi.fn(() => Promise.resolve([])),
     })) as MockRedisClient['pipeline'],
     duplicate: vi.fn(() => ({
@@ -271,7 +275,9 @@ export function createTestRetailer(overrides?: Partial<Retailer>): Omit<Retailer
  * await db.insert(productOffers).values(offer);
  * ```
  */
-export function createTestProductOffer(overrides?: Partial<ProductOffer>): Omit<ProductOffer, 'id'> {
+export function createTestProductOffer(
+  overrides?: Partial<ProductOffer>
+): Omit<ProductOffer, 'id'> {
   const now = new Date();
   now.setHours(12, 0, 0, 0); // Noon local time (timezone-safe)
 
@@ -319,7 +325,9 @@ export function createTestProductOffer(overrides?: Partial<ProductOffer>): Omit<
  * await db.insert(priceHistory).values(history);
  * ```
  */
-export function createTestPriceHistory(overrides?: Partial<PriceHistory>): Omit<PriceHistory, 'id'> {
+export function createTestPriceHistory(
+  overrides?: Partial<PriceHistory>
+): Omit<PriceHistory, 'id'> {
   const now = new Date();
   now.setHours(12, 0, 0, 0); // Noon local time (timezone-safe)
 
@@ -392,10 +400,7 @@ export function setupTestTransaction<TSchema extends Record<string, unknown>>(
  * @see docs/08_TESTING_PATTERNS.md - TRUNCATE CASCADE pattern
  * @see docs/02_DATABASE_PATTERNS.md - Section 8.1
  */
-export async function cleanupTestData(
-  db: Database,
-  tables: string[]
-): Promise<void> {
+export async function cleanupTestData(db: Database, tables: string[]): Promise<void> {
   for (const table of tables) {
     await db.execute(sql.raw(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`));
   }

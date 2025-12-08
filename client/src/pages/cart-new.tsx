@@ -14,16 +14,18 @@ import {
   CreditCard,
   Lock,
 } from 'lucide-react';
-import { TemplateHeader, TemplateFooter, ProductSection, type ProductData } from '@/components/template';
+import {
+  TemplateHeader,
+  TemplateFooter,
+  ProductSection,
+  type ProductData,
+} from '@/components/template';
 import { CartSidebar } from '@/components/template/cart-sidebar';
 import { MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  bestSellerProducts,
-  type TemplateProduct,
-} from '@/data/template-data';
+import { bestSellerProducts, type TemplateProduct } from '@/data/template-data';
 
 const FREE_SHIPPING_THRESHOLD = 99;
 
@@ -86,7 +88,7 @@ function CartContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       <TemplateHeader
         onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
@@ -95,13 +97,13 @@ function CartContent() {
       />
 
       {/* Breadcrumbs */}
-      <div className="border-b border-border py-4">
+      <div className="border-border border-b py-4">
         <div className="container mx-auto px-4">
           <nav className="flex items-center gap-2 text-sm">
             <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
               Home
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
             <span className="text-foreground font-medium">Shopping Cart</span>
           </nav>
         </div>
@@ -109,12 +111,12 @@ function CartContent() {
 
       <main className="container mx-auto px-4 py-8">
         {/* Page Title */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-3">
-            <ShoppingCart className="h-8 w-8 text-primary" />
+        <div className="mb-8 flex items-center justify-between">
+          <h1 className="text-foreground flex items-center gap-3 text-2xl font-bold lg:text-3xl">
+            <ShoppingCart className="text-primary h-8 w-8" />
             Shopping Cart
             {cartItems.length > 0 && (
-              <span className="text-lg font-normal text-muted-foreground">
+              <span className="text-muted-foreground text-lg font-normal">
                 ({cartItems.length} {cartItems.length === 1 ? 'item' : 'items'})
               </span>
             )}
@@ -126,7 +128,7 @@ function CartContent() {
               onClick={clearCart}
               className="text-muted-foreground hover:text-destructive"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="mr-2 h-4 w-4" />
               Clear Cart
             </Button>
           )}
@@ -135,50 +137,54 @@ function CartContent() {
         {cartItems.length === 0 ? (
           /* Empty Cart State */
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-32 h-32 bg-muted rounded-full flex items-center justify-center mb-6">
-              <ShoppingCart className="h-16 w-16 text-muted-foreground" />
+            <div className="bg-muted mb-6 flex h-32 w-32 items-center justify-center rounded-full">
+              <ShoppingCart className="text-muted-foreground h-16 w-16" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Your cart is empty</h2>
+            <h2 className="text-foreground mb-2 text-2xl font-bold">Your cart is empty</h2>
             <p className="text-muted-foreground mb-8 max-w-md">
-              Looks like you haven't added anything to your cart yet. Let's find something great for you!
+              Looks like you haven't added anything to your cart yet. Let's find something great for
+              you!
             </p>
             <Link href="/shop">
               <Button size="lg" className="bg-primary hover:bg-primary-hover">
-                <Package className="h-5 w-5 mr-2" />
+                <Package className="mr-2 h-5 w-5" />
                 Start Shopping
               </Button>
             </Link>
           </div>
         ) : (
           /* Cart Content */
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid gap-8 lg:grid-cols-3">
             {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-4">
+            <div className="space-y-4 lg:col-span-2">
               {/* Free Shipping Progress */}
-              <div className="p-4 bg-card rounded-xl border border-border">
-                <div className="flex items-center gap-3 mb-3">
-                  <Truck className="h-5 w-5 text-primary" />
+              <div className="bg-card border-border rounded-xl border p-4">
+                <div className="mb-3 flex items-center gap-3">
+                  <Truck className="text-primary h-5 w-5" />
                   {amountToFreeShipping > 0 ? (
                     <span className="text-sm">
-                      Add <span className="font-bold text-primary">${amountToFreeShipping.toFixed(2)}</span> more
-                      for <span className="font-semibold text-success">FREE shipping</span>
+                      Add{' '}
+                      <span className="text-primary font-bold">
+                        ${amountToFreeShipping.toFixed(2)}
+                      </span>{' '}
+                      more for <span className="text-success font-semibold">FREE shipping</span>
                     </span>
                   ) : (
-                    <span className="text-sm font-semibold text-success">
+                    <span className="text-success text-sm font-semibold">
                       Congratulations! You've unlocked FREE shipping!
                     </span>
                   )}
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="bg-muted h-2 overflow-hidden rounded-full">
                   <div
-                    className="h-full bg-gradient-to-r from-primary to-success transition-all duration-500"
+                    className="from-primary to-success h-full bg-gradient-to-r transition-all duration-500"
                     style={{ width: `${shippingProgress}%` }}
                   />
                 </div>
               </div>
 
               {/* Items Table Header */}
-              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 rounded-t-xl text-sm font-medium text-muted-foreground">
+              <div className="bg-muted/50 text-muted-foreground hidden grid-cols-12 gap-4 rounded-t-xl px-4 py-3 text-sm font-medium md:grid">
                 <div className="col-span-6">Product</div>
                 <div className="col-span-2 text-center">Price</div>
                 <div className="col-span-2 text-center">Quantity</div>
@@ -190,32 +196,30 @@ function CartContent() {
                 {cartItems.map((item) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-12 gap-4 p-4 bg-card rounded-xl border border-border items-center group"
+                    className="bg-card border-border group grid grid-cols-12 items-center gap-4 rounded-xl border p-4"
                   >
                     {/* Product Info */}
-                    <div className="col-span-12 md:col-span-6 flex gap-4">
+                    <div className="col-span-12 flex gap-4 md:col-span-6">
                       <Link href={`/product/${item.id}`} className="flex-shrink-0">
-                        <div className="w-24 h-24 bg-muted rounded-lg overflow-hidden">
+                        <div className="bg-muted h-24 w-24 overflow-hidden rounded-lg">
                           <img
                             src={item.image}
                             alt={item.name}
-                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
                           />
                         </div>
                       </Link>
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <Link
                           href={`/product/${item.id}`}
-                          className="font-medium text-foreground hover:text-primary line-clamp-2"
+                          className="text-foreground hover:text-primary line-clamp-2 font-medium"
                         >
                           {item.name}
                         </Link>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          In Stock
-                        </p>
+                        <p className="text-muted-foreground mt-1 text-sm">In Stock</p>
                         <button
                           onClick={() => removeFromCart(item.id)}
-                          className="text-sm text-muted-foreground hover:text-destructive transition-colors mt-2 flex items-center gap-1 md:hidden"
+                          className="text-muted-foreground hover:text-destructive mt-2 flex items-center gap-1 text-sm transition-colors md:hidden"
                         >
                           <Trash2 className="h-3 w-3" />
                           Remove
@@ -224,24 +228,28 @@ function CartContent() {
                     </div>
 
                     {/* Price */}
-                    <div className="col-span-4 md:col-span-2 text-center">
-                      <span className="md:hidden text-sm text-muted-foreground block mb-1">Price:</span>
-                      <span className="font-semibold text-foreground">${item.price.toFixed(2)}</span>
+                    <div className="col-span-4 text-center md:col-span-2">
+                      <span className="text-muted-foreground mb-1 block text-sm md:hidden">
+                        Price:
+                      </span>
+                      <span className="text-foreground font-semibold">
+                        ${item.price.toFixed(2)}
+                      </span>
                     </div>
 
                     {/* Quantity */}
-                    <div className="col-span-4 md:col-span-2 flex justify-center">
-                      <div className="flex items-center border border-border rounded-lg">
+                    <div className="col-span-4 flex justify-center md:col-span-2">
+                      <div className="border-border flex items-center rounded-lg border">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="p-2 hover:bg-muted transition-colors"
+                          className="hover:bg-muted p-2 transition-colors"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
                         <span className="w-10 text-center font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="p-2 hover:bg-muted transition-colors"
+                          className="hover:bg-muted p-2 transition-colors"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -249,13 +257,13 @@ function CartContent() {
                     </div>
 
                     {/* Total & Remove */}
-                    <div className="col-span-4 md:col-span-2 flex items-center justify-end gap-3">
-                      <span className="font-bold text-primary">
+                    <div className="col-span-4 flex items-center justify-end gap-3 md:col-span-2">
+                      <span className="text-primary font-bold">
                         ${(item.price * item.quantity).toFixed(2)}
                       </span>
                       <button
                         onClick={() => removeFromCart(item.id)}
-                        className="hidden md:flex p-2 text-muted-foreground hover:text-destructive hover:bg-muted rounded-lg transition-colors"
+                        className="text-muted-foreground hover:text-destructive hover:bg-muted hidden rounded-lg p-2 transition-colors md:flex"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -265,10 +273,10 @@ function CartContent() {
               </div>
 
               {/* Continue Shopping */}
-              <div className="flex justify-between items-center pt-4">
+              <div className="flex items-center justify-between pt-4">
                 <Link href="/shop">
                   <Button variant="outline">
-                    <ArrowRight className="h-4 w-4 mr-2 rotate-180" />
+                    <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
                     Continue Shopping
                   </Button>
                 </Link>
@@ -277,18 +285,18 @@ function CartContent() {
 
             {/* Order Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-card rounded-2xl border border-border p-6 sticky top-4 space-y-6">
-                <h2 className="text-xl font-bold text-foreground">Order Summary</h2>
+              <div className="bg-card border-border sticky top-4 space-y-6 rounded-2xl border p-6">
+                <h2 className="text-foreground text-xl font-bold">Order Summary</h2>
 
                 {/* Coupon Code */}
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <label className="text-foreground flex items-center gap-2 text-sm font-medium">
                     <Tag className="h-4 w-4" />
                     Coupon Code
                   </label>
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-3 bg-success/10 border border-success/20 rounded-lg">
-                      <span className="text-sm font-medium text-success">
+                    <div className="bg-success/10 border-success/20 flex items-center justify-between rounded-lg border p-3">
+                      <span className="text-success text-sm font-medium">
                         "{appliedCoupon}" applied (-10%)
                       </span>
                       <button
@@ -306,72 +314,68 @@ function CartContent() {
                         onChange={(e) => setCouponCode(e.target.value)}
                         className="flex-1"
                       />
-                      <Button
-                        variant="outline"
-                        onClick={handleApplyCoupon}
-                        disabled={!couponCode}
-                      >
+                      <Button variant="outline" onClick={handleApplyCoupon} disabled={!couponCode}>
                         Apply
                       </Button>
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">Try "SAVE10" for 10% off</p>
+                  <p className="text-muted-foreground text-xs">Try "SAVE10" for 10% off</p>
                 </div>
 
                 {/* Price Breakdown */}
-                <div className="space-y-3 pt-4 border-t border-border">
+                <div className="border-border space-y-3 border-t pt-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-medium text-foreground">${cartTotal.toFixed(2)}</span>
+                    <span className="text-foreground font-medium">${cartTotal.toFixed(2)}</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-success">Discount</span>
-                      <span className="font-medium text-success">-${discount.toFixed(2)}</span>
+                      <span className="text-success font-medium">-${discount.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
                     {shipping === 0 ? (
-                      <span className="font-medium text-success">FREE</span>
+                      <span className="text-success font-medium">FREE</span>
                     ) : (
-                      <span className="font-medium text-foreground">${shipping.toFixed(2)}</span>
+                      <span className="text-foreground font-medium">${shipping.toFixed(2)}</span>
                     )}
                   </div>
-                  <div className="flex justify-between pt-3 border-t border-border">
-                    <span className="text-lg font-bold text-foreground">Total</span>
-                    <span className="text-lg font-bold text-primary">${total.toFixed(2)}</span>
+                  <div className="border-border flex justify-between border-t pt-3">
+                    <span className="text-foreground text-lg font-bold">Total</span>
+                    <span className="text-primary text-lg font-bold">${total.toFixed(2)}</span>
                   </div>
                 </div>
 
                 {/* Checkout Button */}
                 <Link href="/checkout" className="block">
-                  <Button className="w-full py-6 text-base bg-primary hover:bg-primary-hover">
-                    <CreditCard className="h-5 w-5 mr-2" />
+                  <Button className="bg-primary hover:bg-primary-hover w-full py-6 text-base">
+                    <CreditCard className="mr-2 h-5 w-5" />
                     Proceed to Checkout
                   </Button>
                 </Link>
 
                 {/* Trust Badges */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <span className="text-xs text-muted-foreground">Secure Payment</span>
+                  <div className="bg-muted/50 flex items-center gap-2 rounded-lg p-3">
+                    <Shield className="text-primary h-5 w-5" />
+                    <span className="text-muted-foreground text-xs">Secure Payment</span>
                   </div>
-                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                    <Lock className="h-5 w-5 text-primary" />
-                    <span className="text-xs text-muted-foreground">SSL Encrypted</span>
+                  <div className="bg-muted/50 flex items-center gap-2 rounded-lg p-3">
+                    <Lock className="text-primary h-5 w-5" />
+                    <span className="text-muted-foreground text-xs">SSL Encrypted</span>
                   </div>
                 </div>
 
                 {/* Payment Methods */}
-                <div className="pt-4 border-t border-border">
-                  <p className="text-xs text-muted-foreground mb-3">We accept</p>
+                <div className="border-border border-t pt-4">
+                  <p className="text-muted-foreground mb-3 text-xs">We accept</p>
                   <div className="flex gap-2">
                     {['Visa', 'Mastercard', 'Amex', 'PayPal'].map((method) => (
                       <div
                         key={method}
-                        className="flex-1 py-2 bg-muted/50 rounded text-center text-xs font-medium text-muted-foreground"
+                        className="bg-muted/50 text-muted-foreground flex-1 rounded py-2 text-center text-xs font-medium"
                       >
                         {method}
                       </div>

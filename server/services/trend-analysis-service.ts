@@ -58,16 +58,21 @@ export class TrendAnalysisService {
         const batch = validData.slice(i, i + BATCH_PROCESSING.TREND_ANALYSIS);
 
         // Process batch in parallel
-        const results = await Promise.allSettled(
-          batch.map((data) =>
-            this.analyzeTrendFromData(
-              data.productId,
-              data.retailerId,
-              data.prices,
-              analysisPeriodDays
-            )
-          )
-        );
+        const results = batch.map((data) => {
+          try {
+            return {
+              status: 'fulfilled' as const,
+              value: this.analyzeTrendFromData(
+                data.productId,
+                data.retailerId,
+                data.prices,
+                analysisPeriodDays
+              ),
+            };
+          } catch (error) {
+            return { status: 'rejected' as const, reason: error };
+          }
+        });
 
         // Collect successful results
         for (let j = 0; j < results.length; j++) {
@@ -115,12 +120,12 @@ export class TrendAnalysisService {
    * Analyze trend from pre-fetched price data (no DB query needed)
    * Returns trend values ready for batch insert
    */
-  private async analyzeTrendFromData(
+  private analyzeTrendFromData(
     productId: number,
     retailerId: number,
     prices: Array<{ price: number; timestamp: string }>,
     analysisPeriodDays: number
-  ): Promise<{
+  ): {
     productId: number;
     retailerId: number;
     trendDirection: string;
@@ -131,7 +136,7 @@ export class TrendAnalysisService {
     analysisPeriodDays: number;
     lastAnalyzedAt: Date;
     updatedAt: Date;
-  } | null> {
+  } | null {
     try {
       // Convert to data points for regression
       const dataPoints = prices.map((p, index) => ({

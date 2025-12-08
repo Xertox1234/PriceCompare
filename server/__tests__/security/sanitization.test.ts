@@ -79,14 +79,7 @@ describe('Sanitization Module', () => {
       });
 
       test('should strip all event handlers', () => {
-        const handlers = [
-          'onmouseover',
-          'onmouseout',
-          'onfocus',
-          'onblur',
-          'onchange',
-          'onsubmit',
-        ];
+        const handlers = ['onmouseover', 'onmouseout', 'onfocus', 'onblur', 'onchange', 'onsubmit'];
 
         handlers.forEach((handler) => {
           const malicious = `<div ${handler}="alert(1)">Test</div>`;
@@ -417,11 +410,7 @@ describe('Sanitization Module', () => {
 
     test('should handle arrays within objects', () => {
       const input = {
-        items: [
-          '<b>Item 1</b>',
-          '<i>Item 2</i>',
-          { nested: '<script>XSS</script>Value' },
-        ],
+        items: ['<b>Item 1</b>', '<i>Item 2</i>', { nested: '<script>XSS</script>Value' }],
       };
       const result = sanitizeObject(input, SanitizationContext.PLAIN_TEXT);
       expect(result.items[0]).toBe('Item 1');
@@ -780,7 +769,9 @@ describe('Sanitization Module', () => {
 
     test('should handle null and undefined inputs', () => {
       expect(sanitizeString(null as unknown as string, SanitizationContext.PLAIN_TEXT)).toBe('');
-      expect(sanitizeString(undefined as unknown as string, SanitizationContext.PLAIN_TEXT)).toBe('');
+      expect(sanitizeString(undefined as unknown as string, SanitizationContext.PLAIN_TEXT)).toBe(
+        ''
+      );
     });
 
     test('should handle non-string inputs', () => {
@@ -833,30 +824,27 @@ describe('Sanitization Module', () => {
 
   describe('Individual XSS Test Cases', () => {
     // Test each case from XSS_TEST_CASES individually for detailed coverage
-    test.each(XSS_TEST_CASES)(
-      'should sanitize XSS attempt: %s',
-      (xssAttempt) => {
-        const result = sanitizeString(xssAttempt, SanitizationContext.PLAIN_TEXT);
+    test.each(XSS_TEST_CASES)('should sanitize XSS attempt: %s', (xssAttempt) => {
+      const result = sanitizeString(xssAttempt, SanitizationContext.PLAIN_TEXT);
 
-        // Check that dangerous patterns are removed
-        expect(result).not.toMatch(/<script/i);
-        expect(result).not.toMatch(/javascript:/i);
-        expect(result).not.toMatch(/on\w+\s*=/i); // Event handlers
-        expect(result).not.toMatch(/<iframe/i);
-        expect(result).not.toMatch(/<object/i);
-        expect(result).not.toMatch(/<embed/i);
-      }
-    );
+      // Check that dangerous patterns are removed
+      expect(result).not.toMatch(/<script/i);
+      expect(result).not.toMatch(/javascript:/i);
+      expect(result).not.toMatch(/on\w+\s*=/i); // Event handlers
+      expect(result).not.toMatch(/<iframe/i);
+      expect(result).not.toMatch(/<object/i);
+      expect(result).not.toMatch(/<embed/i);
+    });
   });
 
   describe('Performance Considerations', () => {
     test('should handle batch sanitization efficiently', () => {
-      const items = Array(100).fill(0).map((_, i) =>
-        `<p>Item ${i} with <script>XSS</script></p>`
-      );
+      const items = Array(100)
+        .fill(0)
+        .map((_, i) => `<p>Item ${i} with <script>XSS</script></p>`);
 
       const startTime = Date.now();
-      items.forEach(item => sanitizeString(item, SanitizationContext.PLAIN_TEXT));
+      items.forEach((item) => sanitizeString(item, SanitizationContext.PLAIN_TEXT));
       const endTime = Date.now();
 
       // Should complete in reasonable time (< 1 second for 100 items)
@@ -865,14 +853,16 @@ describe('Sanitization Module', () => {
 
     test('should handle large objects efficiently', () => {
       const largeObject = {
-        items: Array(50).fill(0).map((_, i) => ({
-          id: i,
-          title: `<b>Item ${i}</b>`,
-          description: `<p>Description with <script>XSS</script></p>`,
-          nested: {
-            value: `<i>Nested ${i}</i>`,
-          },
-        })),
+        items: Array(50)
+          .fill(0)
+          .map((_, i) => ({
+            id: i,
+            title: `<b>Item ${i}</b>`,
+            description: `<p>Description with <script>XSS</script></p>`,
+            nested: {
+              value: `<i>Nested ${i}</i>`,
+            },
+          })),
       };
 
       const startTime = Date.now();
@@ -945,7 +935,8 @@ describe('Sanitization Module', () => {
     test('should handle comment moderation workflow', () => {
       const userComment = {
         username: 'User123',
-        content: '<p>Check out this <a href="https://example.com">link</a>!</p><script>steal_cookies()</script>',
+        content:
+          '<p>Check out this <a href="https://example.com">link</a>!</p><script>steal_cookies()</script>',
         email: 'user@example.com',
       };
 
@@ -1002,7 +993,7 @@ describe('Sanitization Module', () => {
       };
 
       const sanitized = {
-        products: apiResponse.products.map(p => ({
+        products: apiResponse.products.map((p) => ({
           id: p.id,
           name: sanitizeString(p.name, SanitizationContext.PLAIN_TEXT),
           description: sanitizeString(p.description, SanitizationContext.RICH_TEXT),
@@ -1046,7 +1037,8 @@ describe('Sanitization Module', () => {
       });
 
       test('should block polyglot XSS', () => {
-        const polyglot = 'javascript:/*--></title></style></textarea></script></xmp><svg/onload=\'+/"/+/onmouseover=1/+/[*/[]/+alert(1)//\'>';
+        const polyglot =
+          "javascript:/*--></title></style></textarea></script></xmp><svg/onload='+/\"/+/onmouseover=1/+/[*/[]/+alert(1)//'>";
         const result = sanitizeString(polyglot, SanitizationContext.PLAIN_TEXT);
         // PLAIN_TEXT context strips tags but may keep text like "javascript:"
         // The dangerous part is that tags are stripped
@@ -1057,7 +1049,8 @@ describe('Sanitization Module', () => {
       });
 
       test('should block base64 encoded XSS', () => {
-        const base64 = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" onerror="alert(1)">';
+        const base64 =
+          '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" onerror="alert(1)">';
         const result = sanitizeString(base64, SanitizationContext.RICH_TEXT);
         expect(result).not.toContain('onerror');
       });
@@ -1109,7 +1102,8 @@ describe('Sanitization Module', () => {
         expect(result).toContain('rel="noopener noreferrer"');
 
         // Test that script in mailto URL is encoded/escaped
-        const maliciousMailto = '<a href="mailto:test@test.com?subject=<script>alert(1)</script>">Email</a>';
+        const maliciousMailto =
+          '<a href="mailto:test@test.com?subject=<script>alert(1)</script>">Email</a>';
         const maliciousResult = sanitizeString(maliciousMailto, SanitizationContext.RICH_TEXT);
         // DOMPurify will encode or keep the script tag in the href attribute
         // The important thing is it doesn't execute
@@ -1187,14 +1181,19 @@ describe('Sanitization Module', () => {
     });
 
     test('should handle mixed content at scale', () => {
-      const mixedContent = Array(500).fill(0).map((_, i) => `
+      const mixedContent = Array(500)
+        .fill(0)
+        .map(
+          (_, i) => `
         <div>
           <h2>Section ${i}</h2>
           <p>Text ${i}</p>
           <script>alert(${i})</script>
           <a href="http://example.com/${i}">Link ${i}</a>
         </div>
-      `).join('');
+      `
+        )
+        .join('');
 
       const startTime = Date.now();
       const result = sanitizeString(mixedContent, SanitizationContext.RICH_TEXT);
@@ -1207,13 +1206,13 @@ describe('Sanitization Module', () => {
     });
 
     test('should handle concurrent sanitization calls', async () => {
-      const testCases = Array(100).fill(0).map((_, i) =>
-        `<p>Item ${i} <script>alert(${i})</script></p>`
-      );
+      const testCases = Array(100)
+        .fill(0)
+        .map((_, i) => `<p>Item ${i} <script>alert(${i})</script></p>`);
 
       const startTime = Date.now();
       const results = await Promise.all(
-        testCases.map(async (item) => sanitizeString(item, SanitizationContext.PLAIN_TEXT))
+        testCases.map((item) => sanitizeString(item, SanitizationContext.PLAIN_TEXT))
       );
       const endTime = Date.now();
 
@@ -1229,7 +1228,9 @@ describe('Sanitization Module', () => {
     test('should handle objects with function properties', () => {
       const withFunction = {
         name: '<script>XSS</script>Test',
-        fn: function() { return 'test'; },
+        fn: function () {
+          return 'test';
+        },
         arrow: () => 'arrow',
       };
 

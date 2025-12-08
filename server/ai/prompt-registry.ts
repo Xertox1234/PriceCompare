@@ -56,14 +56,14 @@ export const promptRegistry: PromptRegistry = {
           tags: ['legacy', 'deprecated'],
           temperature: 0.3,
           maxTokens: 200,
-          model: 'gpt-4o-mini'
+          model: 'gpt-4o-mini',
         },
         performance: {
           avgLatency: 1500,
           avgQualityScore: 0.65,
           totalExecutions: 1200,
-          successRate: 0.92
-        }
+          successRate: 0.92,
+        },
       },
       'v2.0.0': {
         version: 'v2.0.0',
@@ -135,10 +135,10 @@ noise cancelling headphones wireless`,
           tags: ['production', 'active', 'improved'],
           temperature: 0.3,
           maxTokens: 200,
-          model: 'gpt-4o-mini'
-        }
-      }
-    }
+          model: 'gpt-4o-mini',
+        },
+      },
+    },
   },
 
   'product-trend-analysis': {
@@ -146,7 +146,8 @@ noise cancelling headphones wireless`,
     versions: {
       'v1.0.0': {
         version: 'v1.0.0',
-        systemPrompt: 'You are an expert e-commerce analyst specializing in product trend analysis and categorization.',
+        systemPrompt:
+          'You are an expert e-commerce analyst specializing in product trend analysis and categorization.',
         userPromptTemplate: `Analyze these trending search queries and product mentions for an e-commerce price comparison platform.`,
         metadata: {
           author: 'original',
@@ -155,14 +156,14 @@ noise cancelling headphones wireless`,
           tags: ['legacy', 'deprecated'],
           temperature: 0.1,
           maxTokens: 2000,
-          model: 'gpt-4o-mini'
+          model: 'gpt-4o-mini',
         },
         performance: {
           avgLatency: 2800,
           avgQualityScore: 0.68,
           totalExecutions: 450,
-          successRate: 0.85
-        }
+          successRate: 0.85,
+        },
       },
       'v2.0.0': {
         version: 'v2.0.0',
@@ -217,10 +218,10 @@ TRENDING ITEMS TO ANALYZE:
           tags: ['production', 'active', 'improved'],
           temperature: 0.1,
           maxTokens: 2000,
-          model: 'gpt-4o-mini'
-        }
-      }
-    }
+          model: 'gpt-4o-mini',
+        },
+      },
+    },
   },
 
   'search-suggestions': {
@@ -228,7 +229,8 @@ TRENDING ITEMS TO ANALYZE:
     versions: {
       'v1.0.0': {
         version: 'v1.0.0',
-        systemPrompt: 'You are a helpful assistant that suggests product search queries. Return only product names or brands, one per line, no explanations.',
+        systemPrompt:
+          'You are a helpful assistant that suggests product search queries. Return only product names or brands, one per line, no explanations.',
         userPromptTemplate: 'Suggest 3 related product search queries for: "{{query}}"',
         metadata: {
           author: 'original',
@@ -237,14 +239,14 @@ TRENDING ITEMS TO ANALYZE:
           tags: ['legacy', 'deprecated'],
           temperature: 0.7,
           maxTokens: 100,
-          model: 'gpt-4o-mini'
+          model: 'gpt-4o-mini',
         },
         performance: {
           avgLatency: 800,
-          avgQualityScore: 0.60,
+          avgQualityScore: 0.6,
           totalExecutions: 3200,
-          successRate: 0.95
-        }
+          successRate: 0.95,
+        },
       },
       'v2.0.0': {
         version: 'v2.0.0',
@@ -298,11 +300,11 @@ Return only 3 product names, one per line, no formatting or explanations.`,
           tags: ['production', 'active', 'improved'],
           temperature: 0.7,
           maxTokens: 100,
-          model: 'gpt-4o-mini'
-        }
-      }
-    }
-  }
+          model: 'gpt-4o-mini',
+        },
+      },
+    },
+  },
 };
 
 /**
@@ -351,9 +353,12 @@ export function renderTemplate(template: string, variables: Record<string, unkno
   }
 
   // Handle conditional blocks {{#if key}}...{{/if}}
-  rendered = rendered.replace(/{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g, (_match, key: string, content: string) => {
-    return variables[key] ? content : '';
-  });
+  rendered = rendered.replace(
+    /{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g,
+    (_match, key: string, content: string) => {
+      return variables[key] ? content : '';
+    }
+  );
 
   return rendered;
 }
@@ -406,7 +411,7 @@ export function comparePromptVersions(
     comparison: {
       latencyDiff: (v2.performance.avgLatency || 0) - (v1.performance.avgLatency || 0),
       qualityDiff: (v2.performance.avgQualityScore || 0) - (v1.performance.avgQualityScore || 0),
-      successRateDiff: (v2.performance.successRate || 0) - (v1.performance.successRate || 0)
-    }
+      successRateDiff: (v2.performance.successRate || 0) - (v1.performance.successRate || 0),
+    },
   };
 }

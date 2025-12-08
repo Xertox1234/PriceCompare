@@ -11,6 +11,7 @@ The PriceCompare codebase contains a complete Discourse-inspired forum system (1
 ## Current State
 
 ### Unused Forum Tables (11 to DELETE)
+
 1. `forumCategories` - Forum category organization
 2. `postLikes` - Like/reaction system
 3. `postMentions` - User mentions in posts
@@ -24,10 +25,12 @@ The PriceCompare codebase contains a complete Discourse-inspired forum system (1
 11. Foreign key references in `notifications`, `dealSpottings`, `priceAlerts`
 
 ### Tables to KEEP and Rename (2)
+
 1. `forumTopics` → `productDiscussions` (has `productId` foreign key)
 2. `forumPosts` → `discussionReplies` (replies to discussions)
 
 ### Current Usage
+
 - ❌ No routes implemented
 - ❌ No services use forum tables
 - ❌ No client components
@@ -121,6 +124,7 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
    - `userBadges`
 
 2. **Rename tables**:
+
    ```typescript
    // OLD
    export const forumTopics = pgTable("forum_topics", { ... });
@@ -132,6 +136,7 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
    ```
 
 3. **Update `users` table** (remove forum fields):
+
    ```typescript
    // Remove these fields:
    trustLevel: integer("trust_level").default(0),
@@ -149,6 +154,7 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
    ```
 
 4. **Update `notifications` table**:
+
    ```typescript
    // Remove:
    relatedPostId: integer("related_post_id").references(() => forumPosts.id, { onDelete: 'set null' }),
@@ -159,6 +165,7 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
    ```
 
 5. **Update `dealSpottings` table**:
+
    ```typescript
    // Option A: Make nullable
    forumPostId: integer("forum_post_id").references(() => forumPosts.id, { onDelete: 'set null' }),
@@ -168,6 +175,7 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
    ```
 
 6. **Update type exports**:
+
    ```typescript
    // Remove:
    export type ForumCategory = typeof forumCategories.$inferSelect;
@@ -194,9 +202,11 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
    - etc.
 
 2. **Check for `notifyForum` parameters** in existing methods:
+
    ```bash
    grep -rn "notifyForum" server/storage.ts
    ```
+
    Remove or replace with `notifyDiscussion` if keeping product discussions
 
 3. **Add product discussion methods** (FUTURE - when implementing feature):
@@ -215,6 +225,7 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
 - No cleanup needed unless adding product discussion endpoints later
 
 **Future Product Discussion Routes** (when implementing):
+
 ```typescript
 // GET /api/products/:productId/discussions - List discussions for a product
 // POST /api/products/:productId/discussions - Create discussion (auth required)
@@ -226,10 +237,12 @@ DROP TABLE IF EXISTS forum_categories CASCADE;
 ### Phase 5: Client Cleanup (LOW PRIORITY)
 
 **Files to check**:
+
 - `client/src/hooks/use-community.ts` - Minimal usage, likely no changes needed
 - Search for any forum-related components: `grep -r "forum\|Forum" client/src/`
 
 **Future Product Discussion UI** (when implementing):
+
 - Product page discussion tab
 - Simple comment list component
 - Reply form component

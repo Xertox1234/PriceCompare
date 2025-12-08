@@ -31,6 +31,7 @@ convert -size 128x128 xc:#3b82f6 icon128.png
 ## Design Suggestions
 
 Consider including elements like:
+
 - Price tag icon
 - Chart/graph symbol
 - Dollar sign

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from 'react';
 
 export interface ComparisonProduct {
   id: number;
@@ -73,9 +73,7 @@ export function useProductComparison() {
       return null;
     }
 
-    const prices = products
-      .map((p) => p.currentPrice)
-      .filter((p): p is number => p !== undefined);
+    const prices = products.map((p) => p.currentPrice).filter((p): p is number => p !== undefined);
 
     if (prices.length === 0) return null;
 

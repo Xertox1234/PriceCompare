@@ -30,7 +30,9 @@ test.describe('Product Discovery & Price Tracking', () => {
       await page.waitForLoadState('networkidle');
 
       // Find search input
-      const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]').first();
+      const searchInput = page
+        .locator('input[type="search"], input[placeholder*="Search"]')
+        .first();
       await searchInput.fill('Laptop');
 
       // Submit search
@@ -62,7 +64,9 @@ test.describe('Product Discovery & Price Tracking', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]').first();
+      const searchInput = page
+        .locator('input[type="search"], input[placeholder*="Search"]')
+        .first();
       await searchInput.fill('NonExistentProductXYZ123');
       await searchInput.press('Enter');
 
@@ -79,7 +83,10 @@ test.describe('Product Discovery & Price Tracking', () => {
       await page.waitForLoadState('networkidle');
 
       // Check for pagination controls (if more than 1 page of products)
-      const paginationExists = await page.locator('[data-testid="pagination"], .pagination, button:has-text("Next")').count() > 0;
+      const paginationExists =
+        (await page
+          .locator('[data-testid="pagination"], .pagination, button:has-text("Next")')
+          .count()) > 0;
 
       if (paginationExists) {
         // Click next page
@@ -194,9 +201,7 @@ test.describe('Product Discovery & Price Tracking', () => {
       });
 
       // Should show chart with data
-      await expect(
-        page.locator('[data-testid="price-chart"], .recharts-wrapper')
-      ).toBeVisible();
+      await expect(page.locator('[data-testid="price-chart"], .recharts-wrapper')).toBeVisible();
     });
 
     test('should view 90-day price history', async ({ page }) => {
@@ -211,9 +216,7 @@ test.describe('Product Discovery & Price Tracking', () => {
       await waitForApiResponse(page, /\/api\/products\/\d+\/price-history/, 200);
 
       // Should show updated chart
-      await expect(
-        page.locator('[data-testid="price-chart"], .recharts-wrapper')
-      ).toBeVisible();
+      await expect(page.locator('[data-testid="price-chart"], .recharts-wrapper')).toBeVisible();
     });
 
     test('should display lowest and highest prices', async ({ page }) => {
@@ -245,15 +248,15 @@ test.describe('Product Discovery & Price Tracking', () => {
       await page.click('[data-testid="product-card"], .product-card');
 
       // Add to watchlist
-      await page.click('button:has-text("Watch"), button:has-text("Add to Watchlist"), [data-testid="add-to-watchlist"]');
+      await page.click(
+        'button:has-text("Watch"), button:has-text("Add to Watchlist"), [data-testid="add-to-watchlist"]'
+      );
 
       // Wait for API call
       await waitForApiResponse(page, /\/api\/watch/, 201);
 
       // Should show success feedback
-      await expect(
-        page.locator('text=/added.*watchlist|watching/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/added.*watchlist|watching/i')).toBeVisible();
     });
 
     test('should remove product from watchlist', async ({ page }) => {
@@ -275,13 +278,13 @@ test.describe('Product Discovery & Price Tracking', () => {
       await waitForApiResponse(page, /\/api\/watch/, 201);
 
       // Remove from watchlist
-      await page.click('button:has-text("Unwatch"), button:has-text("Remove"), [data-testid="remove-from-watchlist"]');
+      await page.click(
+        'button:has-text("Unwatch"), button:has-text("Remove"), [data-testid="remove-from-watchlist"]'
+      );
       await waitForApiResponse(page, /\/api\/watch/, 200);
 
       // Should show removed feedback
-      await expect(
-        page.locator('text=/removed.*watchlist|no longer.*watching/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/removed.*watchlist|no longer.*watching/i')).toBeVisible();
     });
 
     test('should require authentication to add to watchlist', async ({ page }) => {
@@ -311,7 +314,9 @@ test.describe('Product Discovery & Price Tracking', () => {
       await waitForApiResponse(page, /\/api\/products\/\d+/, 200);
 
       // Should show multiple offers
-      const offerCount = await page.locator('[data-testid="offer-card"], .offer-card, .retailer-offer').count();
+      const offerCount = await page
+        .locator('[data-testid="offer-card"], .offer-card, .retailer-offer')
+        .count();
       expect(offerCount).toBeGreaterThan(0);
 
       // Should show price differences
@@ -326,9 +331,7 @@ test.describe('Product Discovery & Price Tracking', () => {
       await waitForApiResponse(page, /\/api\/products\/\d+/, 200);
 
       // Should indicate best/lowest price
-      await expect(
-        page.locator('text=/best.*price|lowest.*price|best.*deal/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/best.*price|lowest.*price|best.*deal/i')).toBeVisible();
     });
   });
 });
@@ -338,41 +341,53 @@ test.describe('Product Discovery & Price Tracking', () => {
  */
 async function seedTestData() {
   // Create test retailer
-  const [retailer1] = await db.insert(retailers).values({
-    name: 'Test Electronics Store',
-    logo: 'https://via.placeholder.com/150',
-  }).returning();
+  const [retailer1] = await db
+    .insert(retailers)
+    .values({
+      name: 'Test Electronics Store',
+      logo: 'https://via.placeholder.com/150',
+    })
+    .returning();
 
-  const [retailer2] = await db.insert(retailers).values({
-    name: 'Budget Tech Shop',
-    logo: 'https://via.placeholder.com/150',
-  }).returning();
+  const [retailer2] = await db
+    .insert(retailers)
+    .values({
+      name: 'Budget Tech Shop',
+      logo: 'https://via.placeholder.com/150',
+    })
+    .returning();
 
   // Create test product
-  const [product] = await db.insert(products).values({
-    name: 'Test Gaming Laptop',
-    description: 'High-performance gaming laptop with RTX graphics',
-    image: 'https://via.placeholder.com/400',
-    category: 'Electronics',
-  }).returning();
+  const [product] = await db
+    .insert(products)
+    .values({
+      name: 'Test Gaming Laptop',
+      description: 'High-performance gaming laptop with RTX graphics',
+      image: 'https://via.placeholder.com/400',
+      category: 'Electronics',
+    })
+    .returning();
 
   // Create offers for the product
-  const offers = await db.insert(productOffers).values([
-    {
-      productId: product.id,
-      retailerId: retailer1.id,
-      price: '1299.99',
-      productUrl: 'https://test-electronics.example.com/laptop',
-      availability: 'in_stock',
-    },
-    {
-      productId: product.id,
-      retailerId: retailer2.id,
-      price: '1249.99',
-      productUrl: 'https://budget-tech.example.com/laptop',
-      availability: 'in_stock',
-    },
-  ]).returning();
+  const offers = await db
+    .insert(productOffers)
+    .values([
+      {
+        productId: product.id,
+        retailerId: retailer1.id,
+        price: '1299.99',
+        productUrl: 'https://test-electronics.example.com/laptop',
+        availability: 'in_stock',
+      },
+      {
+        productId: product.id,
+        retailerId: retailer2.id,
+        price: '1249.99',
+        productUrl: 'https://budget-tech.example.com/laptop',
+        availability: 'in_stock',
+      },
+    ])
+    .returning();
 
   // Create price history
   const now = new Date();

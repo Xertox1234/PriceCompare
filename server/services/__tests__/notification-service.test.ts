@@ -232,12 +232,14 @@ describe.sequential('Notification Service', () => {
         const currCreatedAt = notifs[i].createdAt;
         if (!prevCreatedAt || !currCreatedAt) continue;
 
-        const prevTime = prevCreatedAt instanceof Date
-          ? prevCreatedAt.getTime()
-          : new Date(prevCreatedAt).getTime();
-        const currTime = currCreatedAt instanceof Date
-          ? currCreatedAt.getTime()
-          : new Date(currCreatedAt).getTime();
+        const prevTime =
+          prevCreatedAt instanceof Date
+            ? prevCreatedAt.getTime()
+            : new Date(prevCreatedAt).getTime();
+        const currTime =
+          currCreatedAt instanceof Date
+            ? currCreatedAt.getTime()
+            : new Date(currCreatedAt).getTime();
         expect(prevTime).toBeGreaterThanOrEqual(currTime);
       }
     });
@@ -344,9 +346,7 @@ describe.sequential('Notification Service', () => {
       expect(count).toBe(2);
 
       const notifs = await getUserNotifications(testUserId);
-      const marked = notifs.filter((n) =>
-        [notificationIds[0], notificationIds[1]].includes(n.id)
-      );
+      const marked = notifs.filter((n) => [notificationIds[0], notificationIds[1]].includes(n.id));
       expect(marked.every((n) => n.isRead)).toBe(true);
     });
 

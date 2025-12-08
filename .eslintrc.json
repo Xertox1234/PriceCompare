@@ -36,20 +36,31 @@
     "@typescript-eslint/no-inferrable-types": "warn",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
+    // Non-null assertions bypass TypeScript safety - use type guards instead
+    // See docs/01_TYPESCRIPT_PATTERNS.md (Pattern 3: Test file type guards)
     "@typescript-eslint/no-non-null-assertion": "warn",
 
     // Async/Promise best practices - CRITICAL (prevents race conditions & unhandled errors)
     "@typescript-eslint/no-floating-promises": "error",
     "@typescript-eslint/no-misused-promises": "error",
+    // CRITICAL: Only await actual Promises (not void functions)
+    // Prevents await-thenable errors (awaiting non-Promise values causes compilation errors)
+    // Example: await shutdownWebSocket() where shutdownWebSocket(): void (not Promise<void>)
     "@typescript-eslint/await-thenable": "error",
+    // Warn about async functions without await - prevents unnecessary Promise overhead
+    // NOTE: Some warnings are acceptable (interface compliance in MemStorage - see storage.ts)
+    // Example: async function without await in test mocks, route handlers with only sync calls
     "@typescript-eslint/require-await": "warn",
 
     // Code quality
-    "@typescript-eslint/no-unused-vars": ["error", {
-      "argsIgnorePattern": "^_",
-      "varsIgnorePattern": "^_",
-      "caughtErrorsIgnorePattern": "^_"
-    }],
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
     "no-var": "error",
     "prefer-const": "error",
     "prefer-arrow-callback": "warn",
@@ -65,7 +76,14 @@
   },
   "overrides": [
     {
-      "files": ["**/__tests__/**/*.ts", "**/__tests__/**/*.tsx", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/test/setup.ts"],
+      "files": [
+        "**/__tests__/**/*.ts",
+        "**/__tests__/**/*.tsx",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/test/setup.ts"
+      ],
       "rules": {
         // Test files: Allow console for debugging
         "no-console": "off",

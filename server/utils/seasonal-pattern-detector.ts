@@ -48,13 +48,21 @@ export interface SeasonalAnalysis {
 }
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
-const DAY_NAMES = [
-  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
-];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
  * Determine which season a month belongs to
@@ -110,14 +118,14 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
   }
 
   // Convert to Date objects and extract prices
-  const dataWithDates = priceHistory.map(item => ({
+  const dataWithDates = priceHistory.map((item) => ({
     date: typeof item.recordedAt === 'string' ? new Date(item.recordedAt) : item.recordedAt,
     price: parseFloat(item.price),
   }));
 
   // Calculate monthly patterns
   const monthlyData: Map<number, number[]> = new Map();
-  dataWithDates.forEach(item => {
+  dataWithDates.forEach((item) => {
     const month = item.date.getMonth();
     if (!monthlyData.has(month)) {
       monthlyData.set(month, []);
@@ -148,7 +156,7 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
 
   // Calculate seasonal patterns
   const seasonalData: Map<string, number[]> = new Map();
-  dataWithDates.forEach(item => {
+  dataWithDates.forEach((item) => {
     const season = getSeasonForMonth(item.date.getMonth());
     if (!seasonalData.has(season)) {
       seasonalData.set(season, []);
@@ -162,8 +170,8 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
     }
   });
 
-  const seasonalPatterns: SeasonalPattern[] = Array.from(seasonalData.entries())
-    .map(([season, prices]) => {
+  const seasonalPatterns: SeasonalPattern[] = Array.from(seasonalData.entries()).map(
+    ([season, prices]) => {
       const sum = prices.reduce((acc, p) => acc + p, 0);
       const avg = sum / prices.length;
       return {
@@ -173,11 +181,12 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
         maxPrice: Math.max(...prices),
         dataPoints: prices.length,
       };
-    });
+    }
+  );
 
   // Calculate day of week patterns
   const dayOfWeekData: Map<number, number[]> = new Map();
-  dataWithDates.forEach(item => {
+  dataWithDates.forEach((item) => {
     const dayOfWeek = item.date.getDay();
     if (!dayOfWeekData.has(dayOfWeek)) {
       dayOfWeekData.set(dayOfWeek, []);
@@ -205,29 +214,27 @@ export function detectSeasonalPatterns(priceHistory: PriceData[]): SeasonalAnaly
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
 
   // Find best and worst months
-  const bestMonth = monthlyPatterns.length > 0
-    ? monthlyPatterns.reduce((min, curr) =>
-        curr.averagePrice < min.averagePrice ? curr : min
-      )
-    : null;
+  const bestMonth =
+    monthlyPatterns.length > 0
+      ? monthlyPatterns.reduce((min, curr) => (curr.averagePrice < min.averagePrice ? curr : min))
+      : null;
 
-  const worstMonth = monthlyPatterns.length > 0
-    ? monthlyPatterns.reduce((max, curr) =>
-        curr.averagePrice > max.averagePrice ? curr : max
-      )
-    : null;
+  const worstMonth =
+    monthlyPatterns.length > 0
+      ? monthlyPatterns.reduce((max, curr) => (curr.averagePrice > max.averagePrice ? curr : max))
+      : null;
 
   // Find best season
-  const bestSeason = seasonalPatterns.length > 0
-    ? seasonalPatterns.reduce((min, curr) =>
-        curr.averagePrice < min.averagePrice ? curr : min
-      )
-    : null;
+  const bestSeason =
+    seasonalPatterns.length > 0
+      ? seasonalPatterns.reduce((min, curr) => (curr.averagePrice < min.averagePrice ? curr : min))
+      : null;
 
   // Determine if there's a significant seasonal pattern
-  const overallAverage = dataWithDates.reduce((sum, item) => sum + item.price, 0) / dataWithDates.length;
-  const hasSignificantPattern = monthlyPatterns.some(pattern =>
-    Math.abs(pattern.averagePrice - overallAverage) > overallAverage * 0.1 // 10% deviation
+  const overallAverage =
+    dataWithDates.reduce((sum, item) => sum + item.price, 0) / dataWithDates.length;
+  const hasSignificantPattern = monthlyPatterns.some(
+    (pattern) => Math.abs(pattern.averagePrice - overallAverage) > overallAverage * 0.1 // 10% deviation
   );
 
   // Calculate confidence based on data distribution
@@ -413,7 +420,7 @@ export function getCurrentSeasonalAdvice(analysis: SeasonalAnalysis): string {
   }
 
   const currentMonth = new Date().getMonth();
-  const currentPattern = analysis.monthlyPatterns.find(p => p.month === currentMonth);
+  const currentPattern = analysis.monthlyPatterns.find((p) => p.month === currentMonth);
 
   if (!currentPattern || !analysis.bestMonthToBuy) {
     return 'Insufficient data for current month recommendation.';

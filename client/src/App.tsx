@@ -1,23 +1,23 @@
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { HelmetProvider } from "react-helmet-async";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "@/components/theme-provider";
-import { SharedNavigation } from "@/components/shared-navigation";
-import { RateLimitBanner } from "@/components/RateLimitBanner";
-import { NewFooter } from "@/components/new-footer";
-import { Suspense } from "react";
-import { PageLoadingFallback, ProductGridLoadingFallback } from "@/components/loading-spinner";
+import { Switch, Route } from 'wouter';
+import { queryClient } from './lib/queryClient';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { HelmetProvider } from 'react-helmet-async';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { ThemeProvider } from '@/components/theme-provider';
+import { SharedNavigation } from '@/components/shared-navigation';
+import { RateLimitBanner } from '@/components/RateLimitBanner';
+import { NewFooter } from '@/components/new-footer';
+import { Suspense } from 'react';
+import { PageLoadingFallback, ProductGridLoadingFallback } from '@/components/loading-spinner';
 
 // ============================================
 // Eager-loaded pages (critical path, needed immediately)
 // ============================================
-import HomeNew from "@/pages/home-new";
-import ForgotPassword from "@/pages/forgot-password";
-import ResetPassword from "@/pages/reset-password";
-import NotFound from "@/pages/not-found";
+import HomeNew from '@/pages/home-new';
+import ForgotPassword from '@/pages/forgot-password';
+import ResetPassword from '@/pages/reset-password';
+import NotFound from '@/pages/not-found';
 
 // ============================================
 // Lazy-loaded pages (loaded on demand)
@@ -38,13 +38,13 @@ import {
   LazyWishlistPage,
   LazyComparePage,
   LazyHomeLegacy,
-} from "@/components/lazy";
-import { ErrorBoundary, RouteErrorBoundary } from "@/components/error-boundary";
-import { useRealtimeNotifications } from "@/hooks/useSmartNotifications";
-import { ConnectionStatus } from "@/components/connection-status";
-import { useWebSocket } from "@/hooks/use-websocket";
-import { useWatchListUpdates } from "@/hooks/use-watchlist-updates";
-import { useNotificationUpdates } from "@/hooks/use-notification-updates";
+} from '@/components/lazy';
+import { ErrorBoundary, RouteErrorBoundary } from '@/components/error-boundary';
+import { useRealtimeNotifications } from '@/hooks/useSmartNotifications';
+import { ConnectionStatus } from '@/components/connection-status';
+import { useWebSocket } from '@/hooks/use-websocket';
+import { useWatchListUpdates } from '@/hooks/use-watchlist-updates';
+import { useNotificationUpdates } from '@/hooks/use-notification-updates';
 
 function Router() {
   return (
@@ -96,7 +96,7 @@ function Router() {
        * Wrapped in SharedNavigation + Footer
        * ============================================ */}
       <Route>
-        <div className="min-h-screen bg-background">
+        <div className="bg-background min-h-screen">
           <SharedNavigation />
           <RateLimitBanner />
           <main className="container mx-auto px-6 py-12">
@@ -232,7 +232,7 @@ function AppContent() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen">
         <Router />
         <Toaster />
         <ConnectionStatus />

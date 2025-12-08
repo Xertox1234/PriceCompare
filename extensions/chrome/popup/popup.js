@@ -74,9 +74,10 @@ async function loadRecentProducts() {
     // Show up to 5 recent products
     const recentProducts = products.slice(0, 5);
 
-    recentProductsEl.innerHTML = recentProducts.map(product => {
-      const timeAgo = getTimeAgo(new Date(product.viewedAt));
-      return `
+    recentProductsEl.innerHTML = recentProducts
+      .map((product) => {
+        const timeAgo = getTimeAgo(new Date(product.viewedAt));
+        return `
         <div class="recent-product" data-url="${product.url}">
           <div class="product-name">${escapeHtml(product.title)}</div>
           <div class="product-meta">
@@ -85,10 +86,11 @@ async function loadRecentProducts() {
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     // Add click handlers
-    document.querySelectorAll('.recent-product').forEach(el => {
+    document.querySelectorAll('.recent-product').forEach((el) => {
       el.addEventListener('click', () => {
         const url = el.getAttribute('data-url');
         chrome.tabs.create({ url });

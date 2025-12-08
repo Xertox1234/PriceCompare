@@ -24,7 +24,7 @@ export function WatchListManager() {
   const { toast } = useToast();
 
   const watchLists = watchListsData?.data || [];
-  const _selectedList = watchLists.find(list => list.id === selectedListId);
+  const _selectedList = watchLists.find((list) => list.id === selectedListId);
 
   // Auto-select first list if none selected
   if (!selectedListId && watchLists.length > 0 && !isLoading) {
@@ -42,7 +42,7 @@ export function WatchListManager() {
     if (selectedProducts.size === products.length) {
       setSelectedProducts(new Set());
     } else {
-      setSelectedProducts(new Set(products.map(p => p.id)));
+      setSelectedProducts(new Set(products.map((p) => p.id)));
     }
   };
 
@@ -82,7 +82,7 @@ export function WatchListManager() {
   if (isLoading) {
     return (
       <div className="container mx-auto py-8">
-        <Skeleton className="h-12 w-64 mb-6" />
+        <Skeleton className="mb-6 h-12 w-64" />
         <div className="grid gap-4">
           <Skeleton className="h-32" />
           <Skeleton className="h-32" />
@@ -93,18 +93,16 @@ export function WatchListManager() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Watch Lists</h1>
-          <p className="text-muted-foreground mt-2">
-            Organize and track your favorite products
-          </p>
+          <p className="text-muted-foreground mt-2">Organize and track your favorite products</p>
         </div>
         <div className="flex gap-2">
           <ImportExportButtons />
           <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             New List
           </Button>
         </div>
@@ -120,13 +118,16 @@ export function WatchListManager() {
           </CardHeader>
           <CardContent>
             <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="mr-2 h-4 w-4" />
               Create Your First List
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <Tabs value={selectedListId?.toString()} onValueChange={(val) => setSelectedListId(Number(val))}>
+        <Tabs
+          value={selectedListId?.toString()}
+          onValueChange={(val) => setSelectedListId(Number(val))}
+        >
           <div className="flex items-start gap-6">
             {/* Sidebar with watch lists */}
             <div className="w-80 shrink-0">
@@ -135,12 +136,12 @@ export function WatchListManager() {
                   <CardTitle className="text-lg">Your Lists</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <TabsList className="flex flex-col h-auto w-full gap-2">
+                  <TabsList className="flex h-auto w-full flex-col gap-2">
                     {watchLists.map((list) => (
                       <TabsTrigger
                         key={list.id}
                         value={list.id.toString()}
-                        className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                        className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground w-full justify-start"
                       >
                         <WatchListCard watchList={list} compact />
                       </TabsTrigger>
@@ -162,13 +163,15 @@ export function WatchListManager() {
                             {list.icon && <span>{list.icon}</span>}
                             {list.name}
                             {list.isDefault && (
-                              <span className="text-xs font-normal text-muted-foreground">(Default)</span>
+                              <span className="text-muted-foreground text-xs font-normal">
+                                (Default)
+                              </span>
                             )}
                           </CardTitle>
                           <CardDescription className="mt-2">
                             {list.description || 'No description'}
                           </CardDescription>
-                          <div className="flex gap-4 mt-3 text-sm text-muted-foreground">
+                          <div className="text-muted-foreground mt-3 flex gap-4 text-sm">
                             <span>{list.watchCount} products</span>
                             {list.highPriorityCount > 0 && (
                               <span>{list.highPriorityCount} high priority</span>
@@ -195,21 +198,21 @@ export function WatchListManager() {
                       )}
 
                       {productsLoading ? (
-                        <div className="space-y-4 mt-4">
+                        <div className="mt-4 space-y-4">
                           <Skeleton className="h-32" />
                           <Skeleton className="h-32" />
                           <Skeleton className="h-32" />
                         </div>
                       ) : products.length === 0 ? (
-                        <div className="text-center py-12">
-                          <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                          <h3 className="text-lg font-medium mb-2">No products in this list</h3>
-                          <p className="text-sm text-muted-foreground mb-4">
+                        <div className="py-12 text-center">
+                          <FolderOpen className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+                          <h3 className="mb-2 text-lg font-medium">No products in this list</h3>
+                          <p className="text-muted-foreground mb-4 text-sm">
                             Start watching products to add them to your lists
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-4 mt-4">
+                        <div className="mt-4 space-y-4">
                           {products.map((product) => (
                             <WatchListProductCard
                               key={product.id}
@@ -230,10 +233,7 @@ export function WatchListManager() {
         </Tabs>
       )}
 
-      <CreateWatchListDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-      />
+      <CreateWatchListDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
     </div>
   );
 }

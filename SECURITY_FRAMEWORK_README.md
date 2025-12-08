@@ -7,6 +7,7 @@
 ## 🎯 Overview
 
 This security framework prevents the recurring security issues found in audits by:
+
 1. **Automating detection** of security anti-patterns
 2. **Enforcing secure coding** through pre-commit hooks
 3. **Providing reusable utilities** for common security tasks
@@ -17,14 +18,18 @@ This security framework prevents the recurring security issues found in audits b
 ## 📂 Framework Components
 
 ### 1. Security Guidelines (`SECURITY_GUIDELINES.md`)
+
 Comprehensive documentation of:
+
 - Critical security rules (MUST follow)
 - Code patterns and anti-patterns
 - Pre-commit checklist
 - Quick reference card
 
 ### 2. Automated Security Checks (`scripts/security-checks.sh`)
+
 Shell script that scans for:
+
 - Password hash exposure
 - Unsafe `as any` casts
 - Unvalidated `parseInt()` calls
@@ -32,6 +37,7 @@ Shell script that scans for:
 - Endpoints without authentication
 
 **Usage:**
+
 ```bash
 npm run security:check
 ```
@@ -39,12 +45,15 @@ npm run security:check
 ### 3. Security Utilities
 
 #### `/server/utils/validation-helpers.ts`
+
 Safe parsing functions:
+
 - `parseIntSafe()` - Parse integers with validation
 - `parseIntOptional()` - Parse optional integers
 - `parseFloatSafe()` - Parse floats with validation
 
 **Example:**
+
 ```typescript
 import { parseIntSafe } from './utils/validation-helpers';
 
@@ -53,12 +62,15 @@ const id = parseIntSafe(req.params.id, 'productId', { min: 1, max: 10000 });
 ```
 
 #### `/server/utils/error-sanitizer.ts`
+
 Error message sanitization:
+
 - `sanitizeErrorMessage()` - Environment-aware error filtering
 - `createErrorResponse()` - Complete error response builder
 - `getErrorStatus()` - Automatic HTTP status detection
 
 **Example:**
+
 ```typescript
 import { createErrorResponse } from './utils/error-sanitizer';
 
@@ -72,26 +84,33 @@ catch (error) {
 ```
 
 #### `/server/types/express-session.d.ts`
+
 Type-safe session access:
+
 ```typescript
 // No more (req.session as any)?.userId
-const userId = req.session.userId;  // Type-safe!
+const userId = req.session.userId; // Type-safe!
 ```
 
 ### 4. ESLint Security Rules (`.eslintrc.security.json`)
+
 Enforces:
+
 - No `eval()` or implied eval
 - No unsafe regex patterns
 - No explicit `any` types
 - Security plugin rules
 
 **Usage:**
+
 ```bash
 npm run lint:security
 ```
 
 ### 5. Pre-Commit Hooks (`.husky/pre-commit`)
+
 Automatically runs before every commit:
+
 - TypeScript type checking
 - Security pattern scanning
 - npm audit for vulnerabilities
@@ -99,7 +118,9 @@ Automatically runs before every commit:
 Prevents insecure code from being committed.
 
 ### 6. Pull Request Template (`.github/PULL_REQUEST_TEMPLATE.md`)
+
 Comprehensive security checklist for code reviews:
+
 - Authentication & Authorization
 - Input Validation
 - Type Safety
@@ -110,13 +131,16 @@ Comprehensive security checklist for code reviews:
 - Webhooks & External APIs
 
 ### 7. Security Test Suite (`server/__tests__/security/`)
+
 Automated tests for security utilities:
+
 - Input validation tests
 - Error sanitization tests
 - NaN injection prevention tests
 - Range validation tests
 
 **Usage:**
+
 ```bash
 npm run test:security
 ```
@@ -128,16 +152,19 @@ npm run test:security
 ### For New Developers
 
 1. **Read the guidelines:**
+
    ```bash
    cat SECURITY_GUIDELINES.md
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 3. **Run security checks:**
+
    ```bash
    npm run security:check
    ```
@@ -157,7 +184,7 @@ npm run security:full
 
 # Or individually:
 npm run security:check    # Pattern scanning + npm audit
-npm run test:security     # Security test suite  
+npm run test:security     # Security test suite
 npm run lint:security     # ESLint security rules
 npm run check             # TypeScript strict mode
 ```
@@ -167,6 +194,7 @@ npm run check             # TypeScript strict mode
 ## 🔒 Common Security Patterns
 
 ### Pattern 1: Safe Integer Parsing
+
 ```typescript
 // ❌ WRONG
 const id = parseInt(req.params.id);
@@ -177,6 +205,7 @@ const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
 ```
 
 ### Pattern 2: Input Validation
+
 ```typescript
 // ❌ WRONG
 const status = req.query.status as string;
@@ -185,15 +214,13 @@ const status = req.query.status as string;
 import { validateRequest } from './validation';
 import { statusQuerySchema } from './validation/admin-schemas';
 
-app.get("/api/products",
-  validateRequest(statusQuerySchema, 'query'),
-  async (req, res) => {
-    const { status } = req.query;  // Validated
-  }
-);
+app.get('/api/products', validateRequest(statusQuerySchema, 'query'), async (req, res) => {
+  const { status } = req.query; // Validated
+});
 ```
 
 ### Pattern 3: Error Handling
+
 ```typescript
 // ❌ WRONG
 catch (error) {
@@ -214,6 +241,7 @@ catch (error) {
 ```
 
 ### Pattern 4: Authentication
+
 ```typescript
 // ❌ WRONG
 app.get("/api/admin/stats", async (req, res) => {
@@ -229,6 +257,7 @@ app.get("/api/admin/stats", requireAuth, requireAdmin, async (req, res) => {
 ```
 
 ### Pattern 5: Type-Safe Sessions
+
 ```typescript
 // ❌ WRONG
 const userId = (req.session as any)?.userId;
@@ -250,6 +279,7 @@ Track these metrics to measure security posture:
 - **Test coverage for security utils:** >90%
 
 Run metrics:
+
 ```bash
 # Count as any usage
 grep -r "as any" server/ --include="*.ts" | wc -l
@@ -291,6 +321,7 @@ jobs:
 ## 🆘 Troubleshooting
 
 ### Pre-commit hook fails
+
 ```bash
 # See what failed
 git commit --dry-run
@@ -302,6 +333,7 @@ git commit
 ```
 
 ### Security test failures
+
 ```bash
 # Run tests in watch mode
 npm run test:watch server/__tests__/security
@@ -311,6 +343,7 @@ npm run test:security -- --reporter=verbose
 ```
 
 ### ESLint security warnings
+
 ```bash
 # See all warnings
 npm run lint:security

@@ -40,7 +40,9 @@ export const ssoTokens = pgTable('sso_tokens', {
 // Discourse user mapping for synchronization
 export const discourseUserMapping = pgTable('discourse_user_mapping', {
   id: serial('id').primaryKey(),
-  priceAppUserId: integer('price_app_user_id').references(() => sharedUsers.id, { onDelete: 'cascade' }).unique(),
+  priceAppUserId: integer('price_app_user_id')
+    .references(() => sharedUsers.id, { onDelete: 'cascade' })
+    .unique(),
   discourseUserId: integer('discourse_user_id').notNull().unique(),
   discourseUsername: varchar('discourse_username', { length: 255 }).notNull(),
   lastSyncAt: timestamp('last_sync_at').defaultNow(),

@@ -131,7 +131,7 @@ class MonitoringService {
         this.getCacheMetrics(),
         this.getLockMetrics(),
         this.getProductMetrics(),
-        this.getHealthStatus()
+        this.getHealthStatus(),
       ]);
 
       return {
@@ -141,11 +141,11 @@ class MonitoringService {
         cache,
         locks,
         products,
-        health
+        health,
       };
     } catch (error) {
       logger.error('Failed to get dashboard metrics', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -159,33 +159,33 @@ class MonitoringService {
       // Get recent agent sessions (last 24 hours)
       const recentSessions = await storage.getRecentAgentSessions(24, 20);
 
-      const activeSessions = recentSessions.filter(s => s.status === 'active');
+      const activeSessions = recentSessions.filter((s) => s.status === 'active');
 
-      const sessions: AgentSession[] = recentSessions.map(session => ({
+      const sessions: AgentSession[] = recentSessions.map((session) => ({
         id: session.id,
         type: session.agentType,
         status: session.status,
         startTime: session.sessionStart.toISOString(),
         tasksCompleted: session.tasksCompleted || 0,
         successRate: parseFloat(session.successRate || '0'),
-        errorsEncountered: session.errorsEncountered || 0
+        errorsEncountered: session.errorsEncountered || 0,
       }));
 
       return {
         total: recentSessions.length,
         active: activeSessions.length,
         inactive: recentSessions.length - activeSessions.length,
-        sessions
+        sessions,
       };
     } catch (error) {
       logger.error('Failed to get agent metrics', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       return {
         total: 0,
         active: 0,
         inactive: 0,
-        sessions: []
+        sessions: [],
       };
     }
   }
@@ -200,13 +200,16 @@ class MonitoringService {
         storage.getRecentScrapingJobs(50),
 
         // Get counts by status
-        storage.getScrapingJobStatusCounts()
+        storage.getScrapingJobStatusCounts(),
       ]);
 
-      const statusCounts = jobCounts.reduce((acc, row) => {
-        acc[row.status] = Number(row.count);
-        return acc;
-      }, {} as Record<string, number>);
+      const statusCounts = jobCounts.reduce(
+        (acc, row) => {
+          acc[row.status] = Number(row.count);
+          return acc;
+        },
+        {} as Record<string, number>
+      );
 
       const total = allJobs.length;
       const pending = statusCounts.pending || 0;
@@ -217,33 +220,37 @@ class MonitoringService {
       const successRate = total > 0 ? completed / (completed + failed) : 0;
 
       // Calculate average duration for completed jobs
-      const completedJobs = allJobs.filter(j => j.status === 'completed' && j.startedAt && j.completedAt);
-      const avgDuration = completedJobs.length > 0
-        ? completedJobs.reduce((sum, job) => {
-            // Skip jobs with incomplete timestamps (already filtered but extra safety)
-            if (!job.completedAt || !job.startedAt) {
-              logger.debug(
-                `Monitoring: Job ${job.id} has incomplete timestamps ` +
-                `(completedAt: ${job.completedAt}, startedAt: ${job.startedAt}), skipping duration`
-              );
-              return sum;
-            }
-            const duration = job.completedAt.getTime() - job.startedAt.getTime();
-            return sum + duration;
-          }, 0) / completedJobs.length
-        : null;
+      const completedJobs = allJobs.filter(
+        (j) => j.status === 'completed' && j.startedAt && j.completedAt
+      );
+      const avgDuration =
+        completedJobs.length > 0
+          ? completedJobs.reduce((sum, job) => {
+              // Skip jobs with incomplete timestamps (already filtered but extra safety)
+              if (!job.completedAt || !job.startedAt) {
+                logger.debug(
+                  `Monitoring: Job ${job.id} has incomplete timestamps ` +
+                    `(completedAt: ${job.completedAt}, startedAt: ${job.startedAt}), skipping duration`
+                );
+                return sum;
+              }
+              const duration = job.completedAt.getTime() - job.startedAt.getTime();
+              return sum + duration;
+            }, 0) / completedJobs.length
+          : null;
 
       // Format recent jobs
-      const recentJobs: RecentJob[] = allJobs.slice(0, 10).map(job => ({
+      const recentJobs: RecentJob[] = allJobs.slice(0, 10).map((job) => ({
         id: job.id,
         type: job.jobType,
         status: job.status,
         createdAt: job.createdAt.toISOString(),
         completedAt: job.completedAt?.toISOString(),
-        duration: job.startedAt && job.completedAt
-          ? job.completedAt.getTime() - job.startedAt.getTime()
-          : undefined,
-        error: job.errorMessage || undefined
+        duration:
+          job.startedAt && job.completedAt
+            ? job.completedAt.getTime() - job.startedAt.getTime()
+            : undefined,
+        error: job.errorMessage || undefined,
       }));
 
       return {
@@ -254,11 +261,11 @@ class MonitoringService {
         failed,
         successRate,
         avgDuration,
-        recentJobs
+        recentJobs,
       };
     } catch (error) {
       logger.error('Failed to get job metrics', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       return {
         total: 0,
@@ -268,7 +275,7 @@ class MonitoringService {
         failed: 0,
         successRate: 0,
         avgDuration: null,
-        recentJobs: []
+        recentJobs: [],
       };
     }
   }
@@ -290,31 +297,34 @@ class MonitoringService {
           misses: queryCacheStats.misses,
           hitRate: queryCacheStats.hitRate,
           hitRatePercent: Math.round(queryCacheStats.hitRate * 100),
-          connected: queryPing
+          connected: queryPing,
         },
         generalCache: {
           hits: generalCacheStats.hits,
           misses: generalCacheStats.misses,
           hitRate: generalCacheStats.hitRate,
           hitRatePercent: Math.round(generalCacheStats.hitRate * 100),
-          connected: generalPing
+          connected: generalPing,
         },
         overall: {
           totalHits: queryCacheStats.hits + generalCacheStats.hits,
           totalMisses: queryCacheStats.misses + generalCacheStats.misses,
           combinedHitRate:
             (queryCacheStats.hits + generalCacheStats.hits) /
-            (queryCacheStats.hits + generalCacheStats.hits + queryCacheStats.misses + generalCacheStats.misses) || 0
-        }
+              (queryCacheStats.hits +
+                generalCacheStats.hits +
+                queryCacheStats.misses +
+                generalCacheStats.misses) || 0,
+        },
       };
     } catch (error) {
       logger.error('Failed to get cache metrics', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       return {
         queryCache: { hits: 0, misses: 0, hitRate: 0, hitRatePercent: 0, connected: false },
         generalCache: { hits: 0, misses: 0, hitRate: 0, hitRatePercent: 0, connected: false },
-        overall: { totalHits: 0, totalMisses: 0, combinedHitRate: 0 }
+        overall: { totalHits: 0, totalMisses: 0, combinedHitRate: 0 },
       };
     }
   }
@@ -338,11 +348,11 @@ class MonitoringService {
         activeLocks,
         avgAcquisitionTime: 0, // Not applicable for DB locks
         contentionRate: 0, // Not tracked
-        successRate: 100 // Assume success since DB is reliable
+        successRate: 100, // Assume success since DB is reliable
       };
     } catch (error: unknown) {
       logger.error('Failed to get lock metrics', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       return {
         acquisitionAttempts: 0,
@@ -352,7 +362,7 @@ class MonitoringService {
         activeLocks: 0,
         avgAcquisitionTime: 0,
         contentionRate: 0,
-        successRate: 100
+        successRate: 100,
       };
     }
   }
@@ -364,31 +374,34 @@ class MonitoringService {
     try {
       const [offerCount, trendingCounts] = await Promise.all([
         storage.getProductOffersCount(),
-        storage.getTrendingProductsStatusCounts()
+        storage.getTrendingProductsStatusCounts(),
       ]);
 
-      const trendingStatusCounts = trendingCounts.reduce((acc, row) => {
-        acc[row.status] = Number(row.count);
-        return acc;
-      }, {} as Record<string, number>);
+      const trendingStatusCounts = trendingCounts.reduce(
+        (acc, row) => {
+          acc[row.status] = Number(row.count);
+          return acc;
+        },
+        {} as Record<string, number>
+      );
 
       return {
         totalProducts: 0, // Would need products table count
         totalOffers: offerCount,
         trendingDiscovered: trendingStatusCounts.discovered || 0,
         trendingProcessed: trendingStatusCounts.scraped || 0,
-        trendingFailed: trendingStatusCounts.failed || 0
+        trendingFailed: trendingStatusCounts.failed || 0,
       };
     } catch (error) {
       logger.error('Failed to get product metrics', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       return {
         totalProducts: 0,
         totalOffers: 0,
         trendingDiscovered: 0,
         trendingProcessed: 0,
-        trendingFailed: 0
+        trendingFailed: 0,
       };
     }
   }
@@ -449,9 +462,9 @@ class MonitoringService {
       services: {
         database: databaseHealthy,
         redis: redisHealthy,
-        agents: agentsHealthy
+        agents: agentsHealthy,
       },
-      issues
+      issues,
     };
   }
 
@@ -463,7 +476,7 @@ class MonitoringService {
       timestamp: new Date().toISOString(),
       level,
       message,
-      context
+      context,
     };
 
     this.errorLogs.unshift(errorLog);

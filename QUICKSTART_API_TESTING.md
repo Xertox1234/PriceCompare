@@ -35,12 +35,14 @@ Follow the same approach as alert-routes and retailer-routes migrations.
 ## Latest Progress (Session 2025-11-28)
 
 ### ✅ Completed
+
 - **alert-routes.test.ts** - 29/30 passing (96.7%)
 - **retailer-routes.test.ts** - 18/18 passing (100%)
 - **docs/API_TESTING_PATTERNS.md** - Comprehensive patterns guide created
 - **5 bugs fixed** across both test suites
 
 ### 🐛 Bugs Discovered & Fixed
+
 1. Invalid ID handling (400 vs 500)
 2. Error message inconsistency
 3. Drizzle field selection bug
@@ -80,6 +82,7 @@ Follow the same approach as alert-routes and retailer-routes migrations.
 ## How to Use (Examples)
 
 ### Before (OLD Way)
+
 ```typescript
 it('should return product', async () => {
   const response = await request(app).get('/api/products/1');
@@ -92,6 +95,7 @@ it('should return product', async () => {
 ```
 
 ### After (NEW Way)
+
 ```typescript
 import { expectSuccessResponse } from '../../__tests__/helpers/response-validators';
 
@@ -107,6 +111,7 @@ it('should return product', async () => {
 ```
 
 ### Benefits
+
 ✅ Validates `{ success: true, data: ... }` envelope automatically
 ✅ Checks HTTP status code
 ✅ Returns typed data
@@ -133,15 +138,18 @@ npm test
 ## What's Next?
 
 ### Phase 1: Update Route Tests (~12 hours)
+
 Update existing route test files to use new validation helpers.
 
 **Files to update**:
+
 - `server/routes/__tests__/product-routes.test.ts`
 - `server/routes/__tests__/alert-routes.test.ts`
 - `server/routes/__tests__/retailer-routes.test.ts`
 - ... (~8 files total)
 
 ### Phase 2: Finish Endpoint Migration (~7.5 hours)
+
 Migrate remaining 29 endpoints to use standardized helpers.
 
 **Current**: 188/217 (87%)

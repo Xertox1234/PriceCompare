@@ -109,17 +109,20 @@ export function ImportExportButtons() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline">
-            <FileJson className="w-4 h-4 mr-2" />
+            <FileJson className="mr-2 h-4 w-4" />
             Import/Export
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => void handleExport()} disabled={exportLists.isPending}>
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="mr-2 h-4 w-4" />
             Export to JSON
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void handleImportClick()} disabled={importLists.isPending}>
-            <Upload className="w-4 h-4 mr-2" />
+          <DropdownMenuItem
+            onClick={() => void handleImportClick()}
+            disabled={importLists.isPending}
+          >
+            <Upload className="mr-2 h-4 w-4" />
             Import from JSON
           </DropdownMenuItem>
         </DropdownMenuContent>

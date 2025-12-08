@@ -188,11 +188,11 @@ class TypedEventBus {
   /**
    * Emit a typed event
    */
-  emit<K extends keyof EventPayloadMap>(
-    event: K,
-    payload: EventPayloadMap[K]
-  ): boolean {
-    logger.debug('Event bus: emitting event', { event, hasListeners: this.emitter.listenerCount(event) > 0 });
+  emit<K extends keyof EventPayloadMap>(event: K, payload: EventPayloadMap[K]): boolean {
+    logger.debug('Event bus: emitting event', {
+      event,
+      hasListeners: this.emitter.listenerCount(event) > 0,
+    });
     return this.emitter.emit(event, payload);
   }
 

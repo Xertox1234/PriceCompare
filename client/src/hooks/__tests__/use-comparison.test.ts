@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
-import { act } from 'react'
-import { useComparison } from '../use-comparison'
-import type { ProductWithOffers } from '@shared/schema'
+import { describe, it, expect, beforeEach } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import { act } from 'react';
+import { useComparison } from '../use-comparison';
+import type { ProductWithOffers } from '@shared/schema';
 
 const mockProduct: ProductWithOffers = {
   id: 1,
@@ -45,102 +45,102 @@ const mockProduct: ProductWithOffers = {
         baseAffiliateUrl: null,
         commissionRate: null,
         affiliateStatus: null,
-        affiliateConfig: null
-      }
-    }
+        affiliateConfig: null,
+      },
+    },
   ],
-  bestPrice: 99.99
-}
+  bestPrice: 99.99,
+};
 
 describe('useComparison', () => {
   beforeEach(() => {
-    localStorage.clear()
-  })
+    localStorage.clear();
+  });
 
   it('starts with empty comparison list', () => {
-    const { result } = renderHook(() => useComparison())
-    
-    expect(result.current.comparisonItems).toEqual([])
-  })
+    const { result } = renderHook(() => useComparison());
+
+    expect(result.current.comparisonItems).toEqual([]);
+  });
 
   it('adds product to comparison', () => {
-    const { result } = renderHook(() => useComparison())
-    
-    act(() => {
-      result.current.addToComparison(mockProduct)
-    })
+    const { result } = renderHook(() => useComparison());
 
-    expect(result.current.comparisonItems).toHaveLength(1)
-    expect(result.current.comparisonItems[0]).toEqual(mockProduct)
-  })
+    act(() => {
+      result.current.addToComparison(mockProduct);
+    });
+
+    expect(result.current.comparisonItems).toHaveLength(1);
+    expect(result.current.comparisonItems[0]).toEqual(mockProduct);
+  });
 
   it('prevents adding duplicate products', () => {
-    const { result } = renderHook(() => useComparison())
-    
-    act(() => {
-      result.current.addToComparison(mockProduct)
-      result.current.addToComparison(mockProduct)
-    })
+    const { result } = renderHook(() => useComparison());
 
-    expect(result.current.comparisonItems).toHaveLength(1)
-  })
+    act(() => {
+      result.current.addToComparison(mockProduct);
+      result.current.addToComparison(mockProduct);
+    });
+
+    expect(result.current.comparisonItems).toHaveLength(1);
+  });
 
   it('removes product from comparison', () => {
-    const { result } = renderHook(() => useComparison())
-    
-    act(() => {
-      result.current.addToComparison(mockProduct)
-    })
-
-    expect(result.current.comparisonItems).toHaveLength(1)
+    const { result } = renderHook(() => useComparison());
 
     act(() => {
-      result.current.removeFromComparison(mockProduct.id)
-    })
+      result.current.addToComparison(mockProduct);
+    });
 
-    expect(result.current.comparisonItems).toHaveLength(0)
-  })
+    expect(result.current.comparisonItems).toHaveLength(1);
+
+    act(() => {
+      result.current.removeFromComparison(mockProduct.id);
+    });
+
+    expect(result.current.comparisonItems).toHaveLength(0);
+  });
 
   it('clears all comparison items', () => {
-    const { result } = renderHook(() => useComparison())
-    
-    act(() => {
-      result.current.addToComparison(mockProduct)
-      result.current.addToComparison({ ...mockProduct, id: 2, name: 'Product 2' })
-    })
-
-    expect(result.current.comparisonItems).toHaveLength(2)
+    const { result } = renderHook(() => useComparison());
 
     act(() => {
-      result.current.clearComparison()
-    })
+      result.current.addToComparison(mockProduct);
+      result.current.addToComparison({ ...mockProduct, id: 2, name: 'Product 2' });
+    });
 
-    expect(result.current.comparisonItems).toHaveLength(0)
-  })
+    expect(result.current.comparisonItems).toHaveLength(2);
+
+    act(() => {
+      result.current.clearComparison();
+    });
+
+    expect(result.current.comparisonItems).toHaveLength(0);
+  });
 
   it('persists comparison items in localStorage', () => {
-    const { result } = renderHook(() => useComparison())
-    
+    const { result } = renderHook(() => useComparison());
+
     act(() => {
-      result.current.addToComparison(mockProduct)
-    })
+      result.current.addToComparison(mockProduct);
+    });
 
     // Verify the item was added to comparison state first
-    expect(result.current.comparisonItems).toHaveLength(1)
-    expect(result.current.comparisonItems[0].id).toBe(mockProduct.id)
-  })
+    expect(result.current.comparisonItems).toHaveLength(1);
+    expect(result.current.comparisonItems[0].id).toBe(mockProduct.id);
+  });
 
   it('limits comparison to maximum items', () => {
-    const { result } = renderHook(() => useComparison())
-    
+    const { result } = renderHook(() => useComparison());
+
     // Add 5 products (assuming max is 4)
     act(() => {
       for (let i = 1; i <= 5; i++) {
-        result.current.addToComparison({ ...mockProduct, id: i, name: `Product ${i}` })
+        result.current.addToComparison({ ...mockProduct, id: i, name: `Product ${i}` });
       }
-    })
+    });
 
     // Should be limited to 4 items
-    expect(result.current.comparisonItems).toHaveLength(4)
-  })
-})
+    expect(result.current.comparisonItems).toHaveLength(4);
+  });
+});

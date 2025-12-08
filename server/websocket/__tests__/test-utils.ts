@@ -65,7 +65,7 @@ export async function createTestServer(): Promise<{
  * Close test server and cleanup
  */
 export async function closeTestServer(httpServer: HTTPServer): Promise<void> {
-  await shutdownWebSocket();
+  shutdownWebSocket();
   await new Promise<void>((resolve) => {
     httpServer.close(() => resolve());
   });
@@ -147,10 +147,7 @@ export async function waitForEvents(
 /**
  * Wait for socket to connect
  */
-export function waitForConnection(
-  socket: ClientSocket,
-  timeout = 5000
-): Promise<void> {
+export function waitForConnection(socket: ClientSocket, timeout = 5000): Promise<void> {
   return new Promise((resolve, reject) => {
     if (socket.connected) {
       resolve();
@@ -199,7 +196,7 @@ export function createMockRedis() {
   const store = new Map<string, { value: string; expiresAt: number }>();
 
   return {
-    get: vi.fn(async (key: string) => {
+    get: vi.fn((key: string) => {
       const item = store.get(key);
       if (!item) return null;
 
@@ -211,7 +208,7 @@ export function createMockRedis() {
       return item.value;
     }),
 
-    set: vi.fn(async (key: string, value: string, ex?: number) => {
+    set: vi.fn((key: string, value: string, ex?: number) => {
       store.set(key, {
         value,
         expiresAt: ex ? Date.now() + ex * 1000 : Infinity,
@@ -219,7 +216,7 @@ export function createMockRedis() {
       return 'OK';
     }),
 
-    incr: vi.fn(async (key: string) => {
+    incr: vi.fn((key: string) => {
       const item = store.get(key);
       const current = item ? parseInt(item.value, 10) : 0;
       const newValue = current + 1;
@@ -227,7 +224,7 @@ export function createMockRedis() {
       return newValue;
     }),
 
-    expire: vi.fn(async (key: string, seconds: number) => {
+    expire: vi.fn((key: string, seconds: number) => {
       const item = store.get(key);
       if (!item) return 0;
 
@@ -235,7 +232,7 @@ export function createMockRedis() {
       return 1;
     }),
 
-    del: vi.fn(async (key: string) => {
+    del: vi.fn((key: string) => {
       const existed = store.has(key);
       store.delete(key);
       return existed ? 1 : 0;

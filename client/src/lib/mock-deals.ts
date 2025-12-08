@@ -37,24 +37,18 @@ export interface MockProduct {
 // ============================================================================
 
 export const retailers: MockRetailer[] = [
-  { id: 1, name: "Amazon", logo: "https://logo.clearbit.com/amazon.com" },
-  { id: 2, name: "Target", logo: "https://logo.clearbit.com/target.com" },
-  { id: 3, name: "Best Buy", logo: "https://logo.clearbit.com/bestbuy.com" },
-  { id: 4, name: "Walmart", logo: "https://logo.clearbit.com/walmart.com" },
-  { id: 5, name: "Costco", logo: "https://logo.clearbit.com/costco.com" },
+  { id: 1, name: 'Amazon', logo: 'https://logo.clearbit.com/amazon.com' },
+  { id: 2, name: 'Target', logo: 'https://logo.clearbit.com/target.com' },
+  { id: 3, name: 'Best Buy', logo: 'https://logo.clearbit.com/bestbuy.com' },
+  { id: 4, name: 'Walmart', logo: 'https://logo.clearbit.com/walmart.com' },
+  { id: 5, name: 'Costco', logo: 'https://logo.clearbit.com/costco.com' },
 ];
 
 // ============================================================================
 // Category Definitions
 // ============================================================================
 
-export const categories = [
-  "Electronics",
-  "Fashion",
-  "Home",
-  "Gaming",
-  "Phones",
-] as const;
+export const categories = ['Electronics', 'Fashion', 'Home', 'Gaming', 'Phones'] as const;
 
 export type ProductCategory = (typeof categories)[number];
 
@@ -62,11 +56,10 @@ export type ProductCategory = (typeof categories)[number];
 // Mock Products Data
 // ============================================================================
 
-const getRetailer = (index: number): MockRetailer =>
-  retailers[index % retailers.length];
+const getRetailer = (index: number): MockRetailer => retailers[index % retailers.length];
 
 const generateImageUrl = (seed: string): string =>
-  `https://picsum.photos/seed/${seed.replace(/\s+/g, "-").toLowerCase()}/300/300`;
+  `https://picsum.photos/seed/${seed.replace(/\s+/g, '-').toLowerCase()}/300/300`;
 
 // Helper to create dates in the near future for flash deals
 const hoursFromNow = (hours: number): Date => {
@@ -88,7 +81,7 @@ export const mockProducts: MockProduct[] = [
     id: 1,
     name: 'Sony WH-1000XM5 Wireless Noise Canceling Headphones',
     category: 'Electronics',
-    currentPrice: 278.00,
+    currentPrice: 278.0,
     originalPrice: 399.99,
     savingsPercent: 30,
     rating: 4.8,
@@ -105,7 +98,7 @@ export const mockProducts: MockProduct[] = [
     name: 'Apple AirPods Pro (2nd Generation)',
     category: 'Electronics',
     currentPrice: 189.99,
-    originalPrice: 249.00,
+    originalPrice: 249.0,
     savingsPercent: 24,
     rating: 4.7,
     reviewCount: 28340,
@@ -135,8 +128,8 @@ export const mockProducts: MockProduct[] = [
     id: 4,
     name: 'Bose QuietComfort Ultra Earbuds',
     category: 'Electronics',
-    currentPrice: 229.00,
-    originalPrice: 299.00,
+    currentPrice: 229.0,
+    originalPrice: 299.0,
     savingsPercent: 23,
     rating: 4.5,
     reviewCount: 5621,
@@ -183,7 +176,7 @@ export const mockProducts: MockProduct[] = [
     name: "Levi's 501 Original Fit Jeans",
     category: 'Fashion',
     currentPrice: 49.99,
-    originalPrice: 89.50,
+    originalPrice: 89.5,
     savingsPercent: 44,
     rating: 4.4,
     reviewCount: 23450,
@@ -198,7 +191,7 @@ export const mockProducts: MockProduct[] = [
     name: 'Nike Air Max 270 Running Shoes',
     category: 'Fashion',
     currentPrice: 109.97,
-    originalPrice: 160.00,
+    originalPrice: 160.0,
     savingsPercent: 31,
     rating: 4.6,
     reviewCount: 18920,
@@ -212,8 +205,8 @@ export const mockProducts: MockProduct[] = [
     id: 9,
     name: 'The North Face Thermoball Eco Jacket',
     category: 'Fashion',
-    currentPrice: 149.00,
-    originalPrice: 230.00,
+    currentPrice: 149.0,
+    originalPrice: 230.0,
     savingsPercent: 35,
     rating: 4.5,
     reviewCount: 4560,
@@ -227,8 +220,8 @@ export const mockProducts: MockProduct[] = [
     id: 10,
     name: 'Ray-Ban Wayfarer Classic Sunglasses',
     category: 'Fashion',
-    currentPrice: 129.00,
-    originalPrice: 178.00,
+    currentPrice: 129.0,
+    originalPrice: 178.0,
     savingsPercent: 28,
     rating: 4.7,
     reviewCount: 31200,
@@ -242,8 +235,8 @@ export const mockProducts: MockProduct[] = [
     id: 11,
     name: 'Adidas Ultraboost 22 Running Shoes',
     category: 'Fashion',
-    currentPrice: 126.00,
-    originalPrice: 190.00,
+    currentPrice: 126.0,
+    originalPrice: 190.0,
     savingsPercent: 34,
     rating: 4.6,
     reviewCount: 9870,
@@ -259,7 +252,7 @@ export const mockProducts: MockProduct[] = [
     name: 'Columbia Bugaboo II Fleece Interchange Jacket',
     category: 'Fashion',
     currentPrice: 139.99,
-    originalPrice: 220.00,
+    originalPrice: 220.0,
     savingsPercent: 36,
     rating: 4.4,
     reviewCount: 6780,
@@ -321,7 +314,7 @@ export const mockProducts: MockProduct[] = [
     id: 16,
     name: 'iRobot Roomba j7+ Self-Emptying Robot Vacuum',
     category: 'Home',
-    currentPrice: 499.00,
+    currentPrice: 499.0,
     originalPrice: 799.99,
     savingsPercent: 38,
     rating: 4.4,
@@ -351,8 +344,8 @@ export const mockProducts: MockProduct[] = [
     id: 18,
     name: 'Casper Original Mattress - Queen',
     category: 'Home',
-    currentPrice: 795.00,
-    originalPrice: 1095.00,
+    currentPrice: 795.0,
+    originalPrice: 1095.0,
     savingsPercent: 27,
     rating: 4.5,
     reviewCount: 15670,
@@ -461,8 +454,8 @@ export const mockProducts: MockProduct[] = [
     id: 25,
     name: 'Apple iPhone 15 Pro Max 256GB - Natural Titanium',
     category: 'Phones',
-    currentPrice: 1099.00,
-    originalPrice: 1199.00,
+    currentPrice: 1099.0,
+    originalPrice: 1199.0,
     savingsPercent: 8,
     rating: 4.8,
     reviewCount: 12340,
@@ -492,8 +485,8 @@ export const mockProducts: MockProduct[] = [
     id: 27,
     name: 'Google Pixel 8 Pro 256GB - Obsidian',
     category: 'Phones',
-    currentPrice: 799.00,
-    originalPrice: 999.00,
+    currentPrice: 799.0,
+    originalPrice: 999.0,
     savingsPercent: 20,
     rating: 4.6,
     reviewCount: 5430,
@@ -538,8 +531,8 @@ export const mockProducts: MockProduct[] = [
     id: 30,
     name: 'Apple iPhone 15 128GB - Blue',
     category: 'Phones',
-    currentPrice: 729.00,
-    originalPrice: 829.00,
+    currentPrice: 729.0,
+    originalPrice: 829.0,
     savingsPercent: 12,
     rating: 4.7,
     reviewCount: 18900,
@@ -555,8 +548,8 @@ export const mockProducts: MockProduct[] = [
     id: 31,
     name: 'Canon EOS R6 Mark II Mirrorless Camera Body',
     category: 'Electronics',
-    currentPrice: 2299.00,
-    originalPrice: 2499.00,
+    currentPrice: 2299.0,
+    originalPrice: 2499.0,
     savingsPercent: 8,
     rating: 4.8,
     reviewCount: 2340,
@@ -571,8 +564,8 @@ export const mockProducts: MockProduct[] = [
     id: 32,
     name: 'Apple Watch Ultra 2 49mm - Orange Alpine Loop',
     category: 'Electronics',
-    currentPrice: 749.00,
-    originalPrice: 799.00,
+    currentPrice: 749.0,
+    originalPrice: 799.0,
     savingsPercent: 6,
     rating: 4.7,
     reviewCount: 6780,
@@ -617,8 +610,8 @@ export const mockProducts: MockProduct[] = [
     id: 35,
     name: "Patagonia Men's Better Sweater Fleece Jacket",
     category: 'Fashion',
-    currentPrice: 109.00,
-    originalPrice: 149.00,
+    currentPrice: 109.0,
+    originalPrice: 149.0,
     savingsPercent: 27,
     rating: 4.6,
     reviewCount: 11230,
@@ -686,9 +679,7 @@ export function getPriceDrops(): MockProduct[] {
  * Get top deals by savings percentage
  */
 export function getTopDeals(limit = 10): MockProduct[] {
-  return [...mockProducts]
-    .sort((a, b) => b.savingsPercent - a.savingsPercent)
-    .slice(0, limit);
+  return [...mockProducts].sort((a, b) => b.savingsPercent - a.savingsPercent).slice(0, limit);
 }
 
 /**
@@ -721,22 +712,15 @@ export function getProductsByRetailer(retailerId: number): MockProduct[] {
 /**
  * Get products within a price range
  */
-export function getProductsByPriceRange(
-  minPrice: number,
-  maxPrice: number
-): MockProduct[] {
-  return mockProducts.filter(
-    (p) => p.currentPrice >= minPrice && p.currentPrice <= maxPrice
-  );
+export function getProductsByPriceRange(minPrice: number, maxPrice: number): MockProduct[] {
+  return mockProducts.filter((p) => p.currentPrice >= minPrice && p.currentPrice <= maxPrice);
 }
 
 /**
  * Get products with high ratings (4.5+)
  */
 export function getHighlyRatedProducts(): MockProduct[] {
-  return mockProducts
-    .filter((p) => p.rating >= 4.5)
-    .sort((a, b) => b.rating - a.rating);
+  return mockProducts.filter((p) => p.rating >= 4.5).sort((a, b) => b.rating - a.rating);
 }
 
 /**

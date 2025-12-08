@@ -109,9 +109,10 @@ export class WebSocketClient {
       this.socket.on('error', (data) => {
         log.error(`WebSocket server error: ${data.message}`, { details: data.details });
       });
-
     } catch (error) {
-      log.error('Failed to create WebSocket connection', { error: error instanceof Error ? error.message : String(error) });
+      log.error('Failed to create WebSocket connection', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.handleDisconnect();
     }
   }
@@ -143,10 +144,7 @@ export class WebSocketClient {
    * Socket.io's typed socket already handles event typing through the
    * ServerToClientEvents generic parameter, so we can use the native on() method.
    */
-  on<E extends keyof ServerToClientEvents>(
-    event: E,
-    handler: ServerToClientEvents[E]
-  ): void {
+  on<E extends keyof ServerToClientEvents>(event: E, handler: ServerToClientEvents[E]): void {
     if (!this.socket) {
       log.warn(`Cannot subscribe to '${String(event)}' - socket not connected`);
       return;
@@ -164,10 +162,7 @@ export class WebSocketClient {
    *
    * Socket.io's typed socket handles event typing through the generic parameter.
    */
-  off<E extends keyof ServerToClientEvents>(
-    event: E,
-    handler?: ServerToClientEvents[E]
-  ): void {
+  off<E extends keyof ServerToClientEvents>(event: E, handler?: ServerToClientEvents[E]): void {
     if (!this.socket) {
       return;
     }
@@ -263,7 +258,9 @@ export class WebSocketClient {
       30000 // Maximum 30 seconds
     );
 
-    log.info(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
+    log.info(
+      `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`
+    );
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++;
@@ -306,11 +303,13 @@ export class WebSocketClient {
     log.debug(`WebSocket state: ${state}`);
 
     // Notify all listeners
-    this.stateListeners.forEach(listener => {
+    this.stateListeners.forEach((listener) => {
       try {
         listener(state);
       } catch (error) {
-        log.error('Error in state listener', { error: error instanceof Error ? error.message : String(error) });
+        log.error('Error in state listener', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     });
   }

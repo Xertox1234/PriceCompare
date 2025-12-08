@@ -121,7 +121,7 @@ describe('Security Patterns', () => {
   test('prevents NaN injection in ID parsing', () => {
     // Common NaN injection attempts
     const maliciousInputs = ['NaN', 'Infinity', '-Infinity', 'undefined', 'null', '{}', '[]'];
-    
+
     for (const input of maliciousInputs) {
       expect(() => parseIntSafe(input, 'id', { min: 1 })).toThrow();
     }
@@ -130,7 +130,7 @@ describe('Security Patterns', () => {
   test('validates numeric ranges', () => {
     // Ensure large numbers are rejected
     expect(() => parseIntSafe('999999999999', 'id', { max: 10000 })).toThrow();
-    
+
     // Ensure negative numbers are rejected when min is positive
     expect(() => parseIntSafe('-1', 'id', { min: 1 })).toThrow();
   });

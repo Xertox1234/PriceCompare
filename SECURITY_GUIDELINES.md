@@ -16,6 +16,7 @@ This document codifies security patterns and best practices to prevent recurring
 ### 1. Never Expose Password Hashes
 
 **❌ WRONG:**
+
 ```typescript
 author: {
   id: users.id,
@@ -25,6 +26,7 @@ author: {
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 author: {
   id: users.id,
@@ -40,11 +42,13 @@ author: {
 ### 2. Always Use Type-Safe Session Access
 
 **❌ WRONG:**
+
 ```typescript
 const userId = (req.session as any)?.userId;
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 // Use properly typed session (defined in server/types/express-session.d.ts)
 const userId = req.session.userId;
@@ -57,12 +61,14 @@ const userId = req.session.userId;
 ### 3. Validate All Integer Parsing
 
 **❌ WRONG:**
+
 ```typescript
 const id = parseInt(req.params.id);
 const topicId = parseInt(req.params.topicId);
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
 
@@ -77,15 +83,17 @@ const categoryId = parseIntOptional(req.query.categoryId, 'categoryId', { min: 1
 ### 4. Sanitize Error Messages in Production
 
 **❌ WRONG:**
+
 ```typescript
 catch (error) {
-  res.status(500).json({ 
+  res.status(500).json({
     error: error.message  // Leaks implementation details
   });
 }
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 import { createErrorResponse } from './utils/error-sanitizer';
 
@@ -106,23 +114,22 @@ catch (error) {
 ### 5. Validate All Query Parameters
 
 **❌ WRONG:**
+
 ```typescript
-app.get("/api/products", async (req, res) => {
-  const status = req.query.status as string;  // No validation
+app.get('/api/products', async (req, res) => {
+  const status = req.query.status as string; // No validation
 });
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 import { validateRequest } from './validation';
 import { productQuerySchema } from './validation/admin-schemas';
 
-app.get("/api/products",
-  validateRequest(productQuerySchema, 'query'),
-  async (req, res) => {
-    const { status } = req.query;  // Validated by middleware
-  }
-);
+app.get('/api/products', validateRequest(productQuerySchema, 'query'), async (req, res) => {
+  const { status } = req.query; // Validated by middleware
+});
 ```
 
 **Automated Check:** Warns on endpoints accessing `req.query` without `validateRequest`.
@@ -132,21 +139,25 @@ app.get("/api/products",
 ### 6. Always Use requireAuth/requireAdmin Middleware
 
 **❌ WRONG:**
+
 ```typescript
-app.get("/api/admin/stats", async (req, res) => {
-  if (req.user?.role !== 'admin') {  // Manual check
+app.get('/api/admin/stats', async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    // Manual check
     return res.status(403).json({ error: 'Forbidden' });
   }
 });
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 import { requireAuth, requireAdmin } from './auth';
 
-app.get("/api/admin/stats", 
-  requireAuth, 
-  requireAdmin,  // Use middleware
+app.get(
+  '/api/admin/stats',
+  requireAuth,
+  requireAdmin, // Use middleware
   async (req, res) => {
     // User is guaranteed to be admin here
   }
@@ -160,16 +171,18 @@ app.get("/api/admin/stats",
 ### 7. Verify Webhook Signatures
 
 **❌ WRONG:**
+
 ```typescript
-app.post("/webhooks/github", async (req, res) => {
-  const { event_type, data } = req.body;  // No verification
+app.post('/webhooks/github', async (req, res) => {
+  const { event_type, data } = req.body; // No verification
   // Process webhook...
 });
 ```
 
 **✅ CORRECT:**
+
 ```typescript
-app.post("/webhooks/github", async (req, res) => {
+app.post('/webhooks/github', async (req, res) => {
   const signature = req.headers['x-hub-signature-256'];
   if (!verifyWebhookSignature(req.body, signature)) {
     return res.status(403).json({ error: 'Invalid signature' });
@@ -185,12 +198,14 @@ app.post("/webhooks/github", async (req, res) => {
 ### 8. Generate Unique Slugs with Collision Detection
 
 **❌ WRONG:**
+
 ```typescript
 const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-await db.insert(topics).values({ title, slug });  // May collide
+await db.insert(topics).values({ title, slug }); // May collide
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 let slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -209,8 +224,9 @@ await db.insert(topics).values({ title, slug });
 ### 9. Implement Resource Limits
 
 **❌ WRONG:**
+
 ```typescript
-const rateLimitStore = {};  // Unbounded growth
+const rateLimitStore = {}; // Unbounded growth
 
 app.use((req, res, next) => {
   rateLimitStore[req.ip] = { count: 1, resetTime: Date.now() + 60000 };
@@ -219,6 +235,7 @@ app.use((req, res, next) => {
 ```
 
 **✅ CORRECT:**
+
 ```typescript
 const MAX_ENTRIES = 10000;
 const rateLimitStore = {};
@@ -246,21 +263,19 @@ export const createProductSchema = z.object({
 });
 
 // Apply to route
-app.post("/api/products",
-  validateRequest(createProductSchema, 'body'),
-  async (req, res) => {
-    const { name, price, categoryId } = req.body;  // Validated
-  }
-);
+app.post('/api/products', validateRequest(createProductSchema, 'body'), async (req, res) => {
+  const { name, price, categoryId } = req.body; // Validated
+});
 ```
 
 ### Safe Database Query Pattern
 
 ```typescript
 // SECURITY: Drizzle parameterizes queries - always use parameters
-const products = await db.select()
+const products = await db
+  .select()
   .from(products)
-  .where(eq(products.category, userInput))  // ✅ Safe - parameterized
+  .where(eq(products.category, userInput)) // ✅ Safe - parameterized
   .limit(limit);
 
 // Never use string concatenation
@@ -272,7 +287,8 @@ const products = await db.select()
 ```typescript
 import { rateLimiter } from './middleware/security';
 
-app.post("/api/sensitive-operation",
+app.post(
+  '/api/sensitive-operation',
   rateLimiter({ windowMs: 60000, maxRequests: 10 }),
   async (req, res) => {
     // Protected by rate limiting
@@ -287,16 +303,16 @@ app.post("/api/sensitive-operation",
 ### Security Tests to Write
 
 1. **Authentication Tests**
+
    ```typescript
    test('admin endpoint rejects non-admin users', async () => {
-     const response = await request(app)
-       .get('/api/admin/stats')
-       .set('Cookie', regularUserCookie);
+     const response = await request(app).get('/api/admin/stats').set('Cookie', regularUserCookie);
      expect(response.status).toBe(403);
    });
    ```
 
 2. **Input Validation Tests**
+
    ```typescript
    test('rejects invalid integer IDs', async () => {
      const response = await request(app).get('/api/products/NaN');
@@ -334,6 +350,7 @@ Before committing code, verify:
 - [ ] Security tests written and passing
 
 Run automated checks:
+
 ```bash
 npm run security:check
 ```
@@ -363,6 +380,7 @@ npm install --save-dev eslint-plugin-security @typescript-eslint/eslint-plugin
 ### TypeScript Configuration
 
 Enable strict mode in `tsconfig.json`:
+
 ```json
 {
   "compilerOptions": {
@@ -415,14 +433,14 @@ If you're unsure about a security pattern:
 
 ## ✅ Quick Reference Card
 
-| Issue | Solution | Import |
-|-------|----------|--------|
-| Integer parsing | `parseIntSafe()` | `utils/validation-helpers` |
-| Error messages | `createErrorResponse()` | `utils/error-sanitizer` |
-| Session access | `req.session.userId` | `types/express-session.d.ts` |
-| Query validation | `validateRequest(schema, 'query')` | `validation` |
-| Admin routes | `requireAuth, requireAdmin` | `auth` |
-| Rate limiting | `rateLimiter({ windowMs, maxRequests })` | `middleware/security` |
+| Issue            | Solution                                 | Import                       |
+| ---------------- | ---------------------------------------- | ---------------------------- |
+| Integer parsing  | `parseIntSafe()`                         | `utils/validation-helpers`   |
+| Error messages   | `createErrorResponse()`                  | `utils/error-sanitizer`      |
+| Session access   | `req.session.userId`                     | `types/express-session.d.ts` |
+| Query validation | `validateRequest(schema, 'query')`       | `validation`                 |
+| Admin routes     | `requireAuth, requireAdmin`              | `auth`                       |
+| Rate limiting    | `rateLimiter({ windowMs, maxRequests })` | `middleware/security`        |
 
 ---
 

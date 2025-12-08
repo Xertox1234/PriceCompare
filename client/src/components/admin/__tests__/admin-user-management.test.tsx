@@ -47,19 +47,15 @@ const createWrapper = () => {
 
 describe('AdminUserManagement', () => {
   it('should render loading state', () => {
-    render(
-      <AdminUserManagement users={[]} isLoading={true} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={[]} isLoading={true} />, { wrapper: createWrapper() });
 
     expect(screen.getByText('Loading users...')).toBeInTheDocument();
   });
 
   it('should render users list', () => {
-    render(
-      <AdminUserManagement users={mockUsers} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={mockUsers} isLoading={false} />, {
+      wrapper: createWrapper(),
+    });
 
     expect(screen.getByText('johndoe')).toBeInTheDocument();
     expect(screen.getByText('janedoe')).toBeInTheDocument();
@@ -67,10 +63,9 @@ describe('AdminUserManagement', () => {
   });
 
   it('should display user emails', () => {
-    render(
-      <AdminUserManagement users={mockUsers} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={mockUsers} isLoading={false} />, {
+      wrapper: createWrapper(),
+    });
 
     expect(screen.getByText('john@example.com')).toBeInTheDocument();
     expect(screen.getByText('jane@example.com')).toBeInTheDocument();
@@ -78,10 +73,9 @@ describe('AdminUserManagement', () => {
   });
 
   it('should display user reputation and join date', () => {
-    render(
-      <AdminUserManagement users={mockUsers} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={mockUsers} isLoading={false} />, {
+      wrapper: createWrapper(),
+    });
 
     expect(screen.getByText(/Reputation: 150/)).toBeInTheDocument();
     expect(screen.getByText(/Reputation: 250/)).toBeInTheDocument();
@@ -89,10 +83,9 @@ describe('AdminUserManagement', () => {
   });
 
   it('should display active/inactive badges', () => {
-    render(
-      <AdminUserManagement users={mockUsers} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={mockUsers} isLoading={false} />, {
+      wrapper: createWrapper(),
+    });
 
     const activeBadges = screen.getAllByText('Active');
     const inactiveBadges = screen.getAllByText('Inactive');
@@ -102,29 +95,24 @@ describe('AdminUserManagement', () => {
   });
 
   it('should render role selectors for each user', () => {
-    render(
-      <AdminUserManagement users={mockUsers} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={mockUsers} isLoading={false} />, {
+      wrapper: createWrapper(),
+    });
 
     const roleSelectors = screen.getAllByRole('combobox');
     expect(roleSelectors).toHaveLength(3);
   });
 
   it('should show empty state when no users', () => {
-    render(
-      <AdminUserManagement users={[]} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={[]} isLoading={false} />, { wrapper: createWrapper() });
 
     expect(screen.getByText('No users found')).toBeInTheDocument();
   });
 
   it('should display user avatars with initials', () => {
-    render(
-      <AdminUserManagement users={mockUsers} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={mockUsers} isLoading={false} />, {
+      wrapper: createWrapper(),
+    });
 
     // Two users (johndoe and janedoe) have "J" initial
     const jInitials = screen.getAllByText('J');
@@ -134,10 +122,9 @@ describe('AdminUserManagement', () => {
   });
 
   it('should display User Management title', () => {
-    render(
-      <AdminUserManagement users={mockUsers} isLoading={false} />,
-      { wrapper: createWrapper() }
-    );
+    render(<AdminUserManagement users={mockUsers} isLoading={false} />, {
+      wrapper: createWrapper(),
+    });
 
     expect(screen.getByText('User Management')).toBeInTheDocument();
     expect(screen.getByText('Manage user roles and permissions')).toBeInTheDocument();

@@ -26,8 +26,8 @@ const TRACKING_WINDOWS = {
  * Popularity thresholds for tier classification
  */
 const POPULARITY_THRESHOLDS = {
-  HOT: 100,   // 100+ views in last hour
-  WARM: 20,   // 20-99 views in last hour
+  HOT: 100, // 100+ views in last hour
+  WARM: 20, // 20-99 views in last hour
   // COLD: < 20 views
 };
 
@@ -83,7 +83,7 @@ export class PopularityTracker {
     } catch (error) {
       logger.error('Error tracking product view:', {
         productId,
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       });
     }
   }
@@ -109,7 +109,7 @@ export class PopularityTracker {
     } catch (error) {
       logger.error('Error tracking search query:', {
         query: query.substring(0, 50),
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       });
     }
   }
@@ -117,7 +117,10 @@ export class PopularityTracker {
   /**
    * Get product view count for the last hour
    */
-  async getProductViewCount(productId: number, window: keyof typeof TRACKING_WINDOWS = 'HOURLY'): Promise<number> {
+  async getProductViewCount(
+    productId: number,
+    window: keyof typeof TRACKING_WINDOWS = 'HOURLY'
+  ): Promise<number> {
     try {
       const redisClient = getRedisClient();
       if (!redisClient) {
@@ -149,7 +152,7 @@ export class PopularityTracker {
       logger.error('Error getting product view count:', {
         productId,
         window,
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       });
       return 0;
     }
@@ -173,7 +176,10 @@ export class PopularityTracker {
   /**
    * Get top N products by view count
    */
-  async getTopProducts(limit = 100, window: keyof typeof TRACKING_WINDOWS = 'HOURLY'): Promise<number[]> {
+  async getTopProducts(
+    limit = 100,
+    window: keyof typeof TRACKING_WINDOWS = 'HOURLY'
+  ): Promise<number[]> {
     try {
       const redisClient = getRedisClient();
       if (!redisClient) {
@@ -200,12 +206,12 @@ export class PopularityTracker {
       }
 
       const results = await redisClient.zrevrange(key, 0, limit - 1);
-      return results.map(id => parseInt(id));
+      return results.map((id) => parseInt(id));
     } catch (error) {
       logger.error('Error getting top products:', {
         limit,
         window,
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -240,7 +246,7 @@ export class PopularityTracker {
     } catch (error) {
       logger.error('Error getting top search queries:', {
         limit,
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -271,21 +277,15 @@ export class PopularityTracker {
       const day = Math.floor(timestamp / (1000 * 60 * 60 * 24));
       const week = Math.floor(timestamp / (1000 * 60 * 60 * 24 * 7));
 
-      const [
-        hourlyCount,
-        dailyCount,
-        weeklyCount,
-        searchQueryCount,
-        topProducts,
-        topQueries,
-      ] = await Promise.all([
-        redisClient.zcard(`${POPULARITY_KEYS.PRODUCT_VIEWS_HOURLY}:${hour}`),
-        redisClient.zcard(`${POPULARITY_KEYS.PRODUCT_VIEWS_DAILY}:${day}`),
-        redisClient.zcard(`${POPULARITY_KEYS.PRODUCT_VIEWS_WEEKLY}:${week}`),
-        redisClient.zcard(POPULARITY_KEYS.SEARCH_QUERIES),
-        this.getTopProducts(10, 'HOURLY'),
-        this.getTopSearchQueries(10),
-      ]);
+      const [hourlyCount, dailyCount, weeklyCount, searchQueryCount, topProducts, topQueries] =
+        await Promise.all([
+          redisClient.zcard(`${POPULARITY_KEYS.PRODUCT_VIEWS_HOURLY}:${hour}`),
+          redisClient.zcard(`${POPULARITY_KEYS.PRODUCT_VIEWS_DAILY}:${day}`),
+          redisClient.zcard(`${POPULARITY_KEYS.PRODUCT_VIEWS_WEEKLY}:${week}`),
+          redisClient.zcard(POPULARITY_KEYS.SEARCH_QUERIES),
+          this.getTopProducts(10, 'HOURLY'),
+          this.getTopSearchQueries(10),
+        ]);
 
       return {
         trackedProducts: {
@@ -299,7 +299,7 @@ export class PopularityTracker {
       };
     } catch (error) {
       logger.error('Error getting popularity stats:', {
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       });
       return {
         trackedProducts: { hourly: 0, daily: 0, weekly: 0 },
@@ -330,7 +330,7 @@ export class PopularityTracker {
       logger.info('Popularity data cleanup completed');
     } catch (error) {
       logger.error('Error during popularity cleanup:', {
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       });
     }
   }

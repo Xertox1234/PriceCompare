@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
-import type { AuthenticatedRequest } from "@shared/types";
-import { sendError, sendErrorFromException } from "../utils/api-response";
+import { Request, Response } from 'express';
+import type { AuthenticatedRequest } from '@shared/types';
+import { sendError, sendErrorFromException } from '../utils/api-response';
 
 // SECURITY: Express.User type is properly defined in server/auth.ts as SafeUser
 // This ensures passwordHash is never exposed in req.user throughout the application
@@ -16,7 +16,9 @@ export function isAuthenticated(req: Request): req is AuthenticatedRequest {
 /**
  * Wrapper to enforce authentication with proper typing
  */
-export function withAuth(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
+export function withAuth(
+  handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void
+) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
       sendError(res, 'Authentication required', 401);
@@ -30,7 +32,9 @@ export function withAuth(handler: (req: AuthenticatedRequest, res: Response) => 
 /**
  * Wrapper to enforce admin role with proper typing
  */
-export function withAdmin(handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void) {
+export function withAdmin(
+  handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void
+) {
   return async (req: Request, res: Response) => {
     if (!isAuthenticated(req)) {
       sendError(res, 'Authentication required', 401);
@@ -80,11 +84,7 @@ export function shouldSkipCache(req: AuthenticatedRequest): boolean {
  * Legacy error response handler - maintained for backwards compatibility
  * New code should use: sendErrorFromException(res, error, operationName)
  */
-export function handleRouteError(
-  res: Response,
-  error: unknown,
-  operationName: string
-): void {
+export function handleRouteError(res: Response, error: unknown, operationName: string): void {
   sendErrorFromException(res, error, operationName);
 }
 

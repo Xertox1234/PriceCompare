@@ -36,20 +36,18 @@ export function CategoryCarousel({
     <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl lg:text-2xl font-bold text-foreground">
-            {title}
-          </h2>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-foreground text-xl font-bold lg:text-2xl">{title}</h2>
           <div className="flex items-center gap-2">
             <button
               ref={navigationPrevRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               ref={navigationNextRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -85,17 +83,15 @@ export function CategoryCarousel({
         >
           {products.map((product) => (
             <SwiperSlide key={product.id}>
-              <ProductCard
-                product={product}
-                onWatchlist={onWatchlist}
-                onCompare={onCompare}
-              />
+              <ProductCard product={product} onWatchlist={onWatchlist} onCompare={onCompare} />
             </SwiperSlide>
           ))}
         </Swiper>
 
         {/* Mobile Pagination Dots */}
-        <div className={`flex xl:hidden category-pagination-${uniqueId} justify-center mt-4 gap-1`} />
+        <div
+          className={`flex xl:hidden category-pagination-${uniqueId} mt-4 justify-center gap-1`}
+        />
       </div>
     </section>
   );

@@ -1,41 +1,50 @@
-import { Express, Request } from "express";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
-import { storage } from "../storage";
-import { db } from "../db";
-import * as schema from "@shared/schema";
-import { passport, findUserByEmail, findUserById, hashPassword, User, SafeUser } from "../auth";
-import { generateCsrfToken, csrfProtection } from "../middleware/security";
-import { logSecurityEvent, SecurityEventType } from "../utils/security-logger";
-import { logger } from "../utils/logger";
-import { validatePassword } from "../utils/validation-helpers";
-import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
+import { Express, Request } from 'express';
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { storage } from '../storage';
+import { db } from '../db';
+import * as schema from '@shared/schema';
+import { passport, findUserByEmail, findUserById, hashPassword, User, SafeUser } from '../auth';
+import { generateCsrfToken, csrfProtection } from '../middleware/security';
+import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
+import { logger } from '../utils/logger';
+import { validatePassword } from '../utils/validation-helpers';
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import {
   createPasswordResetToken,
   validatePasswordResetToken,
   getUserByResetToken,
-  isRateLimitExceeded
-} from "../services/password-reset-service";
-import { emailService } from "../services/email-service";
-import { isAuthenticated } from "./helpers";
+  isRateLimitExceeded,
+} from '../services/password-reset-service';
+import { emailService } from '../services/email-service';
+import { isAuthenticated } from './helpers';
 
 // Import PASSWORD constants for consistency
-import { PASSWORD } from "../utils/constants";
+import { PASSWORD } from '../utils/constants';
 
 // Zod schemas for request validation
 const registerSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters").max(50, "Username must be less than 50 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`).max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
+  username: z
+    .string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(50, 'Username must be less than 50 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z
+    .string()
+    .min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`)
+    .max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().email('Invalid email address'),
 });
 
 const resetPasswordSchema = z.object({
-  token: z.string().min(1, "Token is required"),
-  password: z.string().min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`).max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
+  token: z.string().min(1, 'Token is required'),
+  password: z
+    .string()
+    .min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`)
+    .max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
 });
 
 /**
@@ -68,7 +77,7 @@ export function registerAuthRoutes(app: Express): void {
    * Get CSRF token for unauthenticated clients
    * Required before calling register, login, forgot-password, or reset-password endpoints
    */
-  app.get("/api/csrf-token", (req, res) => {
+  app.get('/api/csrf-token', (req, res) => {
     try {
       const token = generateCsrfToken(req);
       sendSuccess(res, { csrfToken: token });
@@ -78,7 +87,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User registration
-  app.post("/api/auth/register", csrfProtection, async (req, res): Promise<void> => {
+  app.post('/api/auth/register', csrfProtection, async (req, res): Promise<void> => {
     try {
       // SECURITY: Do not log request bodies in production (may contain sensitive data)
       // Use type guard to safely access email for logging
@@ -109,7 +118,11 @@ export function registerAuthRoutes(app: Express): void {
 
       // SECURITY: Use storage layer which handles SERIALIZABLE transaction with retry
       // to prevent race condition on first admin check
-      const { user, isFirstUser } = await storage.createUserWithTransaction(username, email, passwordHash);
+      const { user, isFirstUser } = await storage.createUserWithTransaction(
+        username,
+        email,
+        passwordHash
+      );
 
       // SECURITY: Log successful registration
       logSecurityEvent(SecurityEventType.REGISTER, req, {
@@ -120,24 +133,31 @@ export function registerAuthRoutes(app: Express): void {
         metadata: {
           role: user.role,
           isFirstUser,
-        }
+        },
       });
 
       // Log the user in after registration
       req.login(user as Express.User, (err): void => {
         if (err) {
-          logger.error('Login after registration failed', { error: err instanceof Error ? err.message : String(err), userId: user.id });
+          logger.error('Login after registration failed', {
+            error: err instanceof Error ? err.message : String(err),
+            userId: user.id,
+          });
           sendErrorFromException(res, err, 'LoginAfterRegistration');
           return;
         }
-        sendSuccess(res, {
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role || 'user'
-          }
-        }, 201);
+        sendSuccess(
+          res,
+          {
+            user: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              role: user.role || 'user',
+            },
+          },
+          201
+        );
       });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'Register');
@@ -145,10 +165,15 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User login
-  app.post("/api/auth/login", csrfProtection, (req, res, next) => {
+  app.post('/api/auth/login', csrfProtection, (req, res, next) => {
     // Use custom callback to capture authentication result for logging
     // Type the authenticate callback properly
-    type AuthInfo = { message?: string; locked?: boolean; remainingTime?: number; remainingAttempts?: number };
+    type AuthInfo = {
+      message?: string;
+      locked?: boolean;
+      remainingTime?: number;
+      remainingAttempts?: number;
+    };
     const authenticateCallback = (err: Error | null, user: User | false, info?: AuthInfo) => {
       if (err) {
         logger.error('Login error', { error: err.message || String(err) });
@@ -158,9 +183,10 @@ export function registerAuthRoutes(app: Express): void {
       if (!user) {
         // SECURITY: Log failed login attempt
         // Safely extract email from request body for logging
-        const loginEmail = typeof req.body === 'object' && req.body !== null && 'email' in req.body
-          ? String((req.body as { email?: unknown }).email ?? '')
-          : '';
+        const loginEmail =
+          typeof req.body === 'object' && req.body !== null && 'email' in req.body
+            ? String((req.body as { email?: unknown }).email ?? '')
+            : '';
         logSecurityEvent(SecurityEventType.LOGIN_FAILED, req, {
           email: loginEmail,
           success: false,
@@ -169,7 +195,7 @@ export function registerAuthRoutes(app: Express): void {
             reason: info?.message,
             locked: info?.locked,
             remainingAttempts: info?.remainingAttempts,
-          }
+          },
         });
 
         sendError(res, info?.message ?? 'Authentication failed', 401);
@@ -197,8 +223,8 @@ export function registerAuthRoutes(app: Express): void {
             id: user.id,
             username: user.username,
             email: user.email,
-            role: user.role || 'user'
-          }
+            role: user.role || 'user',
+          },
         });
       });
     };
@@ -210,13 +236,16 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User logout
-  app.post("/api/auth/logout", csrfProtection, (req, res): void => {
+  app.post('/api/auth/logout', csrfProtection, (req, res): void => {
     // Capture user before logout (may or may not be authenticated)
     const user = isAuthenticated(req) ? req.user : undefined;
 
     req.logout((err): void => {
       if (err) {
-        logger.error('Logout error', { error: err instanceof Error ? err.message : String(err), userId: user?.id });
+        logger.error('Logout error', {
+          error: err instanceof Error ? err.message : String(err),
+          userId: user?.id,
+        });
         sendErrorFromException(res, err, 'Logout');
         return;
       }
@@ -236,7 +265,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Password reset - Request token
-  app.post("/api/auth/forgot-password", csrfProtection, async (req, res): Promise<void> => {
+  app.post('/api/auth/forgot-password', csrfProtection, async (req, res): Promise<void> => {
     try {
       // Validate input with Zod schema
       const { email } = forgotPasswordSchema.parse(req.body);
@@ -250,29 +279,25 @@ export function registerAuthRoutes(app: Express): void {
         const rateLimitExceeded = await isRateLimitExceeded(user.id);
         if (rateLimitExceeded) {
           // Log the rate limit event using helper
-          logPasswordResetAttempt(req, email, user, false, "Rate limit exceeded");
+          logPasswordResetAttempt(req, email, user, false, 'Rate limit exceeded');
 
           // SECURITY: Still return success to prevent email enumeration
           sendSuccess(res, {
-            message: "If an account exists with this email, a password reset link has been sent.",
+            message: 'If an account exists with this email, a password reset link has been sent.',
           });
           return;
         }
 
         // Check if email service is configured
         if (!emailService.isReady()) {
-          logPasswordResetAttempt(req, email, user, false, "Email service not configured");
+          logPasswordResetAttempt(req, email, user, false, 'Email service not configured');
 
-          sendError(res, "Password reset is temporarily unavailable. Please contact support.", 503);
+          sendError(res, 'Password reset is temporarily unavailable. Please contact support.', 503);
           return;
         }
 
         // Create a password reset token
-        const token = await createPasswordResetToken(
-          user.id,
-          req.ip,
-          req.get("user-agent")
-        );
+        const token = await createPasswordResetToken(user.id, req.ip, req.get('user-agent'));
 
         // Send the password reset email
         const emailSent = await emailService.sendPasswordResetEmail(
@@ -287,40 +312,42 @@ export function registerAuthRoutes(app: Express): void {
           email,
           user,
           emailSent,
-          emailSent ? undefined : "Failed to send email"
+          emailSent ? undefined : 'Failed to send email'
         );
       } else {
         // User doesn't exist, but log this attempt
-        logPasswordResetAttempt(req, email, null, false, "User not found");
+        logPasswordResetAttempt(req, email, null, false, 'User not found');
       }
 
       // SECURITY: Always return the same response regardless of whether user exists
       sendSuccess(res, {
-        message: "If an account exists with this email, a password reset link has been sent.",
+        message: 'If an account exists with this email, a password reset link has been sent.',
       });
     } catch (error: unknown) {
-      logger.error("Forgot password error", { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Forgot password error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       // SECURITY: Don't reveal internal errors
       sendSuccess(res, {
-        message: "If an account exists with this email, a password reset link has been sent.",
+        message: 'If an account exists with this email, a password reset link has been sent.',
       });
     }
   });
 
   // Password reset - Validate token
-  app.get("/api/auth/reset-password/:token", async (req, res): Promise<void> => {
+  app.get('/api/auth/reset-password/:token', async (req, res): Promise<void> => {
     try {
       const { token } = req.params;
 
       if (!token) {
-        sendError(res, "Token is required", 400);
+        sendError(res, 'Token is required', 400);
         return;
       }
 
       const tokenRecord = await validatePasswordResetToken(token);
 
       if (!tokenRecord) {
-        sendError(res, "Invalid or expired password reset token", 400);
+        sendError(res, 'Invalid or expired password reset token', 400);
         return;
       }
 
@@ -328,7 +355,7 @@ export function registerAuthRoutes(app: Express): void {
       const user = await getUserByResetToken(token);
 
       if (!user) {
-        sendError(res, "Invalid password reset token", 400);
+        sendError(res, 'Invalid password reset token', 400);
         return;
       }
 
@@ -337,13 +364,15 @@ export function registerAuthRoutes(app: Express): void {
         username: user.username,
       });
     } catch (error: unknown) {
-      logger.error("Validate reset token error", { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Validate reset token error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       sendErrorFromException(res, error, 'ValidateResetToken');
     }
   });
 
   // Password reset - Complete reset
-  app.post("/api/auth/reset-password", csrfProtection, async (req, res): Promise<void> => {
+  app.post('/api/auth/reset-password', csrfProtection, async (req, res): Promise<void> => {
     try {
       // Validate input with Zod schema
       const { token, password } = resetPasswordSchema.parse(req.body);
@@ -361,10 +390,10 @@ export function registerAuthRoutes(app: Express): void {
       if (!user) {
         logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
           success: false,
-          message: "Invalid or expired token",
+          message: 'Invalid or expired token',
         });
 
-        sendError(res, "Invalid or expired password reset token", 400);
+        sendError(res, 'Invalid or expired password reset token', 400);
         return;
       }
 
@@ -403,23 +432,22 @@ export function registerAuthRoutes(app: Express): void {
 
       // Send confirmation email
       if (emailService.isReady()) {
-        await emailService.sendPasswordResetConfirmationEmail(
-          user.email,
-          user.username
-        );
+        await emailService.sendPasswordResetConfirmationEmail(user.email, user.username);
       }
 
       sendSuccess(res, {
-        message: "Password has been reset successfully. You can now log in with your new password.",
+        message: 'Password has been reset successfully. You can now log in with your new password.',
       });
     } catch (error: unknown) {
-      logger.error("Reset password error", { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Reset password error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       sendErrorFromException(res, error, 'ResetPassword');
     }
   });
 
   // Get current user
-  app.get("/api/auth/user", async (req, res): Promise<void> => {
+  app.get('/api/auth/user', async (req, res): Promise<void> => {
     if (!isAuthenticated(req)) {
       sendError(res, 'Not authenticated', 401);
       return;

@@ -31,7 +31,11 @@ interface WatchedProductCardProps {
   onRemove?: () => void;
 }
 
-export function WatchedProductCard({ product, watchListId: _watchListId, onRemove }: WatchedProductCardProps) {
+export function WatchedProductCard({
+  product,
+  watchListId: _watchListId,
+  onRemove,
+}: WatchedProductCardProps) {
   const [showAlertDialog, setShowAlertDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrice, setEditedPrice] = useState<number>(product.alertTargetPrice || 0);
@@ -58,7 +62,7 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
       void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
 
       toast({
-        title: "Target price updated",
+        title: 'Target price updated',
         description: `New target: $${editedPrice.toFixed(2)}`,
       });
 
@@ -66,9 +70,9 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to update price",
-        description: error.message || "Please try again later",
-        variant: "destructive",
+        title: 'Failed to update price',
+        description: error.message || 'Please try again later',
+        variant: 'destructive',
       });
     },
   });
@@ -77,18 +81,18 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
     // Client-side validation
     if (editedPrice <= 0) {
       toast({
-        title: "Invalid price",
-        description: "Target price must be greater than $0",
-        variant: "destructive",
+        title: 'Invalid price',
+        description: 'Target price must be greater than $0',
+        variant: 'destructive',
       });
       return;
     }
 
     if (editedPrice >= product.currentPrice) {
       toast({
-        title: "Invalid price",
-        description: "Target price should be lower than current price",
-        variant: "destructive",
+        title: 'Invalid price',
+        description: 'Target price should be lower than current price',
+        variant: 'destructive',
       });
       return;
     }
@@ -122,35 +126,33 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
   const AlertIcon = alertBadgeProps.icon;
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
+    <Card className="overflow-hidden transition-shadow duration-200 hover:shadow-lg">
       <CardContent className="p-4">
         {/* Header with image and basic info */}
-        <div className="flex gap-4 mb-4">
+        <div className="mb-4 flex gap-4">
           {/* Product Image */}
           <div className="flex-shrink-0">
             <img
               src={product.imageUrl || DEFAULT_PRODUCT_IMAGE}
               alt={product.productName}
-              className="w-20 h-20 object-cover rounded-md"
+              className="h-20 w-20 rounded-md object-cover"
               loading="lazy"
             />
           </div>
 
           {/* Product Info */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base line-clamp-2 mb-2">
-              {product.productName}
-            </h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="mb-2 line-clamp-2 text-base font-semibold">{product.productName}</h3>
 
             {/* Price and Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-2xl font-bold text-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-foreground text-2xl font-bold">
                 ${product.currentPrice.toFixed(2)}
               </span>
 
               {hasPriceDrop && (
-                <Badge className="bg-green-600 text-white dark:bg-green-500 flex items-center gap-1">
-                  <TrendingDown className="w-3 h-3" />
+                <Badge className="flex items-center gap-1 bg-green-600 text-white dark:bg-green-500">
+                  <TrendingDown className="h-3 w-3" />
                   {product.priceDropPercent.toFixed(0)}% off
                 </Badge>
               )}
@@ -158,7 +160,7 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
 
             {/* Savings indicator */}
             {hasSavings && (
-              <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1">
+              <p className="mt-1 text-sm font-medium text-green-600 dark:text-green-400">
                 Save ${product.savingsPotential.toFixed(2)} vs. lowest price
               </p>
             )}
@@ -170,10 +172,10 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
               variant="ghost"
               size="sm"
               onClick={onRemove}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive h-8 w-8 p-0"
               aria-label="Remove from watch list"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -194,113 +196,131 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-xs text-muted-foreground text-center mt-1">
-            Last 7 days
-          </p>
+          <p className="text-muted-foreground mt-1 text-center text-xs">Last 7 days</p>
         </div>
 
         {/* Footer with alert status and actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-border">
+        <div className="border-border flex items-center justify-between border-t pt-3">
           {/* Alert Status Badge */}
-          <Badge variant="outline" className={cn('flex items-center gap-1', alertBadgeProps.className)}>
-            <AlertIcon className="w-3 h-3" />
-            <span className="capitalize">{product.alertStatus === 'active' ? 'Active Alert' : product.alertStatus === 'triggered' ? 'Alert Triggered' : 'No Alert'}</span>
+          <Badge
+            variant="outline"
+            className={cn('flex items-center gap-1', alertBadgeProps.className)}
+          >
+            <AlertIcon className="h-3 w-3" />
+            <span className="capitalize">
+              {product.alertStatus === 'active'
+                ? 'Active Alert'
+                : product.alertStatus === 'triggered'
+                  ? 'Alert Triggered'
+                  : 'No Alert'}
+            </span>
           </Badge>
 
           {/* View Details Link */}
           <Button
             variant="link"
             size="sm"
-            className="h-auto p-0 text-primary"
+            className="text-primary h-auto p-0"
             onClick={() => {
               // Navigate to product details page
               window.location.href = `/products/${product.productId}/price-history`;
             }}
           >
-            <ExternalLink className="w-3 h-3 mr-1" />
+            <ExternalLink className="mr-1 h-3 w-3" />
             View Details
           </Button>
         </div>
 
         {/* Alert Target Price (show when alert exists) */}
-        {(product.alertStatus === 'active' || product.alertStatus === 'triggered') && product.alertTargetPrice !== null && (
-          <div className="mt-3 pt-3 border-t border-border">
-            {isEditing ? (
-              // Editing mode
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-muted-foreground min-w-[80px]">Target Price:</span>
-                  <div className="flex items-center gap-1 flex-1">
-                    <span className="text-lg font-medium text-muted-foreground">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      max={product.currentPrice}
-                      value={editedPrice}
-                      onChange={(e) => setEditedPrice(parseFloat(e.target.value) || 0)}
-                      className="h-8 text-sm"
-                      autoFocus
+        {(product.alertStatus === 'active' || product.alertStatus === 'triggered') &&
+          product.alertTargetPrice !== null && (
+            <div className="border-border mt-3 border-t pt-3">
+              {isEditing ? (
+                // Editing mode
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground min-w-[80px] text-sm font-medium">
+                      Target Price:
+                    </span>
+                    <div className="flex flex-1 items-center gap-1">
+                      <span className="text-muted-foreground text-lg font-medium">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max={product.currentPrice}
+                        value={editedPrice}
+                        onChange={(e) => setEditedPrice(parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm"
+                        autoFocus
+                        disabled={updateAlertMutation.isPending}
+                      />
+                    </div>
+                  </div>
+                  {/* Real-time savings calculation */}
+                  {editedPrice > 0 && editedPrice < product.currentPrice && (
+                    <p className="text-muted-foreground text-xs">
+                      Save ${(product.currentPrice - editedPrice).toFixed(2)} (
+                      {Math.round(
+                        ((product.currentPrice - editedPrice) / product.currentPrice) * 100
+                      )}
+                      % off)
+                    </p>
+                  )}
+                  {/* Save/Cancel buttons */}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveEdit}
+                      disabled={
+                        updateAlertMutation.isPending ||
+                        editedPrice <= 0 ||
+                        editedPrice >= product.currentPrice
+                      }
+                      className="flex items-center gap-1"
+                    >
+                      <Check className="h-3 w-3" />
+                      {updateAlertMutation.isPending ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelEdit}
                       disabled={updateAlertMutation.isPending}
-                    />
+                      className="flex items-center gap-1"
+                    >
+                      <XCircle className="h-3 w-3" />
+                      Cancel
+                    </Button>
                   </div>
                 </div>
-                {/* Real-time savings calculation */}
-                {editedPrice > 0 && editedPrice < product.currentPrice && (
-                  <p className="text-xs text-muted-foreground">
-                    Save ${ (product.currentPrice - editedPrice).toFixed(2)} ({Math.round(((product.currentPrice - editedPrice) / product.currentPrice) * 100)}% off)
-                  </p>
-                )}
-                {/* Save/Cancel buttons */}
-                <div className="flex gap-2">
+              ) : (
+                // Display mode
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-sm">Target:</span>
+                    <span className="text-primary text-lg font-bold">
+                      ${product.alertTargetPrice.toFixed(2)}
+                    </span>
+                    {product.currentPrice <= product.alertTargetPrice && (
+                      <Badge className="bg-green-600 text-xs text-white dark:bg-green-500">
+                        TARGET MET!
+                      </Badge>
+                    )}
+                  </div>
                   <Button
+                    variant="ghost"
                     size="sm"
-                    onClick={handleSaveEdit}
-                    disabled={updateAlertMutation.isPending || editedPrice <= 0 || editedPrice >= product.currentPrice}
-                    className="flex items-center gap-1"
+                    onClick={handleStartEdit}
+                    className="text-muted-foreground hover:text-foreground h-7 px-2"
+                    aria-label="Edit target price"
                   >
-                    <Check className="w-3 h-3" />
-                    {updateAlertMutation.isPending ? "Saving..." : "Save"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    disabled={updateAlertMutation.isPending}
-                    className="flex items-center gap-1"
-                  >
-                    <XCircle className="w-3 h-3" />
-                    Cancel
+                    <Edit2 className="h-3 w-3" />
                   </Button>
                 </div>
-              </div>
-            ) : (
-              // Display mode
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Target:</span>
-                  <span className="text-lg font-bold text-primary">
-                    ${product.alertTargetPrice.toFixed(2)}
-                  </span>
-                  {product.currentPrice <= product.alertTargetPrice && (
-                    <Badge className="bg-green-600 text-white dark:bg-green-500 text-xs">
-                      TARGET MET!
-                    </Badge>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleStartEdit}
-                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                  aria-label="Edit target price"
-                >
-                  <Edit2 className="w-3 h-3" />
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
         {/* Set Price Alert Button (only show if no alert exists) */}
         {product.alertStatus === 'none' && (
@@ -311,7 +331,7 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
               className="w-full"
               onClick={() => setShowAlertDialog(true)}
             >
-              <Bell className="w-4 h-4 mr-2" />
+              <Bell className="mr-2 h-4 w-4" />
               Set Price Alert
             </Button>
           </div>
@@ -328,7 +348,7 @@ export function WatchedProductCard({ product, watchListId: _watchListId, onRemov
 
         {/* Added date */}
         <div className="mt-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             Added {new Date(product.addedAt).toLocaleDateString()}
           </p>
         </div>

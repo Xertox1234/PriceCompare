@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* Floating header background - solid colors for each theme */
@@ -56,9 +56,15 @@
   --radius-xs: calc(var(--radius) - 6px);
 
   /* Typography system */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-family-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-family-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-family-heading:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
 }
 
 /* Dark mode color overrides */
@@ -142,7 +148,12 @@
     line-height: 1.6;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-family-heading);
     font-weight: 700;
     line-height: 1.2;
@@ -157,7 +168,11 @@
   }
 
   .gradient-deal {
-    background: linear-gradient(to right, hsl(var(--color-destructive)), hsl(var(--color-secondary)));
+    background: linear-gradient(
+      to right,
+      hsl(var(--color-destructive)),
+      hsl(var(--color-secondary))
+    );
   }
 
   .gradient-success {
@@ -188,12 +203,12 @@
 
 /* Utility to hide scrollbar while maintaining scroll functionality */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari, Opera */
+  display: none; /* Chrome, Safari, Opera */
 }
 
 /* Essential custom styles for Tech Space theme */
@@ -238,7 +253,9 @@
   border-radius: 0.75rem;
   padding: 1rem;
   max-width: 20rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 @media (max-width: 640px) {
@@ -280,8 +297,8 @@
 }
 
 /* First two slides become the full background */
-.hero-slide[data-index="0"],
-.hero-slide[data-index="1"] {
+.hero-slide[data-index='0'],
+.hero-slide[data-index='1'] {
   top: 0;
   left: 0;
   transform: translateY(0);
@@ -291,14 +308,14 @@
 }
 
 /* Position thumbnails on the right side */
-.hero-slide[data-index="2"] {
+.hero-slide[data-index='2'] {
   right: 20px;
   left: auto;
   top: 20px;
   transform: translateY(0);
 }
 
-.hero-slide[data-index="3"] {
+.hero-slide[data-index='3'] {
   right: 20px;
   left: auto;
   top: calc(20px + 180px + 15px);
@@ -306,9 +323,9 @@
 }
 
 /* Hide additional slides */
-.hero-slide[data-index="4"],
-.hero-slide[data-index="5"],
-.hero-slide[data-index="6"] {
+.hero-slide[data-index='4'],
+.hero-slide[data-index='5'],
+.hero-slide[data-index='6'] {
   right: 20px;
   left: auto;
   top: calc(20px + 360px + 30px);
@@ -324,21 +341,29 @@
   width: 350px;
   text-align: left;
   color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   display: none;
   z-index: 5;
 }
 
-.hero-slide[data-index="1"] .hero-slide-content {
+.hero-slide[data-index='1'] .hero-slide-content {
   display: block;
 }
 
 /* Dark overlay for readability on active slide */
-.hero-slide[data-index="1"]::before {
+.hero-slide[data-index='1']::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to right, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.5) 50%, transparent 80%);
+  background: linear-gradient(
+    to right,
+    rgba(15, 23, 42, 0.85),
+    rgba(15, 23, 42, 0.5) 50%,
+    transparent 80%
+  );
   border-radius: 10px;
   z-index: 1;
 }
@@ -430,7 +455,7 @@
 }
 
 .expandable-card::before {
-  content: "";
+  content: '';
   position: absolute;
   width: calc(100% - 0.75rem);
   height: 35%;
@@ -460,7 +485,10 @@
   object-position: center;
   border-radius: 1rem;
   display: block;
-  transition: aspect-ratio 0.3s ease-out, object-position 0.3s ease-out, opacity 0.8s ease-in-out;
+  transition:
+    aspect-ratio 0.3s ease-out,
+    object-position 0.3s ease-out,
+    opacity 0.8s ease-in-out;
 }
 
 .expandable-card-image-layer {
@@ -487,7 +515,9 @@
   margin-bottom: 0.25rem;
   opacity: 0;
   translate: 0 -100%;
-  transition: opacity 0.4s ease-out, translate 0.25s ease-out;
+  transition:
+    opacity 0.4s ease-out,
+    translate 0.25s ease-out;
 }
 
 .expandable-card-name {
@@ -498,7 +528,10 @@
   margin: 0 0 0.5rem 0;
   opacity: 1;
   translate: 0 -50%;
-  transition: opacity 0.4s ease-out, translate 0.25s ease-out, color 0.3s;
+  transition:
+    opacity 0.4s ease-out,
+    translate 0.25s ease-out,
+    color 0.3s;
 }
 
 .expandable-card-rating {
@@ -508,7 +541,9 @@
   margin-bottom: 0.5rem;
   opacity: 0;
   translate: 0 50%;
-  transition: opacity 0.4s ease-out 0.1s, translate 0.25s ease-out 0.1s;
+  transition:
+    opacity 0.4s ease-out 0.1s,
+    translate 0.25s ease-out 0.1s;
 }
 
 .expandable-card-price-row {
@@ -517,7 +552,9 @@
   gap: 0.5rem;
   opacity: 0;
   translate: 0 50%;
-  transition: opacity 0.4s ease-out 0.15s, translate 0.25s ease-out 0.15s;
+  transition:
+    opacity 0.4s ease-out 0.15s,
+    translate 0.25s ease-out 0.15s;
 }
 
 .expandable-card-price {
@@ -541,7 +578,9 @@
   border-top: 1px solid hsl(var(--color-border));
   opacity: 0;
   translate: 0 50%;
-  transition: opacity 0.4s ease-out 0.2s, translate 0.25s ease-out 0.2s;
+  transition:
+    opacity 0.4s ease-out 0.2s,
+    translate 0.25s ease-out 0.2s;
 }
 
 .expandable-card-button {
@@ -553,7 +592,9 @@
   background: hsl(var(--color-primary));
   color: hsl(var(--color-primary-foreground));
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  transition:
+    background 0.2s,
+    transform 0.2s;
 }
 
 .expandable-card-button:hover {

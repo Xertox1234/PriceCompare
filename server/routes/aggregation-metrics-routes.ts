@@ -34,13 +34,19 @@ function metricsAuth(req: Request, res: Response, next: NextFunction): void {
   // In production, API key is required
   if (!isDevelopment && !expectedApiKey) {
     logger.error('[MetricsAuth] CRITICAL: METRICS_API_KEY not set in production');
-    sendError(res, 'Metrics endpoint not configured - METRICS_API_KEY environment variable is required in production', 500);
+    sendError(
+      res,
+      'Metrics endpoint not configured - METRICS_API_KEY environment variable is required in production',
+      500
+    );
     return;
   }
 
   // In development, allow but warn if no API key is set
   if (isDevelopment && !expectedApiKey) {
-    logger.warn('[MetricsAuth] METRICS_API_KEY not set in development - allowing unauthenticated access');
+    logger.warn(
+      '[MetricsAuth] METRICS_API_KEY not set in development - allowing unauthenticated access'
+    );
     return next();
   }
 
@@ -48,7 +54,11 @@ function metricsAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     logger.warn('[MetricsAuth] Missing or invalid Authorization header');
-    sendError(res, 'Authentication required - Provide API key via Authorization: Bearer <METRICS_API_KEY>', 401);
+    sendError(
+      res,
+      'Authentication required - Provide API key via Authorization: Bearer <METRICS_API_KEY>',
+      401
+    );
     return;
   }
 
@@ -178,9 +188,7 @@ export function registerAggregationMetricsRoutes(app: Express): void {
 
         // Check success rate
         if (stats.successRate < 95) {
-          warnings.push(
-            `${operation} has low success rate: ${stats.successRate.toFixed(1)}%`
-          );
+          warnings.push(`${operation} has low success rate: ${stats.successRate.toFixed(1)}%`);
         }
 
         // Check if last operation failed
@@ -197,11 +205,15 @@ export function registerAggregationMetricsRoutes(app: Express): void {
       }
 
       if (warnings.length > 0) {
-        sendSuccess(res, {
-          status: 'degraded',
-          warnings,
-          stats: allStats,
-        }, 503);
+        sendSuccess(
+          res,
+          {
+            status: 'degraded',
+            warnings,
+            stats: allStats,
+          },
+          503
+        );
         return;
       }
 

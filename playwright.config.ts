@@ -19,26 +19,26 @@ export default defineConfig({
 
   // Single worker to prevent database race conditions
   workers: 1,
-  
+
   // Reporter to use
-  reporter: process.env.CI 
+  reporter: process.env.CI
     ? [['html'], ['junit', { outputFile: 'test-results/junit.xml' }], ['github']]
     : [['html'], ['list']],
-  
+
   // Shared settings for all the projects below
   use: {
     // Base URL to use in actions like `await page.goto('/')`
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:5000',
-    
+
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
-    
+
     // Screenshot on failure
     screenshot: 'only-on-failure',
-    
+
     // Video on failure
     video: 'retain-on-failure',
-    
+
     // Maximum time each action such as `click()` can take
     actionTimeout: 10000,
   },
@@ -72,12 +72,14 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
-  webServer: process.env.CI ? undefined : {
-    command: 'npm run dev',
-    url: 'http://localhost:5000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: 'npm run dev',
+        url: 'http://localhost:5000',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120000,
+      },
 
   // Global timeout for each test
   timeout: 30000,

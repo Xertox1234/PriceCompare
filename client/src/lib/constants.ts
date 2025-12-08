@@ -64,13 +64,13 @@ export const DEBOUNCE_DELAY = {
  * Default fallback image for products without images
  */
 export const DEFAULT_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop";
+  'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop';
 
 /**
  * Hero section background image
  */
 export const HERO_BACKGROUND_IMAGE =
-  "https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1920&h=700&fit=crop";
+  'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1920&h=700&fit=crop';
 
 // ============================================================================
 // Feature Flags & Limits

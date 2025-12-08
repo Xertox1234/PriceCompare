@@ -49,7 +49,7 @@ export function BulkActionToolbar({
   const { toast } = useToast();
 
   const allSelected = selectedCount === totalCount;
-  const availableLists = watchLists.filter(list => list.id !== currentListId);
+  const availableLists = watchLists.filter((list) => list.id !== currentListId);
 
   const handleMove = async () => {
     if (!targetListId) return;
@@ -81,10 +81,10 @@ export function BulkActionToolbar({
 
   return (
     <>
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-primary/10 border-primary/20 mb-4 rounded-lg border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Badge variant="default" className="text-sm px-3 py-1">
+            <Badge variant="default" className="px-3 py-1 text-sm">
               {selectedCount} selected
             </Badge>
             <Button
@@ -92,11 +92,11 @@ export function BulkActionToolbar({
               size="sm"
               onClick={allSelected ? onClearSelection : onSelectAll}
             >
-              <Check className="w-4 h-4 mr-2" />
+              <Check className="mr-2 h-4 w-4" />
               {allSelected ? 'Deselect All' : 'Select All'}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClearSelection}>
-              <X className="w-4 h-4 mr-2" />
+              <X className="mr-2 h-4 w-4" />
               Clear
             </Button>
           </div>
@@ -122,18 +122,14 @@ export function BulkActionToolbar({
                   onClick={() => void handleMove()}
                   disabled={!targetListId || moveProducts.isPending}
                 >
-                  <FolderInput className="w-4 h-4 mr-2" />
+                  <FolderInput className="mr-2 h-4 w-4" />
                   Move
                 </Button>
               </div>
             )}
 
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setIsDeleteDialogOpen(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
+            <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
           </div>
@@ -144,7 +140,7 @@ export function BulkActionToolbar({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-destructive" />
+              <AlertCircle className="text-destructive h-5 w-5" />
               Delete Products
             </AlertDialogTitle>
             <AlertDialogDescription>

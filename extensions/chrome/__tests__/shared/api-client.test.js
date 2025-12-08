@@ -263,7 +263,7 @@ describe('PriceCompareAPI', () => {
 
       api.cache.set('test-key', {
         data: oldData,
-        timestamp: Date.now() - (6 * 60 * 1000) // 6 minutes ago (expired)
+        timestamp: Date.now() - 6 * 60 * 1000 // 6 minutes ago (expired)
       });
 
       const result = await api.getCached('test-key', mockFetchFn);
@@ -433,8 +433,9 @@ describe('PriceCompareAPI', () => {
     it('should throw error on failure', async () => {
       global.fetch.mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(api.createPriceAlert(123, 15.99, 'test@example.com'))
-        .rejects.toThrow('Network error');
+      await expect(api.createPriceAlert(123, 15.99, 'test@example.com')).rejects.toThrow(
+        'Network error'
+      );
     });
   });
 

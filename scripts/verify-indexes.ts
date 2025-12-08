@@ -13,10 +13,14 @@ async function verifyIndexes() {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
-                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+  const isNeonDatabase =
+    process.env.DATABASE_URL?.includes('neon.tech') ||
+    process.env.DATABASE_URL?.includes('.pooler.neon.tech');
 
-  type PoolClient = { query: (text: string) => Promise<{ rows: Array<Record<string, unknown>> }>; end: () => Promise<void> };
+  type PoolClient = {
+    query: (text: string) => Promise<{ rows: Array<Record<string, unknown>> }>;
+    end: () => Promise<void>;
+  };
   let pool: PoolClient;
 
   if (isNeonDatabase) {
@@ -106,7 +110,6 @@ async function verifyIndexes() {
     }
 
     console.log('\n✨ Index verification complete!\n');
-
   } catch (error) {
     console.error('❌ Verification failed:', error);
     throw error;
@@ -115,7 +118,7 @@ async function verifyIndexes() {
   }
 }
 
-verifyIndexes().catch(error => {
+verifyIndexes().catch((error) => {
   console.error(error);
   process.exit(1);
 });

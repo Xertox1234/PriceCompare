@@ -69,18 +69,15 @@ async function generateEmbeddings() {
         break;
       }
 
-      console.log(`🔄 Processing batch: ${processed + 1} to ${processed + products.length} of ${totalProducts}`);
+      console.log(
+        `🔄 Processing batch: ${processed + 1} to ${processed + products.length} of ${totalProducts}`
+      );
 
       // Generate embeddings for this batch
       for (const product of products) {
         try {
           // Create searchable text from product fields
-          const searchableText = [
-            product.name,
-            product.description,
-            product.brand,
-            product.model
-          ]
+          const searchableText = [product.name, product.description, product.brand, product.model]
             .filter(Boolean)
             .join(' ')
             .trim();
@@ -93,7 +90,7 @@ async function generateEmbeddings() {
           // Generate embedding
           const response = await openai.embeddings.create({
             model: 'text-embedding-3-small',
-            input: searchableText
+            input: searchableText,
           });
 
           const embedding = response.data[0].embedding;
@@ -108,8 +105,9 @@ async function generateEmbeddings() {
           );
 
           processed++;
-          console.log(`✅ Generated embedding for product ${product.id}: "${product.name.substring(0, 50)}${product.name.length > 50 ? '...' : ''}"`);
-
+          console.log(
+            `✅ Generated embedding for product ${product.id}: "${product.name.substring(0, 50)}${product.name.length > 50 ? '...' : ''}"`
+          );
         } catch (error) {
           console.error(`❌ Failed to generate embedding for product ${product.id}:`, error);
           // Continue with next product
@@ -121,7 +119,7 @@ async function generateEmbeddings() {
       // Rate limit: wait between batches
       if (offset < totalProducts) {
         console.log(`⏳ Waiting ${RATE_LIMIT_DELAY}ms before next batch...\n`);
-        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
+        await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_DELAY));
       }
     }
 
@@ -141,7 +139,6 @@ async function generateEmbeddings() {
     console.log(`   Total products: ${stats.total}`);
     console.log(`   With embeddings: ${stats.with_embeddings}`);
     console.log(`   Without embeddings: ${stats.without_embeddings}`);
-
   } catch (error) {
     console.error('❌ Embedding generation failed:', error);
     throw error;
@@ -150,7 +147,7 @@ async function generateEmbeddings() {
   }
 }
 
-generateEmbeddings().catch(error => {
+generateEmbeddings().catch((error) => {
   console.error(error);
   process.exit(1);
 });

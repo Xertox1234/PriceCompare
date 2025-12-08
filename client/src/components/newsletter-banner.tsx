@@ -29,9 +29,7 @@ type SubmissionState = 'idle' | 'loading' | 'success' | 'error';
  * - Icons for visual appeal
  * - Centered layout with max-width container
  */
-export const NewsletterBanner = memo(({
-  className,
-}: NewsletterBannerProps) => {
+export const NewsletterBanner = memo(({ className }: NewsletterBannerProps) => {
   const [email, setEmail] = useState('');
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -87,17 +85,12 @@ export const NewsletterBanner = memo(({
   );
 
   return (
-    <section
-      className={cn(
-        'relative overflow-hidden rounded-2xl',
-        className
-      )}
-    >
+    <section className={cn('relative overflow-hidden rounded-2xl', className)}>
       {/* Gradient Background */}
       <div
         className={cn(
           'absolute inset-0',
-          'bg-gradient-to-r from-primary via-primary/90 to-indigo-600'
+          'from-primary via-primary/90 bg-gradient-to-r to-indigo-600'
         )}
         aria-hidden="true"
       />
@@ -113,15 +106,15 @@ export const NewsletterBanner = memo(({
 
       {/* Decorative Icons Background */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-        <Bell className="absolute -top-4 -right-4 h-32 w-32 text-white/5 transform rotate-12" />
-        <Mail className="absolute -bottom-6 -left-6 h-40 w-40 text-white/5 transform -rotate-12" />
+        <Bell className="absolute -top-4 -right-4 h-32 w-32 rotate-12 transform text-white/5" />
+        <Mail className="absolute -bottom-6 -left-6 h-40 w-40 -rotate-12 transform text-white/5" />
       </div>
 
       {/* Content Container */}
       <div className="relative px-6 py-12 md:px-12 md:py-16">
-        <div className="max-w-3xl mx-auto text-center">
+        <div className="mx-auto max-w-3xl text-center">
           {/* Icon Badge */}
-          <div className="flex justify-center mb-6">
+          <div className="mb-6 flex justify-center">
             <div
               className={cn(
                 'inline-flex items-center justify-center',
@@ -134,35 +127,35 @@ export const NewsletterBanner = memo(({
           </div>
 
           {/* Headline */}
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3">
+          <h2 className="mb-3 text-2xl font-bold text-white md:text-3xl lg:text-4xl">
             Never Miss a Deal
           </h2>
 
           {/* Subtext */}
-          <p className="text-base md:text-lg text-white/90 mb-8 max-w-xl mx-auto">
-            Join <span className="font-semibold">50,000+</span> smart shoppers
-            who save money every day with personalized price drop alerts.
+          <p className="mx-auto mb-8 max-w-xl text-base text-white/90 md:text-lg">
+            Join <span className="font-semibold">50,000+</span> smart shoppers who save money every
+            day with personalized price drop alerts.
           </p>
 
           {/* Form */}
           {submissionState === 'success' ? (
             // Success State
-            <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col items-center gap-3 duration-500">
               <div
                 className={cn(
-                  'inline-flex items-center gap-2 px-6 py-3 rounded-full',
+                  'inline-flex items-center gap-2 rounded-full px-6 py-3',
                   'bg-white/20 backdrop-blur-sm'
                 )}
               >
                 <CheckCircle className="h-5 w-5 text-emerald-300" />
-                <span className="text-white font-medium">
+                <span className="font-medium text-white">
                   You're all set! Check your inbox to confirm.
                 </span>
               </div>
               <Button
                 variant="ghost"
                 onClick={() => setSubmissionState('idle')}
-                className="text-white/70 hover:text-white hover:bg-white/10"
+                className="text-white/70 hover:bg-white/10 hover:text-white"
               >
                 Subscribe another email
               </Button>
@@ -171,9 +164,9 @@ export const NewsletterBanner = memo(({
             // Form State
             <form
               onSubmit={(e) => void handleSubmit(e)}
-              className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+              className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row"
             >
-              <div className="flex-1 relative">
+              <div className="relative flex-1">
                 <Input
                   type="email"
                   placeholder="Enter your email address"
@@ -181,22 +174,19 @@ export const NewsletterBanner = memo(({
                   onChange={handleEmailChange}
                   disabled={submissionState === 'loading'}
                   className={cn(
-                    'h-12 rounded-full bg-white/95 text-foreground',
+                    'text-foreground h-12 rounded-full bg-white/95',
                     'border-0 px-5',
                     'placeholder:text-muted-foreground',
                     'focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0',
-                    submissionState === 'error' &&
-                      'ring-2 ring-red-300 bg-red-50/95'
+                    submissionState === 'error' && 'bg-red-50/95 ring-2 ring-red-300'
                   )}
                   aria-label="Email address"
-                  aria-describedby={
-                    submissionState === 'error' ? 'email-error' : undefined
-                  }
+                  aria-describedby={submissionState === 'error' ? 'email-error' : undefined}
                 />
                 {submissionState === 'error' && (
                   <p
                     id="email-error"
-                    className="absolute -bottom-6 left-0 text-xs text-red-200 font-medium"
+                    className="absolute -bottom-6 left-0 text-xs font-medium text-red-200"
                   >
                     {errorMessage}
                   </p>
@@ -206,7 +196,7 @@ export const NewsletterBanner = memo(({
                 type="submit"
                 disabled={submissionState === 'loading'}
                 className={cn(
-                  'h-12 px-8 rounded-full font-semibold',
+                  'h-12 rounded-full px-8 font-semibold',
                   'bg-secondary text-secondary-foreground',
                   'hover:bg-secondary/90',
                   'shadow-lg shadow-black/10',
@@ -215,10 +205,7 @@ export const NewsletterBanner = memo(({
               >
                 {submissionState === 'loading' ? (
                   <>
-                    <Loader2
-                      className="h-4 w-4 animate-spin"
-                      aria-hidden="true"
-                    />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                     <span>Subscribing...</span>
                   </>
                 ) : (

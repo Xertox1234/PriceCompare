@@ -97,10 +97,7 @@ export function calculateRetailerReliability(
 
   // Calculate weighted overall score
   const overallScore = Math.round(
-    priceStability * 0.25 +
-    availability * 0.30 +
-    competitiveness * 0.25 +
-    consistency * 0.20
+    priceStability * 0.25 + availability * 0.3 + competitiveness * 0.25 + consistency * 0.2
   );
 
   // Determine rating
@@ -154,7 +151,7 @@ export function calculateRetailerReliability(
  * @returns Score 0-100 (100 = perfectly stable prices, 0 = highly volatile with CV ≥20%)
  */
 function calculatePriceStability(priceHistory: PriceHistoryEntry[]): number {
-  const prices = priceHistory.map(h => parseFloat(h.price));
+  const prices = priceHistory.map((h) => parseFloat(h.price));
 
   if (prices.length < 2) return 0;
 
@@ -165,7 +162,7 @@ function calculatePriceStability(priceHistory: PriceHistoryEntry[]): number {
 
   // Lower CV = more stable = higher score
   // CV of 0% = 100, CV of 20% or more = 0
-  const score = Math.max(0, Math.min(100, 100 - (coefficientOfVariation * 5)));
+  const score = Math.max(0, Math.min(100, 100 - coefficientOfVariation * 5));
 
   return Math.round(score);
 }
@@ -189,9 +186,7 @@ function calculatePriceStability(priceHistory: PriceHistoryEntry[]): number {
  * @returns Score 0-100 (100 = always in stock, 0 = never in stock)
  */
 function calculateAvailability(priceHistory: PriceHistoryEntry[]): number {
-  const availableCount = priceHistory.filter(
-    h => h.availability === 'in_stock'
-  ).length;
+  const availableCount = priceHistory.filter((h) => h.availability === 'in_stock').length;
 
   const availabilityRate = (availableCount / priceHistory.length) * 100;
   return Math.round(availabilityRate);
@@ -231,13 +226,14 @@ function calculateCompetitiveness(
     return 50; // Neutral score if no comparison available
   }
 
-  const avgPrice = priceHistory.reduce((sum, h) => sum + parseFloat(h.price), 0) / priceHistory.length;
+  const avgPrice =
+    priceHistory.reduce((sum, h) => sum + parseFloat(h.price), 0) / priceHistory.length;
 
   // Calculate market average
   let totalPrices = 0;
   let totalCount = 0;
-  allRetailersData.forEach(rd => {
-    rd.priceHistory.forEach(h => {
+  allRetailersData.forEach((rd) => {
+    rd.priceHistory.forEach((h) => {
       totalPrices += parseFloat(h.price);
       totalCount++;
     });
@@ -251,7 +247,7 @@ function calculateCompetitiveness(
   if (priceRatio <= 0.95) return 90; // 5% below market = very good
   if (priceRatio <= 1.0) return 80; // At or slightly below market = good
   if (priceRatio <= 1.05) return 60; // 5% above market = fair
-  if (priceRatio <= 1.10) return 40; // 10% above market = below average
+  if (priceRatio <= 1.1) return 40; // 10% above market = below average
   return 20; // More than 10% above market = poor
 }
 
@@ -302,7 +298,7 @@ function calculateConsistency(priceHistory: PriceHistoryEntry[]): number {
 
   // Fewer changes = more consistent = higher score
   // 0% changes = 100, 50% or more changes = 0
-  const score = Math.max(0, Math.min(100, 100 - (changeRate * 2)));
+  const score = Math.max(0, Math.min(100, 100 - changeRate * 2));
 
   return Math.round(score);
 }
@@ -426,16 +422,12 @@ function generateRecommendation(
 
   if (rating === 'fair') {
     return `Moderate reliability. ${
-      weaknesses.length > 0
-        ? `Be aware of ${weaknesses.join(' and ').toLowerCase()}.`
-        : ''
+      weaknesses.length > 0 ? `Be aware of ${weaknesses.join(' and ').toLowerCase()}.` : ''
     } Consider comparing with other retailers before purchasing.`;
   }
 
   return `Lower reliability rating. ${
-    weaknesses.length > 0
-      ? `Issues include ${weaknesses.join(' and ').toLowerCase()}.`
-      : ''
+    weaknesses.length > 0 ? `Issues include ${weaknesses.join(' and ').toLowerCase()}.` : ''
   } Recommend purchasing from alternative retailers if available.`;
 }
 
@@ -445,7 +437,7 @@ function generateRecommendation(
 export function calculateAllRetailerReliability(
   allRetailersData: RetailerData[]
 ): ReliabilityScore[] {
-  return allRetailersData.map(retailerData =>
+  return allRetailersData.map((retailerData) =>
     calculateRetailerReliability(retailerData, allRetailersData)
   );
 }

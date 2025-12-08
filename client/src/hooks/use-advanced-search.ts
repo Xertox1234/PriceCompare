@@ -2,7 +2,12 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useDebounce } from './use-debounce';
-import type { SearchFilters, ProductWithOffers, SearchSuggestion, QueryAnalysis } from '@shared/schema';
+import type {
+  SearchFilters,
+  ProductWithOffers,
+  SearchSuggestion,
+  QueryAnalysis,
+} from '@shared/schema';
 
 interface AdvancedSearchResult {
   product: ProductWithOffers;
@@ -29,11 +34,7 @@ interface UseAdvancedSearchOptions {
 }
 
 export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
-  const {
-    mode = 'smart',
-    autoSearch = false,
-    debounceMs = 300
-  } = options;
+  const { mode = 'smart', autoSearch = false, debounceMs = 300 } = options;
 
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -43,10 +44,9 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   const debouncedQuery = useDebounce(query, debounceMs);
 
   // Get search suggestions
-  const {
-    data: suggestions,
-    isLoading: suggestionsLoading
-  } = useQuery<{ suggestions: SearchSuggestion[] }>({
+  const { data: suggestions, isLoading: suggestionsLoading } = useQuery<{
+    suggestions: SearchSuggestion[];
+  }>({
     queryKey: ['/api/search/suggestions', debouncedQuery],
     enabled: debouncedQuery.length > 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -55,16 +55,13 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   });
 
   // Analyze query intent
-  const {
-    data: analysis,
-    isLoading: analysisLoading
-  } = useQuery<QueryAnalysis | null>({
+  const { data: analysis, isLoading: analysisLoading } = useQuery<QueryAnalysis | null>({
     queryKey: ['/api/search/analyze', debouncedQuery],
     queryFn: async (): Promise<QueryAnalysis | null> => {
       if (debouncedQuery.length < 3) return null;
       return apiRequest('/api/search/analyze', {
         method: 'POST',
-        body: JSON.stringify({ query: debouncedQuery })
+        body: JSON.stringify({ query: debouncedQuery }),
       });
     },
     enabled: debouncedQuery.length > 2,
@@ -74,10 +71,7 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   });
 
   // Auto-search when query changes (if enabled)
-  const {
-    data: autoSearchResults,
-    isLoading: autoSearchLoading
-  } = useQuery<SearchResponse>({
+  const { data: autoSearchResults, isLoading: autoSearchLoading } = useQuery<SearchResponse>({
     queryKey: ['/api/search/auto', debouncedQuery, filters, mode],
     queryFn: () => performSearch(debouncedQuery, filters, mode),
     enabled: autoSearch && debouncedQuery.length > 2,
@@ -88,13 +82,13 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
 
   // Manual search mutation
   const searchMutation = useMutation({
-    mutationFn: async ({ 
-      searchQuery, 
-      searchFilters, 
-      searchMode 
-    }: { 
-      searchQuery: string; 
-      searchFilters: SearchFilters; 
+    mutationFn: async ({
+      searchQuery,
+      searchFilters,
+      searchMode,
+    }: {
+      searchQuery: string;
+      searchFilters: SearchFilters;
       searchMode: string;
     }) => {
       return performSearch(searchQuery, searchFilters, searchMode);
@@ -102,9 +96,9 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
     onSuccess: (data, variables) => {
       // Add to search history
       if (variables.searchQuery && !searchHistory.includes(variables.searchQuery)) {
-        setSearchHistory(prev => [variables.searchQuery, ...prev.slice(0, 9)]); // Keep last 10 searches
+        setSearchHistory((prev) => [variables.searchQuery, ...prev.slice(0, 9)]); // Keep last 10 searches
       }
-      
+
       // Cache the results
       queryClient.setQueryData(['/api/search/last-results'], data);
     },
@@ -112,12 +106,12 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
 
   // Helper function to perform search
   const performSearch = async (
-    searchQuery: string, 
-    searchFilters: SearchFilters, 
+    searchQuery: string,
+    searchFilters: SearchFilters,
     searchMode: string
   ): Promise<SearchResponse> => {
     const params = new URLSearchParams();
-    
+
     if (searchQuery) params.append('query', searchQuery);
     if (searchFilters.category) params.append('category', searchFilters.category);
     if (searchFilters.minPrice) params.append('minPrice', searchFilters.minPrice.toString());
@@ -125,14 +119,14 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
     if (searchFilters.minRating) params.append('minRating', searchFilters.minRating.toString());
     if (searchFilters.sortBy) params.append('sortBy', searchFilters.sortBy);
     if (searchFilters.retailers) {
-      searchFilters.retailers.forEach(id => params.append('retailers', id.toString()));
+      searchFilters.retailers.forEach((id) => params.append('retailers', id.toString()));
     }
     if (searchFilters.availability) {
-      searchFilters.availability.forEach(avail => params.append('availability', avail));
+      searchFilters.availability.forEach((avail) => params.append('availability', avail));
     }
 
     let endpoint = '/api/search/advanced';
-    
+
     switch (searchMode) {
       case 'smart':
         endpoint = '/api/search/smart';
@@ -152,28 +146,34 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   };
 
   // Search function
-  const search = useCallback((customQuery?: string, customFilters?: SearchFilters) => {
-    const searchQuery = customQuery || query;
-    const searchFilters = customFilters || filters;
-    
-    if (!searchQuery.trim()) return;
+  const search = useCallback(
+    (customQuery?: string, customFilters?: SearchFilters) => {
+      const searchQuery = customQuery || query;
+      const searchFilters = customFilters || filters;
 
-    searchMutation.mutate({
-      searchQuery: searchQuery.trim(),
-      searchFilters: { query: searchQuery.trim(), ...searchFilters },
-      searchMode: mode
-    });
-  }, [query, filters, mode, searchMutation]);
+      if (!searchQuery.trim()) return;
+
+      searchMutation.mutate({
+        searchQuery: searchQuery.trim(),
+        searchFilters: { query: searchQuery.trim(), ...searchFilters },
+        searchMode: mode,
+      });
+    },
+    [query, filters, mode, searchMutation]
+  );
 
   // Quick search with suggestions
-  const quickSearch = useCallback((suggestionQuery: string) => {
-    setQuery(suggestionQuery);
-    search(suggestionQuery, filters);
-  }, [filters, search]);
+  const quickSearch = useCallback(
+    (suggestionQuery: string) => {
+      setQuery(suggestionQuery);
+      search(suggestionQuery, filters);
+    },
+    [filters, search]
+  );
 
   // Update filters
   const updateFilters = useCallback((newFilters: Partial<SearchFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+    setFilters((prev) => ({ ...prev, ...newFilters }));
   }, []);
 
   // Clear filters
@@ -189,10 +189,7 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
   }, [queryClient]);
 
   // Get search facets for dynamic filtering
-  const {
-    data: facets,
-    isLoading: facetsLoading
-  } = useQuery({
+  const { data: facets, isLoading: facetsLoading } = useQuery({
     queryKey: ['/api/search/facets', query],
     enabled: query.length > 2,
     staleTime: 15 * 60 * 1000, // 15 minutes
@@ -207,29 +204,29 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
     filters,
     setFilters: updateFilters,
     searchHistory,
-    
+
     // Search actions
     search,
     quickSearch,
     clearFilters,
     clearSearch,
-    
+
     // Data
     suggestions: suggestions?.suggestions || [],
     analysis,
     facets,
     results: autoSearch ? autoSearchResults?.results : searchMutation.data?.results,
     metadata: autoSearch ? autoSearchResults?.metadata : searchMutation.data?.metadata,
-    
+
     // Loading states
     isSearching: searchMutation.isPending || autoSearchLoading,
     suggestionsLoading,
     analysisLoading,
     facetsLoading,
-    
+
     // Error states
     searchError: searchMutation.error,
-    
+
     // Mutation object for direct access
     searchMutation,
   };
@@ -238,7 +235,7 @@ export function useAdvancedSearch(options: UseAdvancedSearchOptions = {}) {
 // Helper hook for search suggestions only
 export function useSearchSuggestions(query: string, enabled = true) {
   const debouncedQuery = useDebounce(query, 200);
-  
+
   return useQuery<{ suggestions: SearchSuggestion[] }>({
     queryKey: ['/api/search/suggestions', debouncedQuery],
     enabled: enabled && debouncedQuery.length > 1,
@@ -258,7 +255,7 @@ export function useQueryAnalysis(query: string, enabled = true) {
       if (debouncedQuery.length < 3) return null;
       return apiRequest('/api/search/analyze', {
         method: 'POST',
-        body: JSON.stringify({ query: debouncedQuery })
+        body: JSON.stringify({ query: debouncedQuery }),
       });
     },
     enabled: enabled && debouncedQuery.length > 2,

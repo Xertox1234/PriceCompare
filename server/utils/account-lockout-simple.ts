@@ -132,7 +132,7 @@ export async function resetFailedAttempts(): Promise<void> {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error(
       'resetFailedAttempts() is only available in test environment. ' +
-      'This prevents accidental rate limit bypass in production.'
+        'This prevents accidental rate limit bypass in production.'
     );
   }
 

@@ -7,6 +7,7 @@
 ### ✅ 1. Re-Enabled Strict Rules (.eslintrc.json)
 
 **What it does:** Catches real bugs that were being missed
+
 - Floating promises (race conditions)
 - Misused promises (unhandled errors)
 - Unsafe type operations (runtime crashes)
@@ -56,14 +57,14 @@ Violations fixed → PR merges
 
 ## What Changed vs. Before
 
-| Before (Bad) | After (Good) |
-|-------------|--------------|
-| Strict rules disabled | ✅ Strict rules enabled |
-| Pushing to branch without PRs | Must create PRs |
-| Bypassing pre-commit with --no-verify | Hook enforced |
-| CI/CD not running on direct pushes | CI/CD validates all PRs |
-| No auto-fix on save | Auto-fix on save |
-| 2,184 violations accumulated | Future violations blocked |
+| Before (Bad)                          | After (Good)              |
+| ------------------------------------- | ------------------------- |
+| Strict rules disabled                 | ✅ Strict rules enabled   |
+| Pushing to branch without PRs         | Must create PRs           |
+| Bypassing pre-commit with --no-verify | Hook enforced             |
+| CI/CD not running on direct pushes    | CI/CD validates all PRs   |
+| No auto-fix on save                   | Auto-fix on save          |
+| 2,184 violations accumulated          | Future violations blocked |
 
 ## How to Use This System
 
@@ -93,12 +94,14 @@ gh pr merge
 ### When You See ESLint Errors
 
 **DON'T:**
+
 - ❌ Disable the rules
 - ❌ Use `--no-verify`
 - ❌ Skip PR validation
 - ❌ Plan to "fix later"
 
 **DO:**
+
 - ✅ Fix the errors (they're real bugs!)
 - ✅ Use `npm run lint:fix` for auto-fixable issues
 - ✅ Add `eslint-disable-next-line` with TODO for technical debt
@@ -144,13 +147,14 @@ npm run lint 2>&1 | tail -1
 
 ## Current Status (2025-11-29)
 
-| Metric | Count |
-|--------|-------|
-| Total ESLint errors | 1,689 |
-| Total ESLint warnings | 495 |
+| Metric                | Count         |
+| --------------------- | ------------- |
+| Total ESLint errors   | 1,689         |
+| Total ESLint warnings | 495           |
 | **Prevention System** | ✅ **ACTIVE** |
 
 **Next Steps:**
+
 1. Fix violations incrementally while working
 2. DO NOT try to fix all 1,689 at once!
 3. Goal: Reduce by ~10% per month through natural code churn

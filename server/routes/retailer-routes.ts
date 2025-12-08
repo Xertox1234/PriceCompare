@@ -1,11 +1,11 @@
-import { Express } from "express";
-import { storage } from "../storage";
-import { storageCache } from "../services/storage-cache";
-import type { AuthenticatedRequest } from "@shared/types";
-import { retailerCacheMiddleware } from "../middleware/redis-cache";
-import { sendSuccess, sendError, sendErrorFromException } from "../utils/api-response";
-import { parseIntSafe } from "../utils/validation-helpers";
-import { shouldSkipCache } from "./helpers";
+import { Express } from 'express';
+import { storage } from '../storage';
+import { storageCache } from '../services/storage-cache';
+import type { AuthenticatedRequest } from '@shared/types';
+import { retailerCacheMiddleware } from '../middleware/redis-cache';
+import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
+import { parseIntSafe } from '../utils/validation-helpers';
+import { shouldSkipCache } from './helpers';
 
 /**
  * Retailer Routes
@@ -17,7 +17,7 @@ import { shouldSkipCache } from "./helpers";
 export function registerRetailerRoutes(app: Express): void {
   // Get all retailers (with multi-tier caching)
   // Supports cache bypass via ?skipCache=1 query parameter (admin only)
-  app.get("/api/retailers", retailerCacheMiddleware, async (req, res) => {
+  app.get('/api/retailers', retailerCacheMiddleware, async (req, res) => {
     try {
       // Set longer cache for retailers as they change less frequently
       res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
@@ -37,7 +37,7 @@ export function registerRetailerRoutes(app: Express): void {
 
   // Get retailer by ID (with multi-tier caching)
   // Supports cache bypass via ?skipCache=1 query parameter (admin only)
-  app.get("/api/retailers/:id", async (req, res) => {
+  app.get('/api/retailers/:id', async (req, res) => {
     try {
       const id = parseIntSafe(req.params.id, 'retailerId', { min: 1 });
 

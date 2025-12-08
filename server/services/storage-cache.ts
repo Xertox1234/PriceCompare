@@ -182,7 +182,7 @@ export class StorageCacheService {
         cacheKey,
         tier,
         error: error instanceof Error ? error.message : 'Unknown error',
-        fallback: 'storage'
+        fallback: 'storage',
       });
 
       // Graceful fallback: execute fetch function directly against storage layer
@@ -373,11 +373,7 @@ export class StorageCacheService {
   async getAllRetailers(): Promise<Retailer[]> {
     const cacheKey = CacheKeys.RETAILER.ALL();
 
-    return this.cachedGet<Retailer[]>(
-      cacheKey,
-      () => storage.getAllRetailers(),
-      CacheTier.STATIC
-    );
+    return this.cachedGet<Retailer[]>(cacheKey, () => storage.getAllRetailers(), CacheTier.STATIC);
   }
 
   /**
@@ -494,11 +490,7 @@ export class StorageCacheService {
     const filterHash = this.hashFilters(filters);
     const cacheKey = CacheKeys.PRODUCT.SEARCH(filterHash);
 
-    return this.cachedGet(
-      cacheKey,
-      () => storage.searchProducts(filters),
-      CacheTier.COLD
-    );
+    return this.cachedGet(cacheKey, () => storage.searchProducts(filters), CacheTier.COLD);
   }
 
   /**
@@ -596,7 +588,7 @@ export class StorageCacheService {
       // Log but don't throw - cache invalidation failures shouldn't break updates
       logger.warn('Failed to invalidate product cache', {
         productId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -729,7 +721,7 @@ export class StorageCacheService {
       // Database operations should succeed even when cache invalidation fails
       logger.warn('Failed to invalidate retailer cache', {
         retailerId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -760,7 +752,7 @@ export class StorageCacheService {
     } catch (error) {
       // Log warning but don't throw - cache warming is non-blocking
       logger.warn('Cache warming failed (non-blocking)', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

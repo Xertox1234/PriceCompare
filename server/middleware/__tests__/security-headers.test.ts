@@ -335,10 +335,11 @@ describe('Security Headers Middleware', () => {
 
       // Security headers shouldn't expose internal paths or secrets
       const allHeaders = Object.keys(response.headers);
-      const sensitiveHeaders = allHeaders.filter(h =>
-        h.toLowerCase().includes('secret') ||
-        h.toLowerCase().includes('password') ||
-        h.toLowerCase().includes('key')
+      const sensitiveHeaders = allHeaders.filter(
+        (h) =>
+          h.toLowerCase().includes('secret') ||
+          h.toLowerCase().includes('password') ||
+          h.toLowerCase().includes('key')
       );
 
       expect(sensitiveHeaders).toHaveLength(0);

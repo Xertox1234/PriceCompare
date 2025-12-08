@@ -22,7 +22,7 @@ const urgencyColors = {
   critical: 'border-red-500 bg-red-50 dark:bg-red-950',
   high: 'border-amber-500 bg-amber-50 dark:bg-amber-950',
   medium: 'border-blue-500 bg-blue-50 dark:bg-blue-950',
-  low: 'border-gray-500 bg-gray-50 dark:bg-gray-950'
+  low: 'border-gray-500 bg-gray-50 dark:bg-gray-950',
 };
 
 // Badge variants for urgency levels
@@ -30,7 +30,7 @@ const urgencyVariant = {
   critical: 'destructive' as const,
   high: 'default' as const,
   medium: 'secondary' as const,
-  low: 'outline' as const
+  low: 'outline' as const,
 };
 
 // Urgency icons
@@ -38,14 +38,14 @@ const urgencyIcons = {
   critical: AlertTriangle,
   high: TrendingDown,
   medium: TrendingDown,
-  low: TrendingDown
+  low: TrendingDown,
 };
 
 // Snooze duration options
 const snoozeOptions = [
   { label: '1 hour', duration: 3600 },
   { label: '3 hours', duration: 10800 },
-  { label: '1 day', duration: 86400 }
+  { label: '1 day', duration: 86400 },
 ];
 
 /**
@@ -97,7 +97,7 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
   return (
     <div
       className={cn(
-        'relative border-l-4 rounded-lg p-4 shadow-sm transition-all hover:shadow-md',
+        'relative rounded-lg border-l-4 p-4 shadow-sm transition-all hover:shadow-md',
         urgencyColors[urgency]
       )}
       role="article"
@@ -106,15 +106,15 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
       {/* Urgency Badge */}
       <div className="absolute top-2 right-2 flex items-center gap-1">
         <Badge variant={urgencyVariant[urgency]} className="flex items-center gap-1">
-          <UrgencyIcon className="w-3 h-3" />
+          <UrgencyIcon className="h-3 w-3" />
           {urgency.toUpperCase()}
         </Badge>
       </div>
 
       {/* Notification Header */}
-      <div className="pr-24 mb-3">
-        <h3 className="font-semibold text-base line-clamp-2">{notification.title}</h3>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="mb-3 pr-24">
+        <h3 className="line-clamp-2 text-base font-semibold">{notification.title}</h3>
+        <p className="text-muted-foreground mt-1 text-sm">
           {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
         </p>
       </div>
@@ -130,11 +130,11 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
 
       {/* Reasoning List */}
       {reasoning.length > 0 && (
-        <ul className="space-y-1.5 mb-3" aria-label="Notification reasons">
+        <ul className="mb-3 space-y-1.5" aria-label="Notification reasons">
           {reasoning.map((reason, i) => (
-            <li key={i} className="text-sm flex items-start gap-2">
+            <li key={i} className="flex items-start gap-2 text-sm">
               <CheckCircle2
-                className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"
+                className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500"
                 aria-hidden="true"
               />
               <span>{reason}</span>
@@ -145,7 +145,7 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
 
       {/* Savings Display */}
       {savings > 0 && (
-        <div className="bg-green-100 dark:bg-green-900 rounded p-2 mb-3">
+        <div className="mb-3 rounded bg-green-100 p-2 dark:bg-green-900">
           <span className="text-sm font-semibold text-green-700 dark:text-green-300">
             💰 Save ${savings.toFixed(2)}
           </span>
@@ -154,8 +154,8 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
 
       {/* Expiry Countdown */}
       {expiresAt && (
-        <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
-          <Clock className="w-3 h-3" aria-hidden="true" />
+        <p className="text-muted-foreground mb-3 flex items-center gap-1 text-xs">
+          <Clock className="h-3 w-3" aria-hidden="true" />
           <span>Expires in {formatExpiry(expiresAt)}</span>
         </p>
       )}
@@ -165,7 +165,7 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
         {relatedProductId && (
           <Button
             size="sm"
-            className="flex-1 min-w-[100px]"
+            className="min-w-[100px] flex-1"
             onClick={handleBuyNow}
             aria-label="View product details"
           >
@@ -175,34 +175,22 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              aria-label="Snooze notification"
-            >
-              <Clock className="w-4 h-4 mr-1" aria-hidden="true" />
+            <Button size="sm" variant="outline" aria-label="Snooze notification">
+              <Clock className="mr-1 h-4 w-4" aria-hidden="true" />
               Snooze
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            {snoozeOptions.map(option => (
-              <DropdownMenuItem
-                key={option.duration}
-                onClick={() => handleSnooze(option.duration)}
-              >
+            {snoozeOptions.map((option) => (
+              <DropdownMenuItem key={option.duration} onClick={() => handleSnooze(option.duration)}>
                 {option.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleDismiss}
-          aria-label="Dismiss notification"
-        >
-          <X className="w-4 h-4" />
+        <Button size="sm" variant="ghost" onClick={handleDismiss} aria-label="Dismiss notification">
+          <X className="h-4 w-4" />
         </Button>
       </div>
     </div>

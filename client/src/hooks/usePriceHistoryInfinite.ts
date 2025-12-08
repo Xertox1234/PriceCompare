@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { createLogger } from "@/utils/logger";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createLogger } from '@/utils/logger';
 
 const log = createLogger('PriceHistoryInfinite');
 
@@ -76,12 +76,9 @@ export function usePriceHistoryInfinite({
           setIsLoading(true);
         }
 
-        const response = await fetch(
-          `/api/products/${productId}/price-history?days=${days}`,
-          {
-            signal: abortControllerRef.current.signal,
-          }
-        );
+        const response = await fetch(`/api/products/${productId}/price-history?days=${days}`, {
+          signal: abortControllerRef.current.signal,
+        });
 
         if (!response.ok) {
           throw new Error(`Failed to fetch price history: ${response.statusText}`);

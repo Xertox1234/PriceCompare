@@ -34,22 +34,26 @@ interface UseEnhancedProductsSearchProps {
 export function useEnhancedProductsSearch({
   initialFilters = {},
   autoSearch = true,
-  debounceMs = 300
+  debounceMs = 300,
 }: UseEnhancedProductsSearchProps = {}) {
   const [query, setQuery] = useState(initialFilters.query || '');
   const [filters, setFilters] = useState<SearchFilters>(initialFilters);
   const [searchMode, setSearchMode] = useState<'basic' | 'smart' | 'intent'>('smart');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  
+
   const queryClient = useQueryClient();
   const debouncedQuery = useDebounce(query, debounceMs);
 
   // Enhanced search mutation with multiple search strategies
-  const searchMutation = useMutation<EnhancedSearchResults, Error, {
-    searchQuery: string;
-    searchFilters: SearchFilters;
-    searchMode: 'basic' | 'smart' | 'intent';
-  }>({
+  const searchMutation = useMutation<
+    EnhancedSearchResults,
+    Error,
+    {
+      searchQuery: string;
+      searchFilters: SearchFilters;
+      searchMode: 'basic' | 'smart' | 'intent';
+    }
+  >({
     mutationFn: async (params): Promise<EnhancedSearchResults> => {
       const { searchQuery, searchFilters, searchMode } = params;
 
@@ -65,7 +69,7 @@ export function useEnhancedProductsSearch({
           try {
             const analysis = await apiRequest<{ intent?: string }>('/api/search/analyze', {
               method: 'POST',
-              body: JSON.stringify({ query: searchQuery })
+              body: JSON.stringify({ query: searchQuery }),
             });
 
             if (analysis && analysis.intent) {
@@ -81,22 +85,22 @@ export function useEnhancedProductsSearch({
           endpoint = '/api/search/advanced';
           break;
       }
-      
+
       // Prepare search parameters
       const searchParams = new URLSearchParams();
       searchParams.append('query', searchQuery);
-      
+
       // Add filters to search params
       Object.entries(searchFilters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           if (Array.isArray(value)) {
-            value.forEach(v => searchParams.append(key, v.toString()));
+            value.forEach((v) => searchParams.append(key, v.toString()));
           } else {
             searchParams.append(key, value.toString());
           }
         }
       });
-      
+
       // apiRequest already returns parsed JSON
       return apiRequest<EnhancedSearchResults>(`${endpoint}?${searchParams.toString()}`);
     },
@@ -104,19 +108,16 @@ export function useEnhancedProductsSearch({
       // Update search history
       const newQuery = variables.searchQuery.trim();
       if (newQuery && !searchHistory.includes(newQuery)) {
-        setSearchHistory(prev => [newQuery, ...prev.slice(0, 4)]);
+        setSearchHistory((prev) => [newQuery, ...prev.slice(0, 4)]);
       }
-      
+
       // Cache the results
-      queryClient.setQueryData(
-        ['/api/products/search', variables.searchFilters],
-        data
-      );
+      queryClient.setQueryData(['/api/products/search', variables.searchFilters], data);
     },
     onError: (_error) => {
       // Error is handled by React Query and displayed via UI
       // Additional error reporting could be added here if needed
-    }
+    },
   });
 
   // Auto-search with debounced query
@@ -128,12 +129,12 @@ export function useEnhancedProductsSearch({
         // apiRequest already returns parsed JSON
         return apiRequest('/api/products/search');
       }
-      
+
       // Use the search mutation's function for consistency
       return searchMutation.mutateAsync({
         searchQuery: debouncedQuery,
         searchFilters: { query: debouncedQuery, ...filters },
-        searchMode
+        searchMode,
       });
     },
     enabled: autoSearch && debouncedQuery.length > 0,
@@ -150,7 +151,7 @@ export function useEnhancedProductsSearch({
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           if (Array.isArray(value)) {
-            value.forEach(v => searchParams.append(key, v.toString()));
+            value.forEach((v) => searchParams.append(key, v.toString()));
           } else {
             searchParams.append(key, value.toString());
           }
@@ -167,27 +168,34 @@ export function useEnhancedProductsSearch({
   });
 
   // Manual search function
-  const search = useCallback((customQuery?: string, customFilters?: SearchFilters, customMode?: 'basic' | 'smart' | 'intent') => {
-    const searchQuery = customQuery || query;
-    const searchFilters = customFilters || filters;
-    const mode = customMode || searchMode;
-    
-    if (!searchQuery.trim()) {
-      // Clear search results and show default products (fire-and-forget)
-      void queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
-      return;
-    }
+  const search = useCallback(
+    (
+      customQuery?: string,
+      customFilters?: SearchFilters,
+      customMode?: 'basic' | 'smart' | 'intent'
+    ) => {
+      const searchQuery = customQuery || query;
+      const searchFilters = customFilters || filters;
+      const mode = customMode || searchMode;
 
-    searchMutation.mutate({
-      searchQuery: searchQuery.trim(),
-      searchFilters: { query: searchQuery.trim(), ...searchFilters },
-      searchMode: mode
-    });
-  }, [query, filters, searchMode, searchMutation, queryClient]);
+      if (!searchQuery.trim()) {
+        // Clear search results and show default products (fire-and-forget)
+        void queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
+        return;
+      }
+
+      searchMutation.mutate({
+        searchQuery: searchQuery.trim(),
+        searchFilters: { query: searchQuery.trim(), ...searchFilters },
+        searchMode: mode,
+      });
+    },
+    [query, filters, searchMode, searchMutation, queryClient]
+  );
 
   // Update filters
   const updateFilters = useCallback((newFilters: Partial<SearchFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+    setFilters((prev) => ({ ...prev, ...newFilters }));
   }, []);
 
   // Clear search
@@ -202,20 +210,24 @@ export function useEnhancedProductsSearch({
     if (searchMutation.data) {
       return searchMutation.data;
     }
-    
+
     if (autoSearch && debouncedQuery.trim()) {
       return autoSearchResults.data;
     }
-    
+
     return defaultProductsQuery.data;
   };
 
   // Get loading state
-  const isLoading = searchMutation.isPending || 
-    (autoSearch && debouncedQuery.trim() ? autoSearchResults.isLoading : defaultProductsQuery.isLoading);
+  const isLoading =
+    searchMutation.isPending ||
+    (autoSearch && debouncedQuery.trim()
+      ? autoSearchResults.isLoading
+      : defaultProductsQuery.isLoading);
 
   // Get error state
-  const error = searchMutation.error || 
+  const error =
+    searchMutation.error ||
     (autoSearch && debouncedQuery.trim() ? autoSearchResults.error : defaultProductsQuery.error);
 
   return {
@@ -227,21 +239,21 @@ export function useEnhancedProductsSearch({
     searchMode,
     setSearchMode,
     searchHistory,
-    
+
     // Actions
     search,
     clearSearch,
-    
+
     // Data
     data: getCurrentData(),
     products: getCurrentData()?.results || [],
     metadata: getCurrentData()?.metadata,
-    
+
     // Loading/Error states
     isLoading,
     error,
     isSearching: searchMutation.isPending,
-    
+
     // Direct access to queries
     searchMutation,
     autoSearchResults,

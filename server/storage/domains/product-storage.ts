@@ -11,7 +11,7 @@
  * Phase 3A: Core Product Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { eq, and, gte, lte, inArray, sql, desc, asc, like } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, sql, desc, asc, like } from 'drizzle-orm';
 import {
   retailers,
   products,
@@ -22,10 +22,10 @@ import {
   type InsertProduct,
   type InsertProductOffer,
   type SearchFilters,
-  type ProductWithOffers
-} from "@shared/schema";
-import { BaseStorage } from "../base-storage";
-import { storageCache } from "../../services/storage-cache";
+  type ProductWithOffers,
+} from '@shared/schema';
+import { BaseStorage } from '../base-storage';
+import { storageCache } from '../../services/storage-cache';
 
 /**
  * ProductStorage - Domain repository for product operations
@@ -114,7 +114,7 @@ export class ProductStorage extends BaseStorage {
       const product = productResult[0];
       const offers = await this.getProductOffers(id);
 
-      const prices = offers.map(offer => parseFloat(offer.price));
+      const prices = offers.map((offer) => parseFloat(offer.price));
       const bestPrice = prices.length > 0 ? Math.min(...prices) : undefined;
 
       return {
@@ -138,11 +138,7 @@ export class ProductStorage extends BaseStorage {
     try {
       this.validateProductId(id);
 
-      const [result] = await this.db
-        .select()
-        .from(products)
-        .where(eq(products.id, id))
-        .limit(1);
+      const [result] = await this.db.select().from(products).where(eq(products.id, id)).limit(1);
 
       return result || null;
     } catch (error) {
@@ -169,7 +165,7 @@ export class ProductStorage extends BaseStorage {
           model: product.model || null,
           // Type assertion: Drizzle stores JSON field as unknown, cast to expected vector array format
           embedding: (product.embedding as number[] | null) || null,
-          embeddingUpdatedAt: product.embeddingUpdatedAt || null
+          embeddingUpdatedAt: product.embeddingUpdatedAt || null,
         })
         .returning();
 
@@ -218,10 +214,7 @@ export class ProductStorage extends BaseStorage {
     try {
       this.validateProductId(id);
 
-      const [result] = await this.db
-        .delete(products)
-        .where(eq(products.id, id))
-        .returning();
+      const [result] = await this.db.delete(products).where(eq(products.id, id)).returning();
 
       // Invalidate product cache after successful deletion
       if (result) {
@@ -380,7 +373,7 @@ export class ProductStorage extends BaseStorage {
       // Get total count for pagination (before LIMIT/OFFSET)
       const countQuery = this.db
         .select({
-          count: sql<number>`COUNT(DISTINCT ${products.id})`.as('count')
+          count: sql<number>`COUNT(DISTINCT ${products.id})`.as('count'),
         })
         .from(products)
         .innerJoin(productOffers, eq(products.id, productOffers.productId))
@@ -392,17 +385,29 @@ export class ProductStorage extends BaseStorage {
       let finalQuery;
       if (filters.sortBy) {
         switch (filters.sortBy) {
-          case "price_low":
-            finalQuery = baseQuery.orderBy(asc(sql`best_price`)).limit(limit).offset(offset);
+          case 'price_low':
+            finalQuery = baseQuery
+              .orderBy(asc(sql`best_price`))
+              .limit(limit)
+              .offset(offset);
             break;
-          case "price_high":
-            finalQuery = baseQuery.orderBy(desc(sql`best_price`)).limit(limit).offset(offset);
+          case 'price_high':
+            finalQuery = baseQuery
+              .orderBy(desc(sql`best_price`))
+              .limit(limit)
+              .offset(offset);
             break;
-          case "rating":
-            finalQuery = baseQuery.orderBy(desc(sql`AVG(CAST(${productOffers.rating} AS DECIMAL))`)).limit(limit).offset(offset);
+          case 'rating':
+            finalQuery = baseQuery
+              .orderBy(desc(sql`AVG(CAST(${productOffers.rating} AS DECIMAL))`))
+              .limit(limit)
+              .offset(offset);
             break;
-          case "popularity":
-            finalQuery = baseQuery.orderBy(desc(sql`SUM(${productOffers.reviewCount})`)).limit(limit).offset(offset);
+          case 'popularity':
+            finalQuery = baseQuery
+              .orderBy(desc(sql`SUM(${productOffers.reviewCount})`))
+              .limit(limit)
+              .offset(offset);
             break;
           default:
             finalQuery = baseQuery.limit(limit).offset(offset);
@@ -412,17 +417,14 @@ export class ProductStorage extends BaseStorage {
       }
 
       // Execute both queries in parallel
-      const [results, countResult] = await Promise.all([
-        finalQuery,
-        countQuery
-      ]);
+      const [results, countResult] = await Promise.all([finalQuery, countQuery]);
 
       const total = Number(countResult[0]?.count || 0);
       const totalPages = Math.ceil(total / limit);
 
       // Minimal post-processing: just parse JSON and format
       // No filtering, no aggregation, no sorting - all done in database!
-      const productsWithOffers: ProductWithOffers[] = results.map(row => {
+      const productsWithOffers: ProductWithOffers[] = results.map((row) => {
         // Handle topOffers which might be JSON string, object, or null
         let offers: Array<ProductOffer & { retailer: Retailer }> = [];
         if (row.topOffers) {
@@ -442,8 +444,8 @@ export class ProductStorage extends BaseStorage {
         // Calculate savings from database aggregates
         const avgOriginal = row.avgOriginalPrice;
         const savings = avgOriginal ? avgOriginal - row.bestPrice : null;
-        const savingsPercentage = savings && avgOriginal ?
-          Math.round((savings / avgOriginal) * 100) : null;
+        const savingsPercentage =
+          savings && avgOriginal ? Math.round((savings / avgOriginal) * 100) : null;
 
         return {
           id: row.id,
@@ -500,15 +502,15 @@ export class ProductStorage extends BaseStorage {
       const result = await this.db
         .select({
           offer: productOffers,
-          retailer: retailers
+          retailer: retailers,
         })
         .from(productOffers)
         .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
         .where(eq(productOffers.productId, productId));
 
-      return result.map(row => ({
+      return result.map((row) => ({
         ...row.offer,
-        retailer: row.retailer
+        retailer: row.retailer,
       }));
     } catch (error) {
       this.handleError(error, 'getProductOffers');
@@ -533,7 +535,7 @@ export class ProductStorage extends BaseStorage {
           reviewCount: offer.reviewCount || null,
           shippingInfo: offer.shippingInfo || null,
           dealType: offer.dealType || null,
-          productUrl: offer.productUrl || null
+          productUrl: offer.productUrl || null,
         })
         .returning();
 
@@ -575,7 +577,11 @@ export class ProductStorage extends BaseStorage {
    */
   async updateProductOfferAffiliateLink(
     offerId: number,
-    data: { affiliateUrl: string; linkHealthStatus: 'healthy' | 'broken' | 'unknown'; lastLinkCheck: Date }
+    data: {
+      affiliateUrl: string;
+      linkHealthStatus: 'healthy' | 'broken' | 'unknown';
+      lastLinkCheck: Date;
+    }
   ): Promise<void> {
     try {
       this.validateOfferId(offerId);
@@ -626,10 +632,7 @@ export class ProductStorage extends BaseStorage {
       // Validate input
       this.validateRetailerId(retailerId);
 
-      return this.db
-        .select()
-        .from(productOffers)
-        .where(eq(productOffers.retailerId, retailerId));
+      return this.db.select().from(productOffers).where(eq(productOffers.retailerId, retailerId));
     } catch (error) {
       this.handleError(error, 'getProductOffersByRetailerId');
     }
@@ -647,10 +650,7 @@ export class ProductStorage extends BaseStorage {
       // Validate input
       this.validateProductId(productId);
 
-      return this.db
-        .select()
-        .from(productOffers)
-        .where(eq(productOffers.productId, productId));
+      return this.db.select().from(productOffers).where(eq(productOffers.productId, productId));
     } catch (error) {
       this.handleError(error, 'getProductOffersByProductId');
     }
@@ -662,14 +662,16 @@ export class ProductStorage extends BaseStorage {
    *
    * @returns Array of offers with product name and retailer name included
    */
-  async getAllOffersWithDetails(): Promise<Array<{
-    offerId: number;
-    productId: number;
-    retailerId: number;
-    currentPrice: string;
-    productName: string;
-    retailerName: string;
-  }>> {
+  async getAllOffersWithDetails(): Promise<
+    Array<{
+      offerId: number;
+      productId: number;
+      retailerId: number;
+      currentPrice: string;
+      productName: string;
+      retailerName: string;
+    }>
+  > {
     try {
       return await this.db
         .select({
@@ -711,7 +713,7 @@ export class ProductStorage extends BaseStorage {
         .select({
           offer: productOffers,
           product: products,
-          retailer: retailers
+          retailer: retailers,
         })
         .from(productOffers)
         .innerJoin(products, eq(productOffers.productId, products.id))

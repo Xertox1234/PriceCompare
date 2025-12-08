@@ -64,7 +64,11 @@ export class GoogleCustomSearchService {
   /**
    * Generate cache key from search parameters
    */
-  private getCacheKey(query: string, retailerDomain = '', options: Record<string, unknown> = {}): string {
+  private getCacheKey(
+    query: string,
+    retailerDomain = '',
+    options: Record<string, unknown> = {}
+  ): string {
     return JSON.stringify({ query, retailerDomain, ...options });
   }
 
@@ -73,8 +77,11 @@ export class GoogleCustomSearchService {
    */
   private enforceCacheLimit(): void {
     if (this.searchCache.size > this.MAX_CACHE_SIZE) {
-      const keysToDelete = Array.from(this.searchCache.keys()).slice(0, this.searchCache.size - this.MAX_CACHE_SIZE);
-      keysToDelete.forEach(key => this.searchCache.delete(key));
+      const keysToDelete = Array.from(this.searchCache.keys()).slice(
+        0,
+        this.searchCache.size - this.MAX_CACHE_SIZE
+      );
+      keysToDelete.forEach((key) => this.searchCache.delete(key));
     }
   }
 
@@ -82,12 +89,16 @@ export class GoogleCustomSearchService {
    * Search for products on specific retailer sites
    * OPTIMIZED: Results cached for 14 days to reduce API costs by 50-70%
    */
-  async searchRetailer(query: string, retailerDomain: string, options: {
-    num?: number;
-    start?: number;
-    safe?: 'high' | 'medium' | 'off';
-    lr?: string;
-  } = {}): Promise<GoogleSearchResult[]> {
+  async searchRetailer(
+    query: string,
+    retailerDomain: string,
+    options: {
+      num?: number;
+      start?: number;
+      safe?: 'high' | 'medium' | 'off';
+      lr?: string;
+    } = {}
+  ): Promise<GoogleSearchResult[]> {
     if (!this.isConfigured()) {
       throw new Error('Google Custom Search API not configured');
     }
@@ -104,7 +115,9 @@ export class GoogleCustomSearchService {
     // Check daily query limit before making API call
     const limitResult = await agentQueryLimiter.checkAndIncrement('google_search');
     if (!limitResult.allowed) {
-      throw new Error(`Daily agent query limit exceeded (${limitResult.remaining} remaining). Resets at ${limitResult.resetTime.toISOString()}`);
+      throw new Error(
+        `Daily agent query limit exceeded (${limitResult.remaining} remaining). Resets at ${limitResult.resetTime.toISOString()}`
+      );
     }
 
     await this.rateLimiter.waitIfNeeded();
@@ -116,7 +129,7 @@ export class GoogleCustomSearchService {
       num: options.num || 10,
       start: options.start || 1,
       safe: options.safe || 'medium',
-      lr: options.lr || 'lang_en'
+      lr: options.lr || 'lang_en',
     };
 
     try {
@@ -125,7 +138,7 @@ export class GoogleCustomSearchService {
       const response = await axios.get<GoogleSearchResponse>(this.baseUrl, {
         params: searchParams,
         headers: ScraperUtils.getRequestHeaders(),
-        timeout: 10000
+        timeout: 10000,
       });
 
       const results = response.data.items || [];
@@ -133,12 +146,11 @@ export class GoogleCustomSearchService {
       // Cache the results
       this.searchCache.set(cacheKey, {
         results,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       this.enforceCacheLimit();
 
       return results;
-
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 429) {
@@ -147,7 +159,9 @@ export class GoogleCustomSearchService {
           throw new Error('Google Custom Search API quota exceeded or invalid credentials');
         } else if (error.response?.status === 400) {
           const responseData = error.response.data as { error?: { message?: string } } | undefined;
-          throw new Error(`Invalid search parameters: ${responseData?.error?.message || 'Unknown error'}`);
+          throw new Error(
+            `Invalid search parameters: ${responseData?.error?.message || 'Unknown error'}`
+          );
         }
       }
 
@@ -160,8 +174,8 @@ export class GoogleCustomSearchService {
    * Search for products across multiple retailers
    */
   async searchMultipleRetailers(
-    query: string, 
-    retailers: string[], 
+    query: string,
+    retailers: string[],
     options: { maxResultsPerRetailer?: number } = {}
   ): Promise<{ retailer: string; results: GoogleSearchResult[] }[]> {
     const maxResults = options.maxResultsPerRetailer || 5;
@@ -182,11 +196,14 @@ export class GoogleCustomSearchService {
    * Search for trending products without site restriction
    * OPTIMIZED: Results cached for 14 days to reduce API costs by 50-70%
    */
-  async searchGeneral(query: string, options: {
-    num?: number;
-    start?: number;
-    dateRestrict?: string; // e.g., 'd1' for past day, 'w1' for past week
-  } = {}): Promise<GoogleSearchResult[]> {
+  async searchGeneral(
+    query: string,
+    options: {
+      num?: number;
+      start?: number;
+      dateRestrict?: string; // e.g., 'd1' for past day, 'w1' for past week
+    } = {}
+  ): Promise<GoogleSearchResult[]> {
     if (!this.isConfigured()) {
       throw new Error('Google Custom Search API not configured');
     }
@@ -203,7 +220,9 @@ export class GoogleCustomSearchService {
     // Check daily query limit before making API call
     const limitResult = await agentQueryLimiter.checkAndIncrement('google_search');
     if (!limitResult.allowed) {
-      throw new Error(`Daily agent query limit exceeded (${limitResult.remaining} remaining). Resets at ${limitResult.resetTime.toISOString()}`);
+      throw new Error(
+        `Daily agent query limit exceeded (${limitResult.remaining} remaining). Resets at ${limitResult.resetTime.toISOString()}`
+      );
     }
 
     await this.rateLimiter.waitIfNeeded();
@@ -214,7 +233,7 @@ export class GoogleCustomSearchService {
       q: query,
       num: options.num || 10,
       start: options.start || 1,
-      ...(options.dateRestrict && { dateRestrict: options.dateRestrict })
+      ...(options.dateRestrict && { dateRestrict: options.dateRestrict }),
     };
 
     try {
@@ -223,7 +242,7 @@ export class GoogleCustomSearchService {
       const response = await axios.get<GoogleSearchResponse>(this.baseUrl, {
         params: searchParams,
         headers: ScraperUtils.getRequestHeaders(),
-        timeout: 10000
+        timeout: 10000,
       });
 
       const results = response.data.items || [];
@@ -231,15 +250,16 @@ export class GoogleCustomSearchService {
       // Cache the results
       this.searchCache.set(cacheKey, {
         results,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       this.enforceCacheLimit();
 
       return results;
-
     } catch (error) {
       log.error('Google Custom Search error:', { error });
-      throw new Error(`General search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `General search failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -247,9 +267,7 @@ export class GoogleCustomSearchService {
    * Extract product URLs from search results
    */
   extractProductUrls(results: GoogleSearchResult[]): string[] {
-    return results
-      .map(result => result.link)
-      .filter(url => this.isProductUrl(url));
+    return results.map((result) => result.link).filter((url) => this.isProductUrl(url));
   }
 
   /**
@@ -257,24 +275,35 @@ export class GoogleCustomSearchService {
    */
   private isProductUrl(url: string): boolean {
     const productIndicators = [
-      '/dp/', '/gp/product/', '/product/', '/p/', '/item/', '/items/',
-      'product-', 'item-', '/buy/', '/shop/', 'pid=', 'productId='
+      '/dp/',
+      '/gp/product/',
+      '/product/',
+      '/p/',
+      '/item/',
+      '/items/',
+      'product-',
+      'item-',
+      '/buy/',
+      '/shop/',
+      'pid=',
+      'productId=',
     ];
 
-    return productIndicators.some(indicator => 
-      url.toLowerCase().includes(indicator)
-    );
+    return productIndicators.some((indicator) => url.toLowerCase().includes(indicator));
   }
 
   /**
    * Rank search results by relevance to query
    */
   rankResults(results: GoogleSearchResult[], query: string): GoogleSearchResult[] {
-    const queryWords = query.toLowerCase().split(' ').filter(word => word.length > 2);
-    
-    const scoredResults = results.map(result => ({
+    const queryWords = query
+      .toLowerCase()
+      .split(' ')
+      .filter((word) => word.length > 2);
+
+    const scoredResults = results.map((result) => ({
       ...result,
-      relevanceScore: this.calculateRelevanceScore(result, queryWords)
+      relevanceScore: this.calculateRelevanceScore(result, queryWords),
     }));
 
     return scoredResults
@@ -288,7 +317,7 @@ export class GoogleCustomSearchService {
 
     // Title matches are more important
     const titleText = result.title.toLowerCase();
-    queryWords.forEach(word => {
+    queryWords.forEach((word) => {
       if (titleText.includes(word)) {
         score += 3;
       }
@@ -304,7 +333,7 @@ export class GoogleCustomSearchService {
 
     // Bonus for e-commerce domains
     const ecommerceDomains = ['amazon.', 'walmart.', 'target.', 'ebay.', 'bestbuy.'];
-    if (ecommerceDomains.some(domain => result.displayLink.includes(domain))) {
+    if (ecommerceDomains.some((domain) => result.displayLink.includes(domain))) {
       score += 1;
     }
 
@@ -314,7 +343,7 @@ export class GoogleCustomSearchService {
   /**
    * Get search suggestions for a query
    */
-  async getSearchSuggestions(query: string): Promise<string[]> {
+  getSearchSuggestions(query: string): string[] {
     // This would typically use Google's autocomplete API
     // For now, return query variations
     const variations = [
@@ -323,7 +352,7 @@ export class GoogleCustomSearchService {
       `${query} price comparison`,
       `${query} best deals`,
       `cheap ${query}`,
-      `${query} reviews`
+      `${query} reviews`,
     ];
 
     return variations.slice(0, 3);
@@ -343,7 +372,7 @@ export class GoogleCustomSearchService {
     return {
       configured: this.isConfigured(),
       apiKey: !!this.apiKey,
-      searchEngineId: !!this.searchEngineId
+      searchEngineId: !!this.searchEngineId,
     };
   }
 
@@ -354,7 +383,8 @@ export class GoogleCustomSearchService {
     if (!this.isConfigured()) {
       return {
         success: false,
-        message: 'Google Custom Search API not configured. Please set GOOGLE_CUSTOM_SEARCH_API_KEY and GOOGLE_CUSTOM_SEARCH_ENGINE_ID environment variables.'
+        message:
+          'Google Custom Search API not configured. Please set GOOGLE_CUSTOM_SEARCH_API_KEY and GOOGLE_CUSTOM_SEARCH_ENGINE_ID environment variables.',
       };
     }
 
@@ -363,12 +393,12 @@ export class GoogleCustomSearchService {
       return {
         success: true,
         message: 'Google Custom Search API connection successful',
-        results: results.length
+        results: results.length,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

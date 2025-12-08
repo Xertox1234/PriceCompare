@@ -21,7 +21,7 @@ import type {
   WatchList,
   InsertPriceHistory,
   ProductWatch,
-} from "@shared/schema";
+} from '@shared/schema';
 
 // ============================================================================
 // Job Lock Types

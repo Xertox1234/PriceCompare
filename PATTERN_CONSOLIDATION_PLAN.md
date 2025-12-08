@@ -7,6 +7,7 @@
 ## Current Mess
 
 ### By the Numbers
+
 - **21 pattern files** scattered across docs/ and .claude/knowledge/
 - **16,449 total lines** of documentation
 - **Massive duplication:** CSRF appears in 8 files, floating promises in 9 files
@@ -15,35 +16,35 @@
 
 ### File Breakdown
 
-| File | Lines | Status | Issue |
-|------|-------|--------|-------|
-| API_PATTERNS.md | 1,658 | Keep | Core, but bloated |
-| DATABASE_PATTERNS.md | 1,645 | Keep | Core, but bloated |
-| SECURITY_PATTERNS.md | 1,511 | Keep | Core, but bloated |
-| **PHASE1_WATCHLIST_PATTERNS.md** | 1,467 | **MERGE** | Belongs in core files |
-| TYPESCRIPT_PATTERNS.md | 1,421 | Keep | Core, well-organized |
-| ERROR_HANDLING_PATTERNS.md | 1,148 | Keep | Core |
-| API_TESTING_PATTERNS.md | 816 | **MERGE** | Into API_PATTERNS |
-| BACKGROUND_JOBS_PATTERNS.md | 623 | Keep | Domain-specific |
-| FRONTEND_PATTERNS.md | 579 | Keep | Domain-specific |
-| SERVICE_INTEGRATION_PATTERNS.md | 561 | **MERGE** | Into API_PATTERNS |
-| **PHASE0_WATCHLIST_PATTERNS.md** | 544 | **MERGE** | Belongs in core files |
-| VALIDATION_PATTERNS.md | 520 | **MERGE** | Into SECURITY_PATTERNS |
-| PATTERNS.md | 457 | **DELETE** | Obsolete general file |
-| MIDDLEWARE_API_PATTERNS.md | 393 | **MERGE** | Into API_PATTERNS |
-| AUTHENTICATION_PATTERNS.md | 271 | **MERGE** | Into SECURITY_PATTERNS |
-| PATTERNS_INDEX.md | 193 | Keep | Index file |
+| File                             | Lines | Status     | Issue                  |
+| -------------------------------- | ----- | ---------- | ---------------------- |
+| API_PATTERNS.md                  | 1,658 | Keep       | Core, but bloated      |
+| DATABASE_PATTERNS.md             | 1,645 | Keep       | Core, but bloated      |
+| SECURITY_PATTERNS.md             | 1,511 | Keep       | Core, but bloated      |
+| **PHASE1_WATCHLIST_PATTERNS.md** | 1,467 | **MERGE**  | Belongs in core files  |
+| TYPESCRIPT_PATTERNS.md           | 1,421 | Keep       | Core, well-organized   |
+| ERROR_HANDLING_PATTERNS.md       | 1,148 | Keep       | Core                   |
+| API_TESTING_PATTERNS.md          | 816   | **MERGE**  | Into API_PATTERNS      |
+| BACKGROUND_JOBS_PATTERNS.md      | 623   | Keep       | Domain-specific        |
+| FRONTEND_PATTERNS.md             | 579   | Keep       | Domain-specific        |
+| SERVICE_INTEGRATION_PATTERNS.md  | 561   | **MERGE**  | Into API_PATTERNS      |
+| **PHASE0_WATCHLIST_PATTERNS.md** | 544   | **MERGE**  | Belongs in core files  |
+| VALIDATION_PATTERNS.md           | 520   | **MERGE**  | Into SECURITY_PATTERNS |
+| PATTERNS.md                      | 457   | **DELETE** | Obsolete general file  |
+| MIDDLEWARE_API_PATTERNS.md       | 393   | **MERGE**  | Into API_PATTERNS      |
+| AUTHENTICATION_PATTERNS.md       | 271   | **MERGE**  | Into SECURITY_PATTERNS |
+| PATTERNS_INDEX.md                | 193   | Keep       | Index file             |
 
 **Subtotal docs/:** 14,276 lines
 
 ### .claude/knowledge/ Files
 
-| File | Lines | Status | Issue |
-|------|-------|--------|-------|
-| storage-refactoring-patterns.md | 1,071 | **MERGE** | Into DATABASE_PATTERNS |
-| phase-8-storage-migration-patterns.md | 663 | **MERGE** | Into DATABASE_PATTERNS |
-| storage-review-patterns.md | 529 | **MERGE** | Into DATABASE_PATTERNS |
-| route-error-handling-patterns.md | 379 | **MERGE** | Into API_PATTERNS |
+| File                                  | Lines | Status    | Issue                  |
+| ------------------------------------- | ----- | --------- | ---------------------- |
+| storage-refactoring-patterns.md       | 1,071 | **MERGE** | Into DATABASE_PATTERNS |
+| phase-8-storage-migration-patterns.md | 663   | **MERGE** | Into DATABASE_PATTERNS |
+| storage-review-patterns.md            | 529   | **MERGE** | Into DATABASE_PATTERNS |
+| route-error-handling-patterns.md      | 379   | **MERGE** | Into API_PATTERNS      |
 
 **Subtotal .claude/knowledge/:** 2,642 lines
 
@@ -67,18 +68,23 @@ docs/
 ### What Gets Merged Where
 
 #### 1. TYPESCRIPT_PATTERNS.md (Mostly Keep)
+
 **Merge in:**
+
 - Async/await patterns from PHASE1_WATCHLIST_PATTERNS.md
 - Floating promise patterns (currently duplicated everywhere)
 - `void` operator usage
 
 **Remove:**
+
 - Duplicates from other files
 
 **Result:** Single source of truth for TypeScript patterns
 
 #### 2. DATABASE_PATTERNS.md (Major Consolidation)
+
 **Merge in:**
+
 - `storage-refactoring-patterns.md` (1,071 lines)
 - `phase-8-storage-migration-patterns.md` (663 lines)
 - `storage-review-patterns.md` (529 lines)
@@ -86,6 +92,7 @@ docs/
 - NULL-safe constraint patterns from PHASE0
 
 **Organize into sections:**
+
 - Query Patterns (N+1, joins, batching)
 - Transaction Patterns
 - Storage Layer Architecture
@@ -95,7 +102,9 @@ docs/
 **Result:** Complete database/Drizzle reference
 
 #### 3. API_PATTERNS.md (Major Consolidation)
+
 **Merge in:**
+
 - `API_TESTING_PATTERNS.md` (816 lines)
 - `SERVICE_INTEGRATION_PATTERNS.md` (561 lines)
 - `MIDDLEWARE_API_PATTERNS.md` (393 lines)
@@ -103,6 +112,7 @@ docs/
 - Route patterns from PATTERNS.md
 
 **Organize into sections:**
+
 - Route Organization
 - Middleware Pipeline
 - Request/Response Patterns
@@ -112,13 +122,16 @@ docs/
 **Result:** Complete backend API reference
 
 #### 4. SECURITY_PATTERNS.md (Consolidation)
+
 **Merge in:**
+
 - `VALIDATION_PATTERNS.md` (520 lines)
 - `AUTHENTICATION_PATTERNS.md` (271 lines)
 - Security patterns from PHASE0/PHASE1
 - CSRF patterns (deduplicate from 8 files!)
 
 **Organize into sections:**
+
 - Authentication & Authorization
 - CSRF Protection
 - Input Validation (Zod)
@@ -128,7 +141,9 @@ docs/
 **Result:** Complete security reference
 
 #### 5. FRONTEND_PATTERNS.md (Minor Additions)
+
 **Merge in:**
+
 - React Query patterns from PHASE1
 - Form handling patterns
 - Client-side validation
@@ -136,7 +151,9 @@ docs/
 **Result:** Complete React/frontend reference
 
 #### 6. ERROR_HANDLING_PATTERNS.md (Mostly Keep)
+
 **Merge in:**
+
 - Error classification from PHASE0
 - Validation error patterns
 - Remove duplicates
@@ -144,6 +161,7 @@ docs/
 **Result:** Streamlined error handling reference
 
 #### 7. BACKGROUND_JOBS_PATTERNS.md (Keep As-Is)
+
 **No changes needed**
 
 ## Duplication Removal Strategy
@@ -151,6 +169,7 @@ docs/
 ### Example: CSRF Protection
 
 **Currently in 8 files:**
+
 1. SECURITY_PATTERNS.md (main reference)
 2. API_PATTERNS.md
 3. AUTHENTICATION_PATTERNS.md
@@ -161,12 +180,14 @@ docs/
 8. REACT_BEST_PRACTICES_RESEARCH_2025.md
 
 **After consolidation:**
+
 - **ONE location:** SECURITY_PATTERNS.md → CSRF Protection section
 - **Cross-references:** Other files link to it, don't duplicate it
 
 ### Example: Floating Promises
 
 **Currently in 9 files:**
+
 - PHASE1_WATCHLIST_PATTERNS.md (most complete)
 - PHASE1_TASK3_CODIFICATION.md
 - PHASE1_TASK2_COMPLETION.md
@@ -178,13 +199,16 @@ docs/
 - ESLINT_ENFORCEMENT.md
 
 **After consolidation:**
+
 - **ONE location:** TYPESCRIPT_PATTERNS.md → Async/Promise Patterns → Floating Promises
 - **ONE location for React:** FRONTEND_PATTERNS.md → React Query Callbacks (references TypeScript patterns)
 
 ## Phase-Specific Files: What To Do
 
 ### PHASE0_WATCHLIST_PATTERNS.md (544 lines)
+
 **Contains:**
+
 - NULL-safe unique constraints → DATABASE_PATTERNS.md
 - Validation layer separation → SECURITY_PATTERNS.md
 - PostgreSQL error codes → ERROR_HANDLING_PATTERNS.md
@@ -193,7 +217,9 @@ docs/
 **Action:** Merge all content, DELETE file
 
 ### PHASE1_WATCHLIST_PATTERNS.md (1,467 lines)
+
 **Contains:**
+
 - ESLint compliance (async) → TYPESCRIPT_PATTERNS.md
 - React Query patterns → FRONTEND_PATTERNS.md
 - JSON validation → SECURITY_PATTERNS.md
@@ -202,6 +228,7 @@ docs/
 **Action:** Merge all content, DELETE file
 
 **Why delete phase files?**
+
 - Patterns should be **domain-organized**, not **timeline-organized**
 - Phase files become stale and aren't maintained
 - Developers look for "database patterns" not "phase 0 patterns"
@@ -213,6 +240,7 @@ docs/
 These are completion reports, not living patterns:
 
 **Move to `docs/archive/sessions/`:**
+
 - SESSION_SUMMARY_PRODUCT_ROUTES_MIGRATION.md
 - PHASE1_TASK2_COMPLETION.md
 - PHASE1_TASK3_CODIFICATION.md
@@ -221,6 +249,7 @@ These are completion reports, not living patterns:
 - REDIS_SESSION_TESTING.md
 
 **Why archive?**
+
 - Historical record, not living patterns
 - Contain duplicated content now in core files
 - Keep for reference but remove from active docs
@@ -292,38 +321,49 @@ Each consolidated file will follow this structure:
 **Migrated From:** [List of merged files]
 
 ## Table of Contents
+
 [Auto-generated TOC]
 
 ## Overview
+
 [Brief description of what this file covers]
 
 ## Pattern Categories
 
 ### Category 1: [Name]
+
 #### Anti-Pattern
+
 [What NOT to do with code example]
 
 #### Correct Pattern
+
 [What TO do with code example]
 
 #### Why It Matters
+
 [Explanation of consequences]
 
 #### Related Patterns
+
 [Links to other sections/files]
 
 ---
 
 ### Category 2: [Name]
+
 ...
 
 ## Quick Reference
+
 [Cheatsheet of key patterns]
 
 ## Checklist
+
 [Pre-commit checklist for this domain]
 
 ## Related Documentation
+
 - [Links to other pattern files]
 - [Links to external docs]
 
@@ -338,10 +378,12 @@ Each consolidated file will follow this structure:
 ### What Merges Into What
 
 **→ 01_TYPESCRIPT_PATTERNS.md**
+
 - PHASE1_WATCHLIST_PATTERNS.md (async sections)
 - Floating promise patterns from everywhere
 
 **→ 02_DATABASE_PATTERNS.md**
+
 - storage-refactoring-patterns.md
 - phase-8-storage-migration-patterns.md
 - storage-review-patterns.md
@@ -349,6 +391,7 @@ Each consolidated file will follow this structure:
 - PHASE1_WATCHLIST_PATTERNS.md (pagination sections)
 
 **→ 03_API_PATTERNS.md**
+
 - API_TESTING_PATTERNS.md
 - SERVICE_INTEGRATION_PATTERNS.md
 - MIDDLEWARE_API_PATTERNS.md
@@ -356,22 +399,27 @@ Each consolidated file will follow this structure:
 - PATTERNS.md (route sections)
 
 **→ 04_SECURITY_PATTERNS.md**
+
 - VALIDATION_PATTERNS.md
 - AUTHENTICATION_PATTERNS.md
 - PHASE0_WATCHLIST_PATTERNS.md (validation sections)
 
 **→ 05_FRONTEND_PATTERNS.md**
+
 - PHASE1_WATCHLIST_PATTERNS.md (React Query sections)
 
 **→ 06_ERROR_HANDLING_PATTERNS.md**
+
 - PHASE0_WATCHLIST_PATTERNS.md (error code sections)
 
 **→ 07_BACKGROUND_JOBS_PATTERNS.md**
+
 - (No changes)
 
 ## Benefits of Consolidation
 
 ### Before (Current Mess)
+
 - ❌ 21 files to search through
 - ❌ Patterns duplicated in 8+ places
 - ❌ Phase files organized by time, not domain
@@ -381,6 +429,7 @@ Each consolidated file will follow this structure:
 - ❌ 16,449 lines to maintain
 
 ### After (Consolidated)
+
 - ✅ 7 files organized by domain
 - ✅ Each pattern has ONE canonical location
 - ✅ All patterns visible in docs/
@@ -397,6 +446,7 @@ Each consolidated file will follow this structure:
 **ALWAYS consult these pattern files before implementing features:**
 
 ### Core Pattern Files (docs/)
+
 1. **`docs/01_TYPESCRIPT_PATTERNS.md`** - Type safety, async/await, Zod, generics
 2. **`docs/02_DATABASE_PATTERNS.md`** - Queries, transactions, storage layer, migrations
 3. **`docs/03_API_PATTERNS.md`** - Routes, middleware, testing, service integration

@@ -1,6 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -52,9 +58,7 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
           <Users className="h-5 w-5" />
           User Management
         </CardTitle>
-        <CardDescription>
-          Manage user roles and permissions
-        </CardDescription>
+        <CardDescription>Manage user roles and permissions</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -62,16 +66,20 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
             <div>Loading users...</div>
           ) : Array.isArray(users) && users.length > 0 ? (
             users.map((user: User) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div
+                key={user.id}
+                className="flex items-center justify-between rounded-lg border p-4"
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-medium">
+                  <div className="bg-primary text-primary-foreground flex h-10 w-10 items-center justify-center rounded-full font-medium">
                     {user.username.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <h3 className="font-medium">{user.username}</h3>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Reputation: {user.reputation} • Joined: {new Date(user.createdAt).toLocaleDateString()}
+                    <p className="text-muted-foreground text-sm">{user.email}</p>
+                    <p className="text-muted-foreground text-xs">
+                      Reputation: {user.reputation} • Joined:{' '}
+                      {new Date(user.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -89,14 +97,14 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Badge variant={user.isActive ? "default" : "secondary"}>
-                    {user.isActive ? "Active" : "Inactive"}
+                  <Badge variant={user.isActive ? 'default' : 'secondary'}>
+                    {user.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-center text-muted-foreground">No users found</div>
+            <div className="text-muted-foreground text-center">No users found</div>
           )}
         </div>
       </CardContent>

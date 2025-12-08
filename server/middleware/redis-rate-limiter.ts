@@ -20,9 +20,9 @@ const log = createLogger('RateLimiter');
  * Configuration options for rate limiting
  */
 interface RateLimitOptions {
-  windowMs: number;     // Time window in milliseconds
-  maxRequests: number;  // Maximum requests per window (for default/free tier)
-  message?: string;     // Error message
+  windowMs: number; // Time window in milliseconds
+  maxRequests: number; // Maximum requests per window (for default/free tier)
+  message?: string; // Error message
   keyGenerator?: (req: Request) => string; // Custom key generator
   tiers?: RateLimitTiers; // Optional tiered limits based on user role
 }
@@ -77,7 +77,7 @@ const redisRateLimitCleanupInterval = setInterval(() => {
   if (inMemoryStore.size > MAX_MEMORY_ENTRIES) {
     const toRemove = inMemoryStore.size - MAX_MEMORY_ENTRIES;
     const keys = Array.from(inMemoryStore.keys()).slice(0, toRemove);
-    keys.forEach(key => inMemoryStore.delete(key));
+    keys.forEach((key) => inMemoryStore.delete(key));
     cleaned += toRemove;
   }
 
@@ -136,7 +136,10 @@ interface AuthenticatedUser {
  * getRateLimitForUser(req, { maxRequests: 100, tiers: {} })
  * // Returns: { limit: 10000, tier: 'admin' } (100x multiplier)
  */
-function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: number; tier: string } {
+function getRateLimitForUser(
+  req: Request,
+  options: RateLimitOptions
+): { limit: number; tier: string } {
   // If no tiers defined, use default
   if (!options.tiers) {
     return { limit: options.maxRequests, tier: 'default' };
@@ -157,7 +160,8 @@ function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: 
       limit = options.tiers.admin ?? options.maxRequests * RATE_LIMIT_TIERS.admin.multiplier;
       break;
     case 'moderator':
-      limit = options.tiers.moderator ?? options.maxRequests * RATE_LIMIT_TIERS.moderator.multiplier;
+      limit =
+        options.tiers.moderator ?? options.maxRequests * RATE_LIMIT_TIERS.moderator.multiplier;
       break;
     case 'premium':
       limit = options.tiers.premium ?? options.maxRequests * RATE_LIMIT_TIERS.premium.multiplier;
@@ -167,14 +171,15 @@ function getRateLimitForUser(req: Request, options: RateLimitOptions): { limit: 
       break;
     case 'free':
     default:
-      limit = options.tiers.free ?? Math.floor(options.maxRequests * RATE_LIMIT_TIERS.free.multiplier);
+      limit =
+        options.tiers.free ?? Math.floor(options.maxRequests * RATE_LIMIT_TIERS.free.multiplier);
       break;
   }
 
   // If limit is 0, treat as unlimited (use maximum safe integer)
   return {
     limit: limit === 0 ? Number.MAX_SAFE_INTEGER : limit,
-    tier: userRole
+    tier: userRole,
   };
 }
 
@@ -381,7 +386,7 @@ export function createRateLimiter(options: RateLimitOptions) {
             limit: info.total,
             remaining: info.remaining,
             resetTime: new Date(info.reset).toISOString(),
-          }
+          },
         });
 
         const retryAfter = Math.ceil((info.reset - Date.now()) / 1000);
@@ -391,7 +396,7 @@ export function createRateLimiter(options: RateLimitOptions) {
 
         sendError(res, message, 429, {
           code: ErrorCodes.RATE_LIMIT_EXCEEDED,
-          retryAfter
+          retryAfter,
         });
         return;
       }
@@ -412,27 +417,30 @@ export const RateLimiters = {
   /**
    * Strict rate limiter for authentication endpoints
    */
-  auth: () => createRateLimiter({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 10,
-    message: 'Too many authentication attempts, please try again later',
-  }),
+  auth: () =>
+    createRateLimiter({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      maxRequests: 10,
+      message: 'Too many authentication attempts, please try again later',
+    }),
 
   /**
    * General API rate limiter
    */
-  api: () => createRateLimiter({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 100,
-    message: 'Too many requests from this IP, please try again later',
-  }),
+  api: () =>
+    createRateLimiter({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      maxRequests: 100,
+      message: 'Too many requests from this IP, please try again later',
+    }),
 
   /**
    * Strict rate limiter for sensitive operations
    */
-  sensitive: () => createRateLimiter({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    maxRequests: 5,
-    message: 'Rate limit exceeded for this operation',
-  }),
+  sensitive: () =>
+    createRateLimiter({
+      windowMs: 60 * 60 * 1000, // 1 hour
+      maxRequests: 5,
+      message: 'Rate limit exceeded for this operation',
+    }),
 };

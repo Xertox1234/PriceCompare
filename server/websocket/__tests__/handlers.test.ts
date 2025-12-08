@@ -42,8 +42,8 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 vi.mock('../../services/notification-service', () => ({
-  markAsRead: vi.fn(async () => 1),
-  getNotificationStats: vi.fn(async () => ({
+  markAsRead: vi.fn(() => 1),
+  getNotificationStats: vi.fn(() => ({
     total: 10,
     unread: 3,
     byType: {},

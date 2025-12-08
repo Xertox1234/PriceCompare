@@ -14,9 +14,7 @@ export function validateRequestBody<T>(schema: z.ZodSchema<T>, body: unknown): V
     return { success: true, data };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errors = error.issues.map(err =>
-        `${err.path.join('.')}: ${err.message}`
-      );
+      const errors = error.issues.map((err) => `${err.path.join('.')}: ${err.message}`);
       return { success: false, errors };
     }
     return { success: false, errors: ['Invalid request body'] };
@@ -30,11 +28,12 @@ export function validateRequestBody<T>(schema: z.ZodSchema<T>, body: unknown): V
 export function validateRequest(schema: z.ZodSchema, source: 'body' | 'query' | 'params' = 'body') {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const data: unknown = source === 'body' ? req.body : source === 'query' ? req.query : req.params;
+      const data: unknown =
+        source === 'body' ? req.body : source === 'query' ? req.query : req.params;
       const result = schema.safeParse(data);
 
       if (!result.success) {
-        const errors = result.error.issues.map(err => ({
+        const errors = result.error.issues.map((err) => ({
           path: err.path.join('.'),
           message: err.message,
           code: err.code,
@@ -81,11 +80,13 @@ export function validateMultiple(schemas: {
       if (schemas.body) {
         const result = schemas.body.safeParse(req.body);
         if (!result.success) {
-          errors.push(...result.error.issues.map(err => ({
-            source: 'body',
-            path: err.path.join('.'),
-            message: err.message,
-          })));
+          errors.push(
+            ...result.error.issues.map((err) => ({
+              source: 'body',
+              path: err.path.join('.'),
+              message: err.message,
+            }))
+          );
         } else {
           req.body = result.data;
         }
@@ -95,11 +96,13 @@ export function validateMultiple(schemas: {
       if (schemas.query) {
         const result = schemas.query.safeParse(req.query);
         if (!result.success) {
-          errors.push(...result.error.issues.map(err => ({
-            source: 'query',
-            path: err.path.join('.'),
-            message: err.message,
-          })));
+          errors.push(
+            ...result.error.issues.map((err) => ({
+              source: 'query',
+              path: err.path.join('.'),
+              message: err.message,
+            }))
+          );
         } else {
           req.query = result.data as Record<string, string>;
         }
@@ -109,11 +112,13 @@ export function validateMultiple(schemas: {
       if (schemas.params) {
         const result = schemas.params.safeParse(req.params);
         if (!result.success) {
-          errors.push(...result.error.issues.map(err => ({
-            source: 'params',
-            path: err.path.join('.'),
-            message: err.message,
-          })));
+          errors.push(
+            ...result.error.issues.map((err) => ({
+              source: 'params',
+              path: err.path.join('.'),
+              message: err.message,
+            }))
+          );
         } else {
           req.params = result.data as Record<string, string>;
         }

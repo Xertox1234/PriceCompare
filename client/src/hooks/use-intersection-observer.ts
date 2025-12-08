@@ -38,7 +38,7 @@ export function useIntersectionObserver<T extends Element = HTMLElement>({
     const observer = new IntersectionObserver(
       ([entry]) => {
         const isVisible = entry.isIntersecting;
-        
+
         if (isVisible && !hasTriggered) {
           setIsIntersecting(true);
           if (triggerOnce) {

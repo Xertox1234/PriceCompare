@@ -10,10 +10,10 @@ const _authFile = '.auth/user.json';
 setup('authenticate', async ({ page }) => {
   // This is an example setup for authenticated tests
   // Adjust based on your authentication flow
-  
+
   // For now, we'll just navigate to home to ensure app is running
   await page.goto('/');
-  
+
   // If you need to login for tests, do it here:
   // await page.goto('/login');
   // await page.getByLabel('username').fill('testuser');

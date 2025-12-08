@@ -62,8 +62,14 @@ describe('useWatchListUpdates', () => {
 
     expect(websocketClient.emit).toHaveBeenCalledWith('subscribe:watchlists');
     expect(websocketClient.on).toHaveBeenCalledWith('watchlist:update', expect.any(Function));
-    expect(websocketClient.on).toHaveBeenCalledWith('watchlist:product_added', expect.any(Function));
-    expect(websocketClient.on).toHaveBeenCalledWith('watchlist:product_removed', expect.any(Function));
+    expect(websocketClient.on).toHaveBeenCalledWith(
+      'watchlist:product_added',
+      expect.any(Function)
+    );
+    expect(websocketClient.on).toHaveBeenCalledWith(
+      'watchlist:product_removed',
+      expect.any(Function)
+    );
   });
 
   it('should not subscribe when disconnected', async () => {
@@ -117,7 +123,7 @@ describe('useWatchListUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
@@ -154,7 +160,7 @@ describe('useWatchListUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
@@ -191,7 +197,7 @@ describe('useWatchListUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Capturing WebSocket event handler for test simulation
@@ -228,7 +234,7 @@ describe('useWatchListUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
@@ -272,7 +278,7 @@ describe('useWatchListUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
@@ -310,8 +316,14 @@ describe('useWatchListUpdates', () => {
     unmount();
 
     expect(websocketClient.off).toHaveBeenCalledWith('watchlist:update', expect.any(Function));
-    expect(websocketClient.off).toHaveBeenCalledWith('watchlist:product_added', expect.any(Function));
-    expect(websocketClient.off).toHaveBeenCalledWith('watchlist:product_removed', expect.any(Function));
+    expect(websocketClient.off).toHaveBeenCalledWith(
+      'watchlist:product_added',
+      expect.any(Function)
+    );
+    expect(websocketClient.off).toHaveBeenCalledWith(
+      'watchlist:product_removed',
+      expect.any(Function)
+    );
     expect(websocketClient.emit).toHaveBeenCalledWith('unsubscribe:watchlists');
   });
 
@@ -351,7 +363,7 @@ describe('useWatchListUpdates', () => {
     vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
       dismiss: vi.fn(),
-      toasts: []
+      toasts: [],
     });
 
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');

@@ -7,14 +7,18 @@ This guide documents the test coverage enforcement strategy for the PriceCompare
 ## Coverage Thresholds
 
 ### Global Thresholds (80%)
+
 All production code must meet these minimums:
+
 - **Branches**: 80%
 - **Functions**: 80%
 - **Lines**: 80%
 - **Statements**: 80%
 
 ### Critical File Thresholds (90%)
+
 Security-critical files have stricter requirements:
+
 - `server/auth.ts` - Authentication logic
 - `server/middleware/csrf.ts` - CSRF protection
 
@@ -56,6 +60,7 @@ All files           |   85.23 |    82.45 |   87.12 |   85.67 |
 ## What's Excluded from Coverage
 
 Coverage reports **exclude**:
+
 - Test files (`**/*.test.ts`, `**/__tests__/**`)
 - E2E tests (`e2e/**`)
 - Configuration files (`**/*.config.*`)
@@ -67,6 +72,7 @@ Coverage reports **exclude**:
 - Documentation (`docs/**`)
 
 **Rationale**: These files either:
+
 - Are test infrastructure (testing the tests is redundant)
 - Have minimal logic (entry points, config)
 - Are third-party code (already tested upstream)
@@ -138,6 +144,7 @@ describe('calculateDiscount', () => {
 ### 2. Test Edge Cases and Error Paths
 
 Coverage metrics track:
+
 - **Branches**: All `if/else`, `switch`, ternary paths
 - **Functions**: All function calls
 - **Lines**: All executable lines
@@ -146,10 +153,10 @@ Coverage metrics track:
 ```typescript
 // This function has 4 branch paths - test all of them!
 export function validateAge(age: number | null): string {
-  if (age === null) return 'Age required';        // Branch 1
-  if (age < 0) return 'Age cannot be negative';   // Branch 2
-  if (age < 18) return 'Must be 18 or older';     // Branch 3
-  return 'Valid';                                  // Branch 4
+  if (age === null) return 'Age required'; // Branch 1
+  if (age < 0) return 'Age cannot be negative'; // Branch 2
+  if (age < 18) return 'Must be 18 or older'; // Branch 3
+  return 'Valid'; // Branch 4
 }
 
 // ✅ Test suite covering all branches
@@ -180,9 +187,9 @@ Both unit and integration tests contribute to coverage metrics:
 ```typescript
 // server/routes/product-routes.ts
 app.get('/api/products/:id', async (req, res) => {
-  const id = parseIntSafe(req.params.id, 'productId');  // Line covered by integration test
-  const product = await storage.getProductById(id);     // Line covered by integration test
-  res.json(product);                                     // Line covered by integration test
+  const id = parseIntSafe(req.params.id, 'productId'); // Line covered by integration test
+  const product = await storage.getProductById(id); // Line covered by integration test
+  res.json(product); // Line covered by integration test
 });
 
 // server/routes/__tests__/product-routes.test.ts
@@ -217,6 +224,7 @@ it('should calculate 10% discount on $100 as $90', () => {
 ### New Feature Checklist
 
 When adding new code:
+
 - [ ] Write unit tests for business logic
 - [ ] Write integration tests for API endpoints
 - [ ] Add E2E tests for user-facing features
@@ -227,6 +235,7 @@ When adding new code:
 ### Code Review Checklist
 
 When reviewing PRs:
+
 - [ ] Check CI coverage report in PR comments
 - [ ] Verify new code has corresponding tests
 - [ ] Look for untested edge cases
@@ -236,6 +245,7 @@ When reviewing PRs:
 ### Refactoring Strategy
 
 When refactoring existing code:
+
 1. **Run tests first** - Ensure current tests pass
 2. **Refactor code** - Make your changes
 3. **Run tests again** - Verify tests still pass
@@ -283,12 +293,14 @@ CI=true npm run test:coverage
 **Important**: 100% coverage ≠ bug-free code!
 
 Coverage measures **what code was executed**, not:
+
 - ❌ If assertions are meaningful
 - ❌ If edge cases are tested
 - ❌ If integration points work
 - ❌ If UX flows are smooth
 
 **Best approach**: Combine coverage metrics with:
+
 - Code review (human verification)
 - Integration tests (API contracts)
 - E2E tests (user journeys)
@@ -299,21 +311,21 @@ Coverage measures **what code was executed**, not:
 
 ### Test Breakdown (467 total tests)
 
-| Layer | Tests | Purpose |
-|-------|-------|---------|
-| **Unit Tests** | 267 | Business logic, utilities, services |
-| **Integration Tests** | 134 | API endpoints, database operations |
-| **E2E Tests** | 66 | User journeys, full-stack validation |
+| Layer                 | Tests | Purpose                              |
+| --------------------- | ----- | ------------------------------------ |
+| **Unit Tests**        | 267   | Business logic, utilities, services  |
+| **Integration Tests** | 134   | API endpoints, database operations   |
+| **E2E Tests**         | 66    | User journeys, full-stack validation |
 
 ### Coverage by Area
 
-| Area | Coverage | Notes |
-|------|----------|-------|
-| **Authentication** | 92% | auth.ts, password reset, sessions |
-| **Middleware** | 90% | CSRF, security headers, sanitization |
-| **API Routes** | 82% | Products, alerts, retailers, forum |
-| **Services** | 85% | Email, notifications, price tracking |
-| **Database** | 88% | storage.ts, query patterns |
+| Area               | Coverage | Notes                                |
+| ------------------ | -------- | ------------------------------------ |
+| **Authentication** | 92%      | auth.ts, password reset, sessions    |
+| **Middleware**     | 90%      | CSRF, security headers, sanitization |
+| **API Routes**     | 82%      | Products, alerts, retailers, forum   |
+| **Services**       | 85%      | Email, notifications, price tracking |
+| **Database**       | 88%      | storage.ts, query patterns           |
 
 ## Quick Reference
 

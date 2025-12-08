@@ -8,10 +8,14 @@ async function createIndexes() {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
-                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+  const isNeonDatabase =
+    process.env.DATABASE_URL?.includes('neon.tech') ||
+    process.env.DATABASE_URL?.includes('.pooler.neon.tech');
 
-  type PoolClient = { query: (text: string) => Promise<{ rows: Array<Record<string, unknown>> }>; end: () => Promise<void> };
+  type PoolClient = {
+    query: (text: string) => Promise<{ rows: Array<Record<string, unknown>> }>;
+    end: () => Promise<void>;
+  };
   let pool: PoolClient;
 
   if (isNeonDatabase) {
@@ -29,19 +33,19 @@ async function createIndexes() {
       name: 'idx_price_alerts_active_product',
       sql: `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_price_alerts_active_product
             ON price_alerts(product_id, is_active, target_price)
-            WHERE is_active = true`
+            WHERE is_active = true`,
     },
     {
       name: 'idx_price_history_aggregated_cleanup',
       sql: `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_price_history_aggregated_cleanup
             ON price_history (recorded_at)
-            WHERE aggregated_at IS NOT NULL`
+            WHERE aggregated_at IS NOT NULL`,
     },
     {
       name: 'idx_product_offers_product_retailer_price',
       sql: `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_product_offers_product_retailer_price
-            ON product_offers (product_id, retailer_id, price)`
-    }
+            ON product_offers (product_id, retailer_id, price)`,
+    },
   ];
 
   try {
@@ -52,7 +56,9 @@ async function createIndexes() {
         console.log(`✅ Successfully created ${index.name}`);
       } catch (error) {
         const err = error as { message?: string; code?: string };
-        console.log(`⚠️  ${index.name}: ${err.message || 'Unknown error'} (code: ${err.code || 'N/A'})`);
+        console.log(
+          `⚠️  ${index.name}: ${err.message || 'Unknown error'} (code: ${err.code || 'N/A'})`
+        );
       }
     }
 
@@ -78,7 +84,6 @@ async function createIndexes() {
     } else {
       console.log('❌ No indexes found!');
     }
-
   } catch (error) {
     console.error('❌ Failed:', error);
     throw error;
@@ -87,7 +92,7 @@ async function createIndexes() {
   }
 }
 
-createIndexes().catch(error => {
+createIndexes().catch((error) => {
   console.error(error);
   process.exit(1);
 });

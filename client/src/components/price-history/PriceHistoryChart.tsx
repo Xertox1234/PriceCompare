@@ -1,13 +1,24 @@
-import { useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush, ReferenceLine } from "recharts";
-import { format } from "date-fns";
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { InteractiveTooltip } from "./InteractiveTooltip";
-import { ChartExport } from "./ChartExport";
-import { TrendingDown } from "lucide-react";
-import { createLogger } from "@/utils/logger";
+import { useState, useMemo } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Brush,
+  ReferenceLine,
+} from 'recharts';
+import { format } from 'date-fns';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { InteractiveTooltip } from './InteractiveTooltip';
+import { ChartExport } from './ChartExport';
+import { TrendingDown } from 'lucide-react';
+import { createLogger } from '@/utils/logger';
 
 interface PriceHistoryData {
   id: number;
@@ -32,14 +43,14 @@ interface PriceHistoryChartProps {
 
 // Color palette for different retailers
 const RETAILER_COLORS = [
-  "#3b82f6", // Blue
-  "#10b981", // Green
-  "#f59e0b", // Amber
-  "#ef4444", // Red
-  "#8b5cf6", // Purple
-  "#ec4899", // Pink
-  "#06b6d4", // Cyan
-  "#f97316", // Orange
+  '#3b82f6', // Blue
+  '#10b981', // Green
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#f97316', // Orange
 ];
 
 const logger = createLogger('PriceHistoryChart');
@@ -78,7 +89,12 @@ export function PriceHistoryChart({
   const priceDropAnnotations = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const annotations: Array<{ date: string; retailerId: number; drop: number; retailerName: string }> = [];
+    const annotations: Array<{
+      date: string;
+      retailerId: number;
+      drop: number;
+      retailerName: string;
+    }> = [];
 
     // Group data by retailer
     const dataByRetailer = new Map<number, typeof data>();
@@ -110,11 +126,12 @@ export function PriceHistoryChart({
         const drop = ((prevPrice - currPrice) / prevPrice) * 100;
 
         if (drop > 15) {
-          const date = typeof sorted[i].recordedAt === 'string'
-            ? new Date(sorted[i].recordedAt)
-            : sorted[i].recordedAt;
+          const date =
+            typeof sorted[i].recordedAt === 'string'
+              ? new Date(sorted[i].recordedAt)
+              : sorted[i].recordedAt;
           annotations.push({
-            date: format(date, "yyyy-MM-dd"),
+            date: format(date, 'yyyy-MM-dd'),
             retailerId,
             drop,
             retailerName: sorted[i].retailerName,
@@ -137,9 +154,9 @@ export function PriceHistoryChart({
   if (!data || data.length === 0) {
     return (
       <Card className="p-6">
-        <div className="flex flex-col items-center justify-center h-[400px] text-center">
+        <div className="flex h-[400px] flex-col items-center justify-center text-center">
           <p className="text-muted-foreground text-lg">No price history available yet</p>
-          <p className="text-sm text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2 text-sm">
             Price tracking will begin shortly and historical data will appear here
           </p>
         </div>
@@ -152,10 +169,8 @@ export function PriceHistoryChart({
   const dataByDate = new Map<string, Record<string, string | number>>();
 
   data.forEach((item) => {
-    const date = typeof item.recordedAt === 'string'
-      ? new Date(item.recordedAt)
-      : item.recordedAt;
-    const dateKey = format(date, "yyyy-MM-dd");
+    const date = typeof item.recordedAt === 'string' ? new Date(item.recordedAt) : item.recordedAt;
+    const dateKey = format(date, 'yyyy-MM-dd');
 
     if (!dataByDate.has(dateKey)) {
       dataByDate.set(dateKey, { date: dateKey, timestamp: date.getTime() });
@@ -171,7 +186,7 @@ export function PriceHistoryChart({
       dataByDate.set(dateKey, {
         date: dateKey,
         timestamp: date.getTime(),
-        [retailerKey]: parseFloat(item.price)
+        [retailerKey]: parseFloat(item.price),
       });
     }
   });
@@ -213,10 +228,10 @@ export function PriceHistoryChart({
   return (
     <Card className="p-6" id="price-history-chart">
       <div className="space-y-4">
-        <div className="flex justify-between items-start">
+        <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold">Price History</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               Track price changes over time across different retailers
             </p>
           </div>
@@ -241,15 +256,15 @@ export function PriceHistoryChart({
               <button
                 key={retailer.id}
                 onClick={() => toggleRetailer(retailer.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md border transition-all ${
+                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 transition-all ${
                   isHidden
-                    ? "opacity-40 border-gray-200 bg-gray-50"
-                    : "border-gray-300 bg-white hover:shadow-sm"
+                    ? 'border-gray-200 bg-gray-50 opacity-40'
+                    : 'border-gray-300 bg-white hover:shadow-sm'
                 }`}
               >
                 <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: isHidden ? "#ccc" : color }}
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: isHidden ? '#ccc' : color }}
                 />
                 <span className="text-sm font-medium">{retailer.name}</span>
               </button>
@@ -262,8 +277,9 @@ export function PriceHistoryChart({
           <div className="flex flex-wrap gap-2">
             {priceDropAnnotations.slice(0, 3).map((annotation, index) => (
               <Badge key={index} variant="destructive" className="text-xs">
-                <TrendingDown className="w-3 h-3 mr-1" />
-                {annotation.retailerName}: {annotation.drop.toFixed(0)}% drop on {format(new Date(annotation.date), "MMM d")}
+                <TrendingDown className="mr-1 h-3 w-3" />
+                {annotation.retailerName}: {annotation.drop.toFixed(0)}% drop on{' '}
+                {format(new Date(annotation.date), 'MMM d')}
               </Badge>
             ))}
             {priceDropAnnotations.length > 3 && (
@@ -281,7 +297,7 @@ export function PriceHistoryChart({
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(value: string | number | Date) => format(new Date(value), "MMM d")}
+                tickFormatter={(value: string | number | Date) => format(new Date(value), 'MMM d')}
                 className="text-xs"
               />
               <YAxis
@@ -335,7 +351,7 @@ export function PriceHistoryChart({
                 dataKey="date"
                 height={30}
                 stroke="#3b82f6"
-                tickFormatter={(value: string | number | Date) => format(new Date(value), "MMM d")}
+                tickFormatter={(value: string | number | Date) => format(new Date(value), 'MMM d')}
                 startIndex={brushStartIndex}
                 endIndex={brushEndIndex}
                 onChange={(range) => {

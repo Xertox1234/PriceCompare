@@ -25,10 +25,7 @@ interface DualBannerCarouselProps {
   className?: string;
 }
 
-export function DualBannerCarousel({
-  banners,
-  className,
-}: DualBannerCarouselProps) {
+export function DualBannerCarousel({ banners, className }: DualBannerCarouselProps) {
   return (
     <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
@@ -55,7 +52,7 @@ export function DualBannerCarousel({
         </Swiper>
 
         {/* Pagination Dots */}
-        <div className="flex dual-banner-pagination justify-center mt-4 gap-1" />
+        <div className="dual-banner-pagination mt-4 flex justify-center gap-1" />
       </div>
     </section>
   );
@@ -66,7 +63,7 @@ function DualBannerCard({ banner }: { banner: DualBannerItem }) {
 
   return (
     <Link href={banner.link}>
-      <div className="group relative h-[200px] sm:h-[240px] lg:h-[280px] rounded-xl overflow-hidden cursor-pointer">
+      <div className="group relative h-[200px] cursor-pointer overflow-hidden rounded-xl sm:h-[240px] lg:h-[280px]">
         {/* Background Image */}
         <div
           className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -79,34 +76,35 @@ function DualBannerCard({ banner }: { banner: DualBannerItem }) {
             'absolute inset-0',
             variant === 'dark' && 'bg-slate-900/70',
             variant === 'gradient' && 'bg-gradient-to-r from-slate-900/80 to-slate-900/40',
-            variant === 'default' && 'bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-transparent'
+            variant === 'default' &&
+              'bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-transparent'
           )}
         />
 
         {/* Product Image (floating) */}
         {banner.productImage && (
-          <div className="absolute bottom-0 right-4 lg:right-8 w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 z-10">
+          <div className="absolute right-4 bottom-0 z-10 h-24 w-24 sm:h-32 sm:w-32 lg:right-8 lg:h-40 lg:w-40">
             <img
               src={banner.productImage}
               alt=""
-              className="w-full h-full object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-110"
+              className="h-full w-full object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-110"
             />
           </div>
         )}
 
         {/* Content */}
-        <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-between">
+        <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-6">
           {/* Price Badge */}
           {banner.priceFrom && (
-            <div className="self-start bg-template-gold text-black px-3 py-1.5 rounded-lg">
-              <p className="text-[10px] uppercase font-medium">From</p>
-              <p className="text-lg sm:text-xl font-bold">${banner.priceFrom.toLocaleString()}</p>
+            <div className="bg-template-gold self-start rounded-lg px-3 py-1.5 text-black">
+              <p className="text-[10px] font-medium uppercase">From</p>
+              <p className="text-lg font-bold sm:text-xl">${banner.priceFrom.toLocaleString()}</p>
             </div>
           )}
 
           {/* Title & Subtitle */}
           <div className="mt-auto">
-            <h3 className="text-white text-lg sm:text-xl lg:text-2xl font-normal leading-tight">
+            <h3 className="text-lg leading-tight font-normal text-white sm:text-xl lg:text-2xl">
               {banner.title}
               {banner.subtitle && (
                 <>

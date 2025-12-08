@@ -99,155 +99,132 @@ const defaultBrandConfig: RetailerBrandConfig = {
  * - "Shop All [Retailer] Deals" CTA button
  * - Uses ProductDealCard for the mini carousel items
  */
-export const RetailerSpotlight = memo(({
-  retailerId,
-  tagline,
-  className,
-}: RetailerSpotlightProps) => {
-  // Get retailer products
-  const retailerProducts = useMemo(() => {
-    const numericId = parseInt(retailerId, 10);
-    if (isNaN(numericId)) return [];
-    return getProductsByRetailer(numericId).slice(0, 6);
-  }, [retailerId]);
+export const RetailerSpotlight = memo(
+  ({ retailerId, tagline, className }: RetailerSpotlightProps) => {
+    // Get retailer products
+    const retailerProducts = useMemo(() => {
+      const numericId = parseInt(retailerId, 10);
+      if (isNaN(numericId)) return [];
+      return getProductsByRetailer(numericId).slice(0, 6);
+    }, [retailerId]);
 
-  // Get retailer info
-  const retailer = useMemo(() => {
-    const numericId = parseInt(retailerId, 10);
-    return retailers.find((r) => r.id === numericId);
-  }, [retailerId]);
+    // Get retailer info
+    const retailer = useMemo(() => {
+      const numericId = parseInt(retailerId, 10);
+      return retailers.find((r) => r.id === numericId);
+    }, [retailerId]);
 
-  // Get brand configuration
-  const brandConfig = useMemo(() => {
-    return retailerBrandConfigs[retailerId] || defaultBrandConfig;
-  }, [retailerId]);
+    // Get brand configuration
+    const brandConfig = useMemo(() => {
+      return retailerBrandConfigs[retailerId] || defaultBrandConfig;
+    }, [retailerId]);
 
-  // Generate default tagline if not provided
-  const displayTagline = useMemo(() => {
-    if (tagline) return tagline;
-    return `Exclusive deals from ${brandConfig.name} - Save big today!`;
-  }, [tagline, brandConfig.name]);
+    // Generate default tagline if not provided
+    const displayTagline = useMemo(() => {
+      if (tagline) return tagline;
+      return `Exclusive deals from ${brandConfig.name} - Save big today!`;
+    }, [tagline, brandConfig.name]);
 
-  // Handle view deal action
-  const handleViewDeal = useCallback((product: MockProduct) => {
-    window.open(`/products/${product.id}`, '_blank');
-  }, []);
+    // Handle view deal action
+    const handleViewDeal = useCallback((product: MockProduct) => {
+      window.open(`/products/${product.id}`, '_blank');
+    }, []);
 
-  // Handle watchlist toggle
-  const handleWatchlist = useCallback((product: MockProduct) => {
-    log.info(`Toggled watchlist for product: ${product.id}`);
-  }, []);
+    // Handle watchlist toggle
+    const handleWatchlist = useCallback((product: MockProduct) => {
+      log.info(`Toggled watchlist for product: ${product.id}`);
+    }, []);
 
-  // Don't render if no products available
-  if (retailerProducts.length === 0 || !retailer) {
-    return null;
-  }
+    // Don't render if no products available
+    if (retailerProducts.length === 0 || !retailer) {
+      return null;
+    }
 
-  return (
-    <Card
-      className={cn(
-        'relative overflow-hidden border-0 shadow-xl',
-        className
-      )}
-    >
-      {/* Gradient Background */}
-      <div
-        className={cn(
-          'absolute inset-0 bg-gradient-to-r',
-          brandConfig.gradient
-        )}
-        aria-hidden="true"
-      />
+    return (
+      <Card className={cn('relative overflow-hidden border-0 shadow-xl', className)}>
+        {/* Gradient Background */}
+        <div
+          className={cn('absolute inset-0 bg-gradient-to-r', brandConfig.gradient)}
+          aria-hidden="true"
+        />
 
-      {/* Content Container */}
-      <div className="relative p-6 md:p-8">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div className="space-y-2">
-            {/* Retailer Logo/Name */}
-            <div className="flex items-center gap-3">
-              {retailer.logo && (
-                <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm p-1.5 flex items-center justify-center">
-                  <img
-                    src={retailer.logo}
-                    alt={`${retailer.name} logo`}
-                    className="h-full w-full object-contain"
-                    loading="lazy"
-                  />
-                </div>
-              )}
-              <h2
-                className={cn(
-                  'text-2xl md:text-3xl font-bold',
-                  brandConfig.textColor
+        {/* Content Container */}
+        <div className="relative p-6 md:p-8">
+          {/* Header Section */}
+          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              {/* Retailer Logo/Name */}
+              <div className="flex items-center gap-3">
+                {retailer.logo && (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 p-1.5 backdrop-blur-sm">
+                    <img
+                      src={retailer.logo}
+                      alt={`${retailer.name} logo`}
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
                 )}
-              >
-                {retailer.name} Spotlight
-              </h2>
+                <h2 className={cn('text-2xl font-bold md:text-3xl', brandConfig.textColor)}>
+                  {retailer.name} Spotlight
+                </h2>
+              </div>
+
+              {/* Tagline */}
+              <p className={cn('text-sm opacity-90 md:text-base', brandConfig.textColor)}>
+                {displayTagline}
+              </p>
             </div>
 
-            {/* Tagline */}
-            <p
-              className={cn(
-                'text-sm md:text-base opacity-90',
-                brandConfig.textColor
-              )}
-            >
-              {displayTagline}
-            </p>
+            {/* CTA Button */}
+            <Link href={`/retailers/${retailerId}/deals`}>
+              <Button
+                variant={brandConfig.buttonVariant}
+                size="lg"
+                className={cn('font-semibold whitespace-nowrap shadow-lg', brandConfig.buttonClass)}
+              >
+                Shop All {retailer.name} Deals
+                <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Link>
           </div>
 
-          {/* CTA Button */}
-          <Link href={`/retailers/${retailerId}/deals`}>
-            <Button
-              variant={brandConfig.buttonVariant}
-              size="lg"
-              className={cn(
-                'shadow-lg font-semibold whitespace-nowrap',
-                brandConfig.buttonClass
-              )}
-            >
-              Shop All {retailer.name} Deals
-              <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" />
-            </Button>
-          </Link>
+          {/* Products Mini Carousel */}
+          <div
+            className={cn(
+              'flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2',
+              // Hide scrollbar
+              'scrollbar-hide',
+              '[&::-webkit-scrollbar]:hidden',
+              '[-ms-overflow-style:none]',
+              '[scrollbar-width:none]'
+            )}
+          >
+            {retailerProducts.map((product) => (
+              <div
+                key={product.id}
+                className={cn(
+                  'flex-shrink-0 snap-start',
+                  // Responsive widths: 1.5 on mobile, 2.5 on tablet, 4 on desktop
+                  'w-[calc(100%/1.5-12px)]',
+                  'sm:w-[calc(100%/2.5-12px)]',
+                  'lg:w-[calc(100%/4-12px)]'
+                )}
+              >
+                <ProductDealCard
+                  product={product}
+                  variant="default"
+                  onViewDeal={handleViewDeal}
+                  onWatchlist={handleWatchlist}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-
-        {/* Products Mini Carousel */}
-        <div
-          className={cn(
-            'flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2',
-            // Hide scrollbar
-            'scrollbar-hide',
-            '[&::-webkit-scrollbar]:hidden',
-            '[-ms-overflow-style:none]',
-            '[scrollbar-width:none]'
-          )}
-        >
-          {retailerProducts.map((product) => (
-            <div
-              key={product.id}
-              className={cn(
-                'flex-shrink-0 snap-start',
-                // Responsive widths: 1.5 on mobile, 2.5 on tablet, 4 on desktop
-                'w-[calc(100%/1.5-12px)]',
-                'sm:w-[calc(100%/2.5-12px)]',
-                'lg:w-[calc(100%/4-12px)]'
-              )}
-            >
-              <ProductDealCard
-                product={product}
-                variant="default"
-                onViewDeal={handleViewDeal}
-                onWatchlist={handleWatchlist}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-    </Card>
-  );
-});
+      </Card>
+    );
+  }
+);
 
 RetailerSpotlight.displayName = 'RetailerSpotlight';
 

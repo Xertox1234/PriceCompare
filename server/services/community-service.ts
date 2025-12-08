@@ -1,11 +1,6 @@
-import { storage } from "../storage";
-import { createLogger } from "../utils/logger";
-import type {
-  ProductWatch,
-  WatchList,
-  UserReputation,
-  DealSpotting,
-} from "@shared/schema";
+import { storage } from '../storage';
+import { createLogger } from '../utils/logger';
+import type { ProductWatch, WatchList, UserReputation, DealSpotting } from '@shared/schema';
 
 const log = createLogger('Community');
 
@@ -46,10 +41,7 @@ export interface DealPost {
 /**
  * Add a product to user's watch list
  */
-export async function addProductWatch(
-  userId: number,
-  productId: number
-): Promise<ProductWatch> {
+export async function addProductWatch(userId: number, productId: number): Promise<ProductWatch> {
   const created = await storage.addProductWatchRecord(userId, productId);
   if (!created) {
     throw new Error('Failed to create product watch');
@@ -60,10 +52,7 @@ export async function addProductWatch(
 /**
  * Remove a product from user's watch list
  */
-export async function removeProductWatch(
-  userId: number,
-  productId: number
-): Promise<boolean> {
+export async function removeProductWatch(userId: number, productId: number): Promise<boolean> {
   return storage.removeProductWatchRecord(userId, productId);
 }
 
@@ -91,10 +80,7 @@ export async function getMostWatchedProducts(limit = 10): Promise<WatchStats[]> 
 /**
  * Check if user is watching a product
  */
-export async function isUserWatchingProduct(
-  userId: number,
-  productId: number
-): Promise<boolean> {
+export async function isUserWatchingProduct(userId: number, productId: number): Promise<boolean> {
   return storage.isUserWatchingProductCheck(userId, productId);
 }
 
@@ -129,10 +115,7 @@ export async function awardReputation(
 /**
  * Check and award badges based on achievements (N+1 optimized)
  */
-async function checkAndAwardBadges(
-  userId: number,
-  reputation: UserReputation
-): Promise<void> {
+async function checkAndAwardBadges(userId: number, reputation: UserReputation): Promise<void> {
   const badgesToCheck: Array<{ name: string; condition: boolean }> = [
     {
       name: 'Deal Spotter',
@@ -166,8 +149,8 @@ async function checkAndAwardBadges(
 
   // Step 1: Filter eligible badges (conditions met)
   const eligibleBadgeNames = badgesToCheck
-    .filter(badge => badge.condition)
-    .map(badge => badge.name);
+    .filter((badge) => badge.condition)
+    .map((badge) => badge.name);
 
   if (eligibleBadgeNames.length === 0) {
     return; // No badges to award
@@ -196,7 +179,7 @@ async function checkAndAwardBadges(
           userId,
           badgeId: badgeRecord.id,
           badgeName: badgeRecord.name,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
         // Continue to attempt other badges
       }
@@ -311,10 +294,7 @@ export async function updateWatchList(
 /**
  * Delete a watch list (products will be set to null watch_list_id)
  */
-export async function deleteWatchList(
-  userId: number,
-  listId: number
-): Promise<boolean> {
+export async function deleteWatchList(userId: number, listId: number): Promise<boolean> {
   return storage.deleteWatchListRecord(userId, listId);
 }
 
@@ -376,7 +356,9 @@ export async function getUserDefaultWatchList(userId: number): Promise<WatchList
 /**
  * Export user's watch lists and products as JSON
  */
-export async function exportWatchLists(userId: number): Promise<import('../storage').WatchListExportData> {
+export async function exportWatchLists(
+  userId: number
+): Promise<import('../storage').WatchListExportData> {
   return storage.exportUserWatchListsData(userId);
 }
 

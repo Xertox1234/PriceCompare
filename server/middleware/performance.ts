@@ -59,16 +59,14 @@ export function performanceMonitoring(req: Request, res: Response, next: NextFun
         `🚨 CRITICAL PERFORMANCE: ${method} ${endpoint} took ${duration}ms (${statusCode})`
       );
     } else if (duration > THRESHOLDS.WARN) {
-      log.warn(
-        `⚠️  SLOW REQUEST: ${method} ${endpoint} took ${duration}ms (${statusCode})`
-      );
+      log.warn(`⚠️  SLOW REQUEST: ${method} ${endpoint} took ${duration}ms (${statusCode})`);
     }
 
     // Call original end with all arguments
     // Type assertion: Spreading args to match Response.end overloads
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Calling original method with forwarded args
     return (originalEnd as (...args: unknown[]) => Response).apply(this, args);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- res.end type compatibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- res.end type compatibility
   } as typeof res.end;
 
   next();
@@ -88,17 +86,20 @@ export function getPerformanceStats() {
     };
   }
 
-  const durations = performanceLog.map(m => m.duration);
-  const slowRequests = performanceLog.filter(m => m.duration > THRESHOLDS.WARN).length;
-  const criticalRequests = performanceLog.filter(m => m.duration > THRESHOLDS.CRITICAL).length;
+  const durations = performanceLog.map((m) => m.duration);
+  const slowRequests = performanceLog.filter((m) => m.duration > THRESHOLDS.WARN).length;
+  const criticalRequests = performanceLog.filter((m) => m.duration > THRESHOLDS.CRITICAL).length;
 
   // Calculate per-endpoint statistics
-  const endpointStats: Record<string, {
-    count: number;
-    avgDuration: number;
-    maxDuration: number;
-    slowRequests: number;
-  }> = {};
+  const endpointStats: Record<
+    string,
+    {
+      count: number;
+      avgDuration: number;
+      maxDuration: number;
+      slowRequests: number;
+    }
+  > = {};
 
   for (const metric of performanceLog) {
     const key = `${metric.method} ${metric.endpoint}`;
@@ -113,7 +114,7 @@ export function getPerformanceStats() {
 
     const stats = endpointStats[key];
     stats.count++;
-    stats.avgDuration = ((stats.avgDuration * (stats.count - 1)) + metric.duration) / stats.count;
+    stats.avgDuration = (stats.avgDuration * (stats.count - 1) + metric.duration) / stats.count;
     stats.maxDuration = Math.max(stats.maxDuration, metric.duration);
     if (metric.duration > THRESHOLDS.WARN) {
       stats.slowRequests++;

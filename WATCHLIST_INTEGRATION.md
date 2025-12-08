@@ -15,14 +15,14 @@ The app uses **Wouter** for routing. Add the watch list route to `client/src/App
 
 ```tsx
 // Add to imports at the top of App.tsx
-import { WatchListManager } from "@/components/community/watch-list-manager";
+import { WatchListManager } from '@/components/community/watch-list-manager';
 
 // Add inside the <Switch> component (around line 38)
 <Route path="/watchlists">
   <RouteErrorBoundary>
     <WatchListManager />
   </RouteErrorBoundary>
-</Route>
+</Route>;
 ```
 
 ### Option B: Lazy Loading (Recommended for Production)
@@ -32,8 +32,8 @@ import { WatchListManager } from "@/components/community/watch-list-manager";
 ```tsx
 import { lazy } from 'react';
 
-export const LazyWatchListManager = lazy(
-  () => import('@/components/community/watch-list-manager').then(m => ({ default: m.WatchListManager }))
+export const LazyWatchListManager = lazy(() =>
+  import('@/components/community/watch-list-manager').then((m) => ({ default: m.WatchListManager }))
 );
 ```
 
@@ -41,7 +41,7 @@ export const LazyWatchListManager = lazy(
 
 ```tsx
 // Add to imports
-import { LazyWatchListManager } from "@/components/lazy";
+import { LazyWatchListManager } from '@/components/lazy';
 
 // Add inside the <Switch> component
 <Route path="/watchlists">
@@ -50,7 +50,7 @@ import { LazyWatchListManager } from "@/components/lazy";
       <LazyWatchListManager />
     </Suspense>
   </RouteErrorBoundary>
-</Route>
+</Route>;
 ```
 
 ## Step 2: Add Navigation Link
@@ -70,10 +70,10 @@ import { FolderHeart } from 'lucide-react';
 
 <Link href="/watchlists">
   <Button variant="ghost">
-    <FolderHeart className="w-4 h-4 mr-2" />
+    <FolderHeart className="mr-2 h-4 w-4" />
     Watch Lists
   </Button>
-</Link>
+</Link>;
 ```
 
 ## Step 3: Update Existing WatchButton (Optional)
@@ -81,9 +81,11 @@ import { FolderHeart } from 'lucide-react';
 To allow users to select which list to add products to when clicking "Watch", you can enhance the existing `WatchButton` component:
 
 ### Current Behavior
+
 - Adds products to the default watch list
 
 ### Enhanced Behavior (Optional Future Enhancement)
+
 - Shows a dropdown to select which list to add the product to
 - Defaults to the user's default list
 - Can be enhanced in Phase 1.2 or later
@@ -125,6 +127,7 @@ psql $DATABASE_URL -f migrations/0008_add_watch_lists.sql
 ```
 
 This will create:
+
 - `watch_lists` table
 - Update `product_watches` table with new columns
 - Create triggers and materialized views
@@ -150,19 +153,25 @@ After integration, verify:
 ## Troubleshooting
 
 ### "Table does not exist" error
+
 **Solution**: Run the database migration (Step 5)
 
 ### "Component not found" error
+
 **Solution**: Verify all component files exist in `client/src/components/community/`
 
 ### "Hooks not working" error
+
 **Solution**: Verify `client/src/hooks/use-community.ts` has all the new hooks
 
 ### API endpoints return 404
+
 **Solution**: Verify backend routes are registered in `server/index.ts` or main server file
 
 ### Products don't show in lists
+
 **Solution**:
+
 1. Check that products have been watched (use existing WatchButton)
 2. Verify they have a `watch_list_id` (should auto-populate to default list)
 3. Check console for API errors
@@ -170,18 +179,20 @@ After integration, verify:
 ## Optional Enhancements
 
 ### Add to User Profile Menu
+
 If you have a user profile dropdown, add:
 
 ```tsx
 <DropdownMenuItem asChild>
   <Link href="/watchlists">
-    <FolderHeart className="w-4 h-4 mr-2" />
+    <FolderHeart className="mr-2 h-4 w-4" />
     My Watch Lists
   </Link>
 </DropdownMenuItem>
 ```
 
 ### Add Badge with Count
+
 Show number of watched items:
 
 ```tsx
@@ -190,12 +201,11 @@ import { useWatchLists } from '@/hooks/use-community';
 const { data } = useWatchLists();
 const totalWatched = data?.data.reduce((sum, list) => sum + list.watchCount, 0) || 0;
 
-<Link href="/watchlists">
-  Watch Lists {totalWatched > 0 && <Badge>{totalWatched}</Badge>}
-</Link>
+<Link href="/watchlists">Watch Lists {totalWatched > 0 && <Badge>{totalWatched}</Badge>}</Link>;
 ```
 
 ### Add to Dashboard
+
 Create a dashboard widget showing recent watches:
 
 ```tsx
@@ -211,7 +221,7 @@ export function RecentWatchesWidget() {
         <CardTitle>My Watch Lists</CardTitle>
       </CardHeader>
       <CardContent>
-        {lists.slice(0, 3).map(list => (
+        {lists.slice(0, 3).map((list) => (
           <div key={list.id}>
             {list.icon} {list.name} ({list.watchCount} items)
           </div>
@@ -236,6 +246,7 @@ After successful integration:
 ## Support
 
 For issues or questions:
+
 - Check `WATCHLIST_IMPROVEMENTS.md` for implementation details
 - Review component source code in `client/src/components/community/`
 - Check API documentation in `server/community-routes.ts`

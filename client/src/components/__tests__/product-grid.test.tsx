@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '../../test/test-utils'
-import { ProductGrid } from '../product-grid'
-import type { ProductWithOffers } from '@shared/schema'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '../../test/test-utils';
+import { ProductGrid } from '../product-grid';
+import type { ProductWithOffers } from '@shared/schema';
 
 const mockProducts: ProductWithOffers[] = [
   {
@@ -32,11 +32,11 @@ const mockProducts: ProductWithOffers[] = [
           name: 'Test Retailer',
           logo: null,
           website: null,
-          isActive: null
-        }
-      }
+          isActive: null,
+        },
+      },
     ],
-    bestPrice: 99.99
+    bestPrice: 99.99,
   } as ProductWithOffers,
   {
     id: 2,
@@ -66,97 +66,99 @@ const mockProducts: ProductWithOffers[] = [
           name: 'Test Retailer',
           logo: null,
           website: null,
-          isActive: null
-        }
-      }
+          isActive: null,
+        },
+      },
     ],
-    bestPrice: 149.99
-  } as ProductWithOffers
-]
+    bestPrice: 149.99,
+  } as ProductWithOffers,
+];
 
 describe('ProductGrid', () => {
-  const mockOnAddToComparison = vi.fn()
+  const mockOnAddToComparison = vi.fn();
 
   beforeEach(() => {
-    mockOnAddToComparison.mockClear()
-  })
+    mockOnAddToComparison.mockClear();
+  });
 
   it('renders loading state correctly', () => {
     render(
-      <ProductGrid 
+      <ProductGrid
         products={[]}
         isLoading={true}
         error={null}
         onAddToComparison={mockOnAddToComparison}
       />
-    )
+    );
 
-    expect(screen.getByLabelText('Loading products')).toBeInTheDocument()
+    expect(screen.getByLabelText('Loading products')).toBeInTheDocument();
     // Check for skeleton loading elements
-    const skeletons = document.querySelectorAll('.animate-pulse')
-    expect(skeletons.length).toBeGreaterThan(0)
-  })
+    const skeletons = document.querySelectorAll('.animate-pulse');
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
 
   it('renders error state correctly', () => {
-    const error = new Error('Failed to load products')
+    const error = new Error('Failed to load products');
     render(
-      <ProductGrid 
+      <ProductGrid
         products={[]}
         isLoading={false}
         error={error}
         onAddToComparison={mockOnAddToComparison}
       />
-    )
+    );
 
-    expect(screen.getByText('Error loading products')).toBeInTheDocument()
-    expect(screen.getByText('Failed to load products')).toBeInTheDocument()
-  })
+    expect(screen.getByText('Error loading products')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load products')).toBeInTheDocument();
+  });
 
   it('renders empty state when no products', () => {
     render(
-      <ProductGrid 
+      <ProductGrid
         products={[]}
         isLoading={false}
         error={null}
         onAddToComparison={mockOnAddToComparison}
       />
-    )
+    );
 
-    expect(screen.getByText('No products found')).toBeInTheDocument()
-    expect(screen.getByText(/try adjusting your search/i)).toBeInTheDocument()
-  })
+    expect(screen.getByText('No products found')).toBeInTheDocument();
+    expect(screen.getByText(/try adjusting your search/i)).toBeInTheDocument();
+  });
 
   it('renders products grid correctly', () => {
     render(
-      <ProductGrid 
+      <ProductGrid
         products={mockProducts}
         isLoading={false}
         error={null}
         onAddToComparison={mockOnAddToComparison}
       />
-    )
+    );
 
-    expect(screen.getByText('Test Product 1')).toBeInTheDocument()
-    expect(screen.getByText('Test Product 2')).toBeInTheDocument()
-  })
+    expect(screen.getByText('Test Product 1')).toBeInTheDocument();
+    expect(screen.getByText('Test Product 2')).toBeInTheDocument();
+  });
 
   it('shows load more button when products >= 6', () => {
-    const manyProducts = Array(7).fill(null).map((_, index) => ({
-      ...mockProducts[0],
-      id: index + 1,
-      name: `Product ${index + 1}`
-    }))
+    const manyProducts = Array(7)
+      .fill(null)
+      .map((_, index) => ({
+        ...mockProducts[0],
+        id: index + 1,
+        name: `Product ${index + 1}`,
+      }));
 
     render(
-      <ProductGrid 
+      <ProductGrid
         products={manyProducts}
         isLoading={false}
         error={null}
         onAddToComparison={mockOnAddToComparison}
       />
-    )
+    );
 
-    expect(screen.getByText('Load More Results')).toBeInTheDocument()
-    expect(screen.getByText('Showing 7 results')).toBeInTheDocument()
-  })
-})
+    expect(screen.getByText('Load More Results')).toBeInTheDocument();
+    expect(screen.getByText('Showing 7 results')).toBeInTheDocument();
+  });
+});

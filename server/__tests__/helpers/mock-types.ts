@@ -1,6 +1,6 @@
 /**
  * Mock Types for Test Files
- * 
+ *
  * Provides type-safe mock interfaces to replace `any` types in tests.
  * These types use ReturnType<typeof vi.fn> for mock functions.
  */

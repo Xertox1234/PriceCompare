@@ -112,22 +112,15 @@ export function RateLimitBanner() {
     <div
       role="alert"
       aria-live="polite"
-      className={`
-        fixed top-16 left-0 right-0 z-40
-        animate-in slide-in-from-top duration-300
-        ${isDismissed ? 'animate-out slide-out-to-top duration-200' : ''}
-      `}
+      className={`animate-in slide-in-from-top fixed top-16 right-0 left-0 z-40 duration-300 ${isDismissed ? 'animate-out slide-out-to-top duration-200' : ''} `}
     >
       <div className="container mx-auto px-4 py-2">
         <div
-          className={`
-            relative flex items-center justify-between gap-4
-            rounded-lg border-l-4 p-4
-            ${severity === 'critical'
+          className={`relative flex items-center justify-between gap-4 rounded-lg border-l-4 p-4 ${
+            severity === 'critical'
               ? 'bg-destructive/10 border-destructive text-destructive-foreground'
               : 'bg-secondary/20 border-secondary text-secondary-foreground'
-            }
-          `}
+          } `}
         >
           {/* Icon */}
           <div className="flex-shrink-0">
@@ -135,20 +128,22 @@ export function RateLimitBanner() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               {/* Message */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <p className="text-sm font-medium">
                   {severity === 'critical' ? (
-                    <>Only {rateLimit.remaining} of {rateLimit.limit} requests remaining</>
+                    <>
+                      Only {rateLimit.remaining} of {rateLimit.limit} requests remaining
+                    </>
                   ) : (
-                    <>{rateLimit.remaining} of {rateLimit.limit} requests left</>
+                    <>
+                      {rateLimit.remaining} of {rateLimit.limit} requests left
+                    </>
                   )}
                 </p>
-                <span className="text-xs opacity-75">
-                  Resets in {countdown}
-                </span>
+                <span className="text-xs opacity-75">Resets in {countdown}</span>
               </div>
 
               {/* CTA Button (if applicable) */}
@@ -159,25 +154,19 @@ export function RateLimitBanner() {
                   variant={severity === 'critical' ? 'destructive' : 'secondary'}
                   className="flex-shrink-0"
                 >
-                  <Link href={cta.href}>
-                    {cta.text}
-                  </Link>
+                  <Link href={cta.href}>{cta.text}</Link>
                 </Button>
               )}
             </div>
 
             {/* Description (mobile: below, desktop: inline) */}
-            {cta && (
-              <p className="text-xs opacity-75 mt-1 sm:mt-0">
-                {cta.description}
-              </p>
-            )}
+            {cta && <p className="mt-1 text-xs opacity-75 sm:mt-0">{cta.description}</p>}
           </div>
 
           {/* Dismiss Button */}
           <button
             onClick={() => setIsDismissed(true)}
-            className="flex-shrink-0 rounded-md p-1 hover:bg-background/50 transition-colors"
+            className="hover:bg-background/50 flex-shrink-0 rounded-md p-1 transition-colors"
             aria-label="Dismiss rate limit warning"
           >
             <X className="h-4 w-4" aria-hidden="true" />

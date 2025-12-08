@@ -187,9 +187,7 @@ describe('API Response Helpers', () => {
       sendSuccess(mockResponse as Response, { test: true });
 
       const callArg = jsonMock.mock.calls[0][0];
-      expect(callArg.meta.timestamp).toMatch(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
-      );
+      expect(callArg.meta.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
   });
 
@@ -213,12 +211,7 @@ describe('API Response Helpers', () => {
     it('should include details in development mode', () => {
       process.env.NODE_ENV = 'development';
 
-      sendError(
-        mockResponse as Response,
-        'Validation failed',
-        400,
-        'Field "email" is required'
-      );
+      sendError(mockResponse as Response, 'Validation failed', 400, 'Field "email" is required');
 
       expect(jsonMock).toHaveBeenCalledWith({
         success: false,

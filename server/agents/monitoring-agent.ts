@@ -76,20 +76,20 @@ export class PriceMonitoringAgent extends BaseAgent {
       type: 'monitoring',
       maxConcurrentTasks: 5,
       retryAttempts: 3,
-      retryDelay: 2000
+      retryDelay: 2000,
     });
 
     this.alertThresholds = {
       significant: 0.1, // 10% price change
-      major: 0.2 // 20% price change
+      major: 0.2, // 20% price change
     };
 
     // Monitoring intervals by retailer (in hours)
     this.monitoringIntervals = new Map([
-      ['amazon.com', 6],    // Check every 6 hours
-      ['walmart.com', 8],   // Check every 8 hours
-      ['target.com', 12],   // Check every 12 hours
-      ['default', 24]       // Default 24 hours
+      ['amazon.com', 6], // Check every 6 hours
+      ['walmart.com', 8], // Check every 8 hours
+      ['target.com', 12], // Check every 12 hours
+      ['default', 24], // Default 24 hours
     ]);
   }
 
@@ -102,7 +102,9 @@ export class PriceMonitoringAgent extends BaseAgent {
     logger.error(`[${this.config.name}] ERROR: ${message}`);
   }
 
-  async processTask(task: MonitoringTask): Promise<MonitorPriceChangesResult | CheckAlertsResult | RefreshOffersResult> {
+  async processTask(
+    task: MonitoringTask
+  ): Promise<MonitorPriceChangesResult | CheckAlertsResult | RefreshOffersResult> {
     switch (task.action) {
       case 'monitor_price_changes':
         return this.monitorPriceChanges(task.maxAge);
@@ -111,26 +113,28 @@ export class PriceMonitoringAgent extends BaseAgent {
       case 'refresh_offers':
         return this.refreshStaleOffers(task.maxAge);
       default:
-        throw new Error(`Unknown monitoring task: ${(task).action}`);
+        throw new Error(`Unknown monitoring task: ${task.action}`);
     }
   }
 
   /**
    * Monitor all product offers for price changes
    */
-  private async monitorPriceChanges(maxAgeHours = 24): Promise<{ changes: PriceChange[]; checked: number }> {
+  private async monitorPriceChanges(
+    maxAgeHours = 24
+  ): Promise<{ changes: PriceChange[]; checked: number }> {
     this.logInfo('Starting price change monitoring');
-    
+
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
-    
+
     // Get offers that need checking
     const staleOffers: ProductOfferWithRelations[] = await db.query.productOffers.findMany({
       where: lt(productOffers.lastLinkCheck, cutoffTime),
       with: {
         product: true,
-        retailer: true
+        retailer: true,
       },
-      limit: 50 // Process in batches
+      limit: 50, // Process in batches
     });
 
     this.logInfo(`Found ${staleOffers.length} offers to check`);
@@ -147,18 +151,19 @@ export class PriceMonitoringAgent extends BaseAgent {
           action: 'extract_product_data',
           url: offer.productUrl || '',
           retailer: offer.retailer?.website || '',
-          productId: offer.productId
+          productId: offer.productId,
         });
 
         if (extractionResult.success && extractionResult.data.price) {
           const newPrice = extractionResult.data.price;
 
           // Update the offer with new data
-          await db.update(productOffers)
+          await db
+            .update(productOffers)
             .set({
               price: extractionResult.data.price.toString(),
               availability: extractionResult.data.availability,
-              lastLinkCheck: new Date()
+              lastLinkCheck: new Date(),
             })
             .where(eq(productOffers.id, offer.id));
 
@@ -178,27 +183,31 @@ export class PriceMonitoringAgent extends BaseAgent {
                 newPrice,
                 priceChange,
                 percentChange,
-                url: offer.productUrl || ''
+                url: offer.productUrl || '',
               };
 
               priceChanges.push(change);
-              this.logInfo(`Significant price change detected: ${offer.product?.name} - ${percentChange.toFixed(1)}%`);
+              this.logInfo(
+                `Significant price change detected: ${offer.product?.name} - ${percentChange.toFixed(1)}%`
+              );
             }
           }
         }
-
       } catch (error) {
         this.logError(`Failed to check offer ${offer.id}: ${error}`);
 
         // Update last checked even if failed to avoid repeated failures
-        await db.update(productOffers)
+        await db
+          .update(productOffers)
           .set({ lastLinkCheck: new Date() })
           .where(eq(productOffers.id, offer.id));
       }
     }
 
-    this.logInfo(`Price monitoring complete: ${checkedCount} offers checked, ${priceChanges.length} changes found`);
-    
+    this.logInfo(
+      `Price monitoring complete: ${checkedCount} offers checked, ${priceChanges.length} changes found`
+    );
+
     return { changes: priceChanges, checked: checkedCount };
   }
 
@@ -216,13 +225,13 @@ export class PriceMonitoringAgent extends BaseAgent {
           with: {
             offers: {
               with: {
-                retailer: true
+                retailer: true,
               },
-              orderBy: [desc(productOffers.lastLinkCheck)]
-            }
-          }
-        }
-      }
+              orderBy: [desc(productOffers.lastLinkCheck)],
+            },
+          },
+        },
+      },
     });
 
     const triggeredAlerts: AlertNotification[] = [];
@@ -247,22 +256,25 @@ export class PriceMonitoringAgent extends BaseAgent {
           targetPrice,
           currentPrice,
           retailerName: bestOffer.retailer?.name || 'Unknown Retailer',
-          url: bestOffer.productUrl || ''
+          url: bestOffer.productUrl || '',
         };
 
         triggeredAlerts.push(notification);
         this.logInfo(`Price alert triggered: ${product?.name} at $${currentPrice}`);
 
         // Deactivate the alert
-        await db.update(priceAlerts)
+        await db
+          .update(priceAlerts)
           .set({
-            isActive: false
+            isActive: false,
           })
           .where(eq(priceAlerts.id, alert.id));
       }
     }
 
-    this.logInfo(`Alert check complete: ${alerts.length} alerts checked, ${triggeredAlerts.length} triggered`);
+    this.logInfo(
+      `Alert check complete: ${alerts.length} alerts checked, ${triggeredAlerts.length} triggered`
+    );
 
     return { triggered: triggeredAlerts, checked: alerts.length };
   }
@@ -270,7 +282,9 @@ export class PriceMonitoringAgent extends BaseAgent {
   /**
    * Refresh offers that haven't been checked recently
    */
-  private async refreshStaleOffers(maxAgeHours = 48): Promise<{ refreshed: number; failed: number }> {
+  private async refreshStaleOffers(
+    maxAgeHours = 48
+  ): Promise<{ refreshed: number; failed: number }> {
     this.logInfo(`Refreshing offers older than ${maxAgeHours} hours`);
 
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
@@ -279,9 +293,9 @@ export class PriceMonitoringAgent extends BaseAgent {
       where: lt(productOffers.lastLinkCheck, cutoffTime),
       with: {
         retailer: true,
-        product: true
+        product: true,
       },
-      limit: 20 // Smaller batch for full refresh
+      limit: 20, // Smaller batch for full refresh
     });
 
     let refreshed = 0;
@@ -295,7 +309,7 @@ export class PriceMonitoringAgent extends BaseAgent {
           action: 'extract_product_data',
           url: offer.productUrl || '',
           retailer: offer.retailer?.website || '',
-          productId: offer.productId
+          productId: offer.productId,
         });
 
         if (result.success) {
@@ -304,13 +318,13 @@ export class PriceMonitoringAgent extends BaseAgent {
         } else {
           failed++;
         }
-
       } catch (error) {
         failed++;
         this.logError(`Failed to refresh offer ${offer.id}: ${error}`);
 
         // Mark as checked to avoid infinite retries
-        await db.update(productOffers)
+        await db
+          .update(productOffers)
           .set({ lastLinkCheck: new Date() })
           .where(eq(productOffers.id, offer.id));
       }
@@ -341,7 +355,7 @@ export class PriceMonitoringAgent extends BaseAgent {
         recentChecks7d: sql<number>`count(case when ${productOffers.lastLinkCheck} >= ${last7d} then 1 end)`,
         available: sql<number>`count(case when ${productOffers.availability} = 'in_stock' then 1 end)`,
         outOfStock: sql<number>`count(case when ${productOffers.availability} = 'out_of_stock' then 1 end)`,
-        unknownAvailability: sql<number>`count(case when ${productOffers.availability} is null or ${productOffers.availability} not in ('in_stock', 'out_of_stock') then 1 end)`
+        unknownAvailability: sql<number>`count(case when ${productOffers.availability} is null or ${productOffers.availability} not in ('in_stock', 'out_of_stock') then 1 end)`,
       })
       .from(productOffers);
 
@@ -350,40 +364,40 @@ export class PriceMonitoringAgent extends BaseAgent {
       .select({
         totalAlerts: count(),
         activeAlerts: sql<number>`count(case when ${priceAlerts.isActive} = true then 1 end)`,
-        triggeredAlerts: sql<number>`count(case when ${priceAlerts.isActive} = false then 1 end)`
+        triggeredAlerts: sql<number>`count(case when ${priceAlerts.isActive} = false then 1 end)`,
       })
       .from(priceAlerts);
 
     return {
       recentChecks: {
         last24h: Number(offerStats?.recentChecks24h ?? 0),
-        last7d: Number(offerStats?.recentChecks7d ?? 0)
+        last7d: Number(offerStats?.recentChecks7d ?? 0),
       },
       activeAlerts: {
         total: Number(alertStats?.totalAlerts ?? 0),
         triggered: Number(alertStats?.triggeredAlerts ?? 0),
-        byType: {} // Would require additional grouping query if needed
+        byType: {}, // Would require additional grouping query if needed
       },
       priceChanges: {
         increases: 0, // Would require price history comparison
         decreases: 0,
-        stable: 0
+        stable: 0,
       },
       availability: {
         available: Number(offerStats?.available ?? 0),
         outOfStock: Number(offerStats?.outOfStock ?? 0),
-        unknown: Number(offerStats?.unknownAvailability ?? 0)
+        unknown: Number(offerStats?.unknownAvailability ?? 0),
       },
-      timestamp: now.toISOString()
+      timestamp: now.toISOString(),
     };
   }
 
   /**
    * Schedule monitoring tasks based on retailer-specific intervals
    */
-  async scheduleMonitoringTasks(): Promise<void> {
+  scheduleMonitoringTasks(): void {
     this.logInfo('Scheduling monitoring tasks');
-    
+
     // Schedule price change monitoring
     setTimeout(() => {
       void this.processTask({ action: 'monitor_price_changes', maxAge: 12 });

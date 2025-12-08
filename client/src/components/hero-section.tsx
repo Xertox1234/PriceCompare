@@ -20,11 +20,11 @@ export function HeroSection() {
   };
 
   return (
-    <section className="text-center mb-12">
-      <h2 className="text-4xl font-bold text-foreground mb-4">
+    <section className="mb-12 text-center">
+      <h2 className="text-foreground mb-4 text-4xl font-bold">
         Shop and Save on Millions of Products.
       </h2>
-      
+
       <div className="flex justify-center">
         <div className="relative w-full max-w-2xl">
           <input
@@ -33,11 +33,11 @@ export function HeroSection() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full py-4 px-6 rounded-full border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary transition duration-300"
+            className="border-border focus:ring-primary w-full rounded-full border-2 px-6 py-4 transition duration-300 focus:ring-2 focus:outline-none"
           />
           <Button
             onClick={handleSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground font-semibold py-3 px-8 rounded-full hover:bg-primary/90 transition duration-300"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 absolute top-1/2 right-2 -translate-y-1/2 rounded-full px-8 py-3 font-semibold transition duration-300"
           >
             Search
           </Button>

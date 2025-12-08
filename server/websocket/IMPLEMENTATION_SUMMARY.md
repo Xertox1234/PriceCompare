@@ -7,6 +7,7 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
 ## Files Created
 
 ### 1. Middleware
+
 - **`server/websocket/middleware/rate-limit.ts`** (193 lines)
   - Redis-backed rate limiting with in-memory fallback
   - Configurable rate limits per event type
@@ -21,6 +22,7 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
   - Wrapper function for automatic error handling
 
 ### 2. Event Handlers
+
 - **`server/websocket/handlers/watch-list-handler.ts`** (185 lines)
   - Watch list subscription management
   - Events: create, update, delete, product added/removed
@@ -43,6 +45,7 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
   - Active product tracking for optimization
 
 ### 3. Documentation
+
 - **`server/websocket/INTEGRATION_GUIDE.md`** (462 lines)
   - Complete integration examples for storage layer
   - Notification service integration examples
@@ -56,6 +59,7 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
   - Integration status
 
 ### 4. Tests
+
 - **`server/websocket/__tests__/handlers.test.ts`** (347 lines)
   - 17 test cases covering all handlers
   - Rate limiting tests (3 cases)
@@ -66,12 +70,14 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
   - All tests passing ✅
 
 ### 5. Type Updates
+
 - **`server/websocket/types.ts`** (Updated)
   - Added new server-to-client events
   - Added new client-to-server events
   - Extended event payloads with subscribed/unsubscribed confirmations
 
 ### 6. WebSocket Index Updates
+
 - **`server/websocket/index.ts`** (Updated)
   - Integrated all event handlers in `setupEventHandlers()`
   - Re-exported emit functions for service integration
@@ -80,6 +86,7 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
 ## Event Structure
 
 ### Client-to-Server Events
+
 1. **`subscribe:watchlists`** - Subscribe to watch list updates
 2. **`unsubscribe:watchlists`** - Unsubscribe from watch list updates
 3. **`notification:subscribe`** - Subscribe to notifications
@@ -89,6 +96,7 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
 7. **`price:unsubscribe`** - Unsubscribe from price updates
 
 ### Server-to-Client Events
+
 1. **`watchlist:update`** - Watch list created/updated/deleted
 2. **`watchlist:product_added`** - Product added to watch list
 3. **`watchlist:product_removed`** - Product removed from watch list
@@ -108,14 +116,15 @@ Implemented a complete WebSocket event handler system for Watch List Phase 2.1 -
 
 All client-initiated events have rate limiting to prevent abuse:
 
-| Event Type | Limit | Window |
-|------------|-------|--------|
-| Watch list subscriptions | 10 requests | 1 second |
+| Event Type                 | Limit       | Window   |
+| -------------------------- | ----------- | -------- |
+| Watch list subscriptions   | 10 requests | 1 second |
 | Notification subscriptions | 10 requests | 1 second |
-| Mark notification as read | 20 requests | 1 second |
-| Price update subscriptions | 5 requests | 1 second |
+| Mark notification as read  | 20 requests | 1 second |
+| Price update subscriptions | 5 requests  | 1 second |
 
 Additional limits:
+
 - Max 100 products per user for price subscriptions
 - Max 20 watch lists per user (enforced by storage layer)
 - Max 100 products per watch list (enforced by storage layer)
@@ -123,6 +132,7 @@ Additional limits:
 ## Error Handling
 
 ### Error Codes
+
 - `UNAUTHORIZED` - User doesn't own the resource
 - `NOT_FOUND` - Resource not found
 - `LIMIT_EXCEEDED` - Rate limit or quantity limit exceeded
@@ -131,6 +141,7 @@ Additional limits:
 - `INTERNAL_ERROR` - Unexpected error (production only)
 
 ### Error Sanitization
+
 - **Production**: Generic error messages, no internal details exposed
 - **Development**: Detailed error messages with event context
 - Known errors mapped to user-friendly messages
@@ -138,6 +149,7 @@ Additional limits:
 ## Integration Points
 
 ### Storage Layer (`server/storage.ts`)
+
 The following methods need to be updated to emit WebSocket events:
 
 ```typescript
@@ -150,11 +162,13 @@ removeProductFromWatchList() → emitProductRemoved(io, userId, watchListId, pro
 ```
 
 ### Notification Service (`server/services/notification-service.ts`)
+
 ```typescript
 createNotification() → emitNewNotification(io, userId, notification, unreadCount)
 ```
 
 ### Price Monitoring Service (Future)
+
 ```typescript
 checkPriceChanges() → emitPriceUpdate(io, productId, priceData)
 checkPriceAlerts()  → emitPriceAlert(io, userId, alertData)
@@ -181,6 +195,7 @@ checkPriceAlerts()  → emitPriceAlert(io, userId, alertData)
 ## Testing
 
 All 17 test cases passing:
+
 - ✅ Rate limiting allows requests within limit
 - ✅ Rate limiting blocks requests exceeding limit
 - ✅ Rate limiting resets after window expires
@@ -202,28 +217,33 @@ All 17 test cases passing:
 ## Next Steps
 
 ### Immediate (Task 2.1.7)
+
 1. Test-engineer to create comprehensive integration tests
 2. Test multi-client scenarios (multiple tabs/devices)
 3. Test concurrent subscriptions
 4. Test rate limiting under load
 
 ### Storage Integration (Task 2.2)
+
 1. Update `server/storage.ts` watch list methods to emit events
 2. Test watch list operations trigger correct events
 3. Verify event payloads contain correct data
 
 ### Notification Integration (Task 2.3)
+
 1. Update `server/services/notification-service.ts`
 2. Test notification creation triggers WebSocket events
 3. Verify mark-as-read updates all connected clients
 
 ### Price Monitoring (Task 2.4)
+
 1. Create price monitoring service or update existing
 2. Integrate `emitPriceUpdate()` for real-time price changes
 3. Integrate `emitPriceAlert()` for alert triggers
 4. Use `getWatchedProductIds()` to optimize monitoring
 
 ### Frontend Integration (Task 2.5)
+
 1. Create Socket.io client in React
 2. Implement event listeners for all event types
 3. Update UI in real-time when events received
@@ -232,6 +252,7 @@ All 17 test cases passing:
 ## Monitoring
 
 Helper functions provided for monitoring:
+
 - `getConnectedClientsCount()` - Active WebSocket connections
 - `getPriceSubscriptionCount()` - Total price subscriptions
 - `getWatchedProductIds()` - Set of products being watched
@@ -240,6 +261,7 @@ Helper functions provided for monitoring:
 ## Conclusion
 
 The WebSocket event handler system is complete and production-ready. All handlers implement:
+
 - ✅ Proper rate limiting with Redis support
 - ✅ Comprehensive error handling
 - ✅ User-specific room targeting

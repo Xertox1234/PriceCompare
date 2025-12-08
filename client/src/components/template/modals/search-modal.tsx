@@ -19,14 +19,10 @@ const popularSearches = [
   'Gaming',
 ];
 
-const recentSearches = [
-  'iPhone 15 Pro',
-  'MacBook Air',
-  'AirPods Pro',
-];
+const recentSearches = ['iPhone 15 Pro', 'MacBook Air', 'AirPods Pro'];
 
 // Convert template products to ProductData for display
-const featuredProducts: ProductData[] = trendingProducts.slice(0, 5).map(p => ({
+const featuredProducts: ProductData[] = trendingProducts.slice(0, 5).map((p) => ({
   id: p.id,
   name: p.title,
   category: p.category,
@@ -89,24 +85,22 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       {/* Full-screen overlay from top */}
       <div
         className={cn(
-          "fixed inset-0 bg-background z-50 transition-all duration-300 overflow-y-auto",
-          isOpen
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-full pointer-events-none"
+          'bg-background fixed inset-0 z-50 overflow-y-auto transition-all duration-300',
+          isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-full opacity-0'
         )}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 p-3 hover:bg-muted rounded-full transition-colors z-10"
+          className="hover:bg-muted absolute top-6 right-6 z-10 rounded-full p-3 transition-colors"
         >
           <X className="h-6 w-6" />
         </button>
 
         <div className="container mx-auto px-4 py-16">
-          <div className="max-w-3xl mx-auto">
+          <div className="mx-auto max-w-3xl">
             {/* Title */}
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground text-center mb-8">
+            <h2 className="text-foreground mb-8 text-center text-3xl font-bold md:text-4xl">
               What are you looking for?
             </h2>
 
@@ -118,12 +112,12 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for products, brands, or categories..."
-                className="w-full px-6 py-5 pl-14 text-lg bg-muted border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                className="bg-muted border-border focus:ring-primary focus:border-primary w-full rounded-2xl border px-6 py-5 pl-14 text-lg transition-all focus:ring-2 focus:outline-none"
               />
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Search className="text-muted-foreground absolute top-1/2 left-5 h-5 w-5 -translate-y-1/2" />
               <button
                 type="submit"
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 bg-primary hover:bg-primary-hover text-white rounded-xl transition-colors"
+                className="bg-primary hover:bg-primary-hover absolute top-1/2 right-3 -translate-y-1/2 rounded-xl p-3 text-white transition-colors"
               >
                 <ArrowRight className="h-5 w-5" />
               </button>
@@ -132,16 +126,16 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             {/* Recent Searches */}
             {recentSearches.length > 0 && (
               <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">Recent searches</span>
+                <div className="mb-4 flex items-center gap-2">
+                  <Clock className="text-muted-foreground h-4 w-4" />
+                  <span className="text-muted-foreground text-sm font-medium">Recent searches</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {recentSearches.map((term, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleQuickSearch(term)}
-                      className="px-4 py-2 text-sm bg-muted hover:bg-muted/80 text-foreground rounded-full transition-colors"
+                      className="bg-muted hover:bg-muted/80 text-foreground rounded-full px-4 py-2 text-sm transition-colors"
                     >
                       {term}
                     </button>
@@ -152,16 +146,16 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
             {/* Popular Searches */}
             <div className="mb-12">
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold text-foreground">Popular searches</span>
+              <div className="mb-4 flex items-center gap-2">
+                <TrendingUp className="text-primary h-4 w-4" />
+                <span className="text-foreground text-sm font-semibold">Popular searches</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {popularSearches.map((term, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleQuickSearch(term)}
-                    className="px-4 py-2 text-sm border border-border hover:border-primary hover:text-primary text-foreground rounded-full transition-colors"
+                    className="border-border hover:border-primary hover:text-primary text-foreground rounded-full border px-4 py-2 text-sm transition-colors"
                   >
                     {term}
                   </button>
@@ -171,26 +165,23 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           </div>
 
           {/* Featured Products */}
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-foreground">Featured Products</h3>
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-foreground text-xl font-semibold">Featured Products</h3>
               <Link
                 href="/shop"
                 onClick={onClose}
-                className="text-sm text-primary hover:underline flex items-center gap-1"
+                className="text-primary flex items-center gap-1 text-sm hover:underline"
               >
                 View all
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
               {featuredProducts.map((product) => (
                 <div key={product.id} onClick={onClose}>
-                  <ProductCard
-                    product={product}
-                    variant="compact"
-                  />
+                  <ProductCard product={product} variant="compact" />
                 </div>
               ))}
             </div>

@@ -37,7 +37,7 @@ function getEncryptionKey(): Buffer {
   if (!key) {
     throw new Error(
       'ENCRYPTION_KEY environment variable is required for PII encryption. ' +
-      'Generate one with: openssl rand -hex 32'
+        'Generate one with: openssl rand -hex 32'
     );
   }
 
@@ -47,7 +47,7 @@ function getEncryptionKey(): Buffer {
   if (keyBuffer.length !== KEY_LENGTH) {
     throw new Error(
       `ENCRYPTION_KEY must be ${KEY_LENGTH} bytes (${KEY_LENGTH * 2} hex characters). ` +
-      `Got ${keyBuffer.length} bytes. Generate with: openssl rand -hex 32`
+        `Got ${keyBuffer.length} bytes. Generate with: openssl rand -hex 32`
     );
   }
 
@@ -125,7 +125,9 @@ export function decrypt(ciphertext: string): string {
     throw new Error(`Invalid IV length: expected ${IV_LENGTH} bytes, got ${iv.length}`);
   }
   if (authTag.length !== AUTH_TAG_LENGTH) {
-    throw new Error(`Invalid auth tag length: expected ${AUTH_TAG_LENGTH} bytes, got ${authTag.length}`);
+    throw new Error(
+      `Invalid auth tag length: expected ${AUTH_TAG_LENGTH} bytes, got ${authTag.length}`
+    );
   }
 
   // Create decipher
@@ -163,7 +165,7 @@ export function isEncrypted(value: string): boolean {
 
   // Check if all parts are valid hex strings
   const hexPattern = /^[0-9a-f]+$/i;
-  return parts.every(part => hexPattern.test(part));
+  return parts.every((part) => hexPattern.test(part));
 }
 
 /**
@@ -217,7 +219,7 @@ export function verifyEncryption(): boolean {
   } catch (error) {
     log.error('Verification failed with error', {
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
     return false;
   }

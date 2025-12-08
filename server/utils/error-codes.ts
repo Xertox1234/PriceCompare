@@ -202,7 +202,7 @@ export const ErrorCodes = {
  * Type representing all valid error codes
  * Use this for type-safe error code parameters
  */
-export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
+export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
 /**
  * Get error code by HTTP status code (best guess)

@@ -26,10 +26,7 @@ interface PriceUpdateIndicatorProps {
   type?: 'increase' | 'decrease';
 }
 
-export function PriceUpdateIndicator({
-  visible,
-  type = 'decrease',
-}: PriceUpdateIndicatorProps) {
+export function PriceUpdateIndicator({ visible, type = 'decrease' }: PriceUpdateIndicatorProps) {
   const isDecrease = type === 'decrease';
 
   return (
@@ -41,9 +38,7 @@ export function PriceUpdateIndicator({
           exit={{ opacity: 0, scale: 0.8, y: -10 }}
           transition={{ duration: 0.3 }}
           className={`absolute -top-2 -right-2 rounded-full px-2 py-1 text-xs font-bold shadow-lg ${
-            isDecrease
-              ? 'bg-green-500 text-white'
-              : 'bg-red-500 text-white'
+            isDecrease ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}
         >
           {isDecrease ? '📉 Lower!' : '📈 Updated!'}

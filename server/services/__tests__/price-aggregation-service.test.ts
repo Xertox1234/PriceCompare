@@ -99,7 +99,8 @@ describe('PriceAggregationService', () => {
         };
 
         // Mock the select for previous day data
-        mockTx.select = vi.fn()
+        mockTx.select = vi
+          .fn()
           .mockReturnValueOnce({
             from: vi.fn().mockReturnValue({
               where: vi.fn().mockReturnValue({
@@ -156,7 +157,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -222,7 +224,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -273,7 +276,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -340,7 +344,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -390,7 +395,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -438,7 +444,8 @@ describe('PriceAggregationService', () => {
         transactionCount++;
 
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -525,7 +532,8 @@ describe('PriceAggregationService', () => {
         }
 
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -580,7 +588,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -660,7 +669,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -712,7 +722,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -768,7 +779,8 @@ describe('PriceAggregationService', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({

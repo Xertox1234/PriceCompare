@@ -5,12 +5,7 @@ import { SearchOrchestrationAgent } from './search-agent';
 import { db } from '../db';
 import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema';
 import { eq, and, lt } from 'drizzle-orm';
-import type {
-  ScrapingJob,
-  TrendingProduct,
-  InsertProduct,
-  Product
-} from '../../shared/schema';
+import type { ScrapingJob, TrendingProduct, InsertProduct, Product } from '../../shared/schema';
 import type { SystemStatus, TrendData } from './types';
 import { logger } from '../utils/logger';
 import { jobLockService } from '../services/job-lock-service';
@@ -39,7 +34,7 @@ export class CoordinationAgent extends BaseAgent {
       type: 'coordinator',
       maxConcurrentTasks: 10,
       retryAttempts: 3,
-      retryDelay: 2000
+      retryDelay: 2000,
     };
 
     super(config);
@@ -54,15 +49,15 @@ export class CoordinationAgent extends BaseAgent {
         search: 8,
         scrape: 6,
         validate: 4,
-        price_update: 2
+        price_update: 2,
       },
       retryDelays: {
         discovery: 5000,
         search: 3000,
         scrape: 2000,
         validate: 1000,
-        price_update: 1000
-      }
+        price_update: 1000,
+      },
     };
   }
 
@@ -76,10 +71,10 @@ export class CoordinationAgent extends BaseAgent {
     await super.start();
     await this.discoveryAgent.start();
     await this.searchAgent.start();
-    
+
     // Start periodic job processing
     this.startJobProcessor();
-    
+
     logger.info('Coordination Agent fully started with all sub-agents');
   }
 
@@ -92,14 +87,10 @@ export class CoordinationAgent extends BaseAgent {
   async processTask(taskData: unknown): Promise<unknown> {
     const taskId = `coordinator_${Date.now()}`;
 
-    return this.executeTask(
-      taskId,
-      () => this.coordinateWorkflow(taskData),
-      {
-        jobType: 'coordination' as const,
-        targetData: JSON.stringify(taskData)
-      }
-    );
+    return this.executeTask(taskId, () => this.coordinateWorkflow(taskData), {
+      jobType: 'coordination' as const,
+      targetData: JSON.stringify(taskData),
+    });
   }
 
   private async coordinateWorkflow(taskData: unknown): Promise<void> {
@@ -137,20 +128,19 @@ export class CoordinationAgent extends BaseAgent {
         action: 'discover_products',
         sources,
         categories,
-        limit
+        limit,
       });
 
       // The result should be an array of TrendData
-      const trends = (result) || [];
+      const trends = result || [];
 
       logger.info(`Discovered ${trends.length} trending products`);
 
       // Queue search jobs for discovered trends
       await this.queueSearchJobs(trends.slice(0, 10)); // Process top 10
-
     } catch (error) {
       logger.error('Trend discovery failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -158,7 +148,8 @@ export class CoordinationAgent extends BaseAgent {
 
   private async processTrendingProducts(): Promise<void> {
     // Get unprocessed trending products
-    const trendingProductsList = await db.select()
+    const trendingProductsList = await db
+      .select()
       .from(trendingProducts)
       .where(eq(trendingProducts.status, 'discovered'))
       .limit(5);
@@ -166,27 +157,26 @@ export class CoordinationAgent extends BaseAgent {
     // Process products in parallel with Promise.allSettled
     // This provides 5x performance improvement over sequential processing
     const results = await Promise.allSettled(
-      trendingProductsList.map(product =>
-        this.processIndividualProduct(product)
-      )
+      trendingProductsList.map((product) => this.processIndividualProduct(product))
     );
 
     // Log summary of parallel processing results
-    const succeeded = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
 
     logger.info('Parallel product processing completed', {
       total: results.length,
       succeeded,
       failed,
-      successRate: results.length > 0 ? (succeeded / results.length) : 0
+      successRate: results.length > 0 ? succeeded / results.length : 0,
     });
   }
 
   private async processIndividualProduct(product: TrendingProduct): Promise<void> {
     try {
       // Update status to processing
-      await db.update(trendingProducts)
+      await db
+        .update(trendingProducts)
         .set({ status: 'processing' })
         .where(eq(trendingProducts.id, product.id));
 
@@ -196,7 +186,7 @@ export class CoordinationAgent extends BaseAgent {
         productName: product.name,
         category: product.category || undefined,
         retailers: ['amazon', 'walmart', 'target'],
-        trendingProductId: product.id
+        trendingProductId: product.id,
       });
 
       // The result should be an array of search results
@@ -205,51 +195,54 @@ export class CoordinationAgent extends BaseAgent {
       if (searchResults.length > 0) {
         // Create product record
         const createdProduct = await this.createProductFromTrending(product);
-        
+
         if (createdProduct) {
           // Link trending product to created product
-          await db.update(trendingProducts)
+          await db
+            .update(trendingProducts)
             .set({
               productId: createdProduct.id,
-              status: 'scraped' as const
+              status: 'scraped' as const,
             })
             .where(eq(trendingProducts.id, product.id));
 
           logger.info(`Successfully processed trending product: ${product.name}`);
         }
       } else {
-        await db.update(trendingProducts)
+        await db
+          .update(trendingProducts)
           .set({ status: 'failed' as const })
           .where(eq(trendingProducts.id, product.id));
       }
-
     } catch (error) {
       logger.error(`Failed to process product ${product.name}`, {
         error: error instanceof Error ? error.message : String(error),
-        productName: product.name
+        productName: product.name,
       });
-      await db.update(trendingProducts)
+      await db
+        .update(trendingProducts)
         .set({ status: 'failed' as const })
         .where(eq(trendingProducts.id, product.id));
     }
   }
 
-  private async createProductFromTrending(trendingProduct: TrendingProduct): Promise<Product | null> {
+  private async createProductFromTrending(
+    trendingProduct: TrendingProduct
+  ): Promise<Product | null> {
     try {
       const productData: InsertProduct = {
         name: trendingProduct.name,
         category: trendingProduct.category || 'General',
         description: `Trending product discovered via ${trendingProduct.source}`,
-        brand: this.extractBrand(trendingProduct.name)
+        brand: this.extractBrand(trendingProduct.name),
       };
 
       const [createdProduct] = await db.insert(products).values(productData).returning();
       return createdProduct;
-
     } catch (error) {
       logger.error('Failed to create product from trending', {
         error: error instanceof Error ? error.message : String(error),
-        productName: trendingProduct.name
+        productName: trendingProduct.name,
       });
       return null;
     }
@@ -258,9 +251,25 @@ export class CoordinationAgent extends BaseAgent {
   private extractBrand(productName: string): string | undefined {
     // Simple brand extraction logic
     const commonBrands = [
-      'Apple', 'Samsung', 'Nike', 'Adidas', 'Sony', 'LG', 'Dell', 'HP',
-      'Canon', 'Nikon', 'Nintendo', 'PlayStation', 'Xbox', 'Google',
-      'Amazon', 'Microsoft', 'Intel', 'AMD', 'Nvidia'
+      'Apple',
+      'Samsung',
+      'Nike',
+      'Adidas',
+      'Sony',
+      'LG',
+      'Dell',
+      'HP',
+      'Canon',
+      'Nikon',
+      'Nintendo',
+      'PlayStation',
+      'Xbox',
+      'Google',
+      'Amazon',
+      'Microsoft',
+      'Intel',
+      'AMD',
+      'Nvidia',
     ];
 
     for (const brand of commonBrands) {
@@ -273,16 +282,16 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async queueSearchJobs(trends: TrendData[]): Promise<void> {
-    const jobsToCreate = trends.map(trend => ({
+    const jobsToCreate = trends.map((trend) => ({
       jobType: 'search' as const,
       priority: this.coordinatorConfig.jobPriorities.search,
       targetData: JSON.stringify({
         action: 'search_products',
         productName: trend.query,
         category: trend.category,
-        retailers: ['amazon', 'walmart', 'target']
+        retailers: ['amazon', 'walmart', 'target'],
       }),
-      scheduledAt: new Date()
+      scheduledAt: new Date(),
     }));
 
     if (jobsToCreate.length > 0) {
@@ -293,7 +302,8 @@ export class CoordinationAgent extends BaseAgent {
 
   private async updateExistingPrices(): Promise<void> {
     // Get products that need price updates (older than 1 hour)
-    const staleProducts = await db.select()
+    const staleProducts = await db
+      .select()
       .from(productOffers)
       .where(lt(productOffers.lastUpdated, new Date(Date.now() - 60 * 60 * 1000)))
       .limit(10);
@@ -309,9 +319,9 @@ export class CoordinationAgent extends BaseAgent {
       priority: this.coordinatorConfig.jobPriorities.price_update,
       targetData: JSON.stringify({
         action: 'refresh_offers',
-        productOfferId: offerId
+        productOfferId: offerId,
       }),
-      scheduledAt: new Date()
+      scheduledAt: new Date(),
     };
 
     await db.insert(scrapingJobs).values(jobData);
@@ -323,7 +333,7 @@ export class CoordinationAgent extends BaseAgent {
     // Step 1: Discover trends
     await this.discoverTrends({
       sources: ['google_trends', 'seasonal'],
-      limit: 15
+      limit: 15,
     });
 
     // Step 2: Process trending products
@@ -344,7 +354,8 @@ export class CoordinationAgent extends BaseAgent {
    */
   private async calculateSchedulingInterval(): Promise<number> {
     try {
-      const pendingJobsCount = await db.select()
+      const pendingJobsCount = await db
+        .select()
         .from(scrapingJobs)
         .where(eq(scrapingJobs.status, 'pending'));
 
@@ -370,10 +381,9 @@ export class CoordinationAgent extends BaseAgent {
       // Minimal: 60s when queue < 5
       logger.debug('Low queue load detected, using 60s interval', { queueSize });
       return 60000;
-
     } catch (error) {
       logger.error('Failed to calculate scheduling interval', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       return 30000; // Default fallback
     }
@@ -397,30 +407,25 @@ export class CoordinationAgent extends BaseAgent {
 
   private async processQueuedJobs(): Promise<void> {
     try {
-      const pendingJobs = await db.select()
+      const pendingJobs = await db
+        .select()
         .from(scrapingJobs)
-        .where(
-          and(
-            eq(scrapingJobs.status, 'pending'),
-            lt(scrapingJobs.scheduledAt, new Date())
-          )
-        )
+        .where(and(eq(scrapingJobs.status, 'pending'), lt(scrapingJobs.scheduledAt, new Date())))
         .limit(this.coordinatorConfig.maxConcurrentJobs);
 
       if (pendingJobs.length > 0) {
         logger.debug('Processing queued jobs', {
           jobCount: pendingJobs.length,
-          maxConcurrent: this.coordinatorConfig.maxConcurrentJobs
+          maxConcurrent: this.coordinatorConfig.maxConcurrentJobs,
         });
       }
 
       for (const job of pendingJobs) {
         await this.processJob(job);
       }
-
     } catch (error) {
       logger.error('Job processing failed', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -434,10 +439,11 @@ export class CoordinationAgent extends BaseAgent {
         lockKey,
         async () => {
           // Update job status to running
-          await db.update(scrapingJobs)
+          await db
+            .update(scrapingJobs)
             .set({
               status: 'running' as const,
-              startedAt: new Date()
+              startedAt: new Date(),
             })
             .where(eq(scrapingJobs.id, job.id));
 
@@ -446,28 +452,44 @@ export class CoordinationAgent extends BaseAgent {
 
           switch (job.jobType) {
             case 'discovery':
-              taskResult = await this.discoveryAgent.processTask(targetData as { action: 'discover_products'; sources: string[]; categories?: string[]; limit?: number });
+              taskResult = await this.discoveryAgent.processTask(
+                targetData as {
+                  action: 'discover_products';
+                  sources: string[];
+                  categories?: string[];
+                  limit?: number;
+                }
+              );
               break;
             case 'search':
-              taskResult = await this.searchAgent.processTask(targetData as { action: 'search_products'; productName: string; category?: string; retailers: string[]; trendingProductId?: number });
+              taskResult = await this.searchAgent.processTask(
+                targetData as {
+                  action: 'search_products';
+                  productName: string;
+                  category?: string;
+                  retailers: string[];
+                  trendingProductId?: number;
+                }
+              );
               break;
             default:
               throw new Error(`Unknown job type: ${job.jobType}`);
           }
 
           // Mark job as completed
-          await db.update(scrapingJobs)
+          await db
+            .update(scrapingJobs)
             .set({
               status: 'completed' as const,
               completedAt: new Date(),
-              resultData: JSON.stringify(taskResult)
+              resultData: JSON.stringify(taskResult),
             })
             .where(eq(scrapingJobs.id, job.id));
 
           logger.info(`Job ${job.id} completed successfully`, {
             jobId: job.id,
             jobType: job.jobType,
-            duration: Date.now() - (job.startedAt?.getTime() || Date.now())
+            duration: Date.now() - (job.startedAt?.getTime() || Date.now()),
           });
 
           return taskResult;
@@ -478,23 +500,24 @@ export class CoordinationAgent extends BaseAgent {
       if (result === null) {
         logger.debug(`Job ${job.id} is already being processed by another instance, skipping`, {
           jobId: job.id,
-          jobType: job.jobType
+          jobType: job.jobType,
         });
       }
     } catch (error: unknown) {
       logger.error(`Job ${job.id} failed`, {
         error: error instanceof Error ? error.message : String(error),
         jobId: job.id,
-        jobType: job.jobType
+        jobType: job.jobType,
       });
 
       // Handle job failure - record in database
-      await db.update(scrapingJobs)
+      await db
+        .update(scrapingJobs)
         .set({
           status: 'failed' as const,
           completedAt: new Date(),
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          retryCount: (job.retryCount || 0) + 1
+          retryCount: (job.retryCount || 0) + 1,
         })
         .where(eq(scrapingJobs.id, job.id));
     }
@@ -509,7 +532,7 @@ export class CoordinationAgent extends BaseAgent {
       failedJobs,
       discoveredProducts,
       processedProducts,
-      totalProducts
+      totalProducts,
     ] = await Promise.all([
       db.select().from(scrapingJobs),
       db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'pending')),
@@ -518,11 +541,15 @@ export class CoordinationAgent extends BaseAgent {
       db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'failed')),
       db.select().from(trendingProducts).where(eq(trendingProducts.status, 'discovered')),
       db.select().from(trendingProducts).where(eq(trendingProducts.status, 'scraped')),
-      db.select().from(trendingProducts)
+      db.select().from(trendingProducts),
     ]);
 
     // Count active and idle agents
-    const activeAgents = [this.isRunning, this.discoveryAgent.getStatus().isRunning, this.searchAgent.getStatus().isRunning].filter(Boolean).length;
+    const activeAgents = [
+      this.isRunning,
+      this.discoveryAgent.getStatus().isRunning,
+      this.searchAgent.getStatus().isRunning,
+    ].filter(Boolean).length;
     const idleAgents = 3 - activeAgents;
 
     return {
@@ -531,19 +558,19 @@ export class CoordinationAgent extends BaseAgent {
         pending: pendingJobs.length,
         running: runningJobs.length,
         completed: completedJobs.length,
-        failed: failedJobs.length
+        failed: failedJobs.length,
       },
       products: {
         discovered: discoveredProducts.length,
         processed: processedProducts.length,
-        total: totalProducts.length
+        total: totalProducts.length,
       },
       agents: {
         active: activeAgents,
-        idle: idleAgents
+        idle: idleAgents,
       },
       uptime: Date.now() - this.startTime.getTime(),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }

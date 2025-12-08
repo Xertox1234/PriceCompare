@@ -3,13 +3,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import type { Swiper as SwiperType } from 'swiper';
-import {
-  Flame,
-  Heart,
-  Eye,
-  GitCompare,
-  ShoppingCart,
-} from 'lucide-react';
+import { Flame, Heart, Eye, GitCompare, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type ProductData } from './product-card';
 
@@ -41,17 +35,15 @@ export function DealOfTheDaySection({
     <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
         {/* Section Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-destructive/10 text-destructive rounded-xl flex items-center justify-center">
+        <div className="mb-8 flex items-center gap-3">
+          <div className="bg-destructive/10 text-destructive flex h-10 w-10 items-center justify-center rounded-xl">
             <Flame className="h-5 w-5 animate-pulse" />
           </div>
-          <h2 className="text-xl lg:text-2xl font-bold text-primary">
-            Deal Of The Day
-          </h2>
+          <h2 className="text-primary text-xl font-bold lg:text-2xl">Deal Of The Day</h2>
         </div>
 
         {/* Main Grid */}
-        <div className="grid lg:grid-cols-5 gap-6">
+        <div className="grid gap-6 lg:grid-cols-5">
           {/* Featured Product - Takes 3 columns */}
           <div className="lg:col-span-3">
             <FeaturedDealCard
@@ -64,7 +56,7 @@ export function DealOfTheDaySection({
 
           {/* Side Products List - Takes 2 columns */}
           <div className="lg:col-span-2">
-            <div className="space-y-4 h-full">
+            <div className="h-full space-y-4">
               {sideProducts.slice(0, 4).map((product) => (
                 <HorizontalDealCard
                   key={product.id}
@@ -99,27 +91,23 @@ function FeaturedDealCard({
   const [activeImage, setActiveImage] = useState(0);
 
   // Generate images array from product data
-  const images = product.images || [
-    product.image,
-    product.hoverImage || product.image,
-    product.image,
-  ].filter(Boolean);
+  const images =
+    product.images ||
+    [product.image, product.hoverImage || product.image, product.image].filter(Boolean);
 
-  const discount = product.originalPrice
-    ? product.originalPrice - product.price
-    : 0;
+  const discount = product.originalPrice ? product.originalPrice - product.price : 0;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-4 lg:p-6 h-full">
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+    <div className="bg-card border-border h-full rounded-2xl border p-4 lg:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
         {/* Image Gallery Section */}
         <div className="flex-1">
           {/* Main Image Container */}
-          <div className="relative rounded-xl overflow-hidden bg-muted mb-4">
+          <div className="bg-muted relative mb-4 overflow-hidden rounded-xl">
             {/* Save Badge */}
             {discount > 0 && (
-              <span className="absolute top-4 left-4 z-10 inline-flex flex-col items-center bg-red-500 text-white px-3 py-2 rounded-lg">
-                <span className="text-xs uppercase font-medium">Save</span>
+              <span className="absolute top-4 left-4 z-10 inline-flex flex-col items-center rounded-lg bg-red-500 px-3 py-2 text-white">
+                <span className="text-xs font-medium uppercase">Save</span>
                 <span className="text-lg font-bold">${discount.toFixed(0)}</span>
               </span>
             )}
@@ -129,7 +117,7 @@ function FeaturedDealCard({
               <img
                 src={images[activeImage]}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             </Link>
           </div>
@@ -141,47 +129,45 @@ function FeaturedDealCard({
                 key={index}
                 onClick={() => setActiveImage(index)}
                 className={cn(
-                  'flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors',
-                  activeImage === index ? 'border-primary' : 'border-transparent hover:border-primary/50'
+                  'h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors',
+                  activeImage === index
+                    ? 'border-primary'
+                    : 'hover:border-primary/50 border-transparent'
                 )}
               >
-                <img
-                  src={img}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
+                <img src={img} alt="" className="h-full w-full object-cover" />
               </button>
             ))}
           </div>
         </div>
 
         {/* Product Info Section */}
-        <div className="lg:w-2/5 flex flex-col">
+        <div className="flex flex-col lg:w-2/5">
           {/* Title */}
           <Link href={`/product/${product.id}`}>
-            <h3 className="text-lg lg:text-xl font-semibold text-foreground hover:text-primary transition-colors line-clamp-2 mb-4">
+            <h3 className="text-foreground hover:text-primary mb-4 line-clamp-2 text-lg font-semibold transition-colors lg:text-xl">
               {product.name}
             </h3>
           </Link>
 
           {/* Price */}
-          <div className="flex items-baseline gap-3 mb-4">
-            <span className="text-2xl lg:text-3xl font-bold text-primary">
+          <div className="mb-4 flex items-baseline gap-3">
+            <span className="text-primary text-2xl font-bold lg:text-3xl">
               ${product.price.toFixed(2)}
             </span>
             {product.originalPrice && (
-              <span className="text-lg text-muted-foreground line-through">
+              <span className="text-muted-foreground text-lg line-through">
                 ${product.originalPrice.toFixed(2)}
               </span>
             )}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 mt-auto">
+          <div className="mt-auto flex items-center gap-2">
             <button
               onClick={() => onWatchlist?.(product)}
               className={cn(
-                'p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-colors',
+                'border-border hover:border-primary hover:bg-primary/5 rounded-xl border p-3 transition-colors',
                 product.inWatchlist && 'bg-destructive/10 border-destructive text-destructive'
               )}
               title="Add to Wishlist"
@@ -190,14 +176,14 @@ function FeaturedDealCard({
             </button>
             <button
               onClick={() => onQuickView?.(product)}
-              className="p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-colors"
+              className="border-border hover:border-primary hover:bg-primary/5 rounded-xl border p-3 transition-colors"
               title="Quick View"
             >
               <Eye className="h-5 w-5" />
             </button>
             <button
               onClick={() => onCompare?.(product)}
-              className="p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-colors"
+              className="border-border hover:border-primary hover:bg-primary/5 rounded-xl border p-3 transition-colors"
               title="Compare"
             >
               <GitCompare className="h-5 w-5" />
@@ -205,7 +191,7 @@ function FeaturedDealCard({
           </div>
 
           {/* Countdown Timer */}
-          <div className="mt-6 pt-6 border-t border-border">
+          <div className="border-border mt-6 border-t pt-6">
             <CountdownTimer />
           </div>
         </div>
@@ -232,19 +218,19 @@ function HorizontalDealCard({
 
   return (
     <div
-      className="group bg-card rounded-xl border border-border p-3 hover:shadow-lg hover:border-primary/50 transition-all"
+      className="group bg-card border-border hover:border-primary/50 rounded-xl border p-3 transition-all hover:shadow-lg"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex gap-4">
         {/* Product Image with Hover Effect */}
         <Link href={`/product/${product.id}`} className="flex-shrink-0">
-          <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-muted">
+          <div className="bg-muted relative h-24 w-24 overflow-hidden rounded-lg">
             <img
               src={product.image}
               alt={product.name}
               className={cn(
-                'w-full h-full object-cover transition-opacity duration-300',
+                'h-full w-full object-cover transition-opacity duration-300',
                 isHovered && product.hoverImage ? 'opacity-0' : 'opacity-100'
               )}
             />
@@ -253,7 +239,7 @@ function HorizontalDealCard({
                 src={product.hoverImage}
                 alt={product.name}
                 className={cn(
-                  'absolute inset-0 w-full h-full object-cover transition-opacity duration-300',
+                  'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
                   isHovered ? 'opacity-100' : 'opacity-0'
                 )}
               />
@@ -262,24 +248,24 @@ function HorizontalDealCard({
         </Link>
 
         {/* Product Info */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           {/* Category */}
-          <p className="text-xs text-muted-foreground mb-1">{product.category}</p>
+          <p className="text-muted-foreground mb-1 text-xs">{product.category}</p>
 
           {/* Title */}
           <Link href={`/product/${product.id}`}>
-            <h4 className="font-medium text-foreground hover:text-primary transition-colors line-clamp-2 text-sm mb-2">
+            <h4 className="text-foreground hover:text-primary mb-2 line-clamp-2 text-sm font-medium transition-colors">
               {product.name}
             </h4>
           </Link>
 
           {/* Price and Actions Row */}
-          <div className="flex items-center justify-between mt-auto">
+          <div className="mt-auto flex items-center justify-between">
             {/* Price */}
             <div className="flex items-baseline gap-2">
-              <span className="font-bold text-primary">${product.price.toFixed(2)}</span>
+              <span className="text-primary font-bold">${product.price.toFixed(2)}</span>
               {product.originalPrice && (
-                <span className="text-xs text-muted-foreground line-through">
+                <span className="text-muted-foreground text-xs line-through">
                   ${product.originalPrice.toFixed(2)}
                 </span>
               )}
@@ -289,7 +275,7 @@ function HorizontalDealCard({
             <div
               className={cn(
                 'flex items-center gap-1 transition-all duration-300',
-                isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2'
+                isHovered ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'
               )}
             >
               <button
@@ -297,7 +283,7 @@ function HorizontalDealCard({
                   e.preventDefault();
                   onAddToCart?.(product);
                 }}
-                className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors"
+                className="bg-primary hover:bg-primary-hover rounded-lg p-1.5 text-white transition-colors"
                 title="Add to Cart"
               >
                 <ShoppingCart className="h-4 w-4" />
@@ -308,7 +294,7 @@ function HorizontalDealCard({
                   onWatchlist?.(product);
                 }}
                 className={cn(
-                  'p-1.5 rounded-lg border border-border hover:border-primary transition-colors',
+                  'border-border hover:border-primary rounded-lg border p-1.5 transition-colors',
                   product.inWatchlist && 'bg-destructive/10 border-destructive text-destructive'
                 )}
                 title="Add to Wishlist"
@@ -320,7 +306,7 @@ function HorizontalDealCard({
                   e.preventDefault();
                   onQuickView?.(product);
                 }}
-                className="p-1.5 rounded-lg border border-border hover:border-primary transition-colors"
+                className="border-border hover:border-primary rounded-lg border p-1.5 transition-colors"
                 title="Quick View"
               >
                 <Eye className="h-4 w-4" />
@@ -330,7 +316,7 @@ function HorizontalDealCard({
                   e.preventDefault();
                   onCompare?.(product);
                 }}
-                className="p-1.5 rounded-lg border border-border hover:border-primary transition-colors"
+                className="border-border hover:border-primary rounded-lg border p-1.5 transition-colors"
                 title="Compare"
               >
                 <GitCompare className="h-4 w-4" />
@@ -369,12 +355,12 @@ function CountdownTimer() {
 
   return (
     <div>
-      <p className="text-sm text-muted-foreground mb-3">Hurry up! Offer ends in:</p>
+      <p className="text-muted-foreground mb-3 text-sm">Hurry up! Offer ends in:</p>
       <div className="flex items-center gap-2">
         <TimeBlock value={hours} label="Hours" />
-        <span className="text-2xl font-bold text-muted-foreground">:</span>
+        <span className="text-muted-foreground text-2xl font-bold">:</span>
         <TimeBlock value={minutes} label="Mins" />
-        <span className="text-2xl font-bold text-muted-foreground">:</span>
+        <span className="text-muted-foreground text-2xl font-bold">:</span>
         <TimeBlock value={seconds} label="Secs" />
       </div>
     </div>
@@ -383,9 +369,9 @@ function CountdownTimer() {
 
 function TimeBlock({ value, label }: { value: number; label: string }) {
   return (
-    <div className="bg-muted rounded-xl px-4 py-2 text-center min-w-[70px]">
-      <p className="text-2xl font-bold text-foreground">{value.toString().padStart(2, '0')}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="bg-muted min-w-[70px] rounded-xl px-4 py-2 text-center">
+      <p className="text-foreground text-2xl font-bold">{value.toString().padStart(2, '0')}</p>
+      <p className="text-muted-foreground text-xs">{label}</p>
     </div>
   );
 }

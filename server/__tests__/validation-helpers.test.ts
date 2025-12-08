@@ -16,25 +16,25 @@ describe('Storage Layer Validation Helpers', () => {
   describe('User Validation Helpers', () => {
     describe('validateUserId', () => {
       it('should reject non-positive user IDs', async () => {
-        await expect(
-          storage.getUserByIdSafe(0)
-        ).rejects.toThrow('Invalid userId: 0. Must be a positive integer.');
+        await expect(storage.getUserByIdSafe(0)).rejects.toThrow(
+          'Invalid userId: 0. Must be a positive integer.'
+        );
 
-        await expect(
-          storage.getUserByIdSafe(-5)
-        ).rejects.toThrow('Invalid userId: -5. Must be a positive integer.');
+        await expect(storage.getUserByIdSafe(-5)).rejects.toThrow(
+          'Invalid userId: -5. Must be a positive integer.'
+        );
       });
 
       it('should reject decimal user IDs', async () => {
-        await expect(
-          storage.getUserByIdSafe(3.5)
-        ).rejects.toThrow('Invalid userId: 3.5. Must be a positive integer.');
+        await expect(storage.getUserByIdSafe(3.5)).rejects.toThrow(
+          'Invalid userId: 3.5. Must be a positive integer.'
+        );
       });
 
       it('should reject NaN user IDs', async () => {
-        await expect(
-          storage.getUserByIdSafe(NaN)
-        ).rejects.toThrow(/Invalid userId.*Must be a positive integer/);
+        await expect(storage.getUserByIdSafe(NaN)).rejects.toThrow(
+          /Invalid userId.*Must be a positive integer/
+        );
       });
 
       it('should accept valid positive integers', async () => {
@@ -46,45 +46,45 @@ describe('Storage Layer Validation Helpers', () => {
 
     describe('validateTrustLevel', () => {
       it('should reject trust level below minimum', async () => {
-        await expect(
-          storage.updateUserTrustLevel(1, -1)
-        ).rejects.toThrow('Trust level must be between 0 and 4');
+        await expect(storage.updateUserTrustLevel(1, -1)).rejects.toThrow(
+          'Trust level must be between 0 and 4'
+        );
       });
 
       it('should reject trust level above maximum', async () => {
-        await expect(
-          storage.updateUserTrustLevel(1, 5)
-        ).rejects.toThrow('Trust level must be between 0 and 4');
+        await expect(storage.updateUserTrustLevel(1, 5)).rejects.toThrow(
+          'Trust level must be between 0 and 4'
+        );
       });
     });
 
     describe('validateProfileField', () => {
       it('should reject bio exceeding max length', async () => {
         const longBio = 'a'.repeat(501); // MAX_BIO_LENGTH is 500
-        await expect(
-          storage.updateUserProfile(1, { bio: longBio })
-        ).rejects.toThrow('Bio cannot exceed 500 characters');
+        await expect(storage.updateUserProfile(1, { bio: longBio })).rejects.toThrow(
+          'Bio cannot exceed 500 characters'
+        );
       });
 
       it('should reject location exceeding max length', async () => {
         const longLocation = 'a'.repeat(101); // MAX_LOCATION_LENGTH is 100
-        await expect(
-          storage.updateUserProfile(1, { location: longLocation })
-        ).rejects.toThrow('Location cannot exceed 100 characters');
+        await expect(storage.updateUserProfile(1, { location: longLocation })).rejects.toThrow(
+          'Location cannot exceed 100 characters'
+        );
       });
 
       it('should reject website exceeding max length', async () => {
         const longWebsite = 'a'.repeat(256); // MAX_WEBSITE_LENGTH is 255
-        await expect(
-          storage.updateUserProfile(1, { website: longWebsite })
-        ).rejects.toThrow('Website cannot exceed 255 characters');
+        await expect(storage.updateUserProfile(1, { website: longWebsite })).rejects.toThrow(
+          'Website cannot exceed 255 characters'
+        );
       });
 
       it('should reject avatarUrl exceeding max length', async () => {
         const longAvatarUrl = 'a'.repeat(501); // MAX_AVATAR_URL_LENGTH is 500
-        await expect(
-          storage.updateUserProfile(1, { avatarUrl: longAvatarUrl })
-        ).rejects.toThrow('Avatar URL cannot exceed 500 characters');
+        await expect(storage.updateUserProfile(1, { avatarUrl: longAvatarUrl })).rejects.toThrow(
+          'Avatar URL cannot exceed 500 characters'
+        );
       });
     });
   });
@@ -92,25 +92,25 @@ describe('Storage Layer Validation Helpers', () => {
   describe('Product Validation Helpers', () => {
     describe('validateProductId', () => {
       it('should reject non-positive product IDs', async () => {
-        await expect(
-          storage.getProductById(0)
-        ).rejects.toThrow('Invalid productId: 0. Must be a positive integer.');
+        await expect(storage.getProductById(0)).rejects.toThrow(
+          'Invalid productId: 0. Must be a positive integer.'
+        );
 
-        await expect(
-          storage.getProductById(-10)
-        ).rejects.toThrow('Invalid productId: -10. Must be a positive integer.');
+        await expect(storage.getProductById(-10)).rejects.toThrow(
+          'Invalid productId: -10. Must be a positive integer.'
+        );
       });
 
       it('should reject decimal product IDs', async () => {
-        await expect(
-          storage.getProductById(2.7)
-        ).rejects.toThrow('Invalid productId: 2.7. Must be a positive integer.');
+        await expect(storage.getProductById(2.7)).rejects.toThrow(
+          'Invalid productId: 2.7. Must be a positive integer.'
+        );
       });
 
       it('should reject NaN product IDs', async () => {
-        await expect(
-          storage.getProductById(NaN)
-        ).rejects.toThrow(/Invalid productId.*Must be a positive integer/);
+        await expect(storage.getProductById(NaN)).rejects.toThrow(
+          /Invalid productId.*Must be a positive integer/
+        );
       });
 
       it('should accept valid positive integers', async () => {
@@ -122,13 +122,13 @@ describe('Storage Layer Validation Helpers', () => {
 
     describe('validateProductOffers', () => {
       it('should validate product ID in getProductOffers', async () => {
-        await expect(
-          storage.getProductOffers(0)
-        ).rejects.toThrow('Invalid productId: 0. Must be a positive integer.');
+        await expect(storage.getProductOffers(0)).rejects.toThrow(
+          'Invalid productId: 0. Must be a positive integer.'
+        );
 
-        await expect(
-          storage.getProductOffers(-5)
-        ).rejects.toThrow('Invalid productId: -5. Must be a positive integer.');
+        await expect(storage.getProductOffers(-5)).rejects.toThrow(
+          'Invalid productId: -5. Must be a positive integer.'
+        );
       });
     });
   });

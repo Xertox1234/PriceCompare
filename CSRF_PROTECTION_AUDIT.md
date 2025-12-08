@@ -9,6 +9,7 @@
 This audit tracks the systematic addition of CSRF (Cross-Site Request Forgery) protection to all mutation endpoints (POST/PUT/PATCH/DELETE) across the PriceCompare API. CSRF attacks allow malicious sites to perform unauthorized actions on behalf of authenticated users.
 
 **Final Status:**
+
 - ✅ **44 endpoints protected** (11 files complete)
 - ✅ **0 endpoints remaining**
 - ✅ **100% CSRF coverage achieved** on all state-changing operations
@@ -18,21 +19,25 @@ This audit tracks the systematic addition of CSRF (Cross-Site Request Forgery) p
 ### Risk Level: HIGH
 
 **Why CSRF Protection is Critical:**
+
 1. **Admin Operations** - Many unprotected endpoints perform privileged admin operations
 2. **Data Modification** - Create/update/delete operations without CSRF tokens
 3. **State Changes** - Cache clearing, aggregation triggers, alert management
 4. **No User Confirmation** - Silent execution if user is authenticated
 
 **Attack Scenario:**
+
 ```html
 <!-- Malicious site could trigger admin operations -->
-<img src="https://pricecompare.com/api/admin/products/123"
-     style="display:none"
-     onerror="fetch('https://pricecompare.com/api/admin/aggregation/force-daily', {
+<img
+  src="https://pricecompare.com/api/admin/products/123"
+  style="display:none"
+  onerror="fetch('https://pricecompare.com/api/admin/aggregation/force-daily', {
        method: 'POST',
        credentials: 'include',
        body: JSON.stringify({startDate: '2020-01-01', endDate: '2025-12-31'})
-     })">
+     })"
+/>
 ```
 
 If an admin visits the malicious site while authenticated, their cookies would be sent automatically, triggering unauthorized operations.
@@ -48,9 +53,13 @@ All mutation endpoints must follow this pattern:
 import { csrfProtection } from '../middleware/security';
 
 // 2. Add as first middleware in chain
-app.post('/api/endpoint', csrfProtection, withAuth(async (req, res) => {
-  // Handler logic
-}));
+app.post(
+  '/api/endpoint',
+  csrfProtection,
+  withAuth(async (req, res) => {
+    // Handler logic
+  })
+);
 ```
 
 ### Middleware Order
@@ -59,26 +68,36 @@ CSRF protection should be placed **before** auth middleware:
 
 ```typescript
 // ✅ CORRECT - CSRF validates token before auth
-app.post('/api/admin/action', csrfProtection, withAdmin(async (req, res) => {}));
+app.post(
+  '/api/admin/action',
+  csrfProtection,
+  withAdmin(async (req, res) => {})
+);
 
 // ❌ WRONG - Auth processes before CSRF validation
-app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}));
+app.post(
+  '/api/admin/action',
+  withAdmin(csrfProtection, async (req, res) => {})
+);
 ```
 
 ## Completed Files ✅
 
 ### 1. admin-aggregation-routes.ts
+
 **Status:** ✅ COMPLETE
 **Endpoints Protected:** 4
 **Commit:** In worktree
 
 #### Protected Endpoints:
+
 1. `POST /api/admin/aggregation/force-daily` - Force re-aggregation for date range
 2. `POST /api/admin/aggregation/detect-gaps` - Detect missing aggregates
 3. `POST /api/admin/aggregation/fill-gaps` - Fill missing aggregates
 4. `POST /api/admin/aggregation/single-product` - Re-aggregate single product
 
 **Changes:**
+
 ```diff
 + import { csrfProtection } from '../middleware/security';
 
@@ -96,6 +115,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ```
 
 **Risk Mitigation:**
+
 - Prevents unauthorized price data manipulation
 - Protects against malicious gap detection/filling
 - Secures admin-triggered aggregation operations
@@ -103,11 +123,13 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ---
 
 ### 2. admin-routes.ts
+
 **Status:** ✅ COMPLETE
 **Endpoints Protected:** 6
 **Commit:** In worktree
 
 #### Protected Endpoints:
+
 1. `POST /api/admin/products` - Create new product
 2. `PUT /api/admin/products/:id` - Update product details
 3. `DELETE /api/admin/products/:id` - Delete product (cascades to offers)
@@ -116,6 +138,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 6. `DELETE /api/admin/retailers/:id` - Delete retailer (cascades to offers)
 
 **Changes:**
+
 ```diff
 + import { csrfProtection } from '../middleware/security';
 
@@ -139,6 +162,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ```
 
 **Risk Mitigation:**
+
 - Prevents unauthorized product/retailer creation
 - Protects against malicious data modification
 - Prevents mass deletion attacks
@@ -147,15 +171,18 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ---
 
 ### 3. monitoring-routes.ts
+
 **Status:** ✅ COMPLETE
 **Endpoints Protected:** 2
 **Commit:** In worktree
 
 #### Protected Endpoints:
+
 1. `POST /api/monitoring/errors/clear` - Clear error logs
 2. `POST /api/monitoring/alerts/test` - Send test alert
 
 **Changes:**
+
 ```diff
 + import { csrfProtection } from '../middleware/security';
 
@@ -167,6 +194,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ```
 
 **Risk Mitigation:**
+
 - Prevents unauthorized error log manipulation
 - Protects against alert spam attacks
 - Secures monitoring infrastructure
@@ -176,11 +204,13 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ## Remaining Files ⚠️
 
 ### 4. cache-routes.ts
+
 **Status:** ✅ COMPLETE
 **Endpoints Protected:** 6
 **Commit:** In worktree
 
 #### Protected Endpoints:
+
 1. `POST /api/admin/cache/warm` - Proactive cache warming
 2. `POST /api/admin/cache/invalidate/product/:id` - Invalidate product cache
 3. `POST /api/admin/cache/invalidate/search` - Invalidate search cache
@@ -189,6 +219,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 6. `POST /api/admin/cache/clear` - Clear entire cache
 
 **Changes:**
+
 ```diff
 + import { csrfProtection } from '../middleware/security';
 
@@ -199,6 +230,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ```
 
 **Risk Mitigation:**
+
 - Prevents cache poisoning through forced warming
 - Protects against performance degradation via cache clearing
 - Prevents statistics manipulation
@@ -207,16 +239,19 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ---
 
 ### 5. price-analytics-routes.ts
+
 **Status:** ✅ COMPLETE
 **Endpoints Protected:** 3
 **Commit:** In worktree
 
 #### Protected Endpoints:
+
 1. `POST /api/admin/analytics/calculate-weekly` - Trigger weekly calculation
 2. `POST /api/admin/analytics/calculate-monthly` - Trigger monthly calculation
 3. `POST /api/admin/analytics/analyze-trends` - Trigger trend analysis
 
 **Changes:**
+
 ```diff
 + import { csrfProtection } from '../middleware/security';
 
@@ -227,6 +262,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ```
 
 **Risk Mitigation:**
+
 - Prevents resource exhaustion via repeated calculations
 - Protects against data corruption in analytics
 - Prevents performance impact on production systems
@@ -234,11 +270,13 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ---
 
 ### 6. price-history-routes.ts
+
 **Status:** ✅ COMPLETE
 **Endpoints Protected:** 3
 **Commit:** In worktree
 
 #### Protected Endpoints:
+
 1. `POST /api/admin/price-history/record` - Manual price recording
 2. `POST /api/admin/price-history/generate-snapshots` - Generate historical snapshots
 3. `DELETE /api/admin/price-history/cleanup` - Cleanup old records
@@ -246,6 +284,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 **Location:** `server/routes/price-history-routes.ts:147-229`
 
 **Attack Impact:**
+
 - Price data manipulation
 - Historical data corruption
 - Unauthorized data deletion
@@ -253,28 +292,33 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ---
 
 ### 7. advanced-search-routes.ts
+
 **Status:** ⚠️ VULNERABLE
 **Endpoints Needing Protection:** 2
 **Priority:** MEDIUM
 
 #### Vulnerable Endpoints:
+
 1. `POST /api/search/analyze` - Search analytics
 2. `POST /api/search/clear-cache` - Clear search cache
 
 **Location:** `server/routes/advanced-search-routes.ts:92-316`
 
 **Attack Impact:**
+
 - Search cache manipulation
 - Analytics poisoning
 
 ---
 
 ### 8. affiliate-routes.ts
+
 **Status:** ⚠️ VULNERABLE
 **Endpoints Needing Protection:** 6
 **Priority:** HIGH (Financial/affiliate links)
 
 #### Vulnerable Endpoints:
+
 1. `PUT /api/admin/retailers/:id/affiliate` - Update affiliate config
 2. `POST /api/admin/retailers/:id/affiliate/enable` - Enable affiliate tracking
 3. `POST /api/admin/retailers/:id/generate-affiliate-links` - Generate affiliate links
@@ -284,6 +328,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 **Location:** `server/routes/affiliate-routes.ts:60-179`
 
 **Attack Impact:**
+
 - Affiliate link hijacking
 - Revenue manipulation
 - Click fraud
@@ -292,11 +337,13 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ---
 
 ### 9. scraping-routes.ts
+
 **Status:** ⚠️ VULNERABLE
 **Endpoints Needing Protection:** 11
 **Priority:** HIGH (System operations)
 
 #### Vulnerable Endpoints:
+
 1. `POST /api/scraping/initialize` - Initialize scraping system
 2. `POST /api/scraping/start-agents` - Start scraping agents
 3. `POST /api/scraping/scrape-product` - Scrape specific product
@@ -311,6 +358,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 **Location:** `server/routes/scraping-routes.ts:97-526`
 
 **Attack Impact:**
+
 - Unauthorized web scraping (legal/ethical issues)
 - Resource exhaustion via scraping operations
 - Rate limit violations with retailers
@@ -320,43 +368,51 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ---
 
 ### 10. agent-limits-routes.ts
+
 **Status:** ⚠️ VULNERABLE
 **Endpoints Needing Protection:** 1
 **Priority:** MEDIUM
 
 #### Vulnerable Endpoints:
+
 1. `POST /api/agent-limits/reset` - Reset agent rate limits
 
 **Location:** `server/routes/agent-limits-routes.ts:61`
 
 **Attack Impact:**
+
 - Rate limit bypass
 - Resource exhaustion
 
 ---
 
 ### 11. specification-routes.ts
+
 **Status:** ⚠️ VULNERABLE
 **Endpoints Needing Protection:** 1
 **Priority:** MEDIUM
 
 #### Vulnerable Endpoints:
+
 1. `POST /api/admin/specifications` - Create product specification
 
 **Location:** `server/routes/specification-routes.ts:93`
 
 **Attack Impact:**
+
 - Unauthorized specification creation
 - Data integrity issues
 
 ---
 
 ### 12. Auth Routes (Special Case)
+
 **Status:** ⚠️ NEEDS REVIEW
 **File:** `server/routes/auth-routes.ts`
 **Priority:** LOW-MEDIUM
 
 #### Endpoints to Review:
+
 - ✅ `POST /api/auth/register` - **NO CSRF NEEDED** (pre-authentication)
 - ✅ `POST /api/auth/login` - **NO CSRF NEEDED** (establishes session)
 - ✅ `POST /api/auth/logout` - **NO CSRF NEEDED** (destroys session, low risk)
@@ -364,6 +420,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 - ⚠️ `POST /api/auth/reset-password` - **REVIEW** (token-based, may not need CSRF)
 
 **Rationale:**
+
 - Pre-authentication endpoints don't have CSRF tokens yet
 - Login establishes the session that provides CSRF token
 - Password reset uses single-use tokens (different protection mechanism)
@@ -374,6 +431,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ## Implementation Checklist
 
 ### Phase 1: Critical Admin Operations (HIGH Priority) ✅ COMPLETE
+
 - [x] admin-aggregation-routes.ts (4 endpoints)
 - [x] admin-routes.ts (6 endpoints)
 - [x] cache-routes.ts (6 endpoints)
@@ -382,6 +440,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 - [x] affiliate-routes.ts (5 endpoints)
 
 ### Phase 2: System Operations (MEDIUM Priority) ✅ COMPLETE
+
 - [x] monitoring-routes.ts (2 endpoints)
 - [x] price-analytics-routes.ts (3 endpoints)
 - [x] advanced-search-routes.ts (2 endpoints)
@@ -389,6 +448,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 - [x] specification-routes.ts (2 endpoints)
 
 ### Phase 3: Review & Special Cases (DEFERRED)
+
 - ⏸️ auth-routes.ts (pre-authentication endpoints - CSRF not applicable)
 - ⏸️ discourse-routes.ts (webhook endpoint - uses signature verification)
 - ⏸️ health-routes.ts (CSP violation reporting - read-only)
@@ -401,6 +461,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 **Total Endpoints Protected:** 44
 
 ### Breakdown by File:
+
 1. **admin-aggregation-routes.ts** - 4 POST endpoints
 2. **admin-routes.ts** - 6 endpoints (3 POST, 2 PUT, 1 DELETE)
 3. **monitoring-routes.ts** - 2 POST endpoints
@@ -414,6 +475,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 11. **scraping-routes.ts** - 10 POST endpoints
 
 ### Risk Level: LOW (Previously HIGH)
+
 **All critical mutation endpoints now protected against CSRF attacks.**
 
 ---
@@ -423,6 +485,7 @@ app.post('/api/admin/action', withAdmin(csrfProtection, async (req, res) => {}))
 ### 1. Manual Testing Checklist
 
 For each protected endpoint:
+
 - [ ] Verify CSRF token is required in request header
 - [ ] Confirm 403 Forbidden without valid token
 - [ ] Validate successful operation with valid token
@@ -467,6 +530,7 @@ describe('CSRF Protection', () => {
 ### 3. Security Scan
 
 Run automated security scanner:
+
 ```bash
 npm run security:scan
 npm run security:audit
@@ -476,6 +540,7 @@ npm run security:full
 ### 4. Penetration Testing
 
 Manual security testing scenarios:
+
 1. **Cross-Origin Attack** - Attempt CSRF from different domain
 2. **Token Replay** - Reuse old CSRF tokens
 3. **Session Fixation** - Use CSRF token from different session
@@ -487,9 +552,11 @@ Manual security testing scenarios:
 ## Documentation Updates Required
 
 ### 1. Update API Documentation
+
 **File:** `docs/API_DOCUMENTATION.md`
 
 Add CSRF requirement to all mutation endpoints:
+
 ```markdown
 ### POST /api/admin/aggregation/force-daily
 
@@ -497,16 +564,20 @@ Add CSRF requirement to all mutation endpoints:
 **CSRF Protection:** Required
 
 **Headers:**
+
 - `X-CSRF-Token: <token>` - CSRF token from session
 
 **Response:**
+
 - `403 Forbidden` - Missing or invalid CSRF token
 ```
 
 ### 2. Update CLAUDE.md
+
 **File:** `CLAUDE.md`
 
 Update security patterns section:
+
 ```markdown
 ## Security Patterns (MANDATORY)
 
@@ -519,25 +590,28 @@ import { csrfProtection } from '../middleware/security';
 
 // ✅ CORRECT - CSRF protection included
 app.post('/api/admin/action', csrfProtection, withAdmin(async (req, res) => {
-  // Handler
+// Handler
 }));
 
 // ❌ WRONG - Missing CSRF protection
 app.post('/api/admin/action', withAdmin(async (req, res) => {
-  // Vulnerable to CSRF attacks
+// Vulnerable to CSRF attacks
 }));
 \`\`\`
 
 **Exceptions:**
+
 - Pre-authentication endpoints (register, login)
 - Public webhooks with signature verification
 - Health check endpoints (GET only)
 ```
 
 ### 3. Update Pre-Commit Hook
+
 **File:** `.git/hooks/pre-commit`
 
 Add CSRF protection check:
+
 ```bash
 # Check 12: Enforce CSRF protection on mutations
 echo "Checking for CSRF protection on mutation endpoints..."
@@ -560,6 +634,7 @@ fi
 ## Deployment Checklist
 
 ### Before Deployment
+
 - [ ] All mutation endpoints have CSRF protection
 - [ ] All tests pass (including new CSRF tests)
 - [ ] Security scan shows no CSRF vulnerabilities
@@ -567,12 +642,14 @@ fi
 - [ ] Pre-commit hook enforces CSRF
 
 ### During Deployment
+
 - [ ] Deploy to staging environment first
 - [ ] Run full test suite in staging
 - [ ] Perform manual security testing
 - [ ] Monitor error rates for CSRF rejections
 
 ### After Deployment
+
 - [ ] Monitor Sentry for CSRF-related errors
 - [ ] Check that legitimate requests aren't blocked
 - [ ] Verify attack attempts are properly rejected
@@ -585,12 +662,14 @@ fi
 ### Current Risk Level: HIGH
 
 **Vulnerabilities:**
+
 - 38 unprotected mutation endpoints
 - Critical admin operations exposed
 - Financial operations (affiliate) vulnerable
 - System operations (scraping) unprotected
 
 **Potential Impact:**
+
 - Unauthorized data modification
 - Financial loss via affiliate manipulation
 - System resource exhaustion
@@ -600,6 +679,7 @@ fi
 ### Target Risk Level: LOW
 
 **After Full Implementation:**
+
 - 0 unprotected mutation endpoints
 - Complete CSRF coverage
 - Defense-in-depth security
@@ -610,12 +690,14 @@ fi
 ## Next Steps
 
 ### Immediate Actions (Week 1)
+
 1. **Complete cache-routes.ts** (7 endpoints) - HIGH priority
 2. **Complete price-history-routes.ts** (3 endpoints) - HIGH priority
 3. **Complete scraping-routes.ts** (11 endpoints) - HIGH priority
 4. **Complete affiliate-routes.ts** (6 endpoints) - HIGH priority
 
 ### Short-term Actions (Week 2)
+
 5. **Complete price-analytics-routes.ts** (3 endpoints)
 6. **Complete advanced-search-routes.ts** (2 endpoints)
 7. **Complete agent-limits-routes.ts** (1 endpoint)
@@ -623,6 +705,7 @@ fi
 9. **Review auth-routes.ts** (special case analysis)
 
 ### Testing & Deployment (Week 2-3)
+
 10. **Write comprehensive CSRF tests**
 11. **Update documentation**
 12. **Update pre-commit hooks**
@@ -643,12 +726,13 @@ The `csrfProtection` middleware validates CSRF tokens using the `csurf` package:
 import csrf from 'csurf';
 
 export const csrfProtection = csrf({
-  cookie: false,  // Use session-based tokens
-  ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],  // Safe methods
+  cookie: false, // Use session-based tokens
+  ignoreMethods: ['GET', 'HEAD', 'OPTIONS'], // Safe methods
 });
 ```
 
 **Token Flow:**
+
 1. Server generates CSRF token on session creation
 2. Token attached to session via middleware (line 11 in pipeline)
 3. Client receives token in response metadata or via dedicated endpoint
@@ -680,14 +764,17 @@ const response = await fetch('/api/admin/action', {
 ## Appendix B: Security Resources
 
 ### OWASP References
+
 - [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
 - [OWASP Top 10: A01:2021 - Broken Access Control](https://owasp.org/Top10/A01_2021-Broken_Access_Control/)
 
 ### Testing Tools
+
 - [CSRF PoC Generator](https://security.love/CSRF-PoC-Genorator/)
 - [Burp Suite CSRF Testing](https://portswigger.net/burp/documentation/desktop/testing-workflow/csrf-tokens)
 
 ### Related Standards
+
 - [CWE-352: Cross-Site Request Forgery (CSRF)](https://cwe.mitre.org/data/definitions/352.html)
 - [RFC 6265: HTTP State Management (Cookies)](https://www.rfc-editor.org/rfc/rfc6265)
 

@@ -7,12 +7,12 @@
  * Phase 3F: Job Lock Domain Extraction - Final phase of storage layer refactoring
  */
 
-import { eq, and, lte, sql, desc, count } from "drizzle-orm";
-import { jobLocks } from "@shared/schema";
-import { BaseStorage } from "../base-storage";
-import type { JobLock } from "../types";
-import { db } from "../../db";
-import { JOB_LOCK_CONSTANTS } from "../../utils/constants";
+import { eq, and, lte, sql, desc, count } from 'drizzle-orm';
+import { jobLocks } from '@shared/schema';
+import { BaseStorage } from '../base-storage';
+import type { JobLock } from '../types';
+import { db } from '../../db';
+import { JOB_LOCK_CONSTANTS } from '../../utils/constants';
 
 /**
  * JobLockStorage Class
@@ -43,7 +43,9 @@ export class JobLockStorage extends BaseStorage {
       throw new Error(`Invalid jobName: "${jobName}". Must be a non-empty string.`);
     }
     if (jobName.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH) {
-      throw new Error(`Invalid jobName: "${jobName}". Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters or less.`);
+      throw new Error(
+        `Invalid jobName: "${jobName}". Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_JOB_NAME_LENGTH} characters or less.`
+      );
     }
   }
 
@@ -51,11 +53,16 @@ export class JobLockStorage extends BaseStorage {
    * Validates that ttlSeconds is a positive integer within reasonable bounds
    */
   private validateTTL(ttlSeconds: number): void {
-    if (!Number.isInteger(ttlSeconds) || ttlSeconds < JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS) {
+    if (
+      !Number.isInteger(ttlSeconds) ||
+      ttlSeconds < JOB_LOCK_CONSTANTS.VALIDATION.MIN_TTL_SECONDS
+    ) {
       throw new Error(`Invalid ttlSeconds: ${ttlSeconds}. Must be a positive integer.`);
     }
     if (ttlSeconds > JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS) {
-      throw new Error(`Invalid ttlSeconds: ${ttlSeconds}. Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS} seconds (7 days) or less.`);
+      throw new Error(
+        `Invalid ttlSeconds: ${ttlSeconds}. Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_TTL_SECONDS} seconds (7 days) or less.`
+      );
     }
   }
 
@@ -67,7 +74,9 @@ export class JobLockStorage extends BaseStorage {
       throw new Error(`Invalid lockedBy: "${lockedBy}". Must be a non-empty string.`);
     }
     if (lockedBy.length > JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH) {
-      throw new Error(`Invalid lockedBy: "${lockedBy}". Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH} characters or less.`);
+      throw new Error(
+        `Invalid lockedBy: "${lockedBy}". Must be ${JOB_LOCK_CONSTANTS.VALIDATION.MAX_LOCKED_BY_LENGTH} characters or less.`
+      );
     }
   }
 
@@ -137,7 +146,7 @@ export class JobLockStorage extends BaseStorage {
           jobName,
           lockedBy,
           ttlSeconds,
-          lockId: result[0].id
+          lockId: result[0].id,
         });
         return { success: true, id: result[0].id };
       }
@@ -193,12 +202,7 @@ export class JobLockStorage extends BaseStorage {
           lockedAt: new Date(),
           expiresAt: newExpiresAt,
         })
-        .where(
-          and(
-            eq(jobLocks.jobName, jobName),
-            lte(jobLocks.expiresAt, new Date())
-          )
-        )
+        .where(and(eq(jobLocks.jobName, jobName), lte(jobLocks.expiresAt, new Date())))
         .returning({ id: jobLocks.id });
 
       const success = result.length > 0;
@@ -207,7 +211,7 @@ export class JobLockStorage extends BaseStorage {
         this.logSuccess('updateExpiredJobLock', {
           jobName,
           lockedBy,
-          lockId: result[0].id
+          lockId: result[0].id,
         });
         return { success: true, id: result[0].id };
       }
@@ -231,12 +235,7 @@ export class JobLockStorage extends BaseStorage {
     try {
       const result = await this.db
         .delete(jobLocks)
-        .where(
-          and(
-            eq(jobLocks.jobName, jobName),
-            eq(jobLocks.lockedBy, lockedBy)
-          )
-        )
+        .where(and(eq(jobLocks.jobName, jobName), eq(jobLocks.lockedBy, lockedBy)))
         .returning({ id: jobLocks.id });
 
       const released = result.length > 0;
@@ -274,12 +273,7 @@ export class JobLockStorage extends BaseStorage {
         .set({
           expiresAt: sql`${jobLocks.expiresAt} + (${additionalSeconds} * INTERVAL '1 second')`,
         })
-        .where(
-          and(
-            eq(jobLocks.jobName, jobName),
-            eq(jobLocks.lockedBy, lockedBy)
-          )
-        )
+        .where(and(eq(jobLocks.jobName, jobName), eq(jobLocks.lockedBy, lockedBy)))
         .returning({ id: jobLocks.id });
 
       const extended = result.length > 0;
@@ -306,12 +300,7 @@ export class JobLockStorage extends BaseStorage {
       const locks = await this.db
         .select({ id: jobLocks.id })
         .from(jobLocks)
-        .where(
-          and(
-            eq(jobLocks.jobName, jobName),
-            sql`${jobLocks.expiresAt} > NOW()`
-          )
-        )
+        .where(and(eq(jobLocks.jobName, jobName), sql`${jobLocks.expiresAt} > NOW()`))
         .limit(1);
 
       return locks.length > 0;

@@ -4,7 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -32,10 +38,12 @@ export function AdminSettings() {
     autoModerateNewPosts: false,
   });
 
-  const [originalPlatformSettings, setOriginalPlatformSettings] = useState<PlatformSettings>(platformSettings);
+  const [originalPlatformSettings, setOriginalPlatformSettings] =
+    useState<PlatformSettings>(platformSettings);
   const [originalForumSettings, setOriginalForumSettings] = useState<ForumSettings>(forumSettings);
 
-  const hasPlatformChanges = JSON.stringify(platformSettings) !== JSON.stringify(originalPlatformSettings);
+  const hasPlatformChanges =
+    JSON.stringify(platformSettings) !== JSON.stringify(originalPlatformSettings);
   const hasForumChanges = JSON.stringify(forumSettings) !== JSON.stringify(originalForumSettings);
 
   const savePlatformSettingsMutation = useMutation({
@@ -89,7 +97,7 @@ export function AdminSettings() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -100,9 +108,7 @@ export function AdminSettings() {
               </Badge>
             )}
           </CardTitle>
-          <CardDescription>
-            Configure main platform settings
-          </CardDescription>
+          <CardDescription>Configure main platform settings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -110,7 +116,9 @@ export function AdminSettings() {
             <Input
               id="platform-name"
               value={platformSettings.platformName}
-              onChange={(e) => setPlatformSettings(prev => ({ ...prev, platformName: e.target.value }))}
+              onChange={(e) =>
+                setPlatformSettings((prev) => ({ ...prev, platformName: e.target.value }))
+              }
               placeholder="Enter platform name"
             />
           </div>
@@ -118,7 +126,9 @@ export function AdminSettings() {
             <Label htmlFor="default-currency">Default Currency</Label>
             <Select
               value={platformSettings.defaultCurrency}
-              onValueChange={(value) => setPlatformSettings(prev => ({ ...prev, defaultCurrency: value }))}
+              onValueChange={(value) =>
+                setPlatformSettings((prev) => ({ ...prev, defaultCurrency: value }))
+              }
             >
               <SelectTrigger id="default-currency">
                 <SelectValue />
@@ -158,16 +168,16 @@ export function AdminSettings() {
               </Badge>
             )}
           </CardTitle>
-          <CardDescription>
-            Configure forum-specific settings
-          </CardDescription>
+          <CardDescription>Configure forum-specific settings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="allow-guest-posting">Allow Guest Posting</Label>
             <Select
               value={forumSettings.allowGuestPosting.toString()}
-              onValueChange={(value) => setForumSettings(prev => ({ ...prev, allowGuestPosting: value === 'true' }))}
+              onValueChange={(value) =>
+                setForumSettings((prev) => ({ ...prev, allowGuestPosting: value === 'true' }))
+              }
             >
               <SelectTrigger id="allow-guest-posting">
                 <SelectValue />
@@ -182,7 +192,9 @@ export function AdminSettings() {
             <Label htmlFor="auto-moderate-posts">Auto-moderate New Posts</Label>
             <Select
               value={forumSettings.autoModerateNewPosts.toString()}
-              onValueChange={(value) => setForumSettings(prev => ({ ...prev, autoModerateNewPosts: value === 'true' }))}
+              onValueChange={(value) =>
+                setForumSettings((prev) => ({ ...prev, autoModerateNewPosts: value === 'true' }))
+              }
             >
               <SelectTrigger id="auto-moderate-posts">
                 <SelectValue />

@@ -45,9 +45,7 @@ describe('PriceHistoryChart', () => {
     render(<PriceHistoryChart data={[]} isLoading={false} />);
 
     expect(screen.getByText(/no price history available yet/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/price tracking will begin shortly/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/price tracking will begin shortly/i)).toBeInTheDocument();
   });
 
   it('should render chart with price history data', () => {
@@ -55,9 +53,7 @@ describe('PriceHistoryChart', () => {
 
     // Check for chart title
     expect(screen.getByText('Price History')).toBeInTheDocument();
-    expect(
-      screen.getByText(/track price changes over time/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/track price changes over time/i)).toBeInTheDocument();
 
     // Check for retailer toggles
     expect(screen.getByText('Amazon')).toBeInTheDocument();
@@ -76,11 +72,7 @@ describe('PriceHistoryChart', () => {
 
   it('should filter displayed retailer buttons by selected retailer IDs', () => {
     render(
-      <PriceHistoryChart
-        data={mockPriceHistory}
-        isLoading={false}
-        selectedRetailerIds={[1]}
-      />
+      <PriceHistoryChart data={mockPriceHistory} isLoading={false} selectedRetailerIds={[1]} />
     );
 
     // Amazon button should be visible

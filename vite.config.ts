@@ -1,23 +1,20 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import path from "path";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import path from 'path';
 
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      '@': path.resolve(import.meta.dirname, 'client', 'src'),
+      '@shared': path.resolve(import.meta.dirname, 'shared'),
+      '@assets': path.resolve(import.meta.dirname, 'attached_assets'),
     },
   },
-  root: path.resolve(import.meta.dirname, "client"),
+  root: path.resolve(import.meta.dirname, 'client'),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
     // Performance optimization: Manual chunking for better caching and loading
     // See docs/PERFORMANCE_GUIDE.md for code splitting strategy
@@ -87,7 +84,7 @@ export default defineConfig({
   server: {
     fs: {
       strict: true,
-      deny: ["**/.*"],
+      deny: ['**/.*'],
     },
   },
 });

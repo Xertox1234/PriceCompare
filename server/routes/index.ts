@@ -1,30 +1,30 @@
-import { Express } from "express";
-import { createServer, type Server } from "http";
+import { Express } from 'express';
+import { createServer, type Server } from 'http';
 
 // Core routes
-import { registerHealthRoutes } from "./health-routes";
-import { registerAuthRoutes } from "./auth-routes";
-import { registerAlertRoutes } from "./alert-routes";
-import { registerRetailerRoutes } from "./retailer-routes";
-import { registerProductRoutes } from "./product-routes";
-import { registerAdminRoutes } from "./admin-routes";
-import { registerWatchListRoutes } from "./watchlist-routes";
-import { registerAggregationMetricsRoutes } from "./aggregation-metrics-routes";
-import { registerAdminAggregationRoutes } from "./admin-aggregation-routes";
+import { registerHealthRoutes } from './health-routes';
+import { registerAuthRoutes } from './auth-routes';
+import { registerAlertRoutes } from './alert-routes';
+import { registerRetailerRoutes } from './retailer-routes';
+import { registerProductRoutes } from './product-routes';
+import { registerAdminRoutes } from './admin-routes';
+import { registerWatchListRoutes } from './watchlist-routes';
+import { registerAggregationMetricsRoutes } from './aggregation-metrics-routes';
+import { registerAdminAggregationRoutes } from './admin-aggregation-routes';
 
 // Feature routes (previously registered in server/index.ts)
-import { registerScrapingRoutes } from "./scraping-routes";
-import { registerMonitoringRoutes } from "./monitoring-routes";
-import { registerAffiliateRoutes } from "./affiliate-routes";
-import { registerAdvancedSearchRoutes } from "./advanced-search-routes";
-import { registerPriceHistoryRoutes } from "./price-history-routes";
-import { registerPriceAnalyticsRoutes } from "./price-analytics-routes";
-import { registerNotificationRoutes } from "./notification-routes";
-import { registerSmartAlertsRoutes } from "./smart-alerts-routes";
-import { registerCommunityRoutes } from "./community-routes";
-import { registerWishlistRoutes } from "./wishlist-routes";
-import { registerSpecificationRoutes } from "./specification-routes";
-import { registerAgentLimitsRoutes } from "./agent-limits-routes";
+import { registerScrapingRoutes } from './scraping-routes';
+import { registerMonitoringRoutes } from './monitoring-routes';
+import { registerAffiliateRoutes } from './affiliate-routes';
+import { registerAdvancedSearchRoutes } from './advanced-search-routes';
+import { registerPriceHistoryRoutes } from './price-history-routes';
+import { registerPriceAnalyticsRoutes } from './price-analytics-routes';
+import { registerNotificationRoutes } from './notification-routes';
+import { registerSmartAlertsRoutes } from './smart-alerts-routes';
+import { registerCommunityRoutes } from './community-routes';
+import { registerWishlistRoutes } from './wishlist-routes';
+import { registerSpecificationRoutes } from './specification-routes';
+import { registerAgentLimitsRoutes } from './agent-limits-routes';
 
 /**
  * Register all application routes
@@ -55,7 +55,7 @@ import { registerAgentLimitsRoutes } from "./agent-limits-routes";
  * - aggregation-metrics-routes: Price aggregation metrics
  * - admin-aggregation-routes: Admin aggregation management
  */
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): Server {
   // Register core route modules
   registerHealthRoutes(app);
   registerAuthRoutes(app);
@@ -93,4 +93,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 // Export helper functions for use in other route modules
-export { withAuth, withAdmin, isAuthenticated } from "./helpers";
+export { withAuth, withAdmin, isAuthenticated } from './helpers';

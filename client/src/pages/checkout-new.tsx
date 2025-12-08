@@ -78,7 +78,8 @@ function CheckoutContent() {
     cvv: '',
   });
 
-  const shipping = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : shippingMethod === 'express' ? 19.99 : 9.99;
+  const shipping =
+    cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : shippingMethod === 'express' ? 19.99 : 9.99;
   const tax = cartTotal * 0.08; // 8% tax
   const total = cartTotal + shipping + tax;
 
@@ -129,7 +130,7 @@ function CheckoutContent() {
   // Redirect to cart if empty
   if (cartItems.length === 0 && !isProcessing) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen">
         <TemplateHeader
           onOpenCart={openCart}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
@@ -137,8 +138,10 @@ function CheckoutContent() {
           onOpenSearch={() => setSearchOpen(true)}
         />
         <div className="container mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
-          <p className="text-muted-foreground mb-8">Add some items to your cart before checking out.</p>
+          <h1 className="mb-4 text-2xl font-bold">Your cart is empty</h1>
+          <p className="text-muted-foreground mb-8">
+            Add some items to your cart before checking out.
+          </p>
           <Link href="/shop">
             <Button>Continue Shopping</Button>
           </Link>
@@ -149,7 +152,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       <TemplateHeader
         onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
@@ -158,17 +161,20 @@ function CheckoutContent() {
       />
 
       {/* Breadcrumbs */}
-      <div className="border-b border-border py-4">
+      <div className="border-border border-b py-4">
         <div className="container mx-auto px-4">
           <nav className="flex items-center gap-2 text-sm">
             <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
               Home
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <Link href="/cart" className="text-muted-foreground hover:text-primary transition-colors">
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+            <Link
+              href="/cart"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
               Cart
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
             <span className="text-foreground font-medium">Checkout</span>
           </nav>
         </div>
@@ -176,21 +182,22 @@ function CheckoutContent() {
 
       <main className="container mx-auto px-4 py-8">
         {/* Step Progress */}
-        <div className="flex items-center justify-center mb-8">
+        <div className="mb-8 flex items-center justify-center">
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
               <button
                 onClick={() => {
                   if (step.id === 'shipping') setCurrentStep('shipping');
-                  else if (step.id === 'payment' && currentStep !== 'shipping') setCurrentStep('payment');
+                  else if (step.id === 'payment' && currentStep !== 'shipping')
+                    setCurrentStep('payment');
                 }}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-full transition-colors',
+                  'flex items-center gap-2 rounded-full px-4 py-2 transition-colors',
                   currentStep === step.id
                     ? 'bg-primary text-white'
                     : steps.findIndex((s) => s.id === currentStep) > index
-                    ? 'bg-success/20 text-success'
-                    : 'bg-muted text-muted-foreground'
+                      ? 'bg-success/20 text-success'
+                      : 'bg-muted text-muted-foreground'
                 )}
               >
                 {steps.findIndex((s) => s.id === currentStep) > index ? (
@@ -198,12 +205,12 @@ function CheckoutContent() {
                 ) : (
                   step.icon
                 )}
-                <span className="hidden sm:inline font-medium">{step.label}</span>
+                <span className="hidden font-medium sm:inline">{step.label}</span>
               </button>
               {index < steps.length - 1 && (
                 <div
                   className={cn(
-                    'w-12 h-0.5 mx-2',
+                    'mx-2 h-0.5 w-12',
                     steps.findIndex((s) => s.id === currentStep) > index
                       ? 'bg-success'
                       : 'bg-border'
@@ -214,74 +221,82 @@ function CheckoutContent() {
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid gap-8 lg:grid-cols-3">
           {/* Checkout Form */}
           <div className="lg:col-span-2">
             {/* Shipping Step */}
             {currentStep === 'shipping' && (
               <form onSubmit={handleShippingSubmit} className="space-y-6">
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-primary" />
+                <div className="bg-card border-border rounded-2xl border p-6">
+                  <h2 className="text-foreground mb-6 flex items-center gap-2 text-xl font-bold">
+                    <MapPin className="text-primary h-5 w-5" />
                     Shipping Address
                   </h2>
 
                   <div className="grid gap-4">
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <Label htmlFor="firstName">First Name *</Label>
                         <div className="relative mt-1">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <User className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                           <Input
                             id="firstName"
                             required
                             className="pl-10"
                             value={shippingForm.firstName}
-                            onChange={(e) => setShippingForm({ ...shippingForm, firstName: e.target.value })}
+                            onChange={(e) =>
+                              setShippingForm({ ...shippingForm, firstName: e.target.value })
+                            }
                           />
                         </div>
                       </div>
                       <div>
                         <Label htmlFor="lastName">Last Name *</Label>
                         <div className="relative mt-1">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <User className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                           <Input
                             id="lastName"
                             required
                             className="pl-10"
                             value={shippingForm.lastName}
-                            onChange={(e) => setShippingForm({ ...shippingForm, lastName: e.target.value })}
+                            onChange={(e) =>
+                              setShippingForm({ ...shippingForm, lastName: e.target.value })
+                            }
                           />
                         </div>
                       </div>
                     </div>
 
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <Label htmlFor="email">Email *</Label>
                         <div className="relative mt-1">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Mail className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                           <Input
                             id="email"
                             type="email"
                             required
                             className="pl-10"
                             value={shippingForm.email}
-                            onChange={(e) => setShippingForm({ ...shippingForm, email: e.target.value })}
+                            onChange={(e) =>
+                              setShippingForm({ ...shippingForm, email: e.target.value })
+                            }
                           />
                         </div>
                       </div>
                       <div>
                         <Label htmlFor="phone">Phone *</Label>
                         <div className="relative mt-1">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Phone className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                           <Input
                             id="phone"
                             type="tel"
                             required
                             className="pl-10"
                             value={shippingForm.phone}
-                            onChange={(e) => setShippingForm({ ...shippingForm, phone: e.target.value })}
+                            onChange={(e) =>
+                              setShippingForm({ ...shippingForm, phone: e.target.value })
+                            }
                           />
                         </div>
                       </div>
@@ -290,13 +305,15 @@ function CheckoutContent() {
                     <div>
                       <Label htmlFor="address">Street Address *</Label>
                       <div className="relative mt-1">
-                        <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Home className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                         <Input
                           id="address"
                           required
                           className="pl-10"
                           value={shippingForm.address}
-                          onChange={(e) => setShippingForm({ ...shippingForm, address: e.target.value })}
+                          onChange={(e) =>
+                            setShippingForm({ ...shippingForm, address: e.target.value })
+                          }
                         />
                       </div>
                     </div>
@@ -304,17 +321,19 @@ function CheckoutContent() {
                     <div>
                       <Label htmlFor="apartment">Apartment, suite, etc.</Label>
                       <div className="relative mt-1">
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Building2 className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                         <Input
                           id="apartment"
                           className="pl-10"
                           value={shippingForm.apartment}
-                          onChange={(e) => setShippingForm({ ...shippingForm, apartment: e.target.value })}
+                          onChange={(e) =>
+                            setShippingForm({ ...shippingForm, apartment: e.target.value })
+                          }
                         />
                       </div>
                     </div>
 
-                    <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-3">
                       <div>
                         <Label htmlFor="city">City *</Label>
                         <Input
@@ -322,7 +341,9 @@ function CheckoutContent() {
                           required
                           className="mt-1"
                           value={shippingForm.city}
-                          onChange={(e) => setShippingForm({ ...shippingForm, city: e.target.value })}
+                          onChange={(e) =>
+                            setShippingForm({ ...shippingForm, city: e.target.value })
+                          }
                         />
                       </div>
                       <div>
@@ -332,7 +353,9 @@ function CheckoutContent() {
                           required
                           className="mt-1"
                           value={shippingForm.state}
-                          onChange={(e) => setShippingForm({ ...shippingForm, state: e.target.value })}
+                          onChange={(e) =>
+                            setShippingForm({ ...shippingForm, state: e.target.value })
+                          }
                         />
                       </div>
                       <div>
@@ -342,7 +365,9 @@ function CheckoutContent() {
                           required
                           className="mt-1"
                           value={shippingForm.zipCode}
-                          onChange={(e) => setShippingForm({ ...shippingForm, zipCode: e.target.value })}
+                          onChange={(e) =>
+                            setShippingForm({ ...shippingForm, zipCode: e.target.value })
+                          }
                         />
                       </div>
                     </div>
@@ -350,16 +375,16 @@ function CheckoutContent() {
                 </div>
 
                 {/* Shipping Method */}
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-                    <Truck className="h-5 w-5 text-primary" />
+                <div className="bg-card border-border rounded-2xl border p-6">
+                  <h2 className="text-foreground mb-6 flex items-center gap-2 text-xl font-bold">
+                    <Truck className="text-primary h-5 w-5" />
                     Shipping Method
                   </h2>
 
                   <div className="space-y-3">
                     <label
                       className={cn(
-                        'flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-colors',
+                        'flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 transition-colors',
                         shippingMethod === 'standard'
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-muted-foreground'
@@ -375,27 +400,29 @@ function CheckoutContent() {
                         />
                         <div
                           className={cn(
-                            'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                            shippingMethod === 'standard' ? 'border-primary' : 'border-muted-foreground'
+                            'flex h-5 w-5 items-center justify-center rounded-full border-2',
+                            shippingMethod === 'standard'
+                              ? 'border-primary'
+                              : 'border-muted-foreground'
                           )}
                         >
                           {shippingMethod === 'standard' && (
-                            <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                            <div className="bg-primary h-2.5 w-2.5 rounded-full" />
                           )}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">Standard Shipping</p>
-                          <p className="text-sm text-muted-foreground">5-7 business days</p>
+                          <p className="text-foreground font-medium">Standard Shipping</p>
+                          <p className="text-muted-foreground text-sm">5-7 business days</p>
                         </div>
                       </div>
-                      <span className="font-semibold text-foreground">
+                      <span className="text-foreground font-semibold">
                         {cartTotal >= FREE_SHIPPING_THRESHOLD ? 'FREE' : '$9.99'}
                       </span>
                     </label>
 
                     <label
                       className={cn(
-                        'flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-colors',
+                        'flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 transition-colors',
                         shippingMethod === 'express'
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-muted-foreground'
@@ -411,27 +438,32 @@ function CheckoutContent() {
                         />
                         <div
                           className={cn(
-                            'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                            shippingMethod === 'express' ? 'border-primary' : 'border-muted-foreground'
+                            'flex h-5 w-5 items-center justify-center rounded-full border-2',
+                            shippingMethod === 'express'
+                              ? 'border-primary'
+                              : 'border-muted-foreground'
                           )}
                         >
                           {shippingMethod === 'express' && (
-                            <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                            <div className="bg-primary h-2.5 w-2.5 rounded-full" />
                           )}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">Express Shipping</p>
-                          <p className="text-sm text-muted-foreground">2-3 business days</p>
+                          <p className="text-foreground font-medium">Express Shipping</p>
+                          <p className="text-muted-foreground text-sm">2-3 business days</p>
                         </div>
                       </div>
-                      <span className="font-semibold text-foreground">$19.99</span>
+                      <span className="text-foreground font-semibold">$19.99</span>
                     </label>
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full py-6 text-base bg-primary hover:bg-primary-hover">
+                <Button
+                  type="submit"
+                  className="bg-primary hover:bg-primary-hover w-full py-6 text-base"
+                >
                   Continue to Payment
-                  <ChevronRight className="h-5 w-5 ml-2" />
+                  <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               </form>
             )}
@@ -439,9 +471,9 @@ function CheckoutContent() {
             {/* Payment Step */}
             {currentStep === 'payment' && (
               <form onSubmit={handlePaymentSubmit} className="space-y-6">
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-primary" />
+                <div className="bg-card border-border rounded-2xl border p-6">
+                  <h2 className="text-foreground mb-6 flex items-center gap-2 text-xl font-bold">
+                    <CreditCard className="text-primary h-5 w-5" />
                     Payment Information
                   </h2>
 
@@ -449,7 +481,7 @@ function CheckoutContent() {
                     <div>
                       <Label htmlFor="cardNumber">Card Number *</Label>
                       <div className="relative mt-1">
-                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <CreditCard className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                         <Input
                           id="cardNumber"
                           required
@@ -458,7 +490,10 @@ function CheckoutContent() {
                           maxLength={19}
                           value={paymentForm.cardNumber}
                           onChange={(e) =>
-                            setPaymentForm({ ...paymentForm, cardNumber: formatCardNumber(e.target.value) })
+                            setPaymentForm({
+                              ...paymentForm,
+                              cardNumber: formatCardNumber(e.target.value),
+                            })
                           }
                         />
                       </div>
@@ -472,7 +507,9 @@ function CheckoutContent() {
                         placeholder="John Doe"
                         className="mt-1"
                         value={paymentForm.cardName}
-                        onChange={(e) => setPaymentForm({ ...paymentForm, cardName: e.target.value })}
+                        onChange={(e) =>
+                          setPaymentForm({ ...paymentForm, cardName: e.target.value })
+                        }
                       />
                     </div>
 
@@ -501,16 +538,19 @@ function CheckoutContent() {
                           maxLength={4}
                           value={paymentForm.cvv}
                           onChange={(e) =>
-                            setPaymentForm({ ...paymentForm, cvv: e.target.value.replace(/\D/g, '') })
+                            setPaymentForm({
+                              ...paymentForm,
+                              cvv: e.target.value.replace(/\D/g, ''),
+                            })
                           }
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-6 p-4 bg-muted/50 rounded-xl flex items-center gap-3">
-                    <Lock className="h-5 w-5 text-primary" />
-                    <p className="text-sm text-muted-foreground">
+                  <div className="bg-muted/50 mt-6 flex items-center gap-3 rounded-xl p-4">
+                    <Lock className="text-primary h-5 w-5" />
+                    <p className="text-muted-foreground text-sm">
                       Your payment information is encrypted and secure
                     </p>
                   </div>
@@ -525,9 +565,9 @@ function CheckoutContent() {
                   >
                     Back to Shipping
                   </Button>
-                  <Button type="submit" className="flex-1 py-6 bg-primary hover:bg-primary-hover">
+                  <Button type="submit" className="bg-primary hover:bg-primary-hover flex-1 py-6">
                     Review Order
-                    <ChevronRight className="h-5 w-5 ml-2" />
+                    <ChevronRight className="ml-2 h-5 w-5" />
                   </Button>
                 </div>
               </form>
@@ -537,21 +577,21 @@ function CheckoutContent() {
             {currentStep === 'review' && (
               <div className="space-y-6">
                 {/* Shipping Summary */}
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                      <MapPin className="h-5 w-5 text-primary" />
+                <div className="bg-card border-border rounded-2xl border p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
+                      <MapPin className="text-primary h-5 w-5" />
                       Shipping Address
                     </h2>
                     <button
                       onClick={() => setCurrentStep('shipping')}
-                      className="text-sm text-primary hover:underline"
+                      className="text-primary text-sm hover:underline"
                     >
                       Edit
                     </button>
                   </div>
                   <div className="text-muted-foreground">
-                    <p className="font-medium text-foreground">
+                    <p className="text-foreground font-medium">
                       {shippingForm.firstName} {shippingForm.lastName}
                     </p>
                     <p>{shippingForm.address}</p>
@@ -565,21 +605,21 @@ function CheckoutContent() {
                 </div>
 
                 {/* Payment Summary */}
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-primary" />
+                <div className="bg-card border-border rounded-2xl border p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
+                      <CreditCard className="text-primary h-5 w-5" />
                       Payment Method
                     </h2>
                     <button
                       onClick={() => setCurrentStep('payment')}
-                      className="text-sm text-primary hover:underline"
+                      className="text-primary text-sm hover:underline"
                     >
                       Edit
                     </button>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-8 bg-muted rounded flex items-center justify-center text-xs font-bold">
+                    <div className="bg-muted flex h-8 w-12 items-center justify-center rounded text-xs font-bold">
                       VISA
                     </div>
                     <p className="text-muted-foreground">
@@ -589,23 +629,23 @@ function CheckoutContent() {
                 </div>
 
                 {/* Order Items */}
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <h2 className="text-xl font-bold text-foreground mb-4">Order Items</h2>
+                <div className="bg-card border-border rounded-2xl border p-6">
+                  <h2 className="text-foreground mb-4 text-xl font-bold">Order Items</h2>
                   <div className="space-y-4">
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex gap-4">
-                        <div className="w-16 h-16 bg-muted rounded-lg overflow-hidden">
+                        <div className="bg-muted h-16 w-16 overflow-hidden rounded-lg">
                           <img
                             src={item.image}
                             alt={item.name}
-                            className="w-full h-full object-cover"
+                            className="h-full w-full object-cover"
                           />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-foreground line-clamp-1">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                          <p className="text-foreground line-clamp-1 font-medium">{item.name}</p>
+                          <p className="text-muted-foreground text-sm">Qty: {item.quantity}</p>
                         </div>
-                        <p className="font-semibold text-foreground">
+                        <p className="text-foreground font-semibold">
                           ${(item.price * item.quantity).toFixed(2)}
                         </p>
                       </div>
@@ -625,16 +665,16 @@ function CheckoutContent() {
                   <Button
                     onClick={() => void handlePlaceOrder()}
                     disabled={isProcessing}
-                    className="flex-1 py-6 bg-primary hover:bg-primary-hover"
+                    className="bg-primary hover:bg-primary-hover flex-1 py-6"
                   >
                     {isProcessing ? (
                       <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                         Processing...
                       </>
                     ) : (
                       <>
-                        <Lock className="h-5 w-5 mr-2" />
+                        <Lock className="mr-2 h-5 w-5" />
                         Place Order - ${total.toFixed(2)}
                       </>
                     )}
@@ -646,26 +686,28 @@ function CheckoutContent() {
 
           {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-card rounded-2xl border border-border p-6 sticky top-4 space-y-6">
-              <h2 className="text-xl font-bold text-foreground">Order Summary</h2>
+            <div className="bg-card border-border sticky top-4 space-y-6 rounded-2xl border p-6">
+              <h2 className="text-foreground text-xl font-bold">Order Summary</h2>
 
               {/* Items */}
-              <div className="space-y-3 max-h-64 overflow-y-auto">
+              <div className="max-h-64 space-y-3 overflow-y-auto">
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex gap-3">
-                    <div className="relative w-14 h-14 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="bg-muted relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
                       <img
                         src={item.image}
                         alt={item.name}
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs rounded-full flex items-center justify-center">
+                      <span className="bg-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs text-white">
                         {item.quantity}
                       </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground line-clamp-2">{item.name}</p>
-                      <p className="text-sm text-primary font-semibold">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-foreground line-clamp-2 text-sm font-medium">
+                        {item.name}
+                      </p>
+                      <p className="text-primary text-sm font-semibold">
                         ${(item.price * item.quantity).toFixed(2)}
                       </p>
                     </div>
@@ -674,38 +716,38 @@ function CheckoutContent() {
               </div>
 
               {/* Price Breakdown */}
-              <div className="space-y-3 pt-4 border-t border-border">
+              <div className="border-border space-y-3 border-t pt-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium text-foreground">${cartTotal.toFixed(2)}</span>
+                  <span className="text-foreground font-medium">${cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
                   {shipping === 0 ? (
-                    <span className="font-medium text-success">FREE</span>
+                    <span className="text-success font-medium">FREE</span>
                   ) : (
-                    <span className="font-medium text-foreground">${shipping.toFixed(2)}</span>
+                    <span className="text-foreground font-medium">${shipping.toFixed(2)}</span>
                   )}
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tax (8%)</span>
-                  <span className="font-medium text-foreground">${tax.toFixed(2)}</span>
+                  <span className="text-foreground font-medium">${tax.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between pt-3 border-t border-border">
-                  <span className="text-lg font-bold text-foreground">Total</span>
-                  <span className="text-lg font-bold text-primary">${total.toFixed(2)}</span>
+                <div className="border-border flex justify-between border-t pt-3">
+                  <span className="text-foreground text-lg font-bold">Total</span>
+                  <span className="text-primary text-lg font-bold">${total.toFixed(2)}</span>
                 </div>
               </div>
 
               {/* Trust Badges */}
-              <div className="grid grid-cols-2 gap-3 pt-4 border-t border-border">
-                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                  <Shield className="h-5 w-5 text-primary" />
-                  <span className="text-xs text-muted-foreground">Secure Payment</span>
+              <div className="border-border grid grid-cols-2 gap-3 border-t pt-4">
+                <div className="bg-muted/50 flex items-center gap-2 rounded-lg p-3">
+                  <Shield className="text-primary h-5 w-5" />
+                  <span className="text-muted-foreground text-xs">Secure Payment</span>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                  <Lock className="h-5 w-5 text-primary" />
-                  <span className="text-xs text-muted-foreground">SSL Encrypted</span>
+                <div className="bg-muted/50 flex items-center gap-2 rounded-lg p-3">
+                  <Lock className="text-primary h-5 w-5" />
+                  <span className="text-muted-foreground text-xs">SSL Encrypted</span>
                 </div>
               </div>
             </div>

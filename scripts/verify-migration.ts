@@ -14,7 +14,7 @@ async function verify() {
     `);
 
     console.log('✅ price_aggregates_daily table structure:');
-    result.rows.forEach(r => console.log(`  - ${r.column_name}: ${r.data_type}`));
+    result.rows.forEach((r) => console.log(`  - ${r.column_name}: ${r.data_type}`));
 
     const checkAggregated = await client.query(`
       SELECT column_name
@@ -25,7 +25,6 @@ async function verify() {
     if (checkAggregated.rows.length > 0) {
       console.log('\n✅ price_history.aggregated_at column added');
     }
-
   } finally {
     client.release();
     await pool.end();

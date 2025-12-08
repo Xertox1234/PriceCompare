@@ -1,11 +1,11 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient, QueryFunction } from '@tanstack/react-query';
 import {
   ApiResponse,
   isErrorResponse,
   isSuccessResponse,
   isPaginatedResponse,
   unwrapApiResponse,
-} from "@shared/api-types";
+} from '@shared/api-types';
 
 // Store CSRF token in memory
 let csrfToken: string | null = null;
@@ -39,12 +39,9 @@ export class ApiError extends Error {
  * @returns Unwrapped data of type T
  * @throws ApiError with status code and details
  */
-export async function apiRequest<T = unknown>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
+export async function apiRequest<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
 
   // Merge existing headers
@@ -65,7 +62,7 @@ export async function apiRequest<T = unknown>(
   const defaultOptions: RequestInit = {
     method: 'GET',
     headers,
-    credentials: "include",
+    credentials: 'include',
     ...options,
   };
 
@@ -112,11 +109,7 @@ export async function apiRequest<T = unknown>(
 
     // Handle error responses
     if (isErrorResponse(envelopeResponse)) {
-      throw new ApiError(
-        envelopeResponse.error,
-        res.status,
-        envelopeResponse.details
-      );
+      throw new ApiError(envelopeResponse.error, res.status, envelopeResponse.details);
     }
 
     // Unwrap and return data from success responses
@@ -144,16 +137,14 @@ export async function apiRequest<T = unknown>(
   return parsedResponse as T;
 }
 
-type UnauthorizedBehavior = "returnNull" | "throw";
-export function getQueryFn<T>(options: {
-  on401: UnauthorizedBehavior;
-}): QueryFunction<T> {
+type UnauthorizedBehavior = 'returnNull' | 'throw';
+export function getQueryFn<T>(options: { on401: UnauthorizedBehavior }): QueryFunction<T> {
   return async ({ queryKey }) => {
     const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
+      credentials: 'include',
     });
 
-    if (options.on401 === "returnNull" && res.status === 401) {
+    if (options.on401 === 'returnNull' && res.status === 401) {
       return null as T;
     }
 
@@ -180,7 +171,7 @@ export function getQueryFn<T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: getQueryFn({ on401: 'throw' }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       // Performance optimization: Longer cache times for product data
@@ -244,10 +235,7 @@ export const queryClient = new QueryClient({
  * }
  * ```
  */
-export function createApiQueryFn<T>(
-  url: string,
-  options?: RequestInit
-): () => Promise<T> {
+export function createApiQueryFn<T>(url: string, options?: RequestInit): () => Promise<T> {
   return async () => {
     return apiRequest<T>(url, options);
   };

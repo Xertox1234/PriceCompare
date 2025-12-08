@@ -21,6 +21,7 @@ import './helpers/mock-logger';
 ```
 
 **What It Does:**
+
 - Mocks `redisClient`, `getRedisClient()`, `isRedisConnected()`, etc.
 - Mocks `log()`, `logger` from `utils/logger`
 - Applied automatically via Vitest `vi.mock()`
@@ -50,7 +51,7 @@ import {
   createTestTimestamp,
 
   // Cleanup
-  cleanupTestData
+  cleanupTestData,
 } from './helpers/test-fixtures';
 ```
 
@@ -62,7 +63,7 @@ import {
 
 ```typescript
 // ✅ CORRECT
-import './helpers/mock-redis';  // Auto-applies Redis mock
+import './helpers/mock-redis'; // Auto-applies Redis mock
 import './helpers/mock-logger'; // Auto-applies logger mock
 import { createTestProduct, cleanupTestData } from './helpers/test-fixtures';
 import { db } from '../db';
@@ -92,12 +93,12 @@ import { createTestProduct, createTestRetailer } from './helpers/test-fixtures';
 it('should handle different categories', async () => {
   const electronicsProduct = createTestProduct({
     name: 'MacBook Pro',
-    category: 'Electronics'
+    category: 'Electronics',
   });
 
   const clothingProduct = createTestProduct({
     name: 'T-Shirt',
-    category: 'Clothing'
+    category: 'Clothing',
   });
 
   // Both have same defaults except overridden fields
@@ -126,7 +127,7 @@ it('should create price history for last 7 days', async () => {
   const baseDate = new Date();
   const priceHistory = createTestPriceHistoryBatch(7, baseDate, {
     productId: 123,
-    price: '99.99'
+    price: '99.99',
   });
 
   expect(priceHistory).toHaveLength(7);
@@ -146,12 +147,12 @@ describe('Integration Tests', () => {
   afterEach(async () => {
     // TRUNCATE CASCADE - handles foreign keys automatically
     await cleanupTestData(db, [
-      'product_watches',  // Dependent tables first
+      'product_watches', // Dependent tables first
       'watch_lists',
       'product_offers',
       'products',
       'retailers',
-      'users'            // Independent tables last
+      'users', // Independent tables last
     ]);
   });
 
@@ -167,9 +168,9 @@ describe('Integration Tests', () => {
 import { createTestDate, createTestTimestamp } from './helpers/test-fixtures';
 
 it('should use timezone-safe dates', () => {
-  const today = createTestDate(0);        // Today at noon local
-  const yesterday = createTestDate(-1);   // Yesterday at noon local
-  const tomorrow = createTestDate(1);     // Tomorrow at noon local
+  const today = createTestDate(0); // Today at noon local
+  const yesterday = createTestDate(-1); // Yesterday at noon local
+  const tomorrow = createTestDate(1); // Tomorrow at noon local
 
   // All dates are at noon local time (12:00:00)
   expect(today.getHours()).toBe(12);
@@ -228,7 +229,7 @@ describe('Database Integration Tests', () => {
 
     // Query to verify persistence
     const found = await db.query.products.findFirst({
-      where: eq(products.id, saved.id)
+      where: eq(products.id, saved.id),
     });
 
     expect(found).toBeDefined();
@@ -246,8 +247,8 @@ describe('Database Integration Tests', () => {
 ```typescript
 // ❌ BAD - ID will conflict with auto-generated database ID
 const testProduct = {
-  id: 1,  // Don't do this!
-  name: 'Test'
+  id: 1, // Don't do this!
+  name: 'Test',
 };
 ```
 
@@ -269,7 +270,7 @@ const testDate = '2025-12-05T00:00:00Z';
 
 ```typescript
 // ✅ GOOD - Timezone-safe
-const testDate = createTestDate(0);  // Noon local time
+const testDate = createTestDate(0); // Noon local time
 ```
 
 ---
@@ -282,7 +283,7 @@ vi.mock('../config/redis', () => ({
   redisClient: {
     get: vi.fn(),
     // ... 40 more lines
-  }
+  },
 }));
 ```
 
@@ -299,7 +300,7 @@ import './helpers/mock-redis';
 // ❌ BAD - Only mocks 2 methods, service calls 5
 const mockStorage = {
   getProductById: vi.fn(),
-  createProduct: vi.fn()
+  createProduct: vi.fn(),
 } as unknown as IStorage;
 ```
 
@@ -310,7 +311,7 @@ const mockStorage = {
   createProduct: vi.fn().mockResolvedValue({ id: 1 }),
   updateProduct: vi.fn().mockResolvedValue({ id: 1 }),
   deleteProduct: vi.fn().mockResolvedValue(undefined),
-  getProductsByCategory: vi.fn().mockResolvedValue([])
+  getProductsByCategory: vi.fn().mockResolvedValue([]),
 } as unknown as IStorage;
 ```
 
@@ -374,7 +375,7 @@ describe('Debug Mock', () => {
 ```typescript
 describe('Tests', () => {
   beforeEach(() => {
-    vi.clearAllMocks();  // Clear all mock call history
+    vi.clearAllMocks(); // Clear all mock call history
   });
 
   it('should start with clean mocks', () => {

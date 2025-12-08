@@ -11,6 +11,7 @@ Updated all 11 subagent configuration files to reference the new consolidated pa
 ## Issue Identified
 
 After the pattern consolidation (21 files → 7 files) on 2025-11-29, subagent configuration files were still referencing old pattern file names:
+
 - `docs/DATABASE_PATTERNS.md` → Now `docs/02_DATABASE_PATTERNS.md`
 - `docs/SECURITY_PATTERNS.md` → Now `docs/04_SECURITY_PATTERNS.md`
 - `docs/TYPESCRIPT_PATTERNS.md` → Now `docs/01_TYPESCRIPT_PATTERNS.md`
@@ -25,6 +26,7 @@ After the pattern consolidation (21 files → 7 files) on 2025-11-29, subagent c
 ## Agents Updated (11 total)
 
 ### ✅ Review Agents (3)
+
 1. **code-review-specialist.md**
    - Updated "Required Reading" section
    - Updated all pattern file references throughout document
@@ -40,6 +42,7 @@ After the pattern consolidation (21 files → 7 files) on 2025-11-29, subagent c
    - Consolidated multiple old pattern references into comprehensive descriptions
 
 ### ✅ Domain Specialists (7)
+
 4. **backend-architect.md**
    - Updated to reference 6 consolidated pattern files
    - Added consolidation notice
@@ -82,22 +85,24 @@ After the pattern consolidation (21 files → 7 files) on 2025-11-29, subagent c
 ## Changes Made
 
 ### Pattern File Mapping Applied
+
 Each agent now references the consolidated files:
 
-| Old Reference | New Reference |
-|---------------|---------------|
-| `docs/TYPESCRIPT_PATTERNS.md` | `docs/01_TYPESCRIPT_PATTERNS.md` |
-| `docs/DATABASE_PATTERNS.md` | `docs/02_DATABASE_PATTERNS.md` |
-| `docs/API_PATTERNS.md` | `docs/03_API_PATTERNS.md` |
-| `docs/API_TESTING_PATTERNS.md` | `docs/03_API_PATTERNS.md` (merged) |
-| `docs/SECURITY_PATTERNS.md` | `docs/04_SECURITY_PATTERNS.md` |
-| `docs/ERROR_HANDLING_PATTERNS.md` | `docs/06_ERROR_HANDLING_PATTERNS.md` |
-| `.claude/knowledge/storage-*.md` | `docs/02_DATABASE_PATTERNS.md` (merged) |
-| `.claude/knowledge/phase-8-*.md` | `docs/02_DATABASE_PATTERNS.md` (merged) |
-| `docs/PHASE0_WATCHLIST_PATTERNS.md` | Merged into domain files |
+| Old Reference                       | New Reference                           |
+| ----------------------------------- | --------------------------------------- |
+| `docs/TYPESCRIPT_PATTERNS.md`       | `docs/01_TYPESCRIPT_PATTERNS.md`        |
+| `docs/DATABASE_PATTERNS.md`         | `docs/02_DATABASE_PATTERNS.md`          |
+| `docs/API_PATTERNS.md`              | `docs/03_API_PATTERNS.md`               |
+| `docs/API_TESTING_PATTERNS.md`      | `docs/03_API_PATTERNS.md` (merged)      |
+| `docs/SECURITY_PATTERNS.md`         | `docs/04_SECURITY_PATTERNS.md`          |
+| `docs/ERROR_HANDLING_PATTERNS.md`   | `docs/06_ERROR_HANDLING_PATTERNS.md`    |
+| `.claude/knowledge/storage-*.md`    | `docs/02_DATABASE_PATTERNS.md` (merged) |
+| `.claude/knowledge/phase-8-*.md`    | `docs/02_DATABASE_PATTERNS.md` (merged) |
+| `docs/PHASE0_WATCHLIST_PATTERNS.md` | Merged into domain files                |
 | `docs/PHASE1_WATCHLIST_PATTERNS.md` | `docs/05_FRONTEND_PATTERNS.md` (merged) |
 
 ### Standardized Header Format
+
 All agents now have a consistent "Required Reading" section:
 
 ```markdown
@@ -108,9 +113,10 @@ All agents now have a consistent "Required Reading" section:
 **You MUST be familiar with these established patterns:**
 
 ### Core Pattern Files (docs/) - CONSOLIDATED
+
 1. `/Users/williamtower/projects/PriceCompare/docs/01_TYPESCRIPT_PATTERNS.md` - ...
 2. `/Users/williamtower/projects/PriceCompare/docs/02_DATABASE_PATTERNS.md` - ...
-...
+   ...
 
 **Each pattern has ONE canonical location. Old pattern file references have been consolidated.**
 ```
@@ -125,18 +131,21 @@ All agents now have a consistent "Required Reading" section:
 ## Benefits Achieved
 
 ### For Subagents
+
 1. ✅ **Accurate pattern references** - No more 404s when looking up patterns
 2. ✅ **Single source of truth** - One canonical location per pattern (e.g., CSRF in 04_SECURITY_PATTERNS.md)
 3. ✅ **Clearer organization** - Domain-based organization easier to understand
 4. ✅ **Reduced confusion** - No conflicts between duplicate pattern documentation
 
 ### For Development Workflow
+
 1. ✅ **Code review agents** - Now reference correct pattern files when reviewing code
 2. ✅ **Specialist agents** - Can find patterns quickly (numbered 01-07)
 3. ✅ **Orchestrator** - Has complete view of all patterns for cross-domain coordination
 4. ✅ **Pattern enforcement** - Agents can actually enforce the patterns that were codified
 
 ### For Pattern Maintenance
+
 1. ✅ **Update once** - Change pattern in one file, all agents see it
 2. ✅ **No duplication** - Can't have conflicting versions of same pattern
 3. ✅ **Discoverable** - Numbered files (01-07) make it obvious what exists
@@ -144,6 +153,7 @@ All agents now have a consistent "Required Reading" section:
 ## Files Modified
 
 ### Subagent Configuration Files
+
 1. `.claude/agents/code-review-specialist.md` - Updated "Required Reading" + all pattern references
 2. `.claude/agents/code-review-specialist-v1.1.md` - Updated "Required Knowledge Base" + few-shot examples
 3. `.claude/agents/typescript-reviewer.md` - Updated "Required Reading"
@@ -157,11 +167,13 @@ All agents now have a consistent "Required Reading" section:
 11. `.claude/agents/extension-builder.md` - Updated "Required Reading"
 
 ### Documentation Files Created
+
 - This file: `SUBAGENT_PATTERN_UPDATE_COMPLETE.md`
 
 ## Related Work
 
 This update completes the pattern consolidation effort:
+
 1. ✅ Pattern files consolidated (21 → 7) - `PATTERN_CONSOLIDATION_COMPLETE.md`
 2. ✅ CLAUDE.md updated with new pattern file references
 3. ✅ .claude/PATTERN_INDEX.md updated with consolidation details
@@ -170,12 +182,14 @@ This update completes the pattern consolidation effort:
 ## Testing Recommendations
 
 **Manual verification needed:**
+
 1. Invoke each subagent and verify it can find pattern files
 2. Check that code-review-specialist can cite specific patterns
 3. Verify orchestrator can reference all 7 pattern files
 4. Test that pattern citations in reviews use new file names
 
 **Example test:**
+
 ```bash
 # Invoke code-review-specialist and verify it references 04_SECURITY_PATTERNS.md
 # when reviewing CSRF protection, not the old SECURITY_PATTERNS.md

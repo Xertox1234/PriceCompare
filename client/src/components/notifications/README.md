@@ -32,6 +32,7 @@ This implementation provides a complete frontend for the Smart Notifications sys
 Displays a single smart notification with urgency-based styling.
 
 **Features:**
+
 - Urgency indicators (critical, high, medium, low)
 - Reasoning bullets with checkmarks
 - Savings calculator display
@@ -41,6 +42,7 @@ Displays a single smart notification with urgency-based styling.
 - "View Product" CTA
 
 **Props:**
+
 ```typescript
 interface SmartAlertCardProps {
   notification: SmartNotification;
@@ -50,6 +52,7 @@ interface SmartAlertCardProps {
 ```
 
 **Usage:**
+
 ```tsx
 import { SmartAlertCard } from '@/components/notifications';
 
@@ -57,7 +60,7 @@ import { SmartAlertCard } from '@/components/notifications';
   notification={notification}
   onDismiss={(id) => dismissMutation.mutate(id)}
   onSnooze={(id, duration) => snoozeMutation.mutate({ id, duration })}
-/>
+/>;
 ```
 
 ### NotificationCenter
@@ -65,6 +68,7 @@ import { SmartAlertCard } from '@/components/notifications';
 Full notification center with tabs for smart alerts and general notifications.
 
 **Features:**
+
 - Tabbed interface (Smart Alerts | General)
 - Unread count badges
 - Urgency filter dropdown
@@ -74,10 +78,11 @@ Full notification center with tabs for smart alerts and general notifications.
 - Responsive design
 
 **Usage:**
+
 ```tsx
 import { NotificationCenter } from '@/components/notifications';
 
-<NotificationCenter />
+<NotificationCenter />;
 ```
 
 ## Hooks
@@ -87,6 +92,7 @@ import { NotificationCenter } from '@/components/notifications';
 Query hook to fetch smart notifications with optional filters.
 
 **Filters:**
+
 ```typescript
 interface SmartNotificationFilters {
   urgency?: 'critical' | 'high' | 'medium' | 'low';
@@ -97,6 +103,7 @@ interface SmartNotificationFilters {
 ```
 
 **Returns:**
+
 - `data: SmartNotificationsResponse` - Notification data
 - `isLoading: boolean` - Loading state
 - `error: Error | null` - Error state
@@ -105,11 +112,12 @@ interface SmartNotificationFilters {
 **Polling:** Automatically polls every 30 seconds for updates.
 
 **Usage:**
+
 ```tsx
 const { data, isLoading } = useSmartNotifications({
   urgency: 'high',
   unread: true,
-  limit: 20
+  limit: 20,
 });
 ```
 
@@ -118,17 +126,19 @@ const { data, isLoading } = useSmartNotifications({
 Mutation hook to snooze a notification.
 
 **Returns:**
+
 - `mutate: (params: { id: number, duration: number }) => void`
 - `isPending: boolean`
 - `error: Error | null`
 
 **Usage:**
+
 ```tsx
 const snooze = useSnoozeNotification();
 
 snooze.mutate({
   id: notificationId,
-  duration: 3600 // 1 hour in seconds
+  duration: 3600, // 1 hour in seconds
 });
 ```
 
@@ -137,11 +147,13 @@ snooze.mutate({
 Mutation hook to dismiss a notification.
 
 **Returns:**
+
 - `mutate: (id: number) => void`
 - `isPending: boolean`
 - `error: Error | null`
 
 **Usage:**
+
 ```tsx
 const dismiss = useDismissNotification();
 
@@ -153,6 +165,7 @@ dismiss.mutate(notificationId);
 WebSocket hook for real-time notification delivery.
 
 **Features:**
+
 - Auto-connects to Socket.IO server
 - Listens for `notification:new` events
 - Updates React Query cache optimistically
@@ -160,10 +173,12 @@ WebSocket hook for real-time notification delivery.
 - Auto-reconnects on disconnect
 
 **Returns:**
+
 - `isConnected: boolean` - Connection status
 - `socket: Socket | null` - Socket instance
 
 **Usage:**
+
 ```tsx
 // Initialize in App.tsx or root component
 function App() {
@@ -180,22 +195,24 @@ function App() {
 ### Colors (Tailwind Classes)
 
 **Urgency-based styling:**
+
 ```typescript
 const urgencyColors = {
   critical: 'border-red-500 bg-red-50 dark:bg-red-950',
   high: 'border-amber-500 bg-amber-50 dark:bg-amber-950',
   medium: 'border-blue-500 bg-blue-50 dark:bg-blue-950',
-  low: 'border-gray-500 bg-gray-50 dark:bg-gray-950'
+  low: 'border-gray-500 bg-gray-50 dark:bg-gray-950',
 };
 ```
 
 **Badge variants:**
+
 ```typescript
 const urgencyVariant = {
   critical: 'destructive',
   high: 'default',
   medium: 'secondary',
-  low: 'outline'
+  low: 'outline',
 };
 ```
 
@@ -214,20 +231,24 @@ const urgencyVariant = {
 ### Endpoints
 
 **GET /api/notifications/smart**
+
 - Fetches smart notifications with filters
 - Query params: `urgency`, `unread`, `limit`, `offset`
 
 **POST /api/notifications/smart/:id/snooze**
+
 - Snoozes a notification
 - Body: `{ duration: number }` (seconds)
 
 **POST /api/notifications/smart/:id/dismiss**
+
 - Dismisses a notification
 - No body required
 
 ### WebSocket Events
 
 **Event: `notification:new`**
+
 ```typescript
 {
   userId: number;
@@ -298,6 +319,7 @@ Potential improvements for future iterations:
 ### WebSocket not connecting
 
 Check browser console for errors. Common issues:
+
 - Server not running
 - Incorrect Socket.IO path (`/socket.io`)
 - CORS issues (check server config)
@@ -319,11 +341,13 @@ Check browser console for errors. Common issues:
 ## Related Files
 
 **Backend:**
+
 - `server/notification-routes.ts` - API endpoints
 - `server/services/smart-notification-service.ts` - Business logic
 - `server/services/websocket-service.ts` - WebSocket server
 
 **Frontend:**
+
 - `client/src/App.tsx` - WebSocket initialization
 - `client/src/hooks/use-notifications.ts` - General notifications
 - `client/src/components/ui/toast.tsx` - Toast component

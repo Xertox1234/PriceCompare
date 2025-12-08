@@ -206,40 +206,25 @@ function emitProductRemovedInternal(
 export function setupWatchListEventSubscriptions(io: Server): void {
   // Subscribe to watch list updated events from storage layer
   eventBus.on(AppEvents.WATCHLIST_UPDATED, (payload) => {
-    emitWatchListUpdateInternal(
-      io,
-      payload.userId,
-      payload.action,
-      {
-        id: payload.watchlistId,
-        name: payload.watchlist?.name ?? '',
-        productCount: payload.watchlist?.productCount,
-      }
-    );
+    emitWatchListUpdateInternal(io, payload.userId, payload.action, {
+      id: payload.watchlistId,
+      name: payload.watchlist?.name ?? '',
+      productCount: payload.watchlist?.productCount,
+    });
   });
 
   // Subscribe to product added events from storage layer
   eventBus.on(AppEvents.WATCHLIST_PRODUCT_ADDED, (payload) => {
-    emitProductAddedInternal(
-      io,
-      payload.userId,
-      payload.watchlistId,
-      {
-        id: payload.productId,
-        name: payload.product?.name ?? '',
-        image: payload.product?.imageUrl,
-      }
-    );
+    emitProductAddedInternal(io, payload.userId, payload.watchlistId, {
+      id: payload.productId,
+      name: payload.product?.name ?? '',
+      image: payload.product?.imageUrl,
+    });
   });
 
   // Subscribe to product removed events from storage layer
   eventBus.on(AppEvents.WATCHLIST_PRODUCT_REMOVED, (payload) => {
-    emitProductRemovedInternal(
-      io,
-      payload.userId,
-      payload.watchlistId,
-      payload.productId
-    );
+    emitProductRemovedInternal(io, payload.userId, payload.watchlistId, payload.productId);
   });
 
   log.info('Watch list event subscriptions set up');

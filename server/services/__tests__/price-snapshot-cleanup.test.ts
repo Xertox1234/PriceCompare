@@ -155,14 +155,10 @@ describe('PriceSnapshotService - cleanupOldData', () => {
     await service.cleanupOldData();
 
     // Should log the aggregation count
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('250')
-    );
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('250'));
 
     // Should log the deletion count
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('1500')
-    );
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('1500'));
   });
 
   it('should handle errors gracefully', async () => {

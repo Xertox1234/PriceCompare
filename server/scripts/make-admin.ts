@@ -31,7 +31,7 @@ async function makeAdmin() {
     log.error('Error making user admin', {
       email,
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
     process.exit(1);
   }

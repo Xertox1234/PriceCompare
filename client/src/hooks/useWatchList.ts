@@ -121,10 +121,14 @@ export function useWatchedProducts(options?: {
         params.append('cursor', String(pageParam));
       }
       const url = `/api/watchlists/products?${params.toString()}`;
-      return apiRequest<{ products: WatchedProduct[]; hasMore: boolean; nextCursor: number | null }>(url);
+      return apiRequest<{
+        products: WatchedProduct[];
+        hasMore: boolean;
+        nextCursor: number | null;
+      }>(url);
     },
     initialPageParam: null as number | null,
-    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
   });
@@ -210,9 +214,12 @@ export function useRemoveProductFromWatchList() {
 
   return useMutation({
     mutationFn: async ({ watchListId, productId }: { watchListId: number; productId: number }) => {
-      return apiRequest<{ success: boolean }>(`/api/watchlists/${watchListId}/products/${productId}`, {
-        method: 'DELETE',
-      });
+      return apiRequest<{ success: boolean }>(
+        `/api/watchlists/${watchListId}/products/${productId}`,
+        {
+          method: 'DELETE',
+        }
+      );
     },
     onSuccess: (_, variables) => {
       // Invalidate specific watch list and stats

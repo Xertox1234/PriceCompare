@@ -1,6 +1,14 @@
 import * as React from 'react';
 import { Link } from 'wouter';
-import { ArrowRight, Flame, Clock, Sparkles, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ArrowRight,
+  Flame,
+  Clock,
+  Sparkles,
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { ProductCard, ProductData } from './product-card';
 import { cn } from '@/lib/utils';
 
@@ -44,34 +52,30 @@ export function ProductSection({
   };
 
   return (
-    <section className={cn("py-8", className)}>
+    <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="w-10 h-10 bg-muted text-primary rounded-xl flex items-center justify-center">
+              <div className="bg-muted text-primary flex h-10 w-10 items-center justify-center rounded-xl">
                 {icon}
               </div>
             )}
             <div>
-              <h2 className="text-xl lg:text-2xl font-bold text-foreground flex items-center gap-2">
+              <h2 className="text-foreground flex items-center gap-2 text-xl font-bold lg:text-2xl">
                 {title}
               </h2>
-              {subtitle && (
-                <p className="text-sm text-muted-foreground">{subtitle}</p>
-              )}
+              {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            {showCountdown && countdownEnd && (
-              <CountdownTimer endDate={countdownEnd} />
-            )}
+            {showCountdown && countdownEnd && <CountdownTimer endDate={countdownEnd} />}
             {seeAllLink && (
               <Link
                 href={seeAllLink}
-                className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-hover transition-colors"
+                className="text-primary hover:text-primary-hover flex items-center gap-1 text-sm font-medium transition-colors"
               >
                 {seeAllText}
                 <ArrowRight className="h-4 w-4" />
@@ -82,7 +86,7 @@ export function ProductSection({
 
         {/* Products Grid */}
         {variant === 'grid' && (
-          <div className={cn("grid gap-4 lg:gap-6", gridCols[columns])}>
+          <div className={cn('grid gap-4 lg:gap-6', gridCols[columns])}>
             {products.map((product) => (
               <ProductCard
                 key={product.id}
@@ -108,14 +112,10 @@ export function ProductSection({
         )}
 
         {variant === 'featured' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {products.slice(0, 1).map((product) => (
               <div key={product.id} className="lg:col-span-2">
-                <ProductCard
-                  product={product}
-                  variant="featured"
-                  onWatchlist={onWatchlist}
-                />
+                <ProductCard product={product} variant="featured" onWatchlist={onWatchlist} />
               </div>
             ))}
             <div className="space-y-4">
@@ -132,7 +132,7 @@ export function ProductSection({
         )}
 
         {variant === 'mixed' && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
             {/* Featured product takes 2 columns */}
             <div className="lg:col-span-2 lg:row-span-2">
               <ProductCard
@@ -159,7 +159,13 @@ export function ProductSection({
 }
 
 // Pre-configured section variants
-export function DealOfTheDay({ products, onWatchlist }: { products: ProductData[]; onWatchlist?: (product: ProductData) => void }) {
+export function DealOfTheDay({
+  products,
+  onWatchlist,
+}: {
+  products: ProductData[];
+  onWatchlist?: (product: ProductData) => void;
+}) {
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
 
@@ -178,7 +184,13 @@ export function DealOfTheDay({ products, onWatchlist }: { products: ProductData[
   );
 }
 
-export function TrendingNow({ products, onWatchlist }: { products: ProductData[]; onWatchlist?: (product: ProductData) => void }) {
+export function TrendingNow({
+  products,
+  onWatchlist,
+}: {
+  products: ProductData[];
+  onWatchlist?: (product: ProductData) => void;
+}) {
   return (
     <ProductSection
       title="Trending Now"
@@ -193,7 +205,13 @@ export function TrendingNow({ products, onWatchlist }: { products: ProductData[]
   );
 }
 
-export function NewArrivals({ products, onWatchlist }: { products: ProductData[]; onWatchlist?: (product: ProductData) => void }) {
+export function NewArrivals({
+  products,
+  onWatchlist,
+}: {
+  products: ProductData[];
+  onWatchlist?: (product: ProductData) => void;
+}) {
   return (
     <ProductSection
       title="New Arrivals"
@@ -230,8 +248,8 @@ function CountdownTimer({ endDate }: { endDate: Date }) {
 
   return (
     <div className="flex items-center gap-2">
-      <Clock className="h-4 w-4 text-template-primary" />
-      <div className="flex items-center gap-1 text-sm font-mono">
+      <Clock className="text-template-primary h-4 w-4" />
+      <div className="flex items-center gap-1 font-mono text-sm">
         <TimeUnit value={hours} label="h" />
         <span className="text-muted-foreground">:</span>
         <TimeUnit value={minutes} label="m" />
@@ -244,8 +262,9 @@ function CountdownTimer({ endDate }: { endDate: Date }) {
 
 function TimeUnit({ value, label }: { value: number; label: string }) {
   return (
-    <span className="bg-muted text-template-primary px-2 py-1 rounded font-bold">
-      {value.toString().padStart(2, '0')}{label}
+    <span className="bg-muted text-template-primary rounded px-2 py-1 font-bold">
+      {value.toString().padStart(2, '0')}
+      {label}
     </span>
   );
 }
@@ -299,9 +318,9 @@ export function CategoryGrid({ categories }: { categories: CategoryData[] }) {
 
     setIsTransitioning(true);
     if (direction === 'right') {
-      setCurrentIndex(prev => prev + 2);
+      setCurrentIndex((prev) => prev + 2);
     } else {
-      setCurrentIndex(prev => prev - 2);
+      setCurrentIndex((prev) => prev - 2);
     }
   };
 
@@ -309,16 +328,14 @@ export function CategoryGrid({ categories }: { categories: CategoryData[] }) {
     <section className="py-8">
       <div className="container mx-auto px-4">
         {/* Header with navigation */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl lg:text-2xl font-bold text-foreground">
-            Browse by Category
-          </h2>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-foreground text-xl font-bold lg:text-2xl">Browse by Category</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => scroll('left')}
               className={cn(
-                "w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all",
-                "bg-background hover:bg-muted hover:border-primary text-foreground"
+                'border-border flex h-10 w-10 items-center justify-center rounded-full border transition-all',
+                'bg-background hover:bg-muted hover:border-primary text-foreground'
               )}
               style={{ backgroundColor: 'var(--floating-header-bg, white)' }}
             >
@@ -327,8 +344,8 @@ export function CategoryGrid({ categories }: { categories: CategoryData[] }) {
             <button
               onClick={() => scroll('right')}
               className={cn(
-                "w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all",
-                "bg-background hover:bg-muted hover:border-primary text-foreground"
+                'border-border flex h-10 w-10 items-center justify-center rounded-full border transition-all',
+                'bg-background hover:bg-muted hover:border-primary text-foreground'
               )}
               style={{ backgroundColor: 'var(--floating-header-bg, white)' }}
             >
@@ -344,24 +361,28 @@ export function CategoryGrid({ categories }: { categories: CategoryData[] }) {
             className="flex gap-5"
             style={{
               transform: `translateX(${getTranslateX()}px)`,
-              transition: isTransitioning ? 'transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)' : 'none',
+              transition: isTransitioning
+                ? 'transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)'
+                : 'none',
               willChange: 'transform',
             }}
             onTransitionEnd={handleTransitionEnd}
           >
             {extendedCategories.map((category, index) => (
               <Link key={`${category.id}-${index}`} href={category.link}>
-                <div className="group flex-shrink-0 w-[200px] bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg hover:border-primary transition-shadow">
-                  <div className="aspect-square bg-muted overflow-hidden">
+                <div className="group bg-card border-border hover:border-primary w-[200px] flex-shrink-0 overflow-hidden rounded-xl border transition-shadow hover:shadow-lg">
+                  <div className="bg-muted aspect-square overflow-hidden">
                     <img
                       src={category.image}
                       alt={category.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
                   <div className="p-4 text-center">
-                    <h3 className="font-semibold text-foreground">{category.name}</h3>
-                    <p className="text-sm text-muted-foreground">{category.productCount} products</p>
+                    <h3 className="text-foreground font-semibold">{category.name}</h3>
+                    <p className="text-muted-foreground text-sm">
+                      {category.productCount} products
+                    </p>
                   </div>
                 </div>
               </Link>

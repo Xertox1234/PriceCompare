@@ -42,6 +42,7 @@ The workflow file exists locally at: `.github/workflows/ci.yml`
 ### Triggers
 
 The workflow runs on:
+
 - Push to `main`, `master`, or `develop` branches
 - Pull requests targeting `main`, `master`, or `develop` branches
 
@@ -66,9 +67,11 @@ After adding the workflow, verify it's working:
 ## Integration with Pre-commit Hooks
 
 The CI/CD workflow complements the existing pre-commit hooks:
+
 - **Pre-commit**: Runs locally before each commit (security + type checking)
 - **CI/CD**: Runs on GitHub after push (comprehensive validation)
 
 This provides two layers of protection:
+
 1. Fast feedback during development (pre-commit)
 2. Comprehensive validation in CI/CD (GitHub Actions)

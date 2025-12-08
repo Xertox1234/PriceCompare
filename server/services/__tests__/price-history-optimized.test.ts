@@ -142,8 +142,8 @@ describe('getPriceHistoryOptimized - Strategy Selection', () => {
       const result = await getPriceHistoryOptimized(productId, days);
 
       // Should return both raw and daily data
-      expect(result.some(r => r.source === 'raw')).toBe(true);
-      expect(result.some(r => r.source === 'daily')).toBe(true);
+      expect(result.some((r) => r.source === 'raw')).toBe(true);
+      expect(result.some((r) => r.source === 'daily')).toBe(true);
     });
 
     it('should query twice (raw + daily) for 30-90 days', async () => {
@@ -245,9 +245,9 @@ describe('getPriceHistoryOptimized - Strategy Selection', () => {
       const result = await getPriceHistoryOptimized(productId, days);
 
       // Should return raw, daily, and weekly data
-      expect(result.some(r => r.source === 'raw')).toBe(true);
-      expect(result.some(r => r.source === 'daily')).toBe(true);
-      expect(result.some(r => r.source === 'weekly')).toBe(true);
+      expect(result.some((r) => r.source === 'raw')).toBe(true);
+      expect(result.some((r) => r.source === 'daily')).toBe(true);
+      expect(result.some((r) => r.source === 'weekly')).toBe(true);
     });
 
     it('should query three times (raw + daily + weekly) for 90-365 days', async () => {
@@ -373,10 +373,10 @@ describe('getPriceHistoryOptimized - Strategy Selection', () => {
       const result = await getPriceHistoryOptimized(productId, days);
 
       // Should return all four sources
-      expect(result.some(r => r.source === 'raw')).toBe(true);
-      expect(result.some(r => r.source === 'daily')).toBe(true);
-      expect(result.some(r => r.source === 'weekly')).toBe(true);
-      expect(result.some(r => r.source === 'monthly')).toBe(true);
+      expect(result.some((r) => r.source === 'raw')).toBe(true);
+      expect(result.some((r) => r.source === 'daily')).toBe(true);
+      expect(result.some((r) => r.source === 'weekly')).toBe(true);
+      expect(result.some((r) => r.source === 'monthly')).toBe(true);
     });
 
     it('should query four times (raw + daily + weekly + monthly) for 1+ years', async () => {
@@ -478,13 +478,13 @@ describe('getPriceHistoryOptimized - Data Normalization', () => {
 
     const result = await getPriceHistoryOptimized(1, 45);
 
-    const dailyPoint = result.find(r => r.source === 'daily');
+    const dailyPoint = result.find((r) => r.source === 'daily');
     expect(dailyPoint).toMatchObject({
-      price: 95.00,
-      minPrice: 90.00,
-      maxPrice: 100.00,
-      avgPrice: 95.00,
-      medianPrice: 95.00,
+      price: 95.0,
+      minPrice: 90.0,
+      maxPrice: 100.0,
+      avgPrice: 95.0,
+      medianPrice: 95.0,
       retailerId: 1,
       retailerName: 'Best Buy',
       source: 'daily',
@@ -538,13 +538,13 @@ describe('getPriceHistoryOptimized - Data Normalization', () => {
 
     const result = await getPriceHistoryOptimized(1, 100);
 
-    const weeklyPoint = result.find(r => r.source === 'weekly');
+    const weeklyPoint = result.find((r) => r.source === 'weekly');
     expect(weeklyPoint).toMatchObject({
-      price: 90.00,
-      minPrice: 85.00,
-      maxPrice: 95.00,
-      avgPrice: 90.00,
-      medianPrice: 90.00,
+      price: 90.0,
+      minPrice: 85.0,
+      maxPrice: 95.0,
+      avgPrice: 90.0,
+      medianPrice: 90.0,
       retailerId: 1,
       retailerName: 'Target',
       source: 'weekly',
@@ -608,13 +608,13 @@ describe('getPriceHistoryOptimized - Data Normalization', () => {
 
     const result = await getPriceHistoryOptimized(1, 400);
 
-    const monthlyPoint = result.find(r => r.source === 'monthly');
+    const monthlyPoint = result.find((r) => r.source === 'monthly');
     expect(monthlyPoint).toMatchObject({
-      price: 85.00,
-      minPrice: 80.00,
-      maxPrice: 90.00,
-      avgPrice: 85.00,
-      medianPrice: 85.00,
+      price: 85.0,
+      minPrice: 80.0,
+      maxPrice: 90.0,
+      avgPrice: 85.0,
+      medianPrice: 85.0,
       retailerId: 1,
       retailerName: 'Walmart',
       source: 'monthly',

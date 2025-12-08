@@ -12,11 +12,11 @@ import { logger } from './logger';
  * Sanitization context types
  */
 export enum SanitizationContext {
-  PLAIN_TEXT = 'plain_text',        // Strip all HTML
-  RICH_TEXT = 'rich_text',          // Allow safe HTML subset (forum posts, descriptions)
-  LIMITED_HTML = 'limited_html',    // Very restricted HTML (product names, titles)
-  URL = 'url',                      // URL validation and sanitization
-  SEARCH_QUERY = 'search_query',    // Search input sanitization
+  PLAIN_TEXT = 'plain_text', // Strip all HTML
+  RICH_TEXT = 'rich_text', // Allow safe HTML subset (forum posts, descriptions)
+  LIMITED_HTML = 'limited_html', // Very restricted HTML (product names, titles)
+  URL = 'url', // URL validation and sanitization
+  SEARCH_QUERY = 'search_query', // Search input sanitization
 }
 
 /**
@@ -40,19 +40,39 @@ const SANITIZATION_CONFIGS = {
   [SanitizationContext.RICH_TEXT]: {
     ALLOWED_TAGS: [
       // Text formatting
-      'b', 'i', 'em', 'strong', 'u', 's', 'del', 'ins', 'mark', 'sub', 'sup',
+      'b',
+      'i',
+      'em',
+      'strong',
+      'u',
+      's',
+      'del',
+      'ins',
+      'mark',
+      'sub',
+      'sup',
       // Structure
-      'p', 'br', 'hr', 'blockquote', 'pre', 'code',
+      'p',
+      'br',
+      'hr',
+      'blockquote',
+      'pre',
+      'code',
       // Lists
-      'ul', 'ol', 'li',
+      'ul',
+      'ol',
+      'li',
       // Links (with restrictions)
       'a',
       // Headings
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
     ],
-    ALLOWED_ATTR: [
-      'href', 'title', 'target', 'rel',
-    ],
+    ALLOWED_ATTR: ['href', 'title', 'target', 'rel'],
     // Only allow safe URL schemes
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):)/i,
     // Always add noopener/noreferrer to links
@@ -183,9 +203,11 @@ export function sanitizeObject<T extends Record<string, unknown>>(
 
   if (Array.isArray(obj)) {
     const sanitizedArray: unknown[] = obj.map((item: unknown) =>
-      typeof item === 'object' && item !== null ? sanitizeObject(item as Record<string, unknown>, context) :
-      typeof item === 'string' ? sanitizeString(item, context) :
-      item
+      typeof item === 'object' && item !== null
+        ? sanitizeObject(item as Record<string, unknown>, context)
+        : typeof item === 'string'
+          ? sanitizeString(item, context)
+          : item
     );
     // Type assertion needed: array is structurally compatible with T after sanitization
     return sanitizedArray as unknown as T;

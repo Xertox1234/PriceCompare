@@ -9,6 +9,7 @@
 ## Situation
 
 You have **17 commits** of excellent API standardization work ready to push:
+
 - ✅ Frontend React Query hooks updated
 - ✅ API response helpers migrated
 - ✅ 15/25 route files standardized
@@ -172,6 +173,7 @@ gh pr create --base main \
 ```
 
 **Warning:** This will overwrite the remote branch. Only do this if:
+
 - You're the only one working on this branch
 - The remote commit (808a1e7) is already merged to main via PR #148
 - You're comfortable with force pushing
@@ -181,6 +183,7 @@ gh pr create --base main \
 ## What You've Accomplished
 
 **17 Commits:**
+
 1. Extract job lock magic numbers to constants
 2. Update ARCHITECTURE.md with storage layer structure
 3. Add domain-specific caching strategies guide
@@ -200,12 +203,14 @@ gh pr create --base main \
 17. Add migration TODO
 
 **Files Changed:**
+
 - 10 route files migrated
 - 4 React Query hook files updated
 - 1 new utility file (api-response.ts)
 - 4 documentation files (patterns, OpenAPI, audit, TODO)
 
 **Impact:**
+
 - 60% of API standardized (130/217 endpoints)
 - Complete frontend envelope unwrapping
 - Comprehensive documentation and audit

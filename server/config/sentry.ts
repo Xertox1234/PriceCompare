@@ -5,12 +5,12 @@
  * Integrates with Sentry.io for comprehensive application monitoring.
  */
 
-import * as Sentry from "@sentry/node";
+import * as Sentry from '@sentry/node';
 // Profiling integration is optional - uncomment if @sentry/profiling-node is installed
 // import { nodeProfilingIntegration } from "@sentry/profiling-node";
-import type { Application, Request, Response, NextFunction } from "express";
-import { isOperationalError } from "../utils/errors";
-import { createLogger } from "../utils/logger";
+import type { Application, Request, Response, NextFunction } from 'express';
+import { isOperationalError } from '../utils/errors';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('Sentry');
 
@@ -218,16 +218,12 @@ export function setContext(name: string, context: Record<string, unknown>): void
  * Start a new span for performance monitoring
  * Note: Sentry v10+ uses startSpan instead of startTransaction
  */
-export function startTransaction(
-  name: string,
-  op: string,
-  data?: Record<string, unknown>
-): void {
+export function startTransaction(name: string, op: string, data?: Record<string, unknown>): void {
   // In Sentry v10+, use startSpan with callback
   // Cast data to compatible type since Sentry expects specific attribute types
-  const attributes = data ? Object.fromEntries(
-    Object.entries(data).map(([k, v]) => [k, String(v)])
-  ) : undefined;
+  const attributes = data
+    ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
+    : undefined;
   Sentry.startSpan({ name, op, attributes }, () => {
     // Span is automatically finished when callback completes
   });

@@ -39,7 +39,9 @@ test.describe('Price Alert Management', () => {
       await page.waitForLoadState('networkidle');
 
       // Click "Create Alert" button
-      await page.click('button:has-text("Create Alert"), button:has-text("New Alert"), a:has-text("Create Alert")');
+      await page.click(
+        'button:has-text("Create Alert"), button:has-text("New Alert"), a:has-text("Create Alert")'
+      );
 
       // Fill alert form
       await page.fill('input[name="productName"], input[placeholder*="product"]', 'Gaming Laptop');
@@ -52,9 +54,7 @@ test.describe('Price Alert Management', () => {
       await waitForApiResponse(page, '/api/alerts', 201);
 
       // Should show success message
-      await expect(
-        page.locator('text=/alert.*created|successfully.*created/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/alert.*created|successfully.*created/i')).toBeVisible();
 
       // Should redirect to alerts list
       await expect(page).toHaveURL(/.*\/alerts.*/);
@@ -99,9 +99,7 @@ test.describe('Price Alert Management', () => {
       await page.click('button[type="submit"]');
 
       // Should show validation error
-      await expect(
-        page.locator('text=/product.*required|select.*product/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/product.*required|select.*product/i')).toBeVisible();
     });
 
     test('should create alert from product page', async ({ page }) => {
@@ -118,7 +116,9 @@ test.describe('Price Alert Management', () => {
       await page.click('[data-testid="product-card"], .product-card');
 
       // Click "Set Alert" or "Price Alert" button
-      await page.click('button:has-text("Set Alert"), button:has-text("Price Alert"), [data-testid="set-alert"]');
+      await page.click(
+        'button:has-text("Set Alert"), button:has-text("Price Alert"), [data-testid="set-alert"]'
+      );
 
       // Fill target price (product should be pre-selected)
       await page.fill('input[name="targetPrice"], input[type="number"]', '899.99');
@@ -127,9 +127,7 @@ test.describe('Price Alert Management', () => {
       await waitForApiResponse(page, '/api/alerts', 201);
 
       // Should show success
-      await expect(
-        page.locator('text=/alert.*created|watching.*price/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/alert.*created|watching.*price/i')).toBeVisible();
     });
   });
 
@@ -190,9 +188,7 @@ test.describe('Price Alert Management', () => {
       await page.waitForLoadState('networkidle');
 
       // Should show alert status
-      await expect(
-        page.locator('text=/active|watching|monitoring|triggered/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/active|watching|monitoring|triggered/i')).toBeVisible();
     });
   });
 
@@ -220,9 +216,7 @@ test.describe('Price Alert Management', () => {
       await waitForApiResponse(page, /\/api\/alerts\/\d+/, 200);
 
       // Should show success
-      await expect(
-        page.locator('text=/alert.*updated|successfully.*updated/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/alert.*updated|successfully.*updated/i')).toBeVisible();
 
       // Should show new price
       await expect(page.locator('text=/849\\.99/i')).toBeVisible();
@@ -248,9 +242,7 @@ test.describe('Price Alert Management', () => {
       await page.click('button[type="submit"]');
 
       // Should show validation error
-      await expect(
-        page.locator('text=/price.*positive|price.*must be.*greater/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/price.*positive|price.*must be.*greater/i')).toBeVisible();
     });
   });
 
@@ -272,11 +264,16 @@ test.describe('Price Alert Management', () => {
       await expect(page.locator('text=/Gaming Laptop/i')).toBeVisible();
 
       // Click delete button
-      await page.click('button:has-text("Delete"), [data-testid="delete-alert"], button[aria-label*="Delete"]');
+      await page.click(
+        'button:has-text("Delete"), [data-testid="delete-alert"], button[aria-label*="Delete"]'
+      );
 
       // Confirm deletion (if confirmation dialog exists)
       try {
-        await page.click('button:has-text("Confirm"), button:has-text("Yes"), button:has-text("Delete")', { timeout: 2000 });
+        await page.click(
+          'button:has-text("Confirm"), button:has-text("Yes"), button:has-text("Delete")',
+          { timeout: 2000 }
+        );
       } catch {
         // No confirmation dialog
       }
@@ -284,9 +281,7 @@ test.describe('Price Alert Management', () => {
       await waitForApiResponse(page, /\/api\/alerts\/\d+/, 200);
 
       // Should show success
-      await expect(
-        page.locator('text=/alert.*deleted|successfully.*deleted/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/alert.*deleted|successfully.*deleted/i')).toBeVisible();
 
       // Alert should be removed from list
       await expect(page.locator('text=/Gaming Laptop/i')).not.toBeVisible();
@@ -330,7 +325,7 @@ test.describe('Price Alert Management', () => {
       await waitForApiResponse(page, '/api/auth/register', 201);
 
       // Create alert with high target price (will be triggered)
-      await createAlertViaApi(page, 'Gaming Laptop', 2000.00); // Current price is much lower
+      await createAlertViaApi(page, 'Gaming Laptop', 2000.0); // Current price is much lower
 
       await page.goto('/alerts');
       await page.waitForLoadState('networkidle');
@@ -385,7 +380,9 @@ test.describe('Price Alert Management', () => {
       await page.click('button[type="submit"]');
 
       // Might show limit error (if limit is enforced)
-      const hasLimitError = await page.locator('text=/limit.*reached|maximum.*alerts|too.*many/i').isVisible({ timeout: 2000 });
+      const hasLimitError = await page
+        .locator('text=/limit.*reached|maximum.*alerts|too.*many/i')
+        .isVisible({ timeout: 2000 });
 
       if (hasLimitError) {
         console.log('Alert limit is enforced');
@@ -401,18 +398,24 @@ test.describe('Price Alert Management', () => {
  */
 async function seedTestData() {
   // Create test retailer
-  const [retailer] = await db.insert(retailers).values({
-    name: 'Test Store',
-    logo: 'https://via.placeholder.com/150',
-  }).returning();
+  const [retailer] = await db
+    .insert(retailers)
+    .values({
+      name: 'Test Store',
+      logo: 'https://via.placeholder.com/150',
+    })
+    .returning();
 
   // Create test product
-  const [product] = await db.insert(products).values({
-    name: 'Gaming Laptop',
-    description: 'High-performance gaming laptop',
-    image: 'https://via.placeholder.com/400',
-    category: 'Electronics',
-  }).returning();
+  const [product] = await db
+    .insert(products)
+    .values({
+      name: 'Gaming Laptop',
+      description: 'High-performance gaming laptop',
+      image: 'https://via.placeholder.com/400',
+      category: 'Electronics',
+    })
+    .returning();
 
   // Create product offer
   await db.insert(productOffers).values({

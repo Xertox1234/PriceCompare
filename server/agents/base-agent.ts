@@ -4,11 +4,7 @@ import * as crypto from 'crypto';
 import { db } from '../db';
 import { agentSessions, scrapingJobs } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
-import type {
-  AgentSession,
-  ScrapingJob,
-  InsertScrapingJob
-} from '../../shared/schema';
+import type { AgentSession, ScrapingJob, InsertScrapingJob } from '../../shared/schema';
 import type { TaskResult, TaskMetrics } from './types';
 import { logger } from '../utils/logger';
 
@@ -47,18 +43,18 @@ export abstract class BaseAgent extends EventEmitter {
       const sessionData = {
         agentType: this.config.type,
         sessionId: this.sessionId,
-        status: 'active' as const
+        status: 'active' as const,
       };
 
       const [session] = await db.insert(agentSessions).values(sessionData).returning();
       this.dbSessionId = session.id;
-      
+
       this.emit('initialized', { sessionId: this.sessionId, dbSessionId: this.dbSessionId });
       logger.info(`Agent ${this.config.name} initialized with session ${this.sessionId}`);
     } catch (error) {
       logger.error(`Failed to initialize agent ${this.config.name}`, {
         error: error instanceof Error ? error.message : String(error),
-        agentName: this.config.name
+        agentName: this.config.name,
       });
       throw error;
     }
@@ -84,9 +80,9 @@ export abstract class BaseAgent extends EventEmitter {
     }
 
     this.isRunning = false;
-    
+
     await Promise.allSettled(Array.from(this.activeTasks.values()));
-    
+
     if (this.dbSessionId) {
       await this.updateSession({
         sessionEnd: new Date(),
@@ -94,7 +90,7 @@ export abstract class BaseAgent extends EventEmitter {
         tasksCompleted: this.taskCount,
         successRate: (this.taskCount > 0 ? this.successCount / this.taskCount : 0).toString(),
         errorsEncountered: this.errorCount,
-        performanceMetrics: JSON.stringify(this.getPerformanceMetrics())
+        performanceMetrics: JSON.stringify(this.getPerformanceMetrics()),
       });
     }
 
@@ -137,7 +133,7 @@ export abstract class BaseAgent extends EventEmitter {
           targetData: jobData.targetData || JSON.stringify({ taskId }),
           agentSessionId: this.dbSessionId,
           startedAt: new Date(),
-          ...jobData
+          ...jobData,
         };
 
         const [createdJob] = await db.insert(scrapingJobs).values(job).returning();
@@ -145,17 +141,17 @@ export abstract class BaseAgent extends EventEmitter {
       } catch (error) {
         logger.error('Failed to create job record', {
           error: error instanceof Error ? error.message : String(error),
-          agentName: this.config.name
+          agentName: this.config.name,
         });
       }
     }
 
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
       try {
         this.emit('taskStarted', { taskId, attempt, sessionId: this.sessionId });
-        
+
         const startTime = Date.now();
         const result = await taskFn();
         const duration = Date.now() - startTime;
@@ -166,28 +162,32 @@ export abstract class BaseAgent extends EventEmitter {
           metrics: {
             duration,
             attempt,
-            taskId
-          }
+            taskId,
+          },
         };
 
         if (dbJobId) {
           await this.updateJob(dbJobId, {
             status: 'completed',
             completedAt: new Date(),
-            resultData: JSON.stringify(taskResult)
+            resultData: JSON.stringify(taskResult),
           });
         }
 
         this.successCount++;
         this.emit('taskCompleted', { taskId, result: taskResult, sessionId: this.sessionId });
         return taskResult;
-
       } catch (error) {
         lastError = error as Error;
-        
+
         if (attempt < this.config.retryAttempts) {
           await this.delay(this.config.retryDelay * Math.pow(2, attempt));
-          this.emit('taskRetry', { taskId, attempt, error: lastError.message, sessionId: this.sessionId });
+          this.emit('taskRetry', {
+            taskId,
+            attempt,
+            error: lastError.message,
+            sessionId: this.sessionId,
+          });
         }
       }
     }
@@ -197,8 +197,8 @@ export abstract class BaseAgent extends EventEmitter {
       error: lastError?.message || 'Unknown error',
       metrics: {
         attempts: this.config.retryAttempts + 1,
-        taskId
-      }
+        taskId,
+      },
     };
 
     if (dbJobId) {
@@ -206,7 +206,7 @@ export abstract class BaseAgent extends EventEmitter {
         status: 'failed',
         completedAt: new Date(),
         errorMessage: lastError?.message || 'Unknown error',
-        retryCount: this.config.retryAttempts
+        retryCount: this.config.retryAttempts,
       });
     }
 
@@ -219,33 +219,29 @@ export abstract class BaseAgent extends EventEmitter {
     if (!this.dbSessionId) return;
 
     try {
-      await db.update(agentSessions)
-        .set(updates)
-        .where(eq(agentSessions.id, this.dbSessionId));
+      await db.update(agentSessions).set(updates).where(eq(agentSessions.id, this.dbSessionId));
     } catch (error) {
       logger.error(`Failed to update session ${this.dbSessionId}`, {
         error: error instanceof Error ? error.message : String(error),
-        sessionId: this.dbSessionId
+        sessionId: this.dbSessionId,
       });
     }
   }
 
   private async updateJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void> {
     try {
-      await db.update(scrapingJobs)
-        .set(updates)
-        .where(eq(scrapingJobs.id, jobId));
+      await db.update(scrapingJobs).set(updates).where(eq(scrapingJobs.id, jobId));
     } catch (error) {
       logger.error(`Failed to update job ${jobId}`, {
         error: error instanceof Error ? error.message : String(error),
-        jobId
+        jobId,
       });
     }
   }
 
   protected getPerformanceMetrics(): Record<string, unknown> {
     const runtime = Date.now() - this.startTime.getTime();
-    
+
     return {
       runtime,
       taskCount: this.taskCount,
@@ -253,17 +249,17 @@ export abstract class BaseAgent extends EventEmitter {
       errorCount: this.errorCount,
       successRate: this.taskCount > 0 ? this.successCount / this.taskCount : 0,
       averageTaskTime: this.taskCount > 0 ? runtime / this.taskCount : 0,
-      activeTasks: this.activeTasks.size
+      activeTasks: this.activeTasks.size,
     };
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   abstract processTask(taskData: unknown): Promise<unknown>;
 
-  async healthCheck(): Promise<boolean> {
+  healthCheck(): boolean {
     return this.isRunning && this.activeTasks.size < this.config.maxConcurrentTasks;
   }
 
@@ -274,7 +270,7 @@ export abstract class BaseAgent extends EventEmitter {
       isRunning: this.isRunning,
       activeTasks: this.activeTasks.size,
       maxConcurrentTasks: this.config.maxConcurrentTasks,
-      metrics: this.getPerformanceMetrics()
+      metrics: this.getPerformanceMetrics(),
     };
   }
 }

@@ -9,6 +9,7 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 **⚠️ CRITICAL**: This project uses **Playwright EXCLUSIVELY** for all browser automation and testing. **NEVER use Puppeteer.**
 
 **See `ARCHITECTURE.md` for**:
+
 - High-level system diagrams and component interactions
 - Data flow diagrams (price updates, authentication)
 - Architecture Decision Records (ADRs) explaining "why" behind tech choices
@@ -22,36 +23,42 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break the build**:
 
 1. **NEVER expose password hashes** in database queries
+
    ```typescript
    // ❌ WRONG - exposes passwordHash
    const user = await db.select().from(users).where(eq(users.id, id));
-   
+
    // ✅ CORRECT - explicit field selection
-   const user = await db.select({
-     id: users.id,
-     username: users.username,
-     email: users.email,
-     // SECURITY: Never expose passwordHash
-   }).from(users).where(eq(users.id, id));
+   const user = await db
+     .select({
+       id: users.id,
+       username: users.username,
+       email: users.email,
+       // SECURITY: Never expose passwordHash
+     })
+     .from(users)
+     .where(eq(users.id, id));
    ```
 
 2. **Use type-safe integer parsing** from `server/utils/validation-helpers.ts`
+
    ```typescript
    // ❌ WRONG - no validation
    const id = parseInt(req.params.id);
-   
+
    // ✅ CORRECT - safe parsing with validation
    import { parseIntSafe, parseIntOptional } from './utils/validation-helpers';
    const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
    ```
 
 3. **Sanitize errors in production** using `server/utils/error-sanitizer.ts`
+
    ```typescript
    // ❌ WRONG - leaks implementation details
    catch (error) {
      res.status(500).json({ error: error.message });
    }
-   
+
    // ✅ CORRECT - sanitized error response
    import { createErrorResponse } from './utils/error-sanitizer';
    catch (error) {
@@ -71,15 +78,17 @@ Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break
 #### Critical CSRF Rules
 
 1. **Apply Per-Route, NOT Globally**
+
    ```typescript
    // ❌ CRITICAL MISTAKE - NEVER do this in server/index.ts!
-   app.use(csrfProtection);  // Causes double-protection, blocks GET requests
+   app.use(csrfProtection); // Causes double-protection, blocks GET requests
 
    // ✅ CORRECT - Apply per-route in route files
    import { csrfProtection } from '../middleware/security';
 
-   app.post('/api/products',
-     csrfProtection,  // First middleware
+   app.post(
+     '/api/products',
+     csrfProtection, // First middleware
      withAuth(async (req, res) => {
        // Handler logic
      })
@@ -87,24 +96,29 @@ Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break
    ```
 
 2. **Correct Middleware Order: CSRF → Auth → Handler**
+
    ```typescript
    // ✅ CORRECT - CSRF before auth (fast token check fails early)
-   app.post('/api/endpoint',
-     csrfProtection,     // 1. Verify CSRF token (fast)
-     withAuth(async (req, res) => {  // 2. Verify authentication
+   app.post(
+     '/api/endpoint',
+     csrfProtection, // 1. Verify CSRF token (fast)
+     withAuth(async (req, res) => {
+       // 2. Verify authentication
        // 3. Execute business logic
      })
    );
 
    // ❌ WRONG - Auth before CSRF (wastes resources)
-   app.post('/api/endpoint',
-     requireAuth,        // ❌ Wastes auth resources on CSRF attacks
+   app.post(
+     '/api/endpoint',
+     requireAuth, // ❌ Wastes auth resources on CSRF attacks
      csrfProtection,
      async (req, res) => {}
    );
    ```
 
 3. **Authentication Endpoints MUST Have CSRF Protection**
+
    ```typescript
    // ✅ CORRECT - Auth endpoints need CSRF too!
    app.post('/api/auth/register', csrfProtection, async (req, res) => {
@@ -127,9 +141,10 @@ Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break
    ```
 
 4. **CSRF Exemptions (Rare - Must Be Justified)**
+
    ```typescript
    // ✅ CORRECT - Justified exemption with clear documentation
-   app.post("/api/affiliate/track-click/:offerId", async (req, res) => {
+   app.post('/api/affiliate/track-click/:offerId', async (req, res) => {
      // NOTE: This endpoint is intentionally public and exempted from CSRF protection
      // because it's called cross-origin from retailer sites for analytics tracking.
      // No user data modified, only logs analytics events.
@@ -145,6 +160,7 @@ Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break
    ```
 
 #### CSRF Quick Checklist
+
 - [ ] All POST/PUT/PATCH/DELETE endpoints have `csrfProtection`
 - [ ] CSRF middleware placed BEFORE auth middleware
 - [ ] NO global `app.use(csrfProtection)` in server/index.ts
@@ -161,17 +177,18 @@ Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break
 **Schema location**: All tables defined in `shared/schema.ts` (shared between client/server)
 
 **Query patterns**:
+
 ```typescript
-import { db } from "./db";
-import { products, productOffers } from "@shared/schema";
-import { eq, and, gte, desc } from "drizzle-orm";
+import { db } from './db';
+import { products, productOffers } from '@shared/schema';
+import { eq, and, gte, desc } from 'drizzle-orm';
 
 // Joins with proper typing
 const result = await db
   .select({
     product: products,
     offer: productOffers,
-    retailer: retailers
+    retailer: retailers,
   })
   .from(products)
   .leftJoin(productOffers, eq(products.id, productOffers.productId))
@@ -186,7 +203,9 @@ const result = await db
 // ❌ WRONG - N+1 query (1 query + N queries in loop)
 const products = await db.select().from(products);
 for (const product of products) {
-  const offers = await db.select().from(productOffers)
+  const offers = await db
+    .select()
+    .from(productOffers)
     .where(eq(productOffers.productId, product.id)); // N queries!
 }
 
@@ -200,8 +219,9 @@ const productsWithOffers = await db
   .leftJoin(productOffers, eq(products.id, productOffers.productId));
 
 // ✅ ALSO CORRECT - Batch query with IN clause
-const productIds = products.map(p => p.id);
-const allOffers = await db.select()
+const productIds = products.map((p) => p.id);
+const allOffers = await db
+  .select()
   .from(productOffers)
   .where(inArray(productOffers.productId, productIds));
 // Group offers by productId in application code
@@ -210,15 +230,16 @@ const allOffers = await db.select()
 const priceData = await db
   .select({
     productId: priceHistory.productId,
-    prices: sql<Array<{price: number, date: string}>>`
+    prices: sql<Array<{ price: number; date: string }>>`
       json_agg(json_build_object('price', ${priceHistory.price}, 'date', ${priceHistory.recordedAt}))
-    `
+    `,
   })
   .from(priceHistory)
   .groupBy(priceHistory.productId);
 ```
 
 **When to use JOINs vs IN clause vs array_agg()**:
+
 - **JOIN**: When you need related data for most/all records (1:1, 1:many)
 - **IN clause**: When you need to batch-fetch optional related data or filter by IDs
 - **array_agg()**: When you need grouped/nested data in a single query (see `docs/PATTERNS.md` for examples)
@@ -249,19 +270,20 @@ In `server/index.ts`, middleware MUST be applied in this exact order (security r
 ### Path Aliases & Imports
 
 TypeScript paths configured in `tsconfig.json`:
+
 - `@/*` → `client/src/*` (frontend only)
 - `@shared/*` → `shared/*` (frontend & backend)
 - Server imports use relative paths or `./` prefix
 
 ```typescript
 // Client imports
-import { Button } from "@/components/ui/button";
-import { ProductWithOffers } from "@shared/schema";
+import { Button } from '@/components/ui/button';
+import { ProductWithOffers } from '@shared/schema';
 
 // Server imports
-import { db } from "./db";
-import { parseIntSafe } from "./utils/validation-helpers";
-import { Product } from "@shared/schema";
+import { db } from './db';
+import { parseIntSafe } from './utils/validation-helpers';
+import { Product } from '@shared/schema';
 ```
 
 ### AI Prompt System
@@ -277,13 +299,14 @@ const prompt = getActivePrompt('search-query-generation');
 // Execute with validation
 const result = await executePrompt('search-query-generation', {
   productName: 'iPhone 15 Pro',
-  category: 'Smartphones'
+  category: 'Smartphones',
 });
 ```
 
 **Never hardcode prompts** - always use the registry for version control and A/B testing.
 
 **Prompt Engineering Standards**: Follow `docs/PROMPT_ENGINEERING_GUIDE.md` for:
+
 - Structured prompt anatomy (ROLE, EXPERTISE, METHODOLOGY, QUALITY CRITERIA)
 - Few-shot learning examples
 - Output constraints and format specifications
@@ -301,23 +324,25 @@ const result = await executePrompt('search-query-generation', {
 6. **Add tests** in `server/__tests__/`
 
 Example route with all security patterns:
+
 ```typescript
-app.post('/api/products', 
+app.post(
+  '/api/products',
   csrfProtection, // CSRF on state-changing ops
   async (req, res) => {
     try {
       // Validate input with Zod
       const data = insertProductSchema.parse(req.body);
-      
+
       // Storage layer handles DB
       const product = await storage.createProduct(data);
-      
+
       res.json(product);
     } catch (error) {
       const errorResponse = createErrorResponse(error, 'CreateProduct');
       res.status(errorResponse.status).json({
         error: errorResponse.error,
-        details: errorResponse.details
+        details: errorResponse.details,
       });
     }
   }
@@ -354,6 +379,7 @@ npm start            # Production server
 ```
 
 **Dev server includes**:
+
 - Vite HMR for frontend
 - TSX watch mode for backend
 - Auto-reload on file changes
@@ -361,12 +387,14 @@ npm start            # Production server
 ### Environment Setup
 
 Required secrets (generate with `openssl rand -base64 32`):
+
 - `SESSION_SECRET` - Express session encryption
 - `CSRF_SECRET` - CSRF token generation
 - `DISCOURSE_SSO_SECRET` - Forum SSO integration
 - `DATABASE_URL` - PostgreSQL connection string
 
 Optional but recommended:
+
 - `REDIS_URL` - Required in production for distributed systems
 - `OPENAI_API_KEY` - For AI-powered features
 - `SENTRY_DSN` - Error monitoring
@@ -376,6 +404,7 @@ Optional but recommended:
 ### Constants & Configuration
 
 All magic numbers in `server/utils/constants.ts`:
+
 ```typescript
 import { CACHE_DURATION, RATE_LIMIT, PAGINATION } from './utils/constants';
 
@@ -394,6 +423,7 @@ app.use(rateLimiter({ maxRequests: RATE_LIMIT.MAX_REQUESTS }));
 ### Caching Strategy
 
 Multi-level caching (see ARCHITECTURE.md diagram):
+
 1. **L1 - In-memory cache** (server/middleware/cache.ts) - Fast, single-server, rate limits
 2. **L2 - Redis cache** (server/middleware/redis-cache.ts) - Distributed, sessions, API responses
 3. **L3 - Database** (PostgreSQL) - Persistent source of truth
@@ -402,6 +432,7 @@ Multi-level caching (see ARCHITECTURE.md diagram):
 Cache keys follow pattern: `{resource}:{id}:{variant}` (e.g., `product:123:full`)
 
 **TTL Guidelines**:
+
 - Retailers: 1 hour (changes infrequently)
 - Products: 5 minutes (prices update regularly)
 - User sessions: 24 hours
@@ -409,6 +440,7 @@ Cache keys follow pattern: `{resource}:{id}:{variant}` (e.g., `product:123:full`
 ### Service Layer for Business Logic
 
 Keep routes thin - extract business logic to `server/services/`:
+
 - `price-snapshot-service.ts` - Automated price tracking (see price update flow in ARCHITECTURE.md)
 - `google-search.ts` - Product URL discovery
 - `email-service.ts` - Notifications
@@ -419,6 +451,7 @@ Keep routes thin - extract business logic to `server/services/`:
 ### Background Jobs with Bull
 
 Job queues in `server/jobs/`:
+
 ```typescript
 import { createPriceSnapshotQueue } from './jobs/price-snapshot-queue';
 import { jobLockService } from './services/job-lock-service';
@@ -443,6 +476,7 @@ cron.schedule('0 2 * * *', async () => {
 ## Chrome Extension Integration
 
 Extension code in `extensions/chrome/` with own manifest.json. Key files:
+
 - `background.js` - Service worker for price monitoring
 - `content-scripts/price-detector.js` - Injected into retailer pages
 - `popup/` - Extension UI (React components)
@@ -464,7 +498,7 @@ Extension shares types from `shared/` but runs independently from main app.
 **See `docs/PERFORMANCE_GUIDE.md` for complete optimization strategies**
 
 - **NO N+1 QUERIES EVER**: Always use JOINs or batch queries with `inArray()` - see Database & ORM section
-- **Use SQL aggregations**: COUNT(*), GROUP BY, array_agg() at database level (see `docs/PATTERNS.md`)
+- **Use SQL aggregations**: COUNT(\*), GROUP BY, array_agg() at database level (see `docs/PATTERNS.md`)
 - **Component memoization**: React.memo() with custom comparison functions for expensive renders
 - **Query debouncing**: 300ms debounce on search inputs to reduce API calls
 - **Lazy loading**: Code-split pages and lazy-load images with Intersection Observer
@@ -478,11 +512,13 @@ Extension shares types from `shared/` but runs independently from main app.
 ## Documentation to Reference
 
 ### Core Documentation (Read These First)
+
 - `ARCHITECTURE.md` - **Essential system overview**: diagrams, data flows, ADRs, caching strategy, deployment
 - `SECURITY_GUIDELINES.md` - **Mandatory security patterns** (never expose passwords, sanitize errors, etc.)
 - `CONTRIBUTING.md` - Setup guide, development workflow, environment variables
 
 ### Pattern Libraries (docs/)
+
 - `docs/PATTERNS.md` - **Essential** database query patterns, distributed locking, aggregation best practices
 - `docs/PERFORMANCE_GUIDE.md` - Frontend/backend optimization strategies, caching, lazy loading
 - `docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
@@ -495,6 +531,7 @@ Extension shares types from `shared/` but runs independently from main app.
 ## TypeScript Strict Mode
 
 This project uses strict TypeScript:
+
 - No implicit `any`
 - Strict null checks enabled
 - No unused locals/parameters (warnings, not errors)

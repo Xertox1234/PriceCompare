@@ -27,6 +27,7 @@ git push origin main
 ## Workflow File Location
 
 The workflow file exists locally at:
+
 ```
 .github/workflows/security-scan.yml
 ```

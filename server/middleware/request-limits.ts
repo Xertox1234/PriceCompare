@@ -25,11 +25,11 @@ export interface RequestSizeLimits {
  * Recommended size limits for different endpoint types
  */
 export const DEFAULT_SIZE_LIMITS: RequestSizeLimits = {
-  default: '100kb',    // Default for most API endpoints
-  auth: '10kb',        // Small for login/register
-  upload: '10mb',      // Larger for file uploads (images, etc.)
-  admin: '1mb',        // Moderate for admin operations
-  content: '500kb',    // For forum posts, comments, etc.
+  default: '100kb', // Default for most API endpoints
+  auth: '10kb', // Small for login/register
+  upload: '10mb', // Larger for file uploads (images, etc.)
+  admin: '1mb', // Moderate for admin operations
+  content: '500kb', // For forum posts, comments, etc.
 };
 
 /**
@@ -80,16 +80,11 @@ export function requestSizeLimiter(limits: RequestSizeLimits = DEFAULT_SIZE_LIMI
       const limitInBytes = parseSizeString(limit);
 
       if (sizeInBytes > limitInBytes) {
-        sendError(
-          res,
-          'Request payload too large',
-          413,
-          {
-            code: ErrorCodes.PAYLOAD_TOO_LARGE,
-            maxSize: limit,
-            receivedSize: formatBytes(sizeInBytes)
-          }
-        );
+        sendError(res, 'Request payload too large', 413, {
+          code: ErrorCodes.PAYLOAD_TOO_LARGE,
+          maxSize: limit,
+          receivedSize: formatBytes(sizeInBytes),
+        });
         return;
       }
     }
@@ -106,7 +101,7 @@ function parseSizeString(sizeStr: string): number {
     b: 1,
     kb: 1024,
     mb: 1024 * 1024,
-    gb: 1024 * 1024 * 1024
+    gb: 1024 * 1024 * 1024,
   };
 
   const match = sizeStr.toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?$/);
@@ -145,15 +140,10 @@ export function rejectOversizedRequests(maxSize: number = 10 * 1024 * 1024) {
       receivedBytes += chunk.length;
       if (receivedBytes > maxSize) {
         req.pause();
-        sendError(
-          res,
-          'Request entity too large',
-          413,
-          {
-            code: ErrorCodes.PAYLOAD_TOO_LARGE,
-            maxSize: formatBytes(maxSize)
-          }
-        );
+        sendError(res, 'Request entity too large', 413, {
+          code: ErrorCodes.PAYLOAD_TOO_LARGE,
+          maxSize: formatBytes(maxSize),
+        });
         req.destroy();
       }
     });

@@ -71,3 +71,6 @@ drizzle.config.ts
 
 # Chrome extension (separate JavaScript project, not in tsconfig.json)
 extensions/chrome/
+
+# Archive directories (code removed from project)
+todos/archive/

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '../../test/test-utils'
-import { ProductCard } from '../product-card'
-import type { ProductWithOffers } from '@shared/schema'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '../../test/test-utils';
+import { ProductCard } from '../product-card';
+import type { ProductWithOffers } from '@shared/schema';
 
 const mockProduct: ProductWithOffers = {
   id: 1,
@@ -44,89 +44,66 @@ const mockProduct: ProductWithOffers = {
         baseAffiliateUrl: null,
         commissionRate: null,
         affiliateStatus: null,
-        affiliateConfig: null
-      }
-    }
+        affiliateConfig: null,
+      },
+    },
   ],
   bestPrice: 99.99,
   savings: 30,
-  savingsPercentage: 23
-}
+  savingsPercentage: 23,
+};
 
 describe('ProductCard', () => {
-  const mockOnAddToComparison = vi.fn()
+  const mockOnAddToComparison = vi.fn();
 
   beforeEach(() => {
-    mockOnAddToComparison.mockClear()
-  })
+    mockOnAddToComparison.mockClear();
+  });
 
   it('renders product information correctly', () => {
-    render(
-      <ProductCard 
-        product={mockProduct} 
-        onAddToComparison={mockOnAddToComparison} 
-      />
-    )
+    render(<ProductCard product={mockProduct} onAddToComparison={mockOnAddToComparison} />);
 
-    expect(screen.getByText('Test Product')).toBeInTheDocument()
-    expect(screen.getByText('Test Retailer')).toBeInTheDocument()
-    expect(screen.getByText('$99.99')).toBeInTheDocument()
-  })
+    expect(screen.getByText('Test Product')).toBeInTheDocument();
+    expect(screen.getByText('Test Retailer')).toBeInTheDocument();
+    expect(screen.getByText('$99.99')).toBeInTheDocument();
+  });
 
   it('shows savings when available', () => {
-    render(
-      <ProductCard
-        product={mockProduct}
-        onAddToComparison={mockOnAddToComparison}
-      />
-    )
+    render(<ProductCard product={mockProduct} onAddToComparison={mockOnAddToComparison} />);
 
     // Component shows percentage badge and original price with line-through
-    expect(screen.getByText(/-23%/)).toBeInTheDocument()
-    expect(screen.getByText('$129.99')).toBeInTheDocument() // original price
-  })
+    expect(screen.getByText(/-23%/)).toBeInTheDocument();
+    expect(screen.getByText('$129.99')).toBeInTheDocument(); // original price
+  });
 
   it('calls onAddToComparison when compare button is clicked', () => {
-    render(
-      <ProductCard
-        product={mockProduct}
-        onAddToComparison={mockOnAddToComparison}
-      />
-    )
+    render(<ProductCard product={mockProduct} onAddToComparison={mockOnAddToComparison} />);
 
-    const compareButton = screen.getByRole('button', { name: /compare/i })
-    fireEvent.click(compareButton)
+    const compareButton = screen.getByRole('button', { name: /compare/i });
+    fireEvent.click(compareButton);
 
-    expect(mockOnAddToComparison).toHaveBeenCalledTimes(1)
-  })
+    expect(mockOnAddToComparison).toHaveBeenCalledTimes(1);
+  });
 
   it('displays availability status correctly', () => {
-    render(
-      <ProductCard 
-        product={mockProduct} 
-        onAddToComparison={mockOnAddToComparison} 
-      />
-    )
+    render(<ProductCard product={mockProduct} onAddToComparison={mockOnAddToComparison} />);
 
-    expect(screen.getByText('In Stock')).toBeInTheDocument()
-  })
+    expect(screen.getByText('In Stock')).toBeInTheDocument();
+  });
 
   it('handles out of stock products', () => {
     const outOfStockProduct = {
       ...mockProduct,
-      offers: [{
-        ...mockProduct.offers[0],
-        availability: 'out_of_stock'
-      }]
-    }
+      offers: [
+        {
+          ...mockProduct.offers[0],
+          availability: 'out_of_stock',
+        },
+      ],
+    };
 
-    render(
-      <ProductCard 
-        product={outOfStockProduct} 
-        onAddToComparison={mockOnAddToComparison} 
-      />
-    )
+    render(<ProductCard product={outOfStockProduct} onAddToComparison={mockOnAddToComparison} />);
 
-    expect(screen.getByText('Out of Stock')).toBeInTheDocument()
-  })
-})
+    expect(screen.getByText('Out of Stock')).toBeInTheDocument();
+  });
+});

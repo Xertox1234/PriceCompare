@@ -19,7 +19,7 @@ export function MostWatchedWidget({ limit = 10, compact = false }: MostWatchedWi
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
+          <Skeleton className="mt-2 h-4 w-64" />
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -36,7 +36,9 @@ export function MostWatchedWidget({ limit = 10, compact = false }: MostWatchedWi
     return (
       <Alert>
         <Info className="h-4 w-4" />
-        <AlertDescription>No trending products yet. Be the first to watch products!</AlertDescription>
+        <AlertDescription>
+          No trending products yet. Be the first to watch products!
+        </AlertDescription>
       </Alert>
     );
   }
@@ -45,12 +47,10 @@ export function MostWatchedWidget({ limit = 10, compact = false }: MostWatchedWi
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-blue-600" />
+          <TrendingUp className="h-5 w-5 text-blue-600" />
           Trending Products
         </CardTitle>
-        {!compact && (
-          <CardDescription>Most watched products by the community</CardDescription>
-        )}
+        {!compact && <CardDescription>Most watched products by the community</CardDescription>}
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
@@ -94,11 +94,11 @@ function WatchedProductItem({
 
   return (
     <Link href={`/product/${product.productId}`}>
-      <a className="block p-3 rounded-lg border hover:bg-accent hover:border-primary transition-colors">
+      <a className="hover:bg-accent hover:border-primary block rounded-lg border p-3 transition-colors">
         <div className="flex items-center gap-3">
           {/* Rank */}
           <div
-            className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
+            className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
               rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
             }`}
           >
@@ -106,12 +106,12 @@ function WatchedProductItem({
           </div>
 
           {/* Product Info */}
-          <div className="flex-1 min-w-0">
-            <h4 className="font-medium truncate text-sm">{product.productName}</h4>
+          <div className="min-w-0 flex-1">
+            <h4 className="truncate text-sm font-medium">{product.productName}</h4>
             {!compact && (
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Eye className="w-3 h-3" />
+              <div className="mt-1 flex items-center gap-2">
+                <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                  <Eye className="h-3 w-3" />
                   <span>{product.watchCount} watching</span>
                 </div>
                 {badge && (
@@ -126,7 +126,7 @@ function WatchedProductItem({
           {/* Watch Count Badge */}
           {compact && (
             <Badge variant="secondary" className="flex-shrink-0 text-xs">
-              <Users className="w-3 h-3 mr-1" />
+              <Users className="mr-1 h-3 w-3" />
               {product.watchCount}
             </Badge>
           )}

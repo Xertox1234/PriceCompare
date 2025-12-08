@@ -26,12 +26,14 @@
 ## Prerequisites
 
 ### Required Services
+
 - **Node.js**: v18+ (recommended v22+)
 - **PostgreSQL**: v14+ (for main database)
 - **Redis**: v7+ (for distributed caching & locking)
 - **Docker** (optional, recommended for containerized deployment)
 
 ### Required Accounts/Keys
+
 - OpenAI API Key (for AI agents)
 - Slack Webhook URL (optional, for monitoring alerts)
 - SMTP Server (optional, for password reset emails)
@@ -40,12 +42,14 @@
 ### Minimum Server Requirements
 
 **Single Instance:**
+
 - CPU: 2 cores
 - RAM: 4 GB
 - Storage: 20 GB SSD
 - Network: 100 Mbps
 
 **Production (3+ instances):**
+
 - **Application Servers (each):**
   - CPU: 4 cores
   - RAM: 8 GB
@@ -68,6 +72,7 @@
 ### Option 1: Cloud Deployment (Recommended)
 
 #### AWS Architecture
+
 ```
 ┌─────────────────────────────────────────────┐
 │          Application Load Balancer          │
@@ -97,6 +102,7 @@
 #### AWS Services Setup
 
 **1. RDS PostgreSQL:**
+
 ```bash
 # Create DB instance
 Instance Class: db.t3.medium (or larger)
@@ -106,6 +112,7 @@ Backup Retention: 7 days
 ```
 
 **2. ElastiCache Redis:**
+
 ```bash
 # Create Redis cluster
 Node Type: cache.t3.medium
@@ -115,6 +122,7 @@ Replicas: 2 (for high availability)
 ```
 
 **3. EC2 Instances:**
+
 ```bash
 # Launch 3+ application instances
 Instance Type: t3.large
@@ -123,6 +131,7 @@ Security Group: Allow 5000 (internal), 22 (SSH), 443 (HTTPS)
 ```
 
 **4. Application Load Balancer:**
+
 ```bash
 # Create ALB
 Type: Application Load Balancer
@@ -136,6 +145,7 @@ Health Check: GET /api/monitoring/health (every 30s)
 ### Option 2: Docker Compose Deployment
 
 #### Production docker-compose.yml
+
 ```yaml
 version: '3.8'
 
@@ -156,9 +166,9 @@ services:
       - db
       - redis
     ports:
-      - "5000-5002:5000"  # 3 instances
+      - '5000-5002:5000' # 3 instances
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/monitoring/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:5000/api/monitoring/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -175,9 +185,9 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./backups:/backups
     ports:
-      - "5432:5432"
+      - '5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -197,9 +207,9 @@ services:
     volumes:
       - redis-data:/data
     ports:
-      - "6379:6379"
+      - '6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 3s
       retries: 3
@@ -209,8 +219,8 @@ services:
     image: nginx:alpine
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
@@ -352,6 +362,7 @@ CREATE INDEX CONCURRENTLY idx_product_offers_scraped_at ON product_offers(scrape
 ### Production Redis Settings
 
 **For ElastiCache:**
+
 - Parameter Group: Create custom from default.redis7
 - Cluster Mode: Enabled
 - Replicas: 2-3 per shard
@@ -392,6 +403,7 @@ rename-command CONFIG ""
 ### Step-by-Step Deployment
 
 **1. Clone Repository**
+
 ```bash
 git clone https://github.com/yourorg/PriceCompare.git
 cd PriceCompare
@@ -399,16 +411,19 @@ git checkout main  # or specific release tag
 ```
 
 **2. Install Dependencies**
+
 ```bash
 npm ci --production
 ```
 
 **3. Build Application**
+
 ```bash
 npm run build
 ```
 
 **4. Configure Environment**
+
 ```bash
 # Create .env from template
 cp .env.example .env
@@ -418,11 +433,13 @@ nano .env
 ```
 
 **5. Database Migration**
+
 ```bash
 npm run db:push
 ```
 
 **6. Start Application**
+
 ```bash
 # Option A: Direct Node
 NODE_ENV=production node dist/index.js
@@ -436,6 +453,7 @@ docker-compose up -d --scale app=3
 ```
 
 **7. Verify Deployment**
+
 ```bash
 # Check health endpoint
 curl http://localhost:5000/api/monitoring/health
@@ -497,7 +515,7 @@ kind: Deployment
 metadata:
   name: pricecompare-app
 spec:
-  replicas: 5  # Number of instances
+  replicas: 5 # Number of instances
   selector:
     matchLabels:
       app: pricecompare
@@ -507,31 +525,31 @@ spec:
         app: pricecompare
     spec:
       containers:
-      - name: app
-        image: pricecompare:latest
-        ports:
-        - containerPort: 5000
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: pricecompare-secrets
-              key: database-url
-        - name: REDIS_URL
-          value: redis://redis-service:6379
-        livenessProbe:
-          httpGet:
-            path: /api/monitoring/health
-            port: 5000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        resources:
-          requests:
-            memory: "2Gi"
-            cpu: "1000m"
-          limits:
-            memory: "4Gi"
-            cpu: "2000m"
+        - name: app
+          image: pricecompare:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pricecompare-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: redis://redis-service:6379
+          livenessProbe:
+            httpGet:
+              path: /api/monitoring/health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: '2Gi'
+              cpu: '1000m'
+            limits:
+              memory: '4Gi'
+              cpu: '2000m'
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -545,23 +563,24 @@ spec:
   minReplicas: 3
   maxReplicas: 10
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
 ```
 
 ### Load Balancer Configuration
 
 **Nginx Configuration (nginx.conf):**
+
 ```nginx
 upstream pricecompare_backend {
     least_conn;  # Use least-connections algorithm
@@ -653,6 +672,7 @@ curl -X POST http://localhost:5000/api/monitoring/alerts/test
 ### 3. Alert Rules (Configured Automatically)
 
 The system monitors:
+
 - **High Error Rate** (>20%) - Critical alert every 5 minutes
 - **Queue Backlog** (>50 jobs) - Warning every 10 minutes
 - **Low Cache Hit Rate** (<40%) - Warning every 10 minutes
@@ -663,6 +683,7 @@ The system monitors:
 ### 4. External Monitoring (Recommended)
 
 **AWS CloudWatch:**
+
 ```bash
 # Install CloudWatch agent on EC2 instances
 # Monitor: CPU, Memory, Disk I/O, Network
@@ -680,6 +701,7 @@ aws cloudwatch put-metric-alarm \
 ```
 
 **Datadog / New Relic:**
+
 - Install APM agent
 - Monitor application performance
 - Track custom metrics (job processing, lock contention)
@@ -724,11 +746,13 @@ Health Check Settings:
 ### Readiness vs. Liveness Probes
 
 **Liveness Probe** (Is the app running?):
+
 - Endpoint: `/api/monitoring/health`
 - Frequency: Every 30s
 - Action on Failure: Restart container
 
 **Readiness Probe** (Can the app serve traffic?):
+
 - Endpoint: `/api/monitoring/health`
 - Check: All services (DB, Redis, Agents) are healthy
 - Action on Failure: Remove from load balancer
@@ -740,6 +764,7 @@ Health Check Settings:
 ### Database Backups
 
 **Automated Daily Backups:**
+
 ```bash
 # Cron job for daily backup at 2 AM
 0 2 * * * /usr/local/bin/backup-db.sh
@@ -759,11 +784,13 @@ find /backups -name "*.sql.gz" -mtime +30 -delete
 ```
 
 **Manual Backup:**
+
 ```bash
 pg_dump -h $DB_HOST -U $DB_USER -Fc price_db > backup_$(date +%Y%m%d).dump
 ```
 
 **Restore from Backup:**
+
 ```bash
 pg_restore -h $DB_HOST -U $DB_USER -d price_db -c backup_20251114.dump
 ```
@@ -771,6 +798,7 @@ pg_restore -h $DB_HOST -U $DB_USER -d price_db -c backup_20251114.dump
 ### Redis Persistence
 
 Redis is configured with:
+
 - AOF (Append-Only File) enabled
 - RDB snapshots every 15 minutes
 - Automatic backups to `/data` volume
@@ -782,6 +810,7 @@ Redis is configured with:
 ### Common Issues
 
 **1. Application Won't Start**
+
 ```bash
 # Check logs
 pm2 logs pricecompare
@@ -796,6 +825,7 @@ docker-compose logs app
 ```
 
 **2. High Lock Contention**
+
 ```bash
 # Check dashboard: /monitoring
 # Look for "Contention" badge
@@ -807,6 +837,7 @@ docker-compose logs app
 ```
 
 **3. Database Connection Pool Exhausted**
+
 ```bash
 # Symptoms: "sorry, too many clients already"
 
@@ -820,6 +851,7 @@ SELECT pg_reload_conf();
 ```
 
 **4. Memory Leaks**
+
 ```bash
 # Monitor memory usage
 pm2 monit
@@ -831,6 +863,7 @@ pm2 monit
 ```
 
 **5. WebSocket Connection Failures**
+
 ```bash
 # Check nginx configuration
 # Ensure Upgrade headers are set
@@ -865,6 +898,7 @@ wscat -c wss://your-domain.com/socket.io/
 ## Performance Benchmarks
 
 **Expected Performance (3 instances):**
+
 - Job Throughput: 500-1000 jobs/hour
 - Lock Success Rate: >95%
 - Lock Contention: <15%
@@ -880,17 +914,20 @@ wscat -c wss://your-domain.com/socket.io/
 ### Regular Maintenance Tasks
 
 **Weekly:**
+
 - Review monitoring dashboard for anomalies
 - Check error logs for patterns
 - Verify backup success
 
 **Monthly:**
+
 - Review and optimize database queries
 - Clean up old jobs (>90 days)
 - Update dependencies (security patches)
 - Review resource usage and scaling needs
 
 **Quarterly:**
+
 - Load testing
 - Security audit
 - Disaster recovery drill

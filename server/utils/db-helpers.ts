@@ -78,7 +78,7 @@ export function hasRequiredProperties<T extends Record<string, unknown>>(
 ): result is T {
   if (!result || typeof result !== 'object') return false;
 
-  return properties.every(prop => prop in result);
+  return properties.every((prop) => prop in result);
 }
 
 /**
@@ -103,10 +103,7 @@ export function safeGet<T, K extends keyof T>(
  * @param mapper Mapping function
  * @returns Mapped array
  */
-export function mapResults<T, U>(
-  results: T[],
-  mapper: (item: T, index: number) => U
-): U[] {
+export function mapResults<T, U>(results: T[], mapper: (item: T, index: number) => U): U[] {
   return results.map(mapper);
 }
 

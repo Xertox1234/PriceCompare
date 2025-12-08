@@ -9,21 +9,13 @@
  * Phase 3E: Retailer Domain Extraction - Extracted from monolithic storage.ts
  */
 
-import { db } from "../../db";
-import { eq, asc, sql, inArray } from "drizzle-orm";
-import { BaseStorage } from "../base-storage";
-import {
-  retailers,
-  productOffers,
-  type Retailer,
-  type InsertRetailer
-} from "@shared/schema";
-import type {
-  RetailerWithAffiliateStats,
-  AffiliateConfig,
-} from "../types";
-import { logger } from "../../utils/logger";
-import { storageCache } from "../../services/storage-cache";
+import { db } from '../../db';
+import { eq, asc, sql, inArray } from 'drizzle-orm';
+import { BaseStorage } from '../base-storage';
+import { retailers, productOffers, type Retailer, type InsertRetailer } from '@shared/schema';
+import type { RetailerWithAffiliateStats, AffiliateConfig } from '../types';
+import { logger } from '../../utils/logger';
+import { storageCache } from '../../services/storage-cache';
 
 export class RetailerStorage extends BaseStorage {
   constructor(database: typeof db) {
@@ -51,7 +43,9 @@ export class RetailerStorage extends BaseStorage {
     if (config.commissionRate !== undefined && config.commissionRate !== null) {
       const rate = parseFloat(config.commissionRate);
       if (isNaN(rate) || rate < 0 || rate > 100) {
-        throw new Error(`Invalid commission rate: ${config.commissionRate}. Must be between 0 and 100.`);
+        throw new Error(
+          `Invalid commission rate: ${config.commissionRate}. Must be between 0 and 100.`
+        );
       }
     }
 
@@ -59,16 +53,24 @@ export class RetailerStorage extends BaseStorage {
     if (config.affiliateStatus !== undefined && config.affiliateStatus !== null) {
       const validStatuses = ['active', 'inactive', 'pending'];
       if (!validStatuses.includes(config.affiliateStatus)) {
-        throw new Error(`Invalid affiliate status: ${config.affiliateStatus}. Must be one of: ${validStatuses.join(', ')}`);
+        throw new Error(
+          `Invalid affiliate status: ${config.affiliateStatus}. Must be one of: ${validStatuses.join(', ')}`
+        );
       }
     }
 
     // Validate base affiliate URL if provided
-    if (config.baseAffiliateUrl !== undefined && config.baseAffiliateUrl !== null && config.baseAffiliateUrl.length > 0) {
+    if (
+      config.baseAffiliateUrl !== undefined &&
+      config.baseAffiliateUrl !== null &&
+      config.baseAffiliateUrl.length > 0
+    ) {
       try {
         new URL(config.baseAffiliateUrl);
       } catch (error) {
-        throw new Error(`Invalid base affiliate URL: ${config.baseAffiliateUrl}. Must be a valid URL.`);
+        throw new Error(
+          `Invalid base affiliate URL: ${config.baseAffiliateUrl}. Must be a valid URL.`
+        );
       }
     }
   }
@@ -126,10 +128,7 @@ export class RetailerStorage extends BaseStorage {
    */
   async getAllRetailers(): Promise<Retailer[]> {
     try {
-      const result = await this.db
-        .select()
-        .from(retailers)
-        .orderBy(asc(retailers.name));
+      const result = await this.db.select().from(retailers).orderBy(asc(retailers.name));
 
       this.logSuccess('getAllRetailers', { count: result.length });
       return result;
@@ -147,11 +146,7 @@ export class RetailerStorage extends BaseStorage {
     this.validateRetailerId(id);
 
     try {
-      const [result] = await this.db
-        .select()
-        .from(retailers)
-        .where(eq(retailers.id, id))
-        .limit(1);
+      const [result] = await this.db.select().from(retailers).where(eq(retailers.id, id)).limit(1);
 
       this.logSuccess('getRetailerById', { retailerId: id, found: !!result });
       return result || null;
@@ -170,7 +165,7 @@ export class RetailerStorage extends BaseStorage {
   async getRetailersByIds(ids: number[]): Promise<Array<{ id: number; name: string }>> {
     try {
       // Validate all IDs
-      ids.forEach(id => this.validateRetailerId(id));
+      ids.forEach((id) => this.validateRetailerId(id));
 
       if (ids.length === 0) {
         return [];
@@ -200,7 +195,7 @@ export class RetailerStorage extends BaseStorage {
           ...retailer,
           logo: retailer.logo || null,
           website: retailer.website || null,
-          isActive: retailer.isActive ?? true
+          isActive: retailer.isActive ?? true,
         })
         .returning();
 
@@ -249,10 +244,7 @@ export class RetailerStorage extends BaseStorage {
     this.validateRetailerId(id);
 
     try {
-      const [result] = await this.db
-        .delete(retailers)
-        .where(eq(retailers.id, id))
-        .returning();
+      const [result] = await this.db.delete(retailers).where(eq(retailers.id, id)).returning();
 
       // Invalidate retailer caches after successful deletion
       if (result) {
@@ -276,10 +268,7 @@ export class RetailerStorage extends BaseStorage {
    */
   async getAdminRetailers(): Promise<Retailer[]> {
     try {
-      const result = await this.db
-        .select()
-        .from(retailers)
-        .orderBy(asc(retailers.name));
+      const result = await this.db.select().from(retailers).orderBy(asc(retailers.name));
 
       this.logSuccess('getAdminRetailers', { count: result.length });
       return result;
@@ -297,12 +286,12 @@ export class RetailerStorage extends BaseStorage {
     this.validateRetailerData(data);
 
     try {
-      const [newRetailer] = await this.db
-        .insert(retailers)
-        .values(data)
-        .returning();
+      const [newRetailer] = await this.db.insert(retailers).values(data).returning();
 
-      this.logSuccess('createAdminRetailer', { retailerId: newRetailer.id, name: newRetailer.name });
+      this.logSuccess('createAdminRetailer', {
+        retailerId: newRetailer.id,
+        name: newRetailer.name,
+      });
       return newRetailer;
     } catch (error) {
       this.handleError(error, 'createAdminRetailer');
@@ -376,10 +365,7 @@ export class RetailerStorage extends BaseStorage {
   async getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]> {
     try {
       // Fetch all retailers
-      const allRetailers = await this.db
-        .select()
-        .from(retailers)
-        .orderBy(asc(retailers.name));
+      const allRetailers = await this.db.select().from(retailers).orderBy(asc(retailers.name));
 
       // Use Promise.allSettled for graceful error handling per retailer
       const results = await Promise.allSettled(
@@ -389,7 +375,7 @@ export class RetailerStorage extends BaseStorage {
             .select({
               totalOffers: sql<number>`count(*)::int`,
               offersWithAffiliateLinks: sql<number>`count(case when ${productOffers.affiliateUrl} is not null then 1 end)::int`,
-              totalClicks: sql<number>`coalesce(sum(${productOffers.clickCount}), 0)::int`
+              totalClicks: sql<number>`coalesce(sum(${productOffers.clickCount}), 0)::int`,
             })
             .from(productOffers)
             .where(eq(productOffers.retailerId, retailer.id));
@@ -397,7 +383,7 @@ export class RetailerStorage extends BaseStorage {
           const stats = statsResult[0] || {
             totalOffers: 0,
             offersWithAffiliateLinks: 0,
-            totalClicks: 0
+            totalClicks: 0,
           };
 
           return {
@@ -405,7 +391,7 @@ export class RetailerStorage extends BaseStorage {
             affiliateConfigParsed: retailer.affiliateConfig
               ? (JSON.parse(retailer.affiliateConfig) as Record<string, unknown>)
               : null,
-            stats
+            stats,
           };
         })
       );
@@ -419,7 +405,7 @@ export class RetailerStorage extends BaseStorage {
         // Log error but don't fail entire operation
         logger.error('[RetailerStorage] Failed to fetch affiliate stats for retailer', {
           retailerId: allRetailers[index].id,
-          error: result.reason instanceof Error ? result.reason.message : String(result.reason)
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
         });
 
         return {
@@ -427,7 +413,7 @@ export class RetailerStorage extends BaseStorage {
           affiliateConfigParsed: allRetailers[index].affiliateConfig
             ? (JSON.parse(allRetailers[index].affiliateConfig) as Record<string, unknown>)
             : null,
-          stats: { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 }
+          stats: { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 },
         };
       });
 
@@ -444,7 +430,10 @@ export class RetailerStorage extends BaseStorage {
    * @param config - Affiliate configuration
    * @returns Updated retailer or null if not found
    */
-  async updateRetailerAffiliateConfig(id: number, config: AffiliateConfig): Promise<Retailer | null> {
+  async updateRetailerAffiliateConfig(
+    id: number,
+    config: AffiliateConfig
+  ): Promise<Retailer | null> {
     this.validateRetailerId(id);
     this.validateAffiliateConfig(config);
 
@@ -457,7 +446,7 @@ export class RetailerStorage extends BaseStorage {
           baseAffiliateUrl: config.baseAffiliateUrl,
           commissionRate: config.commissionRate,
           affiliateStatus: config.affiliateStatus as 'active' | 'inactive' | 'pending',
-          affiliateConfig: config.affiliateConfig ? JSON.stringify(config.affiliateConfig) : null
+          affiliateConfig: config.affiliateConfig ? JSON.stringify(config.affiliateConfig) : null,
         })
         .where(eq(retailers.id, id))
         .returning();
@@ -470,7 +459,7 @@ export class RetailerStorage extends BaseStorage {
       this.logSuccess('updateRetailerAffiliateConfig', {
         retailerId: id,
         found: !!updatedRetailer,
-        status: config.affiliateStatus
+        status: config.affiliateStatus,
       });
       return updatedRetailer || null;
     } catch (error) {

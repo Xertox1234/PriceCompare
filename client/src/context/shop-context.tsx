@@ -99,7 +99,7 @@ function shopReducer(state: ShopState, action: ShopAction): ShopState {
   switch (action.type) {
     case 'ADD_TO_CART': {
       const { product, quantity = 1 } = action.payload;
-      const existingIndex = state.cart.findIndex(item => item.product.id === product.id);
+      const existingIndex = state.cart.findIndex((item) => item.product.id === product.id);
 
       if (existingIndex >= 0) {
         const newCart = [...state.cart];
@@ -118,7 +118,7 @@ function shopReducer(state: ShopState, action: ShopAction): ShopState {
 
     case 'ADD_SIMPLE_TO_CART': {
       const item = action.payload;
-      const existingIndex = state.simpleCart.findIndex(i => i.id === item.id);
+      const existingIndex = state.simpleCart.findIndex((i) => i.id === item.id);
 
       if (existingIndex >= 0) {
         const newCart = [...state.simpleCart];
@@ -138,8 +138,8 @@ function shopReducer(state: ShopState, action: ShopAction): ShopState {
     case 'REMOVE_FROM_CART':
       return {
         ...state,
-        cart: state.cart.filter(item => item.product.id !== action.payload),
-        simpleCart: state.simpleCart.filter(item => item.id !== action.payload),
+        cart: state.cart.filter((item) => item.product.id !== action.payload),
+        simpleCart: state.simpleCart.filter((item) => item.id !== action.payload),
       };
 
     case 'UPDATE_CART_QUANTITY': {
@@ -147,21 +147,17 @@ function shopReducer(state: ShopState, action: ShopAction): ShopState {
       if (quantity <= 0) {
         return {
           ...state,
-          cart: state.cart.filter(item => item.product.id !== productId),
-          simpleCart: state.simpleCart.filter(item => item.id !== productId),
+          cart: state.cart.filter((item) => item.product.id !== productId),
+          simpleCart: state.simpleCart.filter((item) => item.id !== productId),
         };
       }
       return {
         ...state,
-        cart: state.cart.map(item =>
-          item.product.id === productId
-            ? { ...item, quantity }
-            : item
+        cart: state.cart.map((item) =>
+          item.product.id === productId ? { ...item, quantity } : item
         ),
-        simpleCart: state.simpleCart.map(item =>
-          item.id === productId
-            ? { ...item, quantity }
-            : item
+        simpleCart: state.simpleCart.map((item) =>
+          item.id === productId ? { ...item, quantity } : item
         ),
       };
     }
@@ -181,7 +177,7 @@ function shopReducer(state: ShopState, action: ShopAction): ShopState {
       return {
         ...state,
         wishlist: isInWishlist
-          ? state.wishlist.filter(id => id !== productId)
+          ? state.wishlist.filter((id) => id !== productId)
           : [...state.wishlist, productId],
       };
     }
@@ -193,7 +189,7 @@ function shopReducer(state: ShopState, action: ShopAction): ShopState {
       if (isInCompare) {
         return {
           ...state,
-          compare: state.compare.filter(id => id !== productId),
+          compare: state.compare.filter((id) => id !== productId),
         };
       }
 
@@ -213,7 +209,7 @@ function shopReducer(state: ShopState, action: ShopAction): ShopState {
 
     case 'ADD_RECENTLY_VIEWED': {
       const productId = action.payload;
-      const filtered = state.recentlyViewed.filter(id => id !== productId);
+      const filtered = state.recentlyViewed.filter((id) => id !== productId);
       // Keep max 10 items, newest first
       return {
         ...state,
@@ -252,7 +248,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      log.error('Failed to load shop state', { error: error instanceof Error ? error.message : String(error) });
+      log.error('Failed to load shop state', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }, []);
 
@@ -261,7 +259,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
-      log.error('Failed to save shop state', { error: error instanceof Error ? error.message : String(error) });
+      log.error('Failed to save shop state', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }, [state]);
 
@@ -297,8 +297,10 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   };
 
   const isInCart = (productId: number) => {
-    return state.cart.some(item => item.product.id === productId) ||
-           state.simpleCart.some(item => item.id === productId);
+    return (
+      state.cart.some((item) => item.product.id === productId) ||
+      state.simpleCart.some((item) => item.id === productId)
+    );
   };
 
   // Cart sidebar
@@ -367,11 +369,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     addRecentlyViewed,
   };
 
-  return (
-    <ShopContext.Provider value={value}>
-      {children}
-    </ShopContext.Provider>
-  );
+  return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 }
 
 export function useShop() {

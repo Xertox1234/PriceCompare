@@ -137,7 +137,7 @@ function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, un
 
   for (const [key, value] of Object.entries(metadata)) {
     const keyLower = key.toLowerCase();
-    if (sensitiveKeys.some(sensitive => keyLower.includes(sensitive))) {
+    if (sensitiveKeys.some((sensitive) => keyLower.includes(sensitive))) {
       sanitized[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Recursively sanitize nested objects
@@ -227,23 +227,22 @@ export function logSecurityEvent(
   );
 
   // Send critical and error security events to Sentry for alerting
-  if (event.severity === SecurityEventSeverity.CRITICAL || event.severity === SecurityEventSeverity.ERROR) {
-    captureMessage(
-      `Security Event: ${event.type}`,
-      mapSeverityToSentryLevel(event.severity),
-      {
-        eventType: event.type,
-        userId: event.userId,
-        username: event.username,
-        ipAddress: event.ipAddress,
-        userAgent: event.userAgent,
-        path: event.path,
-        method: event.method,
-        success: event.success,
-        message: event.message,
-        metadata: event.metadata,
-      }
-    );
+  if (
+    event.severity === SecurityEventSeverity.CRITICAL ||
+    event.severity === SecurityEventSeverity.ERROR
+  ) {
+    captureMessage(`Security Event: ${event.type}`, mapSeverityToSentryLevel(event.severity), {
+      eventType: event.type,
+      userId: event.userId,
+      username: event.username,
+      ipAddress: event.ipAddress,
+      userAgent: event.userAgent,
+      path: event.path,
+      method: event.method,
+      success: event.success,
+      message: event.message,
+      metadata: event.metadata,
+    });
   }
 }
 

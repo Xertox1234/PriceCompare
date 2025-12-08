@@ -69,14 +69,24 @@ export interface NotificationEvent {
 export interface ServerToClientEvents {
   // Price alerts and updates
   'price:alert': (data: PriceAlertEvent) => void;
-  'price:updated': (data: ProductPriceUpdateEvent & { savings?: number; priority?: string }) => void;
+  'price:updated': (
+    data: ProductPriceUpdateEvent & { savings?: number; priority?: string }
+  ) => void;
   'price:subscribed': (data: { productIds: number[]; timestamp: string; message: string }) => void;
   'price:unsubscribed': (data: { productIds: number[]; timestamp: string }) => void;
 
   // Watch list updates
   'watchlist:update': (data: WatchListUpdateEvent) => void;
-  'watchlist:product_added': (data: { watchListId: number; product: { id: number; name: string; image?: string | null; currentPrice?: number | null }; timestamp: string }) => void;
-  'watchlist:product_removed': (data: { watchListId: number; productId: number; timestamp: string }) => void;
+  'watchlist:product_added': (data: {
+    watchListId: number;
+    product: { id: number; name: string; image?: string | null; currentPrice?: number | null };
+    timestamp: string;
+  }) => void;
+  'watchlist:product_removed': (data: {
+    watchListId: number;
+    productId: number;
+    timestamp: string;
+  }) => void;
   'watchlist:subscribed': (data: { timestamp: string; message: string }) => void;
   'watchlist:unsubscribed': (data: { timestamp: string }) => void;
 
@@ -84,12 +94,16 @@ export interface ServerToClientEvents {
   'notification:new': (data: { notification: NotificationEvent; unreadCount: number }) => void;
   'notification:read': (data: { notificationId: number; unreadCount: number }) => void;
   'notification:count_updated': (data: { unreadCount: number; timestamp: string }) => void;
-  'notification:subscribed': (data: { timestamp: string; unreadCount: number; totalCount: number }) => void;
+  'notification:subscribed': (data: {
+    timestamp: string;
+    unreadCount: number;
+    totalCount: number;
+  }) => void;
   'notification:unsubscribed': (data: { timestamp: string }) => void;
 
   // Connection events
-  'authenticated': (data: { userId: number; timestamp: string }) => void;
-  'error': (data: { message: string; code?: string; event?: string; details?: string }) => void;
+  authenticated: (data: { userId: number; timestamp: string }) => void;
+  error: (data: { message: string; code?: string; event?: string; details?: string }) => void;
 }
 
 /**
@@ -115,5 +129,5 @@ export interface ClientToServerEvents {
   'notification:mark-read': (data: { notificationId: number }) => void;
 
   // Heartbeat
-  'ping': () => void;
+  ping: () => void;
 }

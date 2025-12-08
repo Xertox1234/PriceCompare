@@ -12,12 +12,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Server as HTTPServer } from 'http';
 import type { Express } from 'express';
 import { io as ioClient } from 'socket.io-client';
-import {
-  createTestServer,
-  closeTestServer,
-  waitForEvent,
-  waitForCondition,
-} from './test-utils';
+import { createTestServer, closeTestServer, waitForEvent, waitForCondition } from './test-utils';
 import { getSocketIO, shutdownWebSocket } from '../index';
 
 // Mock dependencies
@@ -160,7 +155,7 @@ describe('WebSocket Reconnection Tests', () => {
 
         // Disconnect and prevent reconnection by closing server temporarily
         client.disconnect();
-        await shutdownWebSocket();
+        shutdownWebSocket();
 
         // Wait for reconnection attempts
         await new Promise((resolve) => setTimeout(resolve, 10000));
@@ -221,7 +216,8 @@ describe('WebSocket Reconnection Tests', () => {
   describe('Max Reconnection Attempts', () => {
     it('should stop reconnecting after max attempts', async () => {
       const maxAttempts = 3;
-      const client = ioClient('http://localhost:9999', { // Invalid port
+      const client = ioClient('http://localhost:9999', {
+        // Invalid port
         path: '/ws',
         transports: ['websocket'],
         reconnection: true,

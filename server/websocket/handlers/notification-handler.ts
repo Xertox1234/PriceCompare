@@ -244,11 +244,7 @@ function emitNewNotificationInternal(
  * @param userId User ID to target
  * @param unreadCount Updated unread count
  */
-export function emitUnreadCountUpdate(
-  io: Server,
-  userId: number,
-  unreadCount: number
-): void {
+export function emitUnreadCountUpdate(io: Server, userId: number, unreadCount: number): void {
   const room = `notifications:${userId}`;
 
   io.to(room).emit('notification:count_updated', {
@@ -280,12 +276,7 @@ export function setupNotificationEventSubscriptions(io: Server): void {
         // Get updated unread count
         const stats = await storage.getNotificationStats(payload.userId);
 
-        emitNewNotificationInternal(
-          io,
-          payload.userId,
-          payload.notification,
-          stats.unread
-        );
+        emitNewNotificationInternal(io, payload.userId, payload.notification, stats.unread);
       } catch (error) {
         log.error('Failed to emit notification event', {
           error: error instanceof Error ? error.message : String(error),

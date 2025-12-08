@@ -3,7 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useSmartThresholdSuggestions, useCreateSuggestedAlert, SmartThresholdSuggestion } from '@/hooks/use-smart-alerts';
+import {
+  useSmartThresholdSuggestions,
+  useCreateSuggestedAlert,
+  SmartThresholdSuggestion,
+} from '@/hooks/use-smart-alerts';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, TrendingDown, Calendar, Activity, DollarSign, Info } from 'lucide-react';
 
@@ -13,7 +17,11 @@ interface SmartSuggestionsProps {
   onSuggestionAccepted?: () => void;
 }
 
-export function SmartSuggestions({ productId, currentPrice, onSuggestionAccepted }: SmartSuggestionsProps) {
+export function SmartSuggestions({
+  productId,
+  currentPrice,
+  onSuggestionAccepted,
+}: SmartSuggestionsProps) {
   const { data, isLoading } = useSmartThresholdSuggestions(productId, currentPrice);
   const createAlert = useCreateSuggestedAlert();
   const { toast } = useToast();
@@ -46,7 +54,7 @@ export function SmartSuggestions({ productId, currentPrice, onSuggestionAccepted
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
+          <Skeleton className="mt-2 h-4 w-64" />
         </CardHeader>
         <CardContent>
           <Skeleton className="h-32 w-full" />
@@ -70,7 +78,7 @@ export function SmartSuggestions({ productId, currentPrice, onSuggestionAccepted
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
+          <Sparkles className="text-primary h-5 w-5" />
           Smart Suggestions
         </CardTitle>
         <CardDescription>
@@ -87,8 +95,11 @@ export function SmartSuggestions({ productId, currentPrice, onSuggestionAccepted
           />
         ))}
 
-        <div className="pt-2 border-t text-xs text-muted-foreground">
-          <p>💡 These suggestions are based on historical price patterns and may not guarantee future results.</p>
+        <div className="text-muted-foreground border-t pt-2 text-xs">
+          <p>
+            💡 These suggestions are based on historical price patterns and may not guarantee future
+            results.
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -136,13 +147,13 @@ function SuggestionCard({
   const Icon = config.icon;
 
   return (
-    <div className={`p-4 rounded-lg border-2 ${config.bgColor} border-current/20`}>
-      <div className="flex items-start justify-between mb-3">
+    <div className={`rounded-lg border-2 p-4 ${config.bgColor} border-current/20`}>
+      <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-2">
-          <Icon className={`w-5 h-5 ${config.color}`} />
+          <Icon className={`h-5 w-5 ${config.color}`} />
           <div>
-            <h4 className="font-semibold text-lg">${suggestion.targetPrice.toFixed(2)}</h4>
-            <p className="text-xs text-muted-foreground">{config.label}</p>
+            <h4 className="text-lg font-semibold">${suggestion.targetPrice.toFixed(2)}</h4>
+            <p className="text-muted-foreground text-xs">{config.label}</p>
           </div>
         </div>
 
@@ -153,28 +164,23 @@ function SuggestionCard({
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground mb-3">{suggestion.reason}</p>
+      <p className="text-muted-foreground mb-3 text-sm">{suggestion.reason}</p>
 
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="p-2 rounded bg-white/50">
-          <p className="text-xs text-muted-foreground">Potential Savings</p>
+      <div className="mb-3 grid grid-cols-2 gap-3">
+        <div className="rounded bg-white/50 p-2">
+          <p className="text-muted-foreground text-xs">Potential Savings</p>
           <p className="text-sm font-semibold text-green-600">
             ${suggestion.savingsAmount.toFixed(2)} ({suggestion.savingsPercent.toFixed(1)}%)
           </p>
         </div>
 
-        <div className="p-2 rounded bg-white/50">
-          <p className="text-xs text-muted-foreground">Alert Price</p>
+        <div className="rounded bg-white/50 p-2">
+          <p className="text-muted-foreground text-xs">Alert Price</p>
           <p className="text-sm font-semibold">${suggestion.targetPrice.toFixed(2)}</p>
         </div>
       </div>
 
-      <Button
-        onClick={onAccept}
-        disabled={isCreating}
-        className="w-full"
-        variant="default"
-      >
+      <Button onClick={onAccept} disabled={isCreating} className="w-full" variant="default">
         {isCreating ? 'Creating...' : 'Create This Alert'}
       </Button>
     </div>

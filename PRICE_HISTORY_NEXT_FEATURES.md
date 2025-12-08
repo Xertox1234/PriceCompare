@@ -18,6 +18,7 @@ This document outlines **remaining high-value features** from the original roadm
 ## What's Already Complete ✅
 
 **Phase 1 - Foundation (Complete):**
+
 - ✅ Database schema (price_history, price_snapshots tables)
 - ✅ Backend service (879 lines) with full API
 - ✅ Price drop alerts integration
@@ -26,6 +27,7 @@ This document outlines **remaining high-value features** from the original roadm
 - ✅ Mobile optimization
 
 **Phase 2 - Intelligence (Complete):**
+
 - ✅ Interactive price history charts
 - ✅ Dedicated price history page route
 - ✅ Price insights dashboard with smart buy recommendations
@@ -36,10 +38,12 @@ This document outlines **remaining high-value features** from the original roadm
 - ✅ Best time to buy recommendations
 
 **Phase 4 Features (Already Complete):**
+
 - ✅ Interactive tooltips (InteractiveTooltip.tsx)
 - ✅ Product comparison mode (ProductComparison.tsx)
 
 **Reference Documents:**
+
 - `docs/PRICE_HISTORY_PHASE_1_1_COMPLETE.md` - Database schema
 - `docs/PRICE_HISTORY_PHASE_1_2_COMPLETE.md` - Backend service
 - `docs/PRICE_HISTORY_PHASE_2_1_COMPLETE.md` - Frontend components
@@ -63,6 +67,7 @@ This document outlines **remaining high-value features** from the original roadm
 Creates a dedicated dashboard page where users can see all their watched products in one place with mini-charts, active alerts, and bulk management actions.
 
 **Implementation Files:**
+
 ```typescript
 // New page for price watching
 📁 client/src/pages/price-watch.tsx (NEW)
@@ -85,6 +90,7 @@ Creates a dedicated dashboard page where users can see all their watched product
 ```
 
 **Pattern References:**
+
 ```typescript
 // Follow existing dashboard patterns:
 📄 Reference: client/src/pages/admin.tsx - Dashboard layout
@@ -98,6 +104,7 @@ import PriceWatch from '@/pages/price-watch';
 ```
 
 **Success Metrics:**
+
 - 40%+ of users with watchlists visit dashboard weekly
 - Average 8+ products per watchlist
 - 25% of dashboard visits result in purchases
@@ -115,6 +122,7 @@ import PriceWatch from '@/pages/price-watch';
 Intelligent notification engine that analyzes price drops, stock levels, and predictions to send timely, prioritized alerts via multiple channels (in-app, push, email).
 
 **Implementation Files:**
+
 ```typescript
 // Backend: Notification intelligence
 📁 server/services/smart-notification-service.ts (NEW)
@@ -138,6 +146,7 @@ Intelligent notification engine that analyzes price drops, stock levels, and pre
 ```
 
 **Notification Types:**
+
 ```typescript
 interface SmartNotification {
   id: string;
@@ -145,23 +154,23 @@ interface SmartNotification {
   urgency: 'low' | 'medium' | 'high' | 'critical';
 
   trigger: {
-    condition: string;        // "Price dropped 20%"
-    threshold: number;        // What triggered it
-    currentValue: number;     // Current state
+    condition: string; // "Price dropped 20%"
+    threshold: number; // What triggered it
+    currentValue: number; // Current state
   };
 
-  reasoning: string[];        // ["Lowest price in 90 days", "Stock running low"]
+  reasoning: string[]; // ["Lowest price in 90 days", "Stock running low"]
   action: {
-    label: string;           // "Buy Now"
+    label: string; // "Buy Now"
     url: string;
     type: 'buy' | 'view' | 'share';
   };
 
-  expiresAt: Date;           // Urgency deadline
+  expiresAt: Date; // Urgency deadline
   metadata: {
     productId: number;
     savings: number;
-    confidence: number;       // 0.0-1.0
+    confidence: number; // 0.0-1.0
   };
 }
 
@@ -170,27 +179,27 @@ const rules = [
   {
     name: 'critical_drop',
     condition: (current, history) =>
-      current.price < history.lowestPrice &&
-      current.stock === 'limited_stock',
-    urgency: 'critical'
+      current.price < history.lowestPrice && current.stock === 'limited_stock',
+    urgency: 'critical',
   },
   {
     name: 'seasonal_opportunity',
     condition: (current, seasonal) =>
-      seasonal.pattern === 'pre_peak_season' &&
-      current.price < seasonal.avgPrePeakPrice * 0.9,
-    urgency: 'high'
-  }
+      seasonal.pattern === 'pre_peak_season' && current.price < seasonal.avgPrePeakPrice * 0.9,
+    urgency: 'high',
+  },
 ];
 ```
 
 **Integration Points:**
+
 - Leverage existing `server/services/notification-service.ts`
 - Use existing WebSocket service for real-time delivery
 - Integrate with `server/services/email-service.ts` for email notifications
 - Use `server/jobs/` Bull queue pattern for background processing
 
 **Success Metrics:**
+
 - 60%+ notification open rate
 - 35%+ click-through rate
 - 20%+ conversion to purchase
@@ -210,6 +219,7 @@ const rules = [
 Integrates community purchase data with price history to show social proof ("23 users bought at this price"), community price distribution, and user reviews at specific price points.
 
 **Implementation Files:**
+
 ```typescript
 // Backend: Community features
 📁 server/storage.ts (ADD METHODS)
@@ -243,18 +253,20 @@ Integrates community purchase data with price history to show social proof ("23 
 ```
 
 **Community Data Interface:**
+
 ```typescript
 interface CommunityPriceData {
   pricePoint: number;
   purchaseCount: number;
-  avgSatisfaction: number;        // 0-5
-  wouldBuyAgainPercent: number;   // 0-100
+  avgSatisfaction: number; // 0-5
+  wouldBuyAgainPercent: number; // 0-100
   userReviews: ForumPost[];
   dealQuality: 'excellent' | 'good' | 'fair';
 }
 ```
 
 **Pattern References:**
+
 ```typescript
 // Integrate with existing forum:
 📄 Reference: server/storage.ts - Forum storage methods
@@ -268,6 +280,7 @@ interface CommunityPriceData {
 ```
 
 **Success Metrics:**
+
 - 15%+ of users opt-in to purchase tracking
 - 30%+ of product pages show community insights
 - 10%+ increase in trust/conversion from social proof
@@ -287,6 +300,7 @@ interface CommunityPriceData {
 Chrome extension that overlays price history charts directly on retailer websites (Amazon, Best Buy, etc.) without users needing to leave the product page.
 
 **Project Structure:**
+
 ```
 📁 extensions/chrome/
    ├── manifest.json
@@ -308,6 +322,7 @@ Chrome extension that overlays price history charts directly on retailer website
 ```
 
 **Implementation Files:**
+
 ```typescript
 // Extension manifest (Manifest V3)
 📁 extensions/chrome/manifest.json (NEW)
@@ -347,6 +362,7 @@ Chrome extension that overlays price history charts directly on retailer website
 ```
 
 **Content Script Pattern:**
+
 ```typescript
 // Detect product and inject chart
 const productASIN = extractASIN(window.location.href);
@@ -367,6 +383,7 @@ if (productASIN) {
 ```
 
 **Technical Considerations:**
+
 - Use Manifest V3 (Chrome's latest)
 - Implement API rate limiting for extension
 - Secure API key storage (use Chrome identity API)
@@ -375,6 +392,7 @@ if (productASIN) {
 - Cross-browser compatibility (Firefox, Edge)
 
 **Success Metrics:**
+
 - 1,000+ installs in first 3 months
 - 70%+ daily active users
 - 40%+ conversion from extension to main app
@@ -393,6 +411,7 @@ if (productASIN) {
 Real-time chart updates when prices change while user is viewing the page, eliminating the need for manual refresh.
 
 **Implementation Files:**
+
 ```typescript
 // Backend: Already exists - leverage it
 📄 Reference: server/services/websocket-service.ts (existing)
@@ -413,6 +432,7 @@ Real-time chart updates when prices change while user is viewing the page, elimi
 ```
 
 **WebSocket Event Pattern:**
+
 ```typescript
 // Server-side event emission
 io.to(`product:${productId}`).emit('price:update', {
@@ -421,7 +441,7 @@ io.to(`product:${productId}`).emit('price:update', {
   newPrice: 299.99,
   oldPrice: 349.99,
   timestamp: new Date(),
-  retailer: 'Best Buy'
+  retailer: 'Best Buy',
 });
 
 // Client-side hook
@@ -432,7 +452,7 @@ function useRealtimePriceHistory(productId: number) {
     socket.emit('subscribe', `product:${productId}`);
 
     socket.on('price:update', (update) => {
-      setData(prev => [...prev, update]);
+      setData((prev) => [...prev, update]);
     });
 
     return () => {
@@ -445,6 +465,7 @@ function useRealtimePriceHistory(productId: number) {
 ```
 
 **Success Metrics:**
+
 - <100ms update latency
 - 95%+ WebSocket uptime
 - <5% additional server load
@@ -462,6 +483,7 @@ function useRealtimePriceHistory(productId: number) {
 Advanced caching strategies, progressive loading, and data compression to handle scale (1M+ products, 100M+ price records).
 
 **Implementation Files:**
+
 ```typescript
 // Backend: Edge caching
 📁 server/middleware/chart-cache.ts (NEW)
@@ -485,6 +507,7 @@ Advanced caching strategies, progressive loading, and data compression to handle
 ```
 
 **Optimization Strategies:**
+
 ```typescript
 // 1. CDN caching for popular products
 Cache-Control: public, max-age=300, s-maxage=3600
@@ -506,6 +529,7 @@ if (timeRange > 365) {
 ```
 
 **Success Metrics:**
+
 - <500ms initial chart load (p95)
 - <2MB data transfer for 1-year chart
 - 80%+ cache hit rate
@@ -515,14 +539,14 @@ if (timeRange > 365) {
 
 ## Implementation Priority Matrix
 
-| Feature | Value | Complexity | Estimated Time | Priority |
-|---------|-------|------------|----------------|----------|
-| **Price Watch Dashboard** | Very High | Medium | 5 days | 🔥 P1 |
-| **Smart Notifications** | Very High | High | 4 days | 🔥 P1 |
-| **Community Price Tracking** | Medium-High | Medium | 4 days | 🤝 P2 |
-| **Real-Time WebSocket** | Medium | Medium | 3 days | 🚀 P3 |
-| **Performance Optimizations** | High | Medium | 4 days | 🚀 P3 |
-| **Browser Extension** | Very High | Very High | 10 days | 🎯 P4 (Strategic) |
+| Feature                       | Value       | Complexity | Estimated Time | Priority          |
+| ----------------------------- | ----------- | ---------- | -------------- | ----------------- |
+| **Price Watch Dashboard**     | Very High   | Medium     | 5 days         | 🔥 P1             |
+| **Smart Notifications**       | Very High   | High       | 4 days         | 🔥 P1             |
+| **Community Price Tracking**  | Medium-High | Medium     | 4 days         | 🤝 P2             |
+| **Real-Time WebSocket**       | Medium      | Medium     | 3 days         | 🚀 P3             |
+| **Performance Optimizations** | High        | Medium     | 4 days         | 🚀 P3             |
+| **Browser Extension**         | Very High   | Very High  | 10 days        | 🎯 P4 (Strategic) |
 
 **Total Estimated Time:** 30 days (6 weeks at 5 days/week)
 
@@ -531,23 +555,27 @@ if (timeRange > 365) {
 ## Phased Rollout Strategy
 
 ### Phase A: User Engagement (Weeks 1-2)
+
 - Price Watch Dashboard
 - Smart Notifications System
 
 **Goal:** Increase daily active users by 40%
 
 ### Phase B: Community Features (Week 3)
+
 - Community Price Tracking
 
 **Goal:** Build social proof and trust
 
 ### Phase C: Performance & Scale (Week 4)
+
 - Real-Time WebSocket Updates
 - Performance Optimizations
 
 **Goal:** Support 10x traffic growth
 
 ### Phase D: Strategic Expansion (Weeks 5-6)
+
 - Browser Extension (Alpha)
 - Public beta testing
 
@@ -558,32 +586,35 @@ if (timeRange > 365) {
 ## Testing Requirements
 
 ### Unit Tests
+
 ```typescript
 // Services
-server/services/__tests__/smart-notification-service.test.ts
-server/services/__tests__/community-tracking.test.ts
+server / services / __tests__ / smart - notification - service.test.ts;
+server / services / __tests__ / community - tracking.test.ts;
 
 // Components
-client/src/components/price-watch/__tests__/WatchedProductCard.test.tsx
-client/src/components/notifications/__tests__/SmartAlertCard.test.tsx
+client / src / components / price - watch / __tests__ / WatchedProductCard.test.tsx;
+client / src / components / notifications / __tests__ / SmartAlertCard.test.tsx;
 ```
 
 ### Integration Tests
+
 ```typescript
 // API endpoints
-server/__tests__/price-watch-routes.test.ts
-server/__tests__/notification-processor.test.ts
+server / __tests__ / price - watch - routes.test.ts;
+server / __tests__ / notification - processor.test.ts;
 
 // WebSocket
-server/__tests__/websocket-price-updates.test.ts
+server / __tests__ / websocket - price - updates.test.ts;
 ```
 
 ### E2E Tests (Playwright)
+
 ```typescript
 // User flows
-e2e/price-watch-dashboard.spec.ts
-e2e/smart-notifications.spec.ts
-e2e/community-tracking.spec.ts
+e2e / price - watch - dashboard.spec.ts;
+e2e / smart - notifications.spec.ts;
+e2e / community - tracking.spec.ts;
 ```
 
 **Target Coverage:** 80%+ for new code
@@ -593,15 +624,17 @@ e2e/community-tracking.spec.ts
 ## Dependencies
 
 ### New npm Packages
+
 ```json
 {
-  "html2canvas": "^1.4.1",        // Chart to image export (Phase A)
-  "recharts-to-png": "^2.3.1",    // Chart export enhancement
-  "socket.io-client": "^4.7.0"    // Already installed, enhance usage
+  "html2canvas": "^1.4.1", // Chart to image export (Phase A)
+  "recharts-to-png": "^2.3.1", // Chart export enhancement
+  "socket.io-client": "^4.7.0" // Already installed, enhance usage
 }
 ```
 
 ### Environment Variables (No new ones required)
+
 - Leverage existing `REDIS_URL` for job queuing
 - Leverage existing WebSocket infrastructure
 
@@ -610,20 +643,24 @@ e2e/community-tracking.spec.ts
 ## Success Metrics (Overall)
 
 **User Engagement:**
+
 - 60%+ of users interact with price watch dashboard weekly
 - 40%+ notification open rate
 - 25%+ increase in return visits
 
 **Community:**
+
 - 15%+ opt-in to community tracking
 - 500+ community price data points/day
 
 **Technical:**
+
 - <500ms p95 latency for all features
 - 95%+ uptime for real-time features
 - 80%+ test coverage
 
 **Extension (if built):**
+
 - 1,000+ installs in 3 months
 - 70%+ daily active users
 

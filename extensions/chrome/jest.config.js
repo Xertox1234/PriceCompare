@@ -10,10 +10,7 @@ module.exports = {
   rootDir: '.',
 
   // Test match patterns
-  testMatch: [
-    '**/__tests__/**/*.test.js',
-    '**/?(*.)+(spec|test).js'
-  ],
+  testMatch: ['**/__tests__/**/*.test.js', '**/?(*.)+(spec|test).js'],
 
   // Coverage configuration
   collectCoverageFrom: [

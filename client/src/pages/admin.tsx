@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import type { AnalyticsOverview, UserGrowthData, ProductActivityData, TopCategoryData } from '@shared/types';
+import type {
+  AnalyticsOverview,
+  UserGrowthData,
+  ProductActivityData,
+  TopCategoryData,
+} from '@shared/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SharedNavigation } from '@/components/shared-navigation';
@@ -44,12 +49,12 @@ export default function AdminPage() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       <SharedNavigation currentPage="admin" />
-      
+
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-2 mb-8">
-          <Settings className="h-8 w-8 text-primary" />
+        <div className="mb-8 flex items-center gap-2">
+          <Settings className="text-primary h-8 w-8" />
           <h1 className="text-3xl font-bold">Administration Panel</h1>
         </div>
 
@@ -76,58 +81,56 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <BarChart3 className="h-8 w-8 text-primary" />
+                  <BarChart3 className="text-primary h-8 w-8" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Total Users</p>
+                    <p className="text-muted-foreground text-sm font-medium">Total Users</p>
                     <p className="text-2xl font-bold">{users.length}</p>
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <Package className="h-8 w-8 text-success" />
+                  <Package className="text-success h-8 w-8" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Products</p>
+                    <p className="text-muted-foreground text-sm font-medium">Products</p>
                     <p className="text-2xl font-bold">{overviewData?.totalProducts || '-'}</p>
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <Store className="h-8 w-8 text-secondary" />
+                  <Store className="text-secondary h-8 w-8" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Retailers</p>
+                    <p className="text-muted-foreground text-sm font-medium">Retailers</p>
                     <p className="text-2xl font-bold">{overviewData?.totalRetailers || '-'}</p>
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="flex items-center p-6">
-                  <Bell className="h-8 w-8 text-warning" />
+                  <Bell className="text-warning h-8 w-8" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-muted-foreground">Price Alerts</p>
+                    <p className="text-muted-foreground text-sm font-medium">Price Alerts</p>
                     <p className="text-2xl font-bold">{overviewData?.totalAlerts || '-'}</p>
                   </div>
                 </CardContent>
               </Card>
             </div>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>
-                  Latest platform activity
-                </CardDescription>
+                <CardDescription>Latest platform activity</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <div className="text-muted-foreground py-8 text-center">
+                  <Package className="mx-auto mb-4 h-12 w-12 opacity-50" />
                   <p>No recent activity to display</p>
                 </div>
               </CardContent>

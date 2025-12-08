@@ -4,12 +4,14 @@ Comprehensive test coverage for the WebSocket real-time notification system (Pha
 
 ## Test Files Overview
 
-### Backend Tests (server/websocket/__tests__/)
+### Backend Tests (server/websocket/**tests**/)
 
 #### 1. **integration.test.ts** (15+ tests)
+
 Tests end-to-end event flows across the WebSocket system.
 
 **Coverage:**
+
 - Watch list creation/update/deletion events
 - Multi-tab synchronization (same user, multiple connections)
 - Room isolation (users only receive their own events)
@@ -18,24 +20,27 @@ Tests end-to-end event flows across the WebSocket system.
 - Product addition/removal events
 
 **Key Test Scenarios:**
+
 ```typescript
 // Watch list update flow
-test('watch list creation emits WebSocket event to user')
-test('watch list update in one tab reflects in another tab')
-test('user only receives their own events')
+test('watch list creation emits WebSocket event to user');
+test('watch list update in one tab reflects in another tab');
+test('user only receives their own events');
 
 // Notification flow
-test('new notification emits to user with unread count')
+test('new notification emits to user with unread count');
 
 // Price alert flow
-test('price alert triggers WebSocket notification')
-test('price alert only to targeted user')
+test('price alert triggers WebSocket notification');
+test('price alert only to targeted user');
 ```
 
 #### 2. **reconnection.test.ts** (8+ tests)
+
 Tests automatic reconnection behavior and connection stability.
 
 **Coverage:**
+
 - Network disconnect recovery
 - Exponential backoff (1s → 2s → 4s → 8s → 16s → 30s max)
 - Maximum reconnection attempts (10)
@@ -44,18 +49,21 @@ Tests automatic reconnection behavior and connection stability.
 - Clean intentional disconnect
 
 **Key Test Scenarios:**
+
 ```typescript
-test('client reconnects after server disconnect')
-test('should use exponential backoff for reconnection attempts')
-test('should stop reconnecting after max attempts')
-test('should restore subscriptions after reconnection')
-test('should not reconnect after intentional disconnect')
+test('client reconnects after server disconnect');
+test('should use exponential backoff for reconnection attempts');
+test('should stop reconnecting after max attempts');
+test('should restore subscriptions after reconnection');
+test('should not reconnect after intentional disconnect');
 ```
 
 #### 3. **load.test.ts** (10+ tests)
+
 Tests performance under various load conditions.
 
 **Coverage:**
+
 - Concurrent connections (50, 100+)
 - Message throughput (100+ msg/s, 500+ burst)
 - Latency measurements (<100ms average, <300ms max)
@@ -64,6 +72,7 @@ Tests performance under various load conditions.
 - Rapid connect/disconnect cycles
 
 **Performance Benchmarks:**
+
 ```typescript
 50 connections:
 - Connection latency: <5s
@@ -79,6 +88,7 @@ Throughput:
 ```
 
 **Output Example:**
+
 ```
 📊 Load Test Results (100 connections):
    Total memory used: 180MB
@@ -97,9 +107,11 @@ Throughput:
 ```
 
 #### 4. **error-handling.test.ts** (12+ tests)
+
 Tests error scenarios and recovery mechanisms.
 
 **Coverage:**
+
 - Authentication failures
 - Event handler errors
 - Redis connection loss (fail-open behavior)
@@ -109,26 +121,31 @@ Tests error scenarios and recovery mechanisms.
 - Production vs development error messages
 
 **Key Test Scenarios:**
+
 ```typescript
-test('should reject connection without valid session')
-test('should sanitize error messages in production')
-test('should continue operating when Redis is unavailable')
-test('should handle Redis errors gracefully during operations')
-test('should not crash server on unhandled event handler error')
+test('should reject connection without valid session');
+test('should sanitize error messages in production');
+test('should continue operating when Redis is unavailable');
+test('should handle Redis errors gracefully during operations');
+test('should not crash server on unhandled event handler error');
 ```
 
 #### 5. **websocket-server.test.ts** (3 tests - existing)
+
 Basic server initialization and configuration tests.
 
 #### 6. **handlers.test.ts** (17 tests - existing)
+
 Tests for individual event handlers and middleware.
 
-### Frontend Tests (client/src/hooks/__tests__/)
+### Frontend Tests (client/src/hooks/**tests**/)
 
 #### 1. **use-websocket.test.tsx** (11 tests)
+
 Tests core WebSocket connection management hook.
 
 **Coverage:**
+
 - Connection initialization
 - Auto-connect on authentication
 - Auto-disconnect on logout
@@ -137,17 +154,20 @@ Tests core WebSocket connection management hook.
 - Cleanup on unmount
 
 **Key Test Scenarios:**
+
 ```typescript
-test('should connect when user is authenticated')
-test('should disconnect when user logs out')
-test('should update connection state when WebSocket state changes')
-test('should cleanup subscription on unmount')
+test('should connect when user is authenticated');
+test('should disconnect when user logs out');
+test('should update connection state when WebSocket state changes');
+test('should cleanup subscription on unmount');
 ```
 
 #### 2. **use-watchlist-updates.test.tsx** (14 tests)
+
 Tests real-time watch list update handling.
 
 **Coverage:**
+
 - Event subscription/unsubscription
 - React Query cache invalidation
 - Toast notifications for different actions
@@ -156,18 +176,21 @@ Tests real-time watch list update handling.
 - Multiple events in sequence
 
 **Key Test Scenarios:**
+
 ```typescript
-test('should invalidate queries on watch list update')
-test('should show toast on watch list created')
-test('should handle product added event')
-test('should not show toast for removals')
-test('should resubscribe when connection state changes')
+test('should invalidate queries on watch list update');
+test('should show toast on watch list created');
+test('should handle product added event');
+test('should not show toast for removals');
+test('should resubscribe when connection state changes');
 ```
 
 #### 3. **use-notification-updates.test.tsx** (16 tests)
+
 Tests real-time notification handling and unread count tracking.
 
 **Coverage:**
+
 - Unread count initialization
 - New notification handling
 - Priority-based toast notifications
@@ -178,12 +201,13 @@ Tests real-time notification handling and unread count tracking.
 - Concurrent notifications
 
 **Key Test Scenarios:**
+
 ```typescript
-test('should initialize unread count from subscription confirmation')
-test('should show toast for high priority notifications')
-test('should show custom toast for price alerts')
-test('should track unread count through multiple events')
-test('should handle concurrent notifications')
+test('should initialize unread count from subscription confirmation');
+test('should show toast for high priority notifications');
+test('should show custom toast for price alerts');
+test('should track unread count through multiple events');
+test('should handle concurrent notifications');
 ```
 
 ## Test Utilities (test-utils.ts)
@@ -213,11 +237,13 @@ emitServerEvent(userId, event, data) - Emit from server
 ## Running Tests
 
 ### All WebSocket Tests
+
 ```bash
 npm test -- server/websocket/__tests__/ --run
 ```
 
 ### Specific Test Suites
+
 ```bash
 # Integration tests
 npm test -- server/websocket/__tests__/integration.test.ts --run
@@ -238,11 +264,13 @@ npm test -- client/src/hooks/__tests__/use-notification-updates.test.tsx --run
 ```
 
 ### Watch Mode (for development)
+
 ```bash
 npm test -- server/websocket/__tests__/integration.test.ts
 ```
 
 ### Coverage Report
+
 ```bash
 npm run test:coverage -- server/websocket/
 ```
@@ -250,6 +278,7 @@ npm run test:coverage -- server/websocket/
 ## Test Statistics
 
 **Total Tests:** 72+ tests
+
 - Backend: 50+ tests
   - Integration: 15 tests
   - Reconnection: 8 tests
@@ -266,6 +295,7 @@ npm run test:coverage -- server/websocket/
 ## Common Test Patterns
 
 ### Testing Event Emission
+
 ```typescript
 const spy = spyOnSocketEvent(client, 'watchlist:update');
 
@@ -275,13 +305,16 @@ emitWatchListUpdate(io, userId, 'created', watchListData);
 
 // Verify received
 await waitForEvent(client, 'watchlist:update');
-expect(spy).toHaveBeenCalledWith(expect.objectContaining({
-  watchListId: 1,
-  action: 'created'
-}));
+expect(spy).toHaveBeenCalledWith(
+  expect.objectContaining({
+    watchListId: 1,
+    action: 'created',
+  })
+);
 ```
 
 ### Testing Multi-Tab Sync
+
 ```typescript
 const client1 = createAuthenticatedSocket(userId, port);
 const client2 = createAuthenticatedSocket(userId, port);
@@ -296,11 +329,12 @@ emitWatchListUpdate(io, userId, 'created', data);
 // Both receive
 await Promise.all([
   waitForEvent(client1, 'watchlist:update'),
-  waitForEvent(client2, 'watchlist:update')
+  waitForEvent(client2, 'watchlist:update'),
 ]);
 ```
 
 ### Testing Room Isolation
+
 ```typescript
 const clientA = createAuthenticatedSocket(userA, port);
 const clientB = createAuthenticatedSocket(userB, port);
@@ -312,7 +346,7 @@ const spyB = spyOnSocketEvent(clientB, 'watchlist:update');
 emitWatchListUpdate(io, userA, 'created', data);
 
 await waitForEvent(clientA, 'watchlist:update');
-await new Promise(resolve => setTimeout(resolve, 500));
+await new Promise((resolve) => setTimeout(resolve, 500));
 
 // Only User A received
 expect(spyA).toHaveBeenCalled();
@@ -320,6 +354,7 @@ expect(spyB).not.toHaveBeenCalled();
 ```
 
 ### Testing React Hooks
+
 ```typescript
 const { result } = renderHook(() => useWatchListUpdates(), { wrapper });
 
@@ -370,21 +405,25 @@ Based on test results:
 ## Troubleshooting
 
 ### Tests Timeout
+
 - Increase timeout in test files: `vi.timeout(30000)`
 - Check server is starting properly
 - Verify port 5556 is available
 
 ### Connection Refused
+
 - Server may not be fully initialized
 - Add longer wait after `createTestServer()`
 - Check error logs for startup issues
 
 ### Tests Flaky
+
 - Add more explicit `waitFor()` calls
 - Increase timeouts for slow operations
 - Use `waitForCondition()` for complex checks
 
 ### Memory Issues
+
 - Run tests sequentially: `npm test -- --no-threads`
 - Ensure cleanup functions are called
 - Check for event listener leaks

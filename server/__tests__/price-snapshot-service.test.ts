@@ -74,7 +74,9 @@ describe('PriceSnapshotService', () => {
       (mockStorage.getProductOffersForSnapshot as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce(mockOffers)
         .mockResolvedValueOnce([]); // Empty batch ends the loop
-      (mockStorage.insertPriceHistoryBatch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      (mockStorage.insertPriceHistoryBatch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        undefined
+      );
 
       const count = await service.snapshotAllPrices();
 
@@ -98,7 +100,9 @@ describe('PriceSnapshotService', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      (mockStorage.getProductOffersForSnapshot as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Database error'));
+      (mockStorage.getProductOffersForSnapshot as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Database error')
+      );
 
       await expect(service.snapshotAllPrices()).rejects.toThrow('Database error');
     });
@@ -127,9 +131,13 @@ describe('PriceSnapshotService', () => {
         },
       ];
 
-      (mockStorage.getProductOffersByProductId as ReturnType<typeof vi.fn>).mockResolvedValue(mockOffers);
+      (mockStorage.getProductOffersByProductId as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockOffers
+      );
       (mockStorage.getPriceHistoryForOffers as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      (mockStorage.insertPriceHistoryBatch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      (mockStorage.insertPriceHistoryBatch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        undefined
+      );
 
       const count = await service.snapshotProductPrices(1);
 

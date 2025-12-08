@@ -51,27 +51,25 @@ export function AdvancedSearchPage() {
     <>
       <Helmet>
         <title>Advanced Search - AI-Powered Product Discovery</title>
-        <meta 
-          name="description" 
-          content="Search millions of products with our AI-powered search engine. Features semantic search, fuzzy matching, and intelligent intent detection for the best results." 
+        <meta
+          name="description"
+          content="Search millions of products with our AI-powered search engine. Features semantic search, fuzzy matching, and intelligent intent detection for the best results."
         />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              Advanced Product Search
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Discover products with our AI-powered search engine featuring semantic understanding, 
+          <div className="mb-8 text-center">
+            <h1 className="text-foreground mb-4 text-4xl font-bold">Advanced Product Search</h1>
+            <p className="text-muted-foreground mx-auto max-w-3xl text-xl">
+              Discover products with our AI-powered search engine featuring semantic understanding,
               fuzzy matching, and intelligent intent detection.
             </p>
           </div>
 
           {/* Search Interface */}
-          <div className="max-w-4xl mx-auto mb-8">
+          <div className="mx-auto mb-8 max-w-4xl">
             <AdvancedSearch
               onResults={handleSearchResults}
               initialQuery={query}
@@ -80,7 +78,7 @@ export function AdvancedSearchPage() {
           </div>
 
           {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
             {/* Sidebar */}
             <div className="lg:col-span-1">
               <div className="space-y-6">
@@ -88,7 +86,7 @@ export function AdvancedSearchPage() {
                 {searchHistory.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-lg">
                         <TrendingUp className="h-5 w-5" />
                         Recent Searches
                       </CardTitle>
@@ -101,7 +99,7 @@ export function AdvancedSearchPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => setQuery(historyQuery)}
-                            className="w-full justify-start text-left truncate"
+                            className="w-full justify-start truncate text-left"
                           >
                             {historyQuery}
                           </Button>
@@ -114,7 +112,7 @@ export function AdvancedSearchPage() {
                 {/* Search Features */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
                       <Settings className="h-5 w-5" />
                       Search Features
                     </CardTitle>
@@ -122,27 +120,27 @@ export function AdvancedSearchPage() {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-success rounded-full"></div>
+                        <div className="bg-success h-2 w-2 rounded-full"></div>
                         <span className="text-sm">Exact matching</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        <div className="bg-primary h-2 w-2 rounded-full"></div>
                         <span className="text-sm">Fuzzy search</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-secondary rounded-full"></div>
+                        <div className="bg-secondary h-2 w-2 rounded-full"></div>
                         <span className="text-sm">Semantic understanding</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-warning rounded-full"></div>
+                        <div className="bg-warning h-2 w-2 rounded-full"></div>
                         <span className="text-sm">Synonym detection</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-warning rounded-full"></div>
+                        <div className="bg-warning h-2 w-2 rounded-full"></div>
                         <span className="text-sm">Intent analysis</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-destructive rounded-full"></div>
+                        <div className="bg-destructive h-2 w-2 rounded-full"></div>
                         <span className="text-sm">Auto-correction</span>
                       </div>
                     </div>
@@ -155,12 +153,7 @@ export function AdvancedSearchPage() {
                     <CardTitle className="text-lg">Quick Actions</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearSearch}
-                      className="w-full"
-                    >
+                    <Button variant="outline" size="sm" onClick={clearSearch} className="w-full">
                       Clear Search
                     </Button>
                     <Button
@@ -201,7 +194,7 @@ export function AdvancedSearchPage() {
                 <TabsContent value="results" className="space-y-6">
                   {/* Search Results */}
                   <EnhancedSearchResults
-                    results={searchResults.length > 0 ? searchResults : (results || [])}
+                    results={searchResults.length > 0 ? searchResults : results || []}
                     metadata={metadata}
                     isLoading={isSearching}
                     onProductClick={handleProductClick}
@@ -209,17 +202,15 @@ export function AdvancedSearchPage() {
 
                   {/* No Search Yet */}
                   {!query && searchResults.length === 0 && !results && (
-                    <Card className="text-center py-12">
+                    <Card className="py-12 text-center">
                       <CardContent>
-                        <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">
-                          Start Your Advanced Search
-                        </h3>
-                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                          Use our AI-powered search to find exactly what you're looking for. 
-                          Try semantic queries, brand names, or product categories.
+                        <Search className="text-muted-foreground mx-auto mb-4 h-16 w-16" />
+                        <h3 className="mb-2 text-xl font-semibold">Start Your Advanced Search</h3>
+                        <p className="text-muted-foreground mx-auto mb-6 max-w-md">
+                          Use our AI-powered search to find exactly what you're looking for. Try
+                          semantic queries, brand names, or product categories.
                         </p>
-                        <div className="flex flex-wrap gap-2 justify-center">
+                        <div className="flex flex-wrap justify-center gap-2">
                           <Button
                             variant="outline"
                             onClick={() => setQuery('waterproof bluetooth headphones')}
@@ -232,10 +223,7 @@ export function AdvancedSearchPage() {
                           >
                             Gaming Laptops
                           </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => setQuery('smart home devices')}
-                          >
+                          <Button variant="outline" onClick={() => setQuery('smart home devices')}>
                             Smart Home
                           </Button>
                         </div>
@@ -251,59 +239,56 @@ export function AdvancedSearchPage() {
                       <CardTitle>Try These Advanced Search Examples</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         {[
                           {
                             title: 'Semantic Search',
                             description: 'Find products by meaning, not just keywords',
                             example: 'device for watching movies at home',
-                            searchType: 'semantic'
+                            searchType: 'semantic',
                           },
                           {
                             title: 'Fuzzy Matching',
                             description: 'Automatically correct typos and variations',
                             example: 'iphon 15 pro',
-                            searchType: 'fuzzy'
+                            searchType: 'fuzzy',
                           },
                           {
                             title: 'Synonym Detection',
                             description: 'Understand different ways to say the same thing',
                             example: 'tv',
-                            searchType: 'synonym'
+                            searchType: 'synonym',
                           },
                           {
                             title: 'Intent Recognition',
                             description: 'Detect what type of search you want to perform',
                             example: 'cheap gaming laptop under $800',
-                            searchType: 'intent'
+                            searchType: 'intent',
                           },
                           {
                             title: 'Brand Recognition',
                             description: 'Smart brand detection and product matching',
                             example: 'apple smartphones',
-                            searchType: 'brand'
+                            searchType: 'brand',
                           },
                           {
                             title: 'Category Browse',
                             description: 'Explore products within specific categories',
                             example: 'wireless audio devices',
-                            searchType: 'category'
-                          }
+                            searchType: 'category',
+                          },
                         ].map((demo, index) => (
-                          <Card key={index} className="hover:shadow-md transition-shadow">
+                          <Card key={index} className="transition-shadow hover:shadow-md">
                             <CardContent className="p-4">
-                              <h4 className="font-semibold mb-2">{demo.title}</h4>
-                              <p className="text-sm text-muted-foreground mb-3">
+                              <h4 className="mb-2 font-semibold">{demo.title}</h4>
+                              <p className="text-muted-foreground mb-3 text-sm">
                                 {demo.description}
                               </p>
                               <div className="flex items-center justify-between">
-                                <code className="text-sm bg-muted px-2 py-1 rounded">
+                                <code className="bg-muted rounded px-2 py-1 text-sm">
                                   {demo.example}
                                 </code>
-                                <Button
-                                  size="sm"
-                                  onClick={() => setQuery(demo.example)}
-                                >
+                                <Button size="sm" onClick={() => setQuery(demo.example)}>
                                   Try It
                                 </Button>
                               </div>
@@ -322,8 +307,8 @@ export function AdvancedSearchPage() {
                     <CardContent>
                       <div className="space-y-4">
                         <div>
-                          <h4 className="font-medium mb-2">For Best Results:</h4>
-                          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          <h4 className="mb-2 font-medium">For Best Results:</h4>
+                          <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
                             <li>Use natural language descriptions</li>
                             <li>Include specific features you want</li>
                             <li>Mention your budget or price range</li>
@@ -331,11 +316,17 @@ export function AdvancedSearchPage() {
                           </ul>
                         </div>
                         <div>
-                          <h4 className="font-medium mb-2">Search Modes:</h4>
-                          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                            <li><strong>Smart:</strong> AI-powered with all features enabled</li>
-                            <li><strong>Intent:</strong> Optimized based on detected search intent</li>
-                            <li><strong>Basic:</strong> Traditional keyword matching</li>
+                          <h4 className="mb-2 font-medium">Search Modes:</h4>
+                          <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
+                            <li>
+                              <strong>Smart:</strong> AI-powered with all features enabled
+                            </li>
+                            <li>
+                              <strong>Intent:</strong> Optimized based on detected search intent
+                            </li>
+                            <li>
+                              <strong>Basic:</strong> Traditional keyword matching
+                            </li>
                           </ul>
                         </div>
                       </div>

@@ -8,7 +8,14 @@ import request from 'supertest';
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import session from 'express-session';
 import { db } from '../db';
-import { users, watchLists, productWatches, products as _products, retailers as _retailers, productOffers as _productOffers } from '@shared/schema';
+import {
+  users,
+  watchLists,
+  productWatches,
+  products as _products,
+  retailers as _retailers,
+  productOffers as _productOffers,
+} from '@shared/schema';
 import { sql } from 'drizzle-orm';
 import { passport } from '../auth';
 import { registerWatchListRoutes } from '../routes/watchlist-routes';
@@ -191,11 +198,11 @@ describe('Watchlist Routes - Integration Tests', () => {
         { userId: testUserId, name: 'List 2' },
       ]);
 
-      const response = await request(app)
-        .get('/api/watchlists')
-        .set('Cookie', authCookie);
+      const response = await request(app).get('/api/watchlists').set('Cookie', authCookie);
 
-      const result = expectSuccessResponse<{ watchLists: Array<{ name: string; productCount: number }> }>(response, 200);
+      const result = expectSuccessResponse<{
+        watchLists: Array<{ name: string; productCount: number }>;
+      }>(response, 200);
       expect(Array.isArray(result.watchLists)).toBe(true);
       expect(result.watchLists).toHaveLength(2);
       expect(result.watchLists[0]).toHaveProperty('name');
@@ -203,9 +210,7 @@ describe('Watchlist Routes - Integration Tests', () => {
     });
 
     it('should return empty array when user has no lists', async () => {
-      const response = await request(app)
-        .get('/api/watchlists')
-        .set('Cookie', authCookie);
+      const response = await request(app).get('/api/watchlists').set('Cookie', authCookie);
 
       const result = expectSuccessResponse<{ watchLists: Array<unknown> }>(response, 200);
       expect(result.watchLists).toEqual([]);
@@ -214,9 +219,7 @@ describe('Watchlist Routes - Integration Tests', () => {
 
   describe('POST /api/watchlists', () => {
     it('should require authentication', async () => {
-      const res = await request(app)
-        .post('/api/watchlists')
-        .send({ name: 'Test List' });
+      const res = await request(app).post('/api/watchlists').send({ name: 'Test List' });
 
       expect(res.status).toBe(401);
     });
@@ -237,7 +240,12 @@ describe('Watchlist Routes - Integration Tests', () => {
         .set('X-CSRF-Token', csrfToken)
         .send({ name: 'My Watch List', description: 'Test description' });
 
-      const watchList = expectSuccessResponse<{ id: number; name: string; description: string; userId: number }>(response, 201);
+      const watchList = expectSuccessResponse<{
+        id: number;
+        name: string;
+        description: string;
+        userId: number;
+      }>(response, 201);
       expect(watchList).toHaveProperty('id');
       expect(watchList.name).toBe('My Watch List');
       expect(watchList.description).toBe('Test description');
@@ -251,7 +259,10 @@ describe('Watchlist Routes - Integration Tests', () => {
         .set('X-CSRF-Token', csrfToken)
         .send({ name: 'My Watch List' });
 
-      const watchList = expectSuccessResponse<{ name: string; description: string | null }>(response, 201);
+      const watchList = expectSuccessResponse<{ name: string; description: string | null }>(
+        response,
+        201
+      );
       expect(watchList.name).toBe('My Watch List');
       expect(watchList.description).toBeNull();
     });
@@ -285,10 +296,13 @@ describe('Watchlist Routes - Integration Tests', () => {
     let watchListId: number;
 
     beforeEach(async () => {
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
       watchListId = list.id;
 
       await db.insert(productWatches).values({
@@ -308,7 +322,11 @@ describe('Watchlist Routes - Integration Tests', () => {
         .get(`/api/watchlists/${watchListId}`)
         .set('Cookie', authCookie);
 
-      const watchList = expectSuccessResponse<{ id: number; name: string; products: Array<{ name: string }> }>(response, 200);
+      const watchList = expectSuccessResponse<{
+        id: number;
+        name: string;
+        products: Array<{ name: string }>;
+      }>(response, 200);
       expect(watchList).toHaveProperty('id', watchListId);
       expect(watchList).toHaveProperty('name', 'Test List');
       expect(watchList).toHaveProperty('products');
@@ -318,27 +336,31 @@ describe('Watchlist Routes - Integration Tests', () => {
     });
 
     it('should return 404 for non-existent watch list', async () => {
-      const response = await request(app)
-        .get('/api/watchlists/99999')
-        .set('Cookie', authCookie);
+      const response = await request(app).get('/api/watchlists/99999').set('Cookie', authCookie);
 
       expectErrorResponse(response, 404, 'Watch list not found or unauthorized');
     });
 
     it('should not allow accessing other users watch lists', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
-        username: 'otheruser',
-        email: 'other@example.com',
-        // SECURITY: NEVER expose passwordHash in production code
-        passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
-        role: 'user',
-      }).returning();
+      const [otherUser] = await db
+        .insert(users)
+        .values({
+          username: 'otheruser',
+          email: 'other@example.com',
+          // SECURITY: NEVER expose passwordHash in production code
+          passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
+          role: 'user',
+        })
+        .returning();
 
-      const [otherList] = await db.insert(watchLists).values({
-        userId: otherUser.id,
-        name: 'Other User List',
-      }).returning();
+      const [otherList] = await db
+        .insert(watchLists)
+        .values({
+          userId: otherUser.id,
+          name: 'Other User List',
+        })
+        .returning();
 
       const response = await request(app)
         .get(`/api/watchlists/${otherList.id}`)
@@ -352,11 +374,14 @@ describe('Watchlist Routes - Integration Tests', () => {
     let watchListId: number;
 
     beforeEach(async () => {
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Original Name',
-        description: 'Original Description',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Original Name',
+          description: 'Original Description',
+        })
+        .returning();
       watchListId = list.id;
     });
 
@@ -416,15 +441,18 @@ describe('Watchlist Routes - Integration Tests', () => {
     let watchListId: number;
 
     beforeEach(async () => {
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
       watchListId = list.id;
 
-      await db.insert(productWatches).values([
-        { userId: testUserId, watchListId, productId: testProductId },
-      ]);
+      await db
+        .insert(productWatches)
+        .values([{ userId: testUserId, watchListId, productId: testProductId }]);
     });
 
     it('should require authentication', async () => {
@@ -466,18 +494,24 @@ describe('Watchlist Routes - Integration Tests', () => {
 
     it('should not allow deleting other users lists', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
-        username: 'otheruser',
-        email: 'other@example.com',
-        // SECURITY: NEVER expose passwordHash in production code
-        passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
-        role: 'user',
-      }).returning();
+      const [otherUser] = await db
+        .insert(users)
+        .values({
+          username: 'otheruser',
+          email: 'other@example.com',
+          // SECURITY: NEVER expose passwordHash in production code
+          passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
+          role: 'user',
+        })
+        .returning();
 
-      const [otherList] = await db.insert(watchLists).values({
-        userId: otherUser.id,
-        name: 'Other User List',
-      }).returning();
+      const [otherList] = await db
+        .insert(watchLists)
+        .values({
+          userId: otherUser.id,
+          name: 'Other User List',
+        })
+        .returning();
 
       const response = await request(app)
         .delete(`/api/watchlists/${otherList.id}`)
@@ -492,10 +526,13 @@ describe('Watchlist Routes - Integration Tests', () => {
     let watchListId: number;
 
     beforeEach(async () => {
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
       watchListId = list.id;
     });
 
@@ -523,7 +560,11 @@ describe('Watchlist Routes - Integration Tests', () => {
         .set('X-CSRF-Token', csrfToken)
         .send({ productId: testProductId });
 
-      const productWatch = expectSuccessResponse<{ id: number; watchListId: number; productId: number }>(response, 201);
+      const productWatch = expectSuccessResponse<{
+        id: number;
+        watchListId: number;
+        productId: number;
+      }>(response, 201);
       expect(productWatch).toHaveProperty('id');
       expect(productWatch.watchListId).toBe(watchListId);
       expect(productWatch.productId).toBe(testProductId);
@@ -564,10 +605,13 @@ describe('Watchlist Routes - Integration Tests', () => {
     let watchListId: number;
 
     beforeEach(async () => {
-      const [list] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'Test List',
-      }).returning();
+      const [list] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'Test List',
+        })
+        .returning();
       watchListId = list.id;
 
       await db.insert(productWatches).values({
@@ -578,8 +622,9 @@ describe('Watchlist Routes - Integration Tests', () => {
     });
 
     it('should require authentication', async () => {
-      const res = await request(app)
-        .delete(`/api/watchlists/${watchListId}/products/${testProductId}`);
+      const res = await request(app).delete(
+        `/api/watchlists/${watchListId}/products/${testProductId}`
+      );
 
       expect(res.status).toBe(401);
     });
@@ -613,10 +658,13 @@ describe('Watchlist Routes - Integration Tests', () => {
   describe('GET /api/watchlists/stats', () => {
     beforeEach(async () => {
       // Create watch lists
-      const [list1] = await db.insert(watchLists).values({
-        userId: testUserId,
-        name: 'List 1',
-      }).returning();
+      const [list1] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'List 1',
+        })
+        .returning();
 
       // Add products
       await db.insert(productWatches).values({
@@ -632,9 +680,7 @@ describe('Watchlist Routes - Integration Tests', () => {
     });
 
     it('should return dashboard statistics', async () => {
-      const response = await request(app)
-        .get('/api/watchlists/stats')
-        .set('Cookie', authCookie);
+      const response = await request(app).get('/api/watchlists/stats').set('Cookie', authCookie);
 
       const stats = expectSuccessResponse<{
         totalWatchLists: number;

@@ -42,9 +42,7 @@ const getBatchSize = (): number => {
   const batchSize = envBatchSize ? parseInt(envBatchSize, 10) : 100;
 
   if (isNaN(batchSize) || batchSize < 1 || batchSize > 10000) {
-    throw new Error(
-      `MIGRATION_BATCH_SIZE must be between 1 and 10000. Got: ${envBatchSize}`
-    );
+    throw new Error(`MIGRATION_BATCH_SIZE must be between 1 and 10000. Got: ${envBatchSize}`);
   }
 
   return batchSize;
@@ -100,10 +98,12 @@ async function processBatches<T>(
 async function encryptUserEmails() {
   console.log('\n📧 Encrypting user emails...');
 
-  const allUsers = await db.select({
-    id: users.id,
-    email: users.email,
-  }).from(users);
+  const allUsers = await db
+    .select({
+      id: users.id,
+      email: users.email,
+    })
+    .from(users);
 
   const tableStats: MigrationStats = {
     table: 'users',
@@ -118,31 +118,33 @@ async function encryptUserEmails() {
   // Process in batches for better performance on large datasets
   await processBatches(allUsers, BATCH_SIZE, async (batch) => {
     // Process all items in batch concurrently and collect results
-    const results = await Promise.all(batch.map(async (user) => {
-      try {
-        const currentEmail = user.email;
+    const results = await Promise.all(
+      batch.map(async (user) => {
+        try {
+          const currentEmail = user.email;
 
-        if (isEncrypted(currentEmail)) {
-          console.log(`    ✅ User ${user.id}: email already encrypted`);
-          return { success: true, alreadyEncrypted: true };
-        }
+          if (isEncrypted(currentEmail)) {
+            console.log(`    ✅ User ${user.id}: email already encrypted`);
+            return { success: true, alreadyEncrypted: true };
+          }
 
-        const encryptedEmail = encrypt(currentEmail);
+          const encryptedEmail = encrypt(currentEmail);
 
-        // Use raw SQL to bypass Drizzle's encryption (which would double-encrypt)
-        await db.execute(sql`
+          // Use raw SQL to bypass Drizzle's encryption (which would double-encrypt)
+          await db.execute(sql`
           UPDATE users
           SET email = ${encryptedEmail}
           WHERE id = ${user.id}
         `);
 
-        console.log(`    ✅ User ${user.id}: encrypted email`);
-        return { success: true, alreadyEncrypted: false };
-      } catch (error) {
-        console.error(`    ❌ User ${user.id}: encryption failed`, error);
-        return { success: false, error, userId: user.id };
-      }
-    }));
+          console.log(`    ✅ User ${user.id}: encrypted email`);
+          return { success: true, alreadyEncrypted: false };
+        } catch (error) {
+          console.error(`    ❌ User ${user.id}: encryption failed`, error);
+          return { success: false, error, userId: user.id };
+        }
+      })
+    );
 
     // Atomically update stats after all promises complete
     for (const result of results) {
@@ -159,7 +161,9 @@ async function encryptUserEmails() {
   });
 
   stats.push(tableStats);
-  console.log(`\n✅ Users: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`);
+  console.log(
+    `\n✅ Users: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`
+  );
 }
 
 /**
@@ -168,11 +172,13 @@ async function encryptUserEmails() {
 async function encryptPasswordResetTokens() {
   console.log('\n🔐 Encrypting password reset token metadata...');
 
-  const allTokens = await db.select({
-    id: passwordResetTokens.id,
-    ipAddress: passwordResetTokens.ipAddress,
-    userAgent: passwordResetTokens.userAgent,
-  }).from(passwordResetTokens);
+  const allTokens = await db
+    .select({
+      id: passwordResetTokens.id,
+      ipAddress: passwordResetTokens.ipAddress,
+      userAgent: passwordResetTokens.userAgent,
+    })
+    .from(passwordResetTokens);
 
   const tableStats: MigrationStats = {
     table: 'password_reset_tokens',
@@ -225,7 +231,9 @@ async function encryptPasswordResetTokens() {
   }
 
   stats.push(tableStats);
-  console.log(`\n✅ Password reset tokens: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`);
+  console.log(
+    `\n✅ Password reset tokens: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`
+  );
 }
 
 /**
@@ -234,11 +242,13 @@ async function encryptPasswordResetTokens() {
 async function encryptPrivateMessages() {
   console.log('\n💬 Encrypting private messages...');
 
-  const allMessages = await db.select({
-    id: privateMessages.id,
-    subject: privateMessages.subject,
-    content: privateMessages.content,
-  }).from(privateMessages);
+  const allMessages = await db
+    .select({
+      id: privateMessages.id,
+      subject: privateMessages.subject,
+      content: privateMessages.content,
+    })
+    .from(privateMessages);
 
   const tableStats: MigrationStats = {
     table: 'private_messages',
@@ -291,7 +301,9 @@ async function encryptPrivateMessages() {
   }
 
   stats.push(tableStats);
-  console.log(`\n✅ Private messages: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`);
+  console.log(
+    `\n✅ Private messages: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`
+  );
 }
 
 /**
@@ -300,10 +312,12 @@ async function encryptPrivateMessages() {
 async function encryptNotifications() {
   console.log('\n🔔 Encrypting notification content...');
 
-  const allNotifications = await db.select({
-    id: notifications.id,
-    content: notifications.content,
-  }).from(notifications)
+  const allNotifications = await db
+    .select({
+      id: notifications.id,
+      content: notifications.content,
+    })
+    .from(notifications)
     .where(isNotNull(notifications.content));
 
   const tableStats: MigrationStats = {
@@ -344,7 +358,9 @@ async function encryptNotifications() {
   }
 
   stats.push(tableStats);
-  console.log(`\n✅ Notifications: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`);
+  console.log(
+    `\n✅ Notifications: ${tableStats.encrypted} encrypted, ${tableStats.alreadyEncrypted} already encrypted`
+  );
 }
 
 /**

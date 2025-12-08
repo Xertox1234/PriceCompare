@@ -372,12 +372,9 @@ describe('CSRF Protection Middleware', () => {
       const validToken = tokenResponse.headers['x-csrf-token'];
 
       // Valid token in header, invalid in body
-      const response = await agent
-        .post('/api/protected')
-        .set('X-CSRF-Token', validToken)
-        .send({
-          _csrf: 'invalid-token',
-        });
+      const response = await agent.post('/api/protected').set('X-CSRF-Token', validToken).send({
+        _csrf: 'invalid-token',
+      });
 
       // Should fail because body token is checked first (per implementation)
       // Actually, the implementation checks body first: req.body._csrf || req.headers['x-csrf-token']

@@ -143,18 +143,14 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
 
   it('should handle empty array without database call', async () => {
     // Get initial count
-    const beforeResult = await db
-      .select({ count: sql<string>`count(*)` })
-      .from(priceHistory);
+    const beforeResult = await db.select({ count: sql<string>`count(*)` }).from(priceHistory);
     const beforeCount = beforeResult[0].count;
 
     // Call with empty array
     await storage.insertPriceHistoryBatch([]);
 
     // Verify no records were inserted
-    const afterResult = await db
-      .select({ count: sql<string>`count(*)` })
-      .from(priceHistory);
+    const afterResult = await db.select({ count: sql<string>`count(*)` }).from(priceHistory);
     const afterCount = afterResult[0].count;
 
     expect(afterCount).toBe(beforeCount);
@@ -195,20 +191,14 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
     ];
 
     // Get count before operation
-    const beforeResult = await db
-      .select({ count: sql<string>`count(*)` })
-      .from(priceHistory);
+    const beforeResult = await db.select({ count: sql<string>`count(*)` }).from(priceHistory);
     const beforeCount = beforeResult[0].count;
 
     // Attempt batch insert - should fail due to foreign key constraint
-    await expect(
-      storage.insertPriceHistoryBatch(records)
-    ).rejects.toThrow();
+    await expect(storage.insertPriceHistoryBatch(records)).rejects.toThrow();
 
     // Verify NO records were inserted (atomicity)
-    const afterResult = await db
-      .select({ count: sql<string>`count(*)` })
-      .from(priceHistory);
+    const afterResult = await db.select({ count: sql<string>`count(*)` }).from(priceHistory);
     const afterCount = afterResult[0].count;
 
     expect(afterCount).toBe(beforeCount);
@@ -292,13 +282,16 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
     const now = new Date();
 
     // Create additional offers for variety
-    const [offer3] = await db.insert(productOffers).values({
-      productId: testProduct.id,
-      retailerId: testRetailer.id,
-      price: '79.99',
-      productUrl: 'https://example.com/product3',
-      availability: 'in_stock',
-    }).returning();
+    const [offer3] = await db
+      .insert(productOffers)
+      .values({
+        productId: testProduct.id,
+        retailerId: testRetailer.id,
+        price: '79.99',
+        productUrl: 'https://example.com/product3',
+        availability: 'in_stock',
+      })
+      .returning();
 
     const records: InsertPriceHistoryWithRecordedAt[] = [
       {

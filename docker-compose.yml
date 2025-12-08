@@ -3,11 +3,11 @@ version: '3.8'
 services:
   # Main price comparison app
   price-app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile.app
     ports:
-      - "5000:5000"
+      - '5000:5000'
     environment:
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/price_db
       - DISCOURSE_URL=http://discourse:3000
@@ -30,7 +30,7 @@ services:
   discourse:
     image: discourse/discourse:latest
     ports:
-      - "3000:80"
+      - '3000:80'
     environment:
       - DISCOURSE_HOSTNAME=localhost:3000
       - DISCOURSE_DB_HOST=postgres
@@ -78,7 +78,7 @@ services:
     networks:
       - app-network
     ports:
-      - "5432:5432"
+      - '5432:5432'
 
   # Redis for sessions, caching, and Discourse
   redis:
@@ -87,7 +87,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 3s
       retries: 3
@@ -95,15 +95,15 @@ services:
     networks:
       - app-network
     ports:
-      - "6379:6379"
+      - '6379:6379'
     restart: unless-stopped
 
   # Nginx reverse proxy
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
       - ./ssl:/etc/nginx/ssl

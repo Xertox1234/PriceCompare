@@ -45,8 +45,8 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 vi.mock('../../services/notification-service', () => ({
-  markAsRead: vi.fn(async () => 1),
-  getNotificationStats: vi.fn(async () => ({
+  markAsRead: vi.fn(() => 1),
+  getNotificationStats: vi.fn(() => ({
     total: 10,
     unread: 3,
     byType: {},
@@ -310,10 +310,10 @@ describe('WebSocket Error Handling Tests', () => {
     it('should handle Redis errors gracefully during operations', async () => {
       // Mock Redis client that throws errors
       mockRedisClient = {
-        incr: vi.fn(async () => {
+        incr: vi.fn(() => {
           throw new Error('Redis connection timeout');
         }),
-        expire: vi.fn(async () => {
+        expire: vi.fn(() => {
           throw new Error('Redis connection timeout');
         }),
       };
@@ -516,11 +516,14 @@ describe('WebSocket Error Handling Tests', () => {
         }
 
         // Trigger errors on all clients simultaneously
-        const mockSockets = clients.map((_, i) => ({
-          id: `socket-${i}`,
-          emit: vi.fn(),
-          userId: 6000 + i,
-        } as unknown as AuthenticatedSocket));
+        const mockSockets = clients.map(
+          (_, i) =>
+            ({
+              id: `socket-${i}`,
+              emit: vi.fn(),
+              userId: 6000 + i,
+            }) as unknown as AuthenticatedSocket
+        );
 
         mockSockets.forEach((socket) => {
           handleSocketError(socket, new Error('Test error'), {

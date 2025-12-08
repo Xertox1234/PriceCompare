@@ -1,6 +1,16 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'wouter';
-import { ChevronRight, X, ShoppingCart, Check, Heart, Bell, TrendingDown, Minus, ExternalLink } from 'lucide-react';
+import {
+  ChevronRight,
+  X,
+  ShoppingCart,
+  Check,
+  Heart,
+  Bell,
+  TrendingDown,
+  Minus,
+  ExternalLink,
+} from 'lucide-react';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
 import { CartSidebar } from '@/components/template/cart-sidebar';
@@ -8,10 +18,7 @@ import { MobileMenu, CompareModal, SearchModal } from '@/components/template/mod
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  allProducts,
-  type TemplateProduct,
-} from '@/data/template-data';
+import { allProducts, type TemplateProduct } from '@/data/template-data';
 
 function WishlistContent() {
   const {
@@ -59,7 +66,7 @@ function WishlistContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       <TemplateHeader
         onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
@@ -68,13 +75,13 @@ function WishlistContent() {
       />
 
       {/* Breadcrumbs */}
-      <div className="border-b border-border py-4">
+      <div className="border-border border-b py-4">
         <div className="container mx-auto px-4">
           <nav className="flex items-center gap-2 text-sm">
             <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
               Home
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
             <span className="text-foreground font-medium">Wishlist</span>
           </nav>
         </div>
@@ -82,10 +89,10 @@ function WishlistContent() {
 
       <main className="container mx-auto px-4 py-8">
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
-              <Heart className="h-7 w-7 text-destructive fill-destructive" />
+            <h1 className="text-foreground flex items-center gap-2 text-2xl font-bold md:text-3xl">
+              <Heart className="text-destructive fill-destructive h-7 w-7" />
               My Wishlist
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -93,30 +100,27 @@ function WishlistContent() {
             </p>
           </div>
           {wishlistItems.length > 0 && (
-            <Button
-              onClick={handleAddAllToCart}
-              className="bg-primary hover:bg-primary-hover"
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
+            <Button onClick={handleAddAllToCart} className="bg-primary hover:bg-primary-hover">
+              <ShoppingCart className="mr-2 h-4 w-4" />
               Add All to Cart
             </Button>
           )}
         </div>
 
         {wishlistItems.length > 0 ? (
-          <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="bg-card border-border overflow-hidden rounded-2xl border">
             {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border bg-muted/50">
+                  <tr className="border-border bg-muted/50 border-b">
                     <th className="w-12 p-4"></th>
                     <th className="w-24 p-4"></th>
-                    <th className="text-left p-4 font-semibold text-sm">Product Name</th>
-                    <th className="text-center p-4 font-semibold text-sm">Unit Price</th>
-                    <th className="text-center p-4 font-semibold text-sm">Price Trend</th>
-                    <th className="text-center p-4 font-semibold text-sm">Stock Status</th>
-                    <th className="text-center p-4 font-semibold text-sm w-40"></th>
+                    <th className="p-4 text-left text-sm font-semibold">Product Name</th>
+                    <th className="p-4 text-center text-sm font-semibold">Unit Price</th>
+                    <th className="p-4 text-center text-sm font-semibold">Price Trend</th>
+                    <th className="p-4 text-center text-sm font-semibold">Stock Status</th>
+                    <th className="w-40 p-4 text-center text-sm font-semibold"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,12 +132,15 @@ function WishlistContent() {
                       : 0;
 
                     return (
-                      <tr key={product.id} className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors">
+                      <tr
+                        key={product.id}
+                        className="border-border hover:bg-muted/30 border-b transition-colors last:border-b-0"
+                      >
                         {/* Remove */}
                         <td className="p-4">
                           <button
                             onClick={() => toggleWishlist(product.id)}
-                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors"
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full p-2 transition-colors"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -142,11 +149,11 @@ function WishlistContent() {
                         {/* Image */}
                         <td className="p-4">
                           <Link href={`/product/${product.id}`}>
-                            <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted">
+                            <div className="bg-muted h-20 w-20 overflow-hidden rounded-xl">
                               <img
                                 src={product.imgSrc}
                                 alt={product.title}
-                                className="w-full h-full object-cover hover:scale-105 transition-transform"
+                                className="h-full w-full object-cover transition-transform hover:scale-105"
                               />
                             </div>
                           </Link>
@@ -154,22 +161,25 @@ function WishlistContent() {
 
                         {/* Product Info */}
                         <td className="p-4">
-                          <Link href={`/product/${product.id}`} className="hover:text-primary transition-colors">
-                            <h3 className="font-semibold text-foreground line-clamp-2">
+                          <Link
+                            href={`/product/${product.id}`}
+                            className="hover:text-primary transition-colors"
+                          >
+                            <h3 className="text-foreground line-clamp-2 font-semibold">
                               {product.title}
                             </h3>
                           </Link>
-                          <p className="text-sm text-muted-foreground mt-1">{product.brand}</p>
+                          <p className="text-muted-foreground mt-1 text-sm">{product.brand}</p>
                         </td>
 
                         {/* Price */}
                         <td className="p-4 text-center">
                           <div className="flex flex-col items-center">
-                            <span className="text-lg font-bold text-primary">
+                            <span className="text-primary text-lg font-bold">
                               ${product.price.toFixed(2)}
                             </span>
                             {product.oldPrice && (
-                              <span className="text-sm text-muted-foreground line-through">
+                              <span className="text-muted-foreground text-sm line-through">
                                 ${product.oldPrice.toFixed(2)}
                               </span>
                             )}
@@ -179,12 +189,12 @@ function WishlistContent() {
                         {/* Price Trend */}
                         <td className="p-4 text-center">
                           {hasPriceDrop ? (
-                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-success/10 text-success rounded-full text-sm font-medium">
+                            <div className="bg-success/10 text-success inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium">
                               <TrendingDown className="h-3 w-3" />
                               <span>-{priceChangePercent}%</span>
                             </div>
                           ) : (
-                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded-full text-sm">
+                            <div className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm">
                               <Minus className="h-3 w-3" />
                               <span>Stable</span>
                             </div>
@@ -194,7 +204,7 @@ function WishlistContent() {
                         {/* Stock */}
                         <td className="p-4 text-center">
                           {product.inStock !== false ? (
-                            <span className="inline-flex items-center gap-1 text-success text-sm font-medium">
+                            <span className="text-success inline-flex items-center gap-1 text-sm font-medium">
                               <Check className="h-4 w-4" />
                               In Stock
                             </span>
@@ -210,21 +220,21 @@ function WishlistContent() {
                           <Button
                             onClick={() => handleAddToCart(product)}
                             className={cn(
-                              "w-full",
+                              'w-full',
                               inCart
-                                ? "bg-success hover:bg-success/90"
-                                : "bg-primary hover:bg-primary-hover"
+                                ? 'bg-success hover:bg-success/90'
+                                : 'bg-primary hover:bg-primary-hover'
                             )}
                             disabled={product.inStock === false}
                           >
                             {inCart ? (
                               <>
-                                <Check className="h-4 w-4 mr-2" />
+                                <Check className="mr-2 h-4 w-4" />
                                 Added
                               </>
                             ) : (
                               <>
-                                <ShoppingCart className="h-4 w-4 mr-2" />
+                                <ShoppingCart className="mr-2 h-4 w-4" />
                                 Add to Cart
                               </>
                             )}
@@ -238,7 +248,7 @@ function WishlistContent() {
             </div>
 
             {/* Mobile Cards */}
-            <div className="md:hidden divide-y divide-border">
+            <div className="divide-border divide-y md:hidden">
               {wishlistItems.map((product) => {
                 const inCart = isInCart(product.id);
                 const hasPriceDrop = product.oldPrice && product.price < product.oldPrice;
@@ -251,46 +261,48 @@ function WishlistContent() {
                     <div className="flex gap-4">
                       {/* Image */}
                       <Link href={`/product/${product.id}`}>
-                        <div className="w-24 h-24 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                        <div className="bg-muted h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl">
                           <img
                             src={product.imgSrc}
                             alt={product.title}
-                            className="w-full h-full object-cover"
+                            className="h-full w-full object-cover"
                           />
                         </div>
                       </Link>
 
                       {/* Info */}
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <Link href={`/product/${product.id}`} className="hover:text-primary transition-colors">
-                            <h3 className="font-semibold text-foreground line-clamp-2 text-sm">
+                          <Link
+                            href={`/product/${product.id}`}
+                            className="hover:text-primary transition-colors"
+                          >
+                            <h3 className="text-foreground line-clamp-2 text-sm font-semibold">
                               {product.title}
                             </h3>
                           </Link>
                           <button
                             onClick={() => toggleWishlist(product.id)}
-                            className="p-1 text-muted-foreground hover:text-destructive flex-shrink-0"
+                            className="text-muted-foreground hover:text-destructive flex-shrink-0 p-1"
                           >
                             <X className="h-4 w-4" />
                           </button>
                         </div>
 
-                        <p className="text-xs text-muted-foreground mt-1">{product.brand}</p>
+                        <p className="text-muted-foreground mt-1 text-xs">{product.brand}</p>
 
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="font-bold text-primary">
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-primary font-bold">
                             ${product.price.toFixed(2)}
                           </span>
                           {product.oldPrice && (
-                            <span className="text-xs text-muted-foreground line-through">
+                            <span className="text-muted-foreground text-xs line-through">
                               ${product.oldPrice.toFixed(2)}
                             </span>
                           )}
                           {hasPriceDrop && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-success/10 text-success rounded text-xs font-medium">
-                              <TrendingDown className="h-3 w-3" />
-                              -{priceChangePercent}%
+                            <span className="bg-success/10 text-success inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium">
+                              <TrendingDown className="h-3 w-3" />-{priceChangePercent}%
                             </span>
                           )}
                         </div>
@@ -300,22 +312,22 @@ function WishlistContent() {
                     <Button
                       onClick={() => handleAddToCart(product)}
                       className={cn(
-                        "w-full mt-3",
+                        'mt-3 w-full',
                         inCart
-                          ? "bg-success hover:bg-success/90"
-                          : "bg-primary hover:bg-primary-hover"
+                          ? 'bg-success hover:bg-success/90'
+                          : 'bg-primary hover:bg-primary-hover'
                       )}
                       size="sm"
                       disabled={product.inStock === false}
                     >
                       {inCart ? (
                         <>
-                          <Check className="h-4 w-4 mr-2" />
+                          <Check className="mr-2 h-4 w-4" />
                           Added to Cart
                         </>
                       ) : (
                         <>
-                          <ShoppingCart className="h-4 w-4 mr-2" />
+                          <ShoppingCart className="mr-2 h-4 w-4" />
                           Add to Cart
                         </>
                       )}
@@ -327,15 +339,16 @@ function WishlistContent() {
           </div>
         ) : (
           /* Empty State */
-          <div className="text-center py-16 bg-card rounded-2xl border border-border">
-            <Heart className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-            <h2 className="text-xl font-semibold text-foreground mb-2">Your wishlist is empty</h2>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Start adding your favorite products to your wishlist! Click the heart icon on any product to save it here.
+          <div className="bg-card border-border rounded-2xl border py-16 text-center">
+            <Heart className="text-muted-foreground/50 mx-auto mb-4 h-16 w-16" />
+            <h2 className="text-foreground mb-2 text-xl font-semibold">Your wishlist is empty</h2>
+            <p className="text-muted-foreground mx-auto mb-6 max-w-md">
+              Start adding your favorite products to your wishlist! Click the heart icon on any
+              product to save it here.
             </p>
             <Link href="/shop">
               <Button className="bg-primary hover:bg-primary-hover">
-                <ExternalLink className="h-4 w-4 mr-2" />
+                <ExternalLink className="mr-2 h-4 w-4" />
                 Explore Products
               </Button>
             </Link>
@@ -344,21 +357,24 @@ function WishlistContent() {
 
         {/* Price Alert Section */}
         {wishlistItems.length > 0 && (
-          <div className="mt-8 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl p-6 border border-primary/20">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="from-primary/10 to-secondary/10 border-primary/20 mt-8 rounded-2xl border bg-gradient-to-r p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-primary/10 rounded-xl">
-                  <Bell className="h-6 w-6 text-primary" />
+                <div className="bg-primary/10 rounded-xl p-3">
+                  <Bell className="text-primary h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Get Price Drop Alerts</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <h3 className="text-foreground font-semibold">Get Price Drop Alerts</h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
                     We'll notify you when prices drop on your wishlist items
                   </p>
                 </div>
               </div>
-              <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white">
-                <Bell className="h-4 w-4 mr-2" />
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary hover:text-white"
+              >
+                <Bell className="mr-2 h-4 w-4" />
                 Enable Alerts
               </Button>
             </div>

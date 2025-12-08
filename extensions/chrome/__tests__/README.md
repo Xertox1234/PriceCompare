@@ -5,12 +5,14 @@ Comprehensive testing suite for the PriceCompare browser extension.
 ## Test Coverage
 
 ### Current Coverage
+
 - ✅ **Unit Tests**: Shared utilities, API client, storage
 - ✅ **Integration Tests**: Content scripts (Amazon)
 - ✅ **E2E Tests**: Extension loading (basic)
 - ✅ **Chrome API Mocks**: Full mock implementation
 
 ### Coverage Targets
+
 - **Lines**: 80%+
 - **Functions**: 75%+
 - **Branches**: 70%+
@@ -116,6 +118,7 @@ it('should fetch data from API', async () => {
 ### 1. shared/utils.test.js
 
 Tests for utility functions:
+
 - `normalizeUrl()` - URL normalization
 - `extractDomain()` - Domain extraction
 - `formatPrice()` - Price formatting
@@ -129,6 +132,7 @@ Tests for utility functions:
 ### 2. shared/api-client.test.js
 
 Tests for API client:
+
 - Constructor and initialization
 - Config loading/saving
 - HTTP requests (GET/POST)
@@ -143,6 +147,7 @@ Tests for API client:
 ### 3. shared/storage.test.js
 
 Tests for storage wrapper:
+
 - Get/set/remove operations
 - Preferences management
 - Recent products tracking
@@ -155,6 +160,7 @@ Tests for storage wrapper:
 ### 4. content-scripts/amazon-overlay.test.js
 
 Integration tests for Amazon:
+
 - Product page detection
 - ASIN extraction
 - Title extraction
@@ -166,6 +172,7 @@ Integration tests for Amazon:
 ### 5. e2e/extension-load.test.js
 
 E2E tests with Playwright:
+
 - Extension loading
 - Service worker activation
 - Basic functionality
@@ -178,6 +185,7 @@ E2E tests with Playwright:
 ### Chrome API Mock (`__mocks__/chrome.js`)
 
 Provides Jest-compatible mocks for:
+
 - `chrome.storage.sync`
 - `chrome.storage.local`
 - `chrome.runtime`
@@ -188,6 +196,7 @@ Provides Jest-compatible mocks for:
 - `chrome.alarms`
 
 **Features**:
+
 - Promise-based (async/await compatible)
 - Data persistence within test
 - Reset function for cleanup
@@ -199,6 +208,7 @@ Empty mock for CSS imports in tests.
 ## CI/CD Integration
 
 Tests run automatically on:
+
 - Pull requests
 - Pushes to main branches
 - Manual workflow dispatch
@@ -278,6 +288,7 @@ npm test -- --verbose
 ### Issue: Async tests timeout
 
 **Solution**: Increase timeout:
+
 ```javascript
 it('slow test', async () => {
   // test code
@@ -287,6 +298,7 @@ it('slow test', async () => {
 ### Issue: Mock data persists between tests
 
 **Solution**: Use `beforeEach` to reset mocks:
+
 ```javascript
 beforeEach(() => {
   chrome.__resetStorage();
@@ -297,8 +309,11 @@ beforeEach(() => {
 ### Issue: E2E tests fail in CI
 
 **Solution**: E2E tests require a display. Skip in CI or use xvfb:
+
 ```javascript
-it.skip('test name', () => { /* ... */ });
+it.skip('test name', () => {
+  /* ... */
+});
 ```
 
 ## Manual Testing
@@ -306,12 +321,14 @@ it.skip('test name', () => { /* ... */ });
 For features that can't be easily automated:
 
 ### Extension Installation Test
+
 1. Load unpacked extension from `extensions/chrome`
 2. Verify no errors in console
 3. Check icon appears in toolbar
 4. Open popup and verify UI
 
 ### Retailer Integration Test
+
 1. Navigate to Amazon product page
 2. Wait for overlay to inject
 3. Verify chart displays
@@ -319,6 +336,7 @@ For features that can't be easily automated:
 5. Repeat for other retailers
 
 ### Data Persistence Test
+
 1. Set preferences in popup
 2. Close browser
 3. Reopen and verify preferences persist
@@ -336,6 +354,7 @@ For features that can't be easily automated:
 ## Best Practices
 
 ✅ **DO**:
+
 - Write descriptive test names
 - Test edge cases and error conditions
 - Mock external dependencies
@@ -344,6 +363,7 @@ For features that can't be easily automated:
 - Keep tests focused and independent
 
 ❌ **DON'T**:
+
 - Test implementation details
 - Share state between tests
 - Mock what you're testing
@@ -360,6 +380,7 @@ For features that can't be easily automated:
 ## Contributing
 
 When adding new features:
+
 1. Write tests first (TDD) or alongside code
 2. Ensure tests pass: `npm test`
 3. Check coverage: `npm run test:coverage`

@@ -35,16 +35,17 @@ The PriceCompare platform has comprehensive test coverage across three layers:
 
 ## Test Statistics
 
-| Layer | Tests | Pass Rate | Framework | Purpose |
-|-------|-------|-----------|-----------|---------|
-| Unit | 267 | 100% | Vitest | Business logic, utilities |
-| Integration | 134 | 82% | Vitest + Supertest | API endpoints, DB queries |
-| E2E | 66 | Ready | Playwright | Complete user journeys |
-| **Total** | **467** | **~90%** | **Mixed** | **Full coverage** |
+| Layer       | Tests   | Pass Rate | Framework          | Purpose                   |
+| ----------- | ------- | --------- | ------------------ | ------------------------- |
+| Unit        | 267     | 100%      | Vitest             | Business logic, utilities |
+| Integration | 134     | 82%       | Vitest + Supertest | API endpoints, DB queries |
+| E2E         | 66      | Ready     | Playwright         | Complete user journeys    |
+| **Total**   | **467** | **~90%**  | **Mixed**          | **Full coverage**         |
 
 ## Layer 1: Unit Tests (267)
 
 ### Services (50+ tests)
+
 - Price snapshot service
 - Email service
 - Password reset service
@@ -54,6 +55,7 @@ The PriceCompare platform has comprehensive test coverage across three layers:
 - Community service
 
 ### Utilities (40+ tests)
+
 - Validation helpers
 - Error sanitizer
 - Encryption utilities
@@ -62,6 +64,7 @@ The PriceCompare platform has comprehensive test coverage across three layers:
 - Seasonal pattern detector
 
 ### Middleware (60+ tests)
+
 - Account lockout
 - Security headers
 - CSRF protection
@@ -69,21 +72,25 @@ The PriceCompare platform has comprehensive test coverage across three layers:
 - Rate limiting (Redis-based)
 
 ### AI Services (20+ tests)
+
 - Prompt registry
 - Search query generation
 - Product discovery
 
 ### Components (30+ tests)
+
 - React component logic
 - Hooks
 - UI utilities
 
 ### Other (67+ tests)
+
 - Database patterns
 - Type safety
 - Error handling
 
 **Run Unit Tests:**
+
 ```bash
 npm test
 npm run test:watch
@@ -93,6 +100,7 @@ npm run test:coverage
 ## Layer 2: Integration Tests (134)
 
 ### API Routes (100+ tests)
+
 - Authentication (register, login, logout)
 - Product routes (CRUD, search)
 - Price alerts (create, update, delete)
@@ -101,17 +109,20 @@ npm run test:coverage
 - Retailer management
 
 ### Database Integration (20+ tests)
+
 - Transaction handling
 - Query optimization
 - Foreign key constraints
 - Data integrity
 
 ### Service Integration (14+ tests)
+
 - External API mocking
 - Service interactions
 - Queue processing
 
 **Run Integration Tests:**
+
 ```bash
 npm test server/__tests__/
 npm test server/routes/__tests__/
@@ -120,6 +131,7 @@ npm test server/routes/__tests__/
 ## Layer 3: E2E Tests (66)
 
 ### Authentication (17 tests)
+
 - ✅ User registration with validation
 - ✅ Login/logout flows
 - ✅ Session persistence
@@ -128,6 +140,7 @@ npm test server/routes/__tests__/
 - ✅ Auth guards
 
 ### Product Discovery (18 tests)
+
 - ✅ Search and filters
 - ✅ Product details
 - ✅ Price history charts
@@ -136,6 +149,7 @@ npm test server/routes/__tests__/
 - ✅ Pagination
 
 ### Price Alerts (12 tests)
+
 - ✅ Alert creation/editing
 - ✅ Alert validation
 - ✅ Notification triggers
@@ -143,6 +157,7 @@ npm test server/routes/__tests__/
 - ✅ Authentication
 
 ### Forum Interaction (15 tests)
+
 - ✅ Topic creation
 - ✅ Post replies
 - ✅ Edit/delete posts
@@ -151,6 +166,7 @@ npm test server/routes/__tests__/
 - ✅ Moderation
 
 **Run E2E Tests:**
+
 ```bash
 npm run test:e2e
 npm run test:e2e:headed
@@ -161,6 +177,7 @@ npm run test:e2e:debug
 ## Running All Tests
 
 ### Full Test Suite
+
 ```bash
 # Run all unit + integration tests
 npm test
@@ -173,6 +190,7 @@ npm run check
 ```
 
 ### Watch Mode
+
 ```bash
 # Unit tests watch mode
 npm run test:watch
@@ -182,6 +200,7 @@ npm run test:e2e:ui
 ```
 
 ### Coverage Reports
+
 ```bash
 # Unit test coverage
 npm run test:coverage
@@ -223,6 +242,7 @@ PriceCompare/
 ## Test Patterns
 
 ### Unit Test Pattern
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 
@@ -235,16 +255,15 @@ describe('calculateDiscount', () => {
 ```
 
 ### Integration Test Pattern
+
 ```typescript
 import request from 'supertest';
 import { app } from '../server';
 
 describe('POST /api/products', () => {
   it('creates a new product', async () => {
-    const response = await request(app)
-      .post('/api/products')
-      .send({ name: 'Test Product' });
-    
+    const response = await request(app).post('/api/products').send({ name: 'Test Product' });
+
     expect(response.status).toBe(201);
     expect(response.body.name).toBe('Test Product');
   });
@@ -252,6 +271,7 @@ describe('POST /api/products', () => {
 ```
 
 ### E2E Test Pattern
+
 ```typescript
 import { test, expect } from '@playwright/test';
 
@@ -260,7 +280,7 @@ test('user can register and login', async ({ page }) => {
   await page.fill('input[name="email"]', 'test@example.com');
   await page.fill('input[name="password"]', 'SecurePass123!');
   await page.click('button[type="submit"]');
-  
+
   await expect(page).toHaveURL('/');
   await expect(page.locator('text=Welcome')).toBeVisible();
 });
@@ -268,30 +288,33 @@ test('user can register and login', async ({ page }) => {
 
 ## Coverage Goals
 
-| Category | Target | Current | Status |
-|----------|--------|---------|--------|
-| Critical Paths | 100% | 100% | ✅ |
-| API Routes | 90% | 82% | 🟡 In Progress |
-| Services | 85% | 95% | ✅ Exceeded |
-| Utilities | 90% | 100% | ✅ |
-| Components | 70% | 80% | ✅ |
-| E2E Flows | 4+ flows | 4 flows | ✅ |
+| Category       | Target   | Current | Status         |
+| -------------- | -------- | ------- | -------------- |
+| Critical Paths | 100%     | 100%    | ✅             |
+| API Routes     | 90%      | 82%     | 🟡 In Progress |
+| Services       | 85%      | 95%     | ✅ Exceeded    |
+| Utilities      | 90%      | 100%    | ✅             |
+| Components     | 70%      | 80%     | ✅             |
+| E2E Flows      | 4+ flows | 4 flows | ✅             |
 
 ## Test Quality Metrics
 
 ### Reliability
+
 - ✅ No flaky tests
 - ✅ Database isolation
 - ✅ Sequential E2E execution
 - ✅ Proper async handling
 
 ### Maintainability
+
 - ✅ Clear test names
 - ✅ DRY principles (helpers)
 - ✅ Type-safe (TypeScript)
 - ✅ Well-documented
 
 ### Speed
+
 - ⚡ Unit tests: <1s per test
 - ⚡ Integration tests: 1-3s per test
 - ⚡ E2E tests: 2-5s per test
@@ -300,16 +323,17 @@ test('user can register and login', async ({ page }) => {
 ## CI/CD Integration
 
 ### GitHub Actions (Future)
+
 ```yaml
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Unit & Integration Tests
         run: npm test
-      
+
       - name: E2E Tests
         run: npm run test:e2e
         env:
@@ -319,6 +343,7 @@ jobs:
 ## Best Practices
 
 ### Do's ✅
+
 - Write tests for new features
 - Test both success and error paths
 - Use descriptive test names
@@ -328,6 +353,7 @@ jobs:
 - Follow existing patterns
 
 ### Don'ts ❌
+
 - Don't test implementation details
 - Don't share state between tests
 - Don't skip flaky tests (fix them!)
@@ -346,6 +372,7 @@ jobs:
 ## Contributing
 
 When adding new features:
+
 1. Write unit tests first (TDD)
 2. Add integration tests for API routes
 3. Update E2E tests if user flow changes
@@ -355,6 +382,7 @@ When adding new features:
 ## Future Enhancements
 
 ### Planned (Phase 4)
+
 - [ ] Visual regression testing
 - [ ] Performance benchmarks
 - [ ] Accessibility tests (a11y)
@@ -363,6 +391,7 @@ When adding new features:
 - [ ] Mobile viewport testing
 
 ### Under Consideration
+
 - [ ] Mutation testing
 - [ ] Contract testing
 - [ ] Chaos engineering

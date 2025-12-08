@@ -66,17 +66,17 @@ class WebSocketService {
   initialize(httpServer: HTTPServer): void {
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:5000",
-        methods: ["GET", "POST"],
-        credentials: true
+        origin: process.env.CLIENT_URL || 'http://localhost:5000',
+        methods: ['GET', 'POST'],
+        credentials: true,
       },
-      path: '/socket.io'
+      path: '/socket.io',
     });
 
     this.io.on('connection', (socket: Socket) => {
       logger.info('Dashboard client connected', {
         socketId: socket.id,
-        clientIP: socket.handshake.address
+        clientIP: socket.handshake.address,
       });
 
       // Send initial metrics immediately (fire-and-forget)
@@ -94,14 +94,14 @@ class WebSocketService {
       socket.on('disconnect', (reason) => {
         logger.info('Dashboard client disconnected', {
           socketId: socket.id,
-          reason
+          reason,
         });
       });
 
       socket.on('error', (error) => {
         logger.error('WebSocket client error', {
           socketId: socket.id,
-          error: error.message
+          error: error.message,
         });
       });
     });
@@ -113,7 +113,7 @@ class WebSocketService {
     this.setupEventSubscriptions();
 
     logger.info('WebSocket service initialized', {
-      updateFrequency: `${this.UPDATE_FREQUENCY / 1000}s`
+      updateFrequency: `${this.UPDATE_FREQUENCY / 1000}s`,
     });
   }
 
@@ -146,7 +146,7 @@ class WebSocketService {
         title: payload.ruleName,
         message: payload.message,
         context: payload.data,
-        timestamp: payload.timestamp
+        timestamp: payload.timestamp,
       });
     });
 
@@ -154,7 +154,7 @@ class WebSocketService {
       this.broadcast('alert:resolved', {
         alertId: payload.alertId,
         ruleName: payload.ruleName,
-        timestamp: payload.timestamp
+        timestamp: payload.timestamp,
       });
     });
 
@@ -164,7 +164,7 @@ class WebSocketService {
         level: payload.level,
         message: payload.message,
         context: payload.context,
-        timestamp: payload.timestamp
+        timestamp: payload.timestamp,
       });
     });
 
@@ -183,16 +183,16 @@ class WebSocketService {
       // Emit metrics event for alert service to check (decoupled via event bus)
       eventBus.emit(AppEvents.METRICS_UPDATED, {
         metrics: metrics as unknown as Record<string, unknown>,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       this.broadcast('metrics:update', {
         metrics,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to broadcast metrics', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -206,12 +206,12 @@ class WebSocketService {
 
       socket.emit('metrics:update', {
         metrics,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to send metrics to client', {
         error: error instanceof Error ? error.message : String(error),
-        socketId: socket.id
+        socketId: socket.id,
       });
     }
   }
@@ -226,12 +226,12 @@ class WebSocketService {
       socket.emit('errors:update', {
         errors,
         count: errors.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to send errors to client', {
         error: error instanceof Error ? error.message : String(error),
-        socketId: socket.id
+        socketId: socket.id,
       });
     }
   }
@@ -247,12 +247,12 @@ class WebSocketService {
 
     this.io.emit(event, {
       ...data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     logger.debug('Broadcasted WebSocket event', {
       event,
-      clientCount: this.io.sockets.sockets.size
+      clientCount: this.io.sockets.sockets.size,
     });
   }
 
@@ -263,7 +263,7 @@ class WebSocketService {
     this.broadcast('agent:event', {
       agentType,
       event,
-      data
+      data,
     });
   }
 
@@ -275,14 +275,18 @@ class WebSocketService {
       jobId,
       jobType,
       status,
-      data
+      data,
     });
   }
 
   /**
    * Broadcast an error event
    */
-  broadcastError(level: 'error' | 'warn', message: string, context?: Record<string, unknown>): void {
+  broadcastError(
+    level: 'error' | 'warn',
+    message: string,
+    context?: Record<string, unknown>
+  ): void {
     // Log to monitoring service
     monitoringService.logError(level, message, context);
 
@@ -291,7 +295,7 @@ class WebSocketService {
       level,
       message,
       context,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -301,7 +305,7 @@ class WebSocketService {
   broadcastSuccess(message: string, data?: unknown): void {
     this.broadcast('success:event', {
       message,
-      data
+      data,
     });
   }
 

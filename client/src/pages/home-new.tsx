@@ -18,7 +18,13 @@ import {
   defaultDualBanners,
   type ProductData,
 } from '@/components/template';
-import { CartModal, QuickviewModal, CompareModal, MobileMenu, SearchModal } from '@/components/template/modals';
+import {
+  CartModal,
+  QuickviewModal,
+  CompareModal,
+  MobileMenu,
+  SearchModal,
+} from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { useHomePageData } from '@/hooks/use-home-data';
 import { Loader2 } from 'lucide-react';
@@ -80,23 +86,23 @@ function HomeNewContent() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen">
         <TemplateHeader
           onOpenCart={() => setCartOpen(true)}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           onOpenCompare={() => setCompareOpen(true)}
           onOpenSearch={() => setSearchOpen(true)}
         />
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2 text-muted-foreground">Loading products...</span>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <Loader2 className="text-primary h-8 w-8 animate-spin" />
+          <span className="text-muted-foreground ml-2">Loading products...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       {/* Header */}
       <TemplateHeader
         onOpenCart={() => setCartOpen(true)}
@@ -150,10 +156,14 @@ function HomeNewContent() {
         {/* Laptops & Computers Carousel */}
         <CategoryCarousel
           title="Laptops, Computers & Tablets"
-          products={[...laptops, ...bestSellers.filter(p =>
-            p.category?.toLowerCase().includes('laptop') ||
-            p.category?.toLowerCase().includes('tablet')
-          )]}
+          products={[
+            ...laptops,
+            ...bestSellers.filter(
+              (p) =>
+                p.category?.toLowerCase().includes('laptop') ||
+                p.category?.toLowerCase().includes('tablet')
+            ),
+          ]}
           onWatchlist={handleWatchlist}
           onCompare={handleCompare}
         />
@@ -204,10 +214,7 @@ function HomeNewContent() {
         />
 
         {/* Trending Now */}
-        <TrendingNow
-          products={trending}
-          onWatchlist={handleWatchlist}
-        />
+        <TrendingNow products={trending} onWatchlist={handleWatchlist} />
 
         {/* Recently Viewed (only shows if user has viewed products) */}
         <RecentlyViewed

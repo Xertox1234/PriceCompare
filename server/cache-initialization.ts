@@ -11,17 +11,14 @@
 
 import { storage } from './storage';
 import { registerCacheRoutes } from './routes/cache-routes';
-import {
-  initializeCacheJobs,
-  startCacheMaintenanceJobs,
-} from './jobs/cache-maintenance-jobs';
+import { initializeCacheJobs, startCacheMaintenanceJobs } from './jobs/cache-maintenance-jobs';
 import { logger } from './utils/logger';
 import type { Express } from 'express';
 
 /**
  * Initialize the advanced caching system
  */
-export async function initializeAdvancedCache(app: Express): Promise<void> {
+export function initializeAdvancedCache(app: Express): void {
   try {
     logger.info('Initializing advanced caching system...');
 
@@ -51,7 +48,7 @@ export async function initializeAdvancedCache(app: Express): Promise<void> {
     logger.info('  - Cache metrics and monitoring endpoints');
   } catch (error) {
     logger.error('Error initializing advanced cache system:', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
@@ -68,7 +65,7 @@ export async function performInitialCacheWarming(): Promise<void> {
     const { triggerCacheWarming } = await import('./jobs/cache-maintenance-jobs');
 
     // Warm top 50 products on startup (smaller initial warming)
-    const count = await triggerCacheWarming({
+    const count = triggerCacheWarming({
       topProductsCount: 50,
       includeAnalytics: false, // Skip analytics on startup for speed
       includeSearches: false,
@@ -78,7 +75,7 @@ export async function performInitialCacheWarming(): Promise<void> {
   } catch (error) {
     // Don't fail startup if initial warming fails
     logger.error('Error during initial cache warming:', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }

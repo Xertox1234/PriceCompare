@@ -223,7 +223,9 @@ class PriceCompareAPI {
       const cacheKey = `predictions:${productId}:${days}`;
 
       return await this.getCached(cacheKey, async () => {
-        const response = await this.request(`/products/${productId}/price-predictions?days=${days}`);
+        const response = await this.request(
+          `/products/${productId}/price-predictions?days=${days}`
+        );
         return response.predictions || [];
       });
     } catch (error) {

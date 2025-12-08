@@ -52,10 +52,11 @@ class InMemoryCache {
     batchSize: number
   ): Promise<[string, string[]]> {
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-    const allKeys = Array.from(this.store.keys()).filter(key => regex.test(key));
+    const allKeys = Array.from(this.store.keys()).filter((key) => regex.test(key));
     const cursorNum = parseInt(cursor, 10);
     const batch = allKeys.slice(cursorNum, cursorNum + batchSize);
-    const nextCursor = cursorNum + batchSize >= allKeys.length ? '0' : String(cursorNum + batchSize);
+    const nextCursor =
+      cursorNum + batchSize >= allKeys.length ? '0' : String(cursorNum + batchSize);
     return [nextCursor, batch];
   }
 }
@@ -124,7 +125,7 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
       // Override json method to cache the response
       res.json = function (body: unknown) {
         // Cache the response asynchronously (don't block response)
-        cache.setex(cacheKey, ttl, JSON.stringify(body)).catch(err => {
+        cache.setex(cacheKey, ttl, JSON.stringify(body)).catch((err) => {
           log.error('Failed to cache response:', { error: err });
         });
 
@@ -175,13 +176,7 @@ export async function invalidateCache(pattern: string): Promise<number> {
 
     // Use SCAN to iterate through keys matching pattern (non-blocking)
     do {
-      const [nextCursor, keys] = await cache.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        100
-      );
+      const [nextCursor, keys] = await cache.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
       cursor = nextCursor;
 
       if (keys.length > 0) {

@@ -1,9 +1,9 @@
-import { memo, useCallback } from "react";
-import { Link } from "wouter";
-import { ChevronRight } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import type { MockProduct } from "@/lib/mock-deals";
+import { memo, useCallback } from 'react';
+import { Link } from 'wouter';
+import { ChevronRight } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import type { MockProduct } from '@/lib/mock-deals';
 
 // ============================================================================
 // Type Definitions
@@ -34,17 +34,14 @@ interface PriceTierItemProps {
   onClick?: (tier: PriceTier) => void;
 }
 
-const PriceTierItem = memo(({
-  tier,
-  onClick,
-}: PriceTierItemProps) => {
+const PriceTierItem = memo(({ tier, onClick }: PriceTierItemProps) => {
   const handleClick = useCallback(() => {
     onClick?.(tier);
   }, [onClick, tier]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter" || e.key === " ") {
+      if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         onClick?.(tier);
       }
@@ -60,29 +57,27 @@ const PriceTierItem = memo(({
       onKeyDown={handleKeyDown}
       className={cn(
         // Base styles
-        "relative cursor-pointer rounded-md overflow-hidden",
-        "w-full",
+        'relative cursor-pointer overflow-hidden rounded-md',
+        'w-full',
         // Hover effects
-        "transition-all duration-200",
-        "hover:scale-[1.02] hover:shadow-md",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        'transition-all duration-200',
+        'hover:scale-[1.02] hover:shadow-md',
+        'focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none'
       )}
       aria-label={`${tier.label} - ${tier.product.name}`}
     >
       {/* Image Container */}
-      <div className="relative aspect-square bg-muted overflow-hidden rounded-md">
+      <div className="bg-muted relative aspect-square overflow-hidden rounded-md">
         <img
           src={tier.product.imageUrl}
           alt={tier.product.name}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
           loading="lazy"
         />
       </div>
 
       {/* Price Tier Label */}
-      <p className="mt-2 text-xs font-semibold text-primary">
-        {tier.label}
-      </p>
+      <p className="text-primary mt-2 text-xs font-semibold">{tier.label}</p>
     </div>
   );
 
@@ -98,81 +93,81 @@ const PriceTierItem = memo(({
   return content;
 });
 
-PriceTierItem.displayName = "PriceTierItem";
+PriceTierItem.displayName = 'PriceTierItem';
 
 // ============================================================================
 // Main Component
 // ============================================================================
 
-export const PriceTierCard = memo(({
-  title,
-  tiers,
-  seeAllLink,
-  seeAllText = "Shop all",
-  onTierClick,
-  className,
-}: PriceTierCardProps) => {
-  // Take only the first 4 tiers
-  const displayTiers = tiers.slice(0, 4);
+export const PriceTierCard = memo(
+  ({
+    title,
+    tiers,
+    seeAllLink,
+    seeAllText = 'Shop all',
+    onTierClick,
+    className,
+  }: PriceTierCardProps) => {
+    // Take only the first 4 tiers
+    const displayTiers = tiers.slice(0, 4);
 
-  return (
-    <Card
-      className={cn(
-        "flex flex-col h-full",
-        "transition-shadow duration-200 hover:shadow-md",
-        className
-      )}
-    >
-      {/* Card Header */}
-      <CardHeader className="pb-3 pt-4 px-4">
-        <CardTitle className="text-lg font-bold text-foreground leading-tight">
-          {title}
-        </CardTitle>
-      </CardHeader>
+    return (
+      <Card
+        className={cn(
+          'flex h-full flex-col',
+          'transition-shadow duration-200 hover:shadow-md',
+          className
+        )}
+      >
+        {/* Card Header */}
+        <CardHeader className="px-4 pt-4 pb-3">
+          <CardTitle className="text-foreground text-lg leading-tight font-bold">{title}</CardTitle>
+        </CardHeader>
 
-      {/* Card Content - 2x2 Grid */}
-      <CardContent className="flex-1 px-4 pb-3">
-        <div className="grid grid-cols-2 gap-3">
-          {displayTiers.map((tier, index) => (
-            <PriceTierItem
-              key={`tier-${tier.maxPrice}-${index}`}
-              tier={tier}
-              onClick={onTierClick}
-            />
-          ))}
-        </div>
+        {/* Card Content - 2x2 Grid */}
+        <CardContent className="flex-1 px-4 pb-3">
+          <div className="grid grid-cols-2 gap-3">
+            {displayTiers.map((tier, index) => (
+              <PriceTierItem
+                key={`tier-${tier.maxPrice}-${index}`}
+                tier={tier}
+                onClick={onTierClick}
+              />
+            ))}
+          </div>
 
-        {/* Show placeholders if less than 4 tiers */}
-        {displayTiers.length < 4 &&
-          Array.from({ length: 4 - displayTiers.length }).map((_, index) => (
-            <div key={`placeholder-${index}`} className="w-full">
-              <div className="aspect-square bg-muted/50 rounded-md" />
-              <div className="mt-2 h-3 w-1/2 bg-muted/50 rounded" />
-            </div>
-          ))}
-      </CardContent>
+          {/* Show placeholders if less than 4 tiers */}
+          {displayTiers.length < 4 &&
+            Array.from({ length: 4 - displayTiers.length }).map((_, index) => (
+              <div key={`placeholder-${index}`} className="w-full">
+                <div className="bg-muted/50 aspect-square rounded-md" />
+                <div className="bg-muted/50 mt-2 h-3 w-1/2 rounded" />
+              </div>
+            ))}
+        </CardContent>
 
-      {/* Card Footer - See All Link */}
-      {seeAllLink && (
-        <CardFooter className="pt-0 pb-4 px-4">
-          <Link
-            href={seeAllLink}
-            className={cn(
-              "text-sm font-medium text-primary",
-              "flex items-center gap-1",
-              "hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
-            )}
-          >
-            {seeAllText}
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardFooter>
-      )}
-    </Card>
-  );
-});
+        {/* Card Footer - See All Link */}
+        {seeAllLink && (
+          <CardFooter className="px-4 pt-0 pb-4">
+            <Link
+              href={seeAllLink}
+              className={cn(
+                'text-primary text-sm font-medium',
+                'flex items-center gap-1',
+                'focus-visible:ring-primary rounded hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none'
+              )}
+            >
+              {seeAllText}
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </CardFooter>
+        )}
+      </Card>
+    );
+  }
+);
 
-PriceTierCard.displayName = "PriceTierCard";
+PriceTierCard.displayName = 'PriceTierCard';
 
 // ============================================================================
 // Skeleton Component for Loading States
@@ -180,10 +175,10 @@ PriceTierCard.displayName = "PriceTierCard";
 
 export function PriceTierCardSkeleton({ className }: { className?: string }) {
   return (
-    <Card className={cn("flex flex-col h-full", className)}>
+    <Card className={cn('flex h-full flex-col', className)}>
       {/* Header Skeleton */}
-      <CardHeader className="pb-3 pt-4 px-4">
-        <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+      <CardHeader className="px-4 pt-4 pb-3">
+        <div className="bg-muted h-5 w-3/4 animate-pulse rounded" />
       </CardHeader>
 
       {/* Grid Skeleton */}
@@ -191,16 +186,16 @@ export function PriceTierCardSkeleton({ className }: { className?: string }) {
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index}>
-              <div className="aspect-square bg-muted rounded-md animate-pulse" />
-              <div className="mt-2 h-3 w-1/2 bg-muted rounded animate-pulse" />
+              <div className="bg-muted aspect-square animate-pulse rounded-md" />
+              <div className="bg-muted mt-2 h-3 w-1/2 animate-pulse rounded" />
             </div>
           ))}
         </div>
       </CardContent>
 
       {/* Footer Skeleton */}
-      <CardFooter className="pt-0 pb-4 px-4">
-        <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+      <CardFooter className="px-4 pt-0 pb-4">
+        <div className="bg-muted h-4 w-20 animate-pulse rounded" />
       </CardFooter>
     </Card>
   );

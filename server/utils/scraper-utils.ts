@@ -16,12 +16,12 @@ export class ScraperUtils {
   static getRequestHeaders(customHeaders: Record<string, string> = {}): Record<string, string> {
     return {
       'User-Agent': this.getRandomUserAgent(),
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
       'Accept-Encoding': 'gzip, deflate',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'Upgrade-Insecure-Requests': '1',
-      ...customHeaders
+      ...customHeaders,
     };
   }
 
@@ -30,7 +30,7 @@ export class ScraperUtils {
    */
   static async delay(ms: number, jitter = true): Promise<void> {
     const delayTime = jitter ? ms + Math.random() * 1000 : ms;
-    return new Promise(resolve => setTimeout(resolve, delayTime));
+    return new Promise((resolve) => setTimeout(resolve, delayTime));
   }
 
   /**
@@ -43,11 +43,11 @@ export class ScraperUtils {
     return async (): Promise<void> => {
       const now = Date.now();
       const timeSinceLastRequest = now - lastRequestTime;
-      
+
       if (timeSinceLastRequest < minInterval) {
         await this.delay(minInterval - timeSinceLastRequest, false);
       }
-      
+
       lastRequestTime = Date.now();
     };
   }
@@ -69,11 +69,11 @@ export class ScraperUtils {
   static extractPrice(priceText: string): number | null {
     const cleanText = priceText.replace(/[^\d.,]/g, '');
     const match = cleanText.match(/(\d+(?:[.,]\d{2})?)/);
-    
+
     if (match) {
       return parseFloat(match[1].replace(',', '.'));
     }
-    
+
     return null;
   }
 
@@ -110,19 +110,19 @@ export class RateLimiter {
 
   async waitIfNeeded(): Promise<void> {
     const now = Date.now();
-    
+
     // Remove old requests outside the time window
-    this.requests = this.requests.filter(time => now - time < this.timeWindow);
-    
+    this.requests = this.requests.filter((time) => now - time < this.timeWindow);
+
     if (this.requests.length >= this.maxRequests) {
       const oldestRequest = Math.min(...this.requests);
       const waitTime = this.timeWindow - (now - oldestRequest);
-      
+
       if (waitTime > 0) {
         await ScraperUtils.delay(waitTime, false);
       }
     }
-    
+
     this.requests.push(now);
   }
 }

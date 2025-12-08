@@ -18,25 +18,31 @@ import { csrfProtection } from '../middleware/security';
  */
 
 // Date range validation for admin endpoints
-const dateRangeRequestSchema = z.object({
-  startDate: z.string().refine(
-    (val) => !isNaN(Date.parse(val)),
-    { message: 'Invalid date format for startDate. Use YYYY-MM-DD' }
-  ).transform((val) => new Date(val)),
-  endDate: z.string().refine(
-    (val) => !isNaN(Date.parse(val)),
-    { message: 'Invalid date format for endDate. Use YYYY-MM-DD' }
-  ).transform((val) => new Date(val)),
-}).refine(
-  (data) => data.endDate >= data.startDate,
-  { message: 'End date must be on or after start date' }
-).refine(
-  (data) => {
-    const diffDays = (data.endDate.getTime() - data.startDate.getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays <= 365;
-  },
-  { message: 'Date range cannot exceed 365 days' }
-);
+const dateRangeRequestSchema = z
+  .object({
+    startDate: z
+      .string()
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: 'Invalid date format for startDate. Use YYYY-MM-DD',
+      })
+      .transform((val) => new Date(val)),
+    endDate: z
+      .string()
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: 'Invalid date format for endDate. Use YYYY-MM-DD',
+      })
+      .transform((val) => new Date(val)),
+  })
+  .refine((data) => data.endDate >= data.startDate, {
+    message: 'End date must be on or after start date',
+  })
+  .refine(
+    (data) => {
+      const diffDays = (data.endDate.getTime() - data.startDate.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays <= 365;
+    },
+    { message: 'Date range cannot exceed 365 days' }
+  );
 
 // Product ID validation
 const productIdRequestSchema = z.object({
@@ -62,39 +68,43 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { daysAggregated: number, message: string }
    */
-  app.post('/api/admin/aggregation/force-daily', csrfProtection, withAdmin(async (req: Request, res: Response) => {
-    try {
-      // Validate request body with Zod
-      const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
+  app.post(
+    '/api/admin/aggregation/force-daily',
+    csrfProtection,
+    withAdmin(async (req: Request, res: Response) => {
+      try {
+        // Validate request body with Zod
+        const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
 
-      logger.info('[AdminAggregation] Force re-aggregation requested', {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        adminUser: req.user?.username,
-      });
+        logger.info('[AdminAggregation] Force re-aggregation requested', {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          adminUser: req.user?.username,
+        });
 
-      // Force re-aggregation (force=true parameter)
-      const daysAggregated = await priceAggregationService.aggregateToDaily(
-        startDate,
-        endDate,
-        true // force re-aggregation
-      );
+        // Force re-aggregation (force=true parameter)
+        const daysAggregated = await priceAggregationService.aggregateToDaily(
+          startDate,
+          endDate,
+          true // force re-aggregation
+        );
 
-      sendSuccess(res, {
-        daysAggregated,
-        message: `Successfully re-aggregated ${daysAggregated} days`,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-      });
-    } catch (error: unknown) {
-      logger.error('[AdminAggregation] Force aggregation failed:', {
-        error,
-        body: req.body,
-        adminUser: req.user?.username,
-      });
-      sendErrorFromException(res, error, 'ForceAggregation');
-    }
-  }));
+        sendSuccess(res, {
+          daysAggregated,
+          message: `Successfully re-aggregated ${daysAggregated} days`,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+        });
+      } catch (error: unknown) {
+        logger.error('[AdminAggregation] Force aggregation failed:', {
+          error,
+          body: req.body,
+          adminUser: req.user?.username,
+        });
+        sendErrorFromException(res, error, 'ForceAggregation');
+      }
+    })
+  );
 
   /**
    * POST /api/admin/aggregation/detect-gaps
@@ -109,35 +119,40 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { gaps: string[], count: number }
    */
-  app.post('/api/admin/aggregation/detect-gaps', csrfProtection, withAdmin(async (req: Request, res: Response) => {
-    try {
-      // Validate request body with Zod
-      const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
+  app.post(
+    '/api/admin/aggregation/detect-gaps',
+    csrfProtection,
+    withAdmin(async (req: Request, res: Response) => {
+      try {
+        // Validate request body with Zod
+        const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
 
-      logger.info('[AdminAggregation] Gap detection requested', {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        adminUser: req.user?.username,
-      });
+        logger.info('[AdminAggregation] Gap detection requested', {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          adminUser: req.user?.username,
+        });
 
-      const gaps = await priceAggregationService.detectGaps(startDate, endDate);
+        const gaps = await priceAggregationService.detectGaps(startDate, endDate);
 
-      sendSuccess(res, {
-        gaps,
-        count: gaps.length,
-        message: gaps.length === 0
-          ? 'No gaps found'
-          : `Found ${gaps.length} days with missing aggregates`,
-      });
-    } catch (error: unknown) {
-      logger.error('[AdminAggregation] Gap detection failed:', {
-        error,
-        body: req.body,
-        adminUser: req.user?.username,
-      });
-      sendErrorFromException(res, error, 'DetectGaps');
-    }
-  }));
+        sendSuccess(res, {
+          gaps,
+          count: gaps.length,
+          message:
+            gaps.length === 0
+              ? 'No gaps found'
+              : `Found ${gaps.length} days with missing aggregates`,
+        });
+      } catch (error: unknown) {
+        logger.error('[AdminAggregation] Gap detection failed:', {
+          error,
+          body: req.body,
+          adminUser: req.user?.username,
+        });
+        sendErrorFromException(res, error, 'DetectGaps');
+      }
+    })
+  );
 
   /**
    * POST /api/admin/aggregation/fill-gaps
@@ -152,36 +167,39 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { daysFilled: number, message: string }
    */
-  app.post('/api/admin/aggregation/fill-gaps', csrfProtection, withAdmin(async (req: Request, res: Response) => {
-    try {
-      // Validate request body with Zod
-      const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
+  app.post(
+    '/api/admin/aggregation/fill-gaps',
+    csrfProtection,
+    withAdmin(async (req: Request, res: Response) => {
+      try {
+        // Validate request body with Zod
+        const { startDate, endDate } = dateRangeRequestSchema.parse(req.body);
 
-      logger.info('[AdminAggregation] Fill gaps requested', {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        adminUser: req.user?.username,
-      });
+        logger.info('[AdminAggregation] Fill gaps requested', {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          adminUser: req.user?.username,
+        });
 
-      const daysFilled = await priceAggregationService.fillGaps(startDate, endDate);
+        const daysFilled = await priceAggregationService.fillGaps(startDate, endDate);
 
-      sendSuccess(res, {
-        daysFilled,
-        message: daysFilled === 0
-          ? 'No gaps found to fill'
-          : `Successfully filled ${daysFilled} gaps`,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-      });
-    } catch (error: unknown) {
-      logger.error('[AdminAggregation] Fill gaps failed:', {
-        error,
-        body: req.body,
-        adminUser: req.user?.username,
-      });
-      sendErrorFromException(res, error, 'FillGaps');
-    }
-  }));
+        sendSuccess(res, {
+          daysFilled,
+          message:
+            daysFilled === 0 ? 'No gaps found to fill' : `Successfully filled ${daysFilled} gaps`,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+        });
+      } catch (error: unknown) {
+        logger.error('[AdminAggregation] Fill gaps failed:', {
+          error,
+          body: req.body,
+          adminUser: req.user?.username,
+        });
+        sendErrorFromException(res, error, 'FillGaps');
+      }
+    })
+  );
 
   /**
    * POST /api/admin/aggregation/single-product
@@ -195,30 +213,34 @@ export function registerAdminAggregationRoutes(app: Express): void {
    *
    * @returns { message: string }
    */
-  app.post('/api/admin/aggregation/single-product', csrfProtection, withAdmin(async (req: Request, res: Response) => {
-    try {
-      // Validate request body with Zod
-      const { productId } = productIdRequestSchema.parse(req.body);
+  app.post(
+    '/api/admin/aggregation/single-product',
+    csrfProtection,
+    withAdmin(async (req: Request, res: Response) => {
+      try {
+        // Validate request body with Zod
+        const { productId } = productIdRequestSchema.parse(req.body);
 
-      logger.info('[AdminAggregation] Single product aggregation requested', {
-        productId,
-        adminUser: req.user?.username,
-      });
+        logger.info('[AdminAggregation] Single product aggregation requested', {
+          productId,
+          adminUser: req.user?.username,
+        });
 
-      await priceAggregationService.calculateProductAggregates(productId);
+        await priceAggregationService.calculateProductAggregates(productId);
 
-      sendSuccess(res, {
-        message: `Successfully re-aggregated product ${productId}`,
-        productId,
-      });
-    } catch (error: unknown) {
-      const body = req.body as Record<string, unknown> | undefined;
-      logger.error('[AdminAggregation] Single product aggregation failed:', {
-        error,
-        productId: body?.productId,
-        adminUser: req.user?.username,
-      });
-      sendErrorFromException(res, error, 'SingleProductAggregation');
-    }
-  }));
+        sendSuccess(res, {
+          message: `Successfully re-aggregated product ${productId}`,
+          productId,
+        });
+      } catch (error: unknown) {
+        const body = req.body as Record<string, unknown> | undefined;
+        logger.error('[AdminAggregation] Single product aggregation failed:', {
+          error,
+          productId: body?.productId,
+          adminUser: req.user?.username,
+        });
+        sendErrorFromException(res, error, 'SingleProductAggregation');
+      }
+    })
+  );
 }

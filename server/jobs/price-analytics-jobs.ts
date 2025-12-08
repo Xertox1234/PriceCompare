@@ -23,73 +23,85 @@ export function startPriceAnalyticsJobs(): void {
   logger.info('Starting price analytics scheduled jobs...');
 
   // Weekly aggregation - runs every Sunday at 11:00 PM
-  weeklyAggregationJob = cron.schedule('0 23 * * 0', async () => {
-    // Use distributed lock to prevent duplicate execution (1 hour TTL)
-    const result = await jobLockService.withLock(
-      'price-analytics:weekly-aggregation',
-      async () => {
-        logger.info('Starting weekly price aggregation...');
-        const count = await priceAggregationService.calculateWeeklyAggregates();
-        logger.info(`Weekly price aggregation completed: ${count} aggregates calculated`);
-        return count;
-      },
-      3600 // 1 hour lock
-    );
-
-    if (result === null) {
-      logger.info('Weekly aggregation skipped - already running on another server');
-    }
-  }, {
-    timezone: 'America/New_York'
-  });
-
-  // Monthly aggregation - runs on the last day of every month at 11:30 PM
-  monthlyAggregationJob = cron.schedule('30 23 28-31 * *', async () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // Only run if tomorrow is the first day of the month
-    if (tomorrow.getDate() === 1) {
+  weeklyAggregationJob = cron.schedule(
+    '0 23 * * 0',
+    async () => {
       // Use distributed lock to prevent duplicate execution (1 hour TTL)
       const result = await jobLockService.withLock(
-        'price-analytics:monthly-aggregation',
+        'price-analytics:weekly-aggregation',
         async () => {
-          logger.info('Starting monthly price aggregation...');
-          const count = await priceAggregationService.calculateMonthlyAggregates();
-          logger.info(`Monthly price aggregation completed: ${count} aggregates calculated`);
+          logger.info('Starting weekly price aggregation...');
+          const count = await priceAggregationService.calculateWeeklyAggregates();
+          logger.info(`Weekly price aggregation completed: ${count} aggregates calculated`);
           return count;
         },
         3600 // 1 hour lock
       );
 
       if (result === null) {
-        logger.info('Monthly aggregation skipped - already running on another server');
+        logger.info('Weekly aggregation skipped - already running on another server');
       }
+    },
+    {
+      timezone: 'America/New_York',
     }
-  }, {
-    timezone: 'America/New_York'
-  });
+  );
+
+  // Monthly aggregation - runs on the last day of every month at 11:30 PM
+  monthlyAggregationJob = cron.schedule(
+    '30 23 28-31 * *',
+    async () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Only run if tomorrow is the first day of the month
+      if (tomorrow.getDate() === 1) {
+        // Use distributed lock to prevent duplicate execution (1 hour TTL)
+        const result = await jobLockService.withLock(
+          'price-analytics:monthly-aggregation',
+          async () => {
+            logger.info('Starting monthly price aggregation...');
+            const count = await priceAggregationService.calculateMonthlyAggregates();
+            logger.info(`Monthly price aggregation completed: ${count} aggregates calculated`);
+            return count;
+          },
+          3600 // 1 hour lock
+        );
+
+        if (result === null) {
+          logger.info('Monthly aggregation skipped - already running on another server');
+        }
+      }
+    },
+    {
+      timezone: 'America/New_York',
+    }
+  );
 
   // Trend analysis - runs daily at 3:00 AM
-  trendAnalysisJob = cron.schedule('0 3 * * *', async () => {
-    // Use distributed lock to prevent duplicate execution (2 hour TTL for longer analysis)
-    const result = await jobLockService.withLock(
-      'price-analytics:trend-analysis',
-      async () => {
-        logger.info('Starting daily trend analysis...');
-        const count = await trendAnalysisService.analyzeTrendsForAllProducts(30);
-        logger.info(`Daily trend analysis completed: ${count} trends analyzed`);
-        return count;
-      },
-      7200 // 2 hour lock (trend analysis may take longer)
-    );
+  trendAnalysisJob = cron.schedule(
+    '0 3 * * *',
+    async () => {
+      // Use distributed lock to prevent duplicate execution (2 hour TTL for longer analysis)
+      const result = await jobLockService.withLock(
+        'price-analytics:trend-analysis',
+        async () => {
+          logger.info('Starting daily trend analysis...');
+          const count = await trendAnalysisService.analyzeTrendsForAllProducts(30);
+          logger.info(`Daily trend analysis completed: ${count} trends analyzed`);
+          return count;
+        },
+        7200 // 2 hour lock (trend analysis may take longer)
+      );
 
-    if (result === null) {
-      logger.info('Trend analysis skipped - already running on another server');
+      if (result === null) {
+        logger.info('Trend analysis skipped - already running on another server');
+      }
+    },
+    {
+      timezone: 'America/New_York',
     }
-  }, {
-    timezone: 'America/New_York'
-  });
+  );
 
   logger.info('Price analytics jobs scheduled:');
   logger.info('- Weekly aggregation: 11:00 PM every Sunday');
@@ -132,7 +144,7 @@ export function getPriceAnalyticsJobsStatus(): {
   return {
     weeklyAggregationJob: weeklyAggregationJob !== null,
     monthlyAggregationJob: monthlyAggregationJob !== null,
-    trendAnalysisJob: trendAnalysisJob !== null
+    trendAnalysisJob: trendAnalysisJob !== null,
   };
 }
 

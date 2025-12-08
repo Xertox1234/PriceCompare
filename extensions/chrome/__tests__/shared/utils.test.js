@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import "../setup.js";
+import '../setup.js';
 import { createTestDate, createTestDateISO, TEST_DATES } from '../helpers/test-dates.js';
 
 /**
@@ -9,26 +9,28 @@ import { createTestDate, createTestDateISO, TEST_DATES } from '../helpers/test-d
 describe('Utils', () => {
   beforeEach(() => {
     // Load utils.js content directly since it uses global scope
-    global.normalizeUrl = require('../../shared/utils.js').normalizeUrl || function(url) {
-      try {
-        const urlObj = new URL(url);
-        const paramsToKeep = ['asin', 'skuId', 'productId', 'item_id'];
-        const newParams = new URLSearchParams();
+    global.normalizeUrl =
+      require('../../shared/utils.js').normalizeUrl ||
+      function (url) {
+        try {
+          const urlObj = new URL(url);
+          const paramsToKeep = ['asin', 'skuId', 'productId', 'item_id'];
+          const newParams = new URLSearchParams();
 
-        paramsToKeep.forEach(param => {
-          if (urlObj.searchParams.has(param)) {
-            newParams.set(param, urlObj.searchParams.get(param));
-          }
-        });
+          paramsToKeep.forEach((param) => {
+            if (urlObj.searchParams.has(param)) {
+              newParams.set(param, urlObj.searchParams.get(param));
+            }
+          });
 
-        urlObj.search = newParams.toString();
-        return urlObj.href;
-      } catch (e) {
-        return url;
-      }
-    };
+          urlObj.search = newParams.toString();
+          return urlObj.href;
+        } catch (e) {
+          return url;
+        }
+      };
 
-    global.extractDomain = function(url) {
+    global.extractDomain = function (url) {
       try {
         const urlObj = new URL(url);
         const hostname = urlObj.hostname;
@@ -42,14 +44,14 @@ describe('Utils', () => {
       }
     };
 
-    global.formatPrice = function(price) {
+    global.formatPrice = function (price) {
       if (typeof price !== 'number' || isNaN(price)) {
         return 'N/A';
       }
       return '$' + price.toFixed(2);
     };
 
-    global.formatDate = function(date) {
+    global.formatDate = function (date) {
       try {
         if (date === null || date === undefined) {
           return 'N/A';
@@ -69,7 +71,7 @@ describe('Utils', () => {
       }
     };
 
-    global.debounce = function(func, wait) {
+    global.debounce = function (func, wait) {
       let timeout;
       return function executedFunction(...args) {
         const later = () => {
@@ -81,7 +83,7 @@ describe('Utils', () => {
       };
     };
 
-    global.createElement = function(tag, attrs = {}, content = '') {
+    global.createElement = function (tag, attrs = {}, content = '') {
       const element = document.createElement(tag);
       Object.entries(attrs).forEach(([key, value]) => {
         if (key === 'className') {
@@ -98,7 +100,7 @@ describe('Utils', () => {
       return element;
     };
 
-    global.waitForElement = function(selector, timeout = 5000) {
+    global.waitForElement = function (selector, timeout = 5000) {
       return new Promise((resolve, reject) => {
         const element = document.querySelector(selector);
         if (element) {
@@ -334,8 +336,9 @@ describe('Utils', () => {
     it('should reject if element not found within timeout', async () => {
       document.querySelector = vi.fn(() => null);
 
-      await expect(waitForElement('.non-existent', 100))
-        .rejects.toThrow('Element .non-existent not found within 100ms');
+      await expect(waitForElement('.non-existent', 100)).rejects.toThrow(
+        'Element .non-existent not found within 100ms'
+      );
     });
 
     it('should wait for element to appear', async () => {
@@ -349,8 +352,7 @@ describe('Utils', () => {
 
       // This will timeout in the test environment since MutationObserver is mocked
       // In a real browser, this would work
-      await expect(waitForElement('.appearing-element', 100))
-        .rejects.toThrow();
+      await expect(waitForElement('.appearing-element', 100)).rejects.toThrow();
     });
   });
 });

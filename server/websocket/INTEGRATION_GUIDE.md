@@ -5,6 +5,7 @@ This guide shows how to integrate WebSocket events into existing backend service
 ## Overview
 
 The WebSocket event handler system provides real-time notifications for:
+
 - **Watch List Updates**: Created, updated, deleted, products added/removed
 - **Notifications**: New notifications, mark as read, unread count updates
 - **Price Updates**: Price changes, price alerts
@@ -210,23 +211,24 @@ After creating notifications, emit WebSocket events to notify connected clients 
 ```typescript
 import { getSocketIO, emitNewNotification } from '../websocket';
 
-export async function createNotification(
-  notification: InsertNotification
-): Promise<Notification> {
+export async function createNotification(notification: InsertNotification): Promise<Notification> {
   // ... existing validation and creation logic ...
 
-  const created = await db.transaction(async (tx) => {
-    // ... check daily limit and create notification ...
+  const created = await db.transaction(
+    async (tx) => {
+      // ... check daily limit and create notification ...
 
-    const result = await tx.insert(notifications).values(notification).returning();
-    const created = getFirstResult(result);
-    if (!created) {
-      throw new Error('Failed to create notification');
+      const result = await tx.insert(notifications).values(notification).returning();
+      const created = getFirstResult(result);
+      if (!created) {
+        throw new Error('Failed to create notification');
+      }
+      return created;
+    },
+    {
+      isolationLevel: 'serializable',
     }
-    return created;
-  }, {
-    isolationLevel: 'serializable',
-  });
+  );
 
   // After successful creation, emit WebSocket event
   const io = getSocketIO();
@@ -234,14 +236,19 @@ export async function createNotification(
     // Get updated unread count
     const stats = await getNotificationStats(notification.userId);
 
-    emitNewNotification(io, notification.userId, {
-      id: created.id,
-      type: created.type,
-      title: created.title,
-      content: created.content,
-      priority: created.priority || 'medium',
-      metadata: created.metadata,
-    }, stats.unread);
+    emitNewNotification(
+      io,
+      notification.userId,
+      {
+        id: created.id,
+        type: created.type,
+        title: created.title,
+        content: created.content,
+        priority: created.priority || 'medium',
+        metadata: created.metadata,
+      },
+      stats.unread
+    );
   }
 
   return created;
@@ -350,6 +357,7 @@ socket.on('some:event', async (data) => {
 ```
 
 Errors are:
+
 1. Logged with full context
 2. Sanitized to user-friendly messages
 3. Emitted back to client with error code
@@ -418,6 +426,7 @@ const subscriptionCount = getPriceSubscriptionCount();
 ## Next Steps
 
 See the handler implementation files for complete details:
+
 - `server/websocket/handlers/watch-list-handler.ts`
 - `server/websocket/handlers/notification-handler.ts`
 - `server/websocket/handlers/price-update-handler.ts`

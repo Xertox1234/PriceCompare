@@ -1,23 +1,18 @@
-import { useState, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProductWithOffers } from "@shared/schema";
-import { PriceHistoryChart } from "./price-history/PriceHistoryChart";
-import { TimeRangeSelector, type TimeRange } from "./price-history/TimeRangeSelector";
-import { PriceTrendIndicator } from "./price-history/PriceTrendIndicator";
-import { BestTimeToBuy } from "./price-history/BestTimeToBuy";
-import { PriceVolatilityScore } from "./price-history/PriceVolatilityScore";
-import { SeasonalPatterns } from "./price-history/SeasonalPatterns";
-import { RetailerReliability } from "./price-history/RetailerReliability";
-import { TrendingUp } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProductWithOffers } from '@shared/schema';
+import { PriceHistoryChart } from './price-history/PriceHistoryChart';
+import { TimeRangeSelector, type TimeRange } from './price-history/TimeRangeSelector';
+import { PriceTrendIndicator } from './price-history/PriceTrendIndicator';
+import { BestTimeToBuy } from './price-history/BestTimeToBuy';
+import { PriceVolatilityScore } from './price-history/PriceVolatilityScore';
+import { SeasonalPatterns } from './price-history/SeasonalPatterns';
+import { RetailerReliability } from './price-history/RetailerReliability';
+import { TrendingUp } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 // Type definitions for API responses (matching backend response shapes)
 interface PriceHistoryData {
@@ -127,11 +122,7 @@ interface ProductDetailDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function ProductDetailDialog({
-  product,
-  open,
-  onOpenChange,
-}: ProductDetailDialogProps) {
+export function ProductDetailDialog({ product, open, onOpenChange }: ProductDetailDialogProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -158,55 +149,62 @@ export function ProductDetailDialog({
   });
 
   // Handler for setting price alert from interactive tooltip
-  const handleSetAlert = useCallback((retailerId: number, price: number) => {
-    if (!product?.id) return;
+  const handleSetAlert = useCallback(
+    (retailerId: number, price: number) => {
+      if (!product?.id) return;
 
-    const retailer = product?.offers?.find(o => o.retailer.id === retailerId)?.retailer;
+      const retailer = product?.offers?.find((o) => o.retailer.id === retailerId)?.retailer;
 
-    createAlertMutation.mutate(
-      {
-        productId: product.id,
-        targetPrice: price,
-        notifyForum: false,
-      },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Price Alert Created",
-            description: `You'll be notified when the price at ${retailer?.name || 'this retailer'} drops below $${price.toFixed(2)}`,
-          });
+      createAlertMutation.mutate(
+        {
+          productId: product.id,
+          targetPrice: price,
+          notifyForum: false,
         },
-        onError: (error: Error) => {
-          toast({
-            title: "Failed to Create Alert",
-            description: error.message === 'Unauthorized'
-              ? "Please log in to create price alerts"
-              : error.message,
-            variant: "destructive",
-          });
-        },
-      }
-    );
-  }, [product, toast, createAlertMutation]);
+        {
+          onSuccess: () => {
+            toast({
+              title: 'Price Alert Created',
+              description: `You'll be notified when the price at ${retailer?.name || 'this retailer'} drops below $${price.toFixed(2)}`,
+            });
+          },
+          onError: (error: Error) => {
+            toast({
+              title: 'Failed to Create Alert',
+              description:
+                error.message === 'Unauthorized'
+                  ? 'Please log in to create price alerts'
+                  : error.message,
+              variant: 'destructive',
+            });
+          },
+        }
+      );
+    },
+    [product, toast, createAlertMutation]
+  );
 
   // Handler for viewing retailer from interactive tooltip
-  const handleViewRetailer = useCallback((retailerId: number) => {
-    const offer = product?.offers?.find(o => o.retailer.id === retailerId);
-    if (offer?.productUrl) {
-      window.open(offer.productUrl, '_blank', 'noopener,noreferrer');
-    }
-  }, [product]);
+  const handleViewRetailer = useCallback(
+    (retailerId: number) => {
+      const offer = product?.offers?.find((o) => o.retailer.id === retailerId);
+      if (offer?.productUrl) {
+        window.open(offer.productUrl, '_blank', 'noopener,noreferrer');
+      }
+    },
+    [product]
+  );
 
   // Fetch price history
   const { data: priceHistory, isLoading: historyLoading } = useQuery<PriceHistoryData[]>({
-    queryKey: ["priceHistory", product?.id, timeRange],
+    queryKey: ['priceHistory', product?.id, timeRange],
     queryFn: async () => {
       if (!product?.id) return [];
       const url = timeRange
         ? `/api/products/${product.id}/price-history?days=${timeRange}`
         : `/api/products/${product.id}/price-history`;
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch price history");
+      if (!response.ok) throw new Error('Failed to fetch price history');
       return response.json() as Promise<PriceHistoryData[]>;
     },
     enabled: !!product?.id && open,
@@ -214,11 +212,11 @@ export function ProductDetailDialog({
 
   // Fetch price trend
   const { data: priceTrend, isLoading: trendLoading } = useQuery<PriceTrendData | null>({
-    queryKey: ["priceTrend", product?.id],
+    queryKey: ['priceTrend', product?.id],
     queryFn: async () => {
       if (!product?.id) return null;
       const response = await fetch(`/api/products/${product.id}/price-trend`);
-      if (!response.ok) throw new Error("Failed to fetch price trend");
+      if (!response.ok) throw new Error('Failed to fetch price trend');
       return response.json() as Promise<PriceTrendData>;
     },
     enabled: !!product?.id && open,
@@ -226,11 +224,11 @@ export function ProductDetailDialog({
 
   // Fetch best time to buy
   const { data: bestTimeToBuy, isLoading: bestTimeLoading } = useQuery<BestTimeAnalysis | null>({
-    queryKey: ["bestTimeToBuy", product?.id],
+    queryKey: ['bestTimeToBuy', product?.id],
     queryFn: async () => {
       if (!product?.id) return null;
       const response = await fetch(`/api/products/${product.id}/best-time-to-buy`);
-      if (!response.ok) throw new Error("Failed to fetch best time to buy");
+      if (!response.ok) throw new Error('Failed to fetch best time to buy');
       return response.json() as Promise<BestTimeAnalysis>;
     },
     enabled: !!product?.id && open,
@@ -238,14 +236,14 @@ export function ProductDetailDialog({
 
   // Fetch price volatility
   const { data: volatility, isLoading: volatilityLoading } = useQuery<VolatilityData | null>({
-    queryKey: ["volatility", product?.id, timeRange],
+    queryKey: ['volatility', product?.id, timeRange],
     queryFn: async () => {
       if (!product?.id) return null;
       const url = timeRange
         ? `/api/products/${product.id}/volatility?days=${timeRange}`
         : `/api/products/${product.id}/volatility`;
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch volatility");
+      if (!response.ok) throw new Error('Failed to fetch volatility');
       return response.json() as Promise<VolatilityData>;
     },
     enabled: !!product?.id && open,
@@ -253,26 +251,28 @@ export function ProductDetailDialog({
 
   // Fetch seasonal patterns
   const { data: seasonalPatterns, isLoading: seasonalLoading } = useQuery<SeasonalAnalysis | null>({
-    queryKey: ["seasonalPatterns", product?.id],
+    queryKey: ['seasonalPatterns', product?.id],
     queryFn: async () => {
       if (!product?.id) return null;
       const response = await fetch(`/api/products/${product.id}/seasonal-patterns`);
-      if (!response.ok) throw new Error("Failed to fetch seasonal patterns");
+      if (!response.ok) throw new Error('Failed to fetch seasonal patterns');
       return response.json() as Promise<SeasonalAnalysis>;
     },
     enabled: !!product?.id && open,
   });
 
   // Fetch retailer reliability
-  const { data: retailerReliability, isLoading: reliabilityLoading } = useQuery<ReliabilityScore[] | null>({
-    queryKey: ["retailerReliability", product?.id, timeRange],
+  const { data: retailerReliability, isLoading: reliabilityLoading } = useQuery<
+    ReliabilityScore[] | null
+  >({
+    queryKey: ['retailerReliability', product?.id, timeRange],
     queryFn: async () => {
       if (!product?.id) return null;
       const url = timeRange
         ? `/api/products/${product.id}/retailer-reliability?days=${timeRange}`
         : `/api/products/${product.id}/retailer-reliability`;
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch retailer reliability");
+      if (!response.ok) throw new Error('Failed to fetch retailer reliability');
       return response.json() as Promise<ReliabilityScore[]>;
     },
     enabled: !!product?.id && open,
@@ -282,17 +282,17 @@ export function ProductDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`max-h-[90vh] overflow-y-auto ${
-        isMobile ? 'max-w-[95vw] p-4' : 'max-w-5xl'
-      }`}>
+      <DialogContent
+        className={`max-h-[90vh] overflow-y-auto ${isMobile ? 'max-w-[95vw] p-4' : 'max-w-5xl'}`}
+      >
         <DialogHeader>
-          <DialogTitle className={`font-bold flex items-center gap-2 ${
-            isMobile ? 'text-lg' : 'text-2xl'
-          }`}>
+          <DialogTitle
+            className={`flex items-center gap-2 font-bold ${isMobile ? 'text-lg' : 'text-2xl'}`}
+          >
             <span className="line-clamp-2">{product.name}</span>
-            <TrendingUp className={`text-primary flex-shrink-0 ${
-              isMobile ? 'w-4 h-4' : 'w-5 h-5'
-            }`} />
+            <TrendingUp
+              className={`text-primary flex-shrink-0 ${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`}
+            />
           </DialogTitle>
         </DialogHeader>
 
@@ -306,12 +306,12 @@ export function ProductDetailDialog({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="history" className="space-y-4 mt-4">
+          <TabsContent value="history" className="mt-4 space-y-4">
             {/* Time Range Selector */}
-            <div className={`flex justify-between items-center ${
-              isMobile ? 'flex-col gap-2' : ''
-            }`}>
-              <h3 className={`font-semibold ${isMobile ? 'text-base w-full' : 'text-lg'}`}>
+            <div
+              className={`flex items-center justify-between ${isMobile ? 'flex-col gap-2' : ''}`}
+            >
+              <h3 className={`font-semibold ${isMobile ? 'w-full text-base' : 'text-lg'}`}>
                 Time Range
               </h3>
               <TimeRangeSelector selected={timeRange} onChange={setTimeRange} />
@@ -332,7 +332,7 @@ export function ProductDetailDialog({
             />
           </TabsContent>
 
-          <TabsContent value="analysis" className="space-y-4 mt-4">
+          <TabsContent value="analysis" className="mt-4 space-y-4">
             <div className="space-y-6">
               {/* Price Volatility Score */}
               <PriceVolatilityScore data={volatility ?? null} isLoading={volatilityLoading} />
@@ -344,7 +344,10 @@ export function ProductDetailDialog({
               <BestTimeToBuy data={bestTimeToBuy ?? null} isLoading={bestTimeLoading} />
 
               {/* Retailer Reliability */}
-              <RetailerReliability data={retailerReliability ?? null} isLoading={reliabilityLoading} />
+              <RetailerReliability
+                data={retailerReliability ?? null}
+                isLoading={reliabilityLoading}
+              />
 
               {/* Current Offers */}
               <div className="space-y-3">
@@ -353,14 +356,14 @@ export function ProductDetailDialog({
                   {product.offers?.map((offer) => (
                     <div
                       key={offer.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-4 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         {offer.retailer.logo && (
                           <img
                             src={offer.retailer.logo}
                             alt={offer.retailer.name}
-                            className="w-8 h-8 object-contain"
+                            className="h-8 w-8 object-contain"
                           />
                         )}
                         <span className="font-medium">{offer.retailer.name}</span>
@@ -370,17 +373,18 @@ export function ProductDetailDialog({
                           <div className="text-2xl font-bold">
                             ${parseFloat(offer.price).toFixed(2)}
                           </div>
-                          {offer.originalPrice && parseFloat(offer.originalPrice) > parseFloat(offer.price) && (
-                            <div className="text-sm text-muted-foreground line-through">
-                              ${parseFloat(offer.originalPrice).toFixed(2)}
-                            </div>
-                          )}
+                          {offer.originalPrice &&
+                            parseFloat(offer.originalPrice) > parseFloat(offer.price) && (
+                              <div className="text-muted-foreground text-sm line-through">
+                                ${parseFloat(offer.originalPrice).toFixed(2)}
+                              </div>
+                            )}
                         </div>
                         <a
-                          href={offer.productUrl || "#"}
+                          href={offer.productUrl || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 transition-colors"
                         >
                           View Deal
                         </a>

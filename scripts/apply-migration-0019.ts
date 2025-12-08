@@ -13,8 +13,9 @@ async function applyMigration() {
   }
 
   // Detect database type
-  const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
-                         process.env.DATABASE_URL?.includes('.pooler.neon.tech');
+  const isNeonDatabase =
+    process.env.DATABASE_URL?.includes('neon.tech') ||
+    process.env.DATABASE_URL?.includes('.pooler.neon.tech');
 
   type PoolClient = { query: (text: string) => Promise<unknown>; end: () => Promise<void> };
   let pool: PoolClient;
@@ -33,7 +34,11 @@ async function applyMigration() {
     console.log('🔄 Applying migration 0019_fix_product_watches_unique_constraint.sql...\n');
 
     // Read the migration file
-    const migrationPath = path.join(process.cwd(), 'migrations', '0019_fix_product_watches_unique_constraint.sql');
+    const migrationPath = path.join(
+      process.cwd(),
+      'migrations',
+      '0019_fix_product_watches_unique_constraint.sql'
+    );
     const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
 
     // Execute the entire migration as one statement
@@ -49,7 +54,7 @@ async function applyMigration() {
   }
 }
 
-applyMigration().catch(error => {
+applyMigration().catch((error) => {
   console.error(error);
   process.exit(1);
 });

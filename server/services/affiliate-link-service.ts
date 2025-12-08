@@ -50,7 +50,7 @@ export class AffiliateLinkService {
         };
       }
 
-      const affiliateUrl = await this.transformUrl(retailer, productUrl, metadata);
+      const affiliateUrl = this.transformUrl(retailer, productUrl, metadata);
 
       if (affiliateUrl) {
         return {
@@ -80,11 +80,11 @@ export class AffiliateLinkService {
   /**
    * Transform URL based on retailer's affiliate program
    */
-  private async transformUrl(
+  private transformUrl(
     retailer: Retailer,
     productUrl: string,
     _metadata?: Record<string, unknown>
-  ): Promise<string | null> {
+  ): string | null {
     const config = this.parseAffiliateConfig(retailer.affiliateConfig);
     const productId = this.extractProductId(retailer.name.toLowerCase(), productUrl);
 

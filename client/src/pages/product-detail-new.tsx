@@ -27,12 +27,7 @@ function ProductDetailContent() {
   const params = useParams<{ id: string }>();
   const productId = parseInt(params.id || '0', 10);
 
-  const {
-    toggleWishlist,
-    isInWishlist,
-    toggleCompare,
-    openCart,
-  } = useShop();
+  const { toggleWishlist, isInWishlist, toggleCompare, openCart } = useShop();
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -45,10 +40,11 @@ function ProductDetailContent() {
 
   // Fetch related products (same category)
   const { data: relatedData } = useProductsByCategory(product?.category ?? '', 4);
-  const relatedProducts = relatedData?.results
-    ?.filter(p => p.id !== productId)
-    .slice(0, 4)
-    .map(transformProduct) ?? [];
+  const relatedProducts =
+    relatedData?.results
+      ?.filter((p) => p.id !== productId)
+      .slice(0, 4)
+      .map(transformProduct) ?? [];
 
   // Track product view
   useEffect(() => {
@@ -58,16 +54,14 @@ function ProductDetailContent() {
   }, [product]);
 
   // Generate image gallery from product
-  const images = product ? [
-    product.image ?? '/placeholder-product.png',
-  ] : [];
+  const images = product ? [product.image ?? '/placeholder-product.png'] : [];
 
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Loading product...</span>
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-primary h-8 w-8 animate-spin" />
+        <span className="text-muted-foreground ml-2">Loading product...</span>
       </div>
     );
   }
@@ -75,8 +69,8 @@ function ProductDetailContent() {
   // Error state
   if (error || !product) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-        <p className="text-lg font-medium text-destructive mb-2">Product not found</p>
+      <div className="bg-background flex min-h-screen flex-col items-center justify-center">
+        <p className="text-destructive mb-2 text-lg font-medium">Product not found</p>
         <Link href="/shop">
           <a className="text-primary hover:underline">Back to shop</a>
         </Link>
@@ -88,9 +82,10 @@ function ProductDetailContent() {
   const bestOffer = product.offers?.[0];
   const price = product.bestPrice ?? (bestOffer ? parseFloat(bestOffer.price) : 0);
   const originalPrice = bestOffer?.originalPrice ? parseFloat(bestOffer.originalPrice) : undefined;
-  const discount = originalPrice && originalPrice > price
-    ? Math.round(((originalPrice - price) / originalPrice) * 100)
-    : undefined;
+  const discount =
+    originalPrice && originalPrice > price
+      ? Math.round(((originalPrice - price) / originalPrice) * 100)
+      : undefined;
   const rating = bestOffer?.rating ? parseFloat(bestOffer.rating) : 4.0;
   const reviewCount = bestOffer?.reviewCount ?? 0;
   const category = product.category ?? 'General';
@@ -112,7 +107,7 @@ function ProductDetailContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       <TemplateHeader
         onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
@@ -121,50 +116,57 @@ function ProductDetailContent() {
       />
 
       {/* Breadcrumbs */}
-      <div className="border-b border-border py-4">
+      <div className="border-border border-b py-4">
         <div className="container mx-auto px-4">
           <nav className="flex items-center gap-2 text-sm">
             <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
               Home
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <Link href="/shop" className="text-muted-foreground hover:text-primary transition-colors">
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+            <Link
+              href="/shop"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
               Shop
             </Link>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="text-foreground font-medium line-clamp-1">{product.name}</span>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+            <span className="text-foreground line-clamp-1 font-medium">{product.name}</span>
           </nav>
         </div>
       </div>
 
       <main className="container mx-auto px-4 py-8">
         {/* Product Detail Grid */}
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+        <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
           {/* Left - Image Gallery */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div className="relative aspect-square bg-muted rounded-2xl overflow-hidden">
+            <div className="bg-muted relative aspect-square overflow-hidden rounded-2xl">
               <img
                 src={images[selectedImageIndex]}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
               {discount && discount > 0 && (
-                <div className="absolute top-4 left-4 bg-destructive text-white px-3 py-1 rounded-full text-sm font-medium">
+                <div className="bg-destructive absolute top-4 left-4 rounded-full px-3 py-1 text-sm font-medium text-white">
                   -{discount}% OFF
                 </div>
               )}
 
               {/* Navigation Arrows */}
               <button
-                onClick={() => setSelectedImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                onClick={() =>
+                  setSelectedImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+                }
+                className="absolute top-1/2 left-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow-md transition-colors hover:bg-white"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                onClick={() =>
+                  setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+                }
+                className="absolute top-1/2 right-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow-md transition-colors hover:bg-white"
               >
                 <ChevronRightIcon className="h-5 w-5" />
               </button>
@@ -177,11 +179,13 @@ function ProductDetailContent() {
                   key={idx}
                   onClick={() => setSelectedImageIndex(idx)}
                   className={cn(
-                    'w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-colors',
-                    selectedImageIndex === idx ? 'border-primary' : 'border-border hover:border-muted-foreground'
+                    'h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-colors',
+                    selectedImageIndex === idx
+                      ? 'border-primary'
+                      : 'border-border hover:border-muted-foreground'
                   )}
                 >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={img} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
@@ -193,16 +197,16 @@ function ProductDetailContent() {
             <div>
               <Link
                 href={`/shop?category=${category.toLowerCase()}`}
-                className="text-sm text-primary hover:underline"
+                className="text-primary text-sm hover:underline"
               >
                 {category}
               </Link>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground mt-2">
+              <h1 className="text-foreground mt-2 text-2xl font-bold lg:text-3xl">
                 {product.name}
               </h1>
 
               {/* Rating & Reviews */}
-              <div className="flex items-center gap-4 mt-3">
+              <div className="mt-3 flex items-center gap-4">
                 <div className="flex items-center gap-1">
                   {Array.from({ length: 5 }, (_, i) => (
                     <Star
@@ -210,31 +214,29 @@ function ProductDetailContent() {
                       className={cn(
                         'h-4 w-4',
                         i < Math.floor(rating)
-                          ? 'text-yellow-400 fill-yellow-400'
+                          ? 'fill-yellow-400 text-yellow-400'
                           : 'text-muted-foreground'
                       )}
                     />
                   ))}
-                  <span className="ml-1 text-sm text-muted-foreground">
+                  <span className="text-muted-foreground ml-1 text-sm">
                     {rating.toFixed(1)} ({reviewCount.toLocaleString()} reviews)
                   </span>
                 </div>
-                <span className="text-sm text-muted-foreground">|</span>
-                <span className="text-sm text-success">In Stock</span>
+                <span className="text-muted-foreground text-sm">|</span>
+                <span className="text-success text-sm">In Stock</span>
               </div>
             </div>
 
             {/* Price */}
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-primary">
-                ${price.toFixed(2)}
-              </span>
+              <span className="text-primary text-3xl font-bold">${price.toFixed(2)}</span>
               {originalPrice && originalPrice > price && (
                 <>
-                  <span className="text-xl text-muted-foreground line-through">
+                  <span className="text-muted-foreground text-xl line-through">
                     ${originalPrice.toFixed(2)}
                   </span>
-                  <span className="text-sm font-medium text-destructive">
+                  <span className="text-destructive text-sm font-medium">
                     Save ${(originalPrice - price).toFixed(2)}
                   </span>
                 </>
@@ -242,9 +244,9 @@ function ProductDetailContent() {
             </div>
 
             {/* Brand */}
-            <div className="flex items-center gap-2 py-3 border-y border-border">
+            <div className="border-border flex items-center gap-2 border-y py-3">
               <span className="text-muted-foreground">Brand:</span>
-              <span className="font-medium text-foreground">{product.brand ?? 'Unknown'}</span>
+              <span className="text-foreground font-medium">{product.brand ?? 'Unknown'}</span>
             </div>
 
             {/* Action Buttons */}
@@ -253,10 +255,12 @@ function ProductDetailContent() {
                 <Button
                   onClick={handleViewBestOffer}
                   disabled={!bestOffer?.affiliateUrl && !bestOffer?.productUrl}
-                  className="flex-1 py-6 text-base bg-primary hover:bg-primary/90"
+                  className="bg-primary hover:bg-primary/90 flex-1 py-6 text-base"
                 >
-                  <ExternalLink className="h-5 w-5 mr-2" />
-                  {bestOffer?.retailer?.name ? `View at ${bestOffer.retailer.name}` : 'View Best Offer'}
+                  <ExternalLink className="mr-2 h-5 w-5" />
+                  {bestOffer?.retailer?.name
+                    ? `View at ${bestOffer.retailer.name}`
+                    : 'View Best Offer'}
                 </Button>
                 <Button
                   variant="outline"
@@ -264,7 +268,9 @@ function ProductDetailContent() {
                   className="h-14 w-14"
                   onClick={() => toggleWishlist(product.id)}
                 >
-                  <Heart className={cn('h-5 w-5', inWishlist && 'fill-destructive text-destructive')} />
+                  <Heart
+                    className={cn('h-5 w-5', inWishlist && 'fill-destructive text-destructive')}
+                  />
                 </Button>
                 <Button
                   variant="outline"
@@ -282,45 +288,48 @@ function ProductDetailContent() {
 
             {/* Features */}
             <div className="grid grid-cols-3 gap-4 pt-4">
-              <div className="flex flex-col items-center text-center p-4 bg-muted/50 rounded-xl">
-                <Truck className="h-6 w-6 text-primary mb-2" />
-                <span className="text-xs text-muted-foreground">Free Shipping</span>
+              <div className="bg-muted/50 flex flex-col items-center rounded-xl p-4 text-center">
+                <Truck className="text-primary mb-2 h-6 w-6" />
+                <span className="text-muted-foreground text-xs">Free Shipping</span>
               </div>
-              <div className="flex flex-col items-center text-center p-4 bg-muted/50 rounded-xl">
-                <Shield className="h-6 w-6 text-primary mb-2" />
-                <span className="text-xs text-muted-foreground">Secure Payment</span>
+              <div className="bg-muted/50 flex flex-col items-center rounded-xl p-4 text-center">
+                <Shield className="text-primary mb-2 h-6 w-6" />
+                <span className="text-muted-foreground text-xs">Secure Payment</span>
               </div>
-              <div className="flex flex-col items-center text-center p-4 bg-muted/50 rounded-xl">
-                <RotateCcw className="h-6 w-6 text-primary mb-2" />
-                <span className="text-xs text-muted-foreground">30-Day Returns</span>
+              <div className="bg-muted/50 flex flex-col items-center rounded-xl p-4 text-center">
+                <RotateCcw className="text-primary mb-2 h-6 w-6" />
+                <span className="text-muted-foreground text-xs">30-Day Returns</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Product Description */}
-        <div className="mt-12 p-6 bg-card rounded-2xl border border-border">
-          <h2 className="text-xl font-bold mb-4">About this item</h2>
-          <ul className="space-y-2 text-muted-foreground">
+        <div className="bg-card border-border mt-12 rounded-2xl border p-6">
+          <h2 className="mb-4 text-xl font-bold">About this item</h2>
+          <ul className="text-muted-foreground space-y-2">
             {product.brand && (
               <li className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                <Check className="text-success mt-0.5 h-5 w-5 flex-shrink-0" />
                 <span>Premium quality product from {product.brand}</span>
               </li>
             )}
             <li className="flex items-start gap-2">
-              <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+              <Check className="text-success mt-0.5 h-5 w-5 flex-shrink-0" />
               <span>Category: {category}</span>
             </li>
             {reviewCount > 0 && (
               <li className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-                <span>Customer rating: {rating.toFixed(1)}/5 based on {reviewCount.toLocaleString()} reviews</span>
+                <Check className="text-success mt-0.5 h-5 w-5 flex-shrink-0" />
+                <span>
+                  Customer rating: {rating.toFixed(1)}/5 based on {reviewCount.toLocaleString()}{' '}
+                  reviews
+                </span>
               </li>
             )}
             {product.offers && product.offers.length > 1 && (
               <li className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                <Check className="text-success mt-0.5 h-5 w-5 flex-shrink-0" />
                 <span>Price compared across {product.offers.length} retailers</span>
               </li>
             )}

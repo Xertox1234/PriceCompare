@@ -5,6 +5,7 @@ This directory contains all AI/LLM-related infrastructure for the PriceCompare p
 ## Overview
 
 The AI module provides:
+
 - **Prompt Versioning**: Track and manage prompt versions for A/B testing
 - **Output Validation**: JSON schema validation for AI responses
 - **Performance Monitoring**: Latency, quality, and cost tracking
@@ -36,7 +37,7 @@ if (prompt) {
   // Render template with variables
   const userPrompt = renderTemplate(prompt.userPromptTemplate, {
     productName: 'iPhone 15 Pro',
-    category: 'Electronics'
+    category: 'Electronics',
   });
 
   // Use with OpenAI
@@ -44,10 +45,10 @@ if (prompt) {
     model: prompt.metadata.model,
     messages: [
       { role: 'system', content: prompt.systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: 'user', content: userPrompt },
     ],
     temperature: prompt.metadata.temperature,
-    max_tokens: prompt.metadata.maxTokens
+    max_tokens: prompt.metadata.maxTokens,
   });
 }
 ```
@@ -68,10 +69,7 @@ if (result.valid) {
 }
 
 // Parse and validate JSON from AI response
-const jsonResult = parseAndValidateJSON(
-  response.choices[0].message.content,
-  'trend-analysis'
-);
+const jsonResult = parseAndValidateJSON(response.choices[0].message.content, 'trend-analysis');
 ```
 
 ### 3. Monitoring Performance
@@ -146,12 +144,9 @@ promptMonitor.printReport();
 ```
 
 **Example**:
+
 ```json
-[
-  "Sony WH-1000XM5",
-  "Sony wireless noise cancelling headphones",
-  "WH1000XM5 bluetooth headphones"
-]
+["Sony WH-1000XM5", "Sony wireless noise cancelling headphones", "WH1000XM5 bluetooth headphones"]
 ```
 
 ### trend-analysis
@@ -175,6 +170,7 @@ promptMonitor.printReport();
 ```
 
 **Example**:
+
 ```json
 [
   {
@@ -200,12 +196,9 @@ promptMonitor.printReport();
 ```
 
 **Example**:
+
 ```json
-[
-  "MacBook Air M2",
-  "Dell XPS 13",
-  "HP Spectre x360"
-]
+["MacBook Air M2", "Dell XPS 13", "HP Spectre x360"]
 ```
 
 ## Versioning System
@@ -242,12 +235,12 @@ promptMonitor.printReport();
 export const outputSchemas = {
   'my-prompt-output': {
     type: 'array',
-    items: 'string'
-  }
+    items: 'string',
+  },
 };
 ```
 
-3. **Write tests in __tests__/prompt-outputs.test.ts**
+3. **Write tests in **tests**/prompt-outputs.test.ts**
 
 4. **Test thoroughly before deploying**
 
@@ -277,13 +270,13 @@ if (comparison) {
 
 ## Performance Targets
 
-| Metric | Target | Notes |
-|--------|--------|-------|
-| Latency | < 2000ms | 95th percentile |
-| Quality Score | > 70/100 | Validation + performance |
-| Success Rate | > 95% | Valid outputs / total |
-| Token Efficiency | < 500 tokens | Total per execution |
-| Cost | < $0.001 | Per execution |
+| Metric           | Target       | Notes                    |
+| ---------------- | ------------ | ------------------------ |
+| Latency          | < 2000ms     | 95th percentile          |
+| Quality Score    | > 70/100     | Validation + performance |
+| Success Rate     | > 95%        | Valid outputs / total    |
+| Token Efficiency | < 500 tokens | Total per execution      |
+| Cost             | < $0.001     | Per execution            |
 
 ## Monitoring Dashboard
 
@@ -293,27 +286,27 @@ if (comparison) {
 const summary = promptMonitor.getSummary('prompt-name');
 
 // Core metrics
-summary.successRate          // 0-1 (target: > 0.95)
-summary.avgLatency           // milliseconds (target: < 2000)
-summary.avgQualityScore      // 0-100 (target: > 70)
-summary.estimatedTotalCost   // USD
-summary.totalTokens          // count
+summary.successRate; // 0-1 (target: > 0.95)
+summary.avgLatency; // milliseconds (target: < 2000)
+summary.avgQualityScore; // 0-100 (target: > 70)
+summary.estimatedTotalCost; // USD
+summary.totalTokens; // count
 
 // Distribution
-summary.minLatency           // fastest execution
-summary.maxLatency           // slowest execution
+summary.minLatency; // fastest execution
+summary.maxLatency; // slowest execution
 
 // Volume
-summary.totalExecutions      // all attempts
-summary.successfulExecutions // valid outputs
-summary.failedExecutions     // errors
+summary.totalExecutions; // all attempts
+summary.successfulExecutions; // valid outputs
+summary.failedExecutions; // errors
 ```
 
 ### Viewing Recent Failures
 
 ```typescript
 const failures = promptMonitor.getRecentFailures(10);
-failures.forEach(failure => {
+failures.forEach((failure) => {
   console.log(`❌ ${failure.promptName}:`, failure.error);
 });
 ```
@@ -355,10 +348,7 @@ describe('My Prompt Output', () => {
 const queries = response.choices[0].message.content.split('\n');
 
 // ✅ Good
-const validation = parseAndValidateJSON(
-  response.choices[0].message.content,
-  'search-queries'
-);
+const validation = parseAndValidateJSON(response.choices[0].message.content, 'search-queries');
 
 if (!validation.valid) {
   console.error('Validation failed:', formatValidationErrors(validation.errors));

@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { AdminDashboard } from '../admin-dashboard';
-import type { AnalyticsOverview, UserGrowthData, ProductActivityData, TopCategoryData } from '@shared/types';
+import type {
+  AnalyticsOverview,
+  UserGrowthData,
+  ProductActivityData,
+  TopCategoryData,
+} from '@shared/types';
 
 describe('AdminDashboard', () => {
   const mockOverviewData: AnalyticsOverview = {

@@ -107,10 +107,7 @@ export async function isRateLimitExceeded(
  * @param windowMinutes - The time window in minutes (default: 15)
  * @returns The number of attempts
  */
-export async function getResetAttemptCount(
-  userId: number,
-  windowMinutes = 15
-): Promise<number> {
+export async function getResetAttemptCount(userId: number, windowMinutes = 15): Promise<number> {
   const since = new Date(Date.now() - windowMinutes * 60 * 1000);
   return storage.getPasswordResetAttemptCount(userId, since);
 }

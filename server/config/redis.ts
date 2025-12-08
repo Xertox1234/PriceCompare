@@ -212,7 +212,7 @@ class _InMemoryRedis {
 
   async keys(pattern: string): Promise<string[]> {
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-    return Array.from(this.store.keys()).filter(key => regex.test(key));
+    return Array.from(this.store.keys()).filter((key) => regex.test(key));
   }
 }
 

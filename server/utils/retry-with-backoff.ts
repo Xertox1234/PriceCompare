@@ -104,14 +104,13 @@ export const isTransientDatabaseError = (error: unknown): boolean => {
     'epipe',
   ];
 
-  return transientPatterns.some(pattern => message.includes(pattern));
+  return transientPatterns.some((pattern) => message.includes(pattern));
 };
 
 /**
  * Sleep for specified milliseconds
  */
-const sleep = (ms: number): Promise<void> =>
-  new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Calculate delay with exponential backoff and jitter

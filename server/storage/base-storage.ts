@@ -18,8 +18,8 @@
  * Phase 1: Foundation - Extracted from monolithic storage.ts
  */
 
-import type { db } from "../db";
-import { logger } from "../utils/logger";
+import type { db } from '../db';
+import { logger } from '../utils/logger';
 
 // Type alias for the database connection
 type Database = typeof db;

@@ -50,7 +50,8 @@ describe('Price Aggregation Integration Tests', () => {
       // Step 2: Mock daily aggregation
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -99,7 +100,8 @@ describe('Price Aggregation Integration Tests', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -140,7 +142,8 @@ describe('Price Aggregation Integration Tests', () => {
     it('should safely delete only old aggregated data', async () => {
       // Mock the aggregation service module
       const { priceAggregationService } = await import('../price-aggregation-service');
-      const mockAggregateToDaily = vi.spyOn(priceAggregationService, 'aggregateToDaily')
+      const mockAggregateToDaily = vi
+        .spyOn(priceAggregationService, 'aggregateToDaily')
         .mockResolvedValue(50);
 
       const mockWhere = vi.fn().mockResolvedValue({ rowCount: 100 });
@@ -168,7 +171,8 @@ describe('Price Aggregation Integration Tests', () => {
         daysProcessed++;
 
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -242,7 +246,7 @@ describe('Price Aggregation Integration Tests', () => {
       const result30Days = await getPriceHistoryOptimized(1, 30);
 
       // Should use raw data
-      expect(result30Days.every(r => r.source === 'raw')).toBe(true);
+      expect(result30Days.every((r) => r.source === 'raw')).toBe(true);
       expect(db.select).toHaveBeenCalledTimes(1);
     });
 
@@ -344,10 +348,10 @@ describe('Price Aggregation Integration Tests', () => {
       const result = await getPriceHistoryOptimized(1, 400);
 
       // Should combine all sources
-      expect(result.some(r => r.source === 'raw')).toBe(true);
-      expect(result.some(r => r.source === 'daily')).toBe(true);
-      expect(result.some(r => r.source === 'weekly')).toBe(true);
-      expect(result.some(r => r.source === 'monthly')).toBe(true);
+      expect(result.some((r) => r.source === 'raw')).toBe(true);
+      expect(result.some((r) => r.source === 'daily')).toBe(true);
+      expect(result.some((r) => r.source === 'weekly')).toBe(true);
+      expect(result.some((r) => r.source === 'monthly')).toBe(true);
     });
 
     it('should maintain chronological order across data sources', async () => {
@@ -460,7 +464,8 @@ describe('Price Aggregation Integration Tests', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -511,7 +516,8 @@ describe('Price Aggregation Integration Tests', () => {
 
       vi.mocked(db.transaction).mockImplementation(async (callback) => {
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -566,7 +572,8 @@ describe('Price Aggregation Integration Tests', () => {
         transactionCount++;
 
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -616,7 +623,8 @@ describe('Price Aggregation Integration Tests', () => {
         transactionCount++;
 
         const mockTx = {
-          select: vi.fn()
+          select: vi
+            .fn()
             .mockReturnValueOnce({
               from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({

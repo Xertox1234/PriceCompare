@@ -60,11 +60,7 @@ export async function registerUser(
 /**
  * Login an existing user through the UI
  */
-export async function loginUser(
-  page: Page,
-  email: string,
-  password: string
-): Promise<void> {
+export async function loginUser(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
 
@@ -109,10 +105,11 @@ export async function waitForApiResponse(
   status?: number
 ): Promise<void> {
   await page.waitForResponse(
-    response => {
-      const matchesUrl = typeof urlPattern === 'string'
-        ? response.url().includes(urlPattern)
-        : urlPattern.test(response.url());
+    (response) => {
+      const matchesUrl =
+        typeof urlPattern === 'string'
+          ? response.url().includes(urlPattern)
+          : urlPattern.test(response.url());
 
       const matchesStatus = status ? response.status() === status : true;
 
@@ -125,16 +122,8 @@ export async function waitForApiResponse(
 /**
  * Wait for toast/notification message
  */
-export async function waitForToast(
-  page: Page,
-  message: string | RegExp
-): Promise<void> {
-  const toastSelectors = [
-    '[role="alert"]',
-    '.toast',
-    '.notification',
-    '[data-sonner-toast]',
-  ];
+export async function waitForToast(page: Page, message: string | RegExp): Promise<void> {
+  const toastSelectors = ['[role="alert"]', '.toast', '.notification', '[data-sonner-toast]'];
 
   for (const selector of toastSelectors) {
     try {

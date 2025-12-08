@@ -1,11 +1,11 @@
-import { storage } from "../storage";
-import { getRedisClient } from "../config/redis";
-import { createNotification, getUserPreferences } from "./notification-service";
-import { websocketService } from "./websocket-service";
-import { emailService } from "./email-service";
-import { createLogger } from "../utils/logger";
+import { storage } from '../storage';
+import { getRedisClient } from '../config/redis';
+import { createNotification, getUserPreferences } from './notification-service';
+import { websocketService } from './websocket-service';
+import { emailService } from './email-service';
+import { createLogger } from '../utils/logger';
 
-const log = createLogger("SmartNotification");
+const log = createLogger('SmartNotification');
 
 /**
  * Smart Notification Service
@@ -42,11 +42,11 @@ export interface NotificationTrigger {
 /**
  * Analyze if a product meets criteria for smart notification
  */
-export async function analyzeNotificationTriggers(
+export function analyzeNotificationTriggers(
   productId: number,
   userId: number,
   currentData: ProductData
-): Promise<NotificationTrigger> {
+): NotificationTrigger {
   const { currentPrice, lowestPrice, averagePrice, priceDropPercent, stockStatus } = currentData;
 
   const reasoning: string[] = [];
@@ -77,11 +77,11 @@ export async function analyzeNotificationTriggers(
     expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
   }
   // Medium: Price dropped 10%+ from average
-  else if (currentPrice < averagePrice * 0.90) {
+  else if (currentPrice < averagePrice * 0.9) {
     urgency = 'medium';
     type = 'price_drop';
     shouldNotify = true;
-    threshold = averagePrice * 0.90;
+    threshold = averagePrice * 0.9;
     reasoning.push(`Price dropped ${priceDropPercent.toFixed(1)}% from average`);
     expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   }
@@ -101,7 +101,8 @@ export async function analyzeNotificationTriggers(
   }
 
   const savings = averagePrice - currentPrice;
-  const confidence = urgency === 'critical' ? 0.95 : urgency === 'high' ? 0.85 : urgency === 'medium' ? 0.75 : 0.65;
+  const confidence =
+    urgency === 'critical' ? 0.95 : urgency === 'high' ? 0.85 : urgency === 'medium' ? 0.75 : 0.65;
 
   return {
     shouldNotify,
@@ -114,21 +115,23 @@ export async function analyzeNotificationTriggers(
     metadata: {
       productId,
       savings,
-      confidence
+      confidence,
     },
-    expiresAt
+    expiresAt,
   };
 }
 
 /**
  * Prioritize notifications by priority score
  */
-export function prioritizeNotifications(notifications: NotificationTrigger[]): NotificationTrigger[] {
+export function prioritizeNotifications(
+  notifications: NotificationTrigger[]
+): NotificationTrigger[] {
   const urgencyWeight: Record<string, number> = {
     critical: 100,
     high: 75,
     medium: 50,
-    low: 25
+    low: 25,
   };
 
   const calculateScore = (notification: NotificationTrigger): number => {
@@ -141,9 +144,9 @@ export function prioritizeNotifications(notifications: NotificationTrigger[]): N
   };
 
   return notifications
-    .map(n => ({ notification: n, score: calculateScore(n) }))
+    .map((n) => ({ notification: n, score: calculateScore(n) }))
     .sort((a, b) => b.score - a.score)
-    .map(item => item.notification);
+    .map((item) => item.notification);
 }
 
 /**
@@ -244,7 +247,7 @@ export async function createSmartNotification(
       title,
       content,
       relatedProductId: trigger.metadata.productId,
-      isRead: false
+      isRead: false,
     });
 
     // Set deduplication key in Redis (6-hour TTL)
@@ -264,8 +267,8 @@ export async function createSmartNotification(
         urgency: trigger.urgency,
         productId: trigger.metadata.productId,
         savings: trigger.metadata.savings,
-        createdAt: notification.createdAt
-      }
+        createdAt: notification.createdAt,
+      },
     });
 
     // Queue email delivery (if user enabled email notifications)
@@ -276,21 +279,23 @@ export async function createSmartNotification(
 
       if (user?.email) {
         // Send email notification (async, don't block)
-        emailService.sendEmail({
-          to: user.email,
-          subject: title,
-          html: `
+        emailService
+          .sendEmail({
+            to: user.email,
+            subject: title,
+            html: `
             <h2>${title}</h2>
             <p>${content}</p>
             <p><strong>Product:</strong> ${product.name}</p>
             <p><strong>Savings:</strong> $${trigger.metadata.savings.toFixed(2)}</p>
             <p><a href="${process.env.APP_URL || 'http://localhost:5000'}/products/${product.id}">View Product</a></p>
           `,
-          text: `${title}\n\n${content}\n\nProduct: ${product.name}\nSavings: $${trigger.metadata.savings.toFixed(2)}`
-        }).catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          log.error('Failed to send email notification', { error: errorMessage, userId });
-        });
+            text: `${title}\n\n${content}\n\nProduct: ${product.name}\nSavings: $${trigger.metadata.savings.toFixed(2)}`,
+          })
+          .catch((error: unknown) => {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            log.error('Failed to send email notification', { error: errorMessage, userId });
+          });
       }
     }
 
@@ -298,21 +303,25 @@ export async function createSmartNotification(
       userId,
       productId: trigger.metadata.productId,
       urgency: trigger.urgency,
-      notificationId: notification.id
+      notificationId: notification.id,
     });
   } catch (error) {
     // If notification creation fails due to user preferences, log it
     if (error instanceof Error) {
-      if (error.message.includes('disabled') || error.message.includes('quiet hours') || error.message.includes('Daily notification limit')) {
+      if (
+        error.message.includes('disabled') ||
+        error.message.includes('quiet hours') ||
+        error.message.includes('Daily notification limit')
+      ) {
         log.debug('Notification not created due to user preferences', {
           userId,
-          reason: error.message
+          reason: error.message,
         });
       } else {
         log.error('Failed to create smart notification', {
           error: error.message,
           userId,
-          productId: trigger.metadata.productId
+          productId: trigger.metadata.productId,
         });
         throw error;
       }

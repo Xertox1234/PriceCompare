@@ -30,15 +30,7 @@ import {
   useRemoveProductFromWatchList,
   type WatchedProduct,
 } from '@/hooks/useWatchList';
-import {
-  Plus,
-  Search,
-  TrendingDown,
-  Clock,
-  Package,
-  Loader2,
-  AlertCircle,
-} from 'lucide-react';
+import { Plus, Search, TrendingDown, Clock, Package, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -160,19 +152,19 @@ export default function PriceWatchPage() {
   // Loading state
   if (productsLoading || statsLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen">
         <SharedNavigation currentPage="price-watch" />
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-2 mb-8">
+          <div className="mb-8 flex items-center gap-2">
             <Skeleton className="h-8 w-8" />
             <Skeleton className="h-8 w-64" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-32" />
             ))}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-64" />
             ))}
@@ -185,15 +177,15 @@ export default function PriceWatchPage() {
   // Error state
   if (productsError || statsError) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen">
         <SharedNavigation currentPage="price-watch" />
         <div className="container mx-auto px-4 py-8">
           <Card className="border-destructive">
             <CardContent className="flex items-center gap-4 p-6">
-              <AlertCircle className="w-8 h-8 text-destructive" />
+              <AlertCircle className="text-destructive h-8 w-8" />
               <div>
-                <h3 className="font-semibold text-lg">Error Loading Price Watch Dashboard</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">Error Loading Price Watch Dashboard</h3>
+                <p className="text-muted-foreground text-sm">
                   {productsError?.message || statsError?.message || 'Failed to load data'}
                 </p>
               </div>
@@ -205,24 +197,26 @@ export default function PriceWatchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       <SharedNavigation currentPage="price-watch" />
 
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <TrendingDown className="h-8 w-8 text-primary" />
+            <div className="bg-primary/10 rounded-lg p-2">
+              <TrendingDown className="text-primary h-8 w-8" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Price Watch Dashboard</h1>
-              <p className="text-muted-foreground">Track your favorite products and never miss a deal</p>
+              <p className="text-muted-foreground">
+                Track your favorite products and never miss a deal
+              </p>
             </div>
           </div>
 
           <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Create Watch List
           </Button>
         </div>
@@ -236,11 +230,11 @@ export default function PriceWatchPage() {
 
         {/* Filters and Search */}
         <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                 <Input
                   placeholder="Search products..."
                   value={searchQuery}
@@ -258,19 +252,19 @@ export default function PriceWatchPage() {
               <SelectContent>
                 <SelectItem value="priceDropPercent">
                   <div className="flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4" />
+                    <TrendingDown className="h-4 w-4" />
                     Price Drop %
                   </div>
                 </SelectItem>
                 <SelectItem value="savings">
                   <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4" />
+                    <Package className="h-4 w-4" />
                     Savings
                   </div>
                 </SelectItem>
                 <SelectItem value="dateAdded">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
+                    <Clock className="h-4 w-4" />
                     Date Added
                   </div>
                 </SelectItem>
@@ -292,7 +286,7 @@ export default function PriceWatchPage() {
           </div>
 
           {/* Results count */}
-          <div className="text-sm text-muted-foreground">
+          <div className="text-muted-foreground text-sm">
             Showing {filteredProducts.length} of {products.length} products
           </div>
         </div>
@@ -301,20 +295,20 @@ export default function PriceWatchPage() {
         {filteredProducts.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <Package className="w-16 h-16 text-muted-foreground/50 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Products Found</h3>
-              <p className="text-muted-foreground text-center max-w-md">
+              <Package className="text-muted-foreground/50 mb-4 h-16 w-16" />
+              <h3 className="mb-2 text-xl font-semibold">No Products Found</h3>
+              <p className="text-muted-foreground max-w-md text-center">
                 {searchQuery
                   ? 'No products match your search. Try different keywords.'
                   : filterBy !== 'all'
-                  ? `No products with ${filterBy} alerts. Try changing the filter.`
-                  : 'Start watching products to track price drops and get alerts.'}
+                    ? `No products with ${filterBy} alerts. Try changing the filter.`
+                    : 'Start watching products to track price drops and get alerts.'}
               </p>
             </CardContent>
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredProducts.map((product: WatchedProduct) => (
                 <WatchedProductCard
                   key={product.productId}
@@ -328,14 +322,14 @@ export default function PriceWatchPage() {
             {/* Infinite scroll trigger and loading indicator */}
             {hasNextPage && (
               <div ref={infiniteScrollRef} className="flex justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <Loader2 className="text-primary h-8 w-8 animate-spin" />
               </div>
             )}
 
             {/* Loading next page indicator */}
             {isFetchingNextPage && !hasNextPage && (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <Loader2 className="text-primary h-8 w-8 animate-spin" />
               </div>
             )}
           </>
@@ -347,9 +341,7 @@ export default function PriceWatchPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Watch List</DialogTitle>
-            <DialogDescription>
-              Organize your watched products into custom lists
-            </DialogDescription>
+            <DialogDescription>Organize your watched products into custom lists</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -390,9 +382,7 @@ export default function PriceWatchPage() {
               onClick={() => void handleCreateWatchList()}
               disabled={createWatchList.isPending || !newListName.trim()}
             >
-              {createWatchList.isPending && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
+              {createWatchList.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create
             </Button>
           </DialogFooter>

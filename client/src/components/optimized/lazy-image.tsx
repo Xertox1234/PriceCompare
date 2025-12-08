@@ -15,7 +15,7 @@ export function LazyImage({
   alt,
   className = '',
   fallback = '/api/placeholder/300/200',
-  placeholder
+  placeholder,
 }: LazyImageProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -52,14 +52,12 @@ export function LazyImage({
           />
           {!imageLoaded && (
             <div className="absolute inset-0">
-              {placeholder || <Skeleton className="w-full h-full" />}
+              {placeholder || <Skeleton className="h-full w-full" />}
             </div>
           )}
         </>
       ) : (
-        <div className="w-full h-full">
-          {placeholder || <Skeleton className="w-full h-full" />}
-        </div>
+        <div className="h-full w-full">{placeholder || <Skeleton className="h-full w-full" />}</div>
       )}
     </div>
   );

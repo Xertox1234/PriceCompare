@@ -46,7 +46,8 @@ export function useNotifications(filters?: { isRead?: boolean; type?: string; li
 
   return useQuery<{ notifications: Notification[]; count: number }>({
     queryKey: ['/api/notifications', filters],
-    queryFn: () => apiRequest<{ notifications: Notification[]; count: number }>(`/api/notifications?${params}`),
+    queryFn: () =>
+      apiRequest<{ notifications: Notification[]; count: number }>(`/api/notifications?${params}`),
   });
 }
 

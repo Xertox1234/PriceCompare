@@ -1,10 +1,10 @@
-import { createRoot } from "react-dom/client";
-import React from "react";
-import * as Sentry from "@sentry/react";
-import App from "./App";
-import "./index.css";
-import "./styles/mobile-optimizations.css";
-import { createLogger } from "@/utils/logger";
+import { createRoot } from 'react-dom/client';
+import React from 'react';
+import * as Sentry from '@sentry/react';
+import App from './App';
+import './index.css';
+import './styles/mobile-optimizations.css';
+import { createLogger } from '@/utils/logger';
 
 const log = createLogger('Main');
 
@@ -107,7 +107,7 @@ if (dsn) {
   }
 }
 
-const rootElement = document.getElementById("root");
+const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Root element not found');
 }

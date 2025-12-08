@@ -56,7 +56,7 @@ describe('WebSocket Server', () => {
     if (clientSocket && clientSocket.connected) {
       clientSocket.close();
     }
-    await shutdownWebSocket();
+    shutdownWebSocket();
     await new Promise<void>((resolve) => {
       httpServer.close(() => resolve());
     });
@@ -94,7 +94,13 @@ describe('WebSocket Server', () => {
 
 describe('WebSocket Helper Functions', () => {
   it('should export required functions', async () => {
-    const { initializeWebSocket, shutdownWebSocket, getSocketIO, emitToUser, getConnectedClientsCount } = await import('../index');
+    const {
+      initializeWebSocket,
+      shutdownWebSocket,
+      getSocketIO,
+      emitToUser,
+      getConnectedClientsCount,
+    } = await import('../index');
 
     expect(typeof initializeWebSocket).toBe('function');
     expect(typeof shutdownWebSocket).toBe('function');

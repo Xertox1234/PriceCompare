@@ -1,7 +1,7 @@
-import { storage } from "../storage";
-import { logger } from "../utils/logger";
-import { priceAggregationService } from "./price-aggregation-service";
-import { BATCH_PROCESSING } from "../utils/constants";
+import { storage } from '../storage';
+import { logger } from '../utils/logger';
+import { priceAggregationService } from './price-aggregation-service';
+import { BATCH_PROCESSING } from '../utils/constants';
 
 export class PriceSnapshotService {
   /**
@@ -18,7 +18,9 @@ export class PriceSnapshotService {
    *
    * @param batchSize - Number of offers to process per batch (default: 500)
    */
-  async snapshotAllPrices(batchSize: number = PriceSnapshotService.DEFAULT_BATCH_SIZE): Promise<number> {
+  async snapshotAllPrices(
+    batchSize: number = PriceSnapshotService.DEFAULT_BATCH_SIZE
+  ): Promise<number> {
     try {
       let offset = 0;
       let totalCount = 0;
@@ -47,7 +49,7 @@ export class PriceSnapshotService {
           source: 'snapshot' as const,
           confidence: '1.00',
           metadata: null,
-          recordedAt: now
+          recordedAt: now,
         }));
 
         // Insert price history records (batch insert for performance)
@@ -62,16 +64,16 @@ export class PriceSnapshotService {
       }
 
       if (totalCount === 0) {
-        logger.info("[PriceSnapshot] No product offers found to snapshot");
+        logger.info('[PriceSnapshot] No product offers found to snapshot');
       } else {
-        logger.info(
-          `[PriceSnapshot] Successfully snapshotted ${totalCount} price records`
-        );
+        logger.info(`[PriceSnapshot] Successfully snapshotted ${totalCount} price records`);
       }
 
       return totalCount;
     } catch (error) {
-      logger.error("[PriceSnapshot] Error snapshotting prices:", { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[PriceSnapshot] Error snapshotting prices:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -90,7 +92,7 @@ export class PriceSnapshotService {
       }
 
       // BATCH QUERY: Get previous prices to detect changes (fixes N+1)
-      const offerIds = offers.map(o => o.id);
+      const offerIds = offers.map((o) => o.id);
       const allLastSnapshots = await storage.getPriceHistoryForOffers(offerIds);
 
       // Build map of offerId -> latest price (first entry per offerId due to ordering)
@@ -114,7 +116,7 @@ export class PriceSnapshotService {
         source: 'snapshot' as const,
         confidence: '1.00',
         metadata: null,
-        recordedAt: now
+        recordedAt: now,
       }));
 
       // Insert price history records (batch insert for performance)
@@ -135,9 +137,9 @@ export class PriceSnapshotService {
           const productDetails = await storage.getProductByIdRaw(productId);
 
           // Batch fetch all retailers for the offers
-          const retailerIds = Array.from(new Set(offers.map(o => o.retailerId)));
+          const retailerIds = Array.from(new Set(offers.map((o) => o.retailerId)));
           const retailerData = await storage.getRetailersByIds(retailerIds);
-          const retailerMap = new Map(retailerData.map(r => [r.id, r.name]));
+          const retailerMap = new Map(retailerData.map((r) => [r.id, r.name]));
 
           if (productDetails) {
             for (const offer of offers) {
@@ -168,10 +170,9 @@ export class PriceSnapshotService {
 
       return snapshots.length;
     } catch (error) {
-      logger.error(
-        `[PriceSnapshot] Error snapshotting prices for product ${productId}:`,
-        { error: error instanceof Error ? error.message : String(error) }
-      );
+      logger.error(`[PriceSnapshot] Error snapshotting prices for product ${productId}:`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -186,13 +187,9 @@ export class PriceSnapshotService {
    * - Anomaly detection for unusual price movements
    * - Pattern classification (drop, increase, volatile, stable)
    */
-  async analyzeSignificantChanges(
-    thresholdPercentage = 10
-  ): Promise<PriceChange[]> {
+  async analyzeSignificantChanges(thresholdPercentage = 10): Promise<PriceChange[]> {
     try {
-      logger.info(
-        `[PriceSnapshot] Analyzing price changes with threshold ${thresholdPercentage}%`
-      );
+      logger.info(`[PriceSnapshot] Analyzing price changes with threshold ${thresholdPercentage}%`);
 
       // Get current offers with their products and retailers
       const currentOffers = await storage.getAllOffersWithDetails();
@@ -204,7 +201,7 @@ export class PriceSnapshotService {
 
       // BATCH QUERY: Get historical prices for all offers
       // We need at least 2 data points to detect changes
-      const offerIds = currentOffers.map(o => o.offerId);
+      const offerIds = currentOffers.map((o) => o.offerId);
       const allHistory = await storage.getPriceHistoryForAnalysis(offerIds);
 
       // Build map of offerId -> price history (limited to last 30 entries for analysis)
@@ -263,17 +260,17 @@ export class PriceSnapshotService {
       }
 
       // Sort by absolute change percentage (most significant first)
-      significantChanges.sort((a, b) =>
-        Math.abs(b.changePercentage) - Math.abs(a.changePercentage)
+      significantChanges.sort(
+        (a, b) => Math.abs(b.changePercentage) - Math.abs(a.changePercentage)
       );
 
-      logger.info(
-        `[PriceSnapshot] Found ${significantChanges.length} significant price changes`
-      );
+      logger.info(`[PriceSnapshot] Found ${significantChanges.length} significant price changes`);
 
       return significantChanges;
     } catch (error) {
-      logger.error("[PriceSnapshot] Error analyzing price changes:", { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[PriceSnapshot] Error analyzing price changes:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -293,7 +290,7 @@ export class PriceSnapshotService {
   } | null {
     if (history.length < 2) return null;
 
-    const prices = history.map(h => parseFloat(h.price));
+    const prices = history.map((h) => parseFloat(h.price));
     const previousPrice = prices[0];
 
     // Calculate statistical measures
@@ -430,7 +427,7 @@ export class PriceSnapshotService {
       logger.info('[PriceSnapshot] Cleanup complete');
     } catch (error) {
       logger.error('[PriceSnapshot] Error cleaning up old data:', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }

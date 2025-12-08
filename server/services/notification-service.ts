@@ -1,11 +1,11 @@
-import { storage } from "../storage";
-import { eventBus, AppEvents } from "../utils/event-bus";
+import { storage } from '../storage';
+import { eventBus, AppEvents } from '../utils/event-bus';
 import {
   type Notification,
   type NotificationPreferences,
   type InsertNotification,
-  type InsertNotificationPreferences
-} from "@shared/schema";
+  type InsertNotificationPreferences,
+} from '@shared/schema';
 
 /**
  * Notification Service
@@ -65,10 +65,7 @@ export async function markAllAsRead(userId: number): Promise<number> {
 /**
  * Delete a notification
  */
-export async function deleteNotification(
-  userId: number,
-  notificationId: number
-): Promise<boolean> {
+export async function deleteNotification(userId: number, notificationId: number): Promise<boolean> {
   return storage.deleteNotification(userId, notificationId);
 }
 
@@ -82,9 +79,7 @@ export async function deleteAllNotifications(userId: number): Promise<number> {
 /**
  * Create a new notification
  */
-export async function createNotification(
-  notification: InsertNotification
-): Promise<Notification> {
+export async function createNotification(notification: InsertNotification): Promise<Notification> {
   // Check user preferences before creating
   const prefs = await getUserPreferences(notification.userId);
 
@@ -125,8 +120,8 @@ export async function createNotification(
       title: created.title,
       message: created.content ?? '',
       data: undefined,
-      createdAt: created.createdAt ?? new Date()
-    }
+      createdAt: created.createdAt ?? new Date(),
+    },
   });
 
   return created;
@@ -163,9 +158,7 @@ export async function getUserPreferences(userId: number): Promise<NotificationPr
  * Uses ON CONFLICT to handle race conditions when multiple requests
  * try to create preferences simultaneously
  */
-export async function createDefaultPreferences(
-  userId: number
-): Promise<NotificationPreferences> {
+export async function createDefaultPreferences(userId: number): Promise<NotificationPreferences> {
   return storage.createDefaultPreferences(userId);
 }
 
@@ -182,19 +175,13 @@ export async function updateUserPreferences(
 /**
  * Get recent price drop notifications for a user
  */
-export async function getRecentPriceDrops(
-  userId: number,
-  days = 7
-): Promise<Notification[]> {
+export async function getRecentPriceDrops(userId: number, days = 7): Promise<Notification[]> {
   return storage.getRecentPriceDrops(userId, days);
 }
 
 /**
  * Get recent price alert notifications for a user
  */
-export async function getRecentPriceAlerts(
-  userId: number,
-  days = 7
-): Promise<Notification[]> {
+export async function getRecentPriceAlerts(userId: number, days = 7): Promise<Notification[]> {
   return storage.getRecentPriceAlerts(userId, days);
 }

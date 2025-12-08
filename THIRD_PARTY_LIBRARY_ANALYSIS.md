@@ -7,11 +7,13 @@
 ## ✅ What ESLint Does NOT Check
 
 ESLint with `.eslintignore` **skips:**
+
 - ✅ `node_modules/` - Third-party library source code
 - ✅ `*.d.ts` files in node_modules - Type definitions
 - ✅ Build outputs (`dist/`, `build/`)
 
 **Proof:**
+
 ```bash
 $ npm run lint 2>&1 | grep "node_modules"
 # No results - node_modules is ignored!
@@ -34,19 +36,23 @@ if (!data.watchLists || !Array.isArray(data.watchLists)) {
 ```
 
 **Is this library noise?** ❌ NO
+
 - `JSON.parse()` correctly returns `any` (can parse anything!)
 - YOU need to validate it with Zod or type guards
 - This is a REAL BUG RISK - what if the JSON structure changes?
 
 **Correct fix:**
+
 ```typescript
 import { z } from 'zod';
 
 const importSchema = z.object({
-  watchLists: z.array(z.object({
-    name: z.string(),
-    // ... rest of schema
-  }))
+  watchLists: z.array(
+    z.object({
+      name: z.string(),
+      // ... rest of schema
+    })
+  ),
 });
 
 const text = await file.text();
@@ -66,11 +72,13 @@ onSuccess: () => {
 ```
 
 **Is this library noise?** ❌ NO
+
 - `invalidateQueries()` returns a Promise
 - YOU forgot to await it
 - This causes a RACE CONDITION - toast shows before cache invalidates!
 
 **Correct fix:**
+
 ```typescript
 onSuccess: async () => {
   await queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
@@ -93,11 +101,13 @@ return <form onSubmit={handleSubmit}>
 ```
 
 **Is this library noise?** ❌ NO
+
 - React's `onSubmit` expects a function returning `void`
 - YOU passed an `async` function (returns Promise)
 - Errors in handleSubmit will be UNHANDLED PROMISE REJECTIONS!
 
 **Correct fix:**
+
 ```typescript
 const handleSubmit = (e: React.FormEvent) => {
   e.preventDefault();
@@ -120,6 +130,7 @@ const result = oldLibrary.doSomething(); // Returns 'any'
 ```
 
 **Solution:**
+
 ```typescript
 // Create type definition file
 // types/some-old-library.d.ts
@@ -139,6 +150,7 @@ const result = poorlyTypedFunction(); // Library returns 'any'
 ```
 
 **Solution:** Use type assertion with validation
+
 ```typescript
 const result = poorlyTypedFunction() as ExpectedType;
 // Or better: validate with Zod
@@ -149,12 +161,12 @@ const validated = expectedTypeSchema.parse(poorlyTypedFunction());
 
 I analyzed the top 50 ESLint violations. Here's the breakdown:
 
-| Source | Count | % |
-|--------|-------|---|
-| **YOUR code using `JSON.parse()`** | 45 | 90% |
-| **YOUR code with floating promises** | 111 | (separate category) |
-| **YOUR code with async form handlers** | 28 | (separate category) |
-| **Actual library type issues** | 0 | 0% |
+| Source                                 | Count | %                   |
+| -------------------------------------- | ----- | ------------------- |
+| **YOUR code using `JSON.parse()`**     | 45    | 90%                 |
+| **YOUR code with floating promises**   | 111   | (separate category) |
+| **YOUR code with async form handlers** | 28    | (separate category) |
+| **Actual library type issues**         | 0     | 0%                  |
 
 **Conclusion:** 100% of violations are YOUR code using libraries incorrectly or unsafely.
 
@@ -188,11 +200,11 @@ const data = responseSchema.parse(await response.json());
 
 ```typescript
 // ❌ WRONG - Assumes success
-const user = users.find(u => u.id === userId);
+const user = users.find((u) => u.id === userId);
 console.log(user.name); // ESLint error: Possibly undefined
 
 // ✅ CORRECT - Handle undefined
-const user = users.find(u => u.id === userId);
+const user = users.find((u) => u.id === userId);
 if (!user) throw new Error('User not found');
 console.log(user.name); // Safe!
 ```
@@ -257,6 +269,7 @@ Before disabling a rule, ask:
 **The strict rules are working CORRECTLY:**
 
 They're catching places where YOUR code:
+
 1. Uses standard libraries that return `any` (JSON.parse, fetch)
 2. Forgets to await promises (race conditions)
 3. Uses async functions where sync expected (unhandled errors)

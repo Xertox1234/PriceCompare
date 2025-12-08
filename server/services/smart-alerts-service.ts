@@ -1,8 +1,5 @@
-import { storage } from "../storage";
-import {
-  type PriceAlert,
-  type InsertPriceAlert,
-} from "@shared/schema";
+import { storage } from '../storage';
+import { type PriceAlert, type InsertPriceAlert } from '@shared/schema';
 
 /**
  * Smart Alerts Service
@@ -92,7 +89,7 @@ export async function generateSmartThresholdSuggestions(
 
   if (history.length < 5) return suggestions;
 
-  const prices = history.map(h => parseFloat(h.price));
+  const prices = history.map((h) => parseFloat(h.price));
   const lowestPrice = Math.min(...prices);
   const _highestPrice = Math.max(...prices);
   const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
@@ -126,12 +123,13 @@ export async function generateSmartThresholdSuggestions(
   // Suggestion 3: Trending Down Pattern
   const recentPrices = prices.slice(0, 7);
   if (recentPrices.length >= 3) {
-    const isDowntrend = recentPrices.every((price, i) =>
-      i === 0 || price <= recentPrices[i - 1] * 1.02
+    const isDowntrend = recentPrices.every(
+      (price, i) => i === 0 || price <= recentPrices[i - 1] * 1.02
     );
 
     if (isDowntrend) {
-      const trendRate = (recentPrices[0] - recentPrices[recentPrices.length - 1]) / recentPrices.length;
+      const trendRate =
+        (recentPrices[0] - recentPrices[recentPrices.length - 1]) / recentPrices.length;
       const targetPrice = Math.max(lowestPrice, currentPrice - trendRate * 7);
       suggestions.push({
         targetPrice,
@@ -147,11 +145,11 @@ export async function generateSmartThresholdSuggestions(
   // Suggestion 4: Seasonal Pattern
   const monthlyPrices = analyzeSeasonalPatterns(history);
   if (monthlyPrices.length > 0) {
-    const lowestMonthAvg = Math.min(...monthlyPrices.map(m => m.average));
+    const lowestMonthAvg = Math.min(...monthlyPrices.map((m) => m.average));
     if (currentPrice > lowestMonthAvg * 1.1) {
       suggestions.push({
         targetPrice: lowestMonthAvg,
-        reason: `Seasonal low based on ${monthlyPrices.find(m => m.average === lowestMonthAvg)?.month || 'historical'} prices`,
+        reason: `Seasonal low based on ${monthlyPrices.find((m) => m.average === lowestMonthAvg)?.month || 'historical'} prices`,
         confidence: 0.75,
         savingsPercent: ((currentPrice - lowestMonthAvg) / currentPrice) * 100,
         savingsAmount: currentPrice - lowestMonthAvg,
@@ -170,7 +168,7 @@ export async function generateSmartThresholdSuggestions(
 function analyzeSeasonalPatterns(history: Array<Record<string, unknown>>): SeasonalPattern[] {
   const monthlyData: Record<string, number[]> = {};
 
-  history.forEach(entry => {
+  history.forEach((entry) => {
     const recordedAt = entry.recordedAt as string | Date | undefined;
     const createdAt = entry.createdAt as string | Date | undefined;
     const date = new Date(recordedAt || createdAt || new Date());
@@ -203,7 +201,7 @@ export async function generatePredictiveAlerts(userId: number): Promise<Predicti
   if (userAlerts.length === 0) return alerts;
 
   // BATCH QUERY 1: Get all product IDs and fetch lowest-priced offers for all products
-  const productIds = userAlerts.map(a => a.productId);
+  const productIds = userAlerts.map((a) => a.productId);
   const allOffers = await storage.getLowestPricedOffersForProducts(productIds);
 
   // Build a map of productId -> lowest priced offer
@@ -216,13 +214,13 @@ export async function generatePredictiveAlerts(userId: number): Promise<Predicti
   }
 
   // BATCH QUERY 2: Get price history for all relevant offer IDs
-  const offerIds = Array.from(offersByProduct.values()).map(o => o.id);
+  const offerIds = Array.from(offersByProduct.values()).map((o) => o.id);
   if (offerIds.length === 0) return alerts;
 
   const allHistory = await storage.getBatchPriceHistoryForOffers(offerIds);
 
   // Build a map of offerId -> history entries (limited to 60 per offer)
-  const historyByOffer = new Map<number, Array<typeof allHistory[0]>>();
+  const historyByOffer = new Map<number, Array<(typeof allHistory)[0]>>();
   for (const entry of allHistory) {
     const existing = historyByOffer.get(entry.productOfferId) || [];
     if (existing.length < 60) {
@@ -242,7 +240,11 @@ export async function generatePredictiveAlerts(userId: number): Promise<Predicti
     if (history.length < 10) continue;
 
     // Analyze for price drop prediction
-    const prediction = analyzePriceDropProbability(history, currentPrice, parseFloat(alert.targetPrice));
+    const prediction = analyzePriceDropProbability(
+      history,
+      currentPrice,
+      parseFloat(alert.targetPrice)
+    );
 
     if (prediction) {
       alerts.push({
@@ -265,7 +267,7 @@ function analyzePriceDropProbability(
   currentPrice: number,
   targetPrice: number
 ): Omit<PredictiveAlert, 'productId' | 'productName' | 'currentPrice'> | null {
-  const prices = history.map(h => parseFloat(h.price as string));
+  const prices = history.map((h) => parseFloat(h.price as string));
 
   // Calculate trend
   const recentPrices = prices.slice(0, 14);
@@ -295,7 +297,7 @@ function analyzePriceDropProbability(
   // Check for seasonal opportunity
   const monthlyPatterns = analyzeSeasonalPatterns(history);
   const currentMonth = new Date().toLocaleString('default', { month: 'short' });
-  const currentMonthData = monthlyPatterns.find(m => m.month === currentMonth);
+  const currentMonthData = monthlyPatterns.find((m) => m.month === currentMonth);
 
   if (currentMonthData && currentMonthData.average <= targetPrice * 1.1) {
     return {
@@ -308,7 +310,7 @@ function analyzePriceDropProbability(
   }
 
   // Check historical patterns for "best deal soon"
-  const hasReachedTarget = prices.some(p => p <= targetPrice);
+  const hasReachedTarget = prices.some((p) => p <= targetPrice);
   if (hasReachedTarget) {
     const avgDaysBetweenDeals = calculateAverageDaysBetweenDeals(history, targetPrice);
     const daysSinceLastDeal = calculateDaysSincePrice(history, targetPrice);
@@ -329,10 +331,13 @@ function analyzePriceDropProbability(
 /**
  * Calculate average days between deals
  */
-function calculateAverageDaysBetweenDeals(history: Array<Record<string, unknown>>, targetPrice: number): number {
+function calculateAverageDaysBetweenDeals(
+  history: Array<Record<string, unknown>>,
+  targetPrice: number
+): number {
   const dealDates: Date[] = [];
 
-  history.forEach(entry => {
+  history.forEach((entry) => {
     if (parseFloat(entry.price as string) <= targetPrice) {
       const recordedAt = entry.recordedAt as string | Date | undefined;
       const createdAt = entry.createdAt as string | Date | undefined;
@@ -354,7 +359,10 @@ function calculateAverageDaysBetweenDeals(history: Array<Record<string, unknown>
 /**
  * Calculate days since target price was last seen
  */
-function calculateDaysSincePrice(history: Array<Record<string, unknown>>, targetPrice: number): number {
+function calculateDaysSincePrice(
+  history: Array<Record<string, unknown>>,
+  targetPrice: number
+): number {
   for (const entry of history) {
     if (parseFloat(entry.price as string) <= targetPrice) {
       const recordedAt = entry.recordedAt as string | Date | undefined;
@@ -375,7 +383,7 @@ export async function getAlertEffectiveness(userId: number): Promise<AlertEffect
   if (alerts.length === 0) return [];
 
   // BATCH QUERY: Get lowest prices for all products in user's alerts
-  const productIds = alerts.map(a => a.productId);
+  const productIds = alerts.map((a) => a.productId);
   const allOffers = await storage.getLowestPricedOffersForProducts(productIds);
 
   // Build map of productId -> lowest price
@@ -405,7 +413,7 @@ export async function getAlertEffectiveness(userId: number): Promise<AlertEffect
     // Calculate effectiveness rating
     let effectivenessRating: 'high' | 'medium' | 'low' = 'low';
     if (alert.timesTriggered && alert.timesTriggered > 0) {
-      const triggerRate = (alert.timesTriggered / Math.max(1, daysSinceCreated / 30));
+      const triggerRate = alert.timesTriggered / Math.max(1, daysSinceCreated / 30);
       if (triggerRate >= 1) effectivenessRating = 'high';
       else if (triggerRate >= 0.3) effectivenessRating = 'medium';
     }
@@ -432,16 +440,18 @@ export async function getAlertEffectiveness(userId: number): Promise<AlertEffect
 export async function getAlertAnalytics(userId: number): Promise<AlertAnalytics> {
   const alerts = await storage.getUserPriceAlerts(userId);
 
-  const activeAlerts = alerts.filter(a => a.isActive);
-  const triggeredAlerts = alerts.filter(a => a.timesTriggered && a.timesTriggered > 0);
+  const activeAlerts = alerts.filter((a) => a.isActive);
+  const triggeredAlerts = alerts.filter((a) => a.timesTriggered && a.timesTriggered > 0);
 
   // Calculate average time to trigger
   let totalDaysToTrigger = 0;
   let triggeredCount = 0;
 
-  triggeredAlerts.forEach(alert => {
+  triggeredAlerts.forEach((alert) => {
     if (alert.lastTriggeredAt && alert.createdAt) {
-      const days = (new Date(alert.lastTriggeredAt).getTime() - new Date(alert.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      const days =
+        (new Date(alert.lastTriggeredAt).getTime() - new Date(alert.createdAt).getTime()) /
+        (1000 * 60 * 60 * 24);
       totalDaysToTrigger += days;
       triggeredCount++;
     }
@@ -455,7 +465,7 @@ export async function getAlertAnalytics(userId: number): Promise<AlertAnalytics>
 
   // Alerts by product
   const alertsByProduct: Record<number, number> = {};
-  alerts.forEach(alert => {
+  alerts.forEach((alert) => {
     alertsByProduct[alert.productId] = (alertsByProduct[alert.productId] || 0) + 1;
   });
 
@@ -465,7 +475,7 @@ export async function getAlertAnalytics(userId: number): Promise<AlertAnalytics>
     triggeredAlerts: triggeredAlerts.length,
     averageTimeToTrigger: Math.round(averageTimeToTrigger),
     totalSavings,
-    mostEffectiveAlerts: effectiveness.filter(e => e.effectiveness === 'high').slice(0, 5),
+    mostEffectiveAlerts: effectiveness.filter((e) => e.effectiveness === 'high').slice(0, 5),
     alertsByProduct,
   };
 }

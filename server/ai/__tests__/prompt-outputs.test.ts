@@ -8,7 +8,6 @@
 import { validateOutput, parseAndValidateJSON, sanitizeOutput } from '../output-validation';
 
 describe('AI Prompt Output Validation', () => {
-
   describe('Search Query Generation', () => {
     it('should validate correct search query array', () => {
       const queries = [
@@ -16,7 +15,7 @@ describe('AI Prompt Output Validation', () => {
         'Sony wireless noise cancelling headphones',
         'WH1000XM5 bluetooth headphones',
         'Sony premium over ear headphones',
-        'noise cancelling headphones wireless'
+        'noise cancelling headphones wireless',
       ];
 
       const result = validateOutput('search-queries', queries);
@@ -29,7 +28,7 @@ describe('AI Prompt Output Validation', () => {
 
       const result = validateOutput('search-queries', queries);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('at least 3'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('at least 3'))).toBe(true);
     });
 
     it('should reject array with too many items', () => {
@@ -37,19 +36,15 @@ describe('AI Prompt Output Validation', () => {
 
       const result = validateOutput('search-queries', queries);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('at most 5'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('at most 5'))).toBe(true);
     });
 
     it('should reject queries with invalid characters', () => {
-      const queries = [
-        'Sony WH-1000XM5',
-        'Sony @ special #chars',
-        'normal query'
-      ];
+      const queries = ['Sony WH-1000XM5', 'Sony @ special #chars', 'normal query'];
 
       const result = validateOutput('search-queries', queries);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.field === '[1]')).toBe(true);
+      expect(result.errors.some((e) => e.field === '[1]')).toBe(true);
     });
   });
 
@@ -62,7 +57,7 @@ describe('AI Prompt Output Validation', () => {
           category: 'Electronics',
           confidence: 95,
           isProduct: true,
-          reason: 'Specific smartphone model sold by all major retailers'
+          reason: 'Specific smartphone model sold by all major retailers',
         },
         {
           originalQuery: 'Apple',
@@ -70,8 +65,8 @@ describe('AI Prompt Output Validation', () => {
           category: 'Electronics',
           confidence: 20,
           isProduct: false,
-          reason: 'Brand name only, no specific product identified'
-        }
+          reason: 'Brand name only, no specific product identified',
+        },
       ];
 
       const result = validateOutput('trend-analysis', trends);
@@ -85,13 +80,13 @@ describe('AI Prompt Output Validation', () => {
           originalQuery: 'iPhone 15 Pro',
           normalizedName: 'Apple iPhone 15 Pro',
           // Missing category, confidence, isProduct, reason
-        }
+        },
       ];
 
       const result = validateOutput('trend-analysis', trends);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('category'))).toBe(true);
-      expect(result.errors.some(e => e.message.includes('confidence'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('category'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('confidence'))).toBe(true);
     });
 
     it('should reject invalid category', () => {
@@ -102,13 +97,13 @@ describe('AI Prompt Output Validation', () => {
           category: 'InvalidCategory',
           confidence: 80,
           isProduct: true,
-          reason: 'Test reason'
-        }
+          reason: 'Test reason',
+        },
       ];
 
       const result = validateOutput('trend-analysis', trends);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.field.includes('category'))).toBe(true);
+      expect(result.errors.some((e) => e.field.includes('category'))).toBe(true);
     });
 
     it('should reject confidence outside 0-100 range', () => {
@@ -119,13 +114,13 @@ describe('AI Prompt Output Validation', () => {
           category: 'Electronics',
           confidence: 150,
           isProduct: true,
-          reason: 'Test'
-        }
+          reason: 'Test',
+        },
       ];
 
       const result = validateOutput('trend-analysis', trends);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.field.includes('confidence'))).toBe(true);
+      expect(result.errors.some((e) => e.field.includes('confidence'))).toBe(true);
     });
 
     it('should accept all valid categories', () => {
@@ -140,18 +135,20 @@ describe('AI Prompt Output Validation', () => {
         'Automotive',
         'Office & School',
         'Pet Supplies',
-        'Other'
+        'Other',
       ];
 
-      validCategories.forEach(category => {
-        const trends = [{
-          originalQuery: 'Test',
-          normalizedName: 'Test',
-          category,
-          confidence: 80,
-          isProduct: true,
-          reason: 'Test'
-        }];
+      validCategories.forEach((category) => {
+        const trends = [
+          {
+            originalQuery: 'Test',
+            normalizedName: 'Test',
+            category,
+            confidence: 80,
+            isProduct: true,
+            reason: 'Test',
+          },
+        ];
 
         const result = validateOutput('trend-analysis', trends);
         expect(result.valid).toBe(true);
@@ -161,11 +158,7 @@ describe('AI Prompt Output Validation', () => {
 
   describe('Search Suggestions Output', () => {
     it('should validate correct suggestions', () => {
-      const suggestions = [
-        'MacBook Air M2',
-        'Dell XPS 13',
-        'HP Spectre x360'
-      ];
+      const suggestions = ['MacBook Air M2', 'Dell XPS 13', 'HP Spectre x360'];
 
       const result = validateOutput('search-suggestions', suggestions);
       expect(result.valid).toBe(true);
@@ -206,15 +199,26 @@ describe('AI Prompt Output Validation', () => {
     it('should sanitize markdown from strings', () => {
       const input = {
         field: 'Some `code` here and ```more code```',
-        nested: ['array with `code`']
+        nested: ['array with `code`'],
       };
 
       const sanitized = sanitizeOutput(input);
       expect(sanitized).not.toBeNull();
-      expect(typeof sanitized === 'object' && sanitized !== null && 'field' in sanitized).toBe(true);
-      if (typeof sanitized === 'object' && sanitized !== null && 'field' in sanitized && 'nested' in sanitized) {
+      expect(typeof sanitized === 'object' && sanitized !== null && 'field' in sanitized).toBe(
+        true
+      );
+      if (
+        typeof sanitized === 'object' &&
+        sanitized !== null &&
+        'field' in sanitized &&
+        'nested' in sanitized
+      ) {
         expect(sanitized.field).not.toContain('`');
-        expect(Array.isArray(sanitized.nested) && typeof sanitized.nested[0] === 'string' && sanitized.nested[0]).not.toContain('`');
+        expect(
+          Array.isArray(sanitized.nested) &&
+            typeof sanitized.nested[0] === 'string' &&
+            sanitized.nested[0]
+        ).not.toContain('`');
       }
     });
 
@@ -223,7 +227,7 @@ describe('AI Prompt Output Validation', () => {
 
       const result = parseAndValidateJSON(invalid, 'search-queries');
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('parse'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('parse'))).toBe(true);
     });
   });
 
@@ -260,7 +264,7 @@ describe('Example Test Cases from Production', () => {
       'Sony WH-1000XM5',
       'Sony wireless noise cancelling headphones',
       'WH1000XM5 bluetooth',
-      'Sony premium headphones'
+      'Sony premium headphones',
     ];
 
     const result = validateOutput('search-queries', queries);
@@ -268,39 +272,39 @@ describe('Example Test Cases from Production', () => {
   });
 
   it('Example 2: iPhone Trend Analysis', () => {
-    const trends = [{
-      originalQuery: 'iPhone 15 Pro trending now',
-      normalizedName: 'Apple iPhone 15 Pro',
-      category: 'Electronics',
-      confidence: 95,
-      isProduct: true,
-      reason: 'Specific smartphone model sold by all major retailers'
-    }];
+    const trends = [
+      {
+        originalQuery: 'iPhone 15 Pro trending now',
+        normalizedName: 'Apple iPhone 15 Pro',
+        category: 'Electronics',
+        confidence: 95,
+        isProduct: true,
+        reason: 'Specific smartphone model sold by all major retailers',
+      },
+    ];
 
     const result = validateOutput('trend-analysis', trends);
     expect(result.valid).toBe(true);
   });
 
   it('Example 3: Laptop Search Suggestions', () => {
-    const suggestions = [
-      'MacBook Air M2',
-      'Dell XPS 13',
-      'HP Spectre x360'
-    ];
+    const suggestions = ['MacBook Air M2', 'Dell XPS 13', 'HP Spectre x360'];
 
     const result = validateOutput('search-suggestions', suggestions);
     expect(result.valid).toBe(true);
   });
 
   it('Example 4: Non-Product Trend (Should be rejected)', () => {
-    const trends = [{
-      originalQuery: 'Black Friday deals',
-      normalizedName: '',
-      category: 'Other',
-      confidence: 15,
-      isProduct: false,
-      reason: 'Event, not a specific product'
-    }];
+    const trends = [
+      {
+        originalQuery: 'Black Friday deals',
+        normalizedName: '',
+        category: 'Other',
+        confidence: 15,
+        isProduct: false,
+        reason: 'Event, not a specific product',
+      },
+    ];
 
     const result = validateOutput('trend-analysis', trends);
     expect(result.valid).toBe(true); // Valid structure, even though isProduct=false

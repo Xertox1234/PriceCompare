@@ -29,7 +29,11 @@ interface WatchListCardProps {
   showActions?: boolean;
 }
 
-export function WatchListCard({ watchList, compact = false, showActions = false }: WatchListCardProps) {
+export function WatchListCard({
+  watchList,
+  compact = false,
+  showActions = false,
+}: WatchListCardProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const deleteList = useDeleteWatchList();
@@ -54,18 +58,18 @@ export function WatchListCard({ watchList, compact = false, showActions = false 
 
   if (compact) {
     return (
-      <div className="flex items-center justify-between w-full gap-2">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="flex w-full items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {watchList.color && (
             <div
-              className="w-3 h-3 rounded-full shrink-0"
+              className="h-3 w-3 shrink-0 rounded-full"
               style={{ backgroundColor: watchList.color }}
             />
           )}
-          {watchList.icon && <span className="text-base shrink-0">{watchList.icon}</span>}
+          {watchList.icon && <span className="shrink-0 text-base">{watchList.icon}</span>}
           <span className="truncate font-medium">{watchList.name}</span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <Badge variant="secondary" className="text-xs">
             {watchList.watchCount}
           </Badge>
@@ -88,12 +92,12 @@ export function WatchListCard({ watchList, compact = false, showActions = false 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm">
-            <MoreVertical className="w-4 h-4" />
+            <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
-            <Edit className="w-4 h-4 mr-2" />
+            <Edit className="mr-2 h-4 w-4" />
             Edit List
           </DropdownMenuItem>
           {!watchList.isDefault && (
@@ -103,7 +107,7 @@ export function WatchListCard({ watchList, compact = false, showActions = false 
                 onClick={() => setIsDeleteDialogOpen(true)}
                 className="text-destructive focus:text-destructive"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Delete List
               </DropdownMenuItem>
             </>
@@ -121,7 +125,7 @@ export function WatchListCard({ watchList, compact = false, showActions = false 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-destructive" />
+              <AlertCircle className="text-destructive h-5 w-5" />
               Delete Watch List
             </AlertDialogTitle>
             <AlertDialogDescription>

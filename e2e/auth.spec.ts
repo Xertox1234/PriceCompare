@@ -109,9 +109,7 @@ test.describe('Authentication Flow', () => {
       await page.click('button[type="submit"]');
 
       // Should show email validation error
-      await expect(
-        page.locator('text=/invalid.*email|valid.*email.*address/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/invalid.*email|valid.*email.*address/i')).toBeVisible();
     });
   });
 
@@ -318,9 +316,7 @@ test.describe('Authentication Flow', () => {
       await page.click('button[type="submit"]');
 
       // Should show success message
-      await expect(
-        page.locator('text=/email.*sent|check.*email|reset.*link/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/email.*sent|check.*email|reset.*link/i')).toBeVisible();
     });
 
     test('should handle invalid email in reset request', async ({ page }) => {
@@ -331,9 +327,7 @@ test.describe('Authentication Flow', () => {
       await page.click('button[type="submit"]');
 
       // Should show validation error
-      await expect(
-        page.locator('text=/invalid.*email|valid.*email/i')
-      ).toBeVisible();
+      await expect(page.locator('text=/invalid.*email|valid.*email/i')).toBeVisible();
     });
   });
 

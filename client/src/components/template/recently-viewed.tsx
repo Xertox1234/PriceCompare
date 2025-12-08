@@ -103,25 +103,23 @@ export function RecentlyViewed({
     <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-muted text-primary rounded-xl flex items-center justify-center">
+            <div className="bg-muted text-primary flex h-10 w-10 items-center justify-center rounded-xl">
               <Clock className="h-5 w-5" />
             </div>
-            <h2 className="text-xl lg:text-2xl font-bold text-foreground">
-              {title}
-            </h2>
+            <h2 className="text-foreground text-xl font-bold lg:text-2xl">{title}</h2>
           </div>
           <div className="flex items-center gap-2">
             <button
               ref={navigationPrevRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               ref={navigationNextRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -157,17 +155,13 @@ export function RecentlyViewed({
         >
           {recentProducts.map((product) => (
             <SwiperSlide key={product.id}>
-              <ProductCard
-                product={product}
-                onWatchlist={onWatchlist}
-                onCompare={onCompare}
-              />
+              <ProductCard product={product} onWatchlist={onWatchlist} onCompare={onCompare} />
             </SwiperSlide>
           ))}
         </Swiper>
 
         {/* Mobile Pagination Dots */}
-        <div className="flex xl:hidden recently-viewed-pagination justify-center mt-4 gap-1" />
+        <div className="recently-viewed-pagination mt-4 flex justify-center gap-1 xl:hidden" />
       </div>
     </section>
   );

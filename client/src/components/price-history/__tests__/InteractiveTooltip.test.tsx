@@ -33,12 +33,7 @@ describe('InteractiveTooltip', () => {
 
   it('should not render when payload is empty', () => {
     const { container } = render(
-      <InteractiveTooltip
-        active={true}
-        payload={[]}
-        label="2024-01-01"
-        retailers={mockRetailers}
-      />
+      <InteractiveTooltip active={true} payload={[]} label="2024-01-01" retailers={mockRetailers} />
     );
     expect(container.firstChild).toBeNull();
   });

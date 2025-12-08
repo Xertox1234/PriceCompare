@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 #### Fixed npm Dependency Vulnerabilities (P1 - Critical)
+
 **Resolved 7 vulnerabilities (3 high, 4 moderate severity)**
 
 - **CVE GHSA-67mh-4wv8-2f99 (HIGH)**: esbuild <=0.24.2 dev server request hijacking
@@ -35,12 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No breaking changes introduced
 
 #### Technical Changes
+
 - Added npm overrides for esbuild to force secure version across dependency tree
 - Updated drizzle-kit to 0.31.7 (bug fixes and compatibility)
 - Added engines field to enforce Node.js >=18.0.0 (required by esbuild 0.27.0)
-- Added _comments field documenting security override rationale
+- Added \_comments field documenting security override rationale
 
 #### Verification
+
 - ✅ npm audit shows 0 vulnerabilities (previously 7)
 - ✅ Full test suite passes
 - ✅ Development server tested and functional
@@ -107,16 +110,19 @@ npm install
 #### For Developers
 
 1. **Update Node.js**: Ensure you're using Node.js 18.0.0 or higher
+
    ```bash
    node --version  # Should show v18.0.0 or higher
    ```
 
 2. **Reinstall Dependencies**: After pulling these changes
+
    ```bash
    npm install
    ```
 
 3. **Verify Security**: Confirm no vulnerabilities
+
    ```bash
    npm audit
    # Should show "found 0 vulnerabilities"
@@ -137,6 +143,7 @@ npm install
 ### Breaking Changes
 
 None for application code. Infrastructure requirements updated:
+
 - Node.js 18.0.0+ now required (previously unspecified)
 - NPM 8.0.0+ required for overrides feature
 

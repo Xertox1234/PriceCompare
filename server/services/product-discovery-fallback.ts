@@ -13,12 +13,14 @@ interface ProductWithOffers extends Product {
  * Phase 6 Storage Migration: All database queries replaced with storage layer abstraction
  */
 export class ProductDiscoveryFallback {
-  
   /**
    * Search existing products in database with intelligent matching
    */
   async searchExistingProducts(query: string, maxResults = 10) {
-    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
+    const searchTerms = query
+      .toLowerCase()
+      .split(' ')
+      .filter((term) => term.length > 2);
 
     // Use storage layer for product search
     const searchResults = await storage.searchProductsByTerms(searchTerms, maxResults);
@@ -37,8 +39,8 @@ export class ProductDiscoveryFallback {
           price: offer.price,
           availability: offer.availability,
           retailer: offer.retailer?.name || 'Unknown',
-          productUrl: offer.productUrl
-        }))
+          productUrl: offer.productUrl,
+        })),
       };
     });
   }
@@ -53,7 +55,7 @@ export class ProductDiscoveryFallback {
       `https://www.walmart.com/search?q=${encodedQuery}`,
       `https://www.target.com/s?searchTerm=${encodedQuery}`,
       `https://www.bestbuy.com/site/searchpage.jsp?st=${encodedQuery}`,
-      `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`
+      `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`,
     ];
   }
 
@@ -65,10 +67,10 @@ export class ProductDiscoveryFallback {
     const categories = await storage.getTrendingProductCategories(limit);
 
     // Map to match existing return format
-    return categories.map(cat => ({
+    return categories.map((cat) => ({
       name: cat.category,
       productCount: cat.count,
-      searchUrl: `/products?category=${encodeURIComponent(cat.category)}`
+      searchUrl: `/products?category=${encodeURIComponent(cat.category)}`,
     }));
   }
 
@@ -84,10 +86,10 @@ export class ProductDiscoveryFallback {
     // Extract meaningful suggestions
     const suggestions = new Set<string>();
 
-    similarProducts.forEach(product => {
+    similarProducts.forEach((product) => {
       // Add product name variations
       const words = product.name.toLowerCase().split(' ');
-      words.forEach(word => {
+      words.forEach((word) => {
         if (word.length > 3 && word.includes(searchTerm)) {
           suggestions.add(word);
         }
@@ -114,8 +116,8 @@ export class ProductDiscoveryFallback {
         'Product search in existing database',
         'Trending category analysis',
         'Search suggestions',
-        'Manual URL generation for verification'
-      ]
+        'Manual URL generation for verification',
+      ],
     };
   }
 }

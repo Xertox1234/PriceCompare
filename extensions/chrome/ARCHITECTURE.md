@@ -99,6 +99,7 @@ const api = new PriceCompareAPI();
 ```
 
 **Benefits**:
+
 - Single source of truth for configuration
 - Shared cache across all content scripts
 - Consistent API access
@@ -132,6 +133,7 @@ function createElement(tag, attrs = {}, content = '') {
 ```
 
 **Benefits**:
+
 - Consistent element creation
 - Centralized attribute handling
 - Type-safe creation
@@ -168,6 +170,7 @@ function extractFromMeta() {
 ```
 
 **Benefits**:
+
 - Retailer-specific logic encapsulated
 - Easy to add new retailers
 - Testable in isolation
@@ -201,6 +204,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 ```
 
 **Benefits**:
+
 - React to events without polling
 - Decoupled components
 - Efficient resource usage
@@ -244,6 +248,7 @@ async getPriceHistory(productId, days = 30) {
 ```
 
 **Benefits**:
+
 - Transparent caching
 - No changes to calling code
 - Separation of concerns
@@ -282,6 +287,7 @@ class ExtensionStorage {
 ```
 
 **Benefits**:
+
 - Simplified API surface
 - Error handling centralized
 - Easy to mock for testing
@@ -322,6 +328,7 @@ async function init() {
 ```
 
 **Benefits**:
+
 - Consistent initialization flow
 - Customizable steps
 - Clear algorithm structure
@@ -413,7 +420,6 @@ User Action → Content Script → API Client → Backend API
 ```javascript
 // 1. Page Load Event
 window.addEventListener('load', () => {
-
   // 2. Detection Phase
   if (isProductPage()) {
     const productUrl = window.location.href;
@@ -424,8 +430,9 @@ window.addEventListener('load', () => {
     const price = extractPrice();
 
     // 4. API Query Phase
-    api.searchProductByUrl(productUrl)
-      .then(product => {
+    api
+      .searchProductByUrl(productUrl)
+      .then((product) => {
         if (!product) return;
 
         // 5. Data Fetching Phase
@@ -436,7 +443,6 @@ window.addEventListener('load', () => {
         ]);
       })
       .then(([history, trend, prefs]) => {
-
         // 6. Rendering Phase
         const overlay = createOverlay();
         const content = renderChart(history, trend);
@@ -450,7 +456,7 @@ window.addEventListener('load', () => {
         api.trackProductView(product.id);
         storage.updateStats({ chartsDisplayed: +1 });
       })
-      .catch(error => {
+      .catch((error) => {
         logError('Failed to load price history', error);
         showError(container, 'Failed to load price data.');
       });
@@ -570,6 +576,7 @@ function showError(container, message) {
 ```
 
 **Patterns**:
+
 - Try/catch with sensible defaults
 - Silent failures for non-critical operations
 - User-friendly error messages for critical failures

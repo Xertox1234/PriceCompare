@@ -50,20 +50,18 @@ export function GroupedProductCarousel({
     <section className={cn('py-8', className)}>
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl lg:text-2xl font-bold text-foreground">
-            {title}
-          </h2>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-foreground text-xl font-bold lg:text-2xl">{title}</h2>
           <div className="flex items-center gap-2">
             <button
               ref={navigationPrevRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               ref={navigationNextRef}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center transition-all bg-background hover:bg-muted hover:border-primary text-foreground disabled:opacity-50"
+              className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -116,7 +114,9 @@ export function GroupedProductCarousel({
         </Swiper>
 
         {/* Mobile Pagination Dots */}
-        <div className={`flex xl:hidden grouped-pagination-${uniqueId} justify-center mt-4 gap-1`} />
+        <div
+          className={`flex xl:hidden grouped-pagination-${uniqueId} mt-4 justify-center gap-1`}
+        />
       </div>
     </section>
   );
@@ -139,39 +139,39 @@ function HorizontalProductCard({
   onAddToCart,
 }: HorizontalProductCardProps) {
   return (
-    <div className="group flex gap-4 p-3 bg-card border border-border rounded-xl hover:shadow-md hover:border-primary/30 transition-all">
+    <div className="group bg-card border-border hover:border-primary/30 flex gap-4 rounded-xl border p-3 transition-all hover:shadow-md">
       {/* Product Image */}
       <Link href={`/product/${product.id}`} className="flex-shrink-0">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-muted">
+        <div className="bg-muted h-20 w-20 overflow-hidden rounded-lg sm:h-24 sm:w-24">
           <img
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
       </Link>
 
       {/* Product Info */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between">
+      <div className="flex min-w-0 flex-1 flex-col justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+          <p className="text-muted-foreground mb-1 text-xs tracking-wide uppercase">
             {product.category}
           </p>
           <Link href={`/product/${product.id}`}>
-            <h3 className="font-semibold text-foreground text-sm sm:text-base line-clamp-2 hover:text-primary transition-colors">
+            <h3 className="text-foreground hover:text-primary line-clamp-2 text-sm font-semibold transition-colors sm:text-base">
               {product.name}
             </h3>
           </Link>
         </div>
 
         {/* Price and Actions */}
-        <div className="flex items-center justify-between mt-2">
+        <div className="mt-2 flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <span className="text-base sm:text-lg font-bold text-primary">
+            <span className="text-primary text-base font-bold sm:text-lg">
               ${product.price.toFixed(2)}
             </span>
             {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-xs sm:text-sm text-muted-foreground line-through">
+              <span className="text-muted-foreground text-xs line-through sm:text-sm">
                 ${product.originalPrice.toFixed(2)}
               </span>
             )}
@@ -182,7 +182,7 @@ function HorizontalProductCard({
             {onAddToCart && (
               <button
                 onClick={() => onAddToCart(product)}
-                className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors"
+                className="bg-primary/10 text-primary hover:bg-primary rounded-md p-1.5 transition-colors hover:text-white"
                 title="Add to Cart"
               >
                 <ShoppingCart className="h-4 w-4" />
@@ -192,7 +192,7 @@ function HorizontalProductCard({
               <button
                 onClick={() => onWatchlist(product)}
                 className={cn(
-                  'p-1.5 rounded-md transition-colors',
+                  'rounded-md p-1.5 transition-colors',
                   product.inWatchlist
                     ? 'bg-destructive/10 text-destructive'
                     : 'bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
@@ -205,7 +205,7 @@ function HorizontalProductCard({
             {onQuickview && (
               <button
                 onClick={() => onQuickview(product)}
-                className="p-1.5 rounded-md bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                className="bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary rounded-md p-1.5 transition-colors"
                 title="Quick View"
               >
                 <Eye className="h-4 w-4" />
@@ -214,7 +214,7 @@ function HorizontalProductCard({
             {onCompare && (
               <button
                 onClick={() => onCompare(product)}
-                className="p-1.5 rounded-md bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors hidden sm:block"
+                className="bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary hidden rounded-md p-1.5 transition-colors sm:block"
                 title="Compare"
               >
                 <GitCompare className="h-4 w-4" />

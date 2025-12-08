@@ -14,15 +14,19 @@ This document outlines 22 improvements to the price aggregation system, organize
 ## Implementation Phases
 
 ### Phase 1: Critical Foundation (Week 1-2) - 28 hours
+
 **Goal:** Production readiness and stability
 
 ### Phase 2: Operational Excellence (Week 3-4) - 24 hours
+
 **Goal:** Smooth operations and monitoring
 
 ### Phase 3: Enhancement (Week 5-6) - 22 hours
+
 **Goal:** Advanced features and analytics
 
 ### Phase 4: Advanced Features (Future) - 48+ hours
+
 **Goal:** Competitive advantage
 
 ---
@@ -30,32 +34,42 @@ This document outlines 22 improvements to the price aggregation system, organize
 ## Phase 1: Critical Foundation (28 hours)
 
 ### 1.1 Missing Aggregation Table Indexes
+
 **Priority:** HIGH | **Effort:** 2 hours | **Category:** Performance
 
 **Problem:** Aggregation tables lack critical indexes for common query patterns, causing slow queries for product-retailer-specific data.
 
 **Files to Modify:**
+
 - `shared/schema.ts` (lines 880-904, priceAggregatesDaily definition)
 - Create migration: `migrations/0014_add_aggregation_indexes.sql`
 
 **Implementation:**
+
 ```typescript
 // In shared/schema.ts - priceAggregatesDaily
-export const priceAggregatesDaily = pgTable("price_aggregates_daily", {
-  // ... existing fields
-}, (table) => ({
-  // ADD THESE INDEXES:
-  productRetailerDateIdx: index("idx_daily_product_retailer_date")
-    .on(table.productId, table.retailerId, table.date),
-  dateIdx: index("idx_daily_date").on(table.date),
-  retailerDateIdx: index("idx_daily_retailer_date")
-    .on(table.retailerId, table.date),
-}));
+export const priceAggregatesDaily = pgTable(
+  'price_aggregates_daily',
+  {
+    // ... existing fields
+  },
+  (table) => ({
+    // ADD THESE INDEXES:
+    productRetailerDateIdx: index('idx_daily_product_retailer_date').on(
+      table.productId,
+      table.retailerId,
+      table.date
+    ),
+    dateIdx: index('idx_daily_date').on(table.date),
+    retailerDateIdx: index('idx_daily_retailer_date').on(table.retailerId, table.date),
+  })
+);
 
 // Similarly update priceAggregatesWeekly and priceAggregatesMonthly
 ```
 
 **Migration SQL:**
+
 ```sql
 -- 0014_add_aggregation_indexes.sql
 CREATE INDEX CONCURRENTLY idx_daily_product_retailer_date
@@ -71,6 +85,7 @@ CREATE INDEX CONCURRENTLY idx_daily_retailer_date
 ```
 
 **Success Criteria:**
+
 - Query plans show index usage
 - Product-retailer queries 50-80% faster
 - No full table scans on aggregation tables
@@ -80,14 +95,17 @@ CREATE INDEX CONCURRENTLY idx_daily_retailer_date
 ---
 
 ### 1.2 Data Validation in Aggregation Pipeline
+
 **Priority:** HIGH | **Effort:** 4 hours | **Category:** Data Quality
 
 **Problem:** No validation that aggregated statistics are reasonable (e.g., negative prices, invalid ranges).
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts` (add validation method)
 
 **Implementation:**
+
 ```typescript
 // Add after line 625 in price-aggregation-service.ts
 private validateAggregateStats(
@@ -145,6 +163,7 @@ this.validateAggregateStats(stats, productId, retailerId); // ADD THIS
 ```
 
 **Success Criteria:**
+
 - Invalid aggregates rejected before database insert
 - Extreme volatility logged for investigation
 - Tests cover all validation scenarios
@@ -154,15 +173,18 @@ this.validateAggregateStats(stats, productId, retailerId); // ADD THIS
 ---
 
 ### 1.3 Retry Logic with Exponential Backoff
+
 **Priority:** HIGH | **Effort:** 3 hours | **Category:** Operations
 
 **Problem:** Single transient failure causes entire aggregation to fail.
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts` (wrap aggregation methods)
 - `package.json` (add `p-retry` dependency)
 
 **Implementation:**
+
 ```bash
 npm install p-retry
 ```
@@ -201,6 +223,7 @@ private async performDailyAggregationLogic(): Promise<number> {
 ```
 
 **Success Criteria:**
+
 - Transient database errors automatically retried
 - Logs show retry attempts
 - Tests verify retry behavior
@@ -210,17 +233,20 @@ private async performDailyAggregationLogic(): Promise<number> {
 ---
 
 ### 1.4 Aggregation Metrics Collection
+
 **Priority:** HIGH | **Effort:** 8 hours | **Category:** Observability
 
 **Problem:** No metrics tracking for aggregation performance and health.
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts`
 - `server/utils/metrics.ts` (create new file)
 - `server/index.ts` (expose `/metrics` endpoint)
 - `package.json` (add `prom-client`)
 
 **Implementation:**
+
 ```bash
 npm install prom-client
 ```
@@ -294,6 +320,7 @@ app.get('/metrics', async (req, res) => {
 ```
 
 **Grafana Dashboard Queries:**
+
 ```promql
 # Aggregation duration
 histogram_quantile(0.95, rate(price_aggregation_duration_seconds_bucket[5m]))
@@ -309,6 +336,7 @@ time() - price_aggregation_last_run_timestamp
 ```
 
 **Success Criteria:**
+
 - `/metrics` endpoint returns Prometheus format
 - All aggregation operations instrumented
 - Grafana dashboards showing trends
@@ -318,16 +346,19 @@ time() - price_aggregation_last_run_timestamp
 ---
 
 ### 1.5 Incremental Aggregation
+
 **Priority:** HIGH | **Effort:** 8 hours | **Category:** Performance
 
 **Problem:** Daily job always processes "yesterday" even if no new data exists.
 
 **Files to Modify:**
+
 - `shared/schema.ts` (add new table)
 - `server/services/price-aggregation-service.ts`
 - Create migration: `migrations/0015_add_aggregation_state.sql`
 
 **Implementation:**
+
 ```typescript
 // In shared/schema.ts - ADD NEW TABLE
 export const productAggregationState = pgTable("product_aggregation_state", {
@@ -412,6 +443,7 @@ private async updateAggregationState(
 ```
 
 **Migration SQL:**
+
 ```sql
 -- 0015_add_aggregation_state.sql
 CREATE TABLE product_aggregation_state (
@@ -428,6 +460,7 @@ CREATE INDEX idx_agg_state_monthly ON product_aggregation_state(last_monthly_agg
 ```
 
 **Success Criteria:**
+
 - Jobs skip when no new data
 - State table updated after each run
 - Logs show "no new data" messages
@@ -437,27 +470,33 @@ CREATE INDEX idx_agg_state_monthly ON product_aggregation_state(last_monthly_agg
 ---
 
 ### 1.6 Enhanced Logging for Failure Investigation
+
 **Priority:** HIGH | **Effort:** 3 hours | **Category:** Observability
 
 **Problem:** Insufficient context in error logs for debugging production issues.
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts` (all error handlers)
 - `server/services/price-snapshot-service.ts` (cleanup error handler)
 
 **Implementation:**
+
 ```typescript
 // Update all try-catch blocks in aggregation services
 try {
   // ... aggregation logic
 } catch (error) {
   // ENHANCED ERROR LOGGING
-  logger.error("[PriceAggregation] Transaction failed, rolling back:", {
-    error: error instanceof Error ? {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    } : String(error),
+  logger.error('[PriceAggregation] Transaction failed, rolling back:', {
+    error:
+      error instanceof Error
+        ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          }
+        : String(error),
     context: {
       granularity: 'daily', // or 'weekly', 'monthly'
       dateRange: { startDate, endDate },
@@ -468,23 +507,23 @@ try {
       serverMemory: {
         heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        rss: Math.round(process.memoryUsage().rss / 1024 / 1024)
+        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
 
       // Database state
       databaseConnectionPool: {
         total: pool.totalCount,
         idle: pool.idleCount,
-        waiting: pool.waitingCount
-      }
+        waiting: pool.waitingCount,
+      },
     },
 
     // Sample data for debugging (first 3 records)
-    sampleData: priceData.slice(0, 3).map(d => ({
+    sampleData: priceData.slice(0, 3).map((d) => ({
       productId: d.productId,
       retailerId: d.retailerId,
-      recordCount: d.recordCount
-    }))
+      recordCount: d.recordCount,
+    })),
   });
 
   // Send to Sentry if configured
@@ -494,11 +533,13 @@ try {
       tags: {
         component: 'price-aggregation',
         granularity: 'daily',
-        phase: 'aggregation'
+        phase: 'aggregation',
       },
       extra: {
-        context: { /* ... same as above */ }
-      }
+        context: {
+          /* ... same as above */
+        },
+      },
     });
   }
 
@@ -507,6 +548,7 @@ try {
 ```
 
 **Success Criteria:**
+
 - All error logs include full context
 - Memory and connection pool state logged
 - Sample data included for debugging
@@ -519,15 +561,18 @@ try {
 ## Phase 2: Operational Excellence (24 hours)
 
 ### 2.1 Aggregation Gap Detection
+
 **Priority:** HIGH | **Effort:** 6 hours | **Category:** Data Quality
 
 **Problem:** No monitoring for missing aggregates (gaps in time series).
 
 **Files to Create:**
+
 - `server/services/aggregation-health-service.ts` (new file)
 - `server/routes/health-routes.ts` (add new endpoint)
 
 **Implementation:**
+
 ```typescript
 // server/services/aggregation-health-service.ts - CREATE NEW FILE
 export class AggregationHealthService {
@@ -543,7 +588,7 @@ export class AggregationHealthService {
       .where(gte(priceAggregatesDaily.date, startDate.toISOString()))
       .orderBy(priceAggregatesDaily.date);
 
-    const dateSet = new Set(existingDates.map(r => r.date));
+    const dateSet = new Set(existingDates.map((r) => r.date));
 
     // Check each expected date
     let currentDate = new Date(startDate);
@@ -555,7 +600,7 @@ export class AggregationHealthService {
           date: dateStr,
           granularity: 'daily',
           severity: this.getGapSeverity(currentDate),
-          daysOld: Math.floor((Date.now() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
+          daysOld: Math.floor((Date.now() - currentDate.getTime()) / (1000 * 60 * 60 * 24)),
         });
       }
 
@@ -567,7 +612,7 @@ export class AggregationHealthService {
       totalExpected: days,
       totalFound: existingDates.length,
       missingCount: gaps.length,
-      coveragePercent: ((existingDates.length / days) * 100).toFixed(2)
+      coveragePercent: ((existingDates.length / days) * 100).toFixed(2),
     };
   }
 
@@ -575,7 +620,7 @@ export class AggregationHealthService {
     const daysOld = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
 
     if (daysOld <= 2) return 'critical'; // Recent gaps are critical
-    if (daysOld <= 7) return 'warning';  // Week-old gaps need attention
+    if (daysOld <= 7) return 'warning'; // Week-old gaps need attention
     return 'info'; // Older gaps are informational
   }
 
@@ -595,12 +640,13 @@ app.get('/api/health/aggregation-gaps', async (req, res) => {
     daily: dailyGaps,
     weekly: weeklyGaps,
     monthly: monthlyGaps,
-    overallHealth: healthService.calculateOverallHealth([dailyGaps, weeklyGaps, monthlyGaps])
+    overallHealth: healthService.calculateOverallHealth([dailyGaps, weeklyGaps, monthlyGaps]),
   });
 });
 ```
 
 **Success Criteria:**
+
 - Endpoint returns all gaps
 - Severity levels assigned correctly
 - Tests cover gap detection logic
@@ -611,15 +657,18 @@ app.get('/api/health/aggregation-gaps', async (req, res) => {
 ---
 
 ### 2.2 Parallel Aggregation Processing
+
 **Priority:** MEDIUM | **Effort:** 6 hours | **Category:** Performance
 
 **Problem:** Daily aggregation processes all product-retailer combinations sequentially.
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts`
 - `package.json` (add `p-map` dependency)
 
 **Implementation:**
+
 ```bash
 npm install p-map
 ```
@@ -670,6 +719,7 @@ private async processDailyBatch(batch: PriceData[]): Promise<number> {
 ```
 
 **Success Criteria:**
+
 - Multiple batches processed in parallel
 - Concurrency limited to avoid overwhelming database
 - Logs show batch processing
@@ -680,15 +730,18 @@ private async processDailyBatch(batch: PriceData[]): Promise<number> {
 ---
 
 ### 2.3 Progress Tracking for Long Jobs
+
 **Priority:** MEDIUM | **Effort:** 4 hours | **Category:** Observability
 
 **Problem:** Long-running aggregations have no progress visibility.
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts`
 - `server/routes/admin-routes.ts` (add progress endpoint)
 
 **Implementation:**
+
 ```typescript
 // In price-aggregation-service.ts
 async calculateDailyAggregates(): Promise<number> {
@@ -762,6 +815,7 @@ app.get('/api/admin/analytics/aggregation-progress', withAdmin(async (req, res) 
 ```
 
 **Success Criteria:**
+
 - Progress updated in real-time
 - Admin endpoint returns current status
 - Progress persists in Redis
@@ -772,15 +826,18 @@ app.get('/api/admin/analytics/aggregation-progress', withAdmin(async (req, res) 
 ---
 
 ### 2.4 Circuit Breaker for Database Overload
+
 **Priority:** MEDIUM | **Effort:** 4 hours | **Category:** Operations
 
 **Problem:** No protection against database overload during aggregation.
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts`
 - `package.json` (add `opossum` dependency)
 
 **Implementation:**
+
 ```bash
 npm install opossum
 ```
@@ -833,6 +890,7 @@ async calculateDailyAggregates(): Promise<number> {
 ```
 
 **Success Criteria:**
+
 - Circuit opens after repeated failures
 - Automatic recovery after cooldown
 - Logs show circuit state changes
@@ -843,15 +901,18 @@ async calculateDailyAggregates(): Promise<number> {
 ---
 
 ### 2.5 Orphaned Aggregate Detection
+
 **Priority:** MEDIUM | **Effort:** 3 hours | **Category:** Data Quality
 
 **Problem:** No cleanup of aggregates for deleted products/retailers.
 
 **Files to Modify:**
+
 - `server/services/price-snapshot-service.ts` (add cleanup method)
 - `server/jobs/price-aggregation-job.ts` (add weekly schedule)
 
 **Implementation:**
+
 ```typescript
 // In price-snapshot-service.ts
 async cleanupOrphanedAggregates(): Promise<OrphanCleanupResult> {
@@ -914,6 +975,7 @@ cron.schedule('0 4 * * 0', async () => {
 ```
 
 **Success Criteria:**
+
 - Orphaned aggregates detected and removed
 - Runs weekly automatically
 - Logs cleanup statistics
@@ -924,16 +986,19 @@ cron.schedule('0 4 * * 0', async () => {
 ---
 
 ### 2.6 Quality Metrics Tracking
+
 **Priority:** MEDIUM | **Effort:** 6 hours | **Category:** Observability
 
 **Problem:** No tracking of data quality trends over time.
 
 **Files to Create:**
+
 - `shared/schema.ts` (add quality log table)
 - `server/services/price-aggregation-service.ts` (collect metrics)
 - Create migration: `migrations/0016_add_quality_log.sql`
 
 **Implementation:**
+
 ```typescript
 // In shared/schema.ts - ADD TABLE
 export const aggregationQualityLog = pgTable("aggregation_quality_log", {
@@ -992,6 +1057,7 @@ async calculateDailyAggregates(): Promise<number> {
 ```
 
 **Migration SQL:**
+
 ```sql
 -- 0016_add_quality_log.sql
 CREATE TABLE aggregation_quality_log (
@@ -1013,6 +1079,7 @@ CREATE INDEX idx_quality_log_date_granularity ON aggregation_quality_log(date, g
 ```
 
 **Success Criteria:**
+
 - Quality metrics logged after each run
 - Historical trends queryable
 - Anomalies tracked
@@ -1025,18 +1092,22 @@ CREATE INDEX idx_quality_log_date_granularity ON aggregation_quality_log(date, g
 ## Phase 3: Enhancement (22 hours)
 
 ### 3.1 Materialized View for Analytics Overview
+
 **Priority:** MEDIUM | **Effort:** 4 hours | **Category:** Performance
 
 **Problem:** `/api/analytics/overview` endpoint counts aggregates every request.
 
 **Files to Create:**
+
 - `migrations/0017_add_analytics_overview_view.sql`
 
 **Files to Modify:**
+
 - `server/price-analytics-routes.ts`
 - `server/jobs/price-aggregation-job.ts` (add refresh schedule)
 
 **Implementation:**
+
 ```sql
 -- migrations/0017_add_analytics_overview_view.sql
 CREATE MATERIALIZED VIEW analytics_overview_summary AS
@@ -1072,19 +1143,19 @@ app.get('/api/analytics/overview', async (req, res) => {
     aggregates: {
       daily: parseInt(summary.daily_count),
       weekly: parseInt(summary.weekly_count),
-      monthly: parseInt(summary.monthly_count)
+      monthly: parseInt(summary.monthly_count),
     },
     trends: {
       uptrend: parseInt(summary.uptrend_count),
       downtrend: parseInt(summary.downtrend_count),
-      stable: parseInt(summary.stable_count)
+      stable: parseInt(summary.stable_count),
     },
     lastUpdated: summary.last_updated,
     lastAggregations: {
       daily: summary.last_daily_aggregation,
       weekly: summary.last_weekly_aggregation,
-      monthly: summary.last_monthly_aggregation
-    }
+      monthly: summary.last_monthly_aggregation,
+    },
   });
 });
 
@@ -1102,6 +1173,7 @@ cron.schedule('0 1 * * *', async () => {
 ```
 
 **Success Criteria:**
+
 - View created successfully
 - Endpoint queries view instead of tables
 - View refreshed after each aggregation
@@ -1112,15 +1184,18 @@ cron.schedule('0 1 * * *', async () => {
 ---
 
 ### 3.2 Graceful Degradation Mode
+
 **Priority:** MEDIUM | **Effort:** 5 hours | **Category:** Operations
 
 **Problem:** If aggregation fails, queries fall back to slow raw data queries.
 
 **Files to Modify:**
+
 - `server/services/price-history-service.ts`
 - Add new cache layer for stale aggregates
 
 **Implementation:**
+
 ```typescript
 // In price-history-service.ts
 async getPriceHistoryOptimized(
@@ -1214,6 +1289,7 @@ private async getCachedAggregates(
 ```
 
 **Success Criteria:**
+
 - Degraded mode triggered when aggregates stale
 - Cached data served as fallback
 - Logs indicate degraded mode
@@ -1224,15 +1300,18 @@ private async getCachedAggregates(
 ---
 
 ### 3.3 Dry-Run Mode for Testing
+
 **Priority:** MEDIUM | **Effort:** 3 hours | **Category:** Developer Experience
 
 **Problem:** No way to test aggregation without actually modifying database.
 
 **Files to Modify:**
+
 - `server/services/price-aggregation-service.ts`
 - `server/routes/admin-routes.ts` (add dry-run parameter)
 
 **Implementation:**
+
 ```typescript
 // In price-aggregation-service.ts - ADD OPTION PARAMETER
 async calculateDailyAggregates(
@@ -1300,6 +1379,7 @@ app.post('/api/admin/analytics/calculate-daily', withAdmin(async (req, res) => {
 ```
 
 **Success Criteria:**
+
 - Dry-run mode doesn't modify database
 - Returns what would be processed
 - Sample data included for inspection
@@ -1310,14 +1390,17 @@ app.post('/api/admin/analytics/calculate-daily', withAdmin(async (req, res) => {
 ---
 
 ### 3.4 Test Data Factories
+
 **Priority:** MEDIUM | **Effort:** 4 hours | **Category:** Developer Experience
 
 **Problem:** Tests use inline data creation making them verbose.
 
 **Files to Create:**
+
 - `server/services/__tests__/factories/price-data-factory.ts`
 
 **Implementation:**
+
 ```typescript
 // server/services/__tests__/factories/price-data-factory.ts - CREATE NEW FILE
 import { faker } from '@faker-js/faker';
@@ -1325,16 +1408,14 @@ import type {
   PriceHistory,
   PriceAggregateDaily,
   PriceAggregateWeekly,
-  PriceAggregateMonthly
+  PriceAggregateMonthly,
 } from '../../../shared/schema';
 
 export class PriceDataFactory {
   /**
    * Create a single price history record
    */
-  static createPriceHistory(
-    overrides?: Partial<PriceHistory>
-  ): PriceHistory {
+  static createPriceHistory(overrides?: Partial<PriceHistory>): PriceHistory {
     return {
       id: faker.number.int(),
       productId: faker.number.int({ min: 1, max: 100 }),
@@ -1343,20 +1424,15 @@ export class PriceDataFactory {
       availability: faker.helpers.arrayElement(['in_stock', 'out_of_stock', 'limited']),
       recordedAt: faker.date.recent(),
       aggregatedAt: null,
-      ...overrides
+      ...overrides,
     };
   }
 
   /**
    * Create multiple price history records
    */
-  static createPriceHistoryBatch(
-    count: number,
-    overrides?: Partial<PriceHistory>
-  ): PriceHistory[] {
-    return Array.from({ length: count }, () =>
-      this.createPriceHistory(overrides)
-    );
+  static createPriceHistoryBatch(count: number, overrides?: Partial<PriceHistory>): PriceHistory[] {
+    return Array.from({ length: count }, () => this.createPriceHistory(overrides));
   }
 
   /**
@@ -1374,12 +1450,14 @@ export class PriceDataFactory {
 
     while (currentDate <= endDate) {
       for (let i = 0; i < recordsPerDay; i++) {
-        records.push(this.createPriceHistory({
-          productId,
-          retailerId,
-          recordedAt: new Date(currentDate),
-          price: faker.commerce.price({ min: 100, max: 200 })
-        }));
+        records.push(
+          this.createPriceHistory({
+            productId,
+            retailerId,
+            recordedAt: new Date(currentDate),
+            price: faker.commerce.price({ min: 100, max: 200 }),
+          })
+        );
       }
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -1390,9 +1468,7 @@ export class PriceDataFactory {
   /**
    * Create a daily aggregate
    */
-  static createDailyAggregate(
-    overrides?: Partial<PriceAggregateDaily>
-  ): PriceAggregateDaily {
+  static createDailyAggregate(overrides?: Partial<PriceAggregateDaily>): PriceAggregateDaily {
     const minPrice = faker.number.float({ min: 10, max: 500 });
     const maxPrice = faker.number.float({ min: 500, max: 1000 });
     const avgPrice = (minPrice + maxPrice) / 2;
@@ -1411,7 +1487,7 @@ export class PriceDataFactory {
       dayOverDayChange: faker.number.float({ min: -10, max: 10 }).toFixed(2),
       createdAt: new Date(),
       updatedAt: new Date(),
-      ...overrides
+      ...overrides,
     };
   }
 
@@ -1432,7 +1508,7 @@ describe('PriceAggregationService', () => {
     const priceData = PriceDataFactory.createPriceHistoryBatch(100, {
       productId: 1,
       retailerId: 1,
-      recordedAt: yesterday
+      recordedAt: yesterday,
     });
 
     await db.insert(priceHistory).values(priceData);
@@ -1444,6 +1520,7 @@ describe('PriceAggregationService', () => {
 ```
 
 **Success Criteria:**
+
 - Factory methods for all data types
 - Tests use factories consistently
 - Faker generates realistic data
@@ -1456,24 +1533,27 @@ describe('PriceAggregationService', () => {
 ## Phase 4: Advanced Features (48+ hours)
 
 ### 4.1 Percentile Aggregations
+
 **Priority:** MEDIUM | **Effort:** 6 hours | **Category:** Features
 
 **Problem:** Only tracking min/max/avg/median - missing P95, P99 for SLA analysis.
 
 **Files to Modify:**
+
 - `shared/schema.ts` (add percentile fields)
 - `server/services/price-aggregation-service.ts` (calculate percentiles)
 - Create migration: `migrations/0018_add_percentile_fields.sql`
 
 **Implementation:**
+
 ```typescript
 // In shared/schema.ts - ADD FIELDS
-export const priceAggregatesDaily = pgTable("price_aggregates_daily", {
+export const priceAggregatesDaily = pgTable('price_aggregates_daily', {
   // ... existing fields
-  p25Price: decimal("p25_price", { precision: 10, scale: 2 }),
-  p75Price: decimal("p75_price", { precision: 10, scale: 2 }),
-  p95Price: decimal("p95_price", { precision: 10, scale: 2 }),
-  p99Price: decimal("p99_price", { precision: 10, scale: 2 }),
+  p25Price: decimal('p25_price', { precision: 10, scale: 2 }),
+  p75Price: decimal('p75_price', { precision: 10, scale: 2 }),
+  p95Price: decimal('p95_price', { precision: 10, scale: 2 }),
+  p99Price: decimal('p99_price', { precision: 10, scale: 2 }),
 });
 
 // In price-aggregation-service.ts - USE POSTGRES PERCENTILE_CONT
@@ -1497,6 +1577,7 @@ const priceData = await tx.execute(sql`
 ```
 
 **Migration SQL:**
+
 ```sql
 -- 0018_add_percentile_fields.sql
 ALTER TABLE price_aggregates_daily
@@ -1509,6 +1590,7 @@ ALTER TABLE price_aggregates_daily
 ```
 
 **Success Criteria:**
+
 - Percentile fields added to schema
 - Percentiles calculated using PostgreSQL
 - API returns percentile data
@@ -1519,15 +1601,18 @@ ALTER TABLE price_aggregates_daily
 ---
 
 ### 4.2 Idempotency Tokens
+
 **Priority:** LOW | **Effort:** 2 hours | **Category:** Operations
 
 **Problem:** Admin endpoints can be double-clicked causing duplicate work.
 
 **Files to Modify:**
+
 - `server/routes/admin-routes.ts` (all manual trigger endpoints)
 - `server/middleware/idempotency.ts` (create new middleware)
 
 **Implementation:**
+
 ```typescript
 // server/middleware/idempotency.ts - CREATE NEW FILE
 export function idempotency(ttl: number = 3600) {
@@ -1553,7 +1638,7 @@ export function idempotency(ttl: number = 3600) {
 
     // Store original res.json to intercept response
     const originalJson = res.json.bind(res);
-    res.json = function(body: any) {
+    res.json = function (body: any) {
       // Cache the response
       redis.setex(cacheKey, ttl, JSON.stringify(body));
       return originalJson(body);
@@ -1566,7 +1651,8 @@ export function idempotency(ttl: number = 3600) {
 // In admin-routes.ts - APPLY MIDDLEWARE
 import { idempotency } from '../middleware/idempotency';
 
-app.post('/api/admin/analytics/calculate-daily',
+app.post(
+  '/api/admin/analytics/calculate-daily',
   withAdmin,
   idempotency(), // ADD THIS
   async (req, res) => {
@@ -1577,6 +1663,7 @@ app.post('/api/admin/analytics/calculate-daily',
 ```
 
 **Success Criteria:**
+
 - Duplicate requests return cached response
 - Idempotency key optional
 - TTL configurable per endpoint
@@ -1587,15 +1674,18 @@ app.post('/api/admin/analytics/calculate-daily',
 ---
 
 ### 4.3 Aggregation Simulation Tool
+
 **Priority:** LOW | **Effort:** 6 hours | **Category:** Developer Experience
 
 **Problem:** Hard to understand impact of schema changes on aggregation performance.
 
 **Files to Create:**
+
 - `scripts/simulate-aggregation.ts`
 - `scripts/generate-synthetic-data.ts`
 
 **Implementation:**
+
 ```typescript
 // scripts/simulate-aggregation.ts - CREATE NEW FILE
 #!/usr/bin/env tsx
@@ -1671,6 +1761,7 @@ simulateAggregation(args);
 ```
 
 **Success Criteria:**
+
 - Generates realistic synthetic data
 - Times aggregation accurately
 - Reports memory usage
@@ -1681,11 +1772,13 @@ simulateAggregation(args);
 ---
 
 ### 4.4 Seasonal Pattern Detection
+
 **Priority:** LOW | **Effort:** 20 hours | **Category:** Features
 
 **Problem:** No detection of seasonal pricing patterns (holidays, Black Friday, etc).
 
 **This is a complex feature requiring:**
+
 - Time-series analysis algorithms
 - Statistical confidence calculations
 - Pattern storage schema
@@ -1697,11 +1790,13 @@ simulateAggregation(args);
 ---
 
 ### 4.5 Cross-Retailer Price Correlation
+
 **Priority:** LOW | **Effort:** 16 hours | **Category:** Features
 
 **Problem:** No tracking of whether retailers follow each other's pricing.
 
 **This is a specialized analytics feature requiring:**
+
 - Pearson correlation coefficient calculations
 - Lag analysis (does retailer B follow retailer A with X day delay?)
 - Statistical significance testing
@@ -1712,11 +1807,13 @@ simulateAggregation(args);
 ---
 
 ### 4.6 Real-Time Aggregation Streaming
+
 **Priority:** FUTURE | **Effort:** 40+ hours | **Category:** Features
 
 **Problem:** Aggregations run on schedule - not real-time.
 
 **This is a major infrastructure change requiring:**
+
 - PostgreSQL logical replication setup
 - Change Data Capture (CDC) implementation
 - Streaming aggregation logic
@@ -1729,36 +1826,37 @@ simulateAggregation(args);
 
 ## Summary Table
 
-| # | Improvement | Priority | Effort | Phase | Category |
-|---|-------------|----------|--------|-------|----------|
-| 1.1 | Missing Indexes | HIGH | 2h | 1 | Performance |
-| 1.2 | Data Validation | HIGH | 4h | 1 | Data Quality |
-| 1.3 | Retry Logic | HIGH | 3h | 1 | Operations |
-| 1.4 | Metrics Collection | HIGH | 8h | 1 | Observability |
-| 1.5 | Incremental Aggregation | HIGH | 8h | 1 | Performance |
-| 1.6 | Enhanced Logging | HIGH | 3h | 1 | Observability |
-| 2.1 | Gap Detection | HIGH | 6h | 2 | Data Quality |
-| 2.2 | Parallel Processing | MEDIUM | 6h | 2 | Performance |
-| 2.3 | Progress Tracking | MEDIUM | 4h | 2 | Observability |
-| 2.4 | Circuit Breaker | MEDIUM | 4h | 2 | Operations |
-| 2.5 | Orphaned Cleanup | MEDIUM | 3h | 2 | Data Quality |
-| 2.6 | Quality Metrics | MEDIUM | 6h | 2 | Observability |
-| 3.1 | Materialized View | MEDIUM | 4h | 3 | Performance |
-| 3.2 | Graceful Degradation | MEDIUM | 5h | 3 | Operations |
-| 3.3 | Dry-Run Mode | MEDIUM | 3h | 3 | Developer UX |
-| 3.4 | Test Factories | MEDIUM | 4h | 3 | Developer UX |
-| 4.1 | Percentile Aggregations | MEDIUM | 6h | 4 | Features |
-| 4.2 | Idempotency Tokens | LOW | 2h | 4 | Operations |
-| 4.3 | Simulation Tool | LOW | 6h | 4 | Developer UX |
-| 4.4 | Seasonal Patterns | LOW | 20h | 4 | Features |
-| 4.5 | Price Correlations | LOW | 16h | 4 | Features |
-| 4.6 | Real-Time Streaming | FUTURE | 40h+ | 5 | Features |
+| #   | Improvement             | Priority | Effort | Phase | Category      |
+| --- | ----------------------- | -------- | ------ | ----- | ------------- |
+| 1.1 | Missing Indexes         | HIGH     | 2h     | 1     | Performance   |
+| 1.2 | Data Validation         | HIGH     | 4h     | 1     | Data Quality  |
+| 1.3 | Retry Logic             | HIGH     | 3h     | 1     | Operations    |
+| 1.4 | Metrics Collection      | HIGH     | 8h     | 1     | Observability |
+| 1.5 | Incremental Aggregation | HIGH     | 8h     | 1     | Performance   |
+| 1.6 | Enhanced Logging        | HIGH     | 3h     | 1     | Observability |
+| 2.1 | Gap Detection           | HIGH     | 6h     | 2     | Data Quality  |
+| 2.2 | Parallel Processing     | MEDIUM   | 6h     | 2     | Performance   |
+| 2.3 | Progress Tracking       | MEDIUM   | 4h     | 2     | Observability |
+| 2.4 | Circuit Breaker         | MEDIUM   | 4h     | 2     | Operations    |
+| 2.5 | Orphaned Cleanup        | MEDIUM   | 3h     | 2     | Data Quality  |
+| 2.6 | Quality Metrics         | MEDIUM   | 6h     | 2     | Observability |
+| 3.1 | Materialized View       | MEDIUM   | 4h     | 3     | Performance   |
+| 3.2 | Graceful Degradation    | MEDIUM   | 5h     | 3     | Operations    |
+| 3.3 | Dry-Run Mode            | MEDIUM   | 3h     | 3     | Developer UX  |
+| 3.4 | Test Factories          | MEDIUM   | 4h     | 3     | Developer UX  |
+| 4.1 | Percentile Aggregations | MEDIUM   | 6h     | 4     | Features      |
+| 4.2 | Idempotency Tokens      | LOW      | 2h     | 4     | Operations    |
+| 4.3 | Simulation Tool         | LOW      | 6h     | 4     | Developer UX  |
+| 4.4 | Seasonal Patterns       | LOW      | 20h    | 4     | Features      |
+| 4.5 | Price Correlations      | LOW      | 16h    | 4     | Features      |
+| 4.6 | Real-Time Streaming     | FUTURE   | 40h+   | 5     | Features      |
 
 ---
 
 ## Getting Started - Quick Wins
 
 ### Week 1: Critical Foundation
+
 Start here for maximum impact with minimal effort:
 
 1. **Missing Indexes** (2h) - Immediate query performance boost
@@ -1769,6 +1867,7 @@ Start here for maximum impact with minimal effort:
 **Total: 12 hours, High Impact**
 
 ### Week 2: Monitoring & Performance
+
 Build on the foundation:
 
 5. **Metrics Collection** (8h) - Essential for production monitoring
@@ -1808,6 +1907,7 @@ Build on the foundation:
 ### Testing Checklist
 
 For each improvement:
+
 - [ ] Unit tests added and passing
 - [ ] Integration tests added (if applicable)
 - [ ] Manual testing completed

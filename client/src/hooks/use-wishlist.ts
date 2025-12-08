@@ -4,9 +4,9 @@
  * Manages user wishlists (simple "I want this" lists).
  * Separate from watchlists which track prices.
  */
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Wishlist, WishlistItem, Product, ProductWithOffers } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Wishlist, WishlistItem, Product, ProductWithOffers } from '@shared/schema';
+import { apiRequest } from '@/lib/queryClient';
 
 // Type-safe error extraction from unknown JSON response
 interface ApiErrorResponse {
@@ -63,7 +63,8 @@ export function useWishlist(wishlistId: number | null) {
 export function useWishlistItems() {
   return useQuery<{ items: WishlistItemWithProduct[]; count: number }>({
     queryKey: ['/api/wishlists/items'],
-    queryFn: () => apiRequest<{ items: WishlistItemWithProduct[]; count: number }>('/api/wishlists/items'),
+    queryFn: () =>
+      apiRequest<{ items: WishlistItemWithProduct[]; count: number }>('/api/wishlists/items'),
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -83,7 +84,11 @@ export function useCreateWishlist() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string; description?: string; isPublic?: boolean }): Promise<WishlistWithItems> => {
+    mutationFn: async (data: {
+      name: string;
+      description?: string;
+      isPublic?: boolean;
+    }): Promise<WishlistWithItems> => {
       const response = await fetch('/api/wishlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,7 +112,13 @@ export function useUpdateWishlist() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ wishlistId, updates }: { wishlistId: number; updates: { name?: string; description?: string; isPublic?: boolean } }) => {
+    mutationFn: async ({
+      wishlistId,
+      updates,
+    }: {
+      wishlistId: number;
+      updates: { name?: string; description?: string; isPublic?: boolean };
+    }) => {
       const response = await fetch(`/api/wishlists/${wishlistId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -154,7 +165,17 @@ export function useAddToWishlist() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ wishlistId, productId, notes, priority }: { wishlistId: number; productId: number; notes?: string; priority?: number }) => {
+    mutationFn: async ({
+      wishlistId,
+      productId,
+      notes,
+      priority,
+    }: {
+      wishlistId: number;
+      productId: number;
+      notes?: string;
+      priority?: number;
+    }) => {
       const response = await fetch(`/api/wishlists/${wishlistId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,9 +232,16 @@ export function useToggleWishlist() {
   const createMutation = useCreateWishlist();
 
   return useMutation({
-    mutationFn: async ({ productId, isCurrentlyInWishlist }: { productId: number; isCurrentlyInWishlist: boolean }) => {
+    mutationFn: async ({
+      productId,
+      isCurrentlyInWishlist,
+    }: {
+      productId: number;
+      isCurrentlyInWishlist: boolean;
+    }) => {
       // Get or create default wishlist
-      let defaultWishlist = wishlists?.wishlists?.find(w => w.name === 'My Wishlist') ?? wishlists?.wishlists?.[0];
+      let defaultWishlist =
+        wishlists?.wishlists?.find((w) => w.name === 'My Wishlist') ?? wishlists?.wishlists?.[0];
 
       if (!defaultWishlist) {
         // Create default wishlist
@@ -223,8 +251,8 @@ export function useToggleWishlist() {
 
       if (isCurrentlyInWishlist) {
         // Find which wishlist has this product and remove it
-        const wishlistWithProduct = wishlists?.wishlists?.find(w =>
-          w.items?.some(item => item.productId === productId)
+        const wishlistWithProduct = wishlists?.wishlists?.find((w) =>
+          w.items?.some((item) => item.productId === productId)
         );
         if (wishlistWithProduct) {
           return removeMutation.mutateAsync({ wishlistId: wishlistWithProduct.id, productId });

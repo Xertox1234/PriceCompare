@@ -70,18 +70,26 @@ describe('Rate Limit Tiers Constants', () => {
     it('validates multiplier calculations match maxRequests', () => {
       const BASE_LIMIT = 100;
 
-      expect(RATE_LIMIT_TIERS.anonymous.maxRequests).toBe(BASE_LIMIT * RATE_LIMIT_TIERS.anonymous.multiplier);
+      expect(RATE_LIMIT_TIERS.anonymous.maxRequests).toBe(
+        BASE_LIMIT * RATE_LIMIT_TIERS.anonymous.multiplier
+      );
       expect(RATE_LIMIT_TIERS.free.maxRequests).toBe(BASE_LIMIT * RATE_LIMIT_TIERS.free.multiplier);
       expect(RATE_LIMIT_TIERS.user.maxRequests).toBe(BASE_LIMIT * RATE_LIMIT_TIERS.user.multiplier);
-      expect(RATE_LIMIT_TIERS.premium.maxRequests).toBe(BASE_LIMIT * RATE_LIMIT_TIERS.premium.multiplier);
-      expect(RATE_LIMIT_TIERS.moderator.maxRequests).toBe(BASE_LIMIT * RATE_LIMIT_TIERS.moderator.multiplier);
-      expect(RATE_LIMIT_TIERS.admin.maxRequests).toBe(BASE_LIMIT * RATE_LIMIT_TIERS.admin.multiplier);
+      expect(RATE_LIMIT_TIERS.premium.maxRequests).toBe(
+        BASE_LIMIT * RATE_LIMIT_TIERS.premium.multiplier
+      );
+      expect(RATE_LIMIT_TIERS.moderator.maxRequests).toBe(
+        BASE_LIMIT * RATE_LIMIT_TIERS.moderator.multiplier
+      );
+      expect(RATE_LIMIT_TIERS.admin.maxRequests).toBe(
+        BASE_LIMIT * RATE_LIMIT_TIERS.admin.multiplier
+      );
     });
   });
 
   describe('Edge cases and security', () => {
     it('ensures all multipliers are positive numbers', () => {
-      Object.values(RATE_LIMIT_TIERS).forEach(tier => {
+      Object.values(RATE_LIMIT_TIERS).forEach((tier) => {
         expect(tier.multiplier).toBeGreaterThan(0);
         expect(typeof tier.multiplier).toBe('number');
         expect(Number.isFinite(tier.multiplier)).toBe(true);
@@ -89,7 +97,7 @@ describe('Rate Limit Tiers Constants', () => {
     });
 
     it('ensures all maxRequests are positive integers', () => {
-      Object.values(RATE_LIMIT_TIERS).forEach(tier => {
+      Object.values(RATE_LIMIT_TIERS).forEach((tier) => {
         expect(tier.maxRequests).toBeGreaterThan(0);
         expect(Number.isInteger(tier.maxRequests)).toBe(true);
         expect(Number.isFinite(tier.maxRequests)).toBe(true);

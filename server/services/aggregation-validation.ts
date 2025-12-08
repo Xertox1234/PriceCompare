@@ -52,29 +52,29 @@ export const productIdSchema = z.number().int().positive({
 });
 
 // Date range validation
-export const dateRangeSchema = z.object({
-  startDate: z.date({
-    message: 'Start date must be a valid Date object',
-  }),
-  endDate: z.date({
-    message: 'End date must be a valid Date object',
-  }),
-}).refine(
-  (data) => data.endDate >= data.startDate,
-  {
+export const dateRangeSchema = z
+  .object({
+    startDate: z.date({
+      message: 'Start date must be a valid Date object',
+    }),
+    endDate: z.date({
+      message: 'End date must be a valid Date object',
+    }),
+  })
+  .refine((data) => data.endDate >= data.startDate, {
     message: 'End date must be on or after start date',
     path: ['endDate'],
-  }
-).refine(
-  (data) => {
-    const diffDays = (data.endDate.getTime() - data.startDate.getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays <= 365; // Max 1 year range
-  },
-  {
-    message: 'Date range cannot exceed 365 days',
-    path: ['endDate'],
-  }
-);
+  })
+  .refine(
+    (data) => {
+      const diffDays = (data.endDate.getTime() - data.startDate.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays <= 365; // Max 1 year range
+    },
+    {
+      message: 'Date range cannot exceed 365 days',
+      path: ['endDate'],
+    }
+  );
 
 // Year/week/month validation
 export const yearSchema = z.number().int().min(2000).max(2100, {
@@ -113,8 +113,8 @@ export function validatePricesArray(
   }
 
   // Check for invalid prices (negative, NaN, Infinity)
-  const invalidPrices = prices.filter(p =>
-    typeof p !== 'number' || isNaN(p) || !isFinite(p) || p < 0
+  const invalidPrices = prices.filter(
+    (p) => typeof p !== 'number' || isNaN(p) || !isFinite(p) || p < 0
   );
 
   if (invalidPrices.length > 0) {
@@ -125,7 +125,7 @@ export function validatePricesArray(
   }
 
   // Check for suspiciously high prices (> $1M)
-  const suspiciousPrices = prices.filter(p => p > 1000000);
+  const suspiciousPrices = prices.filter((p) => p > 1000000);
   if (suspiciousPrices.length > 0) {
     throw new DataQualityError(
       `Found ${suspiciousPrices.length} suspiciously high price(s) (> $1M)`,

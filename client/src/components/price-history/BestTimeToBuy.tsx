@@ -1,7 +1,7 @@
-import { ShoppingCart, Clock, TrendingDown, AlertCircle } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ShoppingCart, Clock, TrendingDown, AlertCircle } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface BestTimeAnalysis {
   productId: number;
@@ -31,7 +31,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
   if (!data) {
     return (
       <Card className="p-6">
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-muted-foreground text-center text-sm">
           Not enough data for analysis
         </div>
       </Card>
@@ -42,7 +42,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
     switch (data.recommendation) {
       case 'good_deal':
         return {
-          icon: <ShoppingCart className="w-6 h-6" />,
+          icon: <ShoppingCart className="h-6 w-6" />,
           title: 'Great Deal!',
           message: 'This is an excellent time to buy. The price is near its historical low.',
           bgColor: 'bg-green-50 border-green-200',
@@ -52,7 +52,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
         };
       case 'wait':
         return {
-          icon: <Clock className="w-6 h-6" />,
+          icon: <Clock className="h-6 w-6" />,
           title: 'Consider Waiting',
           message: 'The price may drop further. Consider monitoring for a better deal.',
           bgColor: 'bg-amber-50 border-amber-200',
@@ -62,7 +62,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
         };
       default:
         return {
-          icon: <AlertCircle className="w-6 h-6" />,
+          icon: <AlertCircle className="h-6 w-6" />,
           title: 'Fair Price',
           message: 'The current price is reasonable based on historical data.',
           bgColor: 'bg-blue-50 border-blue-200',
@@ -74,25 +74,21 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
   };
 
   const config = getRecommendationConfig();
-  const percentBelowAverage = ((data.historicalAverage - data.currentPrice) / data.historicalAverage) * 100;
-  const percentAboveLowest = ((data.currentPrice - data.lowestPriceLast90Days) / data.lowestPriceLast90Days) * 100;
+  const percentBelowAverage =
+    ((data.historicalAverage - data.currentPrice) / data.historicalAverage) * 100;
+  const percentAboveLowest =
+    ((data.currentPrice - data.lowestPriceLast90Days) / data.lowestPriceLast90Days) * 100;
 
   return (
-    <Card className={`p-6 border-2 ${config.bgColor}`}>
+    <Card className={`border-2 p-6 ${config.bgColor}`}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className={`${config.textColor}`}>
-              {config.icon}
-            </div>
+            <div className={`${config.textColor}`}>{config.icon}</div>
             <div>
-              <h3 className={`text-lg font-semibold ${config.textColor}`}>
-                {config.title}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {config.message}
-              </p>
+              <h3 className={`text-lg font-semibold ${config.textColor}`}>{config.title}</h3>
+              <p className="text-muted-foreground mt-1 text-sm">{config.message}</p>
             </div>
           </div>
           <Badge className={config.badgeColor}>
@@ -101,52 +97,53 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
         </div>
 
         {/* Price Comparison */}
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+        <div className="grid grid-cols-2 gap-4 border-t pt-4">
           <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">Current Price</div>
-            <div className="text-2xl font-bold">
-              ${data.currentPrice.toFixed(2)}
-            </div>
+            <div className="text-muted-foreground text-sm">Current Price</div>
+            <div className="text-2xl font-bold">${data.currentPrice.toFixed(2)}</div>
             {percentBelowAverage !== 0 && (
-              <div className={`text-sm font-medium ${percentBelowAverage > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {percentBelowAverage > 0 ? '↓' : '↑'} {Math.abs(percentBelowAverage).toFixed(1)}% vs avg
+              <div
+                className={`text-sm font-medium ${percentBelowAverage > 0 ? 'text-green-600' : 'text-red-600'}`}
+              >
+                {percentBelowAverage > 0 ? '↓' : '↑'} {Math.abs(percentBelowAverage).toFixed(1)}% vs
+                avg
               </div>
             )}
           </div>
           <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">Lowest (90 days)</div>
+            <div className="text-muted-foreground text-sm">Lowest (90 days)</div>
             <div className="text-2xl font-bold text-green-600">
               ${data.lowestPriceLast90Days.toFixed(2)}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {data.daysSinceLowest} days ago
-            </div>
+            <div className="text-muted-foreground text-sm">{data.daysSinceLowest} days ago</div>
           </div>
         </div>
 
         {/* Additional Insights */}
-        <div className="space-y-2 pt-4 border-t">
+        <div className="space-y-2 border-t pt-4">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Historical Average</span>
             <span className="font-medium">${data.historicalAverage.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Difference from Lowest</span>
-            <span className={`font-medium ${percentAboveLowest < 5 ? 'text-green-600' : 'text-gray-700'}`}>
-              +${(data.currentPrice - data.lowestPriceLast90Days).toFixed(2)}
-              ({percentAboveLowest.toFixed(1)}%)
+            <span
+              className={`font-medium ${percentAboveLowest < 5 ? 'text-green-600' : 'text-gray-700'}`}
+            >
+              +${(data.currentPrice - data.lowestPriceLast90Days).toFixed(2)}(
+              {percentAboveLowest.toFixed(1)}%)
             </span>
           </div>
           {Math.abs(data.priceChangeVelocity) > 0.1 && (
-            <div className="flex items-center gap-2 text-sm pt-2 border-t">
+            <div className="flex items-center gap-2 border-t pt-2 text-sm">
               {data.priceChangeVelocity < 0 ? (
-                <TrendingDown className="w-4 h-4 text-green-600" />
+                <TrendingDown className="h-4 w-4 text-green-600" />
               ) : (
-                <TrendingDown className="w-4 h-4 text-red-600 rotate-180" />
+                <TrendingDown className="h-4 w-4 rotate-180 text-red-600" />
               )}
               <span className="text-muted-foreground">
                 Price {data.priceChangeVelocity < 0 ? 'decreasing' : 'increasing'} by
-                <span className="font-medium ml-1">
+                <span className="ml-1 font-medium">
                   ${Math.abs(data.priceChangeVelocity).toFixed(2)}/day
                 </span>
               </span>

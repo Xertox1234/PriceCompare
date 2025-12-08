@@ -4,8 +4,8 @@
 @media (max-width: 767px) {
   /* Buttons */
   button,
-  a[role="button"],
-  [role="tab"] {
+  a[role='button'],
+  [role='tab'] {
     min-height: 44px;
     min-width: 44px;
   }
@@ -54,7 +54,7 @@
   }
 
   /* Optimize dialog/modal for mobile */
-  [role="dialog"] {
+  [role='dialog'] {
     max-width: 95vw !important;
     max-height: 95vh !important;
   }
@@ -97,7 +97,7 @@
   }
 
   /* Optimize tabs for mobile */
-  [role="tablist"] {
+  [role='tablist'] {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -109,8 +109,8 @@
   }
 
   /* Optimize dropdown menus for mobile */
-  [role="menu"],
-  [role="listbox"] {
+  [role='menu'],
+  [role='listbox'] {
     max-height: 60vh;
     overflow-y: auto;
   }
@@ -126,7 +126,7 @@
 
   /* Slightly larger tap targets */
   button,
-  a[role="button"] {
+  a[role='button'] {
     min-height: 40px;
   }
 }
@@ -136,8 +136,8 @@
   /* Larger interactive elements for touch */
   button,
   a,
-  input[type="checkbox"],
-  input[type="radio"] {
+  input[type='checkbox'],
+  input[type='radio'] {
     min-height: 44px;
     min-width: 44px;
   }
@@ -156,7 +156,7 @@
 
   /* Prevent text selection on buttons */
   button,
-  [role="button"] {
+  [role='button'] {
     -webkit-user-select: none;
     user-select: none;
   }
@@ -170,7 +170,7 @@
   }
 
   /* Optimize dialog height */
-  [role="dialog"] {
+  [role='dialog'] {
     max-height: 85vh !important;
   }
 }

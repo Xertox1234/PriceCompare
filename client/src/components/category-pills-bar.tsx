@@ -37,158 +37,154 @@ const defaultCategories: Category[] = [
  * - Click handler to filter content
  * - Gradient fade on edges to indicate scroll
  */
-export const CategoryPillsBar = memo(({
-  selectedCategory = 'all',
-  onCategoryChange,
-  className,
-}: CategoryPillsBarProps) => {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
+export const CategoryPillsBar = memo(
+  ({ selectedCategory = 'all', onCategoryChange, className }: CategoryPillsBarProps) => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
 
-  // Check scroll position and update gradient states
-  const checkScrollPosition = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
+    // Check scroll position and update gradient states
+    const checkScrollPosition = useCallback(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
 
-    const { scrollLeft, scrollWidth, clientWidth } = container;
-    // Add small threshold for floating point comparison
-    setCanScrollLeft(scrollLeft > 1);
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
-  }, []);
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      // Add small threshold for floating point comparison
+      setCanScrollLeft(scrollLeft > 1);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+    }, []);
 
-  // Initialize and update scroll state
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
+    // Initialize and update scroll state
+    useEffect(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
 
-    // Initial check
-    checkScrollPosition();
+      // Initial check
+      checkScrollPosition();
 
-    // Listen for scroll events
-    container.addEventListener('scroll', checkScrollPosition, { passive: true });
+      // Listen for scroll events
+      container.addEventListener('scroll', checkScrollPosition, { passive: true });
 
-    // Listen for resize events
-    const resizeObserver = new ResizeObserver(checkScrollPosition);
-    resizeObserver.observe(container);
+      // Listen for resize events
+      const resizeObserver = new ResizeObserver(checkScrollPosition);
+      resizeObserver.observe(container);
 
-    return () => {
-      container.removeEventListener('scroll', checkScrollPosition);
-      resizeObserver.disconnect();
-    };
-  }, [checkScrollPosition]);
+      return () => {
+        container.removeEventListener('scroll', checkScrollPosition);
+        resizeObserver.disconnect();
+      };
+    }, [checkScrollPosition]);
 
-  // Handle category selection
-  const handleCategoryClick = useCallback(
-    (categoryId: string) => {
-      onCategoryChange?.(categoryId);
-    },
-    [onCategoryChange]
-  );
-
-  // Scroll selected category into view when selection changes
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const selectedButton = container.querySelector(
-      `[data-category="${selectedCategory}"]`
+    // Handle category selection
+    const handleCategoryClick = useCallback(
+      (categoryId: string) => {
+        onCategoryChange?.(categoryId);
+      },
+      [onCategoryChange]
     );
 
-    if (selectedButton) {
-      // Scroll the selected button into view with some padding
-      const containerRect = container.getBoundingClientRect();
-      const buttonRect = selectedButton.getBoundingClientRect();
+    // Scroll selected category into view when selection changes
+    useEffect(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
 
-      // Check if button is outside visible area
-      if (buttonRect.left < containerRect.left + 32) {
-        // Scroll left
-        container.scrollBy({
-          left: buttonRect.left - containerRect.left - 32,
-          behavior: 'smooth',
-        });
-      } else if (buttonRect.right > containerRect.right - 32) {
-        // Scroll right
-        container.scrollBy({
-          left: buttonRect.right - containerRect.right + 32,
-          behavior: 'smooth',
-        });
+      const selectedButton = container.querySelector(`[data-category="${selectedCategory}"]`);
+
+      if (selectedButton) {
+        // Scroll the selected button into view with some padding
+        const containerRect = container.getBoundingClientRect();
+        const buttonRect = selectedButton.getBoundingClientRect();
+
+        // Check if button is outside visible area
+        if (buttonRect.left < containerRect.left + 32) {
+          // Scroll left
+          container.scrollBy({
+            left: buttonRect.left - containerRect.left - 32,
+            behavior: 'smooth',
+          });
+        } else if (buttonRect.right > containerRect.right - 32) {
+          // Scroll right
+          container.scrollBy({
+            left: buttonRect.right - containerRect.right + 32,
+            behavior: 'smooth',
+          });
+        }
       }
-    }
-  }, [selectedCategory]);
+    }, [selectedCategory]);
 
-  return (
-    <div className={cn('relative', className)}>
-      {/* Left gradient fade indicator */}
-      <div
-        className={cn(
-          'absolute left-0 top-0 bottom-0 w-8 z-10 pointer-events-none',
-          'bg-gradient-to-r from-background to-transparent',
-          'transition-opacity duration-200',
-          canScrollLeft ? 'opacity-100' : 'opacity-0'
-        )}
-        aria-hidden="true"
-      />
+    return (
+      <div className={cn('relative', className)}>
+        {/* Left gradient fade indicator */}
+        <div
+          className={cn(
+            'pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-8',
+            'from-background bg-gradient-to-r to-transparent',
+            'transition-opacity duration-200',
+            canScrollLeft ? 'opacity-100' : 'opacity-0'
+          )}
+          aria-hidden="true"
+        />
 
-      {/* Right gradient fade indicator */}
-      <div
-        className={cn(
-          'absolute right-0 top-0 bottom-0 w-8 z-10 pointer-events-none',
-          'bg-gradient-to-l from-background to-transparent',
-          'transition-opacity duration-200',
-          canScrollRight ? 'opacity-100' : 'opacity-0'
-        )}
-        aria-hidden="true"
-      />
+        {/* Right gradient fade indicator */}
+        <div
+          className={cn(
+            'pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-8',
+            'from-background bg-gradient-to-l to-transparent',
+            'transition-opacity duration-200',
+            canScrollRight ? 'opacity-100' : 'opacity-0'
+          )}
+          aria-hidden="true"
+        />
 
-      {/* Scrollable pills container */}
-      <div
-        ref={scrollContainerRef}
-        role="tablist"
-        aria-label="Category filters"
-        className={cn(
-          'flex gap-2 overflow-x-auto',
-          // Hide scrollbar
-          'scrollbar-hide',
-          '[&::-webkit-scrollbar]:hidden',
-          '[-ms-overflow-style:none]',
-          '[scrollbar-width:none]',
-          // Padding for gradient overlap
-          'px-1 py-1'
-        )}
-      >
-        {defaultCategories.map((category) => {
-          const isSelected = selectedCategory === category.id;
+        {/* Scrollable pills container */}
+        <div
+          ref={scrollContainerRef}
+          role="tablist"
+          aria-label="Category filters"
+          className={cn(
+            'flex gap-2 overflow-x-auto',
+            // Hide scrollbar
+            'scrollbar-hide',
+            '[&::-webkit-scrollbar]:hidden',
+            '[-ms-overflow-style:none]',
+            '[scrollbar-width:none]',
+            // Padding for gradient overlap
+            'px-1 py-1'
+          )}
+        >
+          {defaultCategories.map((category) => {
+            const isSelected = selectedCategory === category.id;
 
-          return (
-            <Button
-              key={category.id}
-              role="tab"
-              aria-selected={isSelected}
-              data-category={category.id}
-              variant="ghost"
-              onClick={() => handleCategoryClick(category.id)}
-              className={cn(
-                // Base pill styles
-                'flex-shrink-0 rounded-full px-4 py-2 h-auto',
-                'text-sm font-medium',
-                'transition-all duration-200',
-                // Active/inactive states
-                isSelected
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-              )}
-            >
-              <span className="mr-1.5" aria-hidden="true">
-                {category.emoji}
-              </span>
-              {category.name}
-            </Button>
-          );
-        })}
+            return (
+              <Button
+                key={category.id}
+                role="tab"
+                aria-selected={isSelected}
+                data-category={category.id}
+                variant="ghost"
+                onClick={() => handleCategoryClick(category.id)}
+                className={cn(
+                  // Base pill styles
+                  'h-auto flex-shrink-0 rounded-full px-4 py-2',
+                  'text-sm font-medium',
+                  'transition-all duration-200',
+                  // Active/inactive states
+                  isSelected
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                )}
+              >
+                <span className="mr-1.5" aria-hidden="true">
+                  {category.emoji}
+                </span>
+                {category.name}
+              </Button>
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 CategoryPillsBar.displayName = 'CategoryPillsBar';

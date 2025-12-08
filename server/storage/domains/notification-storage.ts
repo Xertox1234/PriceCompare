@@ -8,7 +8,7 @@
  * Phase 8A: Notification Service Migration (Extended)
  */
 
-import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
+import { eq, and, gte, sql, desc, count, inArray } from 'drizzle-orm';
 import {
   notifications,
   notificationPreferences,
@@ -16,11 +16,11 @@ import {
   type NotificationPreferences,
   type InsertNotification,
   type InsertNotificationPreferences,
-} from "@shared/schema";
-import { BaseStorage } from "../base-storage";
-import { getFirstResult } from "../../utils/db-helpers";
-import { retryWithBackoff, isTransientDatabaseError } from "../../utils/retry-with-backoff";
-import { logger } from "../../utils/logger";
+} from '@shared/schema';
+import { BaseStorage } from '../base-storage';
+import { getFirstResult } from '../../utils/db-helpers';
+import { retryWithBackoff, isTransientDatabaseError } from '../../utils/retry-with-backoff';
+import { logger } from '../../utils/logger';
 
 export class NotificationStorage extends BaseStorage {
   /**
@@ -31,11 +31,7 @@ export class NotificationStorage extends BaseStorage {
    * @param sinceDate - Count notifications created after this date
    * @returns Number of notifications
    */
-  async getNotificationCountByType(
-    userId: number,
-    type: string,
-    sinceDate: Date
-  ): Promise<number> {
+  async getNotificationCountByType(userId: number, type: string, sinceDate: Date): Promise<number> {
     try {
       const result = await this.db
         .select({ count: sql<number>`count(*)` })
@@ -68,8 +64,8 @@ export class NotificationStorage extends BaseStorage {
         where: (users, { eq }) => eq(users.id, userId),
         columns: {
           email: true,
-          username: true
-        }
+          username: true,
+        },
       });
 
       return user || null;
@@ -109,10 +105,7 @@ export class NotificationStorage extends BaseStorage {
         query = query.where(eq(notifications.type, type));
       }
 
-      const result = await query
-        .orderBy(desc(notifications.createdAt))
-        .limit(limit)
-        .offset(offset);
+      const result = await query.orderBy(desc(notifications.createdAt)).limit(limit).offset(offset);
 
       return result;
     } catch (error) {
@@ -154,7 +147,7 @@ export class NotificationStorage extends BaseStorage {
 
       // Build byType object from rows
       const byType: Record<string, number> = {};
-      typeRows.forEach(row => {
+      typeRows.forEach((row) => {
         byType[row.type] = Number(row.count);
       });
 
@@ -173,22 +166,14 @@ export class NotificationStorage extends BaseStorage {
    * Mark notification(s) as read
    * Phase 8A: Migrated from notification-service.ts
    */
-  async markAsRead(
-    userId: number,
-    notificationIds: number | number[]
-  ): Promise<number> {
+  async markAsRead(userId: number, notificationIds: number | number[]): Promise<number> {
     try {
       const ids = Array.isArray(notificationIds) ? notificationIds : [notificationIds];
 
       const result = await this.db
         .update(notifications)
         .set({ isRead: true })
-        .where(
-          and(
-            eq(notifications.userId, userId),
-            inArray(notifications.id, ids)
-          )
-        )
+        .where(and(eq(notifications.userId, userId), inArray(notifications.id, ids)))
         .returning();
 
       return result.length;
@@ -221,10 +206,7 @@ export class NotificationStorage extends BaseStorage {
    * Delete a notification
    * Phase 8A: Migrated from notification-service.ts
    */
-  async deleteNotification(
-    userId: number,
-    notificationId: number
-  ): Promise<boolean> {
+  async deleteNotification(userId: number, notificationId: number): Promise<boolean> {
     try {
       const result = await this.db
         .delete(notifications)
@@ -270,47 +252,61 @@ export class NotificationStorage extends BaseStorage {
     // Without transaction, concurrent notifications could bypass daily limit
     // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
     const created = await retryWithBackoff(
-      async () => this.db.transaction(async (tx) => {
-        // Check daily limit within transaction
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      async () =>
+        this.db.transaction(
+          async (tx) => {
+            // Check daily limit within transaction
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-        const todayCount = await tx
-          .select({ count: count() })
-          .from(notifications)
-          .where(
-            and(
-              eq(notifications.userId, notification.userId),
-              gte(notifications.createdAt, today)
-            )
-          );
+            const todayCount = await tx
+              .select({ count: count() })
+              .from(notifications)
+              .where(
+                and(
+                  eq(notifications.userId, notification.userId),
+                  gte(notifications.createdAt, today)
+                )
+              );
 
-        if (preferences.maxDailyNotifications && todayCount[0].count >= preferences.maxDailyNotifications) {
-          throw new Error('Daily notification limit reached');
-        }
+            if (
+              preferences.maxDailyNotifications &&
+              todayCount[0].count >= preferences.maxDailyNotifications
+            ) {
+              throw new Error('Daily notification limit reached');
+            }
 
-        // Create the notification - must be atomic with limit check
-        const result = await tx.insert(notifications).values(notification).returning();
-        const created = getFirstResult(result);
-        if (!created) {
-          throw new Error('Failed to create notification');
-        }
-        return created;
-      }, {
-        isolationLevel: 'serializable', // Prevent concurrent notification limit bypass
-      }),
+            // Create the notification - must be atomic with limit check
+            const result = await tx.insert(notifications).values(notification).returning();
+            const created = getFirstResult(result);
+            if (!created) {
+              throw new Error('Failed to create notification');
+            }
+            return created;
+          },
+          {
+            isolationLevel: 'serializable', // Prevent concurrent notification limit bypass
+          }
+        ),
       {
         maxAttempts: 3,
         initialDelayMs: 100,
         isRetryable: isTransientDatabaseError,
-        context: { operation: 'createNotification', userId: notification.userId, type: notification.type },
+        context: {
+          operation: 'createNotification',
+          userId: notification.userId,
+          type: notification.type,
+        },
         onRetry: (error, attempt, delayMs) => {
-          logger.warn('[NotificationStorage] Retrying createNotification after serialization error', {
-            error: error instanceof Error ? error.message : String(error),
-            attempt,
-            delayMs,
-            userId: notification.userId,
-          });
+          logger.warn(
+            '[NotificationStorage] Retrying createNotification after serialization error',
+            {
+              error: error instanceof Error ? error.message : String(error),
+              attempt,
+              delayMs,
+              userId: notification.userId,
+            }
+          );
         },
       }
     );
@@ -347,14 +343,12 @@ export class NotificationStorage extends BaseStorage {
    * try to create preferences simultaneously
    * Phase 8A: Migrated from notification-service.ts
    */
-  async createDefaultPreferences(
-    userId: number
-  ): Promise<NotificationPreferences> {
+  async createDefaultPreferences(userId: number): Promise<NotificationPreferences> {
     const defaultPrefs: InsertNotificationPreferences = {
       userId,
       priceDropEnabled: true,
       priceDropThresholdPercent: 10,
-      priceDropThresholdAmount: "5.00",
+      priceDropThresholdAmount: '5.00',
       priceAlertEnabled: true,
       emailEnabled: true,
       inAppEnabled: true,
@@ -402,55 +396,65 @@ export class NotificationStorage extends BaseStorage {
     // Without transaction, concurrent updates could both try to create defaults (constraint violation)
     // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
     return retryWithBackoff(
-      async () => this.db.transaction(async (tx) => {
-        // Check if preferences exist within transaction
-        const existing = await tx
-          .select()
-          .from(notificationPreferences)
-          .where(eq(notificationPreferences.userId, userId))
-          .limit(1);
+      async () =>
+        this.db.transaction(
+          async (tx) => {
+            // Check if preferences exist within transaction
+            const existing = await tx
+              .select()
+              .from(notificationPreferences)
+              .where(eq(notificationPreferences.userId, userId))
+              .limit(1);
 
-        if (existing.length === 0) {
-          // Create with updates - must be atomic with existence check
-          const defaultPrefs: InsertNotificationPreferences = {
-            userId,
-            inAppEnabled: true,
-            emailEnabled: false,
-            priceDropEnabled: true,
-            priceAlertEnabled: true,
-            quietHoursStart: null,
-            quietHoursEnd: null,
-            maxDailyNotifications: 50,
-            ...updates, // Apply user updates
-          };
+            if (existing.length === 0) {
+              // Create with updates - must be atomic with existence check
+              const defaultPrefs: InsertNotificationPreferences = {
+                userId,
+                inAppEnabled: true,
+                emailEnabled: false,
+                priceDropEnabled: true,
+                priceAlertEnabled: true,
+                quietHoursStart: null,
+                quietHoursEnd: null,
+                maxDailyNotifications: 50,
+                ...updates, // Apply user updates
+              };
 
-          const result = await tx.insert(notificationPreferences).values(defaultPrefs).returning();
-          return result[0];
-        }
+              const result = await tx
+                .insert(notificationPreferences)
+                .values(defaultPrefs)
+                .returning();
+              return result[0];
+            }
 
-        // Update existing
-        const result = await tx
-          .update(notificationPreferences)
-          .set(updates)
-          .where(eq(notificationPreferences.userId, userId))
-          .returning();
+            // Update existing
+            const result = await tx
+              .update(notificationPreferences)
+              .set(updates)
+              .where(eq(notificationPreferences.userId, userId))
+              .returning();
 
-        return result[0];
-      }, {
-        isolationLevel: 'serializable', // Prevent concurrent preference creation race
-      }),
+            return result[0];
+          },
+          {
+            isolationLevel: 'serializable', // Prevent concurrent preference creation race
+          }
+        ),
       {
         maxAttempts: 3,
         initialDelayMs: 100,
         isRetryable: isTransientDatabaseError,
         context: { operation: 'updateUserPreferences', userId },
         onRetry: (error, attempt, delayMs) => {
-          logger.warn('[NotificationStorage] Retrying updateUserPreferences after serialization error', {
-            error: error instanceof Error ? error.message : String(error),
-            attempt,
-            delayMs,
-            userId,
-          });
+          logger.warn(
+            '[NotificationStorage] Retrying updateUserPreferences after serialization error',
+            {
+              error: error instanceof Error ? error.message : String(error),
+              attempt,
+              delayMs,
+              userId,
+            }
+          );
         },
       }
     );
@@ -460,10 +464,7 @@ export class NotificationStorage extends BaseStorage {
    * Get recent price drop notifications for a user
    * Phase 8A: Migrated from notification-service.ts
    */
-  async getRecentPriceDrops(
-    userId: number,
-    days = 7
-  ): Promise<Notification[]> {
+  async getRecentPriceDrops(userId: number, days = 7): Promise<Notification[]> {
     try {
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -489,10 +490,7 @@ export class NotificationStorage extends BaseStorage {
    * Get recent price alert notifications for a user
    * Phase 8A: Migrated from notification-service.ts
    */
-  async getRecentPriceAlerts(
-    userId: number,
-    days = 7
-  ): Promise<Notification[]> {
+  async getRecentPriceAlerts(userId: number, days = 7): Promise<Notification[]> {
     try {
       const since = new Date();
       since.setDate(since.getDate() - days);

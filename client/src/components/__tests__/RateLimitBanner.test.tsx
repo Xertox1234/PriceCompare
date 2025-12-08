@@ -271,7 +271,7 @@ describe('RateLimitBanner', () => {
       expect(screen.getByText(/\d+s/)).toBeInTheDocument();
     });
 
-    it('updates countdown based on reset time', async () => {
+    it('updates countdown based on reset time', () => {
       // This test is simplified due to timing complexities with fake timers
       const resetTime = Date.now() + 5 * 60 * 1000; // 5 minutes
 
@@ -440,7 +440,9 @@ describe('RateLimitBanner', () => {
 
       render(<RateLimitBanner />);
 
-      expect(screen.getByText(/create a free account to get more api requests/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/create a free account to get more api requests/i)
+      ).toBeInTheDocument();
     });
 
     it('shows correct description for standard user tier', () => {

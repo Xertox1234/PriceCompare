@@ -7,7 +7,10 @@ import { z } from 'zod';
 
 // Scraping Routes Validation
 export const scrapingInitializeSchema = z.object({
-  sources: z.array(z.enum(['google_trends', 'seasonal', 'manual'])).optional().default(['google_trends', 'seasonal']),
+  sources: z
+    .array(z.enum(['google_trends', 'seasonal', 'manual']))
+    .optional()
+    .default(['google_trends', 'seasonal']),
   categories: z.array(z.string()).optional(),
   limit: z.number().int().positive().max(100).optional().default(20),
 });
@@ -73,7 +76,10 @@ export const productCreateSchema = z.object({
   description: z.string().max(2000).optional(),
   category: z.string().min(1).max(100),
   imageUrl: z.string().url().optional(),
-  upc: z.string().regex(/^\d{12}$/).optional(), // UPC-A format
+  upc: z
+    .string()
+    .regex(/^\d{12}$/)
+    .optional(), // UPC-A format
   sku: z.string().max(100).optional(),
 });
 
@@ -108,21 +114,36 @@ export const retailerUpdateSchema = z.object({
 // Category Management Validation
 export const categoryCreateSchema = z.object({
   name: z.string().min(1).max(100),
-  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/),
+  slug: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/),
   description: z.string().max(500).optional(),
   parentId: z.number().int().positive().nullable().optional(),
   icon: z.string().max(50).optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(), // Hex color
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(), // Hex color
 });
 
 export const categoryUpdateSchema = z.object({
   categoryId: z.number().int().positive(),
   name: z.string().min(1).max(100).optional(),
-  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/).optional(),
+  slug: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
   description: z.string().max(500).optional(),
   active: z.boolean().optional(),
   icon: z.string().max(50).optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
 });
 
 // Query parameter validation
@@ -136,7 +157,10 @@ export const paginationSchema = z.object({
 // SECURITY: Validation schemas for query parameters to prevent injection attacks
 export const trendingProductsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional().default(20),
-  status: z.enum(['discovered', 'approved', 'rejected', 'archived']).optional().default('discovered'),
+  status: z
+    .enum(['discovered', 'approved', 'rejected', 'archived'])
+    .optional()
+    .default('discovered'),
 });
 
 export const productSearchQuerySchema = z.object({

@@ -111,7 +111,7 @@ describe('AdvancedCacheService', () => {
       const testData = { id: 1, name: 'Cached' };
       mockRedis.get.mockResolvedValue(JSON.stringify(testData));
 
-      const fetchFn = vi.fn().mockResolvedValue({ id: 1, name: 'Fresh' });
+      const fetchFn = vi.fn(() => Promise.resolve({ id: 1, name: 'Fresh' }));
 
       const result = await cacheService.getOrSet('test:key', fetchFn, CacheTier.WARM);
 
@@ -123,7 +123,7 @@ describe('AdvancedCacheService', () => {
       mockRedis.get.mockResolvedValue(null);
 
       const freshData = { id: 1, name: 'Fresh' };
-      const fetchFn = vi.fn().mockResolvedValue(freshData);
+      const fetchFn = vi.fn(() => Promise.resolve(freshData));
 
       const result = await cacheService.getOrSet('test:key', fetchFn, CacheTier.WARM);
 
@@ -295,9 +295,7 @@ describe('AdvancedCacheService', () => {
       const result = await cacheService.get('test:key');
       expect(result).toBeNull();
 
-      await expect(
-        cacheService.set('test:key', { id: 1 }, CacheTier.WARM)
-      ).resolves.not.toThrow();
+      await expect(cacheService.set('test:key', { id: 1 }, CacheTier.WARM)).resolves.not.toThrow();
     });
 
     it('should track errors in statistics', async () => {
@@ -366,7 +364,7 @@ describe('AdvancedCacheService', () => {
       expect(mockRedis.del).toHaveBeenCalledWith('product:1:detail', 'product:1:offers');
     });
 
-    it('should track pattern invalidation statistics in getStats', async () => {
+    it('should track pattern invalidation statistics in getStats', () => {
       mockRedis.scan.mockResolvedValue(['0', ['product:1', 'product:2']]);
 
       const stats = cacheService.getStats();

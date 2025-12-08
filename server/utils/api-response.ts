@@ -1,8 +1,8 @@
-import { Response } from "express";
-import { ZodError } from "zod";
-import { logger } from "./logger";
-import { captureException } from "../config/sentry";
-import { isOperationalError, getErrorMessage, getErrorStatus } from "./errors";
+import { Response } from 'express';
+import { ZodError } from 'zod';
+import { logger } from './logger';
+import { captureException } from '../config/sentry';
+import { isOperationalError, getErrorMessage, getErrorStatus } from './errors';
 
 /**
  * API Response Helpers
@@ -171,11 +171,7 @@ export function sendNoContent(res: Response): void {
  */
 export function normalizeResponse<T>(legacyData: unknown): T {
   // If already in standardized format, return as-is
-  if (
-    typeof legacyData === 'object' &&
-    legacyData !== null &&
-    'success' in legacyData
-  ) {
+  if (typeof legacyData === 'object' && legacyData !== null && 'success' in legacyData) {
     return legacyData as T;
   }
 
@@ -194,11 +190,7 @@ export function normalizeResponse<T>(legacyData: unknown): T {
  * @param error - Caught error (unknown type)
  * @param context - Operation context for logging and Sentry tagging
  */
-export function sendErrorFromException(
-  res: Response,
-  error: unknown,
-  context = 'Operation'
-): void {
+export function sendErrorFromException(res: Response, error: unknown, context = 'Operation'): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   let message = `${context} failed`;

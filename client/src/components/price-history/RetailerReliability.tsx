@@ -1,14 +1,9 @@
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Shield, Star, TrendingUp, Package, Info, CheckCircle, AlertCircle } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Progress } from "@/components/ui/progress";
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Shield, Star, TrendingUp, Package, Info, CheckCircle, AlertCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Progress } from '@/components/ui/progress';
 
 interface ReliabilityMetrics {
   priceStability: number;
@@ -45,9 +40,9 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
   if (!data || data.length === 0) {
     return (
       <Card className="p-6">
-        <div className="text-center text-muted-foreground">
+        <div className="text-muted-foreground text-center">
           <p>No retailer reliability data available</p>
-          <p className="text-sm mt-2">Requires price history from multiple retailers</p>
+          <p className="mt-2 text-sm">Requires price history from multiple retailers</p>
         </div>
       </Card>
     );
@@ -106,12 +101,12 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-primary" />
+            <Shield className="text-primary h-5 w-5" />
             <h3 className="text-lg font-semibold">Retailer Reliability</h3>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
-                  <Info className="w-4 h-4 text-muted-foreground" />
+                  <Info className="text-muted-foreground h-4 w-4" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="text-sm">
@@ -132,21 +127,21 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
             return (
               <div
                 key={retailer.retailerId}
-                className={`p-4 rounded-lg border-2 ${colors.bg} ${colors.border}`}
+                className={`rounded-lg border-2 p-4 ${colors.bg} ${colors.border}`}
               >
                 {/* Header */}
-                <div className="flex items-start justify-between mb-3">
+                <div className="mb-3 flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     {index === 0 && retailer.rating === 'excellent' && (
-                      <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                      <Star className="h-5 w-5 fill-yellow-500 text-yellow-500" />
                     )}
                     <div>
-                      <h4 className="font-semibold text-lg">{retailer.retailerName}</h4>
-                      <div className="flex items-center gap-2 mt-1">
+                      <h4 className="text-lg font-semibold">{retailer.retailerName}</h4>
+                      <div className="mt-1 flex items-center gap-2">
                         <span className={`text-3xl font-bold ${colors.text}`}>
                           {retailer.overallScore}
                         </span>
-                        <span className="text-sm text-muted-foreground">/100</span>
+                        <span className="text-muted-foreground text-sm">/100</span>
                       </div>
                     </div>
                   </div>
@@ -156,27 +151,27 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                 </div>
 
                 {/* Metrics Grid */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="mb-3 grid grid-cols-2 gap-3">
                   <MetricItem
-                    icon={<TrendingUp className="w-4 h-4" />}
+                    icon={<TrendingUp className="h-4 w-4" />}
                     label="Price Stability"
                     value={retailer.metrics.priceStability}
                     color={colors.progress}
                   />
                   <MetricItem
-                    icon={<Package className="w-4 h-4" />}
+                    icon={<Package className="h-4 w-4" />}
                     label="Availability"
                     value={retailer.metrics.availability}
                     color={colors.progress}
                   />
                   <MetricItem
-                    icon={<Star className="w-4 h-4" />}
+                    icon={<Star className="h-4 w-4" />}
                     label="Competitiveness"
                     value={retailer.metrics.competitiveness}
                     color={colors.progress}
                   />
                   <MetricItem
-                    icon={<Shield className="w-4 h-4" />}
+                    icon={<Shield className="h-4 w-4" />}
                     label="Consistency"
                     value={retailer.metrics.consistency}
                     color={colors.progress}
@@ -185,12 +180,12 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
 
                 {/* Strengths and Weaknesses */}
                 {(retailer.strengths.length > 0 || retailer.weaknesses.length > 0) && (
-                  <div className="space-y-2 mb-3">
+                  <div className="mb-3 space-y-2">
                     {retailer.strengths.length > 0 && (
                       <div className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
                         <div className="flex-1">
-                          <div className="text-xs font-medium text-muted-foreground mb-1">
+                          <div className="text-muted-foreground mb-1 text-xs font-medium">
                             Strengths
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -198,7 +193,7 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                               <Badge
                                 key={i}
                                 variant="outline"
-                                className="text-xs bg-green-50 text-green-700 border-green-200"
+                                className="border-green-200 bg-green-50 text-xs text-green-700"
                               >
                                 {strength}
                               </Badge>
@@ -210,9 +205,9 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
 
                     {retailer.weaknesses.length > 0 && (
                       <div className="flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-orange-600" />
                         <div className="flex-1">
-                          <div className="text-xs font-medium text-muted-foreground mb-1">
+                          <div className="text-muted-foreground mb-1 text-xs font-medium">
                             Weaknesses
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -220,7 +215,7 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                               <Badge
                                 key={i}
                                 variant="outline"
-                                className="text-xs bg-orange-50 text-orange-700 border-orange-200"
+                                className="border-orange-200 bg-orange-50 text-xs text-orange-700"
                               >
                                 {weakness}
                               </Badge>
@@ -233,10 +228,8 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                 )}
 
                 {/* Recommendation */}
-                <div className="pt-3 border-t border-border">
-                  <p className="text-sm text-muted-foreground">
-                    {retailer.recommendation}
-                  </p>
+                <div className="border-border border-t pt-3">
+                  <p className="text-muted-foreground text-sm">{retailer.recommendation}</p>
                 </div>
               </div>
             );
@@ -244,8 +237,8 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
         </div>
 
         {/* Legend */}
-        <div className="pt-3 border-t">
-          <p className="text-xs text-muted-foreground">
+        <div className="border-t pt-3">
+          <p className="text-muted-foreground text-xs">
             Scores are calculated based on historical price and availability data. Higher scores
             indicate more reliable retailers.
           </p>
@@ -269,7 +262,7 @@ function MetricItem({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
           {icon}
           <span>{label}</span>
         </div>

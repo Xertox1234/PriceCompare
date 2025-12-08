@@ -46,7 +46,7 @@ class AlertService {
       },
       message: (metrics) =>
         `⚠️ High error rate detected: ${Math.round((metrics.jobs.failed / metrics.jobs.total) * 100)}% (${metrics.jobs.failed}/${metrics.jobs.total} jobs failed)`,
-      cooldown: 300000 // 5 minutes
+      cooldown: 300000, // 5 minutes
     },
     {
       id: 'queue_backlog',
@@ -54,7 +54,7 @@ class AlertService {
       level: 'warning',
       condition: (metrics) => metrics.jobs.pending > 100,
       message: (metrics) => `📊 Job queue backlog: ${metrics.jobs.pending} pending jobs`,
-      cooldown: 600000 // 10 minutes
+      cooldown: 600000, // 10 minutes
     },
     {
       id: 'agent_down',
@@ -62,7 +62,7 @@ class AlertService {
       level: 'critical',
       condition: (metrics) => metrics.agents.active === 0 && metrics.agents.total > 0,
       message: () => `🔴 No active agents detected`,
-      cooldown: 60000 // 1 minute
+      cooldown: 60000, // 1 minute
     },
     {
       id: 'redis_down',
@@ -70,16 +70,15 @@ class AlertService {
       level: 'critical',
       condition: (metrics) => !metrics.health.services.redis,
       message: () => `❌ Redis connection lost`,
-      cooldown: 300000 // 5 minutes
+      cooldown: 300000, // 5 minutes
     },
     {
       id: 'low_success_rate',
       name: 'Low Success Rate',
       level: 'warning',
       condition: (metrics) => metrics.jobs.successRate < 0.8 && metrics.jobs.total > 10,
-      message: (metrics) =>
-        `📉 Low success rate: ${Math.round(metrics.jobs.successRate * 100)}%`,
-      cooldown: 300000 // 5 minutes
+      message: (metrics) => `📉 Low success rate: ${Math.round(metrics.jobs.successRate * 100)}%`,
+      cooldown: 300000, // 5 minutes
     },
     {
       id: 'cache_low_hit_rate',
@@ -91,8 +90,8 @@ class AlertService {
       },
       message: (metrics) =>
         `💾 Low cache hit rate: ${Math.round(metrics.cache.overall.combinedHitRate * 100)}%`,
-      cooldown: 600000 // 10 minutes
-    }
+      cooldown: 600000, // 10 minutes
+    },
   ];
 
   /**
@@ -107,7 +106,7 @@ class AlertService {
       } catch (error: unknown) {
         logger.error(`Alert rule check failed: ${rule.name}`, {
           error: error instanceof Error ? error.message : String(error),
-          ruleId: rule.id
+          ruleId: rule.id,
         });
       }
     }
@@ -124,7 +123,7 @@ class AlertService {
     if (now - lastAlertTime < rule.cooldown) {
       logger.debug(`Alert in cooldown: ${rule.name}`, {
         ruleId: rule.id,
-        cooldownRemaining: rule.cooldown - (now - lastAlertTime)
+        cooldownRemaining: rule.cooldown - (now - lastAlertTime),
       });
       return;
     }
@@ -136,9 +135,9 @@ class AlertService {
       message: rule.message(metrics),
       context: {
         ruleId: rule.id,
-        metrics
+        metrics,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // Store alert
@@ -154,7 +153,7 @@ class AlertService {
     logger.warn(`Alert triggered: ${rule.name}`, {
       level: rule.level,
       message: alert.message,
-      ruleId: rule.id
+      ruleId: rule.id,
     });
 
     // Send to Slack
@@ -167,7 +166,7 @@ class AlertService {
       severity: alert.level,
       message: alert.message,
       data: alert.context,
-      timestamp: alert.timestamp
+      timestamp: alert.timestamp,
     });
   }
 
@@ -196,26 +195,26 @@ class AlertService {
               {
                 title: 'Severity',
                 value: alert.level.toUpperCase(),
-                short: true
+                short: true,
               },
               {
                 title: 'Timestamp',
                 value: new Date(alert.timestamp).toLocaleString(),
-                short: true
-              }
+                short: true,
+              },
             ],
             footer: 'PriceCompare AI Agent Monitoring',
-            ts: Math.floor(new Date(alert.timestamp).getTime() / 1000)
-          }
-        ]
+            ts: Math.floor(new Date(alert.timestamp).getTime() / 1000),
+          },
+        ],
       };
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -224,12 +223,12 @@ class AlertService {
 
       logger.info('Slack alert sent successfully', {
         alertId: alert.id,
-        level: alert.level
+        level: alert.level,
       });
     } catch (error: unknown) {
       logger.error('Failed to send Slack alert', {
         error: error instanceof Error ? error.message : String(error),
-        alertId: alert.id
+        alertId: alert.id,
       });
     }
   }
@@ -249,7 +248,7 @@ class AlertService {
       title,
       message,
       context,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // Store alert
@@ -261,7 +260,7 @@ class AlertService {
     // Log alert
     logger.info(`Custom alert: ${title}`, {
       level,
-      message
+      message,
     });
 
     // Send to Slack
@@ -274,7 +273,7 @@ class AlertService {
       severity: alert.level,
       message: alert.message,
       data: alert.context,
-      timestamp: alert.timestamp
+      timestamp: alert.timestamp,
     });
   }
 

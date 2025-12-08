@@ -27,14 +27,19 @@ const createSpecificationSchema = z.object({
 
 const createSpecificationsBatchSchema = z.object({
   productId: z.number().int().positive(),
-  specs: z.array(z.object({
-    specGroup: z.string().max(100).optional(),
-    specName: z.string().min(1).max(100),
-    specValue: z.string().min(1),
-    specUnit: z.string().max(50).optional(),
-    sortOrder: z.number().int().optional(),
-    isHighlight: z.boolean().optional(),
-  })).min(1).max(100),
+  specs: z
+    .array(
+      z.object({
+        specGroup: z.string().max(100).optional(),
+        specName: z.string().min(1).max(100),
+        specValue: z.string().min(1),
+        specUnit: z.string().max(50).optional(),
+        sortOrder: z.number().int().optional(),
+        isHighlight: z.boolean().optional(),
+      })
+    )
+    .min(1)
+    .max(100),
   source: z.enum(['scraper', 'manual', 'api']).optional(),
 });
 
@@ -91,109 +96,129 @@ export function registerSpecificationRoutes(app: Express): void {
   });
 
   // POST /api/admin/specifications - Create a single specification (Admin only)
-  app.post('/api/admin/specifications', csrfProtection, withAdmin(async (req, res) => {
-    try {
-      const data = createSpecificationSchema.parse(req.body);
+  app.post(
+    '/api/admin/specifications',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        const data = createSpecificationSchema.parse(req.body);
 
-      const spec = await storage.createProductSpecification({
-        productId: data.productId,
-        specGroup: data.specGroup ?? null,
-        specName: data.specName,
-        specValue: data.specValue,
-        specUnit: data.specUnit ?? null,
-        sortOrder: data.sortOrder ?? 0,
-        isHighlight: data.isHighlight ?? false,
-        source: data.source ?? 'manual',
-      });
+        const spec = await storage.createProductSpecification({
+          productId: data.productId,
+          specGroup: data.specGroup ?? null,
+          specName: data.specName,
+          specValue: data.specValue,
+          specUnit: data.specUnit ?? null,
+          sortOrder: data.sortOrder ?? 0,
+          isHighlight: data.isHighlight ?? false,
+          source: data.source ?? 'manual',
+        });
 
-      logger.info('Product specification created', {
-        specId: spec.id,
-        productId: data.productId,
-        specName: data.specName,
-      });
+        logger.info('Product specification created', {
+          specId: spec.id,
+          productId: data.productId,
+          specName: data.specName,
+        });
 
-      sendSuccess(res, spec, 201);
-    } catch (error) {
-      sendErrorFromException(res, error, 'CreateSpecification');
-    }
-  }));
+        sendSuccess(res, spec, 201);
+      } catch (error) {
+        sendErrorFromException(res, error, 'CreateSpecification');
+      }
+    })
+  );
 
   // POST /api/admin/specifications/batch - Create multiple specifications (Admin only)
-  app.post('/api/admin/specifications/batch', csrfProtection, withAdmin(async (req, res) => {
-    try {
-      const data = createSpecificationsBatchSchema.parse(req.body);
+  app.post(
+    '/api/admin/specifications/batch',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        const data = createSpecificationsBatchSchema.parse(req.body);
 
-      const specs = await storage.createProductSpecificationsBatch(
-        data.specs.map((spec, index) => ({
+        const specs = await storage.createProductSpecificationsBatch(
+          data.specs.map((spec, index) => ({
+            productId: data.productId,
+            specGroup: spec.specGroup ?? null,
+            specName: spec.specName,
+            specValue: spec.specValue,
+            specUnit: spec.specUnit ?? null,
+            sortOrder: spec.sortOrder ?? index,
+            isHighlight: spec.isHighlight ?? false,
+            source: data.source ?? 'manual',
+          }))
+        );
+
+        logger.info('Product specifications batch created', {
           productId: data.productId,
-          specGroup: spec.specGroup ?? null,
-          specName: spec.specName,
-          specValue: spec.specValue,
-          specUnit: spec.specUnit ?? null,
-          sortOrder: spec.sortOrder ?? index,
-          isHighlight: spec.isHighlight ?? false,
-          source: data.source ?? 'manual',
-        }))
-      );
+          count: specs.length,
+        });
 
-      logger.info('Product specifications batch created', {
-        productId: data.productId,
-        count: specs.length,
-      });
-
-      sendSuccess(res, { specs, count: specs.length }, 201);
-    } catch (error) {
-      sendErrorFromException(res, error, 'CreateSpecificationsBatch');
-    }
-  }));
+        sendSuccess(res, { specs, count: specs.length }, 201);
+      } catch (error) {
+        sendErrorFromException(res, error, 'CreateSpecificationsBatch');
+      }
+    })
+  );
 
   // PATCH /api/admin/specifications/:id - Update specification (Admin only)
-  app.patch('/api/admin/specifications/:id', csrfProtection, withAdmin(async (req, res) => {
-    try {
-      const specId = parseIntSafe(req.params.id, 'specId', { min: 1 });
-      const updates = updateSpecificationSchema.parse(req.body);
+  app.patch(
+    '/api/admin/specifications/:id',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        const specId = parseIntSafe(req.params.id, 'specId', { min: 1 });
+        const updates = updateSpecificationSchema.parse(req.body);
 
-      const spec = await storage.updateProductSpecification(specId, updates);
-      if (!spec) {
-        sendError(res, 'Specification not found', 404);
-        return;
+        const spec = await storage.updateProductSpecification(specId, updates);
+        if (!spec) {
+          sendError(res, 'Specification not found', 404);
+          return;
+        }
+
+        sendSuccess(res, spec);
+      } catch (error) {
+        sendErrorFromException(res, error, 'UpdateSpecification');
       }
-
-      sendSuccess(res, spec);
-    } catch (error) {
-      sendErrorFromException(res, error, 'UpdateSpecification');
-    }
-  }));
+    })
+  );
 
   // DELETE /api/admin/specifications/:id - Delete single specification (Admin only)
-  app.delete('/api/admin/specifications/:id', csrfProtection, withAdmin(async (req, res) => {
-    try {
-      const specId = parseIntSafe(req.params.id, 'specId', { min: 1 });
+  app.delete(
+    '/api/admin/specifications/:id',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        const specId = parseIntSafe(req.params.id, 'specId', { min: 1 });
 
-      const deleted = await storage.deleteProductSpecification(specId);
-      if (!deleted) {
-        sendError(res, 'Specification not found', 404);
-        return;
+        const deleted = await storage.deleteProductSpecification(specId);
+        if (!deleted) {
+          sendError(res, 'Specification not found', 404);
+          return;
+        }
+
+        logger.info('Product specification deleted', { specId });
+        sendSuccess(res, { deletedCount: 1 });
+      } catch (error) {
+        sendErrorFromException(res, error, 'DeleteSpecification');
       }
-
-      logger.info('Product specification deleted', { specId });
-      sendSuccess(res, { deletedCount: 1 });
-    } catch (error) {
-      sendErrorFromException(res, error, 'DeleteSpecification');
-    }
-  }));
+    })
+  );
 
   // DELETE /api/admin/products/:productId/specifications - Delete all specs for product (Admin only)
-  app.delete('/api/admin/products/:productId/specifications', csrfProtection, withAdmin(async (req, res) => {
-    try {
-      const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
+  app.delete(
+    '/api/admin/products/:productId/specifications',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
-      const count = await storage.deleteProductSpecifications(productId);
+        const count = await storage.deleteProductSpecifications(productId);
 
-      logger.info('Product specifications cleared', { productId, count });
-      sendSuccess(res, { deletedCount: count });
-    } catch (error) {
-      sendErrorFromException(res, error, 'DeleteProductSpecifications');
-    }
-  }));
+        logger.info('Product specifications cleared', { productId, count });
+        sendSuccess(res, { deletedCount: count });
+      } catch (error) {
+        sendErrorFromException(res, error, 'DeleteProductSpecifications');
+      }
+    })
+  );
 }
