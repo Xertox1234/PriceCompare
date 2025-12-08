@@ -71,6 +71,7 @@ import { emailService } from '../../services/email-service';
 import { resetFailedAttempts } from '../../utils/account-lockout-simple';
 import { eq, sql } from 'drizzle-orm';
 import * as _crypto from 'crypto';
+import { cleanupTestData } from '../../__tests__/helpers/test-fixtures';
 import {
   expectSuccessResponse,
   expectErrorResponse,
@@ -135,12 +136,8 @@ describe('Authentication Routes', () => {
     // Register auth routes
     registerAuthRoutes(app);
 
-    // Clean database (delete in correct order due to foreign keys)
-    // Note: Most tables have CASCADE delete, but we delete explicitly for safety
-    await db.delete(passwordResetTokens);
-    // Delete users last since many tables reference it (but most have CASCADE)
-    // Use raw SQL for safety to avoid foreign key constraints
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Clean database using TRUNCATE CASCADE for fast, complete cleanup
+    await cleanupTestData(db, ['password_reset_tokens', 'users']);
 
     // Reset mocks
     vi.clearAllMocks();
@@ -150,9 +147,8 @@ describe('Authentication Routes', () => {
   });
 
   afterEach(async () => {
-    // Cleanup database
-    await db.delete(passwordResetTokens);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Fast cleanup using TRUNCATE CASCADE
+    await cleanupTestData(db, ['password_reset_tokens', 'users']);
   });
 
   describe('POST /api/auth/register - User Registration', () => {

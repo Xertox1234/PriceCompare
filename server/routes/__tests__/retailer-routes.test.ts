@@ -6,8 +6,8 @@ import { db } from '../../db';
 import { retailers } from '@shared/schema';
 import { passport } from '../../auth';
 import { registerRetailerRoutes } from '../retailer-routes';
-import { sql } from 'drizzle-orm';
 import { expectSuccessResponse } from '../../__tests__/helpers/response-validators';
+import { cleanupTestData } from '../../__tests__/helpers/test-fixtures';
 
 /**
  * Retailer Routes Integration Test Suite
@@ -61,9 +61,8 @@ describe('Retailer Routes - Integration Tests', () => {
     // Register retailer routes
     registerRetailerRoutes(app);
 
-    // Clean database
-    await db.delete(retailers);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Clean database using TRUNCATE CASCADE for fast, complete cleanup
+    await cleanupTestData(db, ['retailers', 'users']);
 
     // Create test retailers
     const [retailer1] = await db
@@ -106,8 +105,8 @@ describe('Retailer Routes - Integration Tests', () => {
   });
 
   afterEach(async () => {
-    await db.delete(retailers);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Fast cleanup using TRUNCATE CASCADE
+    await cleanupTestData(db, ['retailers', 'users']);
   });
 
   describe('GET /api/retailers - List All Retailers', () => {

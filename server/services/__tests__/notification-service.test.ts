@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../../db';
-import { users, notifications, notificationPreferences } from '@shared/schema';
-import { sql } from 'drizzle-orm';
+import { users, notifications } from '@shared/schema';
+import { cleanupTestData } from '../../__tests__/helpers/test-fixtures';
 import {
   getUserNotifications,
   getNotificationStats,
@@ -39,10 +39,8 @@ describe.sequential('Notification Service', () => {
     process.env.NODE_ENV = 'test';
     process.env.ENCRYPTION_KEY = 'a'.repeat(64);
 
-    // Clean database
-    await db.delete(notifications);
-    await db.delete(notificationPreferences);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Clean database using TRUNCATE CASCADE for fast, complete cleanup
+    await cleanupTestData(db, ['notifications', 'notification_preferences', 'users']);
 
     // Create test user with unique identifier to avoid conflicts when tests run in parallel
     const [user] = await db
@@ -59,10 +57,8 @@ describe.sequential('Notification Service', () => {
   });
 
   afterEach(async () => {
-    // Cleanup
-    await db.delete(notifications);
-    await db.delete(notificationPreferences);
-    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
+    // Fast cleanup using TRUNCATE CASCADE
+    await cleanupTestData(db, ['notifications', 'notification_preferences', 'users']);
   });
 
   describe('Create Notification', () => {
