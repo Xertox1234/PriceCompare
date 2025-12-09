@@ -114,9 +114,9 @@ describe('Storage Layer Validation Helpers', () => {
       });
 
       it('should accept valid positive integers', async () => {
-        // This will return undefined if product doesn't exist, but validation should pass
+        // This will return null if product doesn't exist, but validation should pass
         const result = await storage.getProductById(99999);
-        expect(result).toBeUndefined();
+        expect(result).toBeNull();
       });
     });
 

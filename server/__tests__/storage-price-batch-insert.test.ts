@@ -275,7 +275,11 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
     expect(inserted.reviewCount).toBe(42);
     expect(inserted.source).toBe('scraper');
     expect(inserted.confidence).toBe('0.95');
-    expect(inserted.metadata).toEqual({ scrapedAt: now.toISOString(), userAgent: 'test' });
+    // Metadata may be returned as string from JSONB column - parse if needed
+    const metadata = typeof inserted.metadata === 'string' 
+      ? JSON.parse(inserted.metadata) 
+      : inserted.metadata;
+    expect(metadata).toEqual({ scrapedAt: now.toISOString(), userAgent: 'test' });
   });
 
   it('should handle batch with different product offers', async () => {

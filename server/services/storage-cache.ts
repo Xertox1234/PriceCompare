@@ -377,6 +377,19 @@ export class StorageCacheService {
   }
 
   /**
+   * Get all ACTIVE retailers with caching.
+   *
+   * Returns only active retailers for public-facing endpoints.
+   * Uses same caching strategy as getAllRetailers but filters inactive.
+   */
+  async getRetailers(): Promise<Retailer[]> {
+    // Use a dedicated cache key for active-only retailers
+    const cacheKey = `retailer:active:v1`;
+
+    return this.cachedGet<Retailer[]>(cacheKey, () => storage.getRetailers(), CacheTier.STATIC);
+  }
+
+  /**
    * Get retailer by ID with caching.
    *
    * Individual retailer lookups are cached with a 60-minute TTL since retailer

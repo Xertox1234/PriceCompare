@@ -52,7 +52,7 @@ export function getErrorStatus(error: unknown): number {
   if (msg.includes('not found')) return 404;
   if (msg.includes('unauthorized') || msg.includes('authentication required')) return 401;
   if (msg.includes('forbidden') || msg.includes('admin access required')) return 403;
-  if (msg.includes('already exists') || msg.includes('conflict')) return 409;
+  if (msg.includes('already exists') || msg.includes('conflict') || msg.includes('unique constraint')) return 409;
   if (msg.includes('invalid') || msg.includes('must be') || msg.includes('is required')) return 400;
 
   return 500;

@@ -33,9 +33,16 @@ import { eventBus, AppEvents } from '../../utils/event-bus';
 // Mock dependencies
 vi.mock('../../config/redis', () => ({
   getRedisClient: vi.fn(() => null), // Use in-memory for tests
+  redisClient: null,
 }));
 
 vi.mock('../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     debug: vi.fn(),

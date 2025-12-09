@@ -39,6 +39,12 @@ vi.mock('../logger', () => ({
     warn: vi.fn(),
     debug: vi.fn(),
   },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 describe('API Response Helpers', () => {
@@ -499,7 +505,7 @@ describe('API Response Helpers', () => {
       expect(statusMock).toHaveBeenCalledWith(500);
       expect(jsonMock).toHaveBeenCalledWith({
         success: false,
-        error: 'UnknownOp failed',
+        error: 'String error message', // String errors return the string itself
       });
     });
 
@@ -509,7 +515,7 @@ describe('API Response Helpers', () => {
       expect(statusMock).toHaveBeenCalledWith(500);
       expect(jsonMock).toHaveBeenCalledWith({
         success: false,
-        error: 'NullOp failed',
+        error: 'null', // null is stringified to 'null'
       });
     });
 

@@ -25,9 +25,10 @@ export function registerRetailerRoutes(app: Express): void {
       // Cache bypass support for admin users (debugging and verification)
       // Note: shouldSkipCache() already validates authentication internally
       const skipCache = shouldSkipCache(req as AuthenticatedRequest);
+      // Use getRetailers() to return only active retailers for public API
       const retailers = skipCache
-        ? await storage.getAllRetailers()
-        : await storageCache.getAllRetailers();
+        ? await storage.getRetailers()
+        : await storageCache.getRetailers();
 
       sendSuccess(res, retailers);
     } catch (error: unknown) {

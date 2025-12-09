@@ -17,6 +17,7 @@ import { createRateLimiter } from '../redis-rate-limiter';
 // Mock Redis client to avoid actual Redis dependency
 vi.mock('../../config/redis', () => ({
   getRedisClient: vi.fn(() => null), // Return null to use in-memory fallback
+  redisClient: null,
   isRedisConnected: vi.fn(() => false),
   REDIS_KEYS: {
     RATE_LIMIT: (key: string) => `ratelimit:${key}`,

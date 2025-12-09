@@ -18,9 +18,16 @@ import { getSocketIO, shutdownWebSocket } from '../index';
 // Mock dependencies
 vi.mock('../../config/redis', () => ({
   getRedisClient: vi.fn(() => null),
+  redisClient: null,
 }));
 
 vi.mock('../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     debug: vi.fn(),

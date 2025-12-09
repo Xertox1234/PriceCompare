@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { getRequiredEnv } from '../config/env-validation';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
-import { sanitizeObject, SanitizationContext } from '../utils/sanitization';
+import { sanitizeObject, sanitizeString, SanitizationContext } from '../utils/sanitization';
 import { cleanupManager } from '../utils/cleanup-manager';
 import { sendError } from '../utils/api-response';
 import { ErrorCodes } from '../utils/error-codes';
@@ -359,23 +359,33 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   }
 
   // Sanitize query params (used for search, filters, etc.)
-  // Note: In Express 5, req.query is read-only, so we sanitize values in place
+  // NOTE: Express's req.query is a getter-only property that cannot be reassigned.
+  // We must use Object.defineProperty to override the getter.
   if (req.query && typeof req.query === 'object') {
+    const sanitizedQuery: Record<string, unknown> = {};
     for (const key of Object.keys(req.query)) {
       const value = req.query[key];
       if (typeof value === 'string') {
-        // Sanitize string values directly on the query object
-        (req.query as Record<string, unknown>)[key] = sanitizeObject(
-          { v: value },
-          SanitizationContext.PLAIN_TEXT
-        ).v;
+        sanitizedQuery[key] = sanitizeString(value, SanitizationContext.PLAIN_TEXT);
       } else if (Array.isArray(value)) {
-        // Sanitize array values
-        (req.query as Record<string, unknown>)[key] = value.map((v) =>
-          typeof v === 'string' ? sanitizeObject({ v }, SanitizationContext.PLAIN_TEXT).v : v
+        sanitizedQuery[key] = value.map((v) =>
+          typeof v === 'string' ? sanitizeString(v, SanitizationContext.PLAIN_TEXT) : v
         );
+      } else if (typeof value === 'object' && value !== null) {
+        sanitizedQuery[key] = sanitizeObject(
+          value as Record<string, unknown>,
+          SanitizationContext.PLAIN_TEXT
+        );
+      } else {
+        sanitizedQuery[key] = value;
       }
     }
+    // Override the query getter with sanitized values
+    Object.defineProperty(req, 'query', {
+      value: sanitizedQuery,
+      writable: true,
+      configurable: true,
+    });
   }
 
   next();

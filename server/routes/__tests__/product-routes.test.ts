@@ -1,4 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// Mock Redis client FIRST to prevent storage-cache initialization errors
+vi.mock('../../config/redis', () => ({
+  redisClient: null,
+  getRedisClient: vi.fn(() => null),
+}));
+
 import request from 'supertest';
 import express, { type Express } from 'express';
 import session from 'express-session';
@@ -59,13 +66,8 @@ vi.mock('../../middleware/security', () => ({
   csrfProtection: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
-// Mock storage cache to avoid requiring Redis
-vi.mock('../../services/storage-cache', async () => {
-  const actual = await vi.importActual<typeof import('../../storage')>('../../storage');
-  return {
-    storageCache: actual.storage,
-  };
-});
+// Skip storage-cache mock - let it use real implementation
+// The redis mock above will make it fall back to in-memory cache
 
 describe('Product Routes - Integration Tests', () => {
   let app: Express;

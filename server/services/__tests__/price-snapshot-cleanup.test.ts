@@ -24,7 +24,15 @@ vi.mock('../../utils/logger', () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
   },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 describe('PriceSnapshotService - cleanupOldData', () => {

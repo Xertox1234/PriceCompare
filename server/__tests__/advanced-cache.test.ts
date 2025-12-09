@@ -384,12 +384,13 @@ describe('AdvancedCacheService', () => {
       // Perform pattern invalidation
       const deletedCount = await cacheService.invalidatePattern('test:*');
 
-      // Verify count returned and stats updated
+      // Verify count returned
       expect(deletedCount).toBe(2);
+
+      // Verify stats updated - pattern invalidations track separately
       const stats = cacheService.getStats();
-      // invalidatePattern adds to overall.invalidations, not patternInvalidation
-      // (patternInvalidation is only updated via pub/sub handler on remote instances)
-      expect(stats.overall.invalidations).toBe(2);
+      expect(stats.patternInvalidation.operations).toBe(1);
+      expect(stats.patternInvalidation.keysDeleted).toBe(2);
     });
   });
 

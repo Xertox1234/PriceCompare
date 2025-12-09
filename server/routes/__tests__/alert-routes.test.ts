@@ -45,6 +45,7 @@ vi.mock('../../config/redis', () => ({
       quit: vi.fn(),
     })),
   },
+  getRedisClient: vi.fn(() => null),
 }));
 
 // Mock dependencies
