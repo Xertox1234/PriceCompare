@@ -1,13 +1,16 @@
 ---
 Pattern: Error Handling Patterns & Anti-Patterns
-Version: 2.0
-Last Updated: 2025-11-29
+Version: 2.1
+Last Updated: 2025-12-09
 Maintainer: Claude Code / Development Team
 Status: Active
 Migrated From:
   - docs/ERROR_HANDLING_PATTERNS.md (v1.0)
   - docs/PHASE0_WATCHLIST_PATTERNS.md (PostgreSQL error code classification)
 Related Patterns: [API_PATTERNS.md, SECURITY_PATTERNS.md, TYPESCRIPT_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, DATABASE_PATTERNS.md]
+Changelog:
+  - 2.1 (2025-12-09): Added "unique", "constraint", "duplicate" keywords to 409 status code inference
+  - 2.0 (2025-11-29): Initial consolidated error handling patterns
 ---
 
 # Error Handling Patterns & Anti-Patterns
@@ -241,7 +244,7 @@ The `sendErrorFromException()` helper automatically infers HTTP status codes fro
 | "not found" | 404 | Resource not found |
 | "unauthorized", "authentication required" | 401 | Authentication required |
 | "forbidden", "admin access required" | 403 | Permission denied |
-| "already exists", "conflict" | 409 | Duplicate resource |
+| "already exists", "conflict", "unique", "constraint", "duplicate" | 409 | Duplicate resource / constraint violation |
 | "invalid", "must be", "is required" | 400 | Validation error |
 | (default) | 500 | Internal server error |
 
@@ -250,6 +253,8 @@ The `sendErrorFromException()` helper automatically infers HTTP status codes fro
 throw new Error('Product not found');  // → 404
 throw new Error('Email is required');  // → 400
 throw new Error('User already exists'); // → 409
+throw new Error('Unique constraint violation'); // → 409
+throw new Error('Duplicate key value'); // → 409
 ```
 
 ### Custom Error Classes

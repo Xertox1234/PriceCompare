@@ -1,7 +1,7 @@
 # Testing Patterns
 
-**Version:** 1.2
-**Last Updated:** 2025-12-06
+**Version:** 1.3
+**Last Updated:** 2025-12-09
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
@@ -26,7 +26,9 @@
 4. [Test Infrastructure](#test-infrastructure)
    - [Required Mocks for Route Tests](#required-mocks-for-route-tests)
    - [Redis Mock Pattern](#redis-mock-pattern)
-4. [Date and Time Testing](#date-and-time-testing)
+   - [Logger Mock Pattern (NEW)](#logger-mock-pattern-new)
+   - [CSRF Middleware Testing (NEW)](#csrf-middleware-testing-new)
+5. [Date and Time Testing](#date-and-time-testing)
    - [Timezone-Safe Date Assertions](#timezone-safe-date-assertions)
    - [Date Formatting in Tests](#date-formatting-in-tests)
 5. [Component Testing Patterns](#component-testing-patterns)
@@ -449,6 +451,170 @@ vi.mock('../../config/redis', () => ({
 
 **Why this matters:** The `storage-cache.ts` and `advanced-cache.ts` modules require Redis at import time. Without this mock, tests fail during module initialization.
 
+### Complete Redis Mock with All Exports (NEW - 2025-12-09)
+
+**Source**: Test audit session - Many WebSocket and service tests failed due to incomplete Redis mocks.
+
+Some modules import Redis differently. When mocking Redis, ensure you export **both** `redisClient` (direct export) and `getRedisClient` (function export):
+
+#### ❌ WRONG - Missing `redisClient` Export
+```typescript
+// Test fails with "Cannot read properties of null (reading 'get')"
+vi.mock('../../config/redis', () => ({
+  getRedisClient: vi.fn(() => ({
+    get: vi.fn(),
+    setex: vi.fn(),
+  })),
+  // Missing redisClient export!
+}));
+```
+
+#### ✅ CORRECT - Export Both Patterns
+```typescript
+vi.mock('../../config/redis', () => ({
+  // Some modules use: import { redisClient } from '../config/redis'
+  redisClient: null, // Or mock object if methods are called directly
+
+  // Some modules use: import { getRedisClient } from '../config/redis'
+  getRedisClient: vi.fn(() => ({
+    get: vi.fn(),
+    setex: vi.fn(),
+    del: vi.fn(),
+    keys: vi.fn(),
+    publish: vi.fn(),
+    subscribe: vi.fn(),
+  })),
+}));
+```
+
+**Affected test files that need both exports:**
+- WebSocket tests (`server/websocket/__tests__/*.test.ts`)
+- Rate limiter tests (`server/middleware/__tests__/redis-rate-limiter.*.test.ts`)
+- Any test using `advanced-cache.ts` or `storage-cache.ts`
+
+---
+
+### Logger Mock Pattern (NEW)
+
+**Source**: Test audit session - Service tests failed due to incomplete logger mocks.
+
+Services use the logger from `server/utils/logger.ts`. Mocks must include **all** log methods and the `createLogger` factory function.
+
+#### ❌ WRONG - Incomplete Logger Mock
+```typescript
+// Test fails with "createLogger is not a function" or "logger.debug is not a function"
+vi.mock('../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+  },
+  // Missing createLogger!
+  // Missing debug, warn methods!
+}));
+```
+
+#### ✅ CORRECT - Complete Logger Mock
+```typescript
+vi.mock('../../utils/logger', () => ({
+  // Direct logger export with ALL methods
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+  // Factory function that returns same structure
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  })),
+}));
+```
+
+**When to use this mock:**
+- Testing services that log operations (price snapshots, notifications, etc.)
+- Testing error handling paths that call `logger.error()`
+- Any test file in `server/services/__tests__/`
+
+**Affected tests that need complete logger mock:**
+- `smart-notification-service.test.ts`
+- `price-snapshot-cleanup.test.ts`
+- `price-history-optimized.test.ts`
+- Any service using `createLogger()` for namespaced logging
+
+---
+
+### CSRF Middleware Testing (NEW)
+
+**Source**: Test audit session - Auth tests expected 401 but received 403.
+
+**Critical insight:** CSRF middleware runs **before** authentication middleware in the middleware pipeline. When CSRF validation fails, it returns **403 Forbidden**, not 401 Unauthorized.
+
+#### Understanding Middleware Order
+
+```typescript
+// In server routes, CSRF runs first:
+app.post('/api/endpoint',
+  csrfProtection,  // 1. Validates CSRF token first (returns 403 if missing)
+  withAuth(async (req, res) => {  // 2. Then validates auth (returns 401 if missing)
+    // Handler logic
+  })
+);
+```
+
+#### ❌ WRONG - Expecting 401 for Missing CSRF
+```typescript
+it('should require authentication', async () => {
+  // Test sends no CSRF token AND no auth
+  const response = await request(app)
+    .delete('/api/watchlist/1');
+
+  // WRONG: CSRF middleware rejects first with 403, not 401!
+  expectUnauthorizedError(response);  // Expects 401
+});
+```
+
+#### ✅ CORRECT - Expect 403 for Missing CSRF Token
+```typescript
+it('should reject requests without CSRF token', async () => {
+  // Test sends no CSRF token
+  const response = await request(app)
+    .delete('/api/watchlist/1');
+
+  // CORRECT: CSRF middleware returns 403 before auth runs
+  expect(response.status).toBe(403);
+  // Note: Response may not have standard error envelope format
+});
+```
+
+#### Testing Authentication Separately
+
+To test authentication specifically, include a valid CSRF token:
+
+```typescript
+it('should require authentication (with valid CSRF)', async () => {
+  // First, get a CSRF token
+  const csrfResponse = await request(app).get('/api/csrf-token');
+  const csrfToken = csrfResponse.body.data.csrfToken;
+
+  // Now test auth - include CSRF to let auth middleware run
+  const response = await request(app)
+    .delete('/api/watchlist/1')
+    .set('x-csrf-token', csrfToken);
+
+  // NOW we get 401 because CSRF passed but auth failed
+  expectUnauthorizedError(response);
+});
+```
+
+**Key takeaways:**
+- Missing CSRF token → **403 Forbidden** (CSRF middleware)
+- Invalid CSRF token → **403 Forbidden** (CSRF middleware)
+- Valid CSRF, no auth → **401 Unauthorized** (Auth middleware)
+- Valid CSRF, valid auth, no permission → **403 Forbidden** (Authorization)
+
 ---
 
 ## Date and Time Testing
@@ -629,6 +795,9 @@ Before committing tests:
 - [ ] **No `it.skip()` without justification** - Every skip needs a comment and plan
 - [ ] **Dates use ISO format with explicit time** - `"2025-01-15T12:00:00.000Z"`
 - [ ] **Redis mocked for route tests** - Mock placed before all imports
+- [ ] **Redis mock exports both `redisClient` and `getRedisClient`** - Some modules use different imports
+- [ ] **Logger mock includes all methods and `createLogger`** - info, error, warn, debug
+- [ ] **CSRF tests expect 403, not 401** - CSRF middleware runs before auth
 - [ ] **Test element types match filtering behavior** - Use correct query (role, text, etc.)
 - [ ] **Route parameter tests expect correct status** - Missing params = 404, not 400
 - [ ] **External services mocked** - Email, Redis, external APIs
@@ -645,5 +814,5 @@ Before committing tests:
 
 ---
 
-**Last Updated:** 2025-12-02
+**Last Updated:** 2025-12-09
 **Maintained By:** PriceCompare Development Team

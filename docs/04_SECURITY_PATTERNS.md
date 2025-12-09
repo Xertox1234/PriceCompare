@@ -1,7 +1,7 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 2.3
-Last Updated: 2025-12-02
+Version: 2.4
+Last Updated: 2025-12-09
 Maintainer: Claude Code / Development Team
 Status: Active - SINGLE SOURCE OF TRUTH
 Migrated From:
@@ -11,6 +11,7 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (validation layer separation section)
 Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.4 (2025-12-09): Added XSS input sanitization middleware pattern using Object.defineProperty for read-only req.query
   - 2.3 (2025-12-02): Added nodemailer direct dependency example (GHSA-rcmh-qjqh-p98v), comprehensive decision tree for direct vs transitive dependency fixes, caret versioning best practices
   - 2.2 (2025-12-02): Added real-world body-parser DoS fix example (GHSA-wqch-xfxh-vrr4) with npm override pattern, verification steps, and removal plan
   - 2.1 (2025-12-02): Added Dependency Security & Error Monitoring section with Sentry patterns, npm audit workflow, transitive dependency handling, real-world example (GHSA-6465-jgvq-jhgp)
@@ -1533,6 +1534,57 @@ const result = await db.select()
 ---
 
 ## XSS Prevention
+
+### Input Sanitization Middleware (NEW - 2025-12-09)
+
+**Source**: Test audit session - XSS sanitization was not being applied to query parameters.
+
+The `sanitizeInput` middleware in `server/middleware/security.ts` sanitizes request body, query, and params. When modifying read-only properties like `req.query`, use `Object.defineProperty()` instead of direct assignment.
+
+#### ❌ WRONG - Direct Assignment (Fails Silently)
+```typescript
+// THIS DOESN'T WORK - req.query is read-only in Express 4.x+
+export const sanitizeInput: RequestHandler = (req, res, next) => {
+  const sanitizedQuery = sanitizeObject(req.query);
+  req.query = sanitizedQuery; // Fails silently! Original query unchanged
+  next();
+};
+```
+
+#### ✅ CORRECT - Use Object.defineProperty
+```typescript
+// server/middleware/security.ts
+export const sanitizeInput: RequestHandler = (req, res, next) => {
+  // Sanitize query parameters
+  const sanitizedQuery = sanitizeObject(req.query as Record<string, unknown>);
+  
+  // CRITICAL: req.query is read-only, must use Object.defineProperty
+  Object.defineProperty(req, 'query', {
+    value: sanitizedQuery,
+    writable: true,
+    configurable: true,
+  });
+  
+  // Sanitize body (usually writable)
+  if (req.body && typeof req.body === 'object') {
+    req.body = sanitizeObject(req.body as Record<string, unknown>);
+  }
+  
+  // Sanitize params (usually writable)
+  if (req.params && typeof req.params === 'object') {
+    const sanitizedParams = sanitizeObject(req.params as Record<string, unknown>);
+    Object.assign(req.params, sanitizedParams);
+  }
+  
+  next();
+};
+```
+
+**Why this matters:**
+- Express makes `req.query` non-configurable in newer versions
+- Direct assignment `req.query = {...}` is silently ignored
+- XSS payloads in query strings bypass sanitization without this fix
+- Test with: `GET /api/search?q=<script>alert(1)</script>`
 
 ### Output Encoding
 
