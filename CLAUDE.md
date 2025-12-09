@@ -60,16 +60,23 @@ Direct subagent delegation for focused work:
 npm run dev              # Start dev server (port 5000) with Vite HMR + TSX watch
 
 # Testing
-# ⚠️ NEVER run 'npm test' without permission - it launches browser instances
-# ALWAYS run specific test files only:
-npm test path/to/specific.test.ts  # Run specific test file
-npm run test:watch       # Watch mode
+# - 'npm test' runs Vitest (unit/integration tests with jsdom virtual DOM)
+# - 'npm run test:e2e' runs Playwright E2E tests (actual browser automation)
+#
+# Vitest tests are safe to run anytime (no browser instances launched)
+# E2E tests launch Chromium browsers and should be run intentionally
+#
+# Run specific Vitest tests:
+npm test path/to/specific.test.ts  # Run one test file
+npm run test:watch       # Watch mode for development
 npm run test:coverage    # Generate coverage report
 npm run test:security    # Security-specific tests only
 npm run test:ai          # AI service tests only
-npm run test:e2e         # E2E tests with Playwright
-npm run test:e2e:headed  # E2E tests with visible browser
-npm run test:e2e:ui      # Playwright UI mode for debugging
+
+# E2E tests (browser automation):
+npm run test:e2e         # Run all E2E tests
+npm run test:e2e:headed  # With visible browser (debugging)
+npm run test:e2e:ui      # Playwright UI mode (interactive)
 
 # Linting (NEW - enforced in CI/CD)
 npm run lint             # Run ESLint on all files (zero warnings tolerance)
@@ -1557,7 +1564,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 ### Core Pattern Files (docs/) - CONSOLIDATED 2025-11-29
 
-**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 7 domain-specific files. Use ONLY these:**
+**⚠️ IMPORTANT: Pattern files were consolidated from 21 files into 8 domain-specific files. Use ONLY these:**
 
 1. **`docs/01_TYPESCRIPT_PATTERNS.md`** - Type safety, async/await, floating promises, `void` operator, Zod integration (CRITICAL)
 2. **`docs/02_DATABASE_PATTERNS.md`** - N+1 prevention, transactions, storage layer, schema design, query optimization (CRITICAL)
@@ -1566,6 +1573,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 5. **`docs/05_FRONTEND_PATTERNS.md`** - React, React Query, forms, pagination, state management
 6. **`docs/06_ERROR_HANDLING_PATTERNS.md`** - Error responses, PostgreSQL error codes, sanitization, recovery
 7. **`docs/07_BACKGROUND_JOBS_PATTERNS.md`** - Bull queues, cron jobs, distributed locking
+8. **`docs/08_TESTING_PATTERNS.md`** - Vitest, integration tests, test environment setup, database testing (NEW - 2025-12-09)
 
 **Each pattern has ONE canonical location. Old files (PHASE0, PHASE1, etc.) have been merged and archived.**
 
@@ -1588,6 +1596,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md` - Working with pre-commit hooks, security markers, and common fixes (2025-12-03)
 - `docs/LEARNINGS_TODO_2026_ZOD_CHECK_CONSTRAINTS.md` - Zod validation for DECIMAL fields with Drizzle ORM type preservation (2025-12-04)
 - `docs/LEARNINGS_TODO_162_MIDDLEWARE_STANDARDIZATION.md` - Parallel vs sequential execution, flexible API signatures, architectural exceptions (2025-12-04)
+- `docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md` - Test environment configuration and database connection patterns (2025-12-07)
+- `docs/LEARNINGS_TODO_176_TIMEZONE_DATE_TESTS.md` - Timezone-aware date testing and UTC enforcement (2025-12-07)
+- `docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md` - ESLint warning resolution patterns and intentional warnings management (2025-12-08)
+- `docs/LEARNINGS_TODO_178_STORAGE_LAYER_MIGRATION_COMPLETENESS.md` - Storage layer migration validation and documentation patterns (2025-12-08)
+- `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md` - UTC-first date handling in services, test/service timezone consistency (2025-12-09)
 
 ### Subagent Documentation (.claude/knowledge/)
 

@@ -488,20 +488,19 @@ describe.sequential('Password Reset Service', () => {
       expect(isLimited).toBe(true);
     });
 
-    // SKIPPED: Flaky test due to timing sensitivity - see test isolation issues
-    // TODO: Fix test isolation or use vi.useFakeTimers()
-    it.skip('should not count old attempts outside time window', async () => {
-      // Create old token (16 minutes ago) using raw SQL to set createdAt
+    it('should not count old attempts outside time window', async () => {
+      // Create old token (16 minutes ago - outside 15min window)
       const oldToken = crypto.randomBytes(32).toString('hex');
-      const oldDate = new Date(Date.now() - 16 * 60 * 1000);
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const now = new Date();
+      const oldDate = new Date(now.getTime() - 16 * 60 * 1000); // 16 min ago
+      const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
 
       await db.execute(sql`
         INSERT INTO password_reset_tokens (user_id, token, expires_at, is_used, created_at)
         VALUES (${testUserId}, ${oldToken}, ${expiresAt.toISOString()}, false, ${oldDate.toISOString()})
       `);
 
-      // Create 2 recent tokens manually
+      // Create 2 recent tokens (within 15min window) using Drizzle
       for (let i = 0; i < 2; i++) {
         const token = crypto.randomBytes(32).toString('hex');
         await db.insert(passwordResetTokens).values({
@@ -512,6 +511,7 @@ describe.sequential('Password Reset Service', () => {
         });
       }
 
+      // Should not be limited - old token doesn't count, only 2 recent ones
       const isLimited = await isRateLimitExceeded(testUserId);
 
       expect(isLimited).toBe(false);
@@ -574,52 +574,51 @@ describe.sequential('Password Reset Service', () => {
       expect(count).toBe(3);
     });
 
-    // SKIPPED: Flaky test due to timing sensitivity - see test isolation issues
-    // TODO: Fix test isolation or use vi.useFakeTimers()
-    it.skip('should not count attempts outside time window', async () => {
-      // Create old token (20 minutes ago) using raw SQL
+    it('should not count attempts outside time window', async () => {
+      // Create old token (20 minutes ago - outside 15min window)
       const oldToken = crypto.randomBytes(32).toString('hex');
-      const oldDate = new Date(Date.now() - 20 * 60 * 1000); // 20 minutes ago
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const now = new Date();
+      const oldDate = new Date(now.getTime() - 20 * 60 * 1000); // 20 min ago
+      const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
 
       await db.execute(sql`
         INSERT INTO password_reset_tokens (user_id, token, expires_at, is_used, created_at)
         VALUES (${testUserId}, ${oldToken}, ${expiresAt.toISOString()}, false, ${oldDate.toISOString()})
       `);
 
-      // Create 2 recent tokens with current timestamp
-      const now = new Date();
+      // Create 2 recent tokens (within 15min window) using raw SQL for consistent timestamp handling
+      const recentDate = new Date(now.getTime() - 5 * 60 * 1000); // 5 min ago
       for (let i = 0; i < 2; i++) {
         const token = crypto.randomBytes(32).toString('hex');
         await db.execute(sql`
           INSERT INTO password_reset_tokens (user_id, token, expires_at, is_used, created_at)
-          VALUES (${testUserId}, ${token}, ${expiresAt.toISOString()}, false, ${now.toISOString()})
+          VALUES (${testUserId}, ${token}, ${expiresAt.toISOString()}, false, ${recentDate.toISOString()})
         `);
       }
 
+      // Should only count 2 recent tokens (old one is outside window)
       const count = await getResetAttemptCount(testUserId);
 
       expect(count).toBe(2);
     });
 
-    // SKIPPED: Flaky test due to timing sensitivity - test isolation issues
-    // TODO: Fix test isolation or use vi.useFakeTimers()
-    it.skip('should support custom time window', async () => {
-      // Create token 30 minutes ago using raw SQL
+    it('should support custom time window', async () => {
+      // Create token 30 minutes ago
       const token = crypto.randomBytes(32).toString('hex');
-      const date = new Date(Date.now() - 30 * 60 * 1000);
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const now = new Date();
+      const tokenDate = new Date(now.getTime() - 30 * 60 * 1000); // 30 min ago
+      const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
 
       await db.execute(sql`
         INSERT INTO password_reset_tokens (user_id, token, expires_at, is_used, created_at)
-        VALUES (${testUserId}, ${token}, ${expiresAt.toISOString()}, false, ${date.toISOString()})
+        VALUES (${testUserId}, ${token}, ${expiresAt.toISOString()}, false, ${tokenDate.toISOString()})
       `);
 
-      // With 60 minute window, should count
+      // With 60 minute window, should count (30 min ago is within 60 min)
       const count60 = await getResetAttemptCount(testUserId, 60);
       expect(count60).toBe(1);
 
-      // With 15 minute window, should not count
+      // With 15 minute window, should not count (30 min ago is outside 15 min)
       const count15 = await getResetAttemptCount(testUserId, 15);
       expect(count15).toBe(0);
     });

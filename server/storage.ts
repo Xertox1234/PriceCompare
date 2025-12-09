@@ -3643,7 +3643,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number> {
-    // Use COUNT instead of fetching all records for better performance
+    // NOTE: createdAt is timestamp without timezone (schema bug)
+    // Use AT TIME ZONE 'UTC' for consistent timezone handling, matching validatePasswordResetToken()
     const [result] = await db
       .select({
         count: sql<number>`COUNT(*)::int`,
@@ -3652,7 +3653,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(passwordResetTokens.userId, userId),
-          sql`${passwordResetTokens.createdAt} > ${sinceDate}`
+          sql`(${passwordResetTokens.createdAt} AT TIME ZONE 'UTC') > ${sinceDate}`
         )
       );
 

@@ -1,7 +1,7 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.4
-**Last Updated:** 2025-12-05
+**Version:** 2.5
+**Last Updated:** 2025-12-09
 **Migrated From:**
 - `docs/DATABASE_PATTERNS.md` (v1.0)
 - `.claude/knowledge/storage-refactoring-patterns.md`
@@ -13,7 +13,7 @@
 **Maintainer:** Claude Code / Development Team
 **Status:** Active
 **Related Patterns:** [SECURITY_PATTERNS.md, API_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, ERROR_HANDLING_PATTERNS.md]
-**Related Learnings:** [LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md (test fixture security markers), LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md (Redis-native patterns)]
+**Related Learnings:** [LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md (test fixture security markers), LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md (Redis-native patterns), LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md (UTC date handling)]
 
 ---
 
@@ -27,6 +27,7 @@
    - 5.1 [Foreign Key Cascade Rules](#51-foreign-key-cascade-rules-mandatory)
    - 5.2 [NULL-Safe UNIQUE Constraints](#52-null-safe-unique-constraints-phase-0-pattern)
    - 5.3 [Timestamp vs Timestamptz](#53-timestamp-vs-timestamptz-critical)
+   - 5.4 [Application-Layer UTC Date Handling (NEW)](#54-application-layer-utc-date-handling-new---2025-12-09)
 6. [Type Safety in Queries](#6-type-safety-in-queries)
 7. [Production Bugs Catalog](#7-production-bugs-catalog)
 8. [Migration Patterns](#8-migration-patterns)
@@ -1490,6 +1491,116 @@ grep -A 5 -B 5 "NOW()" server/storage.ts | grep "new Date()"
 **Similar Issues Found:**
 - `server/storage/domains/job-lock-storage.ts` - Same pattern in job locks
 - Other tables TBD (needs full audit)
+
+### 5.4 Application-Layer UTC Date Handling (NEW - 2025-12-09)
+
+**Source**: Issue #179 - Price aggregation service timezone inconsistency
+**Related**: `docs/08_TESTING_PATTERNS.md` (Server-Side UTC Date Handling section)
+
+While Section 5.3 covers **database-level** timestamp handling, this section covers **application-layer** date calculations in JavaScript/TypeScript services.
+
+#### The Problem: Local vs UTC Date Methods
+
+JavaScript Date objects have two sets of methods: **local timezone** and **UTC**. Using local methods in server-side code causes timezone-dependent behavior:
+
+```typescript
+// WRONG - Local timezone methods (behavior varies by server location)
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);  // Local timezone!
+yesterday.setHours(0, 0, 0, 0);
+
+// Different servers produce different UTC values:
+// - Server in PST: yesterday = Dec 8, 08:00:00 UTC
+// - Server in UTC: yesterday = Dec 8, 00:00:00 UTC
+// - Server in EST: yesterday = Dec 8, 05:00:00 UTC
+```
+
+#### ✅ CORRECT - UTC-First Service Pattern
+
+**ALL service-layer date calculations MUST use UTC methods:**
+
+```typescript
+// server/services/price-aggregation-service.ts
+
+// Date range calculation - Use Date.UTC()
+private getDayDateRange(year: number, month: number, day: number) {
+  // Use UTC to ensure consistent behavior across all server timezones
+  const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  return { startDate, endDate };
+}
+
+// Date extraction - Use UTC getters
+const year = currentDate.getUTCFullYear();
+const month = currentDate.getUTCMonth() + 1;  // 0-indexed to 1-indexed
+const day = currentDate.getUTCDate();
+
+// Date arithmetic - Use UTC setters
+yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+```
+
+#### Local vs UTC Method Reference
+
+| Operation | Local (WRONG) | UTC (CORRECT) |
+|-----------|---------------|---------------|
+| Create date | `new Date(year, month, day)` | `new Date(Date.UTC(year, month, day))` |
+| Get year | `getFullYear()` | `getUTCFullYear()` |
+| Get month | `getMonth()` | `getUTCMonth()` |
+| Get day | `getDate()` | `getUTCDate()` |
+| Set day | `setDate()` | `setUTCDate()` |
+| Set time | `setHours()` | `setUTCHours()` |
+
+#### Common Anti-Pattern: Mixed Operations
+
+```typescript
+// ❌ WRONG - Mixing local and UTC (subtle bug)
+const date = new Date();
+date.setUTCDate(date.getDate() - 1);  // getDate() is local!
+
+// ✅ CORRECT - Consistent UTC operations
+const date = new Date();
+date.setUTCDate(date.getUTCDate() - 1);  // Both UTC
+```
+
+#### When This Pattern Applies
+
+**USE UTC methods for:**
+- Date range calculations (start/end of day)
+- Date arithmetic (adding/subtracting days)
+- Storing dates in database (`recordedAt`, `createdAt`)
+- Date comparisons and grouping
+
+**Use LOCAL timezone for:**
+- User-facing display (convert FROM UTC to user's timezone)
+- Parsing user input (then immediately convert TO UTC)
+
+#### Test Consistency Requirement
+
+**CRITICAL**: Tests MUST use the same timezone handling as services:
+
+```typescript
+// If service uses UTC, test MUST use UTC
+describe('PriceAggregationService', () => {
+  it('should aggregate yesterday data', async () => {
+    // ✅ CORRECT - Test uses UTC (matches service)
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    yesterday.setUTCHours(12, 0, 0, 0);  // Noon UTC
+
+    await db.insert(priceHistory).values({
+      productId: testProduct.id,
+      recordedAt: yesterday,
+    });
+
+    // Service also uses UTC internally - values will match
+    const count = await service.calculateDailyAggregates();
+    expect(count).toBe(1);
+  });
+});
+```
+
+**Reference:** `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md` for complete debugging timeline and implementation details.
 
 ---
 

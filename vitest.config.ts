@@ -20,7 +20,6 @@ export default defineConfig({
       '**/docs/**',
       '**/.worktrees/**',
       '**/e2e/**', // Playwright E2E tests - run separately
-      'client/src/__tests__/e2e/**', // Misplaced Playwright tests
     ],
     css: true,
     coverage: {

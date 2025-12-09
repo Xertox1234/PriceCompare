@@ -1,6 +1,6 @@
 # Testing Patterns
 
-**Version:** 1.3
+**Version:** 1.4
 **Last Updated:** 2025-12-09
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
@@ -8,6 +8,8 @@
 - docs/04_SECURITY_PATTERNS.md (security testing)
 - docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md (real database test migration)
 - docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md (environment configuration)
+- docs/LEARNINGS_TODO_176_TIMEZONE_DATE_TESTS.md (frontend date testing)
+- docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md (server-side UTC handling - NEW)
 
 ---
 
@@ -31,14 +33,15 @@
 5. [Date and Time Testing](#date-and-time-testing)
    - [Timezone-Safe Date Assertions](#timezone-safe-date-assertions)
    - [Date Formatting in Tests](#date-formatting-in-tests)
-5. [Component Testing Patterns](#component-testing-patterns)
+   - [Server-Side UTC Date Handling (NEW)](#server-side-utc-date-handling-new---2025-12-09)
+6. [Component Testing Patterns](#component-testing-patterns)
    - [Testing Filtered UI Elements](#testing-filtered-ui-elements)
    - [Recharts Testing](#recharts-testing)
-6. [Route Testing Patterns](#route-testing-patterns)
+7. [Route Testing Patterns](#route-testing-patterns)
    - [Testing Missing Route Parameters](#testing-missing-route-parameters)
    - [Express Route Not Found Behavior](#express-route-not-found-behavior)
-7. [Avoiding Skipped Tests](#avoiding-skipped-tests)
-8. [Checklist](#testing-checklist)
+8. [Avoiding Skipped Tests](#avoiding-skipped-tests)
+9. [Checklist](#testing-checklist)
 
 ---
 
@@ -662,6 +665,141 @@ const SAFE_TEST_DATE_2 = "2025-06-15T12:00:00.000Z";
 const BAD_DATE = "2025-01-01";  // No time = midnight UTC = timezone issues
 const BAD_DATE_2 = "2025-01-01T00:00:00Z";  // Midnight = boundary issues
 ```
+
+### Server-Side UTC Date Handling (NEW - 2025-12-09)
+
+**Source**: Issue #179 - Price aggregation service timezone inconsistency
+
+**CRITICAL**: Server-side date calculations MUST use UTC methods exclusively. Tests MUST match the service's timezone handling.
+
+#### The Problem: Mixed Timezone Operations
+
+When service code uses local timezone methods but tests expect UTC behavior (or vice versa), tests become environment-dependent:
+
+```typescript
+// Service using local timezone (WRONG)
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);  // Local timezone!
+yesterday.setHours(0, 0, 0, 0);
+
+// Test using local timezone (appears to match, but fragile)
+const testYesterday = new Date();
+testYesterday.setDate(testYesterday.getDate() - 1);
+testYesterday.setHours(12, 0, 0, 0);
+
+// Result: Passes in PST, fails in UTC, or vice versa
+```
+
+#### The Solution: UTC-First Pattern
+
+**Service code** must use UTC constructors and methods:
+
+```typescript
+// ✅ CORRECT - Service using UTC
+private getDayDateRange(year: number, month: number, day: number) {
+  // Use UTC to ensure consistent behavior across all server timezones
+  const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  return { startDate, endDate };
+}
+```
+
+**Test code** must match with UTC methods:
+
+```typescript
+// ✅ CORRECT - Test using UTC (matches service)
+const yesterday = new Date();
+yesterday.setUTCDate(yesterday.getUTCDate() - 1);  // UTC arithmetic
+yesterday.setUTCHours(12, 0, 0, 0);  // UTC time setting
+```
+
+#### Local vs UTC Method Reference
+
+| Operation | Local (WRONG for servers) | UTC (CORRECT) |
+|-----------|---------------------------|---------------|
+| Create date | `new Date(year, month, day)` | `new Date(Date.UTC(year, month, day))` |
+| Get year | `getFullYear()` | `getUTCFullYear()` |
+| Get month | `getMonth()` | `getUTCMonth()` |
+| Get day | `getDate()` | `getUTCDate()` |
+| Set day | `setDate()` | `setUTCDate()` |
+| Set time | `setHours()` | `setUTCHours()` |
+
+#### Common Pitfall: Mixed Operations
+
+```typescript
+// ❌ WRONG - Mixing local and UTC
+const date = new Date();
+date.setUTCDate(date.getDate() - 1);  // getDate() is local!
+
+// ✅ CORRECT - Consistent UTC
+const date = new Date();
+date.setUTCDate(date.getUTCDate() - 1);  // Both UTC
+```
+
+#### Integration Test Pattern for Date-Based Services
+
+```typescript
+describe('PriceAggregationService (Integration)', () => {
+  it('should create daily aggregates for previous day', async () => {
+    // Create test date using UTC methods
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    yesterday.setUTCHours(12, 0, 0, 0);  // Noon UTC
+
+    // Insert test data with UTC timestamp
+    await db.insert(priceHistory).values({
+      productId: testProduct.id,
+      retailerId: testRetailer.id,
+      price: '99.99',
+      recordedAt: yesterday,  // UTC-based Date object
+    });
+
+    // Run service method
+    await service.calculateDailyAggregates();
+
+    // Verify results
+    const aggregates = await db.select().from(priceAggregatesDaily);
+    expect(aggregates).toHaveLength(1);
+  });
+});
+```
+
+#### Date Range Test Pattern
+
+```typescript
+it('should aggregate data within date range', async () => {
+  // Create explicit UTC date range
+  const startDate = new Date(Date.UTC(2024, 0, 1, 0, 0, 0));    // Jan 1, 2024 start of day UTC
+  const endDate = new Date(Date.UTC(2024, 0, 3, 23, 59, 59, 999)); // Jan 3, 2024 end of day UTC
+
+  // Insert test data with explicit UTC timestamps
+  await db.insert(priceHistory).values([
+    { productId: testProduct.id, recordedAt: new Date(Date.UTC(2024, 0, 1, 12)) },
+    { productId: testProduct.id, recordedAt: new Date(Date.UTC(2024, 0, 2, 12)) },
+    { productId: testProduct.id, recordedAt: new Date(Date.UTC(2024, 0, 3, 12)) },
+  ]);
+
+  const count = await service.aggregateToDaily(startDate, endDate);
+  expect(count).toBe(3);  // Exactly 3 days of data
+});
+```
+
+#### Debugging Timezone Issues
+
+When tests fail with unexpected counts or date mismatches:
+
+1. **Check service code**: Are all date operations using UTC methods?
+2. **Check test setup**: Are test dates created with UTC methods?
+3. **Log actual values**: Use `.toISOString()` to see actual UTC timestamps
+4. **Verify consistency**: ALL related date operations must use same timezone approach
+
+```typescript
+// Debugging helper
+console.log('Yesterday UTC:', yesterday.toISOString());
+console.log('Expected range:', startDate.toISOString(), 'to', endDate.toISOString());
+```
+
+**Reference:** `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md`
 
 ---
 

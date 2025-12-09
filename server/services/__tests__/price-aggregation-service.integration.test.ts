@@ -101,9 +101,10 @@ describe('PriceAggregationService (Integration)', () => {
   describe('calculateDailyAggregates', () => {
     it('should create daily aggregates for yesterday', async () => {
       // Setup: Insert price history for yesterday with explicit UTC times
+      // Use UTC methods to match calculateDailyAggregates() implementation (now UTC-based)
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(0, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(0, 0, 0, 0);
 
       // Three prices at different times: 1am, noon, 8pm UTC
       await insertPriceHistory([
@@ -161,8 +162,8 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should calculate correct min/max/avg/median prices', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0); // Noon UTC
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0); // Noon UTC (explicit UTC to match service implementation)
 
       // Insert 3 prices: 100, 150, 200
       // Expected: min=100, max=200, avg=150, median=150
@@ -216,8 +217,8 @@ describe('PriceAggregationService (Integration)', () => {
 
       // Insert price history for yesterday with avg = 110
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       await insertPriceHistory([
         {
@@ -239,8 +240,8 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should mark records with aggregatedAt timestamp', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       const [historyRecord] = await insertPriceHistory([
         {
@@ -266,8 +267,8 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should handle median calculation with even number of prices', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       // Insert 4 prices: 100, 200, 300, 400
       // Median = (200 + 300) / 2 = 250
@@ -302,8 +303,8 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should handle median calculation with odd number of prices', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       // Insert 3 prices: 100, 200, 300
       // Median = 200 (middle value)
@@ -557,8 +558,8 @@ describe('PriceAggregationService (Integration)', () => {
   describe('statistics calculation', () => {
     it('should calculate volatility score correctly', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       // Insert prices with high volatility: 50, 100, 150
       // Mean = 100, StdDev ≈ 40.82, Volatility (CV) = 40.82%
@@ -595,8 +596,8 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should handle single price point edge case', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       await insertPriceHistory([
         {
@@ -621,8 +622,8 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should handle identical prices edge case', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       // Insert 3 identical prices
       await insertPriceHistory([
@@ -668,8 +669,8 @@ describe('PriceAggregationService (Integration)', () => {
         .returning();
 
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       // Create offer for second retailer
       const [offer2] = await db
@@ -717,8 +718,8 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should handle concurrent aggregation runs (idempotency)', async () => {
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       await insertPriceHistory([
         {
@@ -747,8 +748,8 @@ describe('PriceAggregationService (Integration)', () => {
 
       // Setup: Create realistic test data volume
       const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      yesterday.setUTCHours(12, 0, 0, 0);
 
       // Insert multiple price points (simulates real scenario)
       await insertPriceHistory([
@@ -809,6 +810,57 @@ describe('PriceAggregationService (Integration)', () => {
       // Verify all days aggregated
       const aggregates = await db.select().from(priceAggregatesDaily);
       expect(aggregates).toHaveLength(7);
+    });
+
+    it('should handle the complete aggregation pipeline with multiple days', async () => {
+      // Create 3 days of price history data (TRUNCATE CASCADE in beforeEach ensures clean state)
+      // Use UTC dates to match getDayDateRange() implementation (now UTC-based)
+      await insertPriceHistory([
+        {
+          price: '100.00',
+          recordedAt: new Date(Date.UTC(2024, 0, 1, 12)), // Jan 1, 2024, 12:00 UTC
+        },
+      ]);
+
+      await insertPriceHistory([
+        {
+          price: '105.00',
+          recordedAt: new Date(Date.UTC(2024, 0, 2, 12)), // Jan 2, 2024, 12:00 UTC
+        },
+      ]);
+
+      await insertPriceHistory([
+        {
+          price: '110.00',
+          recordedAt: new Date(Date.UTC(2024, 0, 3, 12)), // Jan 3, 2024, 12:00 UTC
+        },
+      ]);
+
+      // Run aggregation for 3-day date range (UTC)
+      const startDate = new Date(Date.UTC(2024, 0, 1, 0, 0, 0)); // Jan 1, 2024 start of day UTC
+      const endDate = new Date(Date.UTC(2024, 0, 3, 23, 59, 59, 999)); // Jan 3, 2024 end of day UTC
+
+      const count = await service.aggregateToDaily(startDate, endDate);
+
+      // Verify 3 aggregate records were created (one per day)
+      const aggregates = await db
+        .select()
+        .from(priceAggregatesDaily)
+        .where(sql`${priceAggregatesDaily.productId} = ${testProduct.id}`)
+        .orderBy(priceAggregatesDaily.date);
+
+      expect(aggregates).toHaveLength(3);
+      expect(count).toBe(3);
+
+      // Verify dates are correct (date column is string format "YYYY-MM-DD")
+      expect(aggregates[0].date).toBe('2024-01-01');
+      expect(aggregates[1].date).toBe('2024-01-02');
+      expect(aggregates[2].date).toBe('2024-01-03');
+
+      // Verify price progression (100, 105, 110)
+      expect(parseFloat(aggregates[0].avgPrice)).toBeCloseTo(100, 2);
+      expect(parseFloat(aggregates[1].avgPrice)).toBeCloseTo(105, 2);
+      expect(parseFloat(aggregates[2].avgPrice)).toBeCloseTo(110, 2);
     });
   });
 });

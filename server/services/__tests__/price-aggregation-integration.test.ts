@@ -169,65 +169,10 @@ describe('Price Aggregation Integration Tests', () => {
       mockAggregateToDaily.mockRestore();
     });
 
-    // SKIPPED: Complex mock chain not properly counting transaction iterations
-    // TODO: Refactor test to use real DB transactions or simpler mock setup
-    it.skip('should handle the complete aggregation pipeline', async () => {
-      const startDate = new Date('2024-01-01');
-      const endDate = new Date('2024-01-03');
-
-      let daysProcessed = 0;
-
-      vi.mocked(db.transaction).mockImplementation(async (callback) => {
-        daysProcessed++;
-
-        const mockTx = {
-          select: vi
-            .fn()
-            .mockReturnValueOnce({
-              from: vi.fn().mockReturnValue({
-                where: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue([]),
-                }),
-              }),
-            })
-            .mockReturnValueOnce({
-              from: vi.fn().mockReturnValue({
-                where: vi.fn().mockReturnValue({
-                  groupBy: vi.fn().mockResolvedValue([
-                    {
-                      productId: 1,
-                      retailerId: 1,
-                      prices: '{100.00}',
-                      recordCount: 1,
-                    },
-                  ]),
-                }),
-              }),
-            })
-            .mockReturnValueOnce({
-              from: vi.fn().mockReturnValue({
-                where: vi.fn().mockResolvedValue([]),
-              }),
-            }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue({}),
-          }),
-          update: vi.fn().mockReturnValue({
-            set: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue({}),
-            }),
-          }),
-        };
-
-        return callback(mockTx as any);
-      });
-
-      const count = await aggregationService.aggregateToDaily(startDate, endDate);
-
-      // Should process 3 days (Jan 1, 2, 3)
-      expect(daysProcessed).toBe(3);
-      expect(count).toBe(3);
-    });
+    // NOTE: Complete aggregation pipeline test removed from mock-based test suite
+    // This functionality is now tested with real database in:
+    // server/services/__tests__/price-aggregation-service.integration.test.ts
+    // Test: 'should handle the complete aggregation pipeline with multiple days'
   });
 
   describe('Query after aggregation', () => {

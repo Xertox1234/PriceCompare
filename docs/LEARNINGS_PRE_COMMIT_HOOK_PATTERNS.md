@@ -217,6 +217,10 @@ These violations **allow commits with warnings**:
 8. ⚠️ Background jobs without rate limiting
 9. ⚠️ Unoptimized queries (N+1 warning)
 10. ⚠️ Floating promises (async operations not awaited)
+11. ⚠️ **Local timezone date methods in server code** (NEW - 2025-12-09)
+    - Detects `new Date(year, month, day)` without `Date.UTC()`
+    - Detects local getters/setters (`.getDate()`, `.setDate()`) without UTC prefix
+    - See: `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md`
 
 **Philosophy:** Blockers are **correctness and security issues** that must be fixed immediately. Warnings are **quality and architecture issues** that should be addressed but don't break functionality.
 

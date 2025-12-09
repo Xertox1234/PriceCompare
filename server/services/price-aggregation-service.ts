@@ -544,10 +544,11 @@ export class PriceAggregationService {
    */
   async calculateDailyAggregates(): Promise<number> {
     const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const year = yesterday.getFullYear();
-    const month = yesterday.getMonth() + 1;
-    const day = yesterday.getDate();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    // Use UTC methods to extract date components since getDayDateRange() now uses UTC
+    const year = yesterday.getUTCFullYear();
+    const month = yesterday.getUTCMonth() + 1;
+    const day = yesterday.getUTCDate();
     const dateStr = this.formatDateStr(year, month, day);
 
     logger.info(`[PriceAggregation] Calculating daily aggregates for ${dateStr}`);
@@ -572,11 +573,11 @@ export class PriceAggregationService {
 
               // Fetch previous day data
               const previousDay = new Date(yesterday);
-              previousDay.setDate(previousDay.getDate() - 1);
+              previousDay.setUTCDate(previousDay.getUTCDate() - 1);
               const prevDateStr = this.formatDateStr(
-                previousDay.getFullYear(),
-                previousDay.getMonth() + 1,
-                previousDay.getDate()
+                previousDay.getUTCFullYear(),
+                previousDay.getUTCMonth() + 1,
+                previousDay.getUTCDate()
               );
 
               const previousDayData = await tx
@@ -730,9 +731,10 @@ export class PriceAggregationService {
 
     // Process each day in the range
     while (currentDate <= endDate) {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() + 1;
-      const day = currentDate.getDate();
+      // Use UTC methods to extract date components since getDayDateRange() now uses UTC
+      const year = currentDate.getUTCFullYear();
+      const month = currentDate.getUTCMonth() + 1;
+      const day = currentDate.getUTCDate();
 
       try {
         await db.transaction(
@@ -779,8 +781,8 @@ export class PriceAggregationService {
 
             // Get previous day data for day-over-day change
             const previousDay = new Date(currentDate);
-            previousDay.setDate(previousDay.getDate() - 1);
-            const prevDateStr = `${previousDay.getFullYear()}-${String(previousDay.getMonth() + 1).padStart(2, '0')}-${String(previousDay.getDate()).padStart(2, '0')}`;
+            previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+            const prevDateStr = `${previousDay.getUTCFullYear()}-${String(previousDay.getUTCMonth() + 1).padStart(2, '0')}-${String(previousDay.getUTCDate()).padStart(2, '0')}`;
 
             const previousDayMap = new Map<string, typeof priceAggregatesDaily.$inferSelect>();
             const previousDayData = await tx
@@ -888,8 +890,8 @@ export class PriceAggregationService {
         // Continue with next day even if one fails
       }
 
-      // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
+      // Move to next day (use UTC since getDayDateRange() now uses UTC)
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     logger.info(
@@ -930,9 +932,10 @@ export class PriceAggregationService {
     const currentDate = new Date(startDate);
 
     while (currentDate <= endDate) {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() + 1;
-      const day = currentDate.getDate();
+      // Use UTC methods to extract date components since getDayDateRange() now uses UTC
+      const year = currentDate.getUTCFullYear();
+      const month = currentDate.getUTCMonth() + 1;
+      const day = currentDate.getUTCDate();
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
       // Check if this date has raw price history
@@ -955,8 +958,8 @@ export class PriceAggregationService {
         gaps.push(dateStr);
       }
 
-      // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
+      // Move to next day (use UTC since getDayDateRange() now uses UTC)
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     logger.info(`[PriceAggregation] Found ${gaps.length} gaps in date range`);
@@ -1463,11 +1466,10 @@ export class PriceAggregationService {
     month: number,
     day: number
   ): { startDate: Date; endDate: Date } {
-    const startDate = new Date(year, month - 1, day);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(year, month - 1, day);
-    endDate.setHours(23, 59, 59, 999);
+    // Use UTC to ensure consistent behavior across all server timezones
+    // This prevents tests from passing on one machine but failing on another
+    const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
 
     return { startDate, endDate };
   }
