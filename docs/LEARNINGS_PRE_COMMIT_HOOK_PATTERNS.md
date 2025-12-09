@@ -224,6 +224,67 @@ These violations **allow commits with warnings**:
 
 **Philosophy:** Blockers are **correctness and security issues** that must be fixed immediately. Warnings are **quality and architecture issues** that should be addressed but don't break functionality.
 
+## Pattern 7: UTC Timezone Detection (NEW - 2025-12-09)
+
+Pattern 7 deserves special attention as it demonstrates the **proactive prevention pattern** - automating detection of issues that previously caused production bugs.
+
+### What It Detects
+
+| Detection Category | Pattern | Example |
+|-------------------|---------|---------|
+| Local Date Constructor | `new Date(year, month, day)` | `new Date(2024, 0, 1)` |
+| Local Getters | `.getFullYear()`, `.getMonth()`, `.getDate()` | `date.getMonth()` |
+| Local Setters | `.setDate()`, `.setHours()`, `.setMinutes()` | `date.setDate(1)` |
+
+### Why It Matters
+
+Server-side code using local timezone methods causes:
+- Tests that pass in one timezone but fail in another (e.g., PST vs UTC)
+- Date boundary mismatches in aggregation logic
+- Inconsistent behavior across deployment environments
+
+### The Fix
+
+```typescript
+// BEFORE - Local timezone (WRONG)
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
+yesterday.setHours(0, 0, 0, 0);
+
+// AFTER - UTC (CORRECT)
+const yesterday = new Date();
+yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+yesterday.setUTCHours(0, 0, 0, 0);
+```
+
+### Bypass Mechanism
+
+Add `// UTC:` comment for intentional local timezone usage:
+
+```typescript
+// UTC: Intentional local timezone for user display formatting
+const displayDate = new Date(year, month, day);
+```
+
+### The Reactive-to-Proactive Pattern
+
+Pattern 7 completes a feedback loop:
+
+```
+Bug Discovery --> Fix --> Documentation --> Automated Detection
+     |             |            |                    |
+  TODO 179   Service UTC   LEARNINGS_179.md    Pattern 7
+              methods                          pre-commit
+```
+
+This pattern should be followed for all significant bugs:
+1. **Fix the bug** in code
+2. **Document learnings** for humans
+3. **Automate detection** to prevent recurrence
+4. **Update docs** to reference automation
+
+**Reference:** `docs/LEARNINGS_PATTERN7_UTC_TIMEZONE_HOOK_CODIFICATION.md`
+
 ## Working with the Hook
 
 ### Strategy 1: Address Issues During Development

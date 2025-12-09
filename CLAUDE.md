@@ -277,6 +277,11 @@ The project has a git pre-commit hook (`.git/hooks/pre-commit`) that enforces co
 - ⚠️ Legacy error handling patterns (should use `sendSuccess/sendError/sendErrorFromException`)
 - ⚠️ Missing transaction boundaries for multi-step operations
 - ⚠️ Missing CSRF protection on mutating routes
+- ⚠️ **Local timezone date methods in server code** (Pattern 7 - NEW 2025-12-09)
+  - Detects `new Date(year, month)` without `Date.UTC()`
+  - Detects `.getDate()`, `.setDate()` without UTC prefix
+  - Bypass: `// UTC:` comment for intentional local timezone
+  - See: `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md`
 
 **Bypass hook** (not recommended): `git commit --no-verify`
 

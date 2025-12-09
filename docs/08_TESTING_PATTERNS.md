@@ -801,6 +801,38 @@ console.log('Expected range:', startDate.toISOString(), 'to', endDate.toISOStrin
 
 **Reference:** `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md`
 
+#### Automated Detection via Pre-Commit Hook (NEW - 2025-12-09)
+
+The pre-commit hook now includes **Pattern 7** to automatically detect local timezone methods in server code before commit.
+
+**What It Catches:**
+- `new Date(year, month, day)` without `Date.UTC()`
+- Local getters: `.getFullYear()`, `.getMonth()`, `.getDate()`
+- Local setters: `.setDate()`, `.setHours()`, `.setMinutes()`, `.setSeconds()`
+
+**Example Warning:**
+```
+WARNING Pattern 7: Local timezone date methods in server code (3 instances)
+  RISK: Tests pass in one timezone but fail in another (e.g., PST vs UTC)
+  QUICK FIX: Use UTC date methods for server-side date handling
+```
+
+**Bypass:** Add `// UTC:` comment if local timezone is intentional:
+```typescript
+// UTC: Intentional local timezone for user display
+const displayDate = new Date(year, month, day);
+```
+
+**Key Insight:** This completes the feedback loop from bug fix to proactive prevention:
+1. Bug found (TODO 179: timezone-dependent test failures)
+2. Bug fixed (UTC methods in price-aggregation-service)
+3. Bug documented (LEARNINGS_TODO_179)
+4. Detection automated (Pattern 7 in pre-commit hook)
+
+Future similar bugs are now caught at commit time, not in production.
+
+**Reference:** `docs/LEARNINGS_PATTERN7_UTC_TIMEZONE_HOOK_CODIFICATION.md`
+
 ---
 
 ## Component Testing Patterns
