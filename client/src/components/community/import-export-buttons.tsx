@@ -36,7 +36,7 @@ export function ImportExportButtons() {
 
   const handleExport = async () => {
     try {
-      await exportLists.mutateAsync();
+      await exportLists.refetch();
       toast({
         title: 'Export successful',
         description: 'Your watch lists have been downloaded as JSON',
@@ -114,7 +114,7 @@ export function ImportExportButtons() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => void handleExport()} disabled={exportLists.isPending}>
+          <DropdownMenuItem onClick={() => void handleExport()} disabled={exportLists.isFetching}>
             <Download className="mr-2 h-4 w-4" />
             Export to JSON
           </DropdownMenuItem>

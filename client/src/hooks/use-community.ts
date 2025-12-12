@@ -489,8 +489,9 @@ export function useBulkRemoveProductWatches() {
 
 // Export watch lists as JSON
 export function useExportWatchLists() {
-  return useMutation({
-    mutationFn: async () => {
+  return useQuery({
+    queryKey: ['watchlists', 'export'],
+    queryFn: async () => {
       const response = await fetch('/api/watchlists/export', {
         credentials: 'include',
       });
@@ -520,6 +521,8 @@ export function useExportWatchLists() {
 
       return data;
     },
+    enabled: false, // Don't auto-fetch - only trigger manually via refetch()
+    retry: false, // Don't retry download operations
   });
 }
 
