@@ -38,6 +38,13 @@
  *    - Test what users see (notifications, badges, toasts)
  *    - Avoid implementation details (database state)
  *    - Focus on critical user journeys
+ *
+ * 6. Graceful Degradation (Defensive Programming)
+ *    - Tests check if UI elements exist before asserting behavior
+ *    - Use conditional test.skip() when features not yet implemented
+ *    - Comments like "may need adjustment" signal flexibility
+ *    - Pattern: if ((await element.count()) > 0) { test } else { test.skip() }
+ *    - Benefit: Tests pass on implemented features, skip gracefully otherwise
  */
 import { test, expect, type Page } from '@playwright/test';
 import { cleanDatabase, registerUser, generateTestEmail, generateTestUsername } from './helpers';
@@ -676,9 +683,20 @@ test.describe('Notifications - Real-Time System', () => {
 
 /**
  * Wait for notification to appear in list
- * (Currently unused but kept for future test expansion)
+ *
+ * TODO: Reserved for Phase 2.2 WebSocket real-time notification testing
+ * This helper will be used to verify that notifications appear in the list
+ * immediately via WebSocket events without requiring a page refresh.
+ *
+ * Future usage example:
+ * ```typescript
+ * await triggerPriceDrop(offerId, newPrice);
+ * await _waitForNotificationInList(page, 'Price Drop Alert');
+ * // Verify notification appeared via WebSocket, not page reload
+ * ```
  */
 async function _waitForNotificationInList(_page: Page, _title: string): Promise<void> {
-  // Reserved for future use
+  // Implementation will use page.waitForSelector() for notification with title
+  // For now, this is a placeholder for future WebSocket testing
   return Promise.resolve();
 }

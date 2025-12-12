@@ -146,11 +146,20 @@ export async function navigateToNotifications(page: Page): Promise<void> {
 
 /**
  * Open notification dropdown/menu
+ *
+ * NOTE: Currently unused - reserved for future dropdown-based notification UI tests.
+ * The 500ms timeout is intentional for UI animation timing.
+ *
+ * Alternative approach: Replace timeout with explicit wait for dropdown visibility:
+ * ```typescript
+ * await page.getByRole('menu', { name: /notifications/i }).waitFor({ state: 'visible' });
+ * ```
  */
 export async function openNotificationDropdown(page: Page): Promise<void> {
   // Click bell icon or notification button
   await page.getByRole('button', { name: /notification/i }).first().click();
-  await page.waitForTimeout(500); // Wait for dropdown animation
+  // Wait for dropdown animation - intentional timeout for CSS transitions
+  await page.waitForTimeout(500);
 }
 
 /**
