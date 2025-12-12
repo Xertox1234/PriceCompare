@@ -1001,13 +1001,14 @@ This section covers end-to-end testing patterns with Playwright based on 2025 in
 2. [Feature Object Model (Modern POM)](#feature-object-model-modern-pom)
 3. [Modal Interactions and Dynamic Content](#modal-interactions-and-dynamic-content-patterns) (Phase 1.1)
 4. [CSRF Token Patterns](#e2e-csrf-token-patterns) (NEW - Phase 1.2)
-5. [Test Organization](#e2e-test-organization)
-6. [Authentication State Reuse](#authentication-state-reuse)
-7. [WebSocket Testing](#websocket-testing)
-8. [Database Management](#e2e-database-management)
-9. [CI/CD Configuration](#e2e-cicd-configuration)
-10. [Flaky Test Prevention](#e2e-flaky-test-prevention)
-11. [Debugging](#e2e-debugging)
+5. [Type Safety - Playwright Types](#e2e-type-safety---playwright-type-imports-new---2025-12-12) (NEW - 2025-12-12)
+6. [Test Organization](#e2e-test-organization)
+7. [Authentication State Reuse](#authentication-state-reuse)
+8. [WebSocket Testing](#websocket-testing)
+9. [Database Management](#e2e-database-management)
+10. [CI/CD Configuration](#e2e-cicd-configuration)
+11. [Flaky Test Prevention](#e2e-flaky-test-prevention)
+12. [Debugging](#e2e-debugging)
 
 ---
 
@@ -1397,6 +1398,130 @@ Before writing/modifying E2E tests with modals or dynamic content:
 - Tab navigation timing strategies
 - React hooks compliance in tested components
 - Reusable pattern templates
+
+---
+
+### E2E Type Safety - Playwright Type Imports (NEW - 2025-12-12)
+
+**Source**: Code review session - Type safety violations in E2E test helper functions
+
+**CRITICAL**: E2E test files must use proper Playwright types for all page/context/browser parameters. Using `any` types defeats TypeScript's purpose and removes IDE autocomplete.
+
+#### The Problem: `page: any` in Helper Functions
+
+When writing helper functions for E2E tests, developers sometimes use `any` type for Playwright's Page object, losing all type safety benefits:
+
+```typescript
+// e2e/helpers.ts - WRONG
+async function loginUser(page: any, email: string, password: string): Promise<void> {
+  await page.goto('/login');           // No autocomplete
+  await page.fill('input#email');      // Typos not caught at compile time
+  await page.clck('button');           // 'clck' typo NOT detected!
+}
+
+// Even in test files, no exceptions for 'any'
+export async function waitForElement(page: any): Promise<void> {
+  await page.waitForSelector('.item');  // No IDE support
+}
+```
+
+**Problems with `any`**:
+1. No IDE autocomplete for Playwright's extensive API
+2. Typos in method names (e.g., `clck` vs `click`) not caught at compile time
+3. Wrong argument types not detected
+4. Violates project's zero-tolerance `any` policy
+5. Pre-commit hook will flag this as a blocker
+
+#### The Solution: Import and Use Playwright Types
+
+```typescript
+// e2e/helpers.ts - CORRECT
+import { type Page, type BrowserContext, type Browser } from '@playwright/test';
+
+// Helper functions with proper typing
+export async function loginUser(page: Page, email: string, password: string): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button', { name: 'Sign In' }).click();
+
+  // Full autocomplete, typos caught at compile time
+  await page.waitForSelector('[data-testid="user-menu"]');
+}
+
+// BrowserContext for multi-page scenarios
+export async function setupAuthenticatedContext(browser: Browser): Promise<BrowserContext> {
+  const context = await browser.newContext();
+  // ... setup auth state
+  return context;
+}
+
+// Page parameter in test helpers
+export async function waitForApiResponse(
+  page: Page,
+  urlPattern: string,
+  expectedStatus: number
+): Promise<void> {
+  await page.waitForResponse(
+    (response) => response.url().includes(urlPattern) && response.status() === expectedStatus
+  );
+}
+```
+
+#### Common Playwright Types Reference
+
+| Type | Use Case | Import |
+|------|----------|--------|
+| `Page` | Single browser tab/page interactions | `import { type Page } from '@playwright/test'` |
+| `BrowserContext` | Multi-page scenarios, auth state | `import { type BrowserContext } from '@playwright/test'` |
+| `Browser` | Browser instance management | `import { type Browser } from '@playwright/test'` |
+| `Locator` | Element references | `import { type Locator } from '@playwright/test'` |
+| `Response` | Network response handling | `import { type Response } from '@playwright/test'` |
+| `Request` | Network request handling | `import { type Request } from '@playwright/test'` |
+
+#### Detection Rule
+
+Add to code review checklist:
+
+```bash
+# Find 'page: any' patterns in E2E test files
+grep -rn "page:\s*any" e2e/ --include="*.ts"
+grep -rn "browser:\s*any" e2e/ --include="*.ts"
+grep -rn "context:\s*any" e2e/ --include="*.ts"
+
+# Should return no results if types are properly used
+```
+
+#### Migration Pattern
+
+When fixing existing `any` types in E2E tests:
+
+```typescript
+// Before (file: e2e/helpers.ts)
+export async function registerUser(page: any, userData: UserData) {
+  // ... implementation
+}
+
+// After - Step 1: Add import at top of file
+import { type Page } from '@playwright/test';
+
+// After - Step 2: Replace any with proper type
+export async function registerUser(page: Page, userData: UserData) {
+  // ... implementation unchanged, but now type-safe
+}
+```
+
+#### E2E Type Safety Checklist
+
+Before committing E2E test files:
+
+- [ ] All `page` parameters use `Page` type, not `any`
+- [ ] All `browser` parameters use `Browser` type
+- [ ] All `context` parameters use `BrowserContext` type
+- [ ] Import statement includes `type` keyword for type-only imports
+- [ ] No `@ts-ignore` or `@ts-expect-error` to bypass type errors
+
+**Reference**: This pattern was identified during code review of `e2e/watchlist.spec.ts` (lines 364, 383) where helper functions used `page: any` instead of proper Playwright types.
 
 ---
 

@@ -604,9 +604,118 @@ Pattern 4: Missing await on async operations
 Pattern 5: console.log in production code
 Pattern 6: Unused variables (if many new declarations)
 Pattern 7: Non-null assertions (map.get()!, ref.current!)
+Pattern 8: E2E test 'page: any' types (NEW 2025-12-12)
+Pattern 9: useMutation for GET operations (NEW 2025-12-12)
 ```
 
 **Benefit**: Get actionable quick-fix suggestions BEFORE full lint runs, reducing commit friction.
+
+---
+
+### Pattern 8: E2E Test `page: any` Types (NEW 2025-12-12)
+
+**What**: Using `any` type for Playwright's Page object in E2E test helper functions instead of proper Playwright types.
+
+**Common Locations**:
+- E2E helper files: `e2e/helpers.ts`, `e2e/helpers/*.ts`
+- Test spec files with inline helpers: `e2e/*.spec.ts`
+- Feature objects: `e2e/features/*.ts`
+
+**Detection**:
+```typescript
+// Search patterns for E2E files
+grep -rn "page:\s*any" e2e/ --include="*.ts"
+grep -rn "browser:\s*any" e2e/ --include="*.ts"
+grep -rn "context:\s*any" e2e/ --include="*.ts"
+
+// Example violations found
+async function loginUser(page: any, email: string) { ... }  // WRONG
+async function waitForElement(page: any): Promise<void> { ... }  // WRONG
+```
+
+**Why It's Bad**:
+1. Loses IDE autocomplete for Playwright's extensive API
+2. Typos in method names not caught at compile time
+3. Violates project's zero-tolerance `any` policy
+4. Pre-commit hook will flag this as a blocker
+
+**Correct Pattern**:
+```typescript
+import { type Page, type BrowserContext, type Browser } from '@playwright/test';
+
+export async function loginUser(page: Page, email: string): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(email);
+  // Full autocomplete, type-safe
+}
+```
+
+**Review Checklist**:
+- [ ] All E2E helper functions use `Page` type, not `any`
+- [ ] Import includes `type` keyword: `import { type Page }`
+- [ ] No `@ts-ignore` to bypass Playwright type errors
+
+**Reference**: `docs/08_TESTING_PATTERNS.md` (E2E Type Safety section)
+
+---
+
+### Pattern 9: useMutation for GET Operations (NEW 2025-12-12)
+
+**What**: Using React Query's `useMutation` hook for operations that fetch data (GET requests) instead of `useQuery` with `enabled: false`.
+
+**Common Locations**:
+- Custom hooks for exports/downloads: `use*.ts`
+- Manual trigger patterns in hooks: Files with `mutate()` for data fetching
+
+**Detection**:
+```typescript
+// Search for useMutation with GET-like operations
+grep -rn "useMutation" client/src/hooks/ --include="*.ts" -A 5 | grep -E "(export|download|fetch|search|get)"
+
+// Example violation
+export function useExportWatchLists() {
+  return useMutation({
+    mutationFn: async () => {
+      return apiRequest<ExportData>('/api/watchlists/export');  // GET request!
+    },
+  });
+}
+```
+
+**Why It's Bad**:
+1. Semantic violation: `useMutation` implies data modification
+2. No caching: GET responses should be cacheable
+3. Wrong mental model for other developers
+4. Missing refetch capabilities
+
+**Correct Pattern**:
+```typescript
+export function useExportWatchLists() {
+  return useQuery({
+    queryKey: ['/api/watchlists/export'],
+    queryFn: async () => apiRequest<ExportData>('/api/watchlists/export'),
+    enabled: false,  // Manual trigger only
+    staleTime: 0,    // Fresh data for exports
+  });
+}
+
+// Usage: const { refetch, isFetching } = useExportWatchLists();
+// <Button onClick={() => void refetch()}>Export</Button>
+```
+
+**Decision Matrix**:
+| HTTP Method | Use This |
+|-------------|----------|
+| GET (auto) | `useQuery` |
+| GET (manual) | `useQuery` + `enabled: false` |
+| POST/PUT/DELETE | `useMutation` |
+
+**Review Checklist**:
+- [ ] All download/export hooks use `useQuery`, not `useMutation`
+- [ ] Manual trigger uses `refetch()`, not `mutate()`
+- [ ] `enabled: false` for manual-only queries
+
+**Reference**: `docs/05_FRONTEND_PATTERNS.md` (useQuery vs useMutation section)
 
 ---
 
@@ -1911,9 +2020,10 @@ If you encounter unclear patterns:
 
 ---
 
-**Version**: 1.5
-**Last Updated**: 2025-12-05
+**Version**: 1.6
+**Last Updated**: 2025-12-12
 **Changes**:
+- v1.6: Added Pattern 8 (E2E `page: any` types) and Pattern 9 (useMutation for GET operations) from code review session feedback codification
 - v1.5: Added over-engineering detection patterns (Redis-native simplification from TODO_001), platform-feature-first principle, graceful degradation framework
 - v1.4: Added Phase 5 test quality patterns (WARNING 18/19), code review improvement integration patterns, updated hook reference to v3.4
 - v1.3: Added pre-commit hook pattern awareness, exemption comment validation, hook blockers/warnings reference

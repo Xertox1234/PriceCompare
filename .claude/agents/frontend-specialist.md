@@ -62,6 +62,55 @@ function useProduct(productId: string) {
 }
 ```
 
+### useQuery vs useMutation - CRITICAL (NEW 2025-12-12)
+
+**`useMutation` is for POST/PUT/DELETE. For GET operations (even manual triggers), use `useQuery`.**
+
+#### Decision Matrix
+| HTTP Method | Operation Type | Use This |
+|-------------|---------------|----------|
+| GET | Auto-fetch on mount | `useQuery` (default) |
+| GET | Manual trigger (export, download) | `useQuery` + `enabled: false` |
+| POST | Create resource | `useMutation` |
+| PUT/PATCH | Update resource | `useMutation` |
+| DELETE | Remove resource | `useMutation` |
+
+#### ❌ ANTI-PATTERN - useMutation for GET
+```typescript
+// ❌ WRONG - Export is a GET operation, not a mutation!
+export function useExportWatchLists() {
+  return useMutation({
+    mutationFn: async () => {
+      return apiRequest<ExportData>('/api/watchlists/export');
+    },
+  });
+}
+// Usage: exportMutation.mutate()
+```
+
+#### ✅ CORRECT - useQuery with enabled: false
+```typescript
+// ✅ CORRECT - Manual trigger GET operation
+export function useExportWatchLists() {
+  return useQuery({
+    queryKey: ['/api/watchlists/export'],
+    queryFn: async () => apiRequest<ExportData>('/api/watchlists/export'),
+    enabled: false,  // Don't fetch automatically
+    staleTime: 0,    // Always fetch fresh data for exports
+  });
+}
+// Usage: const { refetch, isFetching } = useExportWatchLists();
+// <Button onClick={() => void refetch()}>Export</Button>
+```
+
+#### Detection Commands
+```bash
+# Find useMutation with GET-like operations (REVIEW THESE)
+grep -rn "useMutation" client/src/hooks/ --include="*.ts" -A 5 | grep -E "(export|download|fetch|search|get)"
+```
+
+**Reference**: `docs/05_FRONTEND_PATTERNS.md` (useQuery vs useMutation section)
+
 ### Component Structure
 ```typescript
 // Prefer composition and single responsibility

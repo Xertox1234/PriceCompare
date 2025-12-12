@@ -623,6 +623,166 @@ onSuccess: () => setIsEditing(false)
 
 ---
 
+### useQuery vs useMutation for GET Operations (NEW - 2025-12-12)
+
+**Source**: Code review session - Architectural pattern violation using useMutation for GET request
+
+**CRITICAL**: `useMutation` is for operations that modify server state (POST, PUT, DELETE). For GET operations - even those triggered manually (downloads, exports) - use `useQuery` with `enabled: false`.
+
+#### The Problem: useMutation for Downloads/Exports
+
+When implementing features like "Export to CSV" or "Download Report", developers sometimes use `useMutation` because they want to trigger the request manually on button click:
+
+```typescript
+// client/src/hooks/use-community.ts - WRONG
+export function useExportWatchLists() {
+  return useMutation({
+    mutationFn: async () => {
+      // This is a GET request!
+      const response = await apiRequest<ExportData>('/api/watchlists/export');
+      return response;
+    },
+    // ...
+  });
+}
+
+// Usage in component - WRONG
+const exportMutation = useExportWatchLists();
+<Button onClick={() => exportMutation.mutate()}>Export</Button>
+```
+
+**Problems with this approach**:
+1. **Semantic violation**: `useMutation` implies data modification (POST/PUT/DELETE)
+2. **No caching**: GET responses should be cacheable; mutations bypass React Query cache
+3. **Wrong mental model**: Other developers expect mutations to change server state
+4. **Incorrect loading states**: `isPending` vs `isLoading` semantics differ
+5. **Missing refetch capabilities**: Queries can be refetched; mutations must be re-mutated
+
+#### The Solution: useQuery with `enabled: false`
+
+For manually-triggered GET operations, use `useQuery` with `enabled: false` and call `refetch()`:
+
+```typescript
+// client/src/hooks/use-community.ts - CORRECT
+export function useExportWatchLists() {
+  return useQuery({
+    queryKey: ['/api/watchlists/export'],
+    queryFn: async () => {
+      const response = await apiRequest<ExportData>('/api/watchlists/export');
+      return response;
+    },
+    enabled: false,  // Don't fetch automatically
+    staleTime: 0,    // Always fetch fresh data for exports
+  });
+}
+
+// Usage in component - CORRECT
+const { data, isLoading, refetch } = useExportWatchLists();
+<Button
+  onClick={() => void refetch()}
+  disabled={isLoading}
+>
+  {isLoading ? 'Exporting...' : 'Export'}
+</Button>
+```
+
+#### Decision Matrix: useQuery vs useMutation
+
+| HTTP Method | Operation Type | Use This | Example |
+|-------------|---------------|----------|---------|
+| GET | Auto-fetch on mount | `useQuery` (default) | Product list, user profile |
+| GET | Manual trigger | `useQuery` + `enabled: false` | Export CSV, download report |
+| POST | Create resource | `useMutation` | Create user, add product |
+| PUT/PATCH | Update resource | `useMutation` | Update settings, edit profile |
+| DELETE | Remove resource | `useMutation` | Delete item, remove user |
+
+#### Common Patterns
+
+**Pattern 1: Export/Download Button**
+```typescript
+export function useDownloadReport() {
+  return useQuery({
+    queryKey: ['/api/reports/download'],
+    queryFn: () => apiRequest<Blob>('/api/reports/download'),
+    enabled: false,
+  });
+}
+
+// Component
+const { refetch, isFetching } = useDownloadReport();
+<Button onClick={() => void refetch()}>
+  {isFetching ? 'Downloading...' : 'Download Report'}
+</Button>
+```
+
+**Pattern 2: Search on Demand**
+```typescript
+export function useProductSearch(query: string) {
+  return useQuery({
+    queryKey: ['/api/products/search', query],
+    queryFn: () => apiRequest<Product[]>(`/api/products/search?q=${query}`),
+    enabled: query.length >= 3,  // Only search when query is 3+ chars
+  });
+}
+```
+
+**Pattern 3: Lazy Load Data**
+```typescript
+export function useProductDetails(productId: number | null) {
+  return useQuery({
+    queryKey: ['/api/products', productId],
+    queryFn: () => apiRequest<Product>(`/api/products/${productId}`),
+    enabled: productId !== null,  // Only fetch when we have an ID
+  });
+}
+```
+
+#### Detection Rule
+
+Add to code review checklist:
+
+```bash
+# Find useMutation with GET-like operations
+grep -rn "useMutation" client/src/hooks/ --include="*.ts" -A 5 | grep -E "(export|download|fetch|search|get)"
+
+# These patterns should use useQuery instead
+```
+
+#### Migration Pattern
+
+When fixing existing `useMutation` for GET operations:
+
+```typescript
+// Before
+export function useExportData() {
+  return useMutation({
+    mutationFn: async () => {
+      return apiRequest<ExportData>('/api/data/export');
+    },
+  });
+}
+
+// After
+export function useExportData() {
+  return useQuery({
+    queryKey: ['/api/data/export'],
+    queryFn: async () => {
+      return apiRequest<ExportData>('/api/data/export');
+    },
+    enabled: false,
+    staleTime: 0,
+  });
+}
+
+// Update component usage:
+// Before: const { mutate, isPending } = useExportData();
+// After:  const { refetch, isFetching } = useExportData();
+```
+
+**Reference**: This pattern was identified during code review of `client/src/hooks/use-community.ts` (lines 491-523) where `useExportWatchLists` used `useMutation` for a GET operation.
+
+---
+
 ### Async Handler ESLint Compliance
 
 **When:** Using async functions in React event handlers or React Query callbacks
