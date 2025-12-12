@@ -39,12 +39,12 @@
  *    - Avoid implementation details (counts, internal state)
  *    - Focus on critical user journeys
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   cleanDatabase,
   registerUser,
-  loginUser,
-  logoutUser,
+  loginUser as _loginUser,
+  logoutUser as _logoutUser,
 } from './helpers';
 import {
   seedTestProduct,
@@ -270,7 +270,7 @@ test.describe('Watchlist - Product Organization', () => {
     });
 
     test.skip('should bulk add products to watchlist - UI not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when bulk add UI is built
       // Expected flow:
@@ -320,7 +320,7 @@ test.describe('Watchlist - Product Organization', () => {
       expect(download.suggestedFilename()).toMatch(/export-test.*\.csv/i);
     });
 
-    test.skip('should import watchlist from CSV - UI not yet implemented', async ({ page }) => {
+    test.skip('should import watchlist from CSV - UI not yet implemented', async ({ page: _page }) => {
       // TODO: Implement when watchlist import UI is built
       // Expected flow:
       // 1. Click "Import Watchlist" button
@@ -333,7 +333,7 @@ test.describe('Watchlist - Product Organization', () => {
 
   test.describe('Watchlist Sharing', () => {
     test.skip('should share watchlist with another user - feature not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when sharing feature is added
       // Expected flow:
@@ -345,7 +345,7 @@ test.describe('Watchlist - Product Organization', () => {
       // 6. Verify shared user receives notification
     });
 
-    test.skip('should make watchlist public - feature not yet implemented', async ({ page }) => {
+    test.skip('should make watchlist public - feature not yet implemented', async ({ page: _page }) => {
       // TODO: Implement when public sharing is added
       // Expected flow:
       // 1. Open watchlist settings
@@ -361,7 +361,7 @@ test.describe('Watchlist - Product Organization', () => {
 /**
  * Create a new watchlist via UI
  */
-async function createWatchlist(page: any, name: string) {
+async function createWatchlist(page: Page, name: string) {
   await page.goto('/watchlists');
   await page.waitForLoadState('networkidle');
 
@@ -380,7 +380,7 @@ async function createWatchlist(page: any, name: string) {
 /**
  * Add a product to a watchlist via UI
  */
-async function addProductToWatchlist(page: any, productId: number, watchlistName: string) {
+async function addProductToWatchlist(page: Page, productId: number, watchlistName: string) {
   await page.goto(`/products/${productId}`);
   await page.waitForLoadState('networkidle');
 

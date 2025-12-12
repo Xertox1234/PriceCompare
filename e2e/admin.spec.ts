@@ -18,7 +18,7 @@ import {
   registerUser,
   loginUser,
   logoutUser,
-  waitForApiResponse,
+  waitForApiResponse as _waitForApiResponse,
 } from './helpers';
 import {
   createAdminUser,
@@ -103,7 +103,7 @@ test.describe('Admin - Dashboard Management', () => {
     });
 
     test.skip('should display user growth chart - UI not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when admin dashboard UI is built
     });
@@ -144,7 +144,7 @@ test.describe('Admin - Dashboard Management', () => {
     });
 
     test.skip('should create retailer via UI form - UI not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when retailer creation UI is built
       // Expected flow:
@@ -215,7 +215,7 @@ test.describe('Admin - Dashboard Management', () => {
     });
 
     test.skip('should edit product via UI form - UI not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when product edit UI is built
       // Expected flow:
@@ -255,7 +255,7 @@ test.describe('Admin - Dashboard Management', () => {
       expect(getResponse.status()).toBe(404);
     });
 
-    test.skip('should delete product via UI - UI not yet implemented', async ({ page }) => {
+    test.skip('should delete product via UI - UI not yet implemented', async ({ page: _page }) => {
       // TODO: Implement when product deletion UI is built
       // Expected flow:
       // 1. Navigate to admin products page
@@ -325,7 +325,7 @@ test.describe('Admin - Dashboard Management', () => {
     });
 
     test.skip('should display real-time monitoring dashboard - UI not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when monitoring dashboard UI is built
       // Expected features:
@@ -362,7 +362,7 @@ test.describe('Admin - Dashboard Management', () => {
     });
 
     test.skip('should view user details in modal - UI not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when user management UI is built
       // Expected flow:
@@ -374,7 +374,7 @@ test.describe('Admin - Dashboard Management', () => {
     });
 
     test.skip('should suspend user account - feature not yet implemented', async ({
-      page,
+      page: _page,
     }) => {
       // TODO: Implement when user suspension feature is added
       // Expected flow:
@@ -388,7 +388,7 @@ test.describe('Admin - Dashboard Management', () => {
   test.describe('Admin Creation', () => {
     test('should automatically make first user an admin', async ({ page }) => {
       // Register first user
-      const admin = await createAdminUser(page);
+      const _admin = await createAdminUser(page);
 
       // Verify admin has access to admin routes
       const response = await page.request.get('/api/admin/users');
