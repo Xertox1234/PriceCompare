@@ -1606,6 +1606,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md` - ESLint warning resolution patterns and intentional warnings management (2025-12-08)
 - `docs/LEARNINGS_TODO_178_STORAGE_LAYER_MIGRATION_COMPLETENESS.md` - Storage layer migration validation and documentation patterns (2025-12-08)
 - `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md` - UTC-first date handling in services, test/service timezone consistency (2025-12-09)
+- `docs/LEARNINGS_PHASE_1_2_WATCHLIST_E2E_CSRF_FIX.md` - Phase 1.2 E2E testing, CSRF token patterns, `apiRequest()` migration (2025-12-12)
 
 ### Subagent Documentation (.claude/knowledge/)
 

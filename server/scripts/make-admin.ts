@@ -2,6 +2,7 @@ import { db } from '../db';
 import { users } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { createLogger } from '../utils/logger';
+import { hashEmail } from '../utils/encryption';
 
 const log = createLogger('MakeAdmin');
 
@@ -14,10 +15,12 @@ if (!email) {
 
 async function makeAdmin() {
   try {
+    // Use email hash for indexed lookup
+    const emailHashValue = hashEmail(email);
     const result = await db
       .update(users)
       .set({ role: 'admin' })
-      .where(eq(users.email, email))
+      .where(eq(users.emailHash, emailHashValue))
       .returning();
 
     if (result.length === 0) {

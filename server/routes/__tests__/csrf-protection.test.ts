@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { hashEmail } from '../../utils/encryption';
 
 // Mock dependencies before imports
 vi.mock('../../services/price-aggregation-service', () => ({
@@ -120,6 +121,7 @@ describe('CSRF Protection', () => {
         id: 1,
         username: 'admin',
         email: 'admin@test.com',
+        emailHash: hashEmail('admin@test.com'), // SHA-256 hash for indexed lookups
         role: 'admin',
         trustLevel: 4,
         isActive: true,
@@ -159,6 +161,7 @@ describe('CSRF Protection', () => {
       .values({
         username: 'admin',
         email: 'admin@test.com',
+        emailHash: hashEmail('admin@test.com'), // SHA-256 hash for indexed lookups
         passwordHash: 'hashed', // SECURITY: NEVER expose - test data only
         role: 'admin',
       })

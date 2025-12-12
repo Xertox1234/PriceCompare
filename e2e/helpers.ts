@@ -6,6 +6,7 @@
 import { type Page } from '@playwright/test';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
+import { getRedisSessionClient } from '../server/config/redis';
 
 /**
  * Clean database before tests
@@ -14,6 +15,7 @@ import { sql } from 'drizzle-orm';
 export async function cleanDatabase() {
   // Use TRUNCATE CASCADE to reset all tables
   // This is faster and safer than deleting individual records
+  // Only includes core tables that are guaranteed to exist
   await db.execute(sql`
     TRUNCATE TABLE
       users,
@@ -22,12 +24,27 @@ export async function cleanDatabase() {
       price_history,
       price_alerts,
       watch_lists,
-      forum_topics,
-      forum_posts,
       notifications,
-      user_sessions
+      retailers,
+      password_reset_tokens,
+      notification_preferences,
+      product_watches,
+      user_reputation,
+      scraping_jobs,
+      price_snapshots
     RESTART IDENTITY CASCADE
   `);
+
+  // CRITICAL: Clear Redis sessions to prevent session leakage between tests
+  // Sessions persist in Redis even after database truncation and browser cookie clearing
+  const redisClient = getRedisSessionClient();
+  if (redisClient) {
+    // Clear all session keys (prefix: sess:)
+    const sessionKeys = await redisClient.keys('sess:*');
+    if (sessionKeys.length > 0) {
+      await redisClient.del(sessionKeys);
+    }
+  }
 }
 
 /**
@@ -39,61 +56,102 @@ export async function registerUser(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto('/');
+  // Navigate to /price-watch page which uses SharedNavigation (has Sign Up button)
+  // Can't use /admin (redirects unauthenticated users) or / (uses TemplateHeader, no Sign Up)
+  await page.goto('/price-watch');
 
-  // Wait for navigation to be ready
+  // Clear all browser state to ensure clean test environment (must be after navigation)
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  // Reload page to apply cleared state
+  await page.reload();
   await page.waitForLoadState('networkidle');
 
-  // Click register link
-  await page.click('text=Register');
-  await page.waitForURL(/.*\/(register|signup).*/);
+  // Click Sign Up button in navigation to open auth modal
+  // Use .first() because there are multiple Sign Up buttons (nav, main, footer)
+  await page.getByRole('button', { name: /sign up/i }).first().click();
 
-  // Fill registration form
-  await page.fill('input[name="username"]', username);
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', password);
+  // Wait for modal to open
+  await page.waitForSelector('input#username', { state: 'visible', timeout: 5000 });
 
-  // Submit form
-  await page.click('button[type="submit"]');
+  // Fill registration form (uses id selectors based on actual form structure)
+  await page.getByLabel(/username/i).fill(username);
+  await page.getByLabel(/email/i).fill(email);
+  await page.getByLabel(/^password$/i).first().fill(password);
+  await page.getByLabel(/confirm.*password/i).fill(password);
+
+  // Submit form (button text is "Create Account")
+  await page.getByRole('button', { name: /create account/i }).click();
+
+  // Wait for registration to complete by checking UI state
+  // IMPORTANT: Don't use waitForApiResponse() - it creates race conditions (API completes before we start listening)
+  // Instead, wait for the UI state change that indicates successful registration
+  // CRITICAL: Wait for user to be logged in (modal closes and user menu appears)
+  // Registration API returns 201 but React needs time to update auth state
+  // Use .first() because multiple navigation instances exist (desktop, mobile, etc.)
+  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
- * Login an existing user through the UI
+ * Login an existing user through the UI (via modal)
  */
 export async function loginUser(page: Page, email: string, password: string): Promise<void> {
-  await page.goto('/login');
+  // Navigate to /price-watch page which uses SharedNavigation (has Sign In button)
+  // Login is a modal - /login route triggers 404
+  await page.goto('/price-watch');
   await page.waitForLoadState('networkidle');
 
-  // Fill login form
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', password);
+  // Click Sign In button in navigation to open auth modal
+  // Use .first() because there may be multiple Sign In buttons
+  await page.getByRole('button', { name: /sign in/i }).first().click();
 
-  // Submit form
-  await page.click('button[type="submit"]');
+  // Wait for modal to open
+  await page.waitForSelector('input#email', { state: 'visible', timeout: 5000 });
+
+  // Fill login form using label-based selectors (matches registerUser pattern)
+  await page.getByLabel(/email/i).fill(email);
+  await page.getByLabel(/^password$/i).first().fill(password);
+
+  // Submit form (button text is "Sign In")
+  await page.getByRole('button', { name: /^sign in$/i }).click();
+
+  // CRITICAL: Wait for user to be logged in (modal closes and user menu appears)
+  // Use .first() because multiple navigation instances exist (desktop, mobile, etc.)
+  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
  * Logout current user
+ * Works with both TemplateHeader and SharedNavigation components
  */
 export async function logoutUser(page: Page): Promise<void> {
-  // Look for logout button/link (may vary by implementation)
-  const logoutSelectors = [
-    'button:has-text("Logout")',
-    'a:has-text("Logout")',
-    'button:has-text("Log out")',
-    'a:has-text("Log out")',
-  ];
+  try {
+    // Wait for page to be fully loaded
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
-  for (const selector of logoutSelectors) {
-    try {
-      await page.click(selector, { timeout: 2000 });
-      return;
-    } catch {
-      // Try next selector
-    }
+    // Find and click the user menu button (has data-testid="user-menu-button")
+    // Use .first() because multiple navigation instances exist (desktop, mobile, etc.)
+    const userMenuButton = page.getByTestId('user-menu-button').first();
+    await userMenuButton.click({ timeout: 5000 });
+
+    // Wait for dropdown menu to appear
+    await page.waitForTimeout(500);
+
+    // Click the "Sign out" button (has data-testid="sign-out-button")
+    const signOutButton = page.getByTestId('sign-out-button');
+    await signOutButton.click({ timeout: 5000 });
+
+    // Wait for logout to complete (redirect to home or login page)
+    await page.waitForURL(/\/(login)?$/, { timeout: 10000 });
+  } catch (error) {
+    throw new Error(
+      `Could not logout: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
-
-  throw new Error('Could not find logout button');
 }
 
 /**

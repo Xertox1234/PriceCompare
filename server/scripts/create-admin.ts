@@ -4,6 +4,7 @@ import { users } from '../../shared/schema';
 import bcrypt from 'bcrypt';
 import { createLogger } from '../utils/logger';
 import { PASSWORD } from '../utils/constants';
+import { hashEmail } from '../utils/encryption';
 
 const log = createLogger('CreateAdmin');
 
@@ -37,6 +38,7 @@ async function createAdmin() {
       .values({
         email: 'admin@pricecompare.com',
         username: 'admin',
+        emailHash: hashEmail('admin@pricecompare.com'), // SHA-256 hash for indexed lookups
         passwordHash: hashedPassword,
         role: 'admin',
       })

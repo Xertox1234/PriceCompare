@@ -11,6 +11,8 @@ import {
   Sun,
   Moon,
   Contrast,
+  LogOut,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useShop } from '@/context/shop-context';
@@ -23,6 +25,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { useAuth, useLogout } from '@/hooks/use-auth';
+import { AuthModal } from '@/components/auth/auth-modal';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 // Hook to detect scroll direction
 function useScrollDirection() {
@@ -78,6 +83,10 @@ export function TemplateHeader({
   const { getCartItemCount, wishlist, compare } = useShop();
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
   const { scrollDirection, scrollY } = useScrollDirection();
+  const { data: user } = useAuth();
+  const logoutMutation = useLogout();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const cartCount = getCartItemCount();
   const wishlistCount = wishlist.length;
@@ -85,6 +94,15 @@ export function TemplateHeader({
 
   // Show floating search bar when scrolling up after scrolling down past header
   const showFloatingSearch = scrollDirection === 'up' && scrollY > 200;
+
+  const handleOpenAuth = () => {
+    setAuthMode('login');
+    setShowAuthModal(true);
+  };
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
 
   return (
     <>
@@ -158,13 +176,46 @@ export function TemplateHeader({
                 </DropdownMenu>
 
                 {/* Account - beside search */}
-                <Link
-                  href="/login"
-                  className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2 whitespace-nowrap transition-colors"
-                >
-                  <User className="h-5 w-5" />
-                  <span className="hidden text-sm lg:inline">My account</span>
-                </Link>
+                {user ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2 whitespace-nowrap transition-colors">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-xs">
+                            {user.username.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="hidden text-sm lg:inline">{user.username}</span>
+                        <ChevronDown className="hidden h-3 w-3 lg:inline" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {user.role === 'admin' && (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin">
+                              <Settings className="mr-2 h-4 w-4" />
+                              Admin Panel
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                      <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <button
+                    onClick={handleOpenAuth}
+                    className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2 whitespace-nowrap transition-colors"
+                  >
+                    <User className="h-5 w-5" />
+                    <span className="hidden text-sm lg:inline">My account</span>
+                  </button>
+                )}
               </div>
 
               {/* Right Actions */}
@@ -393,6 +444,13 @@ export function TemplateHeader({
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        defaultMode={authMode}
+      />
     </>
   );
 }

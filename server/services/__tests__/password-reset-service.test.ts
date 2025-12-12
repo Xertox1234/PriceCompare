@@ -3,6 +3,7 @@ import { db } from '../../db';
 import { users, passwordResetTokens } from '@shared/schema';
 import { sql, eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
+import { hashEmail } from '../../utils/encryption';
 import {
   createPasswordResetToken,
   validatePasswordResetToken,
@@ -45,6 +46,7 @@ describe.sequential('Password Reset Service', () => {
       .values({
         email: 'password-reset-test@example.com',
         username: 'password-reset-testuser',
+        emailHash: hashEmail('password-reset-test@example.com'), // SHA-256 hash for indexed lookups
         passwordHash: 'hashed_password',
         role: 'user',
       })
@@ -295,6 +297,7 @@ describe.sequential('Password Reset Service', () => {
         .insert(users)
         .values({
           email: 'user2@example.com',
+          emailHash: hashEmail('user2@example.com'),
           username: 'user2',
           passwordHash: 'hash',
           role: 'user',

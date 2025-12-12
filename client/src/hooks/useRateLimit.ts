@@ -85,7 +85,9 @@ export function useRateLimit(): RateLimitInfo {
           'Rate limit hook: Fetch ref not initialized. This indicates a timing issue in hook lifecycle.'
         );
       }
-      const response = await originalFetchRef.current(input, init);
+      // CRITICAL: Use .call(window, ...) to maintain proper 'this' binding
+      // Without this, fetch throws "Illegal invocation" error in Playwright tests
+      const response = await originalFetchRef.current.call(window, input, init);
 
       // Extract rate limit headers
       const limitHeader = response.headers.get('X-RateLimit-Limit');

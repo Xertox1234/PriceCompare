@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useLocation } from 'wouter';
 import type {
   AnalyticsOverview,
   UserGrowthData,
@@ -14,6 +16,9 @@ import { AdminDashboard } from '@/components/admin/admin-dashboard';
 import { AdminUserManagement } from '@/components/admin/admin-user-management';
 import { AdminSettings } from '@/components/admin/admin-settings';
 import { Settings, BarChart3, Package, Store, Bell } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ShieldAlert } from 'lucide-react';
 
 interface User {
   id: number;
@@ -26,27 +31,79 @@ interface User {
 }
 
 export default function AdminPage() {
-  // Fetch users
+  const { data: currentUser, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // FIXED: Move ALL useQuery hooks to top (before any conditional returns)
+  // React Rules of Hooks: Hooks must be called in the same order on every render
+  const isAdmin = !authLoading && currentUser?.role === 'admin';
+
+  // Fetch users - only when user is authenticated as admin
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
+    enabled: isAdmin, // Only fetch when user is admin
   });
 
-  // Analytics data
+  // Analytics data - only when user is authenticated as admin
   const { data: overviewData } = useQuery<AnalyticsOverview>({
     queryKey: ['/api/admin/analytics/overview'],
+    enabled: isAdmin, // Only fetch when user is admin
   });
 
   const { data: userGrowthData = [] } = useQuery<UserGrowthData[]>({
     queryKey: ['/api/admin/analytics/user-growth'],
+    enabled: isAdmin, // Only fetch when user is admin
   });
 
   const { data: productActivityData = [] } = useQuery<ProductActivityData[]>({
     queryKey: ['/api/admin/analytics/product-activity'],
+    enabled: isAdmin, // Only fetch when user is admin
   });
 
   const { data: topCategoriesData = [] } = useQuery<TopCategoryData[]>({
     queryKey: ['/api/admin/analytics/top-categories'],
+    enabled: isAdmin, // Only fetch when user is admin
   });
+
+  // Redirect non-admin users to home page
+  useEffect(() => {
+    if (!authLoading && (!currentUser || currentUser.role !== 'admin')) {
+      setLocation('/');
+    }
+  }, [currentUser, authLoading, setLocation]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="bg-background min-h-screen">
+        <SharedNavigation currentPage="admin" />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if not admin (before redirect kicks in)
+  if (!currentUser || currentUser.role !== 'admin') {
+    return (
+      <div className="bg-background min-h-screen">
+        <SharedNavigation currentPage="admin" />
+        <div className="container mx-auto px-4 py-8">
+          <Alert variant="destructive">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+              You do not have permission to access the administration panel. Admin privileges are
+              required.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background min-h-screen">

@@ -27,6 +27,7 @@ import { retryWithBackoff, isTransientDatabaseError } from '../../utils/retry-wi
 import { USER_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
 import { storageCache } from '../../services/storage-cache';
+import { hashEmail } from '../../utils/encryption';
 
 /**
  * UserStorage - Domain repository for user operations
@@ -149,18 +150,25 @@ export class UserStorage extends BaseStorage {
   }): Promise<SafeUser> {
     try {
       // SECURITY: passwordHash handled internally, NEVER exposed in SELECT queries
-      const [user] = await this.db.insert(users).values(userData).returning({
-        id: users.id,
-        username: users.username,
-        email: users.email,
-        role: users.role,
-        trustLevel: users.trustLevel,
-        isActive: users.isActive,
-        isSuspended: users.isSuspended,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-        // SECURITY: Never expose passwordHash
-      });
+      const [user] = await this.db
+        .insert(users)
+        .values({
+          ...userData,
+          emailHash: hashEmail(userData.email), // SHA-256 hash for indexed lookups
+        })
+        .returning({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          emailHash: users.emailHash, // Include for SafeUser type compatibility
+          role: users.role,
+          trustLevel: users.trustLevel,
+          isActive: users.isActive,
+          isSuspended: users.isSuspended,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          // SECURITY: Never expose passwordHash
+        });
       return user;
     } catch (error) {
       this.handleError(error, 'registerUser');
@@ -242,6 +250,7 @@ export class UserStorage extends BaseStorage {
                 .values({
                   username,
                   email,
+                  emailHash: hashEmail(email), // SHA-256 hash for indexed lookups (uniqueness enforced here)
                   passwordHash, // SECURITY: NEVER expose - only used internally
                   role: isFirstUser ? 'admin' : 'user',
                 })

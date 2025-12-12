@@ -21,6 +21,7 @@ import {
   createTestRetailer,
   createTestProductOffer,
 } from './helpers/test-fixtures';
+import { hashEmail } from '../utils/encryption';
 
 /**
  * Test Helper Functions
@@ -140,6 +141,7 @@ describe('Watchlist Storage Layer', () => {
       .values({
         username: 'testuser',
         email: 'test@example.com',
+        emailHash: hashEmail('test@example.com'), // SHA-256 hash for indexed lookups
         // SECURITY: NEVER expose passwordHash in production code
         passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
         role: 'user',
@@ -279,6 +281,7 @@ describe('Watchlist Storage Layer', () => {
         .values({
           username: 'otheruser',
           email: 'other@example.com',
+          emailHash: hashEmail('other@example.com'), // SHA-256 hash for indexed lookups
           // SECURITY: NEVER expose passwordHash in production code
           passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
           role: 'user',
@@ -433,6 +436,7 @@ describe('Watchlist Storage Layer', () => {
         .values({
           username: 'otheruser',
           email: 'other@example.com',
+          emailHash: hashEmail('other@example.com'), // SHA-256 hash for indexed lookups
           // SECURITY: NEVER expose passwordHash in production code
           passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
           role: 'user',
@@ -498,6 +502,7 @@ describe('Watchlist Storage Layer', () => {
         .values({
           username: 'otheruser',
           email: 'other@example.com',
+          emailHash: hashEmail('other@example.com'), // SHA-256 hash for indexed lookups
           // SECURITY: NEVER expose passwordHash in production code
           passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
           role: 'user',
@@ -791,6 +796,7 @@ describe('Watchlist Storage Layer', () => {
         .values({
           username: 'otheruser',
           email: 'other@example.com',
+          emailHash: hashEmail('other@example.com'), // SHA-256 hash for indexed lookups
           // SECURITY: NEVER expose passwordHash in production code
           passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
           role: 'user',

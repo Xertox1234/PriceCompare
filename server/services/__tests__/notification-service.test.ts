@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../../db';
 import { users, notifications } from '@shared/schema';
 import { cleanupTestData } from '../../__tests__/helpers/test-fixtures';
+import { hashEmail } from '../../utils/encryption';
 import {
   getUserNotifications,
   getNotificationStats,
@@ -48,6 +49,7 @@ describe.sequential('Notification Service', () => {
       .values({
         email: 'notification-test@example.com',
         username: 'notification-testuser',
+        emailHash: hashEmail('notification-test@example.com'), // SHA-256 hash for indexed lookups
         passwordHash: 'hashed_password',
         role: 'user',
       })

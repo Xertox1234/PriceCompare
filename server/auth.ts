@@ -4,7 +4,8 @@ import bcrypt from 'bcrypt';
 import type { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { users } from '../shared/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { hashEmail } from './utils/encryption';
 import type { User as DatabaseUser } from '../shared/schema';
 import {
   recordFailedLoginAsync,
@@ -56,12 +57,14 @@ passport.use(
           } as ExtendedVerifyOptions);
         }
 
-        // Case-insensitive email lookup using LOWER() for better UX
+        // Fast indexed lookup by email hash (case-insensitive via lowercase in hash)
+        const emailHashValue = hashEmail(email);
         const userResult = await db
           .select({
             id: users.id,
             username: users.username,
             email: users.email,
+            emailHash: users.emailHash, // Include for SafeUser type compatibility
             passwordHash: users.passwordHash, // SECURITY: Only for internal password verification, never exposed in API
             role: users.role,
             trustLevel: users.trustLevel,
@@ -83,7 +86,7 @@ passport.use(
             updatedAt: users.updatedAt,
           })
           .from(users)
-          .where(sql`LOWER(${users.email}) = LOWER(${email})`)
+          .where(eq(users.emailHash, emailHashValue))
           .limit(1);
 
         if (!userResult.length) {
@@ -94,6 +97,15 @@ passport.use(
         }
 
         const user = userResult[0];
+
+        // Verify email matches to prevent hash collisions (extremely rare but possible)
+        // NOTE: user.email is already decrypted by Drizzle's encryptedText fromDriver
+        if (user.email.toLowerCase() !== email.toLowerCase()) {
+          // Hash collision - treat as user not found
+          await recordFailedLoginAsync(email);
+          return done(null, false, { message: 'Invalid email or password' });
+        }
+
         const isValid = await bcrypt.compare(password, user.passwordHash);
 
         if (!isValid) {
@@ -174,12 +186,14 @@ export async function createUser(userData: {
   role?: string;
 }): Promise<SafeUser> {
   const passwordHash = await hashPassword(userData.password);
+  const emailHashValue = hashEmail(userData.email);
 
   const newUserResult = await db
     .insert(users)
     .values({
       username: userData.username,
       email: userData.email,
+      emailHash: emailHashValue, // SHA-256 hash for indexed lookups
       passwordHash,
       role: userData.role || 'user',
     })
@@ -192,6 +206,7 @@ export async function createUser(userData: {
     id: user.id,
     username: user.username,
     email: user.email,
+    emailHash: user.emailHash, // Include for SafeUser type compatibility
     role: user.role,
     trustLevel: user.trustLevel,
     isActive: user.isActive,
@@ -214,11 +229,14 @@ export async function createUser(userData: {
 }
 
 export async function findUserByEmail(email: string): Promise<SafeUser | null> {
+  // Fast indexed lookup by email hash (case-insensitive via lowercase in hash)
+  const emailHashValue = hashEmail(email);
   const userResult = await db
     .select({
       id: users.id,
       username: users.username,
       email: users.email,
+      emailHash: users.emailHash, // Include for SafeUser type compatibility
       // SECURITY: Never expose passwordHash - this function is used in API routes
       role: users.role,
       trustLevel: users.trustLevel,
@@ -240,9 +258,20 @@ export async function findUserByEmail(email: string): Promise<SafeUser | null> {
       updatedAt: users.updatedAt,
     })
     .from(users)
-    .where(eq(users.email, email))
+    .where(eq(users.emailHash, emailHashValue))
     .limit(1);
-  return userResult[0] || null;
+
+  if (!userResult[0]) {
+    return null;
+  }
+
+  // Verify email matches to prevent hash collisions (extremely rare but possible)
+  // NOTE: user.email is already decrypted by Drizzle's encryptedText fromDriver
+  if (userResult[0].email.toLowerCase() !== email.toLowerCase()) {
+    return null; // Hash collision, not a real match
+  }
+
+  return userResult[0];
 }
 
 export async function findUserById(id: number): Promise<SafeUser | null> {
@@ -251,6 +280,7 @@ export async function findUserById(id: number): Promise<SafeUser | null> {
       id: users.id,
       username: users.username,
       email: users.email,
+      emailHash: users.emailHash, // Include for SafeUser type compatibility
       // SECURITY: Never expose passwordHash - this function is used in API routes
       role: users.role,
       trustLevel: users.trustLevel,

@@ -98,6 +98,132 @@ function PriceHistoryChart({ data }: { data: PricePoint[] }) {
 }
 ```
 
+### Modal-Based Authentication Pattern (CRITICAL - NEW 2025-12-11)
+
+**This application uses MODAL-based auth, NOT route-based pages (`/login`, `/register` don't exist).**
+
+#### ❌ ANTI-PATTERN - Hardcoded Auth Links
+```typescript
+// ❌ WRONG - Route doesn't exist, causes 404 errors
+<Link href="/login">
+  <User className="h-5 w-5" />
+  <span>My account</span>
+</Link>
+
+// ❌ WRONG - Using wrong prop names for AuthModal
+<AuthModal
+  open={showAuthModal}           // ❌ Wrong prop name
+  onOpenChange={setShowAuthModal} // ❌ Wrong prop name
+  mode={authMode}                 // ❌ Wrong prop name
+/>
+```
+
+#### ✅ CORRECT - Modal-Based Auth Pattern
+```typescript
+import { useState } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import { AuthModal } from '@/components/auth-modal';
+
+export function Navigation() {
+  const { data: user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+
+  const handleOpenAuth = (mode: 'login' | 'register') => {
+    setAuthMode(mode);
+    setShowAuthModal(true);
+  };
+
+  return (
+    <>
+      {/* Conditional UI based on auth state */}
+      {user ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-xs">
+                  {user.username.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span>{user.username}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {user.role === 'admin' && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin">Admin Panel</Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={handleLogout}>
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <button onClick={() => handleOpenAuth('login')}>
+          <User className="h-5 w-5" />
+          <span>My account</span>
+        </button>
+      )}
+
+      {/* Modal with CORRECT prop names */}
+      <AuthModal
+        isOpen={showAuthModal}           // ✅ Correct prop name
+        onClose={() => setShowAuthModal(false)} // ✅ Correct prop name
+        defaultMode={authMode}           // ✅ Correct prop name
+      />
+    </>
+  );
+}
+```
+
+#### AuthModal Props Interface (MANDATORY)
+```typescript
+interface AuthModalProps {
+  isOpen: boolean;           // ✅ NOT "open"
+  onClose: () => void;       // ✅ NOT "onOpenChange"
+  defaultMode?: 'login' | 'register'; // ✅ NOT "mode"
+}
+```
+
+#### Detection Commands
+```bash
+# Find hardcoded auth route links (ANTI-PATTERN)
+grep -rn 'href="/login"' client/src/ --include="*.tsx"
+grep -rn 'href="/register"' client/src/ --include="*.tsx"
+
+# Find incorrect AuthModal prop usage
+grep -rn '<AuthModal' client/src/ --include="*.tsx" -A 3 | grep -E '(open=|onOpenChange=|mode=)'
+
+# Find correct AuthModal usage (for reference)
+grep -rn '<AuthModal' client/src/ --include="*.tsx" -A 3 | grep -E '(isOpen=|onClose=|defaultMode=)'
+```
+
+#### Review Checklist
+When reviewing navigation/header components, verify:
+- [ ] No hardcoded `/login` or `/register` links in main application
+- [ ] `AuthModal` component used with correct props (`isOpen`, `onClose`, `defaultMode`)
+- [ ] Conditional rendering based on `useAuth()` hook state
+- [ ] Loading states handled during auth checks
+- [ ] Admin features gated behind role check (`user.role === 'admin'`)
+- [ ] Modal state managed with `useState<boolean>`
+- [ ] Auth mode managed with `useState<'login' | 'register'>`
+- [ ] Logout handler uses mutation from `useAuth()` hook
+
+#### Common Mistakes
+1. **Wrong prop names**: Using `open`, `onOpenChange`, `mode` instead of `isOpen`, `onClose`, `defaultMode`
+2. **Route-based auth**: Creating `/login` and `/register` routes instead of using modal
+3. **Missing conditional UI**: Not showing different UI for authenticated vs unauthenticated users
+4. **Hardcoded links**: Using `<Link href="/login">` instead of modal trigger buttons
+5. **Missing role checks**: Not gating admin features behind `user.role === 'admin'`
+
+#### References
+- **Pattern Documentation**: `docs/05_FRONTEND_PATTERNS.md` - "Authentication Pattern (Modal-Based)" section
+- **Production Example**: `client/src/components/template/header.tsx` (lines 178-218, 449-453)
+- **AuthModal Component**: `client/src/components/auth-modal.tsx`
+- **useAuth Hook**: `client/src/hooks/use-auth.ts`
+
 ## Design System (MANDATORY - Pre-Commit Enforced)
 
 **Pre-commit hooks FAIL if you violate these rules:**

@@ -2621,6 +2621,223 @@ const date = createTestDate(2025, 1, 15);
 
 ---
 
+## Native Browser API Binding (CRITICAL - E2E Test Pattern)
+
+**Added:** 2025-12-11 (Phase 1.1 E2E Test Expansion)
+
+Native browser APIs (fetch, setTimeout, XMLHttpRequest, etc.) require `this` to be bound to `window`. When intercepting or storing these APIs in refs/variables, you MUST use `.call(window, ...)` or `.bind(window)` to maintain the binding context.
+
+**Why This Matters:**
+- Arrow functions capture `this` from enclosing scope, not call site
+- Storing native API references loses `this` binding
+- Calling without proper binding causes "Illegal invocation" errors
+- Playwright E2E tests catch these binding issues that manual testing may miss
+
+### The Problem
+
+When you intercept global browser APIs (e.g., to add logging, rate limiting, or header extraction), storing the original reference and calling it directly loses the `this` binding:
+
+```typescript
+// ❌ WRONG - Lost `this` binding causes "Illegal invocation"
+const originalFetchRef = useRef<typeof fetch | null>(null);
+
+useEffect(() => {
+  originalFetchRef.current = window.fetch;
+
+  const interceptedFetch: typeof fetch = async (input, init?) => {
+    // Pre-processing logic...
+    const response = await originalFetchRef.current(input, init); // ❌ ILLEGAL INVOCATION!
+    // Post-processing logic...
+    return response;
+  };
+
+  window.fetch = interceptedFetch;
+}, []);
+```
+
+**Error:**
+```
+Failed to execute 'fetch' on 'Window': Illegal invocation
+```
+
+### Anti-Pattern
+
+```typescript
+// ❌ WRONG - Arrow function doesn't preserve native API binding
+const myFetch = async (url: string) => {
+  const originalFetch = window.fetch; // Stored reference
+  return originalFetch(url); // ❌ Lost binding!
+};
+
+// ❌ WRONG - Direct call on stored ref
+const fetchRef = window.fetch;
+fetchRef('/api/data'); // ❌ Illegal invocation
+
+// ❌ WRONG - Even storing in React ref doesn't help
+const originalFetchRef = useRef(window.fetch);
+originalFetchRef.current(input, init); // ❌ Still lost binding
+```
+
+### Correct Patterns
+
+#### Pattern 1: Use `.call(window, ...)` (Recommended)
+
+```typescript
+// ✅ CORRECT - Explicit .call(window, ...) maintains binding
+export function useRateLimit(): RateLimitInfo {
+  const originalFetchRef = useRef<typeof fetch | null>(null);
+
+  useEffect(() => {
+    // Store original
+    if (!originalFetchRef.current) {
+      originalFetchRef.current = window.fetch;
+    }
+
+    // Intercept with proper binding
+    const interceptedFetch: typeof fetch = async (input, init?) => {
+      if (!originalFetchRef.current) {
+        throw new Error('Rate limit hook: Fetch ref not initialized...');
+      }
+
+      // CRITICAL: Use .call(window, ...) to maintain proper 'this' binding
+      // Without this, fetch throws "Illegal invocation" error in Playwright tests
+      const response = await originalFetchRef.current.call(window, input, init);
+
+      // Extract headers or process response...
+      return response;
+    };
+
+    // Replace global fetch
+    window.fetch = interceptedFetch;
+
+    // Cleanup: restore original on unmount
+    return () => {
+      if (originalFetchRef.current) {
+        window.fetch = originalFetchRef.current;
+      }
+    };
+  }, []);
+
+  return rateLimit;
+}
+```
+
+#### Pattern 2: Use `.bind(window)` Once
+
+```typescript
+// ✅ ALSO CORRECT - Bind once, reuse bound function
+const originalFetch = window.fetch;
+const boundFetch = originalFetch.bind(window);
+
+const interceptedFetch = async (input: RequestInfo, init?: RequestInit) => {
+  // Pre-processing...
+  const response = await boundFetch(input, init); // ✅ Binding preserved
+  // Post-processing...
+  return response;
+};
+```
+
+### React Hook Pattern (Complete Example)
+
+```typescript
+// ✅ CORRECT - Complete React hook with native API interception
+import { useState, useEffect, useRef } from 'react';
+
+export function useApiInterceptor() {
+  const [metadata, setMetadata] = useState<Record<string, string>>({});
+  const originalApiRef = useRef<typeof window.fetch | null>(null);
+
+  useEffect(() => {
+    // Store original API if not already stored
+    if (!originalApiRef.current) {
+      originalApiRef.current = window.fetch;
+    }
+
+    // Create interceptor with proper binding
+    const intercepted: typeof fetch = async (input, init?) => {
+      // Explicit null check (better than non-null assertion)
+      if (!originalApiRef.current) {
+        throw new Error('API ref not initialized - timing issue in hook lifecycle');
+      }
+
+      // ✅ CRITICAL: Use .call(window, ...) to maintain 'this' binding
+      const response = await originalApiRef.current.call(window, input, init);
+
+      // Extract metadata from response
+      const customHeader = response.headers.get('X-Custom-Header');
+      if (customHeader) {
+        setMetadata(prev => ({ ...prev, custom: customHeader }));
+      }
+
+      return response;
+    };
+
+    // Replace global API
+    window.fetch = intercepted;
+
+    // Cleanup: restore original on unmount
+    return () => {
+      if (originalApiRef.current) {
+        window.fetch = originalApiRef.current;
+      }
+    };
+  }, []);
+
+  return metadata;
+}
+```
+
+### Detection Rules
+
+```bash
+# Find global API interception (potential binding issues)
+grep -rn "window.fetch =" client/src --include="*.ts" --include="*.tsx"
+grep -rn "window.setTimeout =" client/src --include="*.ts"
+grep -rn "window.XMLHttpRequest =" client/src --include="*.ts"
+
+# Find stored API refs without .call() or .bind()
+grep -A5 "Ref.*window\.fetch" client/src --include="*.ts" --include="*.tsx" | grep -v "\.call\|\.bind"
+
+# Find React hooks that modify global objects
+grep -rn "window\.\w* =" client/src/hooks --include="*.ts"
+```
+
+### Why Playwright Catches This
+
+**Observation:** "Illegal invocation" errors often manifest in Playwright E2E tests but not in manual browser testing.
+
+**Reasons:**
+- Playwright's browser automation has stricter enforcement of `this` binding
+- Manual testing may avoid code paths with problematic hooks (useRateLimit may not activate in dev mode)
+- React Query's automatic retries may mask the issue with successful subsequent calls
+- Development vs production builds handle binding differently
+
+**Implication:** E2E tests provide critical safety net for binding issues that slip through manual QA.
+
+### Related Patterns
+
+**Native APIs That Require Binding:**
+- `window.fetch` - HTTP requests
+- `window.setTimeout` / `window.setInterval` - Timers
+- `window.XMLHttpRequest` - Legacy HTTP
+- `window.requestAnimationFrame` - Animation timing
+- `window.localStorage.getItem` / `setItem` - Storage APIs
+- `console.log` / `console.error` - Logging (when aliased)
+
+**When You DON'T Need This:**
+- Calling APIs directly: `window.fetch(...)` - binding is implicit
+- Standard React hooks: `useState`, `useEffect` - not browser APIs
+- Custom functions/services - only apply to native browser APIs
+
+### See Also
+
+- **`docs/LEARNINGS_PHASE_1_1_USERATEFIMIT_FETCH_BINDING.md`** - Complete investigation of this pattern with root cause analysis
+- **`client/src/hooks/useRateLimit.ts`** - Production example at line 90
+- **`docs/08_TESTING_PATTERNS.md`** - E2E test patterns with Playwright
+- **`docs/05_FRONTEND_PATTERNS.md`** - React hooks patterns
+
+---
+
 ## Related Documentation
 
 - [CLAUDE.md](../CLAUDE.md) - Main project guidelines

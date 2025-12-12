@@ -224,3 +224,37 @@ export function verifyEncryption(): boolean {
     return false;
   }
 }
+
+/**
+ * Generate deterministic SHA-256 hash of email for database lookups.
+ *
+ * This enables fast indexed lookups on encrypted email fields by storing
+ * a hash alongside the encrypted value. The hash is used for equality checks
+ * while the encrypted field preserves the actual email for display/GDPR.
+ *
+ * IMPORTANT: Always verify the decrypted email matches after hash lookup
+ * to prevent hash collision attacks (extremely rare but possible).
+ *
+ * @param email - Email address to hash
+ * @returns 64-character hex string (SHA-256 hash of lowercase email)
+ *
+ * @example
+ * const hash = hashEmail('User@Example.com');
+ * // Returns: 'b4c9a289323b21a01c3e940f150eb9b8c542587f...' (64 chars)
+ *
+ * // Use in queries:
+ * const user = await db.select().from(users)
+ *   .where(eq(users.emailHash, hashEmail(searchEmail)));
+ *
+ * // Always verify after lookup to prevent collisions:
+ * if (user && decrypt(user.email) !== searchEmail) {
+ *   return null; // Hash collision, not a real match
+ * }
+ */
+export function hashEmail(email: string): string {
+  if (!email) {
+    throw new Error('Cannot hash empty email');
+  }
+  return crypto.createHash('sha256').update(email.toLowerCase()).digest('hex');
+}
+

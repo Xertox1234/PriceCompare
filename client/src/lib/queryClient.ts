@@ -7,7 +7,26 @@ import {
   unwrapApiResponse,
 } from '@shared/api-types';
 
-// Store CSRF token in memory
+/**
+ * CSRF Token Lifecycle Management
+ *
+ * The CSRF token follows this lifecycle:
+ * 1. **Initial fetch**: Token obtained from GET /api/csrf-token on app startup
+ * 2. **Storage**: Kept in memory (not persisted across page reloads)
+ * 3. **Auto-update**: Refreshed from X-CSRF-Token response header on every API call
+ * 4. **Inclusion**: Automatically added to all mutating requests (POST/PUT/PATCH/DELETE)
+ * 5. **Expiration**: Server-side session timeout invalidates token (requires re-login)
+ *
+ * This approach ensures:
+ * - Fresh tokens without explicit rotation logic
+ * - No server session coupling (stateless token management)
+ * - Automatic CSRF protection for all mutations via apiRequest()
+ * - Zero developer overhead (handled transparently)
+ *
+ * @see App.tsx - Eager token fetching on app startup
+ * @see apiRequest() - Automatic token inclusion (lines 55-60)
+ * @see server/middleware/security.ts - CSRF validation
+ */
 let csrfToken: string | null = null;
 
 async function throwIfResNotOk(res: Response) {

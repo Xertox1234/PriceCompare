@@ -2603,4 +2603,112 @@ A good environment configuration pattern achieves:
 
 ---
 
+### 28. Native Browser API Binding Pattern (CRITICAL - NEW 2025-12-11)
+
+**When reviewing code that intercepts native browser APIs (fetch, setTimeout, XMLHttpRequest), verify proper `this` binding.**
+
+Native browser APIs require `this` to be bound to `window`. Storing references loses binding, causing "Illegal invocation" errors in Playwright tests.
+
+#### ❌ ANTI-PATTERN - Lost `this` Binding
+
+```typescript
+// WRONG - Storing and calling without proper binding
+const originalFetchRef = useRef<typeof fetch | null>(null);
+
+useEffect(() => {
+  originalFetchRef.current = window.fetch;
+
+  const interceptedFetch: typeof fetch = async (input, init?) => {
+    // ❌ ILLEGAL INVOCATION - Lost 'this' binding!
+    const response = await originalFetchRef.current(input, init);
+    return response;
+  };
+
+  window.fetch = interceptedFetch;
+}, []);
+```
+
+**Error in Playwright:**
+```
+Failed to execute 'fetch' on 'Window': Illegal invocation
+```
+
+#### ✅ CORRECT - Use `.call(window, ...)`
+
+```typescript
+// CORRECT - Explicit .call(window, ...) maintains binding
+const originalFetchRef = useRef<typeof fetch | null>(null);
+
+useEffect(() => {
+  originalFetchRef.current = window.fetch;
+
+  const interceptedFetch: typeof fetch = async (input, init?) => {
+    if (!originalFetchRef.current) {
+      throw new Error('Fetch ref not initialized');
+    }
+
+    // ✅ CRITICAL: Use .call(window, ...) to maintain proper 'this' binding
+    // Without this, fetch throws "Illegal invocation" error in Playwright tests
+    const response = await originalFetchRef.current.call(window, input, init);
+
+    return response;
+  };
+
+  window.fetch = interceptedFetch;
+
+  // Cleanup: restore original
+  return () => {
+    if (originalFetchRef.current) {
+      window.fetch = originalFetchRef.current;
+    }
+  };
+}, []);
+```
+
+#### Detection Patterns
+
+**Search for global API interception:**
+```bash
+# Find native API interception (potential binding issues)
+grep -rn "window.fetch =" client/src --include="*.ts" --include="*.tsx"
+grep -rn "window.setTimeout =" client/src --include="*.ts"
+grep -rn "window.XMLHttpRequest =" client/src --include="*.ts"
+```
+
+**Verify proper binding:**
+```bash
+# Find stored API refs - check they use .call() or .bind()
+grep -A5 "Ref.*window\.fetch" client/src --include="*.ts" --include="*.tsx"
+```
+
+#### Review Checklist
+
+- [ ] Global API replacements (`window.fetch =`, `window.setTimeout =`) found
+- [ ] Original API stored in ref/variable
+- [ ] Stored ref called with `.call(window, ...)` OR bound with `.bind(window)`
+- [ ] NOT called directly: `originalRef(args)` ❌
+- [ ] Cleanup restores original API on unmount
+- [ ] Comment explains binding requirement
+- [ ] Pattern tested in Playwright E2E tests
+
+#### Native APIs That Require Binding
+
+- `window.fetch` - HTTP requests (most common)
+- `window.setTimeout` / `window.setInterval` - Timers
+- `window.XMLHttpRequest` - Legacy HTTP
+- `window.requestAnimationFrame` - Animation
+- `window.localStorage.getItem/setItem` - Storage
+- `console.log/error` - Logging (when aliased)
+
+#### Why Playwright Catches This
+
+Playwright's browser automation has stricter enforcement of `this` binding than manual browser testing. These errors often manifest in E2E tests but not in development, making them critical to catch in review.
+
+**Reference:**
+- `docs/01_TYPESCRIPT_PATTERNS.md` - Native Browser API Binding section
+- `docs/LEARNINGS_PHASE_1_1_USERATEFIMIT_FETCH_BINDING.md` - Complete investigation
+- `client/src/hooks/useRateLimit.ts:90` - Production example
+
+---
+
 Remember: Focus on patterns and consistency. A codebase with consistent patterns is easier to maintain than one with perfect but inconsistent code.

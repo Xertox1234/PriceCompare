@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import type { ProductWatch, WatchList, UserReputation, DealSpotting } from '@shared/schema';
 
 // Type-safe error extraction from unknown JSON response
@@ -43,27 +44,21 @@ interface RecentDeal extends DealSpotting {
   username: string;
 }
 
-// Add product to watch list
+/**
+ * Add product to watch list
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @returns Mutation hook for adding products to watchlists
+ */
 export function useAddProductWatch() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (productId: number) => {
-      const response = await fetch(`/api/community/watch/${productId}`, {
+      return apiRequest<unknown>(`/api/community/watch/${productId}`, {
         method: 'POST',
-        credentials: 'include',
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        const errorMessage =
-          typeof errorData === 'object' && errorData !== null && 'message' in errorData
-            ? String((errorData as { message: unknown }).message)
-            : 'Failed to add product watch';
-        throw new Error(errorMessage);
-      }
-
-      return response.json() as Promise<{ data: unknown }>;
     },
     onSuccess: (_, productId) => {
       // Invalidate relevant queries
@@ -75,27 +70,21 @@ export function useAddProductWatch() {
   });
 }
 
-// Remove product from watch list
+/**
+ * Remove product from watch list
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @returns Mutation hook for removing products from watchlists
+ */
 export function useRemoveProductWatch() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (productId: number) => {
-      const response = await fetch(`/api/community/watch/${productId}`, {
+      return apiRequest<unknown>(`/api/community/watch/${productId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        const errorMessage =
-          typeof errorData === 'object' && errorData !== null && 'message' in errorData
-            ? String((errorData as { message: unknown }).message)
-            : 'Failed to remove product watch';
-        throw new Error(errorMessage);
-      }
-
-      return response.json() as Promise<{ data: unknown }>;
     },
     onSuccess: (_, productId) => {
       // Invalidate relevant queries
@@ -263,24 +252,13 @@ export function useCreateWatchList() {
       color?: string;
       icon?: string;
     }) => {
-      const response = await fetch('/api/community/watch-lists', {
+      return apiRequest<WatchList>('/api/watchlists', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(data),
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to create watch list'));
-      }
-
-      return parseJsonResponse<{ data: WatchList }>(response);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
     },
   });
 }
@@ -288,9 +266,9 @@ export function useCreateWatchList() {
 // Get all user's watch lists
 export function useWatchLists() {
   return useQuery<{ data: WatchListWithStats[] }>({
-    queryKey: ['/api/community/watch-lists'],
+    queryKey: ['/api/watchlists'],
     queryFn: async () => {
-      const response = await fetch('/api/community/watch-lists', {
+      const response = await fetch('/api/watchlists', {
         credentials: 'include',
       });
 
@@ -307,9 +285,9 @@ export function useWatchLists() {
 // Get a specific watch list with details
 export function useWatchList(listId: number) {
   return useQuery<{ data: WatchListWithStats }>({
-    queryKey: ['/api/community/watch-lists', listId],
+    queryKey: ['/api/watchlists', listId],
     queryFn: async () => {
-      const response = await fetch(`/api/community/watch-lists/${listId}`, {
+      const response = await fetch(`/api/watchlists/${listId}`, {
         credentials: 'include',
       });
 
@@ -323,7 +301,14 @@ export function useWatchList(listId: number) {
   });
 }
 
-// Update a watch list
+/**
+ * Update a watch list
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @security Ownership validated - Server ensures user owns the watch list
+ * @returns Mutation hook for updating watch list metadata
+ */
 export function useUpdateWatchList() {
   const queryClient = useQueryClient();
 
@@ -341,49 +326,37 @@ export function useUpdateWatchList() {
         sortOrder?: number;
       };
     }) => {
-      const response = await fetch(`/api/community/watch-lists/${listId}`, {
+      return apiRequest<WatchList>(`/api/watchlists/${listId}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(updates),
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to update watch list'));
-      }
-
-      return parseJsonResponse<{ data: WatchList }>(response);
     },
     onSuccess: (_, { listId }) => {
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists', listId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId] });
     },
   });
 }
 
-// Delete a watch list
+/**
+ * Delete a watch list
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @security Ownership validated - Server ensures user owns the watch list
+ * @returns Mutation hook for deleting watch lists
+ */
 export function useDeleteWatchList() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (listId: number) => {
-      const response = await fetch(`/api/community/watch-lists/${listId}`, {
+      return apiRequest<{ success: boolean }>(`/api/watchlists/${listId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to delete watch list'));
-      }
-
-      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
     },
   });
@@ -392,9 +365,9 @@ export function useDeleteWatchList() {
 // Get products in a watch list
 export function useWatchListProducts(listId: number) {
   return useQuery<{ data: WatchListProduct[] }>({
-    queryKey: ['/api/community/watch-lists', listId, 'products'],
+    queryKey: ['/api/watchlists', listId, 'products'],
     queryFn: async () => {
-      const response = await fetch(`/api/community/watch-lists/${listId}/products`, {
+      const response = await fetch(`/api/watchlists/${listId}/products`, {
         credentials: 'include',
       });
 
@@ -409,7 +382,14 @@ export function useWatchListProducts(listId: number) {
   });
 }
 
-// Update a product watch (category, notes, priority, target price, list)
+/**
+ * Update a product watch (category, notes, priority, target price, list)
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @security Ownership validated - Server ensures user owns the product watch
+ * @returns Mutation hook for updating product watch metadata
+ */
 export function useUpdateProductWatch() {
   const queryClient = useQueryClient();
 
@@ -427,38 +407,35 @@ export function useUpdateProductWatch() {
         watchListId?: number | null;
       };
     }) => {
-      const response = await fetch(`/api/community/product-watches/${watchId}`, {
+      return apiRequest<ProductWatch>(`/api/community/product-watches/${watchId}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(updates),
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to update product watch'));
-      }
-
-      return parseJsonResponse<{ data: ProductWatch }>(response);
     },
     onSuccess: (_, { updates }) => {
       // Invalidate watch lists
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
 
       // If moving to a different list, invalidate that list's products
       if (updates.watchListId !== undefined) {
         void queryClient.invalidateQueries({
-          queryKey: ['/api/community/watch-lists', updates.watchListId, 'products'],
+          queryKey: ['/api/watchlists', updates.watchListId, 'products'],
         });
       }
     },
   });
 }
 
-// Move multiple products to a different watch list (bulk operation)
+/**
+ * Move multiple products to a different watch list (bulk operation)
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @security Ownership validated - Server ensures user owns all product watches
+ * @security Input validation - Server validates productWatchIds array and targetListId
+ * @returns Mutation hook for bulk moving products between watch lists
+ */
 export function useMoveProductsToWatchList() {
   const queryClient = useQueryClient();
 
@@ -470,55 +447,40 @@ export function useMoveProductsToWatchList() {
       productWatchIds: number[];
       targetListId: number | null;
     }) => {
-      const response = await fetch('/api/community/product-watches/bulk-move', {
+      return apiRequest<{ success: boolean }>('/api/community/product-watches/bulk-move', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ productWatchIds, targetListId }),
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to move products'));
-      }
-
-      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
       // Invalidate all watch list queries
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
     },
   });
 }
 
-// Remove multiple products from watch lists (bulk delete)
+/**
+ * Remove multiple products from watch lists (bulk delete)
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @security Input validation - Server validates productWatchIds array
+ * @returns Mutation hook for bulk deletion of product watches
+ */
 export function useBulkRemoveProductWatches() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (productWatchIds: number[]) => {
-      const response = await fetch('/api/community/product-watches/bulk-delete', {
+      return apiRequest<{ success: boolean }>('/api/community/product-watches/bulk-delete', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ productWatchIds }),
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to delete products'));
-      }
-
-      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
       // Invalidate all watch list queries
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
       void queryClient.invalidateQueries({ queryKey: ['/api/community/most-watched'] });
     },
@@ -529,7 +491,7 @@ export function useBulkRemoveProductWatches() {
 export function useExportWatchLists() {
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/community/watch-lists/export', {
+      const response = await fetch('/api/watchlists/export', {
         credentials: 'include',
       });
 
@@ -577,35 +539,27 @@ interface WatchListImportData {
   [key: string]: unknown;
 }
 
-// Import watch lists from JSON
+/**
+ * Import watch lists from JSON
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @security Input validation - Server validates importData structure and user ownership
+ * @returns Mutation hook for importing watch lists with created/skipped counts
+ */
 export function useImportWatchLists() {
   const queryClient = useQueryClient();
 
-  interface ImportResult {
-    data: { created: number; skipped: number };
-  }
-
   return useMutation({
-    mutationFn: async (importData: WatchListImportData): Promise<ImportResult> => {
-      const response = await fetch('/api/community/watch-lists/import', {
+    mutationFn: async (importData: WatchListImportData) => {
+      return apiRequest<{ created: number; skipped: number }>('/api/watchlists/import', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(importData),
       });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to import watch lists'));
-      }
-
-      return parseJsonResponse<ImportResult>(response);
     },
     onSuccess: () => {
       // Invalidate all watch list queries
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watch-lists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
       void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
     },
   });

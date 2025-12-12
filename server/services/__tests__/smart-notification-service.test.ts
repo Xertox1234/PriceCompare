@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../../db';
 import { users, notifications, products, productOffers, retailers } from '@shared/schema';
 import { sql } from 'drizzle-orm';
+import { hashEmail } from '../../utils/encryption';
 import {
   analyzeNotificationTriggers,
   prioritizeNotifications,
@@ -83,6 +84,7 @@ describe('Smart Notification Service', () => {
       .values({
         username: 'testuser',
         email: 'test@example.com',
+        emailHash: hashEmail('test@example.com'), // SHA-256 hash for indexed lookups
         // SECURITY: NEVER expose passwordHash in production code
         passwordHash: 'hashed_password_test_only', // SECURITY: test only - NEVER expose in production
         role: 'user',

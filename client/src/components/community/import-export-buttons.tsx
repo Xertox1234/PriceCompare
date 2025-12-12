@@ -75,7 +75,7 @@ export function ImportExportButtons() {
 
       toast({
         title: 'Import successful',
-        description: `Created ${result.data.created} list(s), skipped ${result.data.skipped} duplicate(s)`,
+        description: `Created ${result.created} list(s), skipped ${result.skipped} duplicate(s)`,
       });
 
       // Reset file input

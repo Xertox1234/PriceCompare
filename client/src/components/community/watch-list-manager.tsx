@@ -8,6 +8,7 @@ import {
   useWatchLists,
   useWatchListProducts,
   useBulkRemoveProductWatches,
+  type WatchListWithStats,
 } from '@/hooks/use-community';
 import { Plus, FolderOpen } from 'lucide-react';
 import { WatchListCard } from './watch-list-card';
@@ -24,7 +25,7 @@ export function WatchListManager() {
   const { toast } = useToast();
 
   const watchLists = watchListsData?.data || [];
-  const _selectedList = watchLists.find((list) => list.id === selectedListId);
+  const _selectedList = watchLists.find((list: WatchListWithStats) => list.id === selectedListId);
 
   // Auto-select first list if none selected
   if (!selectedListId && watchLists.length > 0 && !isLoading) {
@@ -99,13 +100,15 @@ export function WatchListManager() {
           <h1 className="text-3xl font-bold tracking-tight">My Watch Lists</h1>
           <p className="text-muted-foreground mt-2">Organize and track your favorite products</p>
         </div>
-        <div className="flex gap-2">
-          <ImportExportButtons />
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New List
-          </Button>
-        </div>
+        {watchLists.length > 0 && (
+          <div className="flex gap-2">
+            <ImportExportButtons />
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Watchlist
+            </Button>
+          </div>
+        )}
       </div>
 
       {watchLists.length === 0 ? (
@@ -119,7 +122,7 @@ export function WatchListManager() {
           <CardContent>
             <Button onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Create Your First List
+              Create Watchlist
             </Button>
           </CardContent>
         </Card>
@@ -137,7 +140,7 @@ export function WatchListManager() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <TabsList className="flex h-auto w-full flex-col gap-2">
-                    {watchLists.map((list) => (
+                    {watchLists.map((list: WatchListWithStats) => (
                       <TabsTrigger
                         key={list.id}
                         value={list.id.toString()}
@@ -153,7 +156,7 @@ export function WatchListManager() {
 
             {/* Main content area */}
             <div className="flex-1">
-              {watchLists.map((list) => (
+              {watchLists.map((list: WatchListWithStats) => (
                 <TabsContent key={list.id} value={list.id.toString()} className="mt-0">
                   <Card>
                     <CardHeader>

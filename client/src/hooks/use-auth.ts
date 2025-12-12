@@ -99,8 +99,8 @@ export function useLogout() {
     onSuccess: () => {
       queryClient.setQueryData(['auth', 'user'], null);
       void queryClient.invalidateQueries({ queryKey: ['auth'] });
-      // Refresh the page to reset all state
-      window.location.reload();
+      // Navigate to home page after logout (better UX than reloading current page)
+      window.location.href = '/';
     },
   });
 }

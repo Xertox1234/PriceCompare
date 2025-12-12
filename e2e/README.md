@@ -10,7 +10,7 @@ E2E tests validate complete user journeys through the application, testing the f
 - Backend (Express API)
 - Database (PostgreSQL)
 
-**Test Coverage**: 40-60 tests across 4 critical user flows
+**Test Coverage**: 60-80 tests across 5 critical user flows
 
 ## Test Suites
 
@@ -57,7 +57,21 @@ Tests price alert creation and management:
 
 **12 tests** covering price alerts
 
-### 4. Forum Interaction (`forum.spec.ts`)
+### 4. Admin Features (`admin.spec.ts`)
+
+Tests admin dashboard and management features:
+
+- Admin dashboard access and authorization
+- Analytics overview (products, users, activity)
+- Retailer creation and management
+- Product editing and deletion
+- Performance monitoring (API stats, slowest endpoints)
+- User account management
+- Admin role assignment (first user becomes admin)
+
+**21 tests** covering admin features (14 runnable, 7 skipped pending UI implementation)
+
+### 5. Forum Interaction (`forum.spec.ts`)
 
 Tests community forum features:
 
@@ -168,6 +182,13 @@ Shared utilities in `helpers.ts`:
 - `isLoggedIn()` - Check authentication state
 - `generateTestEmail()` - Generate unique test emails
 - `generateTestUsername()` - Generate unique test usernames
+
+Admin-specific utilities in `helpers/admin-helpers.ts`:
+
+- `createAdminUser()` - Register first user (auto-assigned admin role)
+- `seedTestProduct()` - Create product with retailer and offers
+- `seedAnalyticsData()` - Create sample data for analytics dashboard
+- `seedMultipleProducts()` - Create multiple products for bulk testing
 
 ### Test Data
 
@@ -344,9 +365,9 @@ E2E tests complement unit and integration tests:
 
 - **Unit Tests** (267): Business logic, utilities, services
 - **Integration Tests** (134): API routes, database interactions
-- **E2E Tests** (40-60): Complete user journeys
+- **E2E Tests** (60-80): Complete user journeys
 
-**Total Coverage**: 401+ tests
+**Total Coverage**: 461+ tests
 
 ## Resources
 

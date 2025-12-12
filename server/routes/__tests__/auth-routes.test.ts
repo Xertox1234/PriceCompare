@@ -79,6 +79,7 @@ import {
   expectBadRequestError,
   expectUnauthorizedError,
 } from '../../__tests__/helpers/response-validators';
+import { hashEmail } from '../../utils/encryption';
 
 /**
  * Authentication Routes Test Suite
@@ -346,8 +347,11 @@ describe('Authentication Routes', () => {
         password,
       });
 
-      // Verify password is hashed in database
-      const userInDb = await db.select().from(users).where(eq(users.email, 'test@example.com'));
+      // Verify password is hashed in database (use emailHash for lookup)
+      const userInDb = await db
+        .select()
+        .from(users)
+        .where(eq(users.emailHash, hashEmail('test@example.com')));
       expect(userInDb[0].passwordHash).not.toBe(password);
       expect(userInDb[0].passwordHash).toMatch(/^\$2[aby]\$\d{2}\$/); // bcrypt format
     });

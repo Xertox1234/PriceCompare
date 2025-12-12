@@ -89,6 +89,17 @@ export function rateLimiter(options: { windowMs: number; maxRequests: number; me
   const { windowMs, maxRequests, message = 'Too many requests, please try again later' } = options;
 
   return (req: Request, res: Response, next: NextFunction) => {
+    // TESTING: Bypass rate limiting in test environment (E2E tests)
+    // Mirrors pattern in schema.ts where encryption is disabled in test mode
+    // Production security remains intact - only affects test environment
+    if (process.env.NODE_ENV === 'test') {
+      // Still set headers for test assertions but with unlimited values
+      res.setHeader('X-RateLimit-Limit', 999999);
+      res.setHeader('X-RateLimit-Remaining', 999999);
+      res.setHeader('X-RateLimit-Reset', Math.ceil((Date.now() + 3600000) / 1000));
+      return next();
+    }
+
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
 
@@ -297,23 +308,42 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 
   // Content Security Policy with nonce-based script/style protection
   // SECURITY: Removed 'unsafe-inline' and using nonce for maximum XSS protection
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  // TESTING: Treat test mode same as development for Vite HMR + Google Fonts
+  const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 
   // Build connect-src directive based on environment
   // Development needs WebSocket for Vite HMR (Hot Module Replacement)
   const connectSrc = isDevelopment ? "connect-src 'self' ws: wss:" : "connect-src 'self'";
 
+  // Build style-src directive - allow Google Fonts in dev/test mode
+  const styleSrc = isDevelopment
+    ? `style-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://fonts.googleapis.com`
+    : `style-src 'self' 'nonce-${nonce}'`;
+
+  // Build style-src-elem directive - allow inline <style> for Vite HMR in dev/test
+  const styleSrcElem = isDevelopment
+    ? "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com"
+    : undefined;
+
+  // Build font-src directive - allow Google Fonts in dev/test mode
+  const fontSrc = isDevelopment
+    ? "font-src 'self' data: https://fonts.gstatic.com"
+    : "font-src 'self' data:";
+
   const cspDirectives =
     [
       "default-src 'self'",
       `script-src 'self' 'nonce-${nonce}'`,
-      `style-src 'self' 'nonce-${nonce}'`,
+      styleSrc,
+      styleSrcElem,
       "img-src 'self' data: https:",
-      "font-src 'self' data:",
+      fontSrc,
       connectSrc,
       "frame-ancestors 'none'",
       'report-uri /api/csp-violation-report',
-    ].join('; ') + ';';
+    ]
+      .filter(Boolean)
+      .join('; ') + ';';
 
   // SECURITY: Start with Report-Only mode to monitor violations
   // Set CSP_ENFORCE=true in environment to enable full enforcement
@@ -399,7 +429,9 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
  * Handles Cross-Origin Resource Sharing with explicit security policies
  */
 export function corsMiddleware(req: Request, res: Response, next: NextFunction) {
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  // TESTING: Treat test mode same as development for E2E tests
+  // E2E tests run with NODE_ENV=test and need same CORS relaxation as development
+  const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 
   // Parse allowed origins from environment variable
   const allowedOriginsEnv = process.env.ALLOWED_ORIGINS;

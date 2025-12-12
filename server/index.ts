@@ -285,7 +285,8 @@ app.use(sanitizeInput);
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get('env') === 'development') {
+  // TESTING: Use Vite dev server in test environment (E2E tests need HMR)
+  if (app.get('env') === 'development' || app.get('env') === 'test') {
     await setupVite(app, server);
   } else {
     serveStatic(app);

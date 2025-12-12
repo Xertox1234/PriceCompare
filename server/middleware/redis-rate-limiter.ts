@@ -358,6 +358,18 @@ export function createRateLimiter(options: RateLimitOptions) {
   const message = options.message || 'Too many requests, please try again later';
 
   return async (req: Request, res: Response, next: NextFunction) => {
+    // TESTING: Bypass rate limiting in test environment (E2E tests)
+    // Mirrors pattern in schema.ts where encryption is disabled in test mode
+    // Production security remains intact - only affects test environment
+    if (process.env.NODE_ENV === 'test') {
+      // Still set headers for test assertions but with unlimited values
+      res.setHeader('X-RateLimit-Limit', 999999);
+      res.setHeader('X-RateLimit-Remaining', 999999);
+      res.setHeader('X-RateLimit-Reset', Math.ceil((Date.now() + 3600000) / 1000));
+      res.setHeader('X-RateLimit-Tier', 'test');
+      return next();
+    }
+
     try {
       const key = keyGen(req);
 

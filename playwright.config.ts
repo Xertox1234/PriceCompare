@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config as loadEnv } from 'dotenv';
+
+// Load .env.test for E2E tests
+loadEnv({ path: '.env.test' });
 
 /**
  * Playwright E2E Test Configuration
@@ -28,7 +32,8 @@ export default defineConfig({
   // Shared settings for all the projects below
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:5000',
+    // Note: Using port 5001 because macOS AirPlay Receiver uses 5000
+    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:5001',
 
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -75,8 +80,10 @@ export default defineConfig({
   webServer: process.env.CI
     ? undefined
     : {
-        command: 'npm run dev',
-        url: 'http://localhost:5000',
+        // TESTING: Run server in test mode to bypass rate limiting
+        // Uses dev:test script which sets NODE_ENV=test to disable rate limiter
+        command: 'npm run dev:test',
+        url: 'http://localhost:5001', // macOS AirPlay uses 5000
         reuseExistingServer: !process.env.CI,
         timeout: 120000,
       },

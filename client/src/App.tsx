@@ -1,5 +1,5 @@
 import { Switch, Route } from 'wouter';
-import { queryClient } from './lib/queryClient';
+import { queryClient, apiRequest } from './lib/queryClient';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/toaster';
@@ -8,7 +8,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { SharedNavigation } from '@/components/shared-navigation';
 import { RateLimitBanner } from '@/components/RateLimitBanner';
 import { NewFooter } from '@/components/new-footer';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { PageLoadingFallback, ProductGridLoadingFallback } from '@/components/loading-spinner';
 
 // ============================================
@@ -218,6 +218,15 @@ function Router() {
  * Must be rendered inside QueryClientProvider
  */
 function AppContent() {
+  // Eagerly fetch CSRF token on app startup for optimal security headers
+  // This ensures the token is available before any mutations are attempted
+  useEffect(() => {
+    void apiRequest('/api/csrf-token', { method: 'GET' }).catch(() => {
+      // Silently fail - CSRF middleware accepts both header and cookie validation
+      // The server will generate a new token on first mutation if needed
+    });
+  }, []);
+
   // Initialize WebSocket connection for real-time updates
   useWebSocket();
 

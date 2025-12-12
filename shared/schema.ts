@@ -14,6 +14,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
+import { createRequire } from 'module';
 
 // Custom vector type for pgvector extension
 const vector = customType<{ data: number[]; driverData: string }>({
@@ -53,6 +54,10 @@ let encryptionModule: {
   decrypt: (value: string) => string;
 } | null = null;
 
+// Create ESM-compatible require function for loading encryption module
+// This is needed because the schema runs in ESM context but needs to load CommonJS-style modules
+const requireESM = createRequire(import.meta.url);
+
 /**
  * Lazy-load the encryption module with fallback for test environment.
  *
@@ -79,8 +84,9 @@ function getEncryptionModule() {
       // Load production encryption from standard path
       // Fail fast with clear error if module can't be loaded
       try {
+        // Use ESM-compatible require function (createRequire from 'module')
         // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment -- Dynamic require for encryption module needed at runtime
-        encryptionModule = require('../server/utils/encryption');
+        encryptionModule = requireESM('../server/utils/encryption');
       } catch (error) {
         throw new Error(
           'Failed to load encryption module. ' +
@@ -253,7 +259,8 @@ export const priceHistory = pgTable(
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   username: varchar('username', { length: 50 }).notNull().unique(),
-  email: encryptedText('email').notNull().unique(), // GDPR Article 32: Encrypted PII
+  email: encryptedText('email').notNull(), // GDPR Article 32: Encrypted PII (uniqueness enforced via emailHash)
+  emailHash: varchar('email_hash', { length: 64 }).notNull().unique(), // SHA-256 hash for indexed lookups
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   role: varchar('role', { length: 20 }).default('user'),
   trustLevel: integer('trust_level').default(0), // 0-4 trust levels like Discourse

@@ -305,6 +305,229 @@ Truly dynamic colors calculated at runtime are acceptable:
 
 ---
 
+### Authentication Pattern (Modal-Based)
+
+**Added:** 2025-12-11 (Phase 1.1 E2E Test Expansion)
+
+This application uses **modal-based authentication** via the `AuthModal` component, NOT route-based pages (`/login`, `/register`). All components must use this pattern for consistency.
+
+**Key Points:**
+- Main app uses `AuthModal` for login/register flows
+- No `/login` or `/register` routes exist in main app
+- Template components may use different patterns (intentional variation)
+
+#### Anti-Pattern
+
+```typescript
+// ❌ WRONG - Hardcoded link to non-existent route
+import { Link } from '@/components/ui/link';
+
+function Header() {
+  return (
+    <nav>
+      <Link href="/login">  {/* ← 404 ERROR! Route doesn't exist */}
+        <User className="h-5 w-5" />
+        <span>My account</span>
+      </Link>
+    </nav>
+  );
+}
+```
+
+**Problems:**
+- Clicking navigates to `/login` which returns 404
+- Inconsistent UX (modals elsewhere, routes here)
+- Breaks authentication flow
+
+#### Correct Pattern
+
+```typescript
+// ✅ CORRECT - Modal-based auth pattern
+import { useState } from 'react';
+import { useAuth, useLogout } from '@/hooks/use-auth';
+import { AuthModal } from '@/components/auth/auth-modal';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { User, LogOut, Settings, ChevronDown } from 'lucide-react';
+
+function Header() {
+  // Auth state
+  const { data: user } = useAuth();
+  const logoutMutation = useLogout();
+
+  // Modal state
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+
+  // Handlers
+  const handleOpenAuth = () => {
+    setAuthMode('login');
+    setShowAuthModal(true);
+  };
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
+
+  return (
+    <nav>
+      {user ? (
+        // LOGGED IN: Dropdown with avatar, username, admin panel (if admin), logout
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-accent">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-xs">
+                  {user.username.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden text-sm lg:inline">{user.username}</span>
+              <ChevronDown className="hidden h-3 w-3 lg:inline" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {user.role === 'admin' && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Admin Panel
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending}>
+              <LogOut className="mr-2 h-4 w-4" />
+              {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        // NOT LOGGED IN: Button that opens auth modal
+        <button
+          onClick={handleOpenAuth}
+          className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-accent"
+        >
+          <User className="h-5 w-5" />
+          <span className="hidden text-sm lg:inline">My account</span>
+        </button>
+      )}
+
+      {/* AuthModal component */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        defaultMode={authMode}
+      />
+    </nav>
+  );
+}
+```
+
+#### AuthModal Props Interface
+
+**CRITICAL:** `AuthModal` uses specific prop names. Using wrong props will cause TypeScript errors.
+
+```typescript
+// ✅ CORRECT Props
+interface AuthModalProps {
+  isOpen: boolean;              // NOT 'open'
+  onClose: () => void;          // NOT 'onOpenChange'
+  defaultMode: 'login' | 'register';  // NOT 'mode' or 'onModeChange'
+}
+
+// Usage
+<AuthModal
+  isOpen={showAuthModal}
+  onClose={() => setShowAuthModal(false)}
+  defaultMode={authMode}
+/>
+
+// ❌ WRONG - These props don't exist
+<AuthModal
+  open={showAuthModal}          // ❌ TypeScript error
+  onOpenChange={setShowAuthModal}  // ❌ TypeScript error
+  mode={authMode}               // ❌ TypeScript error
+  onModeChange={setAuthMode}    // ❌ TypeScript error
+/>
+```
+
+#### Key Elements
+
+1. ✅ Import `useAuth` and `useLogout` from `@/hooks/use-auth`
+2. ✅ Import `AuthModal` from `@/components/auth/auth-modal`
+3. ✅ Local state for modal visibility: `useState(false)`
+4. ✅ Local state for auth mode: `useState<'login' | 'register'>('login')`
+5. ✅ Conditional rendering based on `user` presence
+6. ✅ Logged-in: Dropdown with avatar, username, logout
+7. ✅ Logged-out: Button that opens `AuthModal` (NOT link to `/login`)
+8. ✅ Admin-only features gated by `user.role === 'admin'`
+9. ✅ Proper TypeScript types for all state
+10. ✅ Correct `AuthModal` props: `isOpen`, `onClose`, `defaultMode`
+
+#### Common Mistakes
+
+**❌ Mistake 1: Wrong AuthModal Props**
+```typescript
+// Uses 'open' instead of 'isOpen'
+<AuthModal open={showAuthModal} ... />  // TypeScript error
+```
+**Fix:** Use `isOpen`, `onClose`, `defaultMode` (see Props Interface above)
+
+**❌ Mistake 2: Link to Non-Existent Route**
+```typescript
+<Link href="/login">My Account</Link>  // 404 error
+```
+**Fix:** Use button with `onClick` that opens `AuthModal`
+
+**❌ Mistake 3: No Conditional Rendering**
+```typescript
+// Always shows "Sign In" even when logged in
+<button onClick={handleOpenAuth}>Sign In</button>
+```
+**Fix:** Conditional rendering - show dropdown when `user` exists, button when `user` is null
+
+**❌ Mistake 4: Missing Admin Panel Check**
+```typescript
+// Shows admin panel to all users
+<DropdownMenuItem asChild>
+  <Link href="/admin">Admin Panel</Link>
+</DropdownMenuItem>
+```
+**Fix:** Wrap in `{user.role === 'admin' && ...}` conditional
+
+#### Template Components Exception
+
+**Note:** Components in `client/src/components/template/` may use different auth patterns intentionally (e.g., `TemplateHeader` was refactored to use this pattern). This is acceptable as template components demonstrate pattern variations.
+
+#### Detection Rule
+
+```bash
+# Find hardcoded /login or /register links (anti-pattern in main app)
+grep -rn 'href="/login"' client/src/components --exclude-dir=template
+grep -rn 'href="/register"' client/src/components --exclude-dir=template
+
+# Find AuthModal usage with wrong props
+grep -rn "AuthModal" client/src --include="*.tsx" -A5 | grep "open="
+grep -rn "AuthModal" client/src --include="*.tsx" -A5 | grep "onOpenChange="
+```
+
+#### Reference Implementation
+
+**See:** `client/src/components/shared-navigation.tsx` - Complete example of correct modal-based auth pattern with all features.
+
+**See Also:** `client/src/components/template/header.tsx` - Recently refactored to use this pattern (Phase 1.1 E2E test fix).
+
+---
+
 ## React Query Patterns
 
 ### Mutation Best Practices

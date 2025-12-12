@@ -14,6 +14,7 @@ import {
   createTestRetailer,
   createTestProductOffer,
 } from './helpers/test-fixtures';
+import { hashEmail } from '../utils/encryption';
 
 describe('PriceStorage.insertPriceHistoryBatch', () => {
   let testRetailer: typeof retailers.$inferSelect;
@@ -35,6 +36,7 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
     await db.insert(users).values({
       username: 'testuser',
       email: 'test@example.com',
+      emailHash: hashEmail('test@example.com'), // SHA-256 hash for indexed lookups
       passwordHash: 'hash', // SECURITY: Test data only, never exposed in queries
       role: 'user',
     });
