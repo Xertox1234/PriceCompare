@@ -24,6 +24,74 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 // API response types
+
+/**
+ * Response type for GET /api/community/watches endpoint
+ *
+ * Represents the user's watched products with full product details.
+ *
+ * @remarks
+ * This type reflects the standardized API envelope structure.
+ * The server returns `{ data: ProductWatch[] }` where data contains the watches array.
+ *
+ * @see {@link useWatchedProducts} - Hook that consumes this response
+ */
+export interface WatchedProductsResponse {
+  data: ProductWatch[];
+}
+
+/**
+ * Response type for GET /api/community/most-watched endpoint
+ *
+ * Represents the most popular products across all users, ranked by watch count.
+ * Returns aggregate statistics showing which products are trending in the community.
+ *
+ * @remarks
+ * This type reflects the standardized API envelope structure.
+ * The server returns `{ data: WatchStats[] }` where each WatchStats includes:
+ * - Product details
+ * - Total watch count across all users
+ * - Ranking position
+ *
+ * @see {@link useMostWatchedProducts} - Hook that consumes this response
+ */
+export interface MostWatchedProductsResponse {
+  data: WatchStats[];
+}
+
+/**
+ * Response type for GET /api/community/reputation endpoint
+ *
+ * Represents the authenticated user's reputation score and earned badges.
+ *
+ * @see {@link useUserReputation} - Hook that consumes this response
+ */
+export interface UserReputationResponse {
+  data: UserReputation & { badges: string[] };
+}
+
+/**
+ * Response type for GET /api/community/leaderboard endpoint
+ *
+ * Represents the top users by reputation score, ranked from highest to lowest.
+ *
+ * @see {@link useLeaderboard} - Hook that consumes this response
+ */
+export interface LeaderboardResponse {
+  data: LeaderboardEntry[];
+}
+
+/**
+ * Response type for GET /api/community/recent-deals endpoint
+ *
+ * Represents recent deal spottings from the community, chronologically ordered.
+ *
+ * @see {@link useRecentDeals} - Hook that consumes this response
+ */
+export interface RecentDealsResponse {
+  data: DealSpotting[];
+}
+
 interface WatchStats {
   productId: number;
   productName: string;
@@ -37,11 +105,6 @@ interface LeaderboardEntry {
   level: number;
   dealsSpotted: number;
   badges: string[];
-}
-
-interface RecentDeal extends DealSpotting {
-  productName: string;
-  username: string;
 }
 
 /**
@@ -96,20 +159,54 @@ export function useRemoveProductWatch() {
   });
 }
 
-// Get user's watched products
+/**
+ * Get user's watched products
+ *
+ * Fetches the complete list of products the authenticated user is watching.
+ * Returns an array of ProductWatch objects containing full product details
+ * plus watch metadata.
+ *
+ * @returns React Query result containing the watched products array
+ *
+ * @remarks
+ * **Current Behavior**: Fetches all watched products in a single request.
+ * This works well for typical user watch patterns (5-20 products).
+ *
+ * **Performance Considerations**:
+ * - ✅ Acceptable: Watch lists with <50 products
+ * - ⚠️ Consider optimization: Watch lists with 50-200 products
+ * - 🔴 Requires pagination: Watch lists with 200+ products
+ *
+ * **Authentication**: This endpoint requires user authentication.
+ * Unauthenticated requests will receive an empty array.
+ *
+ * @todo Add pagination support when users exceed 50 watched products
+ * @todo Consider implementing virtual scrolling for large watch lists
+ * @todo Monitor watch count metrics to determine pagination threshold
+ *
+ * @example
+ * ```tsx
+ * function WatchedProductsList() {
+ *   const { data: response, isLoading } = useWatchedProducts();
+ *
+ *   if (isLoading) return <Spinner />;
+ *   const products = response?.data ?? [];
+ *
+ *   return (
+ *     <div>
+ *       {products.map(watch => (
+ *         <ProductCard key={watch.productId} product={watch.product} />
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function useWatchedProducts() {
-  return useQuery<{ data: ProductWatch[] }>({
+  return useQuery<WatchedProductsResponse>({
     queryKey: ['/api/community/watches'],
     queryFn: async () => {
-      const response = await fetch('/api/community/watches', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch watched products');
-      }
-
-      return response.json();
+      return apiRequest<WatchedProductsResponse>('/api/community/watches');
     },
   });
 }
@@ -151,78 +248,176 @@ export function useIsWatching(productId: number) {
   });
 }
 
-// Get most watched products
+/**
+ * Get most watched products across the community
+ *
+ * Fetches trending products based on total watch count from all users.
+ * Results are sorted by popularity (most watches first) and limited to
+ * the specified count.
+ *
+ * @param limit - Maximum number of products to return (default: 10)
+ * @returns React Query result containing trending products with watch statistics
+ *
+ * @remarks
+ * **Current Behavior**: Fetches top N products in a single request with 1-minute
+ * auto-refresh. This provides real-time trending data for community features.
+ *
+ * **Performance Considerations**:
+ * - ✅ Acceptable: Limits ≤50 products
+ * - ⚠️ Consider optimization: Limits 50-100 products
+ * - 🔴 Requires pagination: Limits >100 products
+ *
+ * **Caching Strategy**: Results auto-refresh every 60 seconds to keep
+ * trending data current. Consider increasing interval if real-time updates
+ * aren't critical for your use case.
+ *
+ * @todo Add caching layer for frequently requested limit values
+ * @todo Consider implementing infinite scroll for large limit values
+ * @todo Monitor query performance metrics to optimize auto-refresh interval
+ *
+ * @example
+ * ```tsx
+ * function TrendingProducts() {
+ *   const { data: response, isLoading } = useMostWatchedProducts(20);
+ *
+ *   if (isLoading) return <Skeleton count={20} />;
+ *   const trending = response?.data ?? [];
+ *
+ *   return (
+ *     <div>
+ *       <h2>Trending Products</h2>
+ *       {trending.map((stat, index) => (
+ *         <TrendingCard
+ *           key={stat.productId}
+ *           rank={index + 1}
+ *           product={stat}
+ *           watchCount={stat.watchCount}
+ *         />
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function useMostWatchedProducts(limit = 10) {
-  return useQuery<{ data: WatchStats[] }>({
+  return useQuery<MostWatchedProductsResponse>({
     queryKey: ['/api/community/most-watched', limit],
     queryFn: async () => {
-      const response = await fetch(`/api/community/most-watched?limit=${limit}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch most watched products');
-      }
-
-      return response.json();
+      return apiRequest<MostWatchedProductsResponse>(
+        `/api/community/most-watched?limit=${limit}`
+      );
     },
     refetchInterval: 60000, // Refresh every minute
   });
 }
 
-// Get user reputation
+/**
+ * Get authenticated user's reputation score and badges
+ *
+ * @returns React Query result with reputation data and earned badges
+ *
+ * @remarks
+ * **Performance**: Single small object, negligible overhead
+ * **Auto-refresh**: Updates every 60 seconds
+ *
+ * @example
+ * ```tsx
+ * const { data: response } = useUserReputation();
+ * const rep = response?.data;
+ * return <Badge>{rep?.totalPoints} pts</Badge>;
+ * ```
+ */
 export function useUserReputation() {
-  return useQuery<{ data: UserReputation & { badges: string[] } }>({
+  return useQuery<UserReputationResponse>({
     queryKey: ['/api/community/reputation'],
-    queryFn: async () => {
-      const response = await fetch('/api/community/reputation', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch user reputation');
-      }
-
-      return response.json();
-    },
+    queryFn: async () => apiRequest<UserReputationResponse>('/api/community/reputation'),
     refetchInterval: 60000, // Refresh every minute
   });
 }
 
-// Get leaderboard
+/**
+ * Get community leaderboard ranked by reputation
+ *
+ * @param limit - Max users to return (default: 10)
+ * @returns React Query result with top-ranked users
+ *
+ * @remarks
+ * **Performance**: ✅ Acceptable for limit ≤50
+ * **Auto-refresh**: Updates every 2 minutes
+ *
+ * @example
+ * ```tsx
+ * const { data: response } = useLeaderboard(20);
+ * return response?.data.map((entry, idx) => (
+ *   <LeaderCard key={entry.userId} rank={idx + 1} {...entry} />
+ * ));
+ * ```
+ */
 export function useLeaderboard(limit = 10) {
-  return useQuery<{ data: LeaderboardEntry[] }>({
+  return useQuery<LeaderboardResponse>({
     queryKey: ['/api/community/leaderboard', limit],
-    queryFn: async () => {
-      const response = await fetch(`/api/community/leaderboard?limit=${limit}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch leaderboard');
-      }
-
-      return response.json();
-    },
+    queryFn: async () =>
+      apiRequest<LeaderboardResponse>(`/api/community/leaderboard?limit=${limit}`),
     refetchInterval: 120000, // Refresh every 2 minutes
   });
 }
 
-// Get recent deal spottings
+/**
+ * Get recent deal spottings from the community
+ *
+ * Fetches the latest deals spotted by community members, sorted by most recent first.
+ * Deal spottings include product details, price information, and the user who spotted it.
+ *
+ * @param limit - Maximum number of deals to return (default: 10)
+ * @returns React Query result containing recent deal spottings
+ *
+ * @remarks
+ * **Current Behavior**: Fetches top N recent deals in a single request with 1-minute
+ * auto-refresh. This provides real-time community activity for deal discovery.
+ *
+ * **Performance Considerations**:
+ * - ✅ Acceptable: Limits ≤50 deals
+ * - ⚠️ Consider optimization: Limits 50-100 deals
+ * - 🔴 Requires pagination: Limits >100 deals
+ *
+ * **Caching Strategy**: Results auto-refresh every 60 seconds to show latest
+ * community activity. Each user may spot deals at different times, so fresh
+ * data ensures users see the most current opportunities.
+ *
+ * @todo Add pagination support for browsing historical deals
+ * @todo Consider implementing infinite scroll for deal browsing UI
+ * @todo Monitor deal volume metrics to optimize auto-refresh interval
+ *
+ * @example
+ * ```tsx
+ * function RecentDealsSection() {
+ *   const { data: response, isLoading } = useRecentDeals(15);
+ *
+ *   if (isLoading) return <Spinner />;
+ *   const deals = response?.data ?? [];
+ *
+ *   return (
+ *     <div>
+ *       <h2>Latest Community Deals</h2>
+ *       {deals.map((deal) => (
+ *         <DealCard
+ *           key={deal.id}
+ *           product={deal.product}
+ *           price={deal.price}
+ *           spottedBy={deal.spottedBy}
+ *           timestamp={deal.createdAt}
+ *         />
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function useRecentDeals(limit = 10) {
-  return useQuery<{ data: RecentDeal[] }>({
+  return useQuery<RecentDealsResponse>({
     queryKey: ['/api/community/recent-deals', limit],
-    queryFn: async () => {
-      const response = await fetch(`/api/community/recent-deals?limit=${limit}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch recent deals');
-      }
-
-      return response.json();
-    },
+    queryFn: async () =>
+      apiRequest<RecentDealsResponse>(`/api/community/recent-deals?limit=${limit}`),
     refetchInterval: 60000, // Refresh every minute
   });
 }
@@ -241,6 +436,31 @@ export interface WatchListProduct extends ProductWatch {
   productImage?: string;
 }
 
+/**
+ * Response type for GET /api/watchlists/:id endpoint
+ *
+ * Represents the full watchlist object with metadata and associated products.
+ * The server returns this complete structure, not just the products array.
+ *
+ * @remarks
+ * This type reflects the actual API response structure from the server.
+ * We extract the `products` field when using `useWatchListProducts()` hook.
+ *
+ * **Design Decision**: This differs from a hypothetical `/api/watchlists/:id/products`
+ * endpoint (which doesn't exist) that would return products directly. The current
+ * design allows reusing a single endpoint for both full watchlist data and just products.
+ *
+ * @see {@link useWatchListProducts} - Hook that extracts products from this response
+ */
+export interface WatchListApiResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  products: WatchListProduct[];
+}
+
 // Create a new watch list
 export function useCreateWatchList() {
   const queryClient = useQueryClient();
@@ -257,47 +477,46 @@ export function useCreateWatchList() {
         body: JSON.stringify(data),
       });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+    onSuccess: async () => {
+      // Refetch to get latest data from server (including the new watchlist)
+      // Note: useWatchListUpdates() WebSocket hook also invalidates on 'created' events,
+      // but refetchQueries() ensures immediate data availability for the component
+      await queryClient.refetchQueries({ queryKey: ['/api/watchlists'] });
     },
   });
 }
 
 // Get all user's watch lists
 export function useWatchLists() {
-  return useQuery<{ data: WatchListWithStats[] }>({
+  return useQuery<WatchListWithStats[]>({
     queryKey: ['/api/watchlists'],
     queryFn: async () => {
-      const response = await fetch('/api/watchlists', {
-        credentials: 'include',
-      });
+      // API returns WatchListWithCount (productCount field)
+      // Transform to WatchListWithStats (watchCount + highPriorityCount fields)
+      const data = await apiRequest<Array<Omit<WatchListWithStats, 'watchCount' | 'highPriorityCount'> & { productCount: number }>>('/api/watchlists');
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch watch lists');
-      }
-
-      return parseJsonResponse<{ data: WatchListWithStats[] }>(response);
+      // Transform productCount -> watchCount, set highPriorityCount to 0
+      return data.map(list => ({
+        ...list,
+        watchCount: list.productCount,
+        highPriorityCount: 0, // TODO: Calculate from product watches
+      })) as WatchListWithStats[];
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
 // Get a specific watch list with details
 export function useWatchList(listId: number) {
-  return useQuery<{ data: WatchListWithStats }>({
+  return useQuery<WatchListWithStats>({
     queryKey: ['/api/watchlists', listId],
     queryFn: async () => {
-      const response = await fetch(`/api/watchlists/${listId}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch watch list');
-      }
-
-      return parseJsonResponse<{ data: WatchListWithStats }>(response);
+      return apiRequest<WatchListWithStats>(`/api/watchlists/${listId}`);
     },
     enabled: !!listId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
@@ -362,23 +581,56 @@ export function useDeleteWatchList() {
   });
 }
 
-// Get products in a watch list
+/**
+ * Get products in a watch list
+ *
+ * Fetches the full watchlist from the server and extracts just the products array.
+ * The server returns the complete `WatchListApiResponse` object, and this hook
+ * provides a convenient way to access only the products.
+ *
+ * @param listId - The ID of the watchlist to fetch products for
+ * @returns React Query result containing the products array
+ *
+ * @remarks
+ * **Current Behavior**: Fetches all products in the watchlist in a single request.
+ * This works well for typical watchlist sizes (1-50 products).
+ *
+ * **Performance Considerations**:
+ * - ✅ Acceptable: Watchlists with <100 products
+ * - ⚠️ Consider optimization: Watchlists with 100-500 products
+ * - 🔴 Requires pagination: Watchlists with 500+ products
+ *
+ * @todo Add pagination support when watchlists exceed 100 products
+ * @todo Consider implementing virtual scrolling for large product lists
+ * @todo Monitor watchlist size metrics to determine pagination threshold
+ *
+ * @example
+ * ```tsx
+ * function WatchListProducts({ listId }: { listId: number }) {
+ *   const { data: products, isLoading } = useWatchListProducts(listId);
+ *
+ *   if (isLoading) return <Spinner />;
+ *   return (
+ *     <div>
+ *       {products?.map(product => (
+ *         <ProductCard key={product.id} product={product} />
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function useWatchListProducts(listId: number) {
-  return useQuery<{ data: WatchListProduct[] }>({
+  return useQuery<WatchListProduct[]>({
     queryKey: ['/api/watchlists', listId, 'products'],
     queryFn: async () => {
-      const response = await fetch(`/api/watchlists/${listId}/products`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch watch list products');
-      }
-
-      return parseJsonResponse<{ data: WatchListProduct[] }>(response);
+      // Call the watchlist endpoint and extract products from the response
+      const watchlist = await apiRequest<WatchListApiResponse>(`/api/watchlists/${listId}`);
+      return watchlist.products;
     },
     enabled: !!listId,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

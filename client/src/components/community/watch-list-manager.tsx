@@ -9,6 +9,7 @@ import {
   useWatchListProducts,
   useBulkRemoveProductWatches,
   type WatchListWithStats,
+  type WatchListProduct,
 } from '@/hooks/use-community';
 import { Plus, FolderOpen } from 'lucide-react';
 import { WatchListCard } from './watch-list-card';
@@ -24,7 +25,7 @@ export function WatchListManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const watchLists = watchListsData?.data || [];
+  const watchLists = watchListsData || [];
   const _selectedList = watchLists.find((list: WatchListWithStats) => list.id === selectedListId);
 
   // Auto-select first list if none selected
@@ -35,7 +36,7 @@ export function WatchListManager() {
   const { data: productsData, isLoading: productsLoading } = useWatchListProducts(
     selectedListId || 0
   );
-  const products = productsData?.data || [];
+  const products = productsData || [];
 
   const bulkDelete = useBulkRemoveProductWatches();
 
@@ -43,7 +44,7 @@ export function WatchListManager() {
     if (selectedProducts.size === products.length) {
       setSelectedProducts(new Set());
     } else {
-      setSelectedProducts(new Set(products.map((p) => p.id)));
+      setSelectedProducts(new Set(products.map((p: { id: number }) => p.id)));
     }
   };
 
@@ -216,7 +217,7 @@ export function WatchListManager() {
                         </div>
                       ) : (
                         <div className="mt-4 space-y-4">
-                          {products.map((product) => (
+                          {products.map((product: WatchListProduct) => (
                             <WatchListProductCard
                               key={product.id}
                               product={product}
