@@ -2,27 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ProductWatch, WatchList, UserReputation, DealSpotting } from '@shared/schema';
 
-// Type-safe error extraction from unknown JSON response
-interface ApiErrorResponse {
-  error?: string;
-  message?: string;
-}
-
-function extractErrorMessage(data: unknown, fallback: string): string {
-  if (typeof data === 'object' && data !== null) {
-    const obj = data as ApiErrorResponse;
-    if (typeof obj.error === 'string') return obj.error;
-    if (typeof obj.message === 'string') return obj.message;
-  }
-  return fallback;
-}
-
-// Type-safe JSON parsing helper
-async function parseJsonResponse<T>(response: Response): Promise<T> {
-  const data: unknown = await response.json();
-  return data as T;
-}
-
 // API response types
 
 /**
@@ -90,6 +69,28 @@ export interface LeaderboardResponse {
  */
 export interface RecentDealsResponse {
   data: DealSpotting[];
+}
+
+/**
+ * Response type for GET /api/community/watch-count/:productId endpoint
+ *
+ * Represents the total number of users watching a specific product.
+ *
+ * @see {@link useWatchCount} - Hook that consumes this response
+ */
+export interface WatchCountResponse {
+  data: number;
+}
+
+/**
+ * Response type for GET /api/community/is-watching/:productId endpoint
+ *
+ * Represents whether the authenticated user is currently watching a product.
+ *
+ * @see {@link useIsWatching} - Hook that consumes this response
+ */
+export interface IsWatchingResponse {
+  data: boolean;
 }
 
 interface WatchStats {
@@ -211,39 +212,117 @@ export function useWatchedProducts() {
   });
 }
 
-// Get watch count for a product
+/**
+ * Get watch count for a product
+ *
+ * Fetches the total number of users currently watching a specific product.
+ * Provides real-time social proof metrics for product popularity.
+ *
+ * @param productId - The ID of the product to get watch count for
+ * @returns React Query result containing the watch count number
+ *
+ * @remarks
+ * **Current Behavior**: Auto-refreshes every 30 seconds to show live watch count.
+ * This provides real-time social proof on product detail pages.
+ *
+ * **Performance Considerations**:
+ * - ✅ Acceptable: Auto-refresh for single product view
+ * - ⚠️ Consider optimization: Multiple products with auto-refresh (use batch endpoint)
+ * - 🔴 Avoid: Auto-refresh on product list pages (100+ simultaneous queries)
+ *
+ * **Caching Strategy**: 30-second auto-refresh balances freshness with server load.
+ * For product lists, fetch counts once without auto-refresh or use batch endpoint.
+ *
+ * @todo Implement batch watch count endpoint for product lists
+ * @todo Add WebSocket support for real-time updates on high-traffic products
+ * @todo Monitor query frequency to prevent excessive polling
+ *
+ * @example
+ * ```tsx
+ * function ProductWatchBadge({ productId }: { productId: number }) {
+ *   const { data: response, isLoading } = useWatchCount(productId);
+ *
+ *   if (isLoading) return <Skeleton width={60} />;
+ *   const count = response?.data ?? 0;
+ *
+ *   return (
+ *     <Badge variant="secondary">
+ *       <EyeIcon className="mr-1 h-3 w-3" />
+ *       {count} watching
+ *     </Badge>
+ *   );
+ * }
+ * ```
+ */
 export function useWatchCount(productId: number) {
-  return useQuery<{ data: number }>({
+  return useQuery<WatchCountResponse>({
     queryKey: [`/api/community/watch-count/${productId}`],
     queryFn: async () => {
-      const response = await fetch(`/api/community/watch-count/${productId}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch watch count');
-      }
-
-      return response.json();
+      return apiRequest<WatchCountResponse>(`/api/community/watch-count/${productId}`);
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 }
 
-// Check if user is watching a product
+/**
+ * Check if user is watching a product
+ *
+ * Fetches whether the authenticated user is currently watching a specific product.
+ * Returns a boolean that can be used to toggle watch button states or show watch badges.
+ *
+ * @param productId - The ID of the product to check watch status for
+ * @returns React Query result containing a boolean indicating watch status
+ *
+ * @remarks
+ * **Current Behavior**: Fetches watch status once per product view, no auto-refresh.
+ * This provides accurate watch state for conditional UI rendering (watch/unwatch buttons).
+ *
+ * **Performance Considerations**:
+ * - ✅ Acceptable: Single product check (lightweight boolean query)
+ * - ⚠️ Consider optimization: Multiple simultaneous checks (use batch endpoint)
+ * - 🔴 Avoid: Polling for watch status changes (use WebSocket or query invalidation)
+ *
+ * **Caching Strategy**: Watch status is cached and invalidated when:
+ * - User adds product to watch list (`useAddProductWatch` mutation)
+ * - User removes product from watch list (`useRemoveProductWatch` mutation)
+ * - This ensures UI always reflects latest watch state without polling
+ *
+ * **Authentication**: Returns `false` for unauthenticated users.
+ *
+ * @todo Implement batch watch status endpoint for product lists
+ * @todo Add optimistic updates to improve perceived performance
+ * @todo Consider adding WebSocket updates for multi-device watch sync
+ *
+ * @example
+ * ```tsx
+ * function WatchButton({ productId }: { productId: number }) {
+ *   const { data: response, isLoading } = useIsWatching(productId);
+ *   const addWatch = useAddProductWatch();
+ *   const removeWatch = useRemoveProductWatch();
+ *
+ *   const isWatching = response?.data ?? false;
+ *
+ *   const handleToggle = () => {
+ *     if (isWatching) {
+ *       removeWatch.mutate(productId);
+ *     } else {
+ *       addWatch.mutate(productId);
+ *     }
+ *   };
+ *
+ *   return (
+ *     <Button onClick={handleToggle} disabled={isLoading}>
+ *       {isWatching ? 'Unwatch' : 'Watch'}
+ *     </Button>
+ *   );
+ * }
+ * ```
+ */
 export function useIsWatching(productId: number) {
-  return useQuery<{ data: boolean }>({
+  return useQuery<IsWatchingResponse>({
     queryKey: [`/api/community/is-watching/${productId}`],
     queryFn: async () => {
-      const response = await fetch(`/api/community/is-watching/${productId}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to check watch status');
-      }
-
-      return response.json();
+      return apiRequest<IsWatchingResponse>(`/api/community/is-watching/${productId}`);
     },
   });
 }
@@ -739,24 +818,67 @@ export function useBulkRemoveProductWatches() {
   });
 }
 
-// Export watch lists as JSON
+/**
+ * Export watch lists as JSON file
+ *
+ * Fetches all user watch lists with products and downloads them as a JSON file.
+ * This hook does NOT auto-fetch - it must be manually triggered via `refetch()`.
+ *
+ * @returns React Query result that triggers file download when refetched
+ *
+ * @remarks
+ * **Current Behavior**: Manual trigger only (`enabled: false`). When refetch() is called:
+ * 1. Fetches complete watchlist export from server
+ * 2. Creates a JSON blob with formatted data
+ * 3. Triggers browser download with timestamped filename
+ *
+ * **Performance Considerations**:
+ * - ✅ Acceptable: Export <10 watchlists with <500 total products
+ * - ⚠️ Consider optimization: Export 10-50 watchlists or 500-2000 products (may be slow)
+ * - 🔴 Requires streaming: Export >50 watchlists or >2000 products (browser memory limits)
+ *
+ * **Download Behavior**:
+ * - Filename format: `watchlists-YYYY-MM-DD.json` (ISO date)
+ * - Download triggers immediately upon successful fetch
+ * - No retry on failure (user must manually retry)
+ *
+ * @todo Add streaming export for large datasets (>2000 products)
+ * @todo Consider adding export format options (JSON, CSV)
+ * @todo Add progress indicator for large exports
+ *
+ * @example
+ * ```tsx
+ * function ExportButton() {
+ *   const { refetch, isLoading } = useExportWatchLists();
+ *
+ *   const handleExport = async () => {
+ *     try {
+ *       await refetch();
+ *       toast.success('Watchlists exported successfully');
+ *     } catch (error) {
+ *       toast.error('Export failed');
+ *     }
+ *   };
+ *
+ *   return (
+ *     <Button onClick={() => void handleExport()} disabled={isLoading}>
+ *       {isLoading ? 'Exporting...' : 'Export Watchlists'}
+ *       <DownloadIcon className="ml-2 h-4 w-4" />
+ *     </Button>
+ *   );
+ * }
+ * ```
+ */
 export function useExportWatchLists() {
   return useQuery({
     queryKey: ['watchlists', 'export'],
     queryFn: async () => {
-      const response = await fetch('/api/watchlists/export', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to export watch lists'));
-      }
-
       interface ExportResponse {
         data: unknown;
       }
-      const data = await parseJsonResponse<ExportResponse>(response);
+
+      // Fetch export data using apiRequest for consistency
+      const data = await apiRequest<ExportResponse>('/api/watchlists/export');
 
       // Download as JSON file
       const blob = new Blob([JSON.stringify(data.data, null, 2)], {
