@@ -73,7 +73,10 @@ export async function registerUser(
 
   // Click Sign Up button in navigation to open auth modal
   // Use .first() because there are multiple Sign Up buttons (nav, main, footer)
-  await page.getByRole('button', { name: /sign up/i }).first().click();
+  await page
+    .getByRole('button', { name: /sign up/i })
+    .first()
+    .click();
 
   // Wait for modal to open
   await page.waitForSelector('input#username', { state: 'visible', timeout: 5000 });
@@ -81,7 +84,10 @@ export async function registerUser(
   // Fill registration form (uses id selectors based on actual form structure)
   await page.getByLabel(/username/i).fill(username);
   await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/^password$/i).first().fill(password);
+  await page
+    .getByLabel(/^password$/i)
+    .first()
+    .fill(password);
   await page.getByLabel(/confirm.*password/i).fill(password);
 
   // Submit form (button text is "Create Account")
@@ -107,14 +113,20 @@ export async function loginUser(page: Page, email: string, password: string): Pr
 
   // Click Sign In button in navigation to open auth modal
   // Use .first() because there may be multiple Sign In buttons
-  await page.getByRole('button', { name: /sign in/i }).first().click();
+  await page
+    .getByRole('button', { name: /sign in/i })
+    .first()
+    .click();
 
   // Wait for modal to open
   await page.waitForSelector('input#email', { state: 'visible', timeout: 5000 });
 
   // Fill login form using label-based selectors (matches registerUser pattern)
   await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/^password$/i).first().fill(password);
+  await page
+    .getByLabel(/^password$/i)
+    .first()
+    .fill(password);
 
   // Submit form (button text is "Sign In")
   await page.getByRole('button', { name: /^sign in$/i }).click();
@@ -148,9 +160,7 @@ export async function logoutUser(page: Page): Promise<void> {
     // Wait for logout to complete (redirect to home or login page)
     await page.waitForURL(/\/(login)?$/, { timeout: 10000 });
   } catch (error) {
-    throw new Error(
-      `Could not logout: ${error instanceof Error ? error.message : String(error)}`
-    );
+    throw new Error(`Could not logout: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

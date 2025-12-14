@@ -90,12 +90,16 @@ export function useAllProducts() {
 
 // Fetch trending/most watched products
 export function useTrendingProducts(limit = 6) {
-  return useQuery<{ products: Array<{ productId: number; watchCount: number; product: ProductWithOffers }>; count: number }>({
+  return useQuery<{
+    products: Array<{ productId: number; watchCount: number; product: ProductWithOffers }>;
+    count: number;
+  }>({
     queryKey: ['/api/community/most-watched', limit],
     queryFn: () =>
-      apiRequest<{ products: Array<{ productId: number; watchCount: number; product: ProductWithOffers }>; count: number }>(
-        `/api/community/most-watched?limit=${limit}`
-      ),
+      apiRequest<{
+        products: Array<{ productId: number; watchCount: number; product: ProductWithOffers }>;
+        count: number;
+      }>(`/api/community/most-watched?limit=${limit}`),
     staleTime: 5 * 60 * 1000,
   });
 }

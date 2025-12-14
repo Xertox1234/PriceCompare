@@ -96,20 +96,14 @@ export async function createTestProductWithPrice(
  * Trigger a price drop by updating product offer price
  * This should generate a notification for users watching the product
  */
-export async function triggerPriceDrop(
-  offerId: number,
-  newPrice: number
-): Promise<void> {
+export async function triggerPriceDrop(offerId: number, newPrice: number): Promise<void> {
   await db
     .update(productOffers)
     .set({ price: newPrice.toFixed(2) })
     .where(eq(productOffers.id, offerId));
 
   // Create price history record
-  const [offer] = await db
-    .select()
-    .from(productOffers)
-    .where(eq(productOffers.id, offerId));
+  const [offer] = await db.select().from(productOffers).where(eq(productOffers.id, offerId));
 
   if (offer) {
     await db.insert(priceHistory).values({
@@ -125,10 +119,7 @@ export async function triggerPriceDrop(
 /**
  * Wait for notification badge to show count
  */
-export async function waitForNotificationBadge(
-  page: Page,
-  expectedCount: number
-): Promise<void> {
+export async function waitForNotificationBadge(page: Page, expectedCount: number): Promise<void> {
   const badgeText = expectedCount > 9 ? '9+' : expectedCount.toString();
   await page
     .locator('.notification-badge, [data-testid="notification-badge"]')
@@ -157,7 +148,10 @@ export async function navigateToNotifications(page: Page): Promise<void> {
  */
 export async function openNotificationDropdown(page: Page): Promise<void> {
   // Click bell icon or notification button
-  await page.getByRole('button', { name: /notification/i }).first().click();
+  await page
+    .getByRole('button', { name: /notification/i })
+    .first()
+    .click();
   // Wait for dropdown animation - intentional timeout for CSS transitions
   await page.waitForTimeout(500);
 }

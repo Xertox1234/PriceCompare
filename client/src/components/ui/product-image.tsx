@@ -14,7 +14,7 @@ interface ProductImageProps {
 
 /**
  * Product image component with built-in fallback handling
- * 
+ *
  * Usage:
  * <ProductImage src={product.image} alt={product.name} className="h-48 w-full object-cover" />
  */
@@ -46,9 +46,7 @@ export function ProductImage({
 
   return (
     <div className={cn('relative overflow-hidden', containerClassName)}>
-      {showSkeleton && isLoading && (
-        <Skeleton className="absolute inset-0 h-full w-full" />
-      )}
+      {showSkeleton && isLoading && <Skeleton className="absolute inset-0 h-full w-full" />}
       <img
         src={imageSrc}
         alt={alt}

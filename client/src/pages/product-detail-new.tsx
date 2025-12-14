@@ -13,6 +13,7 @@ import {
   Check,
   Loader2,
   ExternalLink,
+  ListPlus,
 } from 'lucide-react';
 import { TemplateHeader, TemplateFooter, ProductSection } from '@/components/template';
 import { CartSidebar } from '@/components/template/cart-sidebar';
@@ -20,19 +21,45 @@ import { MobileMenu, CompareModal, SearchModal } from '@/components/template/mod
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { addToRecentlyViewed } from '@/components/template/recently-viewed';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 import { useProductFull, useProductsByCategory, transformProduct } from '@/hooks/use-home-data';
+import { useWatchLists, useUpdateProductWatch } from '@/hooks/use-community';
+import { apiRequest } from '@/lib/queryClient';
 
 function ProductDetailContent() {
   const params = useParams<{ id: string }>();
   const productId = parseInt(params.id || '0', 10);
 
   const { toggleWishlist, isInWishlist, toggleCompare, openCart } = useShop();
+  const { toast } = useToast();
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [watchlistDialogOpen, setWatchlistDialogOpen] = useState(false);
+  const [selectedWatchlistId, setSelectedWatchlistId] = useState<string>('');
+
+  // Fetch user's watchlists
+  const { data: watchlistsData } = useWatchLists();
+  const watchlists = watchlistsData || [];
 
   // Fetch product from API
   const { data: productData, isLoading, error } = useProductFull(productId || null);
@@ -103,6 +130,55 @@ function ProductDetailContent() {
     const offerUrl = bestOffer?.affiliateUrl ?? bestOffer?.productUrl;
     if (offerUrl) {
       window.open(offerUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  // Handle adding product to watchlist
+  const handleAddToWatchlist = async () => {
+    if (!selectedWatchlistId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a watchlist',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Add product to watches with watchListId
+      const response = await apiRequest<{ data: { id: number } }>(
+        `/api/community/watch/${productId}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            watchListId: parseInt(selectedWatchlistId, 10),
+          }),
+        }
+      );
+
+      // If the backend doesn't support watchListId in POST, update it separately
+      if (response?.data?.id) {
+        await apiRequest(`/api/community/product-watches/${response.data.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            watchListId: parseInt(selectedWatchlistId, 10),
+          }),
+        });
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Added to watchlist',
+      });
+      setWatchlistDialogOpen(false);
+      setSelectedWatchlistId('');
+    } catch (error) {
+      console.error('Failed to add to watchlist:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add to watchlist',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -285,6 +361,16 @@ function ProductDetailContent() {
                   <GitCompare className="h-5 w-5" />
                 </Button>
               </div>
+
+              {/* Add to Watchlist Button */}
+              <Button
+                variant="outline"
+                onClick={() => setWatchlistDialogOpen(true)}
+                className="w-full py-6 text-base"
+              >
+                <ListPlus className="mr-2 h-5 w-5" />
+                Add to Watchlist
+              </Button>
             </div>
 
             {/* Features */}
@@ -362,6 +448,41 @@ function ProductDetailContent() {
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <CompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Add to Watchlist Dialog */}
+      <Dialog open={watchlistDialogOpen} onOpenChange={setWatchlistDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add to Watchlist</DialogTitle>
+            <DialogDescription>Select a watchlist to add this product to</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="watchlist-select">Select watchlist</Label>
+              <Select value={selectedWatchlistId} onValueChange={setSelectedWatchlistId}>
+                <SelectTrigger id="watchlist-select">
+                  <SelectValue placeholder="Choose a watchlist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {watchlists.map((watchlist) => (
+                    <SelectItem key={watchlist.id} value={watchlist.id.toString()}>
+                      {watchlist.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWatchlistDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddToWatchlist}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

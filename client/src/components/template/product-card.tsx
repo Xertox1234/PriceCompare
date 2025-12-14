@@ -283,9 +283,14 @@ function HorizontalProductCard({
       {/* Image */}
       <Link href={`/product/${product.id}`} className="flex-shrink-0">
         <div className="bg-muted relative h-24 w-24 overflow-hidden rounded-lg">
-          <img src={getProductImageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" onError={handleImageError} />
+          <img
+            src={getProductImageUrl(product.image)}
+            alt={product.name}
+            className="h-full w-full object-cover"
+            onError={handleImageError}
+          />
           {discountPercent && discountPercent > 0 && (
-            <span className="bg-destructive text-destructive-foreground absolute top-1 left-1 rounded px-1.5 py-0.5 text-2xs font-bold">
+            <span className="bg-destructive text-destructive-foreground text-2xs absolute top-1 left-1 rounded px-1.5 py-0.5 font-bold">
               -{discountPercent}%
             </span>
           )}
@@ -341,7 +346,12 @@ function CompactProductCard({
         )}
       >
         <div className="bg-muted h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
-          <img src={getProductImageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" onError={handleImageError} />
+          <img
+            src={getProductImageUrl(product.image)}
+            alt={product.name}
+            className="h-full w-full object-cover"
+            onError={handleImageError}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-foreground truncate text-sm font-medium">{product.name}</h4>

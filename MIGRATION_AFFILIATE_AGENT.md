@@ -13,55 +13,67 @@ Successfully migrated `affiliate-agent.ts` to use the storage layer abstraction 
 ### 1. Import Changes
 
 **Removed**:
+
 - `import { db } from '../db'` - Direct database access
 - `import { productOffers, retailers } from '../../shared/schema'` - Table references
 - `import { eq, and, isNull, lt } from 'drizzle-orm'` - Drizzle ORM operators
 
 **Added**:
+
 - `import { storage } from '../storage'` - Storage layer abstraction
 
 **Kept**:
+
 - `import type { ProductOffer } from '../../shared/schema'` - Type-only import (no runtime dependency)
 
 ### 2. Database Operations Migrated (5 total)
 
 #### Operation 1: Get Offers Without Affiliate Links (Lines 93-104)
+
 **Before**:
+
 ```typescript
 const whereConditions = [isNull(productOffers.affiliateUrl)];
 if (retailerId !== undefined) {
   whereConditions.push(eq(productOffers.retailerId, retailerId));
 }
-const offers = await db.select()
+const offers = await db
+  .select()
   .from(productOffers)
   .where(and(...whereConditions))
   .limit(limit);
 ```
 
 **After**:
+
 ```typescript
 const allOffers = retailerId
   ? await storage.getProductOffersByRetailerId(retailerId)
-  : await storage.getAllOffersWithDetails().then(details =>
-      Promise.all(details.map(d => storage.getProductOfferById(d.offerId)))
-        .then(offers => offers.filter((o): o is ProductOffer => o !== null))
-    );
+  : await storage
+      .getAllOffersWithDetails()
+      .then((details) =>
+        Promise.all(details.map((d) => storage.getProductOfferById(d.offerId))).then((offers) =>
+          offers.filter((o): o is ProductOffer => o !== null)
+        )
+      );
 
-const offers = allOffers
-  .filter(offer => !offer.affiliateUrl)
-  .slice(0, limit);
+const offers = allOffers.filter((offer) => !offer.affiliateUrl).slice(0, limit);
 ```
 
 **Storage Methods Used**:
+
 - `storage.getProductOffersByRetailerId(retailerId)` - Get offers by retailer
 - `storage.getAllOffersWithDetails()` - Get all offer details
 - `storage.getProductOfferById(offerId)` - Get single offer
 
 #### Operation 2: Get Stale Affiliate Links (Lines 191-208)
+
 **Before**:
+
 ```typescript
 const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-const staleOffers = await db.select()
+const staleOffers = await db
+  .select()
   .from(productOffers)
   .where(
     and(
@@ -73,19 +85,21 @@ const staleOffers = await db.select()
 ```
 
 **After**:
+
 ```typescript
 const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const allOffersDetails = await storage.getAllOffersWithDetails();
 
 const allOfferObjects = await Promise.all(
-  allOffersDetails.map(d => storage.getProductOfferById(d.offerId))
+  allOffersDetails.map((d) => storage.getProductOfferById(d.offerId))
 );
 
 const staleOffers = allOfferObjects
-  .filter((offer): offer is ProductOffer =>
-    offer !== null &&
-    !!offer.affiliateUrl &&
-    (!offer.lastLinkCheck || offer.lastLinkCheck < staleCutoff)
+  .filter(
+    (offer): offer is ProductOffer =>
+      offer !== null &&
+      !!offer.affiliateUrl &&
+      (!offer.lastLinkCheck || offer.lastLinkCheck < staleCutoff)
   )
   .slice(0, 100);
 ```
@@ -93,16 +107,16 @@ const staleOffers = allOfferObjects
 **Note**: This complex query filters by timestamp. We filter in-memory rather than adding a specialized storage method. A future optimization could add `storage.getStaleAffiliateOffers(cutoffDate, limit)`.
 
 **Storage Methods Used**:
+
 - `storage.getAllOffersWithDetails()` - Get all offer details
 - `storage.getProductOfferById(offerId)` - Get single offer
 
 #### Operation 3: Health Check Single Offer (Lines 252-257)
+
 **Before**:
+
 ```typescript
-const [offer] = await db.select()
-  .from(productOffers)
-  .where(eq(productOffers.id, offerId))
-  .limit(1);
+const [offer] = await db.select().from(productOffers).where(eq(productOffers.id, offerId)).limit(1);
 
 if (!offer || !offer.affiliateUrl) {
   throw new Error(`No affiliate link found for offer ${offerId}`);
@@ -110,6 +124,7 @@ if (!offer || !offer.affiliateUrl) {
 ```
 
 **After**:
+
 ```typescript
 const offer = await storage.getProductOfferById(offerId);
 
@@ -119,15 +134,15 @@ if (!offer || !offer.affiliateUrl) {
 ```
 
 **Storage Methods Used**:
+
 - `storage.getProductOfferById(offerId)` - Get single offer
 
 #### Operation 4: Update Single Offer (Lines 292-299)
+
 **Before**:
+
 ```typescript
-const [offer] = await db.select()
-  .from(productOffers)
-  .where(eq(productOffers.id, offerId))
-  .limit(1);
+const [offer] = await db.select().from(productOffers).where(eq(productOffers.id, offerId)).limit(1);
 
 if (!offer) {
   throw new Error(`Offer ${offerId} not found`);
@@ -135,6 +150,7 @@ if (!offer) {
 ```
 
 **After**:
+
 ```typescript
 const offer = await storage.getProductOfferById(offerId);
 
@@ -144,15 +160,15 @@ if (!offer) {
 ```
 
 **Storage Methods Used**:
+
 - `storage.getProductOfferById(offerId)` - Get single offer
 
 #### Operation 5: Get Retailer for Batch Processing (Lines 318-324)
+
 **Before**:
+
 ```typescript
-const [retailer] = await db.select()
-  .from(retailers)
-  .where(eq(retailers.id, retailerId))
-  .limit(1);
+const [retailer] = await db.select().from(retailers).where(eq(retailers.id, retailerId)).limit(1);
 
 if (!retailer) {
   throw new Error(`Retailer ${retailerId} not found`);
@@ -160,6 +176,7 @@ if (!retailer) {
 ```
 
 **After**:
+
 ```typescript
 const retailer = await storage.getRetailerById(retailerId);
 
@@ -169,6 +186,7 @@ if (!retailer) {
 ```
 
 **Storage Methods Used**:
+
 - `storage.getRetailerById(retailerId)` - Get retailer by ID
 
 ### 3. Retailer Breakdown Feature Implementation
@@ -176,16 +194,20 @@ if (!retailer) {
 **Line 381 TODO Resolved**: Implemented `byRetailer` breakdown in `getStats()` method.
 
 **Before**:
+
 ```typescript
-const links = dbStats ? {
-  total: dbStats.total_offers,
-  active: dbStats.affiliate_offers,
-  broken: dbStats.broken_links,
-  byRetailer: {} as Record<string, number>, // TODO: Add retailer breakdown
-} : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
+const links = dbStats
+  ? {
+      total: dbStats.total_offers,
+      active: dbStats.affiliate_offers,
+      broken: dbStats.broken_links,
+      byRetailer: {} as Record<string, number>, // TODO: Add retailer breakdown
+    }
+  : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
 ```
 
 **After**:
+
 ```typescript
 // Get retailer breakdown: count of affiliate links per retailer
 const byRetailer: Record<string, number> = {};
@@ -203,19 +225,23 @@ await Promise.all(
   })
 );
 
-const links = dbStats ? {
-  total: dbStats.total_offers,
-  active: dbStats.affiliate_offers,
-  broken: dbStats.broken_links,
-  byRetailer,
-} : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
+const links = dbStats
+  ? {
+      total: dbStats.total_offers,
+      active: dbStats.affiliate_offers,
+      broken: dbStats.broken_links,
+      byRetailer,
+    }
+  : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
 ```
 
 **Storage Methods Used**:
+
 - `storage.getRetailers()` - Get all retailers
 - `storage.getAffiliateLinkStats(retailerId)` - Get affiliate link stats per retailer
 
 **Example Output**:
+
 ```json
 {
   "agent": {
@@ -241,26 +267,31 @@ const links = dbStats ? {
 ## Storage Layer Methods Used
 
 ### Product Offer Operations
+
 - ✅ `storage.getProductOfferById(offerId)` - Get single offer by ID
 - ✅ `storage.getProductOffersByRetailerId(retailerId)` - Get all offers for a retailer
 - ✅ `storage.getAllOffersWithDetails()` - Get all offers with product/retailer names
 
 ### Retailer Operations
+
 - ✅ `storage.getRetailerById(retailerId)` - Get retailer by ID
 - ✅ `storage.getRetailers()` - Get all retailers
 
 ### Affiliate Statistics
+
 - ✅ `storage.getAffiliateLinkStats(retailerId?)` - Get affiliate link statistics (optionally filtered by retailer)
 
 ## Validation
 
 ### TypeScript Compilation
+
 ```bash
 npm run check
 # ✅ Passes - No TypeScript errors
 ```
 
 ### ESLint
+
 ```bash
 npm run lint -- server/agents/affiliate-agent.ts
 # ✅ Passes - Only pre-existing warnings (non-null assertions, require-await)
@@ -268,6 +299,7 @@ npm run lint -- server/agents/affiliate-agent.ts
 ```
 
 ### No Direct Database Access
+
 ```bash
 grep -n "import.*from.*db" server/agents/affiliate-agent.ts
 # ✅ No matches - db import successfully removed
@@ -281,6 +313,7 @@ grep -n "from 'drizzle-orm'" server/agents/affiliate-agent.ts
 ## Business Logic Preservation
 
 All business logic remains unchanged:
+
 - ✅ Affiliate link generation with retry logic
 - ✅ Health check for stale links (24-hour cutoff)
 - ✅ Single offer updates with force regeneration option

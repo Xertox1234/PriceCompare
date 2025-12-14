@@ -7,18 +7,18 @@
  * Issue #178: Agent Storage Layer Migration - Migrate agent modules to storage layer pattern
  */
 
-import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
-import { agentSessions, scrapingJobs, trendingProducts } from "@shared/schema";
-import { BaseStorage } from "../base-storage";
+import { eq, and, gte, lte, sql, desc, count } from 'drizzle-orm';
+import { agentSessions, scrapingJobs, trendingProducts } from '@shared/schema';
+import { BaseStorage } from '../base-storage';
 import type {
   AgentSession,
   InsertAgentSession,
   ScrapingJob,
   InsertScrapingJob,
-  InsertTrendingProduct
-} from "@shared/schema";
-import type { TrendingProduct } from "../types";
-import type { db } from "../../db";
+  InsertTrendingProduct,
+} from '@shared/schema';
+import type { TrendingProduct } from '../types';
+import type { db } from '../../db';
 
 // Type alias for database connection (matches BaseStorage pattern)
 type Database = typeof db;
@@ -51,14 +51,11 @@ export class AgentStorage extends BaseStorage {
    */
   async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
     try {
-      const [session] = await this.db
-        .insert(agentSessions)
-        .values(sessionData)
-        .returning();
+      const [session] = await this.db.insert(agentSessions).values(sessionData).returning();
 
       this.logSuccess('createAgentSession', {
         agentType: sessionData.agentType,
-        sessionId: sessionData.sessionId
+        sessionId: sessionData.sessionId,
       });
 
       return session;
@@ -74,10 +71,7 @@ export class AgentStorage extends BaseStorage {
    */
   async updateAgentSession(sessionId: number, updates: Partial<AgentSession>): Promise<void> {
     try {
-      await this.db
-        .update(agentSessions)
-        .set(updates)
-        .where(eq(agentSessions.id, sessionId));
+      await this.db.update(agentSessions).set(updates).where(eq(agentSessions.id, sessionId));
 
       this.logSuccess('updateAgentSession', { sessionId, updates });
     } catch (error) {
@@ -120,10 +114,7 @@ export class AgentStorage extends BaseStorage {
         .select({ count: sql<number>`count(*)` })
         .from(agentSessions)
         .where(
-          and(
-            eq(agentSessions.status, 'active'),
-            gte(agentSessions.sessionStart, timeThreshold)
-          )
+          and(eq(agentSessions.status, 'active'), gte(agentSessions.sessionStart, timeThreshold))
         );
 
       const count = parseInt(result[0]?.count as unknown as string) || 0;
@@ -146,14 +137,11 @@ export class AgentStorage extends BaseStorage {
    */
   async createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob> {
     try {
-      const [job] = await this.db
-        .insert(scrapingJobs)
-        .values(jobData)
-        .returning();
+      const [job] = await this.db.insert(scrapingJobs).values(jobData).returning();
 
       this.logSuccess('createScrapingJob', {
         jobId: job.id,
-        jobType: jobData.jobType
+        jobType: jobData.jobType,
       });
 
       return job;
@@ -169,10 +157,7 @@ export class AgentStorage extends BaseStorage {
    */
   async updateScrapingJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void> {
     try {
-      await this.db
-        .update(scrapingJobs)
-        .set(updates)
-        .where(eq(scrapingJobs.id, jobId));
+      await this.db.update(scrapingJobs).set(updates).where(eq(scrapingJobs.id, jobId));
 
       this.logSuccess('updateScrapingJob', { jobId, updates });
     } catch (error) {
@@ -190,12 +175,7 @@ export class AgentStorage extends BaseStorage {
       const jobs = await this.db
         .select()
         .from(scrapingJobs)
-        .where(
-          and(
-            eq(scrapingJobs.status, 'pending'),
-            lte(scrapingJobs.scheduledAt, new Date())
-          )
-        )
+        .where(and(eq(scrapingJobs.status, 'pending'), lte(scrapingJobs.scheduledAt, new Date())))
         .orderBy(desc(scrapingJobs.priority), scrapingJobs.scheduledAt)
         .limit(limit);
 
@@ -215,7 +195,7 @@ export class AgentStorage extends BaseStorage {
       const results = await this.db
         .select({
           status: scrapingJobs.status,
-          count: sql<number>`count(*)`
+          count: sql<number>`count(*)`,
         })
         .from(scrapingJobs)
         .groupBy(scrapingJobs.status);
@@ -272,18 +252,18 @@ export class AgentStorage extends BaseStorage {
           name: trendingProducts.name,
           category: trendingProducts.category,
           status: trendingProducts.status,
-          discoveredAt: trendingProducts.discoveryDate
+          discoveredAt: trendingProducts.discoveryDate,
         })
         .from(trendingProducts)
         .where(eq(trendingProducts.status, status))
         .limit(limit);
 
-      const products = results.map(row => ({
+      const products = results.map((row) => ({
         id: row.id,
         name: row.name,
         category: row.category,
         status: row.status || status,
-        discoveredAt: row.discoveredAt
+        discoveredAt: row.discoveredAt,
       }));
 
       this.logSuccess('getTrendingProductsByStatus', { status, limit, count: products.length });
@@ -298,12 +278,12 @@ export class AgentStorage extends BaseStorage {
    * @param productId - ID of the trending product
    * @param updates - Partial trending product data to update
    */
-  async updateTrendingProduct(productId: number, updates: Partial<InsertTrendingProduct>): Promise<void> {
+  async updateTrendingProduct(
+    productId: number,
+    updates: Partial<InsertTrendingProduct>
+  ): Promise<void> {
     try {
-      await this.db
-        .update(trendingProducts)
-        .set(updates)
-        .where(eq(trendingProducts.id, productId));
+      await this.db.update(trendingProducts).set(updates).where(eq(trendingProducts.id, productId));
 
       this.logSuccess('updateTrendingProduct', { productId, updates });
     } catch (error) {
@@ -326,7 +306,7 @@ export class AgentStorage extends BaseStorage {
         .groupBy(scrapingJobs.status);
 
       // Map to consistent return type
-      const result = statusCounts.map(row => ({
+      const result = statusCounts.map((row) => ({
         status: row.status as string,
         count: Number(row.count),
       }));
@@ -353,7 +333,7 @@ export class AgentStorage extends BaseStorage {
         .groupBy(trendingProducts.status);
 
       // Map to consistent return type
-      const result = statusCounts.map(row => ({
+      const result = statusCounts.map((row) => ({
         status: row.status as string,
         count: Number(row.count),
       }));

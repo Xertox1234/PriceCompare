@@ -114,7 +114,7 @@ export function registerWatchListRoutes(app: Express): void {
 
         const watchLists = await storage.getUserWatchLists(userId);
 
-        sendSuccess(res, { watchLists });
+        sendSuccess(res, watchLists);
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'GetWatchLists');
       }

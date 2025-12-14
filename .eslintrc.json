@@ -110,11 +110,7 @@
       // These files implement in-memory fallbacks that must match async interfaces
       // The entire file needs the disable, not just specific sections
       // See: docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md
-      "files": [
-        "server/storage.ts",
-        "server/config/redis.ts",
-        "server/middleware/redis-cache.ts"
-      ],
+      "files": ["server/storage.ts", "server/config/redis.ts", "server/middleware/redis-cache.ts"],
       "rules": {
         "eslint-comments/disable-enable-pair": "off"
       }

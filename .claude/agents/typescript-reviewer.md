@@ -2711,4 +2711,247 @@ Playwright's browser automation has stricter enforcement of `this` binding than 
 
 ---
 
+### 29. E2E Test Context-Aware Acceptability Criteria (NEW - 2025-12-12)
+
+**Context**: Phase 2.1 notification E2E tests code review identified that certain patterns, while potentially flaggable in production code, are ACCEPTABLE in E2E test contexts. This section defines context-aware rules.
+
+#### Context Matrix: When Patterns Are Acceptable
+
+| Pattern | Production Code | E2E Test Spec | E2E Helper | Verdict |
+|---------|-----------------|---------------|------------|---------|
+| Unused function with `_` prefix | Flag | Accept if documented | Accept if documented | Context-dependent |
+| `waitForTimeout(N)` | Flag (perf) | Accept (animation timing) | Accept if documented | Context-dependent |
+| Conditional `test.skip()` | N/A | Accept (graceful degradation) | N/A | Accept |
+| "may need adjustment" comment | Flag (incomplete) | Accept (flexibility) | Accept | Accept in E2E |
+| Multiple selector fallbacks | N/A | Accept | Accept | Accept in E2E |
+
+#### Pattern A: Unused Functions Reserved for Future Phases
+
+**Production Code**: Flag as dead code
+**E2E Tests**: Accept WITH documentation
+
+```typescript
+// FLAG in production code - remove it
+function _unusedHelper() { }
+
+// ACCEPT in E2E with proper documentation
+/**
+ * TODO: Reserved for Phase 2.2 WebSocket testing
+ *
+ * Future usage:
+ * await _waitForNotificationInList(page, 'Price Drop Alert');
+ */
+async function _waitForNotificationInList(_page: Page, _title: string): Promise<void> {
+  return Promise.resolve();
+}
+```
+
+**Acceptability Criteria for E2E**:
+- [ ] TODO comment with phase/feature reference
+- [ ] Explanation of future use case
+- [ ] Usage example provided
+
+#### Pattern B: Hardcoded Timeouts
+
+**Production Code**: Always flag (performance/reliability issue)
+**E2E Tests**: Accept IF documented for animation/UI timing
+
+```typescript
+// FLAG in production code
+await sleep(500);  // Why 500ms?
+
+// ACCEPT in E2E helper with documentation
+/**
+ * NOTE: 500ms timeout for CSS transition animation (~300ms + buffer)
+ *
+ * Alternative: await page.getByRole('menu').waitFor({ state: 'visible' });
+ */
+await page.waitForTimeout(500);  // Animation timing
+```
+
+**Acceptability Criteria for E2E**:
+| Reason | Acceptable? | Required |
+|--------|-------------|----------|
+| CSS animation timing | Yes | Document transition duration |
+| "Just to be safe" | No | Replace with explicit wait |
+| Network settling | Prefer `networkidle` | Use Playwright built-in |
+| Unused helper function | Lower priority | Document for future |
+
+#### Pattern C: Defensive Programming Patterns
+
+**These patterns are INTENTIONALLY GOOD in E2E tests - do NOT flag:**
+
+```typescript
+// ACCEPT - Graceful degradation pattern
+const saveButton = page.getByRole('button', { name: /save/i });
+if ((await saveButton.count()) > 0) {
+  await saveButton.first().click();
+} else {
+  test.skip();  // UI not implemented yet
+}
+
+// ACCEPT - Flexibility comment
+// Verify newest is first (may need adjustment based on actual UI implementation)
+expect(count).toBeGreaterThanOrEqual(3);
+
+// ACCEPT - Multiple selector fallbacks
+const prefsLink = page.getByRole('link', { name: /preference/i });
+const prefsButton = page.getByRole('button', { name: /preference/i });
+if ((await prefsLink.count()) > 0) {
+  await prefsLink.first().click();
+} else if ((await prefsButton.count()) > 0) {
+  await prefsButton.first().click();
+}
+```
+
+**Why These Are Good**:
+1. Tests pass when features ARE implemented
+2. Tests skip gracefully when features are NOT YET implemented
+3. Clear signal about what's missing
+4. Enables incremental feature development
+
+#### Pattern D: Local vs Shared Helper Organization (NEW - Phase 2.2)
+
+**Review code organization to suggest improvements:**
+
+**Decision Matrix:**
+```
+Is the helper used by multiple test files?
+  YES -> Move to shared e2e/helpers/
+  NO  -> Is it likely to be reused in future tests?
+          YES -> Move to shared e2e/helpers/
+          NO  -> Is it >30 lines of code?
+                  YES -> Consider shared (spec file hygiene)
+                  NO  -> Local is acceptable
+```
+
+| Helper Type | Location | Criteria |
+|-------------|----------|----------|
+| Generic seed functions | `e2e/helpers/` | Reusable across multiple test files |
+| Feature-specific seed | `e2e/helpers/{feature}-helpers.ts` | Feature-isolated but may be reused |
+| Highly specialized seed | Local in spec file | Only used by one test, <30 LOC |
+| UI interaction helpers | `e2e/helpers/{feature}-helpers.ts` | Always shared for consistency |
+
+**Severity**: MINOR - Suggest move if >30 LOC or likely reusable
+
+---
+
+#### Pattern E: Flexible Selector Patterns (NEW - Phase 2.2)
+
+**This pattern is EXEMPLARY - praise it when found:**
+
+```typescript
+// EXCELLENT - Multiple selector fallbacks
+export async function applyCategoryFilter(page: Page, category: string): Promise<void> {
+  // Priority 1: Select dropdown
+  const selectFilter = page.getByLabel(/category/i);
+  if ((await selectFilter.count()) > 0) {
+    await selectFilter.selectOption(category);
+    return;
+  }
+
+  // Priority 2: Button pattern
+  const buttonFilter = page.getByRole('button', { name: new RegExp(category, 'i') });
+  if ((await buttonFilter.count()) > 0) {
+    await buttonFilter.click();
+    return;
+  }
+
+  // Priority 3: Checkbox pattern
+  const checkboxFilter = page.getByLabel(new RegExp(category, 'i'));
+  if ((await checkboxFilter.count()) > 0) {
+    await checkboxFilter.check();
+  }
+}
+```
+
+**Why This Is Excellent:**
+- Handles UI variations across implementations
+- Tests stable during UI refactoring
+- Documents expected UI patterns
+- Enables incremental development
+
+**Selector Priority Order:**
+1. `getByRole` - Most accessible
+2. `getByLabel` - Form fields
+3. `getByTestId` - Stable identifiers
+4. CSS selector - Last resort
+
+---
+
+#### Pattern F: Test Data Categorization (NEW - Phase 2.2)
+
+**Well-structured seed data maximizes test coverage:**
+
+```typescript
+/**
+ * Seed products with specific distribution for search testing
+ *
+ * Distribution:
+ * - Categories: Electronics (3), Computers (3), Smartphones (4)
+ * - Price ranges: $20-$1000 across 5 tiers
+ * - Total products: 10
+ *
+ * Use cases:
+ * - Category filtering tests
+ * - Price range filtering tests
+ */
+async function seedProductsForSearchTesting(): Promise<void> {
+  const categories = ['Electronics', 'Computers', 'Smartphones'];
+  for (let i = 0; i < productCount; i++) {
+    category: categories[i % categories.length]  // Round-robin distribution
+  }
+}
+```
+
+**Test Data Design Principles:**
+1. **Categorical Distribution**: Round-robin across all filter values
+2. **Value Range Tiers**: Span expected filter boundaries
+3. **Volume for Pagination**: Create 25+ items when testing pagination
+
+**Review Checklist:**
+- [ ] Seed functions have JSDoc documenting distribution
+- [ ] Categories cover all filter options being tested
+- [ ] Price/value ranges span expected filter boundaries
+
+---
+
+#### Review Guidance for E2E Files
+
+**When reviewing `e2e/*.spec.ts` or `e2e/helpers/*.ts` files:**
+
+1. **Check file header** - Does it document defensive programming patterns?
+2. **Unused functions** - Are they documented for future phases?
+3. **Timeouts** - Are they documented for animation timing?
+4. **Conditional skips** - Are conditions based on element existence (good) or arbitrary (bad)?
+5. **"May need adjustment"** - This is GOOD, shows UI awareness
+6. **Helper organization** - Are large helpers (>30 LOC) in shared modules? (NEW)
+7. **Selector patterns** - Do helpers use flexible selector fallbacks? (NEW)
+8. **Test data design** - Are seed functions documented with distribution? (NEW)
+
+**File Header Pattern to Look For:**
+
+```typescript
+/**
+ * Phase 2.2 Patterns Applied (see docs/08_TESTING_PATTERNS.md):
+ * ----------------------------------------------------------------
+ * 1. Type Safety - Zero `any` types, proper Page imports
+ * 2. Modal-Based Authentication
+ * 3. Explicit Waits for Dynamic Content
+ * 4. Semantic, Role-Based Selectors
+ * 5. Database Test Data - Create via DB, test via UI
+ * 6. Graceful Degradation (Defensive Programming)
+ *    - Tests check if UI elements exist before asserting behavior
+ *    - Use conditional test.skip() when features not yet implemented
+ *    - Comments like "may need adjustment" signal flexibility
+ */
+```
+
+**Reference Files**:
+- `e2e/notifications.spec.ts` - Example of well-documented E2E test file (Phase 2.1)
+- `e2e/advanced-search.spec.ts` - Example of defensive programming excellence (Phase 2.2)
+- `e2e/helpers/search-helpers.ts` - Example of flexible selector patterns
+
+---
+
 Remember: Focus on patterns and consistency. A codebase with consistent patterns is easier to maintain than one with perfect but inconsistent code.

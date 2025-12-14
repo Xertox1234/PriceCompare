@@ -44,12 +44,10 @@ export const LazyPriceHistoryPage = lazy(() => import('@/pages/price-history'));
 export const LazyAnalyticsPage = lazy(() => import('@/pages/analytics'));
 
 /**
- * Watch list manager - Community feature
- * Named export requires module transform
+ * Watch list manager - Product organization feature
+ * Default export from page component
  */
-export const LazyWatchListManager = lazy(() =>
-  import('@/components/community/watch-list-manager').then((m) => ({ default: m.WatchListManager }))
-);
+export const LazyWatchListManager = lazy(() => import('@/pages/watchlist-manager'));
 
 /**
  * Monitoring dashboard - Admin/debug feature

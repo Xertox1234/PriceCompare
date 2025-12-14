@@ -191,7 +191,11 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
         ) : user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="user-menu-button">
+              <Button
+                variant="ghost"
+                className="relative h-8 w-8 rounded-full"
+                data-testid="user-menu-button"
+              >
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
@@ -213,7 +217,11 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending} data-testid="sign-out-button">
+              <DropdownMenuItem
+                onClick={handleLogout}
+                disabled={logoutMutation.isPending}
+                data-testid="sign-out-button"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>{logoutMutation.isPending ? 'Signing out...' : 'Sign out'}</span>
               </DropdownMenuItem>
@@ -237,7 +245,11 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="user-menu-button">
+              <Button
+                variant="ghost"
+                className="relative h-8 w-8 rounded-full"
+                data-testid="user-menu-button"
+              >
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="text-xs">
                     {user.username.charAt(0).toUpperCase()}

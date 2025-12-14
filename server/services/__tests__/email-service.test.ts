@@ -152,7 +152,11 @@ describe('Email Service', () => {
 
       const { emailService } = await import('../email-service');
 
-      await emailService.sendPasswordResetEmail('recipient@example.com', VALID_TEST_TOKEN, 'TestUser');
+      await emailService.sendPasswordResetEmail(
+        'recipient@example.com',
+        VALID_TEST_TOKEN,
+        'TestUser'
+      );
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -316,7 +320,9 @@ describe('Email Service', () => {
 
       const emailCall = mockSendMail.mock.calls[0][0];
 
-      expect(emailCall.html).toContain(`http://localhost:5000/reset-password?token=${VALID_TEST_TOKEN_3}`);
+      expect(emailCall.html).toContain(
+        `http://localhost:5000/reset-password?token=${VALID_TEST_TOKEN_3}`
+      );
     });
   });
 

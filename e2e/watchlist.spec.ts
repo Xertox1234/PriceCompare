@@ -45,11 +45,10 @@ import {
   registerUser,
   loginUser as _loginUser,
   logoutUser as _logoutUser,
+  generateTestUsername,
+  generateTestEmail,
 } from './helpers';
-import {
-  seedTestProduct,
-  seedMultipleProducts,
-} from './helpers/admin-helpers';
+import { seedTestProduct, seedMultipleProducts } from './helpers/admin-helpers';
 
 test.describe('Watchlist - Product Organization', () => {
   test.beforeEach(async () => {
@@ -59,14 +58,18 @@ test.describe('Watchlist - Product Organization', () => {
 
   test.describe('Watchlist CRUD Operations', () => {
     test('should create new watchlist', async ({ page }) => {
-      await registerUser(page, 'watchlistuser', 'watchlist@example.com', 'WatchlistPass123!');
+      await registerUser(page, generateTestUsername('watchlist'), generateTestEmail('watchlist'), 'WatchlistPass123!');
 
       // Navigate to watchlists page
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      // Click create button
-      await page.getByRole('button', { name: /create watchlist/i }).click();
+      // Wait for data to load and button to appear (React Query data fetching)
+      // Note: Two "Create Watchlist" buttons exist (header + empty state), use .first()
+      await page.getByRole('button', { name: /create watchlist/i }).first().waitFor({ state: 'visible', timeout: 15000 });
+
+      // Click create button (header button)
+      await page.getByRole('button', { name: /create watchlist/i }).first().click();
 
       // Wait for modal/form to be visible
       await page.waitForSelector('[role="dialog"], form', { state: 'visible', timeout: 5000 });
@@ -81,7 +84,7 @@ test.describe('Watchlist - Product Organization', () => {
     });
 
     test('should delete watchlist', async ({ page }) => {
-      await registerUser(page, 'user', 'user@example.com', 'UserPass123!');
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
       // Create watchlist first
       await createWatchlist(page, 'List to Delete');
@@ -108,7 +111,7 @@ test.describe('Watchlist - Product Organization', () => {
 
   test.describe('Product Management in Watchlists', () => {
     test('should add product to watchlist', async ({ page }) => {
-      await registerUser(page, 'user', 'user@example.com', 'UserPass123!');
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
       // Create watchlist first
       await createWatchlist(page, 'Holiday Shopping 2025');
@@ -149,7 +152,7 @@ test.describe('Watchlist - Product Organization', () => {
     });
 
     test('should remove product from watchlist', async ({ page }) => {
-      await registerUser(page, 'user', 'user@example.com', 'UserPass123!');
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
       // Create watchlist and add product
       await createWatchlist(page, 'My List');
@@ -181,7 +184,7 @@ test.describe('Watchlist - Product Organization', () => {
     });
 
     test('should move product between watchlists', async ({ page }) => {
-      await registerUser(page, 'user', 'user@example.com', 'UserPass123!');
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
       // Create two watchlists
       await createWatchlist(page, 'List A');
@@ -230,7 +233,7 @@ test.describe('Watchlist - Product Organization', () => {
 
   test.describe('Bulk Operations', () => {
     test('should bulk delete from watchlist', async ({ page }) => {
-      await registerUser(page, 'user', 'user@example.com', 'UserPass123!');
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
       // Create watchlist with 5 products
       await createWatchlist(page, 'My List');
@@ -284,7 +287,7 @@ test.describe('Watchlist - Product Organization', () => {
 
   test.describe('Import/Export', () => {
     test('should export watchlist to CSV', async ({ page }) => {
-      await registerUser(page, 'user', 'user@example.com', 'UserPass123!');
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
       // Create watchlist with products
       await createWatchlist(page, 'Export Test');
@@ -320,7 +323,9 @@ test.describe('Watchlist - Product Organization', () => {
       expect(download.suggestedFilename()).toMatch(/export-test.*\.csv/i);
     });
 
-    test.skip('should import watchlist from CSV - UI not yet implemented', async ({ page: _page }) => {
+    test.skip('should import watchlist from CSV - UI not yet implemented', async ({
+      page: _page,
+    }) => {
       // TODO: Implement when watchlist import UI is built
       // Expected flow:
       // 1. Click "Import Watchlist" button
@@ -345,7 +350,9 @@ test.describe('Watchlist - Product Organization', () => {
       // 6. Verify shared user receives notification
     });
 
-    test.skip('should make watchlist public - feature not yet implemented', async ({ page: _page }) => {
+    test.skip('should make watchlist public - feature not yet implemented', async ({
+      page: _page,
+    }) => {
       // TODO: Implement when public sharing is added
       // Expected flow:
       // 1. Open watchlist settings
@@ -365,7 +372,8 @@ async function createWatchlist(page: Page, name: string) {
   await page.goto('/watchlists');
   await page.waitForLoadState('networkidle');
 
-  await page.getByRole('button', { name: /create watchlist/i }).click();
+  // Click header button (two buttons exist: header + empty state)
+  await page.getByRole('button', { name: /create watchlist/i }).first().click();
 
   // Wait for modal/form
   await page.waitForSelector('[role="dialog"], form', { state: 'visible', timeout: 5000 });
@@ -374,7 +382,10 @@ async function createWatchlist(page: Page, name: string) {
   await page.getByRole('button', { name: /create list/i }).click();
 
   // Wait for success notification
-  await page.getByText(/watch list created/i).first().waitFor({ state: 'visible', timeout: 5000 });
+  await page
+    .getByText(/watch list created/i)
+    .first()
+    .waitFor({ state: 'visible', timeout: 5000 });
 }
 
 /**

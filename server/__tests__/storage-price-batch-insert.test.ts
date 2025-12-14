@@ -278,9 +278,8 @@ describe('PriceStorage.insertPriceHistoryBatch', () => {
     expect(inserted.source).toBe('scraper');
     expect(inserted.confidence).toBe('0.95');
     // Metadata may be returned as string from JSONB column - parse if needed
-    const metadata = typeof inserted.metadata === 'string' 
-      ? JSON.parse(inserted.metadata) 
-      : inserted.metadata;
+    const metadata =
+      typeof inserted.metadata === 'string' ? JSON.parse(inserted.metadata) : inserted.metadata;
     expect(metadata).toEqual({ scrapedAt: now.toISOString(), userAgent: 'test' });
   });
 

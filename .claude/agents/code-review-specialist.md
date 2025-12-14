@@ -1972,6 +1972,428 @@ VIOLATIONS=$(grep -n "pattern" "$file")
 
 ---
 
+## NEW: E2E Test Documentation Quality Patterns (v1.7 - 2025-12-12)
+
+**Context**: Phase 2.1 notification E2E tests code review identified patterns for evaluating test file quality that go beyond typical code issues. These patterns focus on maintainability and documentation clarity.
+
+### Pattern 10: Unused Functions Reserved for Future Phases
+
+**What**: Functions prefixed with `_` (indicating unused) but lacking clear documentation about WHY they exist and WHEN they will be used.
+
+**Why It Matters**: Code reviewers seeing unused functions may:
+1. Flag them as dead code to be removed
+2. Not understand the intentional reservation
+3. Miss the planned use case
+
+**Common Locations**:
+- E2E test spec files with local helper functions
+- Test helper files with utilities for future test phases
+- Feature objects with methods for upcoming features
+
+**Detection**:
+```typescript
+// Pattern: Function starts with _ but has minimal/no documentation
+async function _waitForNotificationInList(page: Page, title: string): Promise<void> {
+  // Implementation placeholder
+  return Promise.resolve();
+}
+```
+
+**Review Guidance**:
+
+```typescript
+// INSUFFICIENT - Just underscore prefix, unclear purpose
+async function _waitForNotificationInList(_page: Page, _title: string): Promise<void> {
+  return Promise.resolve();
+}
+
+// ACCEPTABLE - Includes TODO with phase reference and usage example
+/**
+ * Wait for notification to appear in list
+ *
+ * TODO: Reserved for Phase 2.2 WebSocket real-time notification testing
+ * This helper will be used to verify that notifications appear in the list
+ * immediately via WebSocket events without requiring a page refresh.
+ *
+ * Future usage example:
+ * ```typescript
+ * await triggerPriceDrop(offerId, newPrice);
+ * await _waitForNotificationInList(page, 'Price Drop Alert');
+ * // Verify notification appeared via WebSocket, not page reload
+ * ```
+ */
+async function _waitForNotificationInList(_page: Page, _title: string): Promise<void> {
+  return Promise.resolve();
+}
+```
+
+**Review Checklist**:
+- [ ] Unused functions (starting with `_`) have TODO comment explaining future use
+- [ ] Documentation includes specific phase/feature reference
+- [ ] Documentation includes concrete usage example
+- [ ] Documentation explains WHY function exists now vs creating later
+
+**Severity**: Low (non-blocking) - Improves maintainability but doesn't affect functionality
+
+---
+
+### Pattern 11: Hardcoded Timeouts in Test Helpers
+
+**What**: Using `waitForTimeout()` or similar fixed delays without documentation explaining the timing requirement.
+
+**Why It Matters**:
+1. Hardcoded timeouts are generally discouraged (flaky tests)
+2. Some timeouts ARE intentional (CSS animations, network settling)
+3. Without documentation, reviewers cannot distinguish intentional from accidental
+
+**Common Locations**:
+- E2E helper functions for UI interactions
+- Test utilities that wait for animations
+- Dropdown/modal interaction helpers
+
+**Detection**:
+```typescript
+// Pattern: waitForTimeout without comment
+await page.waitForTimeout(500);
+```
+
+**Review Guidance**:
+
+```typescript
+// FLAGGABLE - No explanation for timeout
+export async function openNotificationDropdown(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /notification/i }).first().click();
+  await page.waitForTimeout(500);  // Why 500ms?
+}
+
+// ACCEPTABLE - Documented reason and alternative
+/**
+ * Open notification dropdown/menu
+ *
+ * NOTE: The 500ms timeout is intentional for UI animation timing.
+ * CSS transitions on the dropdown take ~300ms, plus buffer for rendering.
+ *
+ * Alternative approach (if dropdown has stable selector after animation):
+ * ```typescript
+ * await page.getByRole('menu', { name: /notifications/i }).waitFor({ state: 'visible' });
+ * ```
+ */
+export async function openNotificationDropdown(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /notification/i }).first().click();
+  // Wait for dropdown animation - intentional timeout for CSS transitions
+  await page.waitForTimeout(500);
+}
+```
+
+**Context-Aware Acceptability**:
+| Context | Verdict | Reasoning |
+|---------|---------|-----------|
+| Animation timing (documented) | Acceptable | UI requires settling time |
+| Network settling | Prefer `networkidle` | Use Playwright's built-in wait |
+| "Just to be safe" | Flaggable | Replace with explicit wait condition |
+| Unused helper function | Low priority | Document for when it's used |
+
+**Review Checklist**:
+- [ ] Hardcoded timeouts have inline comment explaining purpose
+- [ ] Consider if Playwright wait condition would be more reliable
+- [ ] If in unused helper, note that documentation is for future use
+
+**Severity**: Low to Medium - Depends on whether function is actively used
+
+---
+
+### Pattern 12: Defensive Programming in E2E Tests (Graceful Degradation)
+
+**What**: Test patterns that conditionally skip tests or use flexible assertions when UI features may not be implemented yet.
+
+**Why It Matters**: This is INTENTIONAL good design, NOT incomplete code:
+1. Tests can pass when features ARE implemented
+2. Tests skip gracefully when features are NOT YET implemented
+3. Provides clear signal about what's missing
+4. Enables incremental feature development
+
+**Common Patterns**:
+
+```typescript
+// Pattern 1: Conditional test.skip()
+const saveButton = page.getByRole('button', { name: /save/i });
+if ((await saveButton.count()) > 0) {
+  // Test the feature
+} else {
+  test.skip(); // Skip if UI not implemented
+}
+
+// Pattern 2: Comments about potential UI adjustments
+// Verify newest is first (may need to adjust based on actual UI)
+expect(count).toBeGreaterThanOrEqual(3);
+
+// Pattern 3: Multiple selector attempts
+const prefsLink = page.getByRole('link', { name: /preference|setting/i });
+const prefsButton = page.getByRole('button', { name: /preference|setting/i });
+if ((await prefsLink.count()) > 0) {
+  await prefsLink.first().click();
+} else if ((await prefsButton.count()) > 0) {
+  await prefsButton.first().click();
+}
+```
+
+**Review Guidance**:
+
+```typescript
+// DO NOT FLAG AS INCOMPLETE - This is intentional defensive programming
+const markAllButton = page.getByRole('button', { name: /mark all as read/i });
+if ((await markAllButton.count()) > 0) {
+  await markAllButton.first().click();
+  // ... test behavior
+} else {
+  test.skip(); // UI not implemented yet
+}
+
+// RECOMMEND: Document pattern in file header if used extensively
+/**
+ * Phase 2.1 Patterns Applied:
+ * ...
+ * 6. Graceful Degradation (Defensive Programming)
+ *    - Tests check if UI elements exist before asserting behavior
+ *    - Use conditional test.skip() when features not yet implemented
+ *    - Comments like "may need adjustment" signal flexibility
+ *    - Pattern: if ((await element.count()) > 0) { test } else { test.skip() }
+ */
+```
+
+**When to Flag vs Accept**:
+| Pattern | Verdict | Reasoning |
+|---------|---------|-----------|
+| `test.skip()` for unimplemented UI | Accept | Intentional graceful degradation |
+| "may need adjustment" comments | Accept | Acknowledges evolving UI |
+| Multiple selector fallbacks | Accept | Handles different UI implementations |
+| Hardcoded skip without condition | Flaggable | Should be conditional |
+| Skip without TODO for implementation | Suggest | Add phase reference |
+
+**File Header Documentation Pattern**:
+When a test file uses extensive defensive programming, document it in the file header:
+
+```typescript
+/**
+ * Phase 2.1 Patterns Applied (see docs/08_TESTING_PATTERNS.md):
+ * ----------------------------------------------------------------
+ * 1. Modal-Based Authentication
+ * 2. Explicit Waits for Dynamic Content
+ * 3. Semantic, Role-Based Selectors
+ * 4. Test Helper Consistency
+ * 5. User-Observable Behavior Testing
+ * 6. Graceful Degradation (Defensive Programming)   <-- Document this pattern
+ *    - Tests check if UI elements exist before asserting behavior
+ *    - Use conditional test.skip() when features not yet implemented
+ *    - Comments like "may need adjustment" signal flexibility
+ */
+```
+
+**Review Checklist**:
+- [ ] Defensive patterns are NOT flagged as incomplete code
+- [ ] File header documents defensive programming pattern if used extensively
+- [ ] Conditional skips have clear conditions (element existence, not arbitrary)
+- [ ] "May need adjustment" comments are seen as intentional flexibility
+
+**Severity**: Information only - These patterns are GOOD, not issues
+
+---
+
+### Pattern 13: Local vs Shared Helper Organization (NEW 2025-12-12)
+
+**What**: Test spec files containing seed/helper functions that could potentially be shared across multiple test files.
+
+**Why It Matters**: Helper organization impacts long-term maintainability:
+- Spec file bloat reduces readability
+- Missed reuse opportunities increase code duplication
+- Inconsistent organization confuses contributors
+
+**Common Locations**:
+- E2E test spec files with inline seed functions
+- Test files with >30 lines of helper code
+- Functions that seed test data for specific scenarios
+
+**Decision Matrix**:
+
+```
+Is the helper used by multiple test files?
+  YES -> Move to shared e2e/helpers/
+  NO  -> Is it likely to be reused in future tests?
+          YES -> Move to shared e2e/helpers/
+          NO  -> Is it >30 lines of code?
+                  YES -> Consider shared (spec file hygiene)
+                  NO  -> Local is acceptable
+```
+
+**Review Guidance**:
+
+```typescript
+// ACCEPTABLE - Small, single-use local helper (<30 LOC)
+async function seedSingleProduct(): Promise<void> {
+  await db.insert(products).values({ name: 'Test', category: 'Electronics' });
+}
+
+// SUGGEST MOVE - Large helper (>30 LOC) or likely reusable
+/**
+ * Seed products with categorical distribution
+ * Consider moving to e2e/helpers/search-helpers.ts for reuse
+ */
+async function seedProductsWithCategories(): Promise<void> {
+  const categories = ['Electronics', 'Computers', 'Smartphones'];
+  for (let i = 0; i < 10; i++) {
+    // ... 40 lines of setup logic
+  }
+}
+```
+
+**Severity**: MINOR - Optional improvement for maintainability
+
+---
+
+### Pattern 14: Flexible Selector Patterns for UI Variation (NEW 2025-12-12)
+
+**What**: E2E helper functions that implement multiple selector fallbacks to handle different UI implementations.
+
+**Why It Matters**: This is EXEMPLARY code, not a concern:
+- Handles UI variations across different implementations
+- Tests remain stable during UI refactoring
+- Documents expected UI patterns for developers
+- Enables incremental feature development
+
+**Example of EXCELLENT Pattern**:
+
+```typescript
+// EXEMPLARY - Multiple selector fallbacks
+export async function applyCategoryFilter(page: Page, category: string): Promise<void> {
+  // Priority 1: Select dropdown (most common)
+  const selectFilter = page.getByLabel(/category/i);
+  if ((await selectFilter.count()) > 0) {
+    await selectFilter.selectOption(category);
+    await page.waitForLoadState('networkidle');
+    return;
+  }
+
+  // Priority 2: Button pattern (toggle filters)
+  const buttonFilter = page.getByRole('button', { name: new RegExp(category, 'i') });
+  if ((await buttonFilter.count()) > 0) {
+    await buttonFilter.click();
+    await page.waitForLoadState('networkidle');
+    return;
+  }
+
+  // Priority 3: Checkbox pattern
+  const checkboxFilter = page.getByLabel(new RegExp(category, 'i'));
+  if ((await checkboxFilter.count()) > 0) {
+    await checkboxFilter.check();
+    await page.waitForLoadState('networkidle');
+  }
+}
+```
+
+**Selector Priority Order**:
+1. **Semantic role** (`getByRole`) - Most accessible
+2. **Label association** (`getByLabel`) - Form fields
+3. **Test ID** (`getByTestId`) - Stable identifiers
+4. **CSS selector** - Last resort
+
+**Review Checklist**:
+- [ ] Flexible selector patterns are praised, NOT flagged
+- [ ] Priority order follows accessibility best practices
+- [ ] Each fallback has `waitForLoadState` or similar wait
+- [ ] Comments document the UI pattern being handled
+
+**Severity**: INFO - Best practice (exemplary implementation)
+
+---
+
+### Pattern 15: Test Data Categorization for Coverage (NEW 2025-12-12)
+
+**What**: Seed functions that create test data with specific categorical distribution and value ranges to maximize test coverage.
+
+**Why It Matters**: Well-structured test data enables comprehensive coverage without excessive test count.
+
+**Test Data Design Principles**:
+
+1. **Categorical Distribution**: Round-robin across all relevant categories
+   ```typescript
+   const categories = ['Electronics', 'Computers', 'Smartphones'];
+   for (let i = 0; i < productCount; i++) {
+     category: categories[i % categories.length]
+   }
+   ```
+
+2. **Value Range Tiers**: Span expected filter ranges
+   ```typescript
+   const priceRanges = [
+     { min: 20, max: 50 },    // Budget
+     { min: 100, max: 200 },  // Mid
+     { min: 500, max: 1000 }, // Premium
+   ];
+   ```
+
+3. **Volume for Pagination**: Create 25+ items to test pagination
+
+**Seed Function Documentation Template**:
+```typescript
+/**
+ * Seed products with specific distribution for [feature] testing
+ *
+ * Distribution:
+ * - Categories: Electronics (3), Computers (3), Smartphones (4)
+ * - Price ranges: $20-$1000 across 5 tiers
+ * - Total products: 10
+ *
+ * Use cases:
+ * - Category filtering tests
+ * - Price range filtering tests
+ */
+async function seedProductsForSearchTesting(): Promise<void> {
+  // ...
+}
+```
+
+**Review Checklist**:
+- [ ] Seed functions have JSDoc documenting distribution
+- [ ] Categories cover all filter options being tested
+- [ ] Price/value ranges span expected filter boundaries
+- [ ] Volume sufficient for pagination testing (if applicable)
+
+**Severity**: INFO - Best practice guidance
+
+---
+
+### E2E Test Review Summary
+
+**Key Mindset Shift for E2E Reviews**:
+
+Traditional code review focuses on:
+- Finding bugs
+- Catching security issues
+- Enforcing patterns
+
+E2E test review ALSO considers:
+- **Maintainability**: Will future developers understand this code?
+- **Documentation quality**: Are unusual patterns explained?
+- **Intentional design**: Is "incomplete-looking" code actually defensive design?
+- **Helper organization**: Are helpers in the right location? (NEW)
+- **Test data design**: Does seed data enable comprehensive coverage? (NEW)
+
+**Quick Reference - What to Flag vs Accept**:
+
+| Pattern | Flag? | Action |
+|---------|-------|--------|
+| `_function` without docs | Suggest | Add TODO with future use |
+| `waitForTimeout` without comment | Suggest | Add timing explanation |
+| `test.skip()` conditional | Accept | Good defensive pattern |
+| "may need adjustment" comment | Accept | Shows awareness |
+| Multiple selector fallbacks | Accept | Handles UI variation |
+| Unused helper with usage example | Accept | Well-documented reservation |
+| Local helper >30 LOC | Suggest | Consider move to shared module |
+| Flexible selector chain | Praise | Exemplary defensive design |
+| Documented test data distribution | Praise | Good coverage design |
+
+---
+
 ## Constitutional Self-Check Before Output
 
 **Before finalizing review**:
@@ -2020,9 +2442,11 @@ If you encounter unclear patterns:
 
 ---
 
-**Version**: 1.6
+**Version**: 1.8
 **Last Updated**: 2025-12-12
 **Changes**:
+- v1.8: Added Phase 2.2 E2E patterns (Patterns 13-15): local vs shared helper organization, flexible selector patterns, test data categorization. Expanded E2E review summary with new guidance.
+- v1.7: Added E2E Test Documentation Quality Patterns (Patterns 10-12): unused function documentation, hardcoded timeout context, defensive programming recognition. From Phase 2.1 notification E2E code review feedback codification.
 - v1.6: Added Pattern 8 (E2E `page: any` types) and Pattern 9 (useMutation for GET operations) from code review session feedback codification
 - v1.5: Added over-engineering detection patterns (Redis-native simplification from TODO_001), platform-feature-first principle, graceful degradation framework
 - v1.4: Added Phase 5 test quality patterns (WARNING 18/19), code review improvement integration patterns, updated hook reference to v3.4

@@ -48,10 +48,7 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import { cleanDatabase, registerUser, generateTestEmail, generateTestUsername } from './helpers';
-import {
-  createTestNotification,
-  navigateToNotifications,
-} from './helpers/notification-helpers';
+import { createTestNotification, navigateToNotifications } from './helpers/notification-helpers';
 import { db } from '../server/db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -138,7 +135,10 @@ test.describe('Notifications - Real-Time System', () => {
       await page.getByRole('tab', { name: /general/i }).click();
 
       // Wait for tab content to load (aria-selected indicates active tab)
-      await expect(page.getByRole('tab', { name: /general/i })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: /general/i })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      );
 
       // Find the unread notification card
       const unreadNotification = page.locator('[role="listitem"]', {
@@ -232,7 +232,10 @@ test.describe('Notifications - Real-Time System', () => {
       await page.getByRole('tab', { name: /general/i }).click();
 
       // Wait for tab to be active
-      await expect(page.getByRole('tab', { name: /general/i })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: /general/i })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      );
 
       // Find unread notification
       const notification = page.locator('[role="listitem"]', {
@@ -600,7 +603,9 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Look for notification badge (use aria-label for semantic selector)
       // Badge might show "3" or be visible indicator
-      const badge = page.getByLabel(/notification|unread/i).or(page.locator('[aria-label*="notification"]'));
+      const badge = page
+        .getByLabel(/notification|unread/i)
+        .or(page.locator('[aria-label*="notification"]'));
 
       // Check if badge exists and is visible
       if ((await badge.count()) > 0) {

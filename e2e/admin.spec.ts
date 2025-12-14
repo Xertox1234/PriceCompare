@@ -43,9 +43,7 @@ test.describe('Admin - Dashboard Management', () => {
 
       // Verify dashboard loads (may vary based on actual implementation)
       // Use flexible selectors that work with different UI variations
-      await expect(
-        page.getByRole('heading', { name: /admin|dashboard/i })
-      ).toBeVisible();
+      await expect(page.getByRole('heading', { name: /admin|dashboard/i })).toBeVisible();
     });
 
     test('should redirect non-admin users from admin dashboard', async ({ page }) => {
@@ -71,9 +69,7 @@ test.describe('Admin - Dashboard Management', () => {
       expect(isRedirected || hasAccessDenied).toBe(true);
     });
 
-    test('should redirect unauthenticated users from admin dashboard', async ({
-      page,
-    }) => {
+    test('should redirect unauthenticated users from admin dashboard', async ({ page }) => {
       await page.goto('/admin');
       await page.waitForLoadState('networkidle');
 
@@ -169,16 +165,19 @@ test.describe('Admin - Dashboard Management', () => {
       await page.getByRole('tab', { name: /retailers/i }).click();
 
       // Wait for tab content to load before verification
-      await page.getByText(/amazon|best buy|walmart/i).first().waitFor({
-        state: 'visible',
-        timeout: 5000
-      });
+      await page
+        .getByText(/amazon|best buy|walmart/i)
+        .first()
+        .waitFor({
+          state: 'visible',
+          timeout: 5000,
+        });
 
       // Verify retailers content is visible
       // seedAnalyticsData creates Amazon, Best Buy, and Walmart retailers
-      await expect(
-        page.getByText(/amazon|best buy|walmart/i).first()
-      ).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/amazon|best buy|walmart/i).first()).toBeVisible({
+        timeout: 5000,
+      });
     });
   });
 
@@ -279,16 +278,17 @@ test.describe('Admin - Dashboard Management', () => {
       await page.getByRole('tab', { name: /^products$/i }).click();
 
       // Wait for tab content to load before verification
-      await page.getByText(/bulk product/i).first().waitFor({
-        state: 'visible',
-        timeout: 5000
-      });
+      await page
+        .getByText(/bulk product/i)
+        .first()
+        .waitFor({
+          state: 'visible',
+          timeout: 5000,
+        });
 
       // Verify products content is visible
       // seedMultipleProducts creates products named "Bulk Product 1", "Bulk Product 2", etc.
-      await expect(
-        page.getByText(/bulk product/i).first()
-      ).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/bulk product/i).first()).toBeVisible({ timeout: 5000 });
     });
   });
 

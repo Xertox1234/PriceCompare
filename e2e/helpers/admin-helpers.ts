@@ -46,7 +46,10 @@ export async function createAdminUser(
 
   // Click Sign Up button in navigation to open auth modal
   // Use .first() because there are multiple Sign Up buttons (nav, main, footer)
-  await page.getByRole('button', { name: /sign up/i }).first().click();
+  await page
+    .getByRole('button', { name: /sign up/i })
+    .first()
+    .click();
 
   // Wait for modal to open with accessible label
   await page.waitForSelector('input#username', { state: 'visible', timeout: 5000 });
@@ -54,7 +57,10 @@ export async function createAdminUser(
   // Fill registration form using getByLabel() for resilience
   await page.getByLabel(/username/i).fill(username);
   await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/^password$/i).first().fill(password);
+  await page
+    .getByLabel(/^password$/i)
+    .first()
+    .fill(password);
   await page.getByLabel(/confirm.*password/i).fill(password);
 
   // Submit form (button text is "Create Account")

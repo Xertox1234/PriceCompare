@@ -417,8 +417,311 @@ When writing E2E tests for mutations:
 
 ---
 
+## Addendum: API Response Unwrapping (Session 2 - 2025-12-12)
+
+### Problem Discovered
+
+During continued E2E test debugging, discovered that three hooks in `use-community.ts` were using raw `fetch()` for GET requests, causing API response double-wrapping:
+
+```typescript
+// ❌ WRONG - Manual fetch returns wrapped response
+export function useWatchLists() {
+  return useQuery<{ data: WatchListWithStats[] }>({
+    queryFn: async () => {
+      const response = await fetch('/api/watchlists', {
+        credentials: 'include',
+      });
+      return response.json(); // Returns: { success: true, data: [...] }
+    },
+  });
+}
+
+// Component receives: { data: { success: true, data: [...] } }
+// Expected: { data: [...] }
+```
+
+**Impact**: Components crashed with `TypeError: find is not a function` because they expected an array but received an object with a nested `data` property.
+
+### Solution Applied
+
+Migrated three GET hooks to use `apiRequest()` which automatically unwraps the API envelope:
+
+```typescript
+// ✅ CORRECT - apiRequest() unwraps { success: true, data: T } → T
+import { apiRequest } from '@/lib/queryClient';
+
+export function useWatchLists() {
+  return useQuery<WatchListWithStats[]>({
+    queryFn: async () => {
+      return apiRequest<WatchListWithStats[]>('/api/watchlists');
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+}
+
+// Component receives: { data: [...] } ✅
+```
+
+### Hooks Fixed
+
+1. **`useWatchLists()`** (lines 267-276): `/api/watchlists` - GET all watch lists
+2. **`useWatchList(listId)`** (lines 279-289): `/api/watchlists/:id` - GET single watch list
+3. **`useWatchListProducts(listId)`** (lines 353-363): `/api/watchlists/:id/products` - GET watch list products
+
+### Component Updates
+
+**`watchlist-manager.tsx`** (line 74):
+```typescript
+// BEFORE: const products = productsData?.data || [];
+// AFTER:  const products = productsData || [];
+```
+
+### Key Insight
+
+**`apiRequest()` is required for BOTH mutations AND queries** to ensure:
+- Consistent response unwrapping
+- CSRF token handling (mutations)
+- Type safety enforcement
+- Centralized error handling
+
+### Pattern Enforcement
+
+**When to use `apiRequest()`**:
+- ✅ ALL POST/PUT/PATCH/DELETE mutations (CSRF protection)
+- ✅ ALL GET queries returning API envelope (`{success, data}`)
+- ❌ Special cases only: Downloads, streams, custom Response handling
+
+**When raw `fetch()` is acceptable**:
+- File downloads requiring Blob creation
+- Streaming responses
+- Custom Response header access
+- **MUST document why** with inline comment
+
+---
+
+---
+
+## Addendum: API Endpoint Verification (Session 3 - 2025-12-13)
+
+### Problem Discovered
+
+After fixing the CSRF and response unwrapping issues, the "should create new watchlist" test continued to fail with `products.map is not a function` error. This problem persisted through **7+ failed debugging attempts** targeting React Query timing/caching issues.
+
+### The Real Root Cause
+
+The `useWatchListProducts` hook was calling a **non-existent API endpoint**:
+
+**Incorrect Endpoint** (doesn't exist):
+```typescript
+`/api/watchlists/${listId}/products`
+```
+
+**Correct Endpoint** (exists):
+```typescript
+`/api/watchlists/${listId}`
+```
+
+The server endpoint `/api/watchlists/:id` returns a `WatchListWithProducts` object with a nested `products` field, not just a products array directly.
+
+### Failed Debugging Approaches (7+ Attempts)
+
+All previous attempts assumed the API was working and focused on client-side timing/state issues:
+
+1. **Changed `invalidateQueries()` to `refetchQueries()`** - Failed (wrong approach)
+2. **Added null-coalescing for Tabs value prop** - Failed (symptom not cause)
+3. **Applied type transformation in useWatchLists()** - Failed (wrong layer)
+4. **Added optimistic update with type transformation** - Failed (added complexity)
+5. **Removed optimistic update to eliminate race condition** - Failed (no race condition)
+6. **Added useEffect to wait for watchlist in array** - Failed (timing wasn't the issue)
+7. **Skip WebSocket invalidation for 'created' action** - Failed (WebSocket not the problem)
+
+**Key Mistake**: All attempts assumed the API was correct and spent multiple sessions on React Query timing before verifying endpoint existence.
+
+### The Fix
+
+**Before (BROKEN)**:
+```typescript
+export function useWatchListProducts(listId: number) {
+  return useQuery<WatchListProduct[]>({
+    queryKey: ['/api/watchlists', listId, 'products'],
+    queryFn: async () => {
+      return apiRequest<WatchListProduct[]>(`/api/watchlists/${listId}/products`);
+      //                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      //                                      This endpoint doesn't exist!
+    },
+    enabled: !!listId,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+```
+
+**After (FIXED)**:
+```typescript
+export function useWatchListProducts(listId: number) {
+  return useQuery<WatchListProduct[]>({
+    queryKey: ['/api/watchlists', listId, 'products'],
+    queryFn: async () => {
+      // Call the watchlist endpoint and extract products from the response
+      const watchlist = await apiRequest<{
+        id: number;
+        name: string;
+        description: string | null;
+        color: string | null;
+        icon: string | null;
+        products: WatchListProduct[];
+      }>(`/api/watchlists/${listId}`); // Correct endpoint
+      return watchlist.products; // Extract the products array
+    },
+    enabled: !!listId,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+```
+
+### Test Results
+
+**Before Fix** (8.2s timeout):
+```
+Error: expect(locator).toBeVisible() failed
+Timeout: 5000ms
+Error: element(s) not found
+
+=== PAGE ERRORS ===
+Error 1:
+Message: products.map is not a function
+Stack: TypeError: products.map is not a function
+    at http://localhost:5001/src/pages/watchlist-manager.tsx:477:123
+```
+
+**After Fix** (3.2s clean pass):
+```
+✓  1 [chromium] › watchlist.spec.ts:60:5 › should create new watchlist (3.2s)
+
+1 passed (6.7s)
+```
+
+No JavaScript errors, faster execution, clean pass.
+
+### Critical Learning: Verify API Endpoints FIRST
+
+**MANDATORY DEBUGGING ORDER** when client-side data fetching fails:
+
+1. ✅ **Verify endpoint exists on server** (`grep -r "'/api/endpoint'" server/routes/`)
+2. ✅ **Test endpoint directly** with curl/Postman
+3. ✅ **Verify response structure** matches expected type
+4. ✅ **Check browser Network tab** for 404/500 errors
+5. Then (and only then) investigate React Query timing/caching
+
+**What We Did Wrong** (backwards approach):
+1. ❌ Assumed API was correct
+2. ❌ Spent 7+ attempts on React Query timing
+3. ❌ Only verified endpoint after exhausting other options
+
+### Debugging Pattern: Surface Hidden Errors Early
+
+React Error Boundaries hide JavaScript errors during testing. When E2E tests fail mysteriously:
+
+1. **Add browser console/error listeners immediately** (not as last resort)
+2. **Check browser DevTools Network tab** for HTTP errors
+3. **Don't assume timing issues first** - verify API contract
+
+**E2E Error Capture Pattern**:
+```typescript
+test('my test', async ({ page }) => {
+  // Add this FIRST when debugging mysterious failures
+  const pageErrors: Array<{ message: string; stack?: string }> = [];
+  page.on('pageerror', (error) => {
+    pageErrors.push({
+      message: error.message,
+      stack: error.stack,
+    });
+  });
+
+  // ... test code
+
+  // Log errors on failure
+  if (pageErrors.length > 0) {
+    console.log('\n=== PAGE ERRORS ===\n');
+    pageErrors.forEach((err, i) => {
+      console.log(`Error ${i + 1}:`);
+      console.log(`Message: ${err.message}`);
+      if (err.stack) console.log(`Stack: ${err.stack}`);
+    });
+  }
+});
+```
+
+**Important**: Remove error listeners after debugging is complete (~60 lines of noise).
+
+### Pattern: API Response Structure Awareness
+
+When an API returns a parent object with nested data, the query hook must extract the specific field:
+
+```typescript
+// ❌ WRONG - Assumes endpoint returns array directly
+return apiRequest<Product[]>(`/api/watchlists/${id}/products`);
+
+// ✅ CORRECT - Fetch parent, extract nested field
+const parent = await apiRequest<ParentWithProducts>(`/api/parents/${id}`);
+return parent.products;
+```
+
+**Server Response Structure** (`/api/watchlists/:id`):
+```typescript
+interface WatchListWithProducts {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  products: Array<{
+    id: number;
+    name: string;
+    imageUrl: string;
+    addedAt: Date;
+    currentPrice: number;
+    lowestHistoricalPrice: number;
+    priceDropPercent: number;
+  }>;
+}
+```
+
+The `apiRequest()` helper unwraps the API envelope (`{ success: true, data: T }`), so you get the `WatchListWithProducts` object directly. You then need to extract the `products` field.
+
+### Impact
+
+- **7+ debugging sessions** avoided by verifying endpoints first
+- **E2E test reliability** improved from 0% (failing) to 100% (passing)
+- **Test execution time** improved from 8.2s (timeout) to 3.2s (clean pass)
+- **Pattern codified** for preventing similar issues
+
+### Checklist: Similar API Issues
+
+When E2E tests fail with "element not found" or type errors:
+
+- [ ] Add browser error listeners to capture JavaScript exceptions
+- [ ] Check browser Network tab for 404/500 errors
+- [ ] **Verify API endpoints exist on server** (`grep -r "'/api/endpoint'" server/routes/`)
+- [ ] Test endpoints directly with curl/Postman
+- [ ] Verify response structure matches client expectations
+- [ ] Check for React Error Boundary masking errors
+- [ ] Only then investigate timing/caching/state issues
+
+---
+
 ## Conclusion
 
-This learnings document codifies the journey of implementing Phase 1.2 watchlist E2E tests and discovering CSRF token handling issues. The key takeaway is to **always use centralized utilities** (`apiRequest()`) rather than raw browser APIs, as they provide critical cross-cutting concerns like CSRF protection, error handling, and type safety.
+This learnings document codifies the journey of implementing Phase 1.2 watchlist E2E tests across three debugging sessions:
 
-The patterns established here (eager CSRF loading, semantic selectors, user-observable testing) will guide future E2E test development and ensure consistent, maintainable test coverage across the application.
+1. **Session 1**: CSRF token handling with `apiRequest()` utility
+2. **Session 2**: API response unwrapping patterns for GET requests
+3. **Session 3**: API endpoint verification before debugging client-side timing
+
+The key takeaway is to **always use centralized utilities** (`apiRequest()`) rather than raw browser APIs, and **always verify API endpoints exist** before spending time on client-side debugging.
+
+The patterns established here (eager CSRF loading, semantic selectors, user-observable testing, consistent `apiRequest()` usage, endpoint verification first) will guide future E2E test development and ensure consistent, maintainable test coverage across the application.
+
+**Bottom Line**: Verify API endpoints exist before debugging client-side React Query timing/caching issues. Browser error listeners are essential for debugging E2E test failures caused by hidden JavaScript errors.

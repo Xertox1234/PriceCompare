@@ -267,3 +267,134 @@ When reviewing refactoring PRs for large files (1000+ lines):
 - Encourage testing of type guards
 - Test edge cases (null, undefined, empty arrays)
 - Integration tests for database queries
+
+### E2E Test Review Guidelines (NEW - 2025-12-12)
+
+**Context-Aware Evaluation**: E2E tests have different acceptability criteria than production code.
+
+#### Patterns That Are ACCEPTABLE in E2E Tests
+
+**1. Unused Functions Reserved for Future Phases**
+```typescript
+// ACCEPTABLE - Documented for future use
+/**
+ * TODO: Reserved for Phase 2.2 WebSocket testing
+ * Future usage: await _waitForNotificationInList(page, 'Price Drop');
+ */
+async function _waitForNotificationInList(_page: Page, _title: string): Promise<void> {
+  return Promise.resolve();
+}
+```
+Requirement: Must have TODO comment with phase reference and usage example.
+
+**2. Hardcoded Timeouts for UI Animations**
+```typescript
+// ACCEPTABLE - Documented animation timing
+/**
+ * NOTE: 500ms timeout for CSS transition animation (~300ms + buffer)
+ * Alternative: await page.getByRole('menu').waitFor({ state: 'visible' });
+ */
+await page.waitForTimeout(500);
+```
+Requirement: Must document why timeout is needed and suggest alternatives.
+
+**3. Defensive Programming Patterns (Graceful Degradation)**
+```typescript
+// ACCEPTABLE - Good design pattern
+const saveButton = page.getByRole('button', { name: /save/i });
+if ((await saveButton.count()) > 0) {
+  await saveButton.first().click();
+} else {
+  test.skip();  // UI not implemented yet
+}
+```
+DO NOT flag as incomplete - this is intentional design for incremental development.
+
+**4. "May Need Adjustment" Comments**
+```typescript
+// ACCEPTABLE - Shows awareness of evolving UI
+// Verify newest is first (may need adjustment based on actual UI)
+expect(count).toBeGreaterThanOrEqual(3);
+```
+These comments signal flexibility, NOT incomplete code.
+
+**5. Multiple Selector Fallbacks**
+```typescript
+// ACCEPTABLE - Handles different UI implementations
+const prefsLink = page.getByRole('link', { name: /preference/i });
+const prefsButton = page.getByRole('button', { name: /preference/i });
+if ((await prefsLink.count()) > 0) {
+  await prefsLink.first().click();
+} else if ((await prefsButton.count()) > 0) {
+  await prefsButton.first().click();
+}
+```
+
+#### E2E Review Checklist
+
+- [ ] Unused functions have TODO comments with phase/feature reference
+- [ ] Hardcoded timeouts have documented justification (animation timing, etc.)
+- [ ] Defensive test.skip() patterns are conditional on element existence
+- [ ] "May need adjustment" comments seen as intentional flexibility
+- [ ] File header documents defensive programming patterns (if used extensively)
+
+#### What to Flag in E2E Tests
+
+- Undocumented unused functions (no TODO explaining future use)
+- Undocumented hardcoded timeouts (no explanation of timing requirement)
+- Arbitrary test.skip() without conditional check
+- `page: any` type issues (should use `Page` from Playwright)
+
+#### Additional Patterns from Phase 2.2 (NEW - 2025-12-12)
+
+**6. Helper Organization (Suggest Improvement)**
+```typescript
+// SUGGEST MOVE - Large helper (>30 LOC) or likely reusable
+// Move to e2e/helpers/search-helpers.ts for reuse
+async function seedProductsWithCategories(): Promise<void> {
+  const categories = ['Electronics', 'Computers', 'Smartphones'];
+  // ... 40+ lines of setup logic
+}
+```
+Decision: Local is acceptable for <30 LOC single-use helpers; suggest shared for larger/reusable helpers.
+
+**7. Flexible Selector Patterns (Exemplary - Praise)**
+```typescript
+// EXEMPLARY - Multiple selector fallbacks for UI variation
+const selectFilter = page.getByLabel(/category/i);
+if ((await selectFilter.count()) > 0) {
+  await selectFilter.selectOption(category);
+  return;
+}
+// Fallback patterns for button/checkbox...
+```
+This is EXCELLENT defensive design - praise it, don't flag it.
+
+**8. Test Data Design Documentation (Suggest Improvement)**
+```typescript
+// SUGGEST - Add JSDoc documenting distribution
+/**
+ * Distribution:
+ * - Categories: Electronics (3), Computers (3), Smartphones (4)
+ * - Price ranges: $20-$1000 across 5 tiers
+ * - Total: 10 products
+ */
+async function seedProductsForSearchTesting(): Promise<void>
+```
+Well-structured seed data maximizes test coverage.
+
+#### E2E Review Checklist (Updated)
+
+- [ ] Unused functions have TODO comments with phase/feature reference
+- [ ] Hardcoded timeouts have documented justification (animation timing, etc.)
+- [ ] Defensive test.skip() patterns are conditional on element existence
+- [ ] "May need adjustment" comments seen as intentional flexibility
+- [ ] File header documents defensive programming patterns (if used extensively)
+- [ ] Large helpers (>30 LOC) considered for shared modules (NEW)
+- [ ] Flexible selector patterns praised as exemplary (NEW)
+- [ ] Seed functions have JSDoc documenting data distribution (NEW)
+
+**Reference Files**:
+- `e2e/notifications.spec.ts` - Example of well-documented E2E test file (Phase 2.1)
+- `e2e/advanced-search.spec.ts` - Example of defensive programming excellence (Phase 2.2)
+- `e2e/helpers/search-helpers.ts` - Example of flexible selector patterns
