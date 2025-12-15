@@ -24,7 +24,10 @@ export function ConnectionStatus() {
   }
 
   return (
-    <div className="animate-in slide-in-from-bottom-5 fixed right-4 bottom-4 z-50">
+    <div
+      className="animate-in slide-in-from-bottom-5 fixed right-4 bottom-4 z-50"
+      data-testid="connection-status"
+    >
       <div
         className={cn(
           'flex items-center gap-2 rounded-lg px-4 py-2 shadow-lg backdrop-blur-sm',

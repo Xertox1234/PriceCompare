@@ -6,7 +6,7 @@
 import { type Page } from '@playwright/test';
 import { db } from '../../server/db';
 import { products, retailers, productOffers, priceHistory } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // Animation timing constants
 const COLLAPSIBLE_ANIMATION_MS = 300;
@@ -14,39 +14,30 @@ const TOOLTIP_ANIMATION_MS = 200;
 
 /**
  * Navigate to price history page for a specific product
- * Assumes product detail page has a price history section or dedicated route
- * Opens the "Price Analytics & History" collapsible section if found
+ * Phase 3.1 components are on /product/:id (singular) in collapsible section
+ * Opens the "Price Analytics & History" collapsible section
  */
 export async function navigateToPriceHistory(page: Page, productId: number): Promise<void> {
-  // Try dedicated price history route first (plural "products")
-  await page.goto(`/products/${productId}/price-history`);
+  // Navigate to product detail page (singular "product") where Phase 3.1 components are
+  await page.goto(`/product/${productId}`);
   await page.waitForLoadState('networkidle');
 
-  // Check if we got a 404
-  const notFound = page.locator('text=/404|not found/i');
-  const hasNotFound = (await notFound.count()) > 0;
+  // Look for "Price Analytics & History" collapsible trigger
+  const analyticsTrigger = page.locator('text=/Price Analytics.*History/i');
 
-  // If dedicated route doesn't exist, fall back to product detail page
-  if (hasNotFound) {
-    await page.goto(`/product/${productId}`);
-    await page.waitForLoadState('networkidle');
+  if ((await analyticsTrigger.count()) > 0) {
+    // Scroll to collapsible section
+    await analyticsTrigger.scrollIntoViewIfNeeded();
 
-    // Look for "Price Analytics & History" collapsible trigger
-    const analyticsTrigger = page.locator('text=/Price Analytics.*History/i');
-    if ((await analyticsTrigger.count()) > 0) {
-      // Scroll to collapsible section
-      await analyticsTrigger.scrollIntoViewIfNeeded();
+    // Check if it's already open (data-state="open")
+    const triggerParent = analyticsTrigger.locator('..');
+    const isOpen = await triggerParent.getAttribute('data-state');
 
-      // Check if it's already open (data-state="open")
-      const triggerParent = analyticsTrigger.locator('..');
-      const isOpen = await triggerParent.getAttribute('data-state');
-
-      // Click to open if closed
-      if (isOpen !== 'open') {
-        await analyticsTrigger.click();
-        // Wait for collapsible animation to complete
-        await page.waitForTimeout(COLLAPSIBLE_ANIMATION_MS);
-      }
+    // Click to open if closed
+    if (isOpen !== 'open') {
+      await analyticsTrigger.click();
+      // Wait for collapsible animation to complete
+      await page.waitForTimeout(COLLAPSIBLE_ANIMATION_MS);
     }
   }
 }
@@ -312,23 +303,43 @@ export async function getBestDealBadge(page: Page): Promise<string | null> {
  * Opens price alert modal with pre-filled price
  */
 export async function clickChartDataPoint(page: Page, dataPointIndex = 0): Promise<void> {
-  // Try clicking chart dots/points
-  const chartDots = page.locator('circle[class*="recharts-dot"], circle[class*="data-point"]');
-  const dotCount = await chartDots.count();
+  // Wait for chart to be fully rendered
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(500); // Wait for chart animation
 
-  if (dotCount > dataPointIndex) {
-    await chartDots.nth(dataPointIndex).click();
+  const chartArea = page
+    .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
+    .first();
+
+  if ((await chartArea.count()) === 0) {
     return;
   }
 
-  // Fallback: Click chart area to trigger interaction
-  const chartArea = page
-    .locator('[class*="recharts-wrapper"], [data-testid="price-chart"]')
-    .first();
+  await chartArea.scrollIntoViewIfNeeded();
 
-  if ((await chartArea.count()) > 0) {
-    await chartArea.click();
+  // Try multiple selectors for Recharts dots
+  const dotSelectors = [
+    'circle[class*="recharts-dot"]', // Standard Recharts dot class
+    'circle.recharts-dot', // Exact class match
+    '.recharts-line circle', // Circles within line path
+    'svg circle[r]', // Any SVG circle with radius attribute (within chart area)
+  ];
+
+  for (const selector of dotSelectors) {
+    const chartDots = chartArea.locator(selector);
+    const dotCount = await chartDots.count();
+
+    if (dotCount > dataPointIndex) {
+      // Found dots with this selector, try to click
+      const dot = chartDots.nth(dataPointIndex);
+      await dot.scrollIntoViewIfNeeded();
+      await dot.click({ force: true }); // Force click in case of overlay issues
+      return;
+    }
   }
+
+  // Fallback: Click chart area to trigger interaction
+  await chartArea.click();
 }
 
 /**
@@ -373,8 +384,29 @@ export async function getAlertModalPrefilledPrice(page: Page): Promise<number | 
 export async function seedPriceHistoryData(
   productId: number,
   days = 30,
-  priceRange: { min: number; max: number } = { min: 50, max: 200 }
+  priceRange: { min: number; max: number } = { min: 50, max: 200 },
+  options?: {
+    /**
+     * Optional deterministic seed for stable test data.
+     * When omitted, data is randomized (default behavior).
+     */
+    seed?: number;
+  }
 ): Promise<void> {
+  // Deterministic PRNG (Mulberry32) for stable test data when requested.
+  const rand = (() => {
+    if (options?.seed === undefined) return Math.random;
+
+    let t = options.seed >>> 0;
+    return () => {
+      // https://stackoverflow.com/a/47593316 (public domain snippet)
+      t += 0x6d2b79f5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  })();
+
   // Get product and create offers/retailers if needed
   const productList = await db.select().from(products).where(eq(products.id, productId));
   const product = productList[0];
@@ -383,42 +415,55 @@ export async function seedPriceHistoryData(
     throw new Error(`Product ${productId} not found`);
   }
 
-  // Get or create retailers
-  let retailerList = await db.select().from(retailers).limit(3);
+  // Always ensure we have the standard 3 test retailers
+  // Check if they exist first to avoid duplicates
+  const existingRetailers = await db.select().from(retailers).where(
+    sql`${retailers.name} IN ('Amazon', 'Best Buy', 'Walmart')`
+  );
 
-  if (retailerList.length === 0) {
-    // Create test retailers
-    retailerList = await db
-      .insert(retailers)
-      .values([
-        { name: 'Amazon', website: 'https://amazon.com', isActive: true },
-        { name: 'Best Buy', website: 'https://bestbuy.com', isActive: true },
-        { name: 'Walmart', website: 'https://walmart.com', isActive: true },
-      ])
-      .returning();
+  let retailerList: Array<{
+    id: number;
+    name: string;
+    website: string | null;
+    isActive: boolean | null;
+  }> = [];
+
+  if (existingRetailers.length < 3) {
+    // Create missing retailers
+    const retailersToCreate = [
+      { name: 'Amazon', website: 'https://amazon.com', isActive: true },
+      { name: 'Best Buy', website: 'https://bestbuy.com', isActive: true },
+      { name: 'Walmart', website: 'https://walmart.com', isActive: true },
+    ].filter((r) => !existingRetailers.some((er) => er.name === r.name));
+
+    const newRetailers = await db.insert(retailers).values(retailersToCreate).returning();
+    retailerList = [...existingRetailers, ...newRetailers];
+  } else {
+    retailerList = existingRetailers;
   }
 
-  // Get or create product offers
-  let offerList = await db
-    .select()
-    .from(productOffers)
-    .where(eq(productOffers.productId, product.id));
+  // Delete existing offers for this product to ensure clean state
+  await db.delete(productOffers).where(eq(productOffers.productId, product.id));
 
-  if (offerList.length === 0) {
-    // Create offers for each retailer
-    offerList = await db
-      .insert(productOffers)
-      .values(
-        retailerList.map((retailer) => ({
+  // Create offers for all retailers with varying current prices
+  const offerList = await db
+    .insert(productOffers)
+    .values(
+      retailerList.map((retailer, index) => {
+        // Distribute prices across the range for variety
+        const priceOffset = (priceRange.max - priceRange.min) / (retailerList.length + 1);
+        const currentPrice = priceRange.min + priceOffset * (index + 1);
+        const retailerName = retailer.name.toLowerCase().replace(' ', '');
+        return {
           productId: product.id,
           retailerId: retailer.id,
-          price: priceRange.min.toString(),
-          url: `https://${retailer.name.toLowerCase().replace(' ', '')}.com/product/${product.id}`,
+          price: currentPrice.toFixed(2),
+          url: `https://${retailerName}.com/product/${product.id}`,
           availability: 'in_stock',
-        }))
-      )
-      .returning();
-  }
+        };
+      })
+    )
+    .returning();
 
   // Generate price history data with realistic patterns
   const now = new Date();
@@ -430,26 +475,26 @@ export async function seedPriceHistoryData(
     recordDate.setHours(12, 0, 0, 0); // Noon UTC for timezone safety
 
     // Determine price pattern based on distribution
-    const patternType = Math.random();
-    let basePrice = priceRange.min + Math.random() * (priceRange.max - priceRange.min);
+    const patternType = rand();
+    let basePrice = priceRange.min + rand() * (priceRange.max - priceRange.min);
 
     if (patternType < 0.2) {
       // 20% stable prices (variation < 5%)
-      const variation = (Math.random() - 0.5) * 0.05; // ±2.5%
+      const variation = (rand() - 0.5) * 0.05; // ±2.5%
       basePrice = basePrice * (1 + variation);
     } else if (patternType < 0.5) {
       // 30% gradual decline (-1% to -3% per day)
-      const declineRate = -0.01 - Math.random() * 0.02; // -1% to -3%
+      const declineRate = -0.01 - rand() * 0.02; // -1% to -3%
       basePrice = basePrice * Math.pow(1 + declineRate, dayOffset);
     } else if (patternType < 0.75) {
       // 25% sharp drop (-10% to -20% over 3 days)
       if (dayOffset % 3 === 0) {
-        const dropRate = -0.1 - Math.random() * 0.1; // -10% to -20%
+        const dropRate = -0.1 - rand() * 0.1; // -10% to -20%
         basePrice = basePrice * (1 + dropRate);
       }
     } else {
       // 25% volatility (random ±5% to ±15%)
-      const volatility = (Math.random() - 0.5) * 0.3; // ±15%
+      const volatility = (rand() - 0.5) * 0.3; // ±15%
       basePrice = basePrice * (1 + volatility);
     }
 

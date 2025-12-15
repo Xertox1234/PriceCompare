@@ -19,6 +19,7 @@ import { InteractiveTooltip } from './InteractiveTooltip';
 import { ChartExport } from './ChartExport';
 import { TrendingDown } from 'lucide-react';
 import { createLogger } from '@/utils/logger';
+import { cn } from '@/lib/utils';
 
 interface PriceHistoryData {
   id: number;
@@ -39,6 +40,8 @@ interface PriceHistoryChartProps {
   productName?: string;
   productId?: number;
   timeRange?: number | null;
+  onChartClick?: (price: number) => void;
+  onTimeRangeChange?: (days: number) => void;
 }
 
 // Color palette for different retailers
@@ -64,10 +67,21 @@ export function PriceHistoryChart({
   productName = 'Product',
   productId,
   timeRange,
+  onChartClick,
+  onTimeRangeChange,
 }: PriceHistoryChartProps) {
   const [hiddenRetailers, setHiddenRetailers] = useState<Set<number>>(new Set());
   const [brushStartIndex, setBrushStartIndex] = useState<number | undefined>(undefined);
   const [brushEndIndex, setBrushEndIndex] = useState<number | undefined>(undefined);
+
+  const getNumericPrice = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  };
 
   // Calculate historical context for tooltips
   const historicalContext = useMemo(() => {
@@ -246,6 +260,32 @@ export function PriceHistoryChart({
           )}
         </div>
 
+        {/* Time Range Selector */}
+        {onTimeRangeChange && (
+          <div className="flex items-center gap-2" role="group" aria-label="Time range selector">
+            <span className="text-muted-foreground text-sm font-medium">Show:</span>
+            {[
+              { label: '7 Days', days: 7 },
+              { label: '30 Days', days: 30 },
+              { label: '90 Days', days: 90 },
+            ].map(({ label, days }) => (
+              <button
+                key={days}
+                onClick={() => onTimeRangeChange(days)}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  timeRange === days
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                )}
+                aria-pressed={timeRange === days}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Retailer legend with toggle */}
         <div className="flex flex-wrap gap-3">
           {displayRetailers.map((retailer, index) => {
@@ -256,15 +296,18 @@ export function PriceHistoryChart({
               <button
                 key={retailer.id}
                 onClick={() => toggleRetailer(retailer.id)}
-                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 transition-all ${
+                className={cn(
+                  'flex items-center gap-2 rounded-md border px-3 py-1.5 transition-all',
                   isHidden
-                    ? 'border-gray-200 bg-gray-50 opacity-40'
-                    : 'border-gray-300 bg-white hover:shadow-sm'
-                }`}
+                    ? 'border-border bg-muted opacity-40'
+                    : 'border-border bg-card hover:shadow-sm'
+                )}
               >
                 <div
                   className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: isHidden ? '#ccc' : color }}
+                  style={{
+                    backgroundColor: isHidden ? 'var(--muted-foreground)' : color,
+                  }}
                 />
                 <span className="text-sm font-medium">{retailer.name}</span>
               </button>
@@ -321,9 +364,9 @@ export function PriceHistoryChart({
               {historicalContext && (
                 <ReferenceLine
                   y={historicalContext.averagePrice}
-                  stroke="#94a3b8"
+                  stroke="hsl(210 5% 60%)"
                   strokeDasharray="3 3"
-                  label={{ value: 'Avg', position: 'right', fill: '#94a3b8', fontSize: 12 }}
+                  label={{ value: 'Avg', position: 'right', fill: 'hsl(210 5% 60%)', fontSize: 12 }}
                 />
               )}
 
@@ -338,8 +381,62 @@ export function PriceHistoryChart({
                     dataKey={`retailer_${retailer.id}`}
                     stroke={color}
                     strokeWidth={2}
-                    dot={{ fill: color, r: 3 }}
-                    activeDot={{ r: 5 }}
+                    dot={
+                      onChartClick
+                        ? (dotProps: unknown) => {
+                            if (!dotProps || typeof dotProps !== 'object') return null;
+                            const props = dotProps as Record<string, unknown>;
+
+                            const cx = typeof props.cx === 'number' ? props.cx : null;
+                            const cy = typeof props.cy === 'number' ? props.cy : null;
+                            if (cx === null || cy === null) return null;
+
+                            const price = getNumericPrice(props.value);
+
+                            return (
+                              <circle
+                                className="recharts-dot"
+                                cx={cx}
+                                cy={cy}
+                                r={4}
+                                fill={color}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  if (price !== null) onChartClick(price);
+                                }}
+                              />
+                            );
+                          }
+                        : { fill: color, r: 4 }
+                    }
+                    activeDot={
+                      onChartClick
+                        ? (dotProps: unknown) => {
+                            if (!dotProps || typeof dotProps !== 'object') return null;
+                            const props = dotProps as Record<string, unknown>;
+
+                            const cx = typeof props.cx === 'number' ? props.cx : null;
+                            const cy = typeof props.cy === 'number' ? props.cy : null;
+                            if (cx === null || cy === null) return null;
+
+                            const price = getNumericPrice(props.value);
+
+                            return (
+                              <circle
+                                className="recharts-dot"
+                                cx={cx}
+                                cy={cy}
+                                r={6}
+                                fill={color}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  if (price !== null) onChartClick(price);
+                                }}
+                              />
+                            );
+                          }
+                        : { r: 6 }
+                    }
                     name={retailer.name}
                     connectNulls
                   />
@@ -350,7 +447,7 @@ export function PriceHistoryChart({
               <Brush
                 dataKey="date"
                 height={30}
-                stroke="#3b82f6"
+                stroke="hsl(217 91% 60%)"
                 tickFormatter={(value: string | number | Date) => format(new Date(value), 'MMM d')}
                 startIndex={brushStartIndex}
                 endIndex={brushEndIndex}

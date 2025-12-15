@@ -347,6 +347,9 @@ test.describe('Price History & Analytics', () => {
         }
       }
 
+      // Scroll to retailer comparison table if needed
+      await retailerComparison.scrollIntoViewIfNeeded();
+
       // Get retailer prices
       const retailerPrices = await getRetailerPrices(page);
 

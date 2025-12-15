@@ -46,6 +46,10 @@ import { ChevronDown, BarChart3 } from 'lucide-react';
 import { PriceHistoryChart } from '@/components/price-history/PriceHistoryChart';
 import { PriceInsightsWidget } from '@/components/price-history/price-insights-widget';
 import { usePriceHistory, usePriceStats } from '@/hooks/use-price-history';
+import { RetailerComparisonTable } from '@/components/price-analytics/retailer-comparison-table';
+import { BestDealBadge } from '@/components/price-analytics/best-deal-badge';
+import { PriceTrendIndicator } from '@/components/price-analytics/price-trend-indicator';
+import { PriceAlertModal } from '@/components/price-analytics/price-alert-modal';
 
 function ProductDetailContent() {
   const params = useParams<{ id: string }>();
@@ -60,6 +64,9 @@ function ProductDetailContent() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [watchlistDialogOpen, setWatchlistDialogOpen] = useState(false);
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<string>('');
+  const [priceAlertModalOpen, setPriceAlertModalOpen] = useState(false);
+  const [prefilledAlertPrice, setPrefilledAlertPrice] = useState<number | undefined>(undefined);
+  const [timeRangeDays, setTimeRangeDays] = useState<number>(30);
 
   // Fetch user's watchlists
   const { data: watchlistsData } = useWatchLists();
@@ -87,10 +94,10 @@ function ProductDetailContent() {
   const { data: priceHistory, isLoading: historyLoading } = usePriceHistory(
     productId,
     bestOffer?.id,
-    { days: 30 }
+    { days: timeRangeDays }
   );
 
-  const { data: priceStats, isLoading: statsLoading } = usePriceStats(
+  const { data: _priceStats, isLoading: statsLoading } = usePriceStats(
     productId,
     bestOffer?.id,
     365 // Full year for accurate trends
@@ -206,6 +213,17 @@ function ProductDetailContent() {
       });
     }
   };
+
+  // Handle chart data point click to open price alert modal
+  const handleChartClick = (price: number) => {
+    setPrefilledAlertPrice(price);
+    setPriceAlertModalOpen(true);
+  };
+
+  // Check if current offer is the best deal
+  const isBestDeal = product?.offers && product.offers.length > 1
+    ? product.offers.every((offer) => parseFloat(bestOffer?.price || '0') <= parseFloat(offer.price))
+    : false;
 
   return (
     <div className="bg-background min-h-screen">
@@ -331,18 +349,21 @@ function ProductDetailContent() {
             </div>
 
             {/* Price */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-primary text-3xl font-bold">${price.toFixed(2)}</span>
-              {originalPrice && originalPrice > price && (
-                <>
-                  <span className="text-muted-foreground text-xl line-through">
-                    ${originalPrice.toFixed(2)}
-                  </span>
-                  <span className="text-destructive text-sm font-medium">
-                    Save ${(originalPrice - price).toFixed(2)}
-                  </span>
-                </>
-              )}
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-3">
+                <span className="text-primary text-3xl font-bold">${price.toFixed(2)}</span>
+                {originalPrice && originalPrice > price && (
+                  <>
+                    <span className="text-muted-foreground text-xl line-through">
+                      ${originalPrice.toFixed(2)}
+                    </span>
+                    <span className="text-destructive text-sm font-medium">
+                      Save ${(originalPrice - price).toFixed(2)}
+                    </span>
+                  </>
+                )}
+              </div>
+              {isBestDeal && <BestDealBadge showIcon />}
             </div>
 
             {/* Brand */}
@@ -473,27 +494,66 @@ function ProductDetailContent() {
                 </div>
               )}
 
-              {/* Content Grid */}
-              {!historyLoading && !statsLoading && priceHistory && (
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {/* Price History Chart */}
-                  <div className="lg:col-span-1" data-testid="price-chart">
-                    <PriceHistoryChart
-                      data={transformPriceHistoryData(priceHistory, bestOffer)}
-                      productId={productId}
-                      productName={product?.name}
-                      isLoading={historyLoading}
-                    />
-                  </div>
+              {/* Content */}
+              {!historyLoading && !statsLoading && (
+                <div className="space-y-6">
+                  {/* Price Trend Indicator */}
+                  {priceHistory && priceHistory.data.length > 0 && (
+                    <div className="flex items-center gap-4">
+                      <PriceTrendIndicator
+                        priceHistory={priceHistory.data.map((h) => ({
+                          price: h.price,
+                          recordedAt: h.recordedAt ?? h.createdAt ?? new Date(),
+                        }))}
+                        showPercentage
+                      />
+                    </div>
+                  )}
 
-                  {/* Price Insights Widget */}
-                  <div className="lg:col-span-1">
-                    <PriceInsightsWidget
-                      productId={productId}
-                      offerId={bestOffer?.id}
-                      className="h-full"
+                  {/* Charts Grid */}
+                  {priceHistory && (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                      {/* Price History Chart */}
+                      <div className="lg:col-span-1" data-testid="price-chart">
+                        <PriceHistoryChart
+                          data={transformPriceHistoryData(priceHistory, bestOffer)}
+                          productId={productId}
+                          productName={product?.name}
+                          isLoading={historyLoading}
+                          timeRange={timeRangeDays}
+                          onChartClick={handleChartClick}
+                          onTimeRangeChange={setTimeRangeDays}
+                        />
+                      </div>
+
+                      {/* Price Insights Widget */}
+                      <div className="lg:col-span-1">
+                        <PriceInsightsWidget
+                          productId={productId}
+                          offerId={bestOffer?.id}
+                          className="h-full"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cross-Retailer Comparison Table */}
+                  {product?.offers && product.offers.length > 0 && (
+                    <RetailerComparisonTable
+                      offers={product.offers.map((offer) => ({
+                        id: offer.id,
+                        retailerId: offer.retailerId,
+                        retailerName: offer.retailer?.name || 'Unknown',
+                        retailerLogo: offer.retailer?.logo,
+                        price: offer.price,
+                        originalPrice: offer.originalPrice,
+                        availability: offer.availability,
+                        productUrl: offer.productUrl,
+                        affiliateUrl: offer.affiliateUrl,
+                        lastUpdated: offer.lastUpdated,
+                      }))}
                     />
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -569,6 +629,18 @@ function ProductDetailContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Price Alert Modal */}
+      <PriceAlertModal
+        productId={productId}
+        productName={product?.name}
+        prefilledPrice={prefilledAlertPrice}
+        isOpen={priceAlertModalOpen}
+        onClose={() => {
+          setPriceAlertModalOpen(false);
+          setPrefilledAlertPrice(undefined);
+        }}
+      />
     </div>
   );
 }
