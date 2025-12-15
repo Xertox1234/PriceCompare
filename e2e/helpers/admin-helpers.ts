@@ -109,6 +109,15 @@ export async function seedTestProduct(
     })
     .returning();
 
+  // Create product offer (required for product detail page to load)
+  await db.insert(productOffers).values({
+    productId: product.id,
+    retailerId: retailer.id,
+    productUrl: `https://${retailer.website}/products/${product.id}`,
+    price: '99.99',
+    availability: 'in_stock',
+  });
+
   return { product, retailer };
 }
 

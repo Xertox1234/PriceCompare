@@ -1204,6 +1204,84 @@ async function seedProductsForSearchTesting(): Promise<void> {
 
 ---
 
+### Progressive DOM Scoping for Ambiguous Selectors (NEW - 2025-12-14)
+
+**Problem**: Text-based selectors can match wrong elements when text appears in multiple locations.
+
+**Example Failure**:
+```typescript
+// Page has:
+// - Buy Recommendation: "This is one of the LOWEST prices..."
+// - Historical Facts: "Lowest Price: $99.99"
+
+// ❌ WRONG - Matches recommendation text, not price value
+const minPriceLabel = page.locator('text=/lowest.*price/i');
+// Error: Expected "$99.99", got "This is one of the lowest prices ever..."
+```
+
+**Solution: Three-Level Progressive DOM Scoping**:
+
+```typescript
+// ✅ CORRECT - Progressive scoping
+// Level 1: Scope to section
+const historicalFacts = page.locator('text=/historical.*facts/i').locator('..');
+
+// Level 2: Find the row
+const minPriceRow = historicalFacts.locator('text=/lowest.*price/i').locator('..');
+
+// Level 3: Extract the value
+const minPriceLabel = minPriceRow.locator('text=/\\$[0-9,]+\\.?[0-9]*/');
+```
+
+**Key Techniques**:
+
+1. **Parent Navigation**: `.locator('..')` moves up one DOM level
+2. **Regex Escaping**: Use `\\$` for dollar signs in text patterns
+3. **Progressive Narrowing**: Section -> Row -> Value
+
+**Selector Priority Order** (most to least resilient):
+
+1. **data-testid** (best) - Explicit test contract
+   ```typescript
+   page.getByTestId('lowest-price')
+   ```
+
+2. **Role-based** - Semantic, accessible
+   ```typescript
+   page.getByRole('cell', { name: /\$[0-9]+/ })
+   ```
+
+3. **Progressive scoping** - When above not available
+   ```typescript
+   const section = page.locator('text=/section/i').locator('..');
+   const value = section.locator('text=/pattern/');
+   ```
+
+4. **CSS classes** (avoid) - Brittle, changes with styling
+
+**Anti-Patterns to Avoid**:
+
+```typescript
+// ❌ Page-level text search for common words
+const price = page.locator('text=/price/i');
+
+// ❌ Unescaped regex meta-characters
+const amount = page.locator('text=/$99.99/');
+
+// ❌ Single selector for ambiguous text
+const status = page.locator('text=/active/i');
+```
+
+**Debugging Workflow**:
+1. View test screenshot to understand DOM structure
+2. Identify where ambiguous text appears
+3. Apply progressive scoping (section -> row -> value)
+4. Verify fix with test run
+
+**Reference**: `docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md`
+
+---
+
 ### Best Practices for E2E Tests
 
 **Selectors:**

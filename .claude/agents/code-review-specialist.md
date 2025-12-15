@@ -606,9 +606,465 @@ Pattern 6: Unused variables (if many new declarations)
 Pattern 7: Non-null assertions (map.get()!, ref.current!)
 Pattern 8: E2E test 'page: any' types (NEW 2025-12-12)
 Pattern 9: useMutation for GET operations (NEW 2025-12-12)
+Pattern 16: Async onClick without void wrapper (NEW 2025-12-14)
 ```
 
 **Benefit**: Get actionable quick-fix suggestions BEFORE full lint runs, reducing commit friction.
+
+---
+
+### Pattern 16: Async onClick Without Void Wrapper (NEW 2025-12-14)
+
+**What**: Async functions passed directly to React event handlers (onClick, onSubmit, onChange) without the `void` operator wrapper.
+
+**Common Locations**:
+- React components with form submissions
+- Dialog/Modal action buttons
+- Any interactive element calling async operations
+
+**Why It's Critical**:
+1. React event handlers expect `void` return type
+2. Async functions return `Promise<T>` which violates the type contract
+3. ESLint rule `@typescript-eslint/no-misused-promises` will flag this as an error
+4. Pre-commit hook will block commits containing this pattern
+
+**Detection**:
+```typescript
+// ❌ WRONG - Async function passed directly (ESLint error)
+const handleAddToWatchlist = async () => {
+  await apiRequest('/api/watchlist', { method: 'POST' });
+  toast({ title: 'Added!' });
+};
+<Button onClick={handleAddToWatchlist}>Add</Button>
+
+// ❌ ALSO WRONG - Inline async arrow function
+<Button onClick={async () => { await deleteItem(); }}>Delete</Button>
+
+// ✅ CORRECT - Void operator wrapper (PREFERRED)
+<Button onClick={() => void handleAddToWatchlist()}>Add</Button>
+
+// ✅ ALSO CORRECT - Explicit async wrapper with void
+<Button onClick={() => void (async () => { await deleteItem(); })()}>Delete</Button>
+```
+
+**Pre-commit Detection Commands**:
+```bash
+# Find async onClick handlers without void wrapper
+git diff --cached --name-only | xargs grep -l "onClick" | xargs grep -n "onClick={[a-zA-Z]" | while read line; do
+  file=$(echo "$line" | cut -d: -f1)
+  func=$(echo "$line" | grep -oP '(?<=onClick={)[a-zA-Z_]+')
+  grep -q "async.*${func}" "$file" && echo "ASYNC HANDLER: $line"
+done
+
+# Quick grep for common pattern
+grep -rn "onClick={handle\|onClick={on" client/src/ --include="*.tsx" | head -20
+```
+
+**Review Checklist**:
+- [ ] All async functions used in onClick are wrapped with void operator
+- [ ] Form onSubmit handlers use `() => void handleSubmit()` pattern
+- [ ] Dialog action buttons (AlertDialogAction, etc.) use void wrapper
+- [ ] No `onClick={async () => {` patterns without outer void wrapper
+
+**Root Cause**: Developers define async handler functions, then pass them directly to event handlers without realizing the type mismatch. The ESLint error message can be confusing: "Promise-returning function provided to attribute where void return was expected."
+
+**Quick Fix Template**:
+```typescript
+// Before: ESLint error
+<Button onClick={handleAsyncOperation}>
+
+// After: Fixed
+<Button onClick={() => void handleAsyncOperation()}>
+```
+
+**Reference**: `docs/01_TYPESCRIPT_PATTERNS.md` (Async/Promise Patterns section), `docs/LINT_ERROR_PATTERNS.md` (Pattern 2)
+
+---
+
+### Pattern 17: Progressive DOM Scoping for E2E Selectors (NEW 2025-12-14)
+
+**What**: Playwright text-based selectors that match unintended elements due to ambiguous text appearing in multiple locations on the page.
+
+**Common Locations**:
+- E2E test spec files (`e2e/*.spec.ts`)
+- E2E helper functions (`e2e/helpers/*.ts`)
+- Any test code using `page.locator('text=/pattern/')` without scoping
+
+**Why It's Critical**:
+1. Ambiguous selectors cause tests to extract wrong values
+2. Tests may pass with wrong data (false positives)
+3. Flaky tests when page content changes
+4. Difficult to debug without understanding DOM hierarchy
+
+**Problem Example**:
+```typescript
+// Page structure:
+// - Buy Recommendation: "This is one of the LOWEST prices ever..."
+// - Historical Facts section:
+//   - Lowest Price: $99.99
+//   - Highest Price: $1100.00
+
+// ❌ WRONG - Page-level search matches wrong element
+const minPriceLabel = page.locator('text=/lowest.*price/i');
+// Matches "lowest prices" in recommendation text, NOT the price value!
+```
+
+**Solution: Three-Level Progressive DOM Scoping**
+
+```typescript
+// ✅ CORRECT - Progressive DOM scoping pattern
+// Level 1: Scope to section (eliminate irrelevant areas)
+const historicalFacts = page.locator('text=/historical.*facts/i').locator('..');
+
+// Level 2: Find the specific row/container
+const minPriceRow = historicalFacts.locator('text=/lowest.*price/i').locator('..');
+
+// Level 3: Extract the target value from within the row
+const minPriceLabel = minPriceRow.locator('text=/\\$[0-9,]+\\.?[0-9]*/');
+
+// Now minPriceLabel correctly targets "$99.99" within the Lowest Price row
+```
+
+**DOM Traversal Visualization**:
+```
+Page
+└── Price Insights Widget
+    ├── Buy Recommendation Section (contains "lowest" text - SKIP)
+    └── Historical Facts Section ← Level 1: Scope here
+        ├── Lowest Price Row ← Level 2: Navigate to row
+        │   ├── Label: "Lowest Price"
+        │   └── Value: "$99.99" ← Level 3: Extract value
+        └── Highest Price Row
+            ├── Label: "Highest Price"
+            └── Value: "$1100.00"
+```
+
+**Key Techniques**:
+
+1. **Parent Locator Navigation**: `.locator('..')` moves up one DOM level
+   ```typescript
+   // Find "Historical Facts" heading, then get its parent container
+   const section = page.locator('text=/historical.*facts/i').locator('..');
+   ```
+
+2. **Regex Escaping**: Escape dollar signs in price patterns
+   ```typescript
+   // ❌ WRONG - Unescaped dollar sign (regex meta-character)
+   .locator('text=/$[0-9]+/')
+
+   // ✅ CORRECT - Escaped dollar sign
+   .locator('text=/\\$[0-9]+/')
+   ```
+
+3. **Progressive Narrowing**: Start broad, narrow down, then extract
+   ```typescript
+   const section = page.locator('text=/section-title/i').locator('..');
+   const row = section.locator('text=/row-label/i').locator('..');
+   const value = row.locator('text=/value-pattern/');
+   ```
+
+**When to Apply This Pattern**:
+- Text appears in multiple locations (e.g., "price", "lowest", "buy")
+- Elements lack unique `data-testid` attributes
+- Selector matching wrong element in test failures
+- Screenshot reveals ambiguous DOM structure
+
+**Anti-Patterns to Flag in Code Review**:
+
+```typescript
+// ❌ Flag: Page-level text search without scoping
+const price = page.locator('text=/price/i');
+
+// ❌ Flag: Single-level selector for common text
+const status = page.locator('text=/active/i');
+
+// ❌ Flag: Unescaped regex meta-characters
+const amount = page.locator('text=/$99.99/');
+```
+
+**Better Alternatives (Priority Order)**:
+
+1. **Best: Use data-testid** (most robust)
+   ```typescript
+   // Add to component:
+   <div data-testid="historical-facts">
+     <div data-testid="lowest-price">$99.99</div>
+   </div>
+
+   // In test:
+   const price = page.getByTestId('lowest-price');
+   ```
+
+2. **Good: Role-based selectors**
+   ```typescript
+   const priceCell = page.getByRole('cell', { name: /\$[0-9]+/ });
+   ```
+
+3. **Acceptable: Progressive DOM scoping** (when above not available)
+   ```typescript
+   const section = page.locator('text=/section/i').locator('..');
+   const value = section.locator('text=/\\$[0-9]+/');
+   ```
+
+**Review Checklist for E2E Selector Quality**:
+- [ ] Text selectors scoped to specific container (not page-level)
+- [ ] Regex meta-characters properly escaped (`\\$` for dollar sign)
+- [ ] data-testid used for critical test elements
+- [ ] Parent navigation (`.locator('..')`) used when needed
+- [ ] Screenshots reviewed to understand actual DOM structure
+
+**Debugging Workflow When Selector Fails**:
+1. Analyze error message (what was matched vs. expected)
+2. View test screenshot to understand DOM structure
+3. Identify where ambiguous text appears
+4. Apply progressive scoping (section -> row -> value)
+5. Verify fix with test run
+
+**Reference**:
+- `docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md` - Complete debugging walkthrough
+- `e2e/price-analytics.spec.ts` (lines 175-211) - Implementation example
+- `docs/08_TESTING_PATTERNS.md` - E2E testing patterns
+
+---
+
+### Pattern 18: Named Constants for E2E Timing (NEW 2025-12-15)
+
+**What**: Magic numbers for animation timing, polling intervals, and retry delays scattered throughout E2E test helpers without semantic context.
+
+**Source**: Price Analytics E2E test code review (animation timing handling)
+
+**Common Locations**:
+- E2E helper functions (`e2e/helpers/*.ts`)
+- Test spec files with `waitForTimeout()` calls
+- Any test code with hardcoded millisecond values
+
+**Why It's Important**:
+1. Magic numbers lack context about *why* specific values were chosen
+2. Animation timing may need adjustment across multiple locations
+3. Developers can't tell animation wait from API timeout from polling interval
+4. Makes timing adjustments difficult during UI changes
+
+**Problem Example**:
+```typescript
+// ❌ WRONG - Magic numbers without context
+export async function navigateToPriceHistory(page: Page): Promise<void> {
+  await analyticsTrigger.click();
+  await page.waitForTimeout(300);  // Why 300? Animation? Network? Arbitrary?
+}
+
+export async function getPriceDataPoints(page: Page): Promise<DataPoint[]> {
+  await chartArea.hover();
+  await page.waitForTimeout(200);  // Different magic number, same uncertainty
+}
+```
+
+**Correct Pattern**:
+```typescript
+// ✅ CORRECT - Named constants at file top with semantic meaning
+// Animation timing constants
+const COLLAPSIBLE_ANIMATION_MS = 300;
+const TOOLTIP_ANIMATION_MS = 200;
+
+export async function navigateToPriceHistory(page: Page): Promise<void> {
+  await analyticsTrigger.click();
+  // Wait for collapsible animation to complete
+  await page.waitForTimeout(COLLAPSIBLE_ANIMATION_MS);
+}
+
+export async function getPriceDataPoints(page: Page): Promise<DataPoint[]> {
+  await chartArea.hover();
+  // Wait for tooltip animation
+  await page.waitForTimeout(TOOLTIP_ANIMATION_MS);
+}
+```
+
+**Benefits**:
+1. **Self-Documenting**: Name explains why the delay exists
+2. **Maintainability**: Change timing in one place
+3. **Discoverability**: All timing constants visible at file top
+4. **Reviewability**: Reviewers can assess if timing values are reasonable
+
+**When to Extract Constants**:
+- Animation/transition timing (CSS transitions, collapsibles, tooltips)
+- Polling intervals (waiting for async data)
+- Retry delays (exponential backoff values)
+- Threshold values with domain meaning
+- Configuration timeouts
+
+**When NOT to Extract**:
+- Array indices (`items[0]`, `items[1]`)
+- Mathematical constants (use `Math.PI`)
+- Single-use values with no domain meaning
+- Loop counters and iteration limits
+
+**Naming Convention**:
+```typescript
+// Use SCREAMING_SNAKE_CASE for constants
+// Include unit suffix (_MS, _S, _COUNT)
+// Be specific about what the timing is FOR
+
+const ANIMATION_DURATION_MS = 300;      // Generic - okay for simple cases
+const COLLAPSIBLE_ANIMATION_MS = 300;   // Specific - better for complex files
+const TOOLTIP_FADE_IN_MS = 200;         // Very specific - best for many timings
+const API_POLL_INTERVAL_MS = 5000;      // Clear purpose
+const MAX_RETRY_COUNT = 3;              // Not time, but same pattern
+```
+
+**Detection Commands**:
+```bash
+# Find hardcoded timeout values in E2E tests
+grep -rn "waitForTimeout([0-9]" e2e/ --include="*.ts"
+
+# Find all numeric constants that might need extraction
+grep -rn "await.*Timeout.*[0-9][0-9][0-9]" e2e/ --include="*.ts"
+```
+
+**Review Checklist**:
+- [ ] Timing values in E2E helpers have named constants
+- [ ] Constants have descriptive names indicating purpose
+- [ ] Constants grouped at file top (animation, polling, retry sections)
+- [ ] Comments explain why the timing value was chosen
+- [ ] Similar timings across files use consistent values
+
+**Reference**:
+- `e2e/helpers/price-analytics-helpers.ts` - Production example
+- `docs/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full pattern documentation
+
+---
+
+### Pattern 19: YAGNI for Utility Function Extraction (NEW 2025-12-15)
+
+**What**: Premature abstraction - creating utility functions for simple operations that are used in only 1-2 places.
+
+**Source**: Price Analytics E2E test code review (getBestOffer utility decision)
+
+**The YAGNI Principle**: "You Aren't Gonna Need It" - resist creating abstractions until they're actually needed.
+
+**Problem Scenario**:
+```typescript
+// Code review suggestion: "Extract getBestOffer utility function"
+// Current usage (2 locations):
+const bestOffer = product?.offers?.[0];
+
+// Proposed utility:
+export function getBestOffer(product: ProductWithOffers | undefined) {
+  return product?.offers?.[0] ?? null;
+}
+
+// Usage becomes:
+const bestOffer = getBestOffer(product);
+```
+
+**Why We Skip This Abstraction**:
+1. **Already Clear**: `product?.offers?.[0]` is self-documenting
+2. **Low Usage**: Only 2 locations - below "Rule of Three" threshold
+3. **No Logic**: Just property access, no validation or business logic
+4. **Import Overhead**: Requires additional import for marginal benefit
+5. **Idiomatic**: Optional chaining is well-understood TypeScript pattern
+
+**Rule of Three**:
+Create utilities only when:
+- Pattern appears in **3+ locations** (not 2)
+- OR pattern encapsulates **complex logic**
+- OR pattern requires **validation/error handling**
+- OR pattern abstracts **framework-specific behavior**
+
+**When to SKIP Utility Extraction**:
+```typescript
+// ✅ SKIP - Simple property access, 2 usages
+const bestOffer = product?.offers?.[0];
+
+// ✅ SKIP - Simple array operation, 1-2 usages
+const firstItem = items?.[0];
+
+// ✅ SKIP - Standard null coalescing
+const displayName = user?.name ?? 'Anonymous';
+
+// ✅ SKIP - Simple conditional
+const isActive = status === 'active';
+```
+
+**When to CREATE Utility**:
+```typescript
+// ✅ CREATE - Complex business logic
+export function getBestOfferWithFallback(product: ProductWithOffers | undefined) {
+  // Business logic: prefer in-stock offers, then lowest price
+  const inStockOffers = product?.offers?.filter(o => o.availability === 'in_stock') ?? [];
+  if (inStockOffers.length > 0) {
+    return inStockOffers.sort((a, b) => parseFloat(a.price) - parseFloat(b.price))[0];
+  }
+  return product?.offers?.[0] ?? null;
+}
+
+// ✅ CREATE - Used in 5+ locations
+export function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+// ✅ CREATE - Validation required
+export function parseProductId(id: unknown): number {
+  if (typeof id !== 'string' && typeof id !== 'number') {
+    throw new Error('Invalid product ID type');
+  }
+  const parsed = Number(id);
+  if (isNaN(parsed) || parsed <= 0) {
+    throw new Error('Product ID must be positive number');
+  }
+  return parsed;
+}
+
+// ✅ CREATE - Framework-specific abstraction
+export function useLocalStorage<T>(key: string, initialValue: T) {
+  // Complex hook with state sync, serialization, etc.
+}
+```
+
+**Decision Framework**:
+
+| Factor | Skip Utility | Create Utility |
+|--------|--------------|----------------|
+| Usage Count | 1-2 locations | 3+ locations |
+| Logic Complexity | Simple access/check | Multi-step logic |
+| Validation Needed | No | Yes |
+| Error Handling | Not needed | Required |
+| Readability | Already clear | Would improve |
+| Testing | N/A | Needs isolation |
+
+**Review Guidance**:
+
+When suggesting utility extraction:
+1. **Count usages first** - Is it really 3+?
+2. **Assess complexity** - Is the inline version confusing?
+3. **Check for logic** - Is there business logic to encapsulate?
+4. **Consider maintenance** - Would utility make changes easier?
+
+**Anti-Pattern - Over-Engineering**:
+```typescript
+// ❌ OVER-ENGINEERED - Utility for every little thing
+import { getFirstElement, isNonEmpty, hasProperty } from './utils';
+
+const bestOffer = getFirstElement(getProperty(product, 'offers'));
+if (isNonEmpty(bestOffer) && hasProperty(bestOffer, 'price')) {
+  // ... now harder to read than original
+}
+
+// ✅ SIMPLE - Use language features directly
+const bestOffer = product?.offers?.[0];
+if (bestOffer?.price) {
+  // ... clear and idiomatic
+}
+```
+
+**Review Checklist**:
+- [ ] Utility extraction suggestion considers usage count (Rule of Three)
+- [ ] Simple property access patterns not flagged for extraction
+- [ ] Complex business logic IS flagged for extraction
+- [ ] Validation-heavy patterns ARE extracted to utilities
+- [ ] Suggested utilities would genuinely improve readability
+
+**Reference**:
+- `docs/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full decision rationale
+- `client/src/pages/product-detail-new.tsx` - Example of acceptable inline patterns
 
 ---
 
@@ -2442,9 +2898,12 @@ If you encounter unclear patterns:
 
 ---
 
-**Version**: 1.8
-**Last Updated**: 2025-12-12
+**Version**: 1.11
+**Last Updated**: 2025-12-15
 **Changes**:
+- v1.11: Added Pattern 18 (Named Constants for E2E Timing), Pattern 19 (YAGNI for Utility Extraction), and Pattern 20 (Union Types for Finite Value Sets) from Price Analytics code review codification session.
+- v1.10: Added Pattern 17 (Progressive DOM Scoping for E2E Selectors) for detecting and fixing ambiguous Playwright text selectors. Includes three-level DOM traversal pattern, regex escaping guidance, debugging workflow, and selector priority order.
+- v1.9: Added Pattern 16 (Async onClick Without Void Wrapper) for detecting async event handlers without proper void wrapping. Includes pre-commit detection commands, quick fix templates, and root cause analysis.
 - v1.8: Added Phase 2.2 E2E patterns (Patterns 13-15): local vs shared helper organization, flexible selector patterns, test data categorization. Expanded E2E review summary with new guidance.
 - v1.7: Added E2E Test Documentation Quality Patterns (Patterns 10-12): unused function documentation, hardcoded timeout context, defensive programming recognition. From Phase 2.1 notification E2E code review feedback codification.
 - v1.6: Added Pattern 8 (E2E `page: any` types) and Pattern 9 (useMutation for GET operations) from code review session feedback codification

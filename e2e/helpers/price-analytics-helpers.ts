@@ -8,25 +8,45 @@ import { db } from '../../server/db';
 import { products, retailers, productOffers, priceHistory } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
+// Animation timing constants
+const COLLAPSIBLE_ANIMATION_MS = 300;
+const TOOLTIP_ANIMATION_MS = 200;
+
 /**
  * Navigate to price history page for a specific product
  * Assumes product detail page has a price history section or dedicated route
+ * Opens the "Price Analytics & History" collapsible section if found
  */
 export async function navigateToPriceHistory(page: Page, productId: number): Promise<void> {
-  // Try dedicated price history route first
-  await page.goto(`/products/${productId}/history`);
+  // Try dedicated price history route first (plural "products")
+  await page.goto(`/products/${productId}/price-history`);
   await page.waitForLoadState('networkidle');
 
-  // If not found, try product detail page with history section
+  // Check if we got a 404
   const notFound = page.locator('text=/404|not found/i');
-  if ((await notFound.count()) > 0) {
-    await page.goto(`/products/${productId}`);
+  const hasNotFound = (await notFound.count()) > 0;
+
+  // If dedicated route doesn't exist, fall back to product detail page
+  if (hasNotFound) {
+    await page.goto(`/product/${productId}`);
     await page.waitForLoadState('networkidle');
 
-    // Scroll to price history section if it exists
-    const historySection = page.locator('[data-testid="price-history"], #price-history');
-    if ((await historySection.count()) > 0) {
-      await historySection.scrollIntoViewIfNeeded();
+    // Look for "Price Analytics & History" collapsible trigger
+    const analyticsTrigger = page.locator('text=/Price Analytics.*History/i');
+    if ((await analyticsTrigger.count()) > 0) {
+      // Scroll to collapsible section
+      await analyticsTrigger.scrollIntoViewIfNeeded();
+
+      // Check if it's already open (data-state="open")
+      const triggerParent = analyticsTrigger.locator('..');
+      const isOpen = await triggerParent.getAttribute('data-state');
+
+      // Click to open if closed
+      if (isOpen !== 'open') {
+        await analyticsTrigger.click();
+        // Wait for collapsible animation to complete
+        await page.waitForTimeout(COLLAPSIBLE_ANIMATION_MS);
+      }
     }
   }
 }
@@ -39,8 +59,17 @@ export async function selectTimeRange(
   page: Page,
   range: '7d' | '30d' | '90d' | '1y' | 'all'
 ): Promise<void> {
+  // Map shorthand to button text (buttons say "7 Days", not "7d")
+  const rangeText = {
+    '7d': '7 Days',
+    '30d': '30 Days',
+    '90d': '90 Days',
+    '1y': '1 Year',
+    'all': 'All Time',
+  }[range];
+
   // Try button group pattern (most common for time range selectors)
-  const rangeButton = page.getByRole('button', { name: new RegExp(range, 'i') });
+  const rangeButton = page.getByRole('button', { name: new RegExp(rangeText, 'i') });
 
   if ((await rangeButton.count()) > 0) {
     await rangeButton.click();
@@ -104,9 +133,12 @@ export async function getPriceDataPoints(
     if ((await chartArea.count()) > 0) {
       // Hover over chart to trigger tooltip
       await chartArea.hover();
-      await page.waitForTimeout(200); // Wait for tooltip animation
+      await page.waitForTimeout(TOOLTIP_ANIMATION_MS); // Wait for tooltip animation
 
-      const tooltip = page.locator('[class*="recharts-tooltip"], [data-testid="chart-tooltip"]');
+      // Use .first() to avoid strict mode violation (tooltip div vs cursor path)
+      const tooltip = page
+        .locator('[class*="recharts-tooltip"], [data-testid="chart-tooltip"]')
+        .first();
 
       if ((await tooltip.count()) > 0) {
         const tooltipText = await tooltip.textContent();
@@ -129,11 +161,11 @@ export async function getPriceDataPoints(
 
 /**
  * Get volatility score from price analytics widget
- * Returns { score: number, level: 'low' | 'moderate' | 'high' | 'very-high' }
+ * Returns { score: number, level: 'low' | 'moderate' | 'high' | 'very-high' | 'unknown' }
  */
 export async function getVolatilityScore(
   page: Page
-): Promise<{ score: number; level: string } | null> {
+): Promise<{ score: number; level: 'low' | 'moderate' | 'high' | 'very-high' | 'unknown' } | null> {
   // Look for volatility widget/card
   const volatilityWidget = page.locator(
     '[data-testid="volatility-score"], [data-testid="price-volatility"]'
@@ -168,13 +200,22 @@ export async function getVolatilityScore(
   const levelBadge = page
     .locator('[data-testid="volatility-level"], .badge, [class*="badge"]')
     .first();
-  let level = 'unknown';
+  let level: 'low' | 'moderate' | 'high' | 'very-high' | 'unknown' = 'unknown';
 
   if ((await levelBadge.count()) > 0) {
     const levelText = await levelBadge.textContent();
 
     if (levelText) {
-      level = levelText.toLowerCase().trim();
+      const normalized = levelText.toLowerCase().trim();
+      // Validate that the extracted level is one of the valid values
+      if (
+        normalized === 'low' ||
+        normalized === 'moderate' ||
+        normalized === 'high' ||
+        normalized === 'very-high'
+      ) {
+        level = normalized;
+      }
     }
   }
 

@@ -103,8 +103,8 @@ test.describe('Watchlist - Product Organization', () => {
       // Confirm deletion
       await page.getByRole('button', { name: /confirm.*delete/i }).click();
 
-      // Verify deletion
-      await expect(page.getByText(/watchlist deleted/i)).toBeVisible();
+      // Verify deletion (use .first() to avoid duplicate toast + aria-live region)
+      await expect(page.getByText(/watchlist deleted/i).first()).toBeVisible();
       await expect(watchlistCard).not.toBeVisible();
     });
   });
@@ -119,8 +119,8 @@ test.describe('Watchlist - Product Organization', () => {
       // Create test product
       const { product } = await seedTestProduct();
 
-      // Navigate to product page
-      await page.goto(`/products/${product.id}`);
+      // Navigate to product page (route is /product/:id, singular)
+      await page.goto(`/product/${product.id}`);
       await page.waitForLoadState('networkidle');
 
       // Add to watchlist
@@ -132,18 +132,28 @@ test.describe('Watchlist - Product Organization', () => {
         timeout: 5000,
       });
 
-      // Select watchlist
-      await page.getByLabel(/select watchlist/i).selectOption('Holiday Shopping 2025');
+      // Select watchlist (Radix UI Select - click to open, then select option)
+      await page.getByLabel(/select watchlist/i).click();
+
+      // Wait for options to be visible before clicking
+      const option = page.getByRole('option', { name: 'Holiday Shopping 2025' });
+      await option.waitFor({ state: 'visible', timeout: 5000 });
+      await option.click();
+
       await page.getByRole('button', { name: /^add$/i }).click();
 
-      // Verify success
-      await expect(page.getByText(/added to watchlist/i)).toBeVisible();
+      // Verify success (use .first() to avoid duplicate toast + aria-live region)
+      await expect(page.getByText(/added to watchlist/i).first()).toBeVisible();
+
+      // Wait for dialog to close (indicates API call completed)
+      await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 5000 });
 
       // Navigate to watchlist and verify product appears
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      await page.getByText(/holiday shopping 2025/i).click();
+      // Click the tab (there's also a card with same name, so use role selector)
+      await page.getByRole('tab', { name: /holiday shopping 2025/i }).click();
 
       // Wait for product to be visible in watchlist
       await page.getByText(product.name).waitFor({ state: 'visible', timeout: 5000 });
@@ -163,7 +173,8 @@ test.describe('Watchlist - Product Organization', () => {
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      await page.getByText(/my list/i).click();
+      // Click the tab (use role selector to avoid ambiguity with card)
+      await page.getByRole('tab', { name: /my list/i }).click();
 
       // Wait for product to load
       await page.getByText(product.name).waitFor({ state: 'visible', timeout: 5000 });
@@ -178,8 +189,8 @@ test.describe('Watchlist - Product Organization', () => {
       // Confirm removal
       await page.getByRole('button', { name: /confirm.*remove/i }).click();
 
-      // Verify removal
-      await expect(page.getByText(/removed from watchlist/i)).toBeVisible();
+      // Verify removal (use .first() to avoid duplicate toast + aria-live region)
+      await expect(page.getByText(/removed from watchlist/i).first()).toBeVisible();
       await expect(productCard).not.toBeVisible();
     });
 
@@ -198,7 +209,8 @@ test.describe('Watchlist - Product Organization', () => {
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      await page.getByText(/list a/i).click();
+      // Click the tab (use role selector to avoid ambiguity with card)
+      await page.getByRole('tab', { name: /list a/i }).click();
 
       // Wait for product to load
       await page.getByText(product.name).waitFor({ state: 'visible', timeout: 5000 });
@@ -210,19 +222,26 @@ test.describe('Watchlist - Product Organization', () => {
       // Wait for move dialog
       await page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: 5000 });
 
-      // Select destination watchlist
-      await page.getByLabel(/select watchlist/i).selectOption('List B');
+      // Select destination watchlist (Radix UI Select - click to open, then select option)
+      await page.getByLabel(/select watchlist/i).click();
+
+      // Wait for options to be visible before clicking
+      const moveOption = page.getByRole('option', { name: 'List B' });
+      await moveOption.waitFor({ state: 'visible', timeout: 5000 });
+      await moveOption.click();
+
       await page.getByRole('button', { name: /confirm/i }).click();
 
-      // Verify moved
-      await expect(page.getByText(/product moved/i)).toBeVisible();
+      // Verify moved (use .first() to avoid duplicate toast + aria-live region)
+      await expect(page.getByText(/product moved/i).first()).toBeVisible();
       await expect(page.getByText(product.name)).not.toBeVisible(); // Removed from List A
 
       // Check List B
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      await page.getByText(/list b/i).click();
+      // Click the tab (use role selector to avoid ambiguity with card)
+      await page.getByRole('tab', { name: /list b/i }).click();
 
       // Wait for product in List B
       await page.getByText(product.name).waitFor({ state: 'visible', timeout: 5000 });
@@ -247,7 +266,8 @@ test.describe('Watchlist - Product Organization', () => {
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      await page.getByText(/my list/i).click();
+      // Click the tab (use role selector to avoid ambiguity with card)
+      await page.getByRole('tab', { name: /my list/i }).click();
 
       // Wait for products to load
       await page.locator('[data-testid="product-card"]').first().waitFor({
@@ -255,8 +275,8 @@ test.describe('Watchlist - Product Organization', () => {
         timeout: 5000,
       });
 
-      // Select 3 products
-      const checkboxes = page.locator('[data-testid="product-checkbox"]');
+      // Select 3 products (use product-specific checkbox testids)
+      const checkboxes = page.locator('[data-testid^="product-checkbox-"]');
       await checkboxes.nth(0).check();
       await checkboxes.nth(1).check();
       await checkboxes.nth(2).check();
@@ -267,8 +287,8 @@ test.describe('Watchlist - Product Organization', () => {
       // Confirm deletion
       await page.getByRole('button', { name: /confirm.*delete/i }).click();
 
-      // Verify deletion
-      await expect(page.getByText(/3 items? deleted/i)).toBeVisible();
+      // Verify deletion (use .first() to avoid duplicate toast + aria-live region)
+      await expect(page.getByText(/3 items? deleted/i).first()).toBeVisible();
       await expect(page.locator('[data-testid="product-card"]')).toHaveCount(2); // 2 remaining
     });
 
@@ -301,7 +321,8 @@ test.describe('Watchlist - Product Organization', () => {
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      await page.getByText(/export test/i).click();
+      // Click the tab (use role selector to avoid ambiguity with card)
+      await page.getByRole('tab', { name: /export test/i }).click();
 
       // Wait for watchlist to load
       await page.locator('[data-testid="product-card"]').first().waitFor({
@@ -392,7 +413,8 @@ async function createWatchlist(page: Page, name: string) {
  * Add a product to a watchlist via UI
  */
 async function addProductToWatchlist(page: Page, productId: number, watchlistName: string) {
-  await page.goto(`/products/${productId}`);
+  // Route is /product/:id (singular), not /products/:id
+  await page.goto(`/product/${productId}`);
   await page.waitForLoadState('networkidle');
 
   await page.getByRole('button', { name: /add to watchlist/i }).click();
@@ -403,9 +425,16 @@ async function addProductToWatchlist(page: Page, productId: number, watchlistNam
     timeout: 5000,
   });
 
-  await page.getByLabel(/select watchlist/i).selectOption(watchlistName);
+  // Radix UI Select - click to open, then select option
+  await page.getByLabel(/select watchlist/i).click();
+
+  // Wait for options to be visible before clicking
+  const helperOption = page.getByRole('option', { name: watchlistName });
+  await helperOption.waitFor({ state: 'visible', timeout: 5000 });
+  await helperOption.click();
+
   await page.getByRole('button', { name: /^add$/i }).click();
 
-  // Wait for success notification
-  await page.getByText(/added to watchlist/i).waitFor({ state: 'visible', timeout: 5000 });
+  // Wait for success notification (use .first() to handle duplicate aria-live regions)
+  await page.getByText(/added to watchlist/i).first().waitFor({ state: 'visible', timeout: 5000 });
 }

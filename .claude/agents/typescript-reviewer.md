@@ -2954,4 +2954,259 @@ async function seedProductsForSearchTesting(): Promise<void> {
 
 ---
 
+### 30. Async Event Handler Void Wrapper Pattern (CRITICAL - NEW 2025-12-14)
+
+**When reviewing React components, flag async functions passed directly to event handlers without the `void` operator wrapper.**
+
+This pattern causes ESLint error `@typescript-eslint/no-misused-promises` and will block commits via pre-commit hook.
+
+#### Why This Matters
+
+1. **Type Contract Violation**: React event handlers like `onClick` expect `void` return type, not `Promise<T>`
+2. **ESLint Blocking**: Pre-commit hook will fail with "Promise-returning function provided to attribute where void return was expected"
+3. **Common Pattern**: Happens frequently when adding async operations to buttons/forms
+4. **Silent Failures**: Errors in async handlers may go unnoticed without proper wrapping
+
+#### Anti-Pattern: Direct Async Handler Reference
+
+```typescript
+// ❌ WRONG - Async function passed directly to onClick
+const handleAddToWatchlist = async () => {
+  await apiRequest('/api/watchlist', { method: 'POST', body: JSON.stringify(data) });
+  toast({ title: 'Added to watchlist!' });
+};
+
+// ESLint ERROR: Promise-returning function provided to attribute where void return was expected
+<Button onClick={handleAddToWatchlist}>Add to Watchlist</Button>
+
+// ❌ ALSO WRONG - Inline async arrow function
+<Button onClick={async () => {
+  await deleteItem(id);
+  toast({ title: 'Deleted!' });
+}}>Delete</Button>
+```
+
+#### Correct Patterns
+
+**Pattern A: Void Operator Wrapper (PREFERRED)**
+
+```typescript
+// ✅ CORRECT - Void operator wrapper
+<Button onClick={() => void handleAddToWatchlist()}>Add to Watchlist</Button>
+```
+
+**Why preferred?**
+- Shortest syntax
+- Clearest intent (fire-and-forget)
+- Consistent with floating promise fix pattern
+- No nested function complexity
+
+**Pattern B: Inline Void for Complex Logic**
+
+```typescript
+// ✅ CORRECT - Inline with void
+<Button onClick={() => {
+  if (selectedItem) {
+    void handleDeleteItem(selectedItem.id);
+  }
+}}>Delete Selected</Button>
+```
+
+**Pattern C: Synchronous Wrapper for Mutations**
+
+```typescript
+// ✅ CORRECT - Make handler synchronous by using mutation's synchronous API
+const handleDelete = () => {
+  void deleteProductMutation.mutate(id);  // mutate() doesn't return promise
+};
+<Button onClick={handleDelete}>Delete</Button>
+```
+
+**Pattern D: Form Submission**
+
+```typescript
+// ❌ WRONG
+<form onSubmit={handleSubmit}>  // If handleSubmit is async
+
+// ✅ CORRECT
+<form onSubmit={(e) => {
+  e.preventDefault();
+  void handleSubmit();
+}}>
+```
+
+#### Detection Commands
+
+```bash
+# Find async onClick handlers in staged files
+git diff --cached --name-only | grep -E "\.tsx$" | xargs grep -l "onClick" | while read file; do
+  grep -n "onClick={[a-zA-Z]" "$file" | while read line; do
+    func=$(echo "$line" | grep -oP '(?<=onClick={)[a-zA-Z_]+')
+    if [ -n "$func" ] && grep -q "async.*${func}" "$file"; then
+      echo "ASYNC HANDLER WITHOUT VOID: $file - $line"
+    fi
+  done
+done
+
+# Quick check for inline async onClick
+grep -rn "onClick={async" client/src/ --include="*.tsx"
+
+# Find onClick referencing function (check if async)
+grep -rn "onClick={handle\|onClick={on" client/src/ --include="*.tsx" | head -20
+```
+
+#### Review Checklist
+
+- [ ] All async functions used in onClick/onSubmit/onChange are wrapped with `() => void`
+- [ ] No `onClick={handleAsync}` patterns where `handleAsync` is an async function
+- [ ] No `onClick={async () => {` patterns without outer void wrapper
+- [ ] Form onSubmit handlers use `(e) => { e.preventDefault(); void handleSubmit(); }`
+- [ ] AlertDialog/Dialog action buttons use void wrapper pattern
+- [ ] useMutation's `.mutate()` calls use void if not awaited
+
+#### Common Locations to Check
+
+1. **Dialog/Modal Action Buttons**: AlertDialogAction, DialogClose with actions
+2. **Form Submit Handlers**: Form onSubmit with async validation
+3. **Confirmation Actions**: Delete/Remove buttons with async operations
+4. **Watchlist/Favorite Toggles**: Add/Remove from list operations
+5. **Export/Download Buttons**: Async data generation operations
+
+#### Error Message Interpretation
+
+When you see this ESLint error:
+```
+Promise-returning function provided to attribute where void return was expected.
+```
+
+The fix is always the same:
+```typescript
+// Before (error)
+<Button onClick={asyncHandler}>
+
+// After (fixed)
+<Button onClick={() => void asyncHandler()}>
+```
+
+**Reference**:
+- `docs/01_TYPESCRIPT_PATTERNS.md` - Async/Promise Patterns section
+- `docs/LINT_ERROR_PATTERNS.md` - Pattern 2: Misused Promises in Event Handlers
+- `client/src/pages/product-detail-new.tsx` - Production example with fix
+
+---
+
+### 29. Union Types for Finite Value Sets (NEW - 2025-12-15)
+
+**CRITICAL: Use specific union types instead of generic `string` when the set of valid values is known and finite.**
+
+**Source**: Price Analytics E2E test code review (volatility level handling)
+
+#### Problem Pattern
+
+```typescript
+// ❌ WRONG - Generic string allows any value, including typos
+export async function getVolatilityScore(
+  page: Page
+): Promise<{ score: number; level: string } | null> {
+  // ...
+  let level = 'unknown';
+
+  // These typos would compile without error:
+  // level = 'mdoerate';  // Typo of 'moderate'
+  // level = 'hihg';      // Typo of 'high'
+  // level = 'LOW';       // Case mismatch
+}
+```
+
+**Problems with generic `string`:**
+1. Typos not caught at compile time
+2. No IDE autocomplete for valid values
+3. Case sensitivity issues silently pass
+4. Refactoring doesn't identify all usages
+5. API consumers don't know valid values from type signature
+
+#### Correct Pattern
+
+```typescript
+// ✅ CORRECT - Specific union type for compile-time safety
+export async function getVolatilityScore(
+  page: Page
+): Promise<{ score: number; level: 'low' | 'moderate' | 'high' | 'very-high' | 'unknown' } | null> {
+  // ...
+  let level: 'low' | 'moderate' | 'high' | 'very-high' | 'unknown' = 'unknown';
+
+  // Now typos are caught at compile time:
+  // level = 'mdoerate';  // TS Error: Type '"mdoerate"' is not assignable
+  // level = 'hihg';      // TS Error: Type '"hihg"' is not assignable
+}
+```
+
+**Benefits:**
+1. **Compile-Time Safety**: Typos caught immediately by TypeScript
+2. **IDE Autocomplete**: Editor suggests valid values
+3. **Self-Documenting**: Type signature shows all possible values
+4. **Refactoring Safety**: Renaming shows all usages
+5. **API Clarity**: Consumers know exactly what values to expect
+
+#### When to Use Union Types
+
+**Use union types for:**
+- Status values: `'pending' | 'success' | 'error' | 'cancelled'`
+- Level indicators: `'low' | 'medium' | 'high'`
+- User roles: `'user' | 'admin' | 'moderator'`
+- Sort directions: `'asc' | 'desc'`
+- Time ranges: `'7d' | '30d' | '90d' | '1y' | 'all'`
+- Display modes: `'grid' | 'list' | 'compact'`
+- Any finite, known set of values
+
+**When NOT to use union types:**
+- User-generated content (names, descriptions, comments)
+- Dynamic data from external APIs (unless validated with type guard)
+- Values that change frequently (new options added often)
+- IDs or other unique identifiers
+- Free-form text fields
+
+#### Extracting to Named Type
+
+For reuse across multiple functions:
+
+```typescript
+// ❌ INLINE - Repetitive and error-prone
+function getLevel(): 'low' | 'moderate' | 'high' | 'very-high' | 'unknown' { }
+function setLevel(level: 'low' | 'moderate' | 'high' | 'very-high' | 'unknown'): void { }
+
+// ✅ NAMED TYPE - DRY and maintainable
+type VolatilityLevel = 'low' | 'moderate' | 'high' | 'very-high' | 'unknown';
+
+function getLevel(): VolatilityLevel { }
+function setLevel(level: VolatilityLevel): void { }
+```
+
+#### Detection Commands
+
+```bash
+# Find functions returning generic string that might need union types
+grep -rn "Promise<.*level: string" --include="*.ts"
+grep -rn "status: string" --include="*.ts" | grep -v "interface\|type"
+grep -rn "type: string" --include="*.ts" | grep -v "typeof\|keyof"
+
+# Look for common union type candidates
+grep -rn "'low'\|'medium'\|'high'" --include="*.ts"
+grep -rn "'pending'\|'active'\|'completed'" --include="*.ts"
+```
+
+#### Review Checklist
+
+- [ ] Functions returning status/level/type use union types, not `string`
+- [ ] Switch statements over strings suggest union type extraction
+- [ ] Repeated string literal sets across functions extracted to named type
+- [ ] API response types use unions for known value sets
+- [ ] Test assertions use typed values (not arbitrary strings)
+
+**Reference**:
+- `e2e/helpers/price-analytics-helpers.ts` - Production example with union type
+- `docs/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full pattern documentation
+
+---
+
 Remember: Focus on patterns and consistency. A codebase with consistent patterns is easier to maintain than one with perfect but inconsistent code.

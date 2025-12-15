@@ -41,7 +41,7 @@ export function DealTracker({ productId, offerId, className }: DealTrackerProps)
   const dealData =
     history && stats
       ? calculateDealData(
-          history as unknown as DealCalculationHistory[],
+          history.data as DealCalculationHistory[],
           stats as DealCalculationStats
         )
       : null;
@@ -61,7 +61,7 @@ export function DealTracker({ productId, offerId, className }: DealTrackerProps)
     );
   }
 
-  if (!history || history.length === 0 || !stats || !dealData) {
+  if (!history || history.data.length === 0 || !stats || !dealData) {
     return (
       <Card className={className}>
         <CardHeader>
@@ -89,7 +89,8 @@ export function DealTracker({ productId, offerId, className }: DealTrackerProps)
           <Award className="h-5 w-5" />
           Deal Tracker
         </CardTitle>
-        <CardDescription>Historical analysis from {history.length} days of data</CardDescription>
+        <CardDescription>Historical analysis from {history.data.length} days of data</CardDescription>
+
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Best Deal Ever */}

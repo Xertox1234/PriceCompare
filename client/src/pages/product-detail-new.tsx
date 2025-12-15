@@ -40,8 +40,12 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 import { useProductFull, useProductsByCategory, transformProduct } from '@/hooks/use-home-data';
-import { useWatchLists, useUpdateProductWatch } from '@/hooks/use-community';
-import { apiRequest } from '@/lib/queryClient';
+import { useWatchLists, useAddProductToWatchList } from '@/hooks/use-community';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { ChevronDown, BarChart3 } from 'lucide-react';
+import { PriceHistoryChart } from '@/components/price-history/PriceHistoryChart';
+import { PriceInsightsWidget } from '@/components/price-history/price-insights-widget';
+import { usePriceHistory, usePriceStats } from '@/hooks/use-price-history';
 
 function ProductDetailContent() {
   const params = useParams<{ id: string }>();
@@ -61,6 +65,9 @@ function ProductDetailContent() {
   const { data: watchlistsData } = useWatchLists();
   const watchlists = watchlistsData || [];
 
+  // Modern watchlist mutation
+  const addToWatchList = useAddProductToWatchList();
+
   // Fetch product from API
   const { data: productData, isLoading, error } = useProductFull(productId || null);
   const product = productData;
@@ -72,6 +79,22 @@ function ProductDetailContent() {
       ?.filter((p) => p.id !== productId)
       .slice(0, 4)
       .map(transformProduct) ?? [];
+
+  // Get best offer for price analytics
+  const bestOffer = product?.offers?.[0];
+
+  // Price analytics data - hooks auto-enable when both IDs are available
+  const { data: priceHistory, isLoading: historyLoading } = usePriceHistory(
+    productId,
+    bestOffer?.id,
+    { days: 30 }
+  );
+
+  const { data: priceStats, isLoading: statsLoading } = usePriceStats(
+    productId,
+    bestOffer?.id,
+    365 // Full year for accurate trends
+  );
 
   // Track product view
   useEffect(() => {
@@ -106,7 +129,7 @@ function ProductDetailContent() {
   }
 
   // Get best offer and price info
-  const bestOffer = product.offers?.[0];
+  // bestOffer is already declared earlier (line 84) for price analytics
   const price = product.bestPrice ?? (bestOffer ? parseFloat(bestOffer.price) : 0);
   const originalPrice = bestOffer?.originalPrice ? parseFloat(bestOffer.originalPrice) : undefined;
   const discount =
@@ -117,13 +140,31 @@ function ProductDetailContent() {
   const reviewCount = bestOffer?.reviewCount ?? 0;
   const category = product.category ?? 'General';
 
+  /**
+   * Transform API price history to chart format
+   * Hook returns PriceHistoryResponse: { data: PriceHistory[], count: number }
+   */
+  const transformPriceHistoryData = (history: typeof priceHistory, offer: typeof bestOffer) => {
+    if (!history || !offer) return [];
+
+    return history.data.map((h) => ({
+      id: h.id,
+      productId: productId,
+      retailerId: offer.retailerId,
+      retailerName: offer.retailer?.name ?? 'Unknown',
+      retailerLogo: offer.retailer?.logo ?? null,
+      price: h.price,
+      recordedAt: h.recordedAt ?? h.createdAt ?? new Date(),
+    }));
+  };
+
   // Transform related products for display
   const relatedProductsData = relatedProducts.map((p) => ({
     ...p,
     inWatchlist: isInWishlist(p.id),
   }));
 
-  const inWishlist = isInWishlist(product.id);
+  const inWishlist = product ? isInWishlist(product.id) : false;
 
   // Handle viewing the best offer at retailer
   const handleViewBestOffer = () => {
@@ -133,7 +174,7 @@ function ProductDetailContent() {
     }
   };
 
-  // Handle adding product to watchlist
+  // Handle adding product to watchlist (modern watchlist manager API)
   const handleAddToWatchlist = async () => {
     if (!selectedWatchlistId) {
       toast({
@@ -145,26 +186,11 @@ function ProductDetailContent() {
     }
 
     try {
-      // Add product to watches with watchListId
-      const response = await apiRequest<{ data: { id: number } }>(
-        `/api/community/watch/${productId}`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            watchListId: parseInt(selectedWatchlistId, 10),
-          }),
-        }
-      );
-
-      // If the backend doesn't support watchListId in POST, update it separately
-      if (response?.data?.id) {
-        await apiRequest(`/api/community/product-watches/${response.data.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            watchListId: parseInt(selectedWatchlistId, 10),
-          }),
-        });
-      }
+      // Use modern watchlist manager API
+      await addToWatchList.mutateAsync({
+        listId: parseInt(selectedWatchlistId, 10),
+        productId,
+      });
 
       toast({
         title: 'Success',
@@ -173,7 +199,6 @@ function ProductDetailContent() {
       setWatchlistDialogOpen(false);
       setSelectedWatchlistId('');
     } catch (error) {
-      console.error('Failed to add to watchlist:', error);
       toast({
         title: 'Error',
         description: 'Failed to add to watchlist',
@@ -423,6 +448,67 @@ function ProductDetailContent() {
           </ul>
         </div>
 
+        {/* Price Analytics Section */}
+        <Collapsible
+          defaultOpen={false}
+          className="bg-card border-border mt-12 rounded-2xl border"
+        >
+          <CollapsibleTrigger className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+            <div className="flex items-center gap-3">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold">Price Analytics & History</h2>
+            </div>
+            <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="px-6 pb-6">
+            <div className="space-y-6 pt-4">
+              {/* Loading State */}
+              {(historyLoading || statsLoading) && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    Loading price analytics...
+                  </span>
+                </div>
+              )}
+
+              {/* Content Grid */}
+              {!historyLoading && !statsLoading && priceHistory && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Price History Chart */}
+                  <div className="lg:col-span-1" data-testid="price-chart">
+                    <PriceHistoryChart
+                      data={transformPriceHistoryData(priceHistory, bestOffer)}
+                      productId={productId}
+                      productName={product?.name}
+                      isLoading={historyLoading}
+                    />
+                  </div>
+
+                  {/* Price Insights Widget */}
+                  <div className="lg:col-span-1">
+                    <PriceInsightsWidget
+                      productId={productId}
+                      offerId={bestOffer?.id}
+                      className="h-full"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!historyLoading && !priceHistory && (
+                <div className="bg-muted/50 rounded-lg p-8 text-center">
+                  <p className="text-muted-foreground">
+                    Price tracking data will be available soon
+                  </p>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
         {/* Related Products */}
         {relatedProductsData.length > 0 && (
           <div className="mt-12">
@@ -479,7 +565,7 @@ function ProductDetailContent() {
             <Button variant="outline" onClick={() => setWatchlistDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddToWatchlist}>Add</Button>
+            <Button onClick={() => void handleAddToWatchlist()}>Add</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

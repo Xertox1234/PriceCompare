@@ -35,20 +35,20 @@ interface BuyRecommendation {
 
 export function PriceInsightsWidget({ productId, offerId, className }: PriceInsightsWidgetProps) {
   const { data: stats, isLoading: statsLoading } = usePriceStats(productId, offerId, 365);
-  const { data: history, isLoading: historyLoading } = usePriceHistory(productId, offerId, {
+  const { data: historyResponse, isLoading: historyLoading } = usePriceHistory(productId, offerId, {
     days: 365,
   });
 
   const isLoading = statsLoading || historyLoading;
 
+  // Extract array from PriceHistoryResponse: { data: PriceHistory[], count: number }
+  const history: LocalPriceHistoryItem[] = historyResponse ? historyResponse.data : [];
+
   // Calculate seasonal patterns
-  const seasonalPatterns = calculateSeasonalPatterns(history || []);
+  const seasonalPatterns = calculateSeasonalPatterns(history);
 
   // Generate buy recommendation
-  const buyRecommendation = generateBuyRecommendation(
-    stats as LocalPriceStats | undefined,
-    history || []
-  );
+  const buyRecommendation = generateBuyRecommendation(stats as LocalPriceStats | undefined, history);
 
   // Calculate price volatility
   const volatility = stats ? calculateVolatility(stats as LocalPriceStats) : null;
@@ -69,7 +69,7 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
     );
   }
 
-  if (!stats || !history || history.length === 0) {
+  if (!stats || history.length === 0) {
     return (
       <Card className={className}>
         <CardHeader>

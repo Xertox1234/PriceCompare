@@ -60,7 +60,7 @@ export function PriceHistoryModal({
           priceChangePercent24h: stats.priceChangePercent24h || 0,
           priceChange7d: stats.priceChange7d,
           priceChangePercent7d: stats.priceChangePercent7d,
-          dataPoints: history
+          dataPoints: history.data
             .map((h) => ({
               date: (h.recordedAt || h.createdAt || new Date()).toString(),
               price: Number(h.price),

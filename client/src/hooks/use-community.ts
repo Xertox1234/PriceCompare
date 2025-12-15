@@ -759,6 +759,42 @@ export function useUpdateProductWatch() {
 }
 
 /**
+ * Add a product to a specific watch list
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required - Enforced by server withAuth middleware
+ * @security Ownership validated - Server ensures user owns the watch list
+ * @returns Mutation hook for adding products to watch lists
+ */
+export function useAddProductToWatchList() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      listId,
+      productId,
+    }: {
+      listId: number;
+      productId: number;
+    }) => {
+      return apiRequest<ProductWatch>(`/api/watchlists/${listId}/products`, {
+        method: 'POST',
+        body: JSON.stringify({ productId }),
+      });
+    },
+    onSuccess: (_, { listId, productId }) => {
+      // Invalidate relevant queries
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId, 'products'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/community/watch-count/${productId}`] });
+      void queryClient.invalidateQueries({ queryKey: [`/api/community/is-watching/${productId}`] });
+    },
+  });
+}
+
+/**
  * Move multiple products to a different watch list (bulk operation)
  *
  * @security CSRF protected - Automatic via apiRequest()

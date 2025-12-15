@@ -344,6 +344,9 @@ if ((await prefsLink.count()) > 0) {
 - Undocumented hardcoded timeouts (no explanation of timing requirement)
 - Arbitrary test.skip() without conditional check
 - `page: any` type issues (should use `Page` from Playwright)
+- **Ambiguous text selectors** (page-level text search for common words) - NEW
+- **Unescaped regex meta-characters** (`$` should be `\\$` in text patterns) - NEW
+- **Missing DOM scoping** (text selector without container scoping) - NEW
 
 #### Additional Patterns from Phase 2.2 (NEW - 2025-12-12)
 
@@ -398,3 +401,242 @@ Well-structured seed data maximizes test coverage.
 - `e2e/notifications.spec.ts` - Example of well-documented E2E test file (Phase 2.1)
 - `e2e/advanced-search.spec.ts` - Example of defensive programming excellence (Phase 2.2)
 - `e2e/helpers/search-helpers.ts` - Example of flexible selector patterns
+- `e2e/price-analytics.spec.ts` - Example of progressive DOM scoping (Phase 2.3)
+
+---
+
+## E2E Selector Ambiguity Patterns (NEW - 2025-12-14)
+
+**Source**: Price Analytics E2E test debugging session
+**Reference**: `docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md`
+
+### The Problem: Ambiguous Text Selectors
+
+When text appears in multiple locations on a page, simple text-based selectors match the wrong element:
+
+```typescript
+// Page structure:
+// - Buy Recommendation: "This is one of the LOWEST prices ever..."
+// - Historical Facts: "Lowest Price: $99.99"
+
+// ❌ WRONG - Page-level search matches wrong element
+const minPriceLabel = page.locator('text=/lowest.*price/i');
+// Error: Matches "lowest prices" in recommendation, NOT the price!
+```
+
+### The Solution: Progressive DOM Scoping
+
+Use three-level DOM traversal to narrow down to the correct element:
+
+```typescript
+// ✅ CORRECT - Progressive DOM scoping
+// Level 1: Scope to section
+const historicalFacts = page.locator('text=/historical.*facts/i').locator('..');
+
+// Level 2: Find the row
+const minPriceRow = historicalFacts.locator('text=/lowest.*price/i').locator('..');
+
+// Level 3: Extract the value
+const minPriceLabel = minPriceRow.locator('text=/\\$[0-9,]+\\.?[0-9]*/');
+```
+
+### Anti-Patterns to Flag
+
+```typescript
+// ❌ Flag: Page-level text search without scoping
+const price = page.locator('text=/price/i');
+
+// ❌ Flag: Unescaped regex meta-characters
+const amount = page.locator('text=/$99.99/');
+
+// ❌ Flag: Single-level selector for ambiguous text
+const status = page.locator('text=/active/i');
+```
+
+### Selector Ambiguity Review Checklist
+
+- [ ] Text selectors scoped to specific container (not page-level)
+- [ ] Regex meta-characters properly escaped (`\\$` for dollar sign)
+- [ ] `data-testid` used for critical test elements
+- [ ] Parent navigation (`.locator('..')`) used when needed
+- [ ] Screenshots reviewed to understand actual DOM structure
+
+### Selector Priority Order (Most to Least Robust)
+
+1. **data-testid** - Explicit test contract
+2. **Role-based** - Semantic, accessible (`getByRole`)
+3. **Label-based** - Form inputs (`getByLabel`)
+4. **Progressive DOM scoping** - When above not available
+5. **CSS classes** - Avoid (brittle)
+
+---
+
+## Pre-Commit Hook ESLint Debugging (NEW - 2025-12-14)
+
+**Context**: When the pre-commit hook reports ESLint errors, the output may not clearly indicate which file contains the errors. This section provides debugging strategies.
+
+### Problem: ESLint Errors Without Clear File Indication
+
+The pre-commit hook runs ESLint on staged files, but error output may only show line numbers without filenames, making it difficult to locate the source:
+
+```
+error: Promise-returning function provided to attribute where void return was expected
+       rule: @typescript-eslint/no-misused-promises
+       line 45, column 12
+```
+
+### Debugging Commands
+
+**Step 1: Identify Staged Files with ESLint Issues**
+
+```bash
+# Run ESLint on all staged files to identify which file has errors
+git diff --cached --name-only | xargs npx eslint
+
+# If you want to see only TypeScript files:
+git diff --cached --name-only --diff-filter=ACM | grep -E "\.(ts|tsx)$" | xargs npx eslint
+```
+
+**Step 2: Check Specific File Types**
+
+```bash
+# Check only staged .tsx files (common for React component errors)
+git diff --cached --name-only | grep "\.tsx$" | xargs npx eslint
+
+# Check only staged .ts files
+git diff --cached --name-only | grep "\.ts$" | xargs npx eslint
+```
+
+**Step 3: Get Detailed Error Context**
+
+```bash
+# Run with verbose output showing file paths
+git diff --cached --name-only | xargs npx eslint --format stylish
+
+# Show only the specific rule violations
+git diff --cached --name-only | xargs npx eslint --rule "@typescript-eslint/no-misused-promises: error"
+```
+
+### Common Pre-Commit ESLint Error Patterns
+
+| Error Message | Likely Cause | Quick Fix |
+|---------------|--------------|-----------|
+| "Promise-returning function provided to attribute where void return was expected" | Async function in onClick/onSubmit | Wrap with `() => void` |
+| "Unexpected console statement" | `console.log/error/warn` in code | Remove or use structured logger |
+| "xxx is defined but never used" | Unused import or variable | Remove the import/variable |
+| "'any' type is forbidden" | Explicit `any` type usage | Replace with proper type |
+| "Promises must be awaited" | Missing `await` on async call | Add `await` or `void` |
+
+### Diagnostic Workflow for Pre-Commit Failures
+
+1. **Read the error rule name** (e.g., `@typescript-eslint/no-misused-promises`)
+2. **Run targeted detection**:
+   ```bash
+   git diff --cached --name-only | xargs npx eslint --rule "RULE_NAME: error"
+   ```
+3. **Identify the file** from the output
+4. **Apply the pattern-specific fix** (see LINT_ERROR_PATTERNS.md)
+5. **Stage the fix**: `git add <fixed-file>`
+6. **Re-attempt commit**
+
+### Async onClick Handler - Most Common Cause
+
+The most frequently encountered pre-commit ESLint error is the async onClick pattern:
+
+```typescript
+// ❌ ERROR - Pre-commit will fail
+const handleAction = async () => { await doSomething(); };
+<Button onClick={handleAction}>Action</Button>
+
+// ✅ FIX - Wrap with void operator
+<Button onClick={() => void handleAction()}>Action</Button>
+```
+
+**Detection command for this specific pattern**:
+```bash
+# Find files with onClick handlers that might be async
+git diff --cached --name-only | grep "\.tsx$" | xargs grep -l "onClick=" | while read f; do
+  echo "=== $f ===" && grep -n "onClick={[a-zA-Z]" "$f"
+done
+```
+
+### Reference
+- `docs/LINT_ERROR_PATTERNS.md` - Complete lint error patterns and solutions
+- `docs/01_TYPESCRIPT_PATTERNS.md` - TypeScript patterns including async/void
+- `.claude/agents/code-review-specialist.md` - Pattern 16 (Async onClick)
+
+---
+
+## E2E Test Magic Number Patterns (NEW - 2025-12-15)
+
+**Source**: Price Analytics E2E test code review
+
+### Named Constants for Animation Timing
+
+**Problem**: Hardcoded timeout values lack context about why specific values were chosen.
+
+```typescript
+// ❌ WRONG - Magic numbers without context
+await page.waitForTimeout(300);  // Why 300? Animation? Network?
+await page.waitForTimeout(200);  // Different value, same uncertainty
+```
+
+**Solution**: Extract to named constants with semantic meaning.
+
+```typescript
+// ✅ CORRECT - Named constants at file top
+const COLLAPSIBLE_ANIMATION_MS = 300;
+const TOOLTIP_ANIMATION_MS = 200;
+
+await page.waitForTimeout(COLLAPSIBLE_ANIMATION_MS);  // Clear purpose
+await page.waitForTimeout(TOOLTIP_ANIMATION_MS);      // Self-documenting
+```
+
+**When to Extract**:
+- Animation/transition timing
+- Polling intervals
+- Retry delays with domain meaning
+- Configuration timeouts
+
+**When NOT to Extract**:
+- Array indices (use literal 0, 1, etc.)
+- Mathematical constants (use Math.PI)
+- Single-use values with no domain meaning
+
+### Union Types for Finite Value Sets
+
+**Problem**: Generic `string` type for known value sets allows typos.
+
+```typescript
+// ❌ WRONG - Generic string
+function getLevel(): string {
+  return 'low';  // Could typo: 'lwo', 'Low', etc.
+}
+
+// ✅ CORRECT - Union type
+function getLevel(): 'low' | 'moderate' | 'high' | 'unknown' {
+  return 'low';  // Typos caught at compile time
+}
+```
+
+**When to Use Union Types**:
+- Status values: `'pending' | 'success' | 'error'`
+- Level indicators: `'low' | 'medium' | 'high'`
+- Categories with known values
+
+### YAGNI for Utility Extraction
+
+**Rule of Three**: Create utilities only when pattern appears in 3+ locations OR encapsulates complex logic.
+
+```typescript
+// ✅ SKIP extraction - Simple, 2 usages
+const bestOffer = product?.offers?.[0];
+
+// ✅ EXTRACT - Complex logic OR 3+ usages
+export function getBestOfferWithFallback(product) {
+  const inStock = product?.offers?.filter(o => o.available) ?? [];
+  return inStock.sort((a, b) => a.price - b.price)[0] ?? product?.offers?.[0];
+}
+```
+
+**Reference**: `docs/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md`

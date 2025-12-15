@@ -1,7 +1,7 @@
 # Testing Patterns
 
-**Version:** 1.6
-**Last Updated:** 2025-12-12
+**Version:** 1.7
+**Last Updated:** 2025-12-14
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
@@ -11,7 +11,8 @@
 - docs/LEARNINGS_TODO_176_TIMEZONE_DATE_TESTS.md (frontend date testing)
 - docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md (server-side UTC handling)
 - docs/LEARNINGS_E2E_PHASE_1_1_ADMIN_TESTS.md (modal patterns, tab navigation, explicit waits)
-- docs/LEARNINGS_PHASE_1_2_WATCHLIST_E2E_CSRF_FIX.md (CSRF token patterns, apiRequest() migration - NEW)
+- docs/LEARNINGS_PHASE_1_2_WATCHLIST_E2E_CSRF_FIX.md (CSRF token patterns, apiRequest() migration)
+- docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md (progressive DOM scoping, selector ambiguity - NEW)
 
 ---
 
@@ -1161,7 +1162,8 @@ test('should maintain session across navigation', async ({ page }) => {
 2. **Test IDs** - `getByTestId()` for stable selectors
 3. **Labels** - `getByLabel()` for form inputs
 4. **Text** - `getByText()` for buttons/links
-5. **CSS/XPath** - Last resort only (AVOID)
+5. **Progressive DOM Scoping** - For ambiguous text (when above not available)
+6. **CSS/XPath** - Last resort only (AVOID)
 
 ```typescript
 // ✅ EXCELLENT - Role-based (most resilient)
@@ -1173,9 +1175,157 @@ await page.getByTestId('checkout-button').click();
 // ✅ GOOD - Label-based (accessible)
 await page.getByLabel('Email address').fill('user@example.com');
 
+// ✅ GOOD - Progressive DOM scoping (when data-testid unavailable)
+const section = page.locator('text=/section-title/i').locator('..');
+const value = section.locator('text=/\\$[0-9]+/');
+
 // ❌ AVOID - CSS classes (brittle)
 await page.locator('.btn-primary.btn-lg').click();
 ```
+
+---
+
+### Progressive DOM Scoping for Ambiguous Selectors (NEW - 2025-12-14)
+
+**Source**: Price Analytics E2E test debugging session
+**Reference**: `docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md`
+
+When text appears in multiple locations on a page, simple text-based selectors will match the wrong element. Use progressive DOM scoping to narrow down to the correct element.
+
+#### The Problem: Selector Ambiguity
+
+```typescript
+// Page structure:
+// - Buy Recommendation: "This is one of the LOWEST prices ever..."
+// - Historical Facts section:
+//   - Lowest Price: $99.99
+//   - Highest Price: $1100.00
+
+// ❌ WRONG - Page-level search matches wrong element
+const minPriceLabel = page.locator('text=/lowest.*price/i');
+// Error: Matches "lowest prices" in recommendation text, NOT the price value!
+```
+
+#### The Solution: Three-Level Progressive DOM Scoping
+
+```typescript
+// ✅ CORRECT - Progressive DOM scoping pattern
+
+// Level 1: Scope to section (eliminate irrelevant areas)
+const historicalFacts = page.locator('text=/historical.*facts/i').locator('..');
+
+// Level 2: Find the specific row/container
+const minPriceRow = historicalFacts.locator('text=/lowest.*price/i').locator('..');
+
+// Level 3: Extract the target value from within the row
+const minPriceLabel = minPriceRow.locator('text=/\\$[0-9,]+\\.?[0-9]*/');
+
+// Now minPriceLabel correctly targets "$99.99" within the Lowest Price row
+```
+
+#### DOM Traversal Visualization
+
+```
+Page
+|-- Price Insights Widget
+    |-- Buy Recommendation Section (contains "lowest" text - SKIP)
+    |-- Historical Facts Section <-- Level 1: Scope here
+        |-- Lowest Price Row <-- Level 2: Navigate to row
+        |   |-- Label: "Lowest Price"
+        |   |-- Value: "$99.99" <-- Level 3: Extract value
+        |-- Highest Price Row
+            |-- Label: "Highest Price"
+            |-- Value: "$1100.00"
+```
+
+#### Key Techniques
+
+**1. Parent Locator Navigation**
+
+`.locator('..')` moves up one DOM level to the parent element:
+
+```typescript
+// Find "Historical Facts" heading, then get its parent container
+const section = page.locator('text=/historical.*facts/i').locator('..');
+```
+
+**2. Regex Escaping for Dollar Signs**
+
+Dollar sign (`$`) is a regex meta-character. Escape it with double backslash:
+
+```typescript
+// ❌ WRONG - Unescaped dollar sign (regex anchor)
+.locator('text=/$[0-9]+/')
+
+// ✅ CORRECT - Escaped dollar sign (literal character)
+.locator('text=/\\$[0-9]+/')
+```
+
+**3. Progressive Narrowing Pattern**
+
+Start broad, narrow down step by step:
+
+```typescript
+const section = page.locator('text=/section-title/i').locator('..');
+const row = section.locator('text=/row-label/i').locator('..');
+const value = row.locator('text=/value-pattern/');
+```
+
+#### When to Apply This Pattern
+
+- Text appears in multiple locations (e.g., "price", "lowest", "active")
+- Elements lack unique `data-testid` attributes
+- Selector matching wrong element in test failures
+- Screenshot reveals ambiguous DOM structure
+
+#### Anti-Patterns to Avoid
+
+```typescript
+// ❌ Page-level text search for common words
+const price = page.locator('text=/price/i');
+
+// ❌ Unescaped regex meta-characters
+const amount = page.locator('text=/$99.99/');
+
+// ❌ Single-level selector for ambiguous text
+const status = page.locator('text=/active/i');
+```
+
+#### Debugging Workflow for Selector Failures
+
+1. **Analyze error message**: What was matched vs. what was expected?
+2. **View test screenshot**: Understand the actual DOM structure
+3. **Identify ambiguous text**: Where else does this text appear?
+4. **Apply progressive scoping**: Section -> Row -> Value
+5. **Verify fix**: Run the test to confirm
+
+#### Example: Price Analytics Test Fix
+
+**Before (Failing)**:
+```typescript
+// Test expected "$99.99" but got "This is one of the lowest prices..."
+const minPriceLabel = page.locator('text=/lowest.*price/i');
+```
+
+**After (Fixed)**:
+```typescript
+// Properly scoped to Historical Facts section
+const historicalFacts = page.locator('text=/historical.*facts/i').locator('..');
+const minPriceRow = historicalFacts.locator('text=/lowest.*price/i').locator('..');
+const minPriceLabel = minPriceRow.locator('text=/\\$[0-9,]+\\.?[0-9]*/');
+```
+
+#### Selector Ambiguity Checklist
+
+Before committing E2E tests with text selectors:
+
+- [ ] Text selectors scoped to specific container (not page-level)
+- [ ] Regex meta-characters properly escaped (`\\$` for dollar sign)
+- [ ] `data-testid` considered for critical test elements
+- [ ] Parent navigation (`.locator('..')`) used when needed
+- [ ] Test screenshots reviewed to understand actual DOM structure
+
+**Reference Implementation**: `e2e/price-analytics.spec.ts` (lines 175-211)
 
 ---
 

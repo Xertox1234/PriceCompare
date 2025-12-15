@@ -15,6 +15,15 @@ export interface PriceStats {
   priceChangePercent30d?: number;
 }
 
+/**
+ * API response structure for price history endpoints
+ * Backend returns paginated response: { data: PriceHistory[], count: number }
+ */
+export interface PriceHistoryResponse {
+  data: PriceHistory[];
+  count: number;
+}
+
 export interface PriceHistoryQueryParams {
   startDate?: Date;
   endDate?: Date;
@@ -68,7 +77,7 @@ export function usePriceHistory(
   offerId: number | undefined,
   params?: PriceHistoryQueryParams
 ) {
-  return useQuery<PriceHistory[]>({
+  return useQuery<PriceHistoryResponse>({
     queryKey: ['priceHistory', productId, offerId, params],
     queryFn: async () => {
       if (!productId || !offerId) {
@@ -88,8 +97,11 @@ export function usePriceHistory(
       if (params?.limit) {
         queryParams.append('limit', params.limit.toString());
       }
+      if (params?.days !== undefined) {
+        queryParams.append('days', params.days.toString());
+      }
 
-      return apiRequest<PriceHistory[]>(
+      return apiRequest<PriceHistoryResponse>(
         `/api/products/${productId}/offers/${offerId}/price-history?${queryParams.toString()}`
       );
     },

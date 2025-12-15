@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useRoute, Link } from 'wouter';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +14,7 @@ import {
   DealTracker,
 } from '@/components/price-history';
 import { usePriceHistory, usePriceStats, usePriceSnapshots } from '@/hooks/use-price-history';
+import { useProductFull } from '@/hooks/use-home-data';
 import {
   ArrowLeft,
   Download,
@@ -32,11 +32,12 @@ export default function PriceHistoryPage() {
   const [, params] = useRoute('/products/:id/price-history');
   const productId = params?.id ? parseInt(params.id) : undefined;
 
-  // For this demo, we'll use the first offer. In production, you might want to:
-  // 1. Fetch the product first to get offers
-  // 2. Allow user to select which offer to view
-  // 3. Or show aggregated data across all offers
-  const [selectedOfferId, _setSelectedOfferId] = useState<number | undefined>();
+  // Fetch product to get offers
+  const { data: product, isLoading: productLoading, error: productError } = useProductFull(productId || null);
+
+  // Get best offer (first offer) for price history
+  const bestOffer = product?.offers?.[0];
+  const selectedOfferId = bestOffer?.id;
 
   const {
     data: history,
@@ -50,7 +51,7 @@ export default function PriceHistoryPage() {
     startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
   });
 
-  const isLoading = historyLoading || statsLoading || snapshotsLoading;
+  const isLoading = productLoading || historyLoading || statsLoading || snapshotsLoading;
 
   // Transform data for chart
   const chartData: PriceHistoryData | null =
@@ -65,7 +66,7 @@ export default function PriceHistoryPage() {
           priceChangePercent24h: stats.priceChangePercent24h || 0,
           priceChange7d: stats.priceChange7d,
           priceChangePercent7d: stats.priceChangePercent7d,
-          dataPoints: history
+          dataPoints: history.data
             .map((h) => ({
               date: (h.recordedAt || h.createdAt || new Date()).toString(),
               price: Number(h.price),
@@ -76,10 +77,10 @@ export default function PriceHistoryPage() {
 
   // Export to CSV
   const exportToCSV = () => {
-    if (!history || history.length === 0) return;
+    if (!history || history.data.length === 0) return;
 
     const headers = ['Date', 'Price', 'Original Price', 'Source', 'Confidence'];
-    const rows = history.map((h) => [
+    const rows = history.data.map((h) => [
       new Date(h.recordedAt || h.createdAt || '').toLocaleString(),
       h.price,
       h.originalPrice || '',
@@ -112,7 +113,7 @@ export default function PriceHistoryPage() {
           ((stats.highestPrice - stats.lowestPrice) / stats.highestPrice) *
           100
         ).toFixed(1),
-        daysTracked: history?.length || 0,
+        daysTracked: history?.data.length || 0,
       }
     : null;
 
@@ -129,12 +130,14 @@ export default function PriceHistoryPage() {
     );
   }
 
-  if (historyError) {
+  if (productError || historyError) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Failed to load price history. Please try again later.</AlertDescription>
+          <AlertDescription>
+            {productError ? 'Failed to load product.' : 'Failed to load price history.'} Please try again later.
+          </AlertDescription>
         </Alert>
       </div>
     );
@@ -143,10 +146,10 @@ export default function PriceHistoryPage() {
   return (
     <>
       <Helmet>
-        <title>Price History - Product #{productId} | PriceCompare</title>
+        <title>{`Price History${productId ? ` - Product #${productId}` : ''} | PriceCompare`}</title>
         <meta
           name="description"
-          content={`View detailed price history and trends for product #${productId}`}
+          content={`View detailed price history and trends${productId ? ` for product #${productId}` : ''}`}
         />
       </Helmet>
 
@@ -168,7 +171,7 @@ export default function PriceHistoryPage() {
               </p>
             </div>
 
-            {history && history.length > 0 && (
+            {history && history.data.length > 0 && (
               <Button onClick={exportToCSV} variant="outline">
                 <Download className="mr-2 h-4 w-4" />
                 Export CSV
