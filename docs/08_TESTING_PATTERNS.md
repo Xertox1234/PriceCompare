@@ -1,7 +1,7 @@
 # Testing Patterns
 
-**Version:** 1.7
-**Last Updated:** 2025-12-14
+**Version:** 1.8
+**Last Updated:** 2025-12-15
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
@@ -56,7 +56,7 @@ This document codifies testing patterns to ensure reliable, maintainable tests t
 - Vitest (test runner)
 - React Testing Library (component tests)
 - Supertest (API route tests)
-- Playwright (E2E tests - Chrome extension only)
+- Playwright (E2E tests)
 
 **Core Principles:**
 - **Prefer real database over mocks** - Mocks for internal code are technical debt (see TODO_004)
@@ -1008,8 +1008,9 @@ This section covers end-to-end testing patterns with Playwright based on 2025 in
 8. [WebSocket Testing](#websocket-testing)
 9. [Database Management](#e2e-database-management)
 10. [CI/CD Configuration](#e2e-cicd-configuration)
-11. [Flaky Test Prevention](#e2e-flaky-test-prevention)
-12. [Debugging](#e2e-debugging)
+11. [Visual Regression Testing (Screenshots)](#visual-regression-testing-screenshots)
+12. [Flaky Test Prevention](#e2e-flaky-test-prevention)
+13. [Debugging](#e2e-debugging)
 
 ---
 
@@ -1116,30 +1117,45 @@ export class AuthenticationFeature {
     const email = options?.email ?? generateTestEmail();
     const password = options?.password ?? 'SecurePass123!';
 
-    await this.page.goto('/register');
+    // PriceCompare uses modal-based authentication (no /login or /register routes)
+    await this.page.goto('/price-watch');
     await this.page.waitForLoadState('networkidle');
 
-    // Use role-based selectors (most stable)
-    await this.page.getByLabel('Username').fill(username);
-    await this.page.getByLabel('Email').fill(email);
-    await this.page.getByLabel('Password').fill(password);
-    await this.page.getByRole('button', { name: 'Register' }).click();
+    // Open auth modal (multiple nav instances may exist)
+    await this.page.getByRole('button', { name: /sign up/i }).first().click();
 
-    await this.page.waitForURL('/');
+    await this.page.getByLabel(/username/i).fill(username);
+    await this.page.getByLabel(/email/i).fill(email);
+    await this.page.getByLabel(/^password$/i).first().fill(password);
+    await this.page.getByLabel(/confirm.*password/i).fill(password);
+    await this.page.getByRole('button', { name: /create account/i }).click();
+
+    // Auth state confirmation
+    await this.page.getByTestId('user-menu-button').first().waitFor({
+      state: 'visible',
+      timeout: 10000,
+    });
 
     return { username, email, password };
   }
 
   async login(email: string, password: string) {
-    await this.page.goto('/login');
-    await this.page.getByLabel('Email').fill(email);
-    await this.page.getByLabel('Password').fill(password);
-    await this.page.getByRole('button', { name: 'Login' }).click();
-    await this.page.waitForURL('/');
+    await this.page.goto('/price-watch');
+    await this.page.waitForLoadState('networkidle');
+
+    await this.page.getByRole('button', { name: /sign in/i }).first().click();
+    await this.page.getByLabel(/email/i).fill(email);
+    await this.page.getByLabel(/^password$/i).first().fill(password);
+    await this.page.getByRole('button', { name: /^sign in$/i }).click();
+
+    await this.page.getByTestId('user-menu-button').first().waitFor({
+      state: 'visible',
+      timeout: 10000,
+    });
   }
 
   async isAuthenticated(): Promise<boolean> {
-    const userMenu = this.page.getByTestId('user-menu');
+    const userMenu = this.page.getByTestId('user-menu-button').first();
     return await userMenu.isVisible();
   }
 }
@@ -1590,13 +1606,17 @@ import { type Page, type BrowserContext, type Browser } from '@playwright/test';
 
 // Helper functions with proper typing
 export async function loginUser(page: Page, email: string, password: string): Promise<void> {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign In' }).click();
+  // PriceCompare uses modal-based authentication (no /login route)
+  await page.goto('/price-watch');
+  await page.waitForLoadState('networkidle');
+
+  await page.getByRole('button', { name: /sign in/i }).first().click();
+  await page.getByLabel(/email/i).fill(email);
+  await page.getByLabel(/^password$/i).first().fill(password);
+  await page.getByRole('button', { name: /^sign in$/i }).click();
 
   // Full autocomplete, typos caught at compile time
-  await page.waitForSelector('[data-testid="user-menu"]');
+  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: 10000 });
 }
 
 // BrowserContext for multi-page scenarios
@@ -1790,14 +1810,14 @@ export default async function globalSetup() {
   const page = await browser.newPage();
 
   // Register or login
-  await page.goto('http://localhost:5000/login');
-  await page.getByLabel('Email').fill('test@example.com');
-  await page.getByLabel('Password').fill('TestPass123!');
-  await page.getByRole('button', { name: 'Login' }).click();
+  await page.goto('http://localhost:5001/price-watch');
+  await page.getByRole('button', { name: /sign in/i }).first().click();
+  await page.getByLabel(/email/i).fill('test@example.com');
+  await page.getByLabel(/^password$/i).first().fill('TestPass123!');
+  await page.getByRole('button', { name: /^sign in$/i }).click();
 
   // Wait for authentication
-  await page.waitForURL('/');
-  await page.getByTestId('user-menu').waitFor();
+  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: 10000 });
 
   // Save authentication state
   await page.context().storageState({ path: authFile });
@@ -2093,21 +2113,64 @@ Playwright auto-waits for:
 - Element enabled
 - Element stable (not animating)
 
-#### Wait for Network Requests
+#### Prefer Waiting for UI State (React Query / SPA)
+
+In SPAs, `waitForResponse()` can be racy if the response completes before the listener is attached.
+Prefer waiting for user-visible UI state changes (text, table row, dialog open/close).
 
 ```typescript
-// ✅ CORRECT - Wait for specific API call
-const response = await page.waitForResponse(
-  resp => resp.url().includes('/api/products/123') && resp.status() === 200
-);
+// ✅ CORRECT - Wait for UI state (source-of-truth)
+await page.goto(`/product/${productId}`);
+await expect(page.getByRole('heading', { name: /price analytics/i })).toBeVisible();
 
-const data = await response.json();
-await expect(page.getByText(data.name)).toBeVisible();
-
-// ❌ FLAKY - No network waiting
-await page.goto('/products/123');
-await expect(page.getByText('Product Name')).toBeVisible(); // Race condition!
+// ✅ If you must wait for a specific response, attach the listener BEFORE the action
+await Promise.all([
+  page.waitForResponse((resp) => resp.url().includes(`/api/products/${productId}`) && resp.status() === 200),
+  page.goto(`/product/${productId}`),
+]);
 ```
+
+---
+
+### Visual Regression Testing (Screenshots)
+
+Use Playwright screenshots to lock down critical UI surfaces.
+
+**Stability rules (do these first):**
+- Set a fixed viewport per test (`page.setViewportSize(...)`).
+- Disable animations/transitions for the page under test.
+- Make data deterministic (seeded test data) so charts and tables don’t reshuffle.
+- Mask dynamic regions (timestamps, axis tick labels, live status overlays).
+
+```typescript
+// Example stabilization helper
+async function stabilizeForScreenshot(page: Page) {
+  await page.addStyleTag({
+    content: `
+      *, *::before, *::after {
+        transition-duration: 0s !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        caret-color: transparent !important;
+      }
+
+      /* Hide transient overlays (e.g., websocket connection status) */
+      [data-testid="connection-status"] { display: none !important; }
+    `,
+  });
+}
+
+await expect(section).toHaveScreenshot('price-analytics-expanded-30d.png', {
+  mask: [page.locator('.recharts-cartesian-axis-tick-value, .recharts-cartesian-axis-tick text')],
+  maxDiffPixels: 250,
+});
+```
+
+**Snapshot workflow:**
+- Generate/update baselines: `npx playwright test <spec> --update-snapshots`
+- Verify clean run: `npx playwright test <spec>`
+
+**Project example:** `e2e/price-analytics.visual.spec.ts`
 
 #### Mock External APIs
 
