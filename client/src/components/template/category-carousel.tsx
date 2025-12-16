@@ -42,12 +42,14 @@ export function CategoryCarousel({
             <button
               ref={navigationPrevRef}
               className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
+              aria-label="Previous products"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               ref={navigationNextRef}
               className="border-border bg-background hover:bg-muted hover:border-primary text-foreground flex h-10 w-10 items-center justify-center rounded-full border transition-all disabled:opacity-50"
+              aria-label="Next products"
             >
               <ChevronRight className="h-5 w-5" />
             </button>

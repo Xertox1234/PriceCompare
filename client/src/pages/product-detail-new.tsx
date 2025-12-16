@@ -275,17 +275,21 @@ function ProductDetailContent() {
 
               {/* Navigation Arrows */}
               <button
+                type="button"
                 onClick={() =>
                   setSelectedImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
                 }
+                aria-label="Previous product image"
                 className="absolute top-1/2 left-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow-md transition-colors hover:bg-white"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
+                type="button"
                 onClick={() =>
                   setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
                 }
+                aria-label="Next product image"
                 className="absolute top-1/2 right-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow-md transition-colors hover:bg-white"
               >
                 <ChevronRightIcon className="h-5 w-5" />
@@ -297,7 +301,9 @@ function ProductDetailContent() {
               {images.map((img, idx) => (
                 <button
                   key={idx}
+                  type="button"
                   onClick={() => setSelectedImageIndex(idx)}
+                  aria-label={`View product image ${idx + 1}`}
                   className={cn(
                     'h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-colors',
                     selectedImageIndex === idx
@@ -305,7 +311,7 @@ function ProductDetailContent() {
                       : 'border-border hover:border-muted-foreground'
                   )}
                 >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
+                  <img src={img} alt={`${product.name} image ${idx + 1}`} className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
@@ -390,6 +396,7 @@ function ProductDetailContent() {
                   size="icon"
                   className="h-14 w-14"
                   onClick={() => toggleWishlist(product.id)}
+                  aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
                 >
                   <Heart
                     className={cn('h-5 w-5', inWishlist && 'fill-destructive text-destructive')}
@@ -403,6 +410,7 @@ function ProductDetailContent() {
                     toggleCompare(product.id);
                     setCompareOpen(true);
                   }}
+                  aria-label="Compare product"
                 >
                   <GitCompare className="h-5 w-5" />
                 </Button>

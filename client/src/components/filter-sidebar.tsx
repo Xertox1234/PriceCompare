@@ -156,7 +156,7 @@ export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarPro
                 htmlFor={`rating-${rating}`}
                 className="text-foreground flex cursor-pointer items-center space-x-1 text-sm"
               >
-                <div className="text-accent flex" aria-label={`${rating} stars and up`}>
+                <div className="text-accent flex">
                   {Array.from({ length: 5 }, (_, i) => (
                     <span
                       key={i}

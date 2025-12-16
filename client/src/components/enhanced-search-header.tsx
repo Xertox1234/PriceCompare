@@ -261,6 +261,7 @@ export function EnhancedSearchHeader({
                     size="sm"
                     onClick={() => setShowQuickFilters(!showQuickFilters)}
                     className="relative"
+                    aria-label={showQuickFilters ? 'Hide filters' : 'Show filters'}
                   >
                     <Filter className="h-4 w-4" />
                     {getActiveFilterCount() > 0 && (

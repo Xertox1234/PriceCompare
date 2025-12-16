@@ -457,6 +457,34 @@ vi.mock('../../config/redis', () => ({
 
 **Why this matters:** The `storage-cache.ts` and `advanced-cache.ts` modules require Redis at import time. Without this mock, tests fail during module initialization.
 
+---
+
+### API Response Shape Contracts (Route Tests + Client Hooks) (NEW - 2025-12-15)
+
+**Goal**: keep server route tests and client code aligned on stable response shapes.
+
+**Rule of thumb**: For list endpoints, return named properties inside the success envelope instead of returning a raw array.
+
+#### ✅ Pattern: wrap list results
+
+```ts
+// server/routes/*.ts
+const watchLists = await storage.getUserWatchLists(userId);
+sendSuccess(res, { watchLists });
+```
+
+#### ✅ Pattern: unwrap in client hooks (keep public return types stable)
+
+```ts
+// client/src/hooks/*.ts
+const result = await apiRequest<{ watchLists: WatchList[] }>('/api/watchlists');
+return result.watchLists;
+```
+
+**Why**:
+- Avoids accidental contract drift (tests often assert `data.<name>`).
+- Allows adding pagination metadata later without breaking clients.
+
 ### Complete Redis Mock with All Exports (NEW - 2025-12-09)
 
 **Source**: Test audit session - Many WebSocket and service tests failed due to incomplete Redis mocks.
@@ -1002,15 +1030,16 @@ This section covers end-to-end testing patterns with Playwright based on 2025 in
 2. [Feature Object Model (Modern POM)](#feature-object-model-modern-pom)
 3. [Modal Interactions and Dynamic Content](#modal-interactions-and-dynamic-content-patterns) (Phase 1.1)
 4. [CSRF Token Patterns](#e2e-csrf-token-patterns) (NEW - Phase 1.2)
-5. [Type Safety - Playwright Types](#e2e-type-safety---playwright-type-imports-new---2025-12-12) (NEW - 2025-12-12)
-6. [Test Organization](#e2e-test-organization)
-7. [Authentication State Reuse](#authentication-state-reuse)
-8. [WebSocket Testing](#websocket-testing)
-9. [Database Management](#e2e-database-management)
-10. [CI/CD Configuration](#e2e-cicd-configuration)
-11. [Visual Regression Testing (Screenshots)](#visual-regression-testing-screenshots)
-12. [Flaky Test Prevention](#e2e-flaky-test-prevention)
-13. [Debugging](#e2e-debugging)
+5. [Accessibility Testing (Axe)](#e2e-accessibility-testing-axe-new---2025-12-15) (NEW - 2025-12-15)
+6. [Type Safety - Playwright Types](#e2e-type-safety---playwright-type-imports-new---2025-12-12) (NEW - 2025-12-12)
+7. [Test Organization](#e2e-test-organization)
+8. [Authentication State Reuse](#authentication-state-reuse)
+9. [WebSocket Testing](#websocket-testing)
+10. [Database Management](#e2e-database-management)
+11. [CI/CD Configuration](#e2e-cicd-configuration)
+12. [Visual Regression Testing (Screenshots)](#visual-regression-testing-screenshots)
+13. [Flaky Test Prevention](#e2e-flaky-test-prevention)
+14. [Debugging](#e2e-debugging)
 
 ---
 
@@ -1567,6 +1596,98 @@ Before writing/modifying E2E tests with modals or dynamic content:
 
 ---
 
+### E2E Accessibility Testing (Axe) (NEW - 2025-12-15)
+
+**Reference implementation**: `e2e/accessibility.spec.ts`
+
+**Goals:**
+- Catch WCAG A/AA regressions early.
+- Treat failures as product bugs (fix UI instead of weakening checks).
+
+#### Dependencies
+
+- `@axe-core/playwright` (dev dependency)
+
+#### Pattern: Scoped scans + WCAG tags
+
+Scope scans to the relevant subtree to reduce noise/flakiness.
+
+```typescript
+import AxeBuilder from '@axe-core/playwright';
+
+async function runA11yScan(page: Page, options?: { include?: string | ElementHandle<HTMLElement> }) {
+  const builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']);
+  const results = options?.include ? await builder.include(options.include).analyze() : await builder.analyze();
+  expect(results.violations).toEqual([]);
+}
+
+// ✅ Page-level: scan main content only
+await page.goto('/some-page');
+await runA11yScan(page, { include: 'main' });
+
+// ✅ Modal-level: scan dialog subtree only
+const dialog = page.getByRole('dialog');
+const dialogHandle = await dialog.elementHandle();
+if (!dialogHandle) throw new Error('Expected dialog element handle');
+await runA11yScan(page, { include: dialogHandle });
+```
+
+#### Pattern: Ignore transient overlays (without weakening WCAG)
+
+Some ephemeral UI (e.g. connection banners) can introduce noisy violations unrelated to the tested flow.
+
+```typescript
+const connectionStatus = page.getByTestId('connection-status');
+if (await connectionStatus.isVisible()) {
+  await connectionStatus.evaluate((el) => {
+    // Prefer non-layout-impact hiding to reduce flakiness.
+    (el as HTMLElement).style.visibility = 'hidden';
+  });
+}
+```
+
+#### Pattern: Deterministic toast/live-region scans (Radix Toast)
+
+Toast UI can be transient and hard to target. Prefer triggering a toast via a deterministic validation error (no auth/network dependencies), then scan only the toast subtree.
+
+```typescript
+// 1) Trigger a toast deterministically (example: click Add without selecting required fields)
+await page.getByRole('button', { name: /add to watchlist/i }).click();
+await page.getByRole('dialog', { name: /add to watchlist/i }).waitFor({ state: 'visible' });
+await page.getByRole('button', { name: /^add$/i }).click();
+await page.getByText(/please select a watchlist/i).waitFor({ state: 'visible' });
+
+// 2) Scan the toast viewport (Radix)
+const hasViewport = (await page.locator('[data-radix-toast-viewport]').count()) > 0;
+const include = hasViewport ? '[data-radix-toast-viewport]' : '[role="status"], [role="alert"]';
+await runA11yScan(page, { include });
+```
+
+**Rule**: Icon-only toast controls must have accessible names (e.g. toast close button needs an `aria-label`).
+
+#### Pattern: Focus containment (modal trap) assertion
+
+For portal-based dialogs, assert focus remains inside the dialog while tabbing.
+
+```typescript
+const dialog = page.getByRole('dialog');
+const dialogHandle = await dialog.elementHandle();
+if (!dialogHandle) throw new Error('Expected dialog element handle');
+
+for (let i = 0; i < 10; i++) {
+  await page.keyboard.press('Tab');
+  const isFocusInsideDialog = await page.evaluate((el) => {
+    const active = document.activeElement;
+    return !!active && el.contains(active);
+  }, dialogHandle);
+  expect(isFocusInsideDialog).toBe(true);
+}
+```
+
+**Rule:** If this fails, fix the dialog / focus management.
+
+---
+
 ### E2E Type Safety - Playwright Type Imports (NEW - 2025-12-12)
 
 **Source**: Code review session - Type safety violations in E2E test helper functions
@@ -1939,6 +2060,20 @@ test('should receive WebSocket notification when price drops', async ({ page }) 
 
 ### E2E Database Management
 
+#### Pattern: Opt-in Fixtures + Auto DB Cleanup (PriceCompare)
+
+PriceCompare supports an opt-in fixtures layer to reduce boilerplate while keeping the default DB-safe execution model.
+
+- Import via the barrel: `import { test, expect } from './fixtures'` (from `e2e/fixtures.ts`)
+- Use `cleanDb` auto fixture (per-test) instead of calling `cleanDatabase()` manually
+- Use `authenticatedPage` / `adminPage` fixtures where helpful
+
+**Reference**:
+- `e2e/fixtures/index.ts`
+- Migrated suites: `e2e/accessibility.spec.ts`, `e2e/admin.spec.ts`, `e2e/price-analytics.spec.ts`
+
+**Rule**: Only migrate stable suites. After migration, run the single spec file end-to-end (not the whole suite) and revert the migration if failures are unrelated to setup/teardown.
+
 #### Transaction Rollback (FASTEST)
 
 **BEST PRACTICE**: Use database transactions with automatic rollback for instant cleanup.
@@ -1994,6 +2129,13 @@ export async function cleanDatabase() {
 ### E2E CI/CD Configuration
 
 #### GitHub Actions with Sharding
+
+**Rule (DB-safe)**: use job-level sharding for parallelism and keep Playwright sequential inside each job.
+
+```bash
+# ✅ DB-safe: parallelism at job level only
+npx playwright test --shard=1/4 --workers=1
+```
 
 ```yaml
 # .github/workflows/e2e-tests.yml
@@ -2051,14 +2193,18 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run E2E tests (shard ${{ matrix.shard }})
-        run: npx playwright test --shard=${{ matrix.shard }}/3
+        run: npx playwright test --shard=${{ matrix.shard }}/3 --workers=1
 
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          # Prefer per-shard names to avoid collisions when uploading from a matrix
           name: e2e-test-report-shard-${{ matrix.shard }}
-          path: test-results/
+          path: |
+            playwright-report/
+            test-results/junit.xml
+            test-results/
           retention-days: 30
 ```
 
@@ -2291,5 +2437,5 @@ Before committing E2E tests:
 
 ---
 
-**Last Updated:** 2025-12-11
+**Last Updated:** 2025-12-15
 **Maintained By:** PriceCompare Development Team

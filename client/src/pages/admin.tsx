@@ -109,7 +109,7 @@ export default function AdminPage() {
     <div className="bg-background min-h-screen">
       <SharedNavigation currentPage="admin" />
 
-      <div className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center gap-2">
           <Settings className="text-primary h-8 w-8" />
           <h1 className="text-3xl font-bold">Administration Panel</h1>
@@ -210,7 +210,7 @@ export default function AdminPage() {
             <AdminSettings />
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
     </div>
   );
 }

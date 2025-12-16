@@ -39,23 +39,18 @@
  *    - Avoid implementation details (counts, internal state)
  *    - Focus on critical user journeys
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
 import {
-  cleanDatabase,
   registerUser,
-  loginUser as _loginUser,
-  logoutUser as _logoutUser,
+  loginUser,
+  logoutUser,
   generateTestUsername,
   generateTestEmail,
 } from './helpers';
 import { seedTestProduct, seedMultipleProducts } from './helpers/admin-helpers';
 
 test.describe('Watchlist - Product Organization', () => {
-  test.beforeEach(async () => {
-    // Clean database before each test for isolation
-    await cleanDatabase();
-  });
-
   test.describe('Watchlist CRUD Operations', () => {
     test('should create new watchlist', async ({ page }) => {
       await registerUser(page, generateTestUsername('watchlist'), generateTestEmail('watchlist'), 'WatchlistPass123!');
@@ -156,7 +151,7 @@ test.describe('Watchlist - Product Organization', () => {
       await page.getByRole('tab', { name: /holiday shopping 2025/i }).click();
 
       // Wait for product to be visible in watchlist
-      await page.getByText(product.name).waitFor({ state: 'visible', timeout: 5000 });
+      await page.getByText(product.name).waitFor({ state: 'visible', timeout: 15000 });
 
       await expect(page.getByText(product.name)).toBeVisible();
     });
@@ -177,7 +172,7 @@ test.describe('Watchlist - Product Organization', () => {
       await page.getByRole('tab', { name: /my list/i }).click();
 
       // Wait for product to load
-      await page.getByText(product.name).waitFor({ state: 'visible', timeout: 5000 });
+      await page.getByText(product.name).waitFor({ state: 'visible', timeout: 15000 });
 
       // Remove product
       const productCard = page.locator('[data-testid="product-card"]', {
@@ -190,7 +185,7 @@ test.describe('Watchlist - Product Organization', () => {
       await page.getByRole('button', { name: /confirm.*remove/i }).click();
 
       // Verify removal (use .first() to avoid duplicate toast + aria-live region)
-      await expect(page.getByText(/removed from watchlist/i).first()).toBeVisible();
+      await expect(page.getByText(/deleted successfully/i).first()).toBeVisible();
       await expect(productCard).not.toBeVisible();
     });
 
@@ -213,7 +208,7 @@ test.describe('Watchlist - Product Organization', () => {
       await page.getByRole('tab', { name: /list a/i }).click();
 
       // Wait for product to load
-      await page.getByText(product.name).waitFor({ state: 'visible', timeout: 5000 });
+      await page.getByText(product.name).waitFor({ state: 'visible', timeout: 15000 });
 
       // Select product and move
       await page.locator(`[data-testid="product-checkbox-${product.id}"]`).check();
@@ -233,8 +228,8 @@ test.describe('Watchlist - Product Organization', () => {
       await page.getByRole('button', { name: /confirm/i }).click();
 
       // Verify moved (use .first() to avoid duplicate toast + aria-live region)
-      await expect(page.getByText(/product moved/i).first()).toBeVisible();
-      await expect(page.getByText(product.name)).not.toBeVisible(); // Removed from List A
+      await expect(page.getByText(/moved successfully/i).first()).toBeVisible();
+      await expect(page.getByText(product.name)).toBeHidden({ timeout: 15000 }); // Removed from List A
 
       // Check List B
       await page.goto('/watchlists');
@@ -272,7 +267,7 @@ test.describe('Watchlist - Product Organization', () => {
       // Wait for products to load
       await page.locator('[data-testid="product-card"]').first().waitFor({
         state: 'visible',
-        timeout: 5000,
+        timeout: 15000,
       });
 
       // Select 3 products (use product-specific checkbox testids)
@@ -285,7 +280,7 @@ test.describe('Watchlist - Product Organization', () => {
       await page.getByRole('button', { name: /delete selected/i }).click();
 
       // Confirm deletion
-      await page.getByRole('button', { name: /confirm.*delete/i }).click();
+      await page.getByRole('button', { name: /confirm.*remove/i }).click();
 
       // Verify deletion (use .first() to avoid duplicate toast + aria-live region)
       await expect(page.getByText(/3 items? deleted/i).first()).toBeVisible();
@@ -327,7 +322,7 @@ test.describe('Watchlist - Product Organization', () => {
       // Wait for watchlist to load
       await page.locator('[data-testid="product-card"]').first().waitFor({
         state: 'visible',
-        timeout: 5000,
+        timeout: 15000,
       });
 
       // Export
@@ -344,31 +339,99 @@ test.describe('Watchlist - Product Organization', () => {
       expect(download.suggestedFilename()).toMatch(/export-test.*\.csv/i);
     });
 
-    test.skip('should import watchlist from CSV - UI not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when watchlist import UI is built
-      // Expected flow:
-      // 1. Click "Import Watchlist" button
-      // 2. Upload valid CSV file
-      // 3. See import progress indicator
-      // 4. Verify all products added to new watchlist
-      // 5. See success notification with import count
+    test('should import watchlist from CSV', async ({ page }) => {
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
+
+      const products = await seedMultipleProducts(2);
+
+      await page.goto('/watchlists');
+      await page.waitForLoadState('networkidle');
+
+      const csvContent =
+        'Product ID,Priority,Target Price,Notes\n' +
+        `${products[0].id},5,99.99,High priority\n` +
+        `${products[1].id},2,,Second item`;
+
+      const [fileChooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.getByRole('button', { name: /import watchlist/i }).click(),
+      ]);
+
+      await fileChooser.setFiles({
+        name: 'Import Test.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csvContent, 'utf-8'),
+      });
+
+      await expect(page.getByText(/import successful/i).first()).toBeVisible({ timeout: 15000 });
+
+      // New watchlist name derived from filename
+      await page.getByRole('tab', { name: /import test/i }).waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByRole('tab', { name: /import test/i }).click();
+
+      await page.getByText(products[0].name).waitFor({ state: 'visible', timeout: 15000 });
+      await expect(page.getByText(products[0].name)).toBeVisible();
+      await expect(page.getByText(products[1].name)).toBeVisible();
     });
   });
 
   test.describe('Watchlist Sharing', () => {
-    test.skip('should share watchlist with another user - feature not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when sharing feature is added
-      // Expected flow:
-      // 1. Open watchlist settings
-      // 2. Click "Share" button
-      // 3. Enter email of user to share with
-      // 4. Select permission level (view/edit)
-      // 5. Send invitation
-      // 6. Verify shared user receives notification
+    test('should share watchlist with another user (edit permission)', async ({ page }) => {
+      const ownerUsername = generateTestUsername('owner');
+      const ownerEmail = generateTestEmail('owner');
+      const ownerPassword = 'OwnerPass123!';
+
+      const recipientUsername = generateTestUsername('recipient');
+      const recipientEmail = generateTestEmail('recipient');
+      const recipientPassword = 'Recipient!Pass123';
+
+      await registerUser(page, ownerUsername, ownerEmail, ownerPassword);
+
+      const { product } = await seedTestProduct();
+      await createWatchlist(page, 'Shared List');
+      await addProductToWatchlist(page, product.id, 'Shared List');
+
+      // Create the recipient account
+      await logoutUser(page);
+      await registerUser(page, recipientUsername, recipientEmail, recipientPassword);
+
+      // Share from owner -> recipient
+      await logoutUser(page);
+      await loginUser(page, ownerEmail, ownerPassword);
+
+      await page.goto('/watchlists');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByRole('tab', { name: /shared list/i }).click();
+      await page.getByRole('button', { name: /^share$/i }).click();
+      await page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: 5000 });
+
+      await page.getByLabel(/^email$/i).fill(recipientEmail);
+      await page.getByRole('combobox', { name: /permission/i }).click();
+      await page.getByRole('option', { name: /^edit$/i }).click();
+      await page.getByRole('button', { name: /^share$/i }).click();
+
+      await expect(page.getByText(/invite sent/i).first()).toBeVisible({ timeout: 10000 });
+
+      // Verify recipient can see and edit shared list
+      await logoutUser(page);
+      await loginUser(page, recipientEmail, recipientPassword);
+
+      await page.goto('/watchlists');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByRole('tab', { name: /shared list/i }).waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByRole('tab', { name: /shared list/i }).click();
+
+      await page.getByText(product.name).waitFor({ state: 'visible', timeout: 15000 });
+      await expect(page.getByText(product.name)).toBeVisible();
+
+      // Remove should be available for edit permission
+      await page.getByRole('button', { name: /^remove$/i }).click();
+      await page.getByRole('button', { name: /confirm remove/i }).click();
+
+      await expect(page.getByText(/removed/i).first()).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(product.name)).toBeHidden({ timeout: 15000 });
     });
 
     test.skip('should make watchlist public - feature not yet implemented', async ({

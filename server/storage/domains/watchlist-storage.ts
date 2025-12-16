@@ -20,11 +20,13 @@ import { and, eq, desc, asc, sql, inArray, count, gt } from 'drizzle-orm';
 import {
   watchLists,
   productWatches,
+  watchListShares,
   products,
   productOffers,
   priceHistory,
   priceAlerts,
   notifications,
+  users,
   type WatchList,
   type ProductWatch,
   type InsertWatchList,
@@ -34,6 +36,7 @@ import { BaseStorage } from '../base-storage';
 import { logger } from '../../utils/logger';
 import { eventBus, AppEvents } from '../../utils/event-bus';
 import { retryWithBackoff, isTransientDatabaseError } from '../../utils/retry-with-backoff';
+import { decrypt, hashEmail } from '../../utils/encryption';
 import type {
   WatchListWithCount,
   WatchListWithProducts,
@@ -47,6 +50,9 @@ import type {
   WatchListProductWithDetails,
   WatchListExportData,
   WatchListImportData,
+  SharedWatchListWithCount,
+  WatchListSharePermission,
+  WatchListShareWithUser,
   CommunityWatchStats,
   WatcherNotificationData,
 } from '../types';
@@ -58,6 +64,51 @@ import type {
  * Implements the 7-point implementation guidance from base-storage.ts.
  */
 export class WatchListStorage extends BaseStorage {
+  // ============================================================================
+  // Sharing Helpers
+  // ============================================================================
+
+  private async getWatchListAccess(
+    watchListId: number,
+    requestingUserId: number
+  ): Promise<
+    | { ownerUserId: number; role: 'owner'; sharedPermission: null }
+    | { ownerUserId: number; role: 'shared'; sharedPermission: WatchListSharePermission }
+    | null
+  > {
+    const rows = await this.db
+      .select({
+        ownerUserId: watchLists.userId,
+        sharePermission: watchListShares.permission,
+      })
+      .from(watchLists)
+      .leftJoin(
+        watchListShares,
+        and(
+          eq(watchListShares.watchListId, watchLists.id),
+          eq(watchListShares.sharedWithUserId, requestingUserId)
+        )
+      )
+      .where(eq(watchLists.id, watchListId))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) return null;
+
+    if (row.ownerUserId === requestingUserId) {
+      return { ownerUserId: row.ownerUserId, role: 'owner', sharedPermission: null };
+    }
+
+    if (row.sharePermission === 'view' || row.sharePermission === 'edit') {
+      return {
+        ownerUserId: row.ownerUserId,
+        role: 'shared',
+        sharedPermission: row.sharePermission as WatchListSharePermission,
+      };
+    }
+
+    return null;
+  }
   // ============================================================================
   // Validation Helpers
   // ============================================================================
@@ -155,6 +206,11 @@ export class WatchListStorage extends BaseStorage {
       this.validateWatchListId(watchListId);
       this.validateUserId(userId);
 
+      const access = await this.getWatchListAccess(watchListId, userId);
+      if (!access) {
+        return null;
+      }
+
       // First verify ownership and get watch list
       const [watchList] = await this.db
         .select({
@@ -169,12 +225,7 @@ export class WatchListStorage extends BaseStorage {
           updatedAt: watchLists.updatedAt,
         })
         .from(watchLists)
-        .where(
-          and(
-            eq(watchLists.id, watchListId),
-            eq(watchLists.userId, userId) // Ownership verification
-          )
-        )
+        .where(eq(watchLists.id, watchListId))
         .limit(1);
 
       if (!watchList) {
@@ -185,10 +236,27 @@ export class WatchListStorage extends BaseStorage {
       // PERFORMANCE: Single query with aggregations for current/historical prices
       const productResults = await this.db
         .select({
-          id: products.id,
+          // IMPORTANT: `id` must be the product watch ID (not the product ID)
+          // so client bulk operations (move/delete) can target product watches.
+          id: productWatches.id,
+          userId: productWatches.userId,
+          productId: productWatches.productId,
+          watchListId: productWatches.watchListId,
+          category: productWatches.category,
+          notes: productWatches.notes,
+          priority: productWatches.priority,
+          targetPrice: productWatches.targetPrice,
+          createdAt: productWatches.createdAt,
+          updatedAt: productWatches.updatedAt,
+
+          // Backward-compat fields
           name: products.name,
           image: products.image,
           addedAt: productWatches.createdAt,
+
+          // New client-facing fields
+          productName: products.name,
+          productImage: products.image,
           // Current price from lowest active offer
           currentPrice: sql<number | null>`
             MIN(CAST(${productOffers.price} AS DECIMAL))
@@ -206,8 +274,27 @@ export class WatchListStorage extends BaseStorage {
         .from(productWatches)
         .innerJoin(products, eq(productWatches.productId, products.id))
         .leftJoin(productOffers, eq(products.id, productOffers.productId))
-        .where(eq(productWatches.watchListId, watchListId))
-        .groupBy(products.id, productWatches.createdAt)
+        .where(
+          and(
+            eq(productWatches.watchListId, watchListId),
+            eq(productWatches.userId, access.ownerUserId)
+          )
+        )
+        .groupBy(
+          productWatches.id,
+          productWatches.userId,
+          productWatches.productId,
+          productWatches.watchListId,
+          productWatches.category,
+          productWatches.notes,
+          productWatches.priority,
+          productWatches.targetPrice,
+          productWatches.createdAt,
+          productWatches.updatedAt,
+          products.id,
+          products.name,
+          products.image
+        )
         .orderBy(desc(productWatches.createdAt));
 
       // Calculate price drop percentage
@@ -219,9 +306,23 @@ export class WatchListStorage extends BaseStorage {
 
         return {
           id: p.id,
+          userId: p.userId,
+          productId: p.productId,
+          watchListId: p.watchListId,
+          category: p.category,
+          notes: p.notes,
+          priority: p.priority,
+          targetPrice: p.targetPrice,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+
           name: p.name,
           imageUrl: p.image || '',
           addedAt: p.addedAt || new Date(),
+
+          productName: p.productName,
+          productImage: p.productImage,
+
           currentPrice,
           lowestHistoricalPrice: lowestPrice,
           priceDropPercent,
@@ -309,6 +410,14 @@ export class WatchListStorage extends BaseStorage {
       this.validateWatchListId(watchListId);
       this.validateUserId(userId);
 
+      const access = await this.getWatchListAccess(watchListId, userId);
+      if (!access) {
+        throw new Error('Watch list not found or unauthorized');
+      }
+      if (access.role === 'shared' && access.sharedPermission !== 'edit') {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
       // VALIDATION: Name and description trimming/validation now handled by Zod schema in routes
       // Build update object with only provided fields
       const updateData: Partial<typeof watchLists.$inferInsert> = {
@@ -329,7 +438,7 @@ export class WatchListStorage extends BaseStorage {
         .where(
           and(
             eq(watchLists.id, watchListId),
-            eq(watchLists.userId, userId) // Ownership verification
+            eq(watchLists.userId, access.ownerUserId) // Owner record
           )
         )
         .returning();
@@ -340,7 +449,7 @@ export class WatchListStorage extends BaseStorage {
 
       // Emit event via event bus for real-time updates (decoupled from WebSocket)
       eventBus.emit(AppEvents.WATCHLIST_UPDATED, {
-        userId,
+        userId: access.ownerUserId,
         watchlistId: result.id,
         action: 'updated',
         watchlist: {
@@ -819,6 +928,14 @@ export class WatchListStorage extends BaseStorage {
       this.validateProductId(productId);
       this.validateUserId(userId);
 
+      const access = await this.getWatchListAccess(watchListId, userId);
+      if (!access) {
+        throw new Error('Watch list not found or unauthorized');
+      }
+      if (access.role === 'shared' && access.sharedPermission !== 'edit') {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
       // RETRY: SERIALIZABLE transactions can fail with serialization errors under concurrent load
       const result = await retryWithBackoff(
         async () =>
@@ -828,7 +945,7 @@ export class WatchListStorage extends BaseStorage {
               const [watchList] = await tx
                 .select({ id: watchLists.id })
                 .from(watchLists)
-                .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, userId)))
+                .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, access.ownerUserId)))
                 .limit(1);
 
               if (!watchList) {
@@ -857,7 +974,8 @@ export class WatchListStorage extends BaseStorage {
                 .where(
                   and(
                     eq(productWatches.watchListId, watchListId),
-                    eq(productWatches.productId, productId)
+                    eq(productWatches.productId, productId),
+                    eq(productWatches.userId, access.ownerUserId)
                   )
                 )
                 .limit(1);
@@ -882,7 +1000,7 @@ export class WatchListStorage extends BaseStorage {
               const [result] = await tx
                 .insert(productWatches)
                 .values({
-                  userId,
+                  userId: access.ownerUserId,
                   productId,
                   watchListId,
                 })
@@ -926,7 +1044,7 @@ export class WatchListStorage extends BaseStorage {
 
       // Emit event via event bus for real-time updates (decoupled from WebSocket)
       eventBus.emit(AppEvents.WATCHLIST_PRODUCT_ADDED, {
-        userId,
+        userId: access.ownerUserId,
         watchlistId: watchListId,
         productId: result.product.id,
         product: {
@@ -985,13 +1103,21 @@ export class WatchListStorage extends BaseStorage {
       this.validateProductId(productId);
       this.validateUserId(userId);
 
+      const access = await this.getWatchListAccess(watchListId, userId);
+      if (!access) {
+        throw new Error('Product watch not found or unauthorized');
+      }
+      if (access.role === 'shared' && access.sharedPermission !== 'edit') {
+        throw new Error('Product watch not found or unauthorized');
+      }
+
       const [result] = await this.db
         .delete(productWatches)
         .where(
           and(
             eq(productWatches.watchListId, watchListId),
             eq(productWatches.productId, productId),
-            eq(productWatches.userId, userId) // Ownership verification
+            eq(productWatches.userId, access.ownerUserId) // Owner record
           )
         )
         .returning();
@@ -1002,7 +1128,7 @@ export class WatchListStorage extends BaseStorage {
 
       // Emit event via event bus for real-time updates (decoupled from WebSocket)
       eventBus.emit(AppEvents.WATCHLIST_PRODUCT_REMOVED, {
-        userId,
+        userId: access.ownerUserId,
         watchlistId: watchListId,
         productId,
       });
@@ -1010,6 +1136,206 @@ export class WatchListStorage extends BaseStorage {
       return result;
     } catch (error) {
       this.handleError(error, 'removeProductFromWatchList');
+    }
+  }
+
+  // ============================================================================
+  // Watch List Sharing (Invite-by-email)
+  // ============================================================================
+
+  async getSharedWatchLists(userId: number): Promise<SharedWatchListWithCount[]> {
+    try {
+      this.validateUserId(userId);
+
+      const results = await this.db
+        .select({
+          id: watchLists.id,
+          userId: watchLists.userId,
+          name: watchLists.name,
+          description: watchLists.description,
+          color: watchLists.color,
+          icon: watchLists.icon,
+          isDefault: watchLists.isDefault,
+          sortOrder: watchLists.sortOrder,
+          createdAt: watchLists.createdAt,
+          updatedAt: watchLists.updatedAt,
+          productCount: sql<number>`COUNT(${productWatches.id})::int`.as('product_count'),
+          ownerUserId: watchLists.userId,
+          ownerUsername: users.username,
+          sharedPermission: watchListShares.permission,
+        })
+        .from(watchListShares)
+        .innerJoin(watchLists, eq(watchListShares.watchListId, watchLists.id))
+        .innerJoin(users, eq(watchLists.userId, users.id))
+        .leftJoin(
+          productWatches,
+          and(
+            eq(watchLists.id, productWatches.watchListId),
+            eq(productWatches.userId, watchLists.userId)
+          )
+        )
+        .where(eq(watchListShares.sharedWithUserId, userId))
+        .groupBy(watchLists.id, users.username, watchListShares.permission)
+        .orderBy(asc(watchLists.sortOrder), asc(watchLists.createdAt));
+
+      return results.map((r) => ({
+        ...r,
+        sharedPermission: r.sharedPermission as WatchListSharePermission,
+      }));
+    } catch (error) {
+      this.handleError(error, 'getSharedWatchLists');
+    }
+  }
+
+  async shareWatchListByEmail(
+    ownerUserId: number,
+    watchListId: number,
+    email: string,
+    permission: WatchListSharePermission
+  ): Promise<{ shareId: number; sharedWithUserId: number; sharedWithUsername: string; permission: WatchListSharePermission }> {
+    try {
+      this.validateUserId(ownerUserId);
+      this.validateWatchListId(watchListId);
+      if (permission !== 'view' && permission !== 'edit') {
+        throw new Error('Invalid permission');
+      }
+
+      // Verify owner owns the list
+      const [watchList] = await this.db
+        .select({ id: watchLists.id })
+        .from(watchLists)
+        .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, ownerUserId)))
+        .limit(1);
+
+      if (!watchList) {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const emailHash = hashEmail(normalizedEmail);
+
+      const [target] = await this.db
+        .select({ id: users.id, username: users.username, email: users.email })
+        .from(users)
+        .where(eq(users.emailHash, emailHash))
+        .limit(1);
+
+      if (!target) {
+        throw new Error('User not found');
+      }
+
+      // Hash collision safety check (rare, but recommended by encryption utils)
+      let emailMatches = false;
+      try {
+        emailMatches = decrypt(target.email).toLowerCase() === normalizedEmail;
+      } catch {
+        // Backward-compat: some environments may have legacy/plaintext emails.
+        emailMatches = target.email.toLowerCase() === normalizedEmail;
+      }
+      if (!emailMatches) throw new Error('User not found');
+
+      if (target.id === ownerUserId) {
+        throw new Error('Cannot share a watch list with yourself');
+      }
+
+      const now = new Date();
+      const [share] = await this.db
+        .insert(watchListShares)
+        .values({
+          watchListId,
+          sharedWithUserId: target.id,
+          permission,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [watchListShares.watchListId, watchListShares.sharedWithUserId],
+          set: { permission, updatedAt: now },
+        })
+        .returning({ id: watchListShares.id });
+
+      return {
+        shareId: share.id,
+        sharedWithUserId: target.id,
+        sharedWithUsername: target.username,
+        permission,
+      };
+    } catch (error) {
+      this.handleError(error, 'shareWatchListByEmail');
+    }
+  }
+
+  async listWatchListShares(ownerUserId: number, watchListId: number): Promise<WatchListShareWithUser[]> {
+    try {
+      this.validateUserId(ownerUserId);
+      this.validateWatchListId(watchListId);
+
+      const [watchList] = await this.db
+        .select({ id: watchLists.id })
+        .from(watchLists)
+        .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, ownerUserId)))
+        .limit(1);
+
+      if (!watchList) {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
+      const rows = await this.db
+        .select({
+          id: watchListShares.id,
+          watchListId: watchListShares.watchListId,
+          sharedWithUserId: watchListShares.sharedWithUserId,
+          sharedWithUsername: users.username,
+          permission: watchListShares.permission,
+          createdAt: watchListShares.createdAt,
+        })
+        .from(watchListShares)
+        .innerJoin(users, eq(watchListShares.sharedWithUserId, users.id))
+        .where(eq(watchListShares.watchListId, watchListId))
+        .orderBy(asc(users.username));
+
+      return rows.map((r) => ({
+        ...r,
+        permission: r.permission as WatchListSharePermission,
+      }));
+    } catch (error) {
+      this.handleError(error, 'listWatchListShares');
+    }
+  }
+
+  async revokeWatchListShare(
+    ownerUserId: number,
+    watchListId: number,
+    sharedWithUserId: number
+  ): Promise<boolean> {
+    try {
+      this.validateUserId(ownerUserId);
+      this.validateWatchListId(watchListId);
+      this.validateUserId(sharedWithUserId);
+
+      const [watchList] = await this.db
+        .select({ id: watchLists.id })
+        .from(watchLists)
+        .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, ownerUserId)))
+        .limit(1);
+
+      if (!watchList) {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
+      const deleted = await this.db
+        .delete(watchListShares)
+        .where(
+          and(
+            eq(watchListShares.watchListId, watchListId),
+            eq(watchListShares.sharedWithUserId, sharedWithUserId)
+          )
+        )
+        .returning({ id: watchListShares.id });
+
+      return deleted.length > 0;
+    } catch (error) {
+      this.handleError(error, 'revokeWatchListShare');
     }
   }
 

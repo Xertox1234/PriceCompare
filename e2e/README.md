@@ -23,10 +23,13 @@ Tests user authentication and session management:
 - Account lockout after failed attempts
 - Logout and session clearing
 - Session persistence across navigation
-- Password reset flow
 - Authentication guards for protected routes
 
-**15 tests** covering authentication scenarios
+Notes:
+- Auth is modal-based (no `/login` route); tests open the Sign In/Sign Up modals from `/price-watch`.
+- Logged-in state is asserted via `data-testid="user-menu-button"`.
+
+**12 tests** covering authentication scenarios
 
 ### 2. Product Discovery (`product-discovery.spec.ts`)
 
@@ -71,20 +74,15 @@ Tests admin dashboard and management features:
 
 **21 tests** covering admin features (14 runnable, 7 skipped pending UI implementation)
 
-### 5. Forum Interaction (`forum.spec.ts`)
+### 5. Accessibility (`accessibility.spec.ts`)
 
-Tests community forum features:
+Accessibility smoke checks using Playwright + Axe:
 
-- View forum categories and topics
-- Create new forum topics
-- Post replies to topics
-- Edit own posts
-- Delete own posts
-- Topic and post pagination
-- Search forum content
-- Moderation features (admin only)
+- WCAG A/AA scans for key pages (scoped to reduce noise)
+- Keyboard operability checks for modal-based auth
+- Focus containment checks within dialogs
 
-**15 tests** covering forum interaction
+**8 tests** covering accessibility (expandable)
 
 ## Running Tests
 
@@ -136,13 +134,25 @@ npx playwright test e2e/auth.spec.ts
 npx playwright test --grep "should login"
 ```
 
+### Run a CI-Style Shard (sequential)
+
+Useful for reproducing GitHub Actions sharding locally.
+
+**DB safety rule**: shards may run in parallel, but each shard must run Playwright sequentially (`--workers=1`).
+
+```bash
+npx playwright test --shard=1/4 --workers=1
+```
+
 ## Configuration
 
 E2E tests are configured in `playwright.config.ts`:
 
 - **Test Directory**: `./e2e`
 - **Workers**: 1 (sequential execution to avoid database conflicts)
-- **Base URL**: `http://localhost:5000`
+- **Base URL (local default)**: `http://localhost:5001` (macOS AirPlay Receiver often uses 5000)
+- **Override**: set `PLAYWRIGHT_TEST_BASE_URL` (e.g. in `.env.test`)
+- **CI**: GitHub Actions workflow uses `http://localhost:5000`
 - **Retries**: 2 on CI, 0 locally
 - **Timeout**: 30 seconds per test
 - **Screenshots**: On failure only
@@ -158,9 +168,28 @@ Tests run sequentially (`workers: 1`) because:
 
 ## Test Patterns
 
+Canonical E2E patterns (fixtures, DB safety, CI sharding): `docs/08_TESTING_PATTERNS.md`.
+
+### Opt-in Fixtures (Phase 4.1)
+
+An optional fixtures layer exists at `e2e/fixtures/index.ts` (re-exported by `e2e/fixtures.ts`) to reduce per-test boilerplate.
+
+- Prefer importing from `./fixtures` (barrel export).
+- `cleanDb` is an auto fixture that cleans DB state before each test.
+- Example migrated suites: `e2e/accessibility.spec.ts`, `e2e/admin.spec.ts`, `e2e/auth.spec.ts`.
+
+```ts
+import { test, expect } from './fixtures';
+
+test('example (already cleaned DB)', async ({ authenticatedPage }) => {
+  await authenticatedPage.goto('/price-watch');
+  await expect(authenticatedPage.getByTestId('user-menu-button').first()).toBeVisible();
+});
+```
+
 ### Database Cleanup
 
-Every test suite uses `cleanDatabase()` in `beforeEach`:
+Many suites (legacy pattern) use `cleanDatabase()` in `beforeEach`:
 
 ```typescript
 test.beforeEach(async () => {
@@ -168,6 +197,8 @@ test.beforeEach(async () => {
   await seedTestData(); // Insert test data
 });
 ```
+
+If a suite uses the opt-in fixtures, prefer relying on the auto `cleanDb` fixture instead of calling `cleanDatabase()` directly.
 
 ### Helper Functions
 
@@ -298,6 +329,7 @@ E2E tests run in CI with:
 - HTML and JUnit reports
 - GitHub Actions integration
 - Sequential execution (workers: 1)
+- Job-level sharding (each shard uses `--workers=1`)
 
 ### GitHub Actions Example
 

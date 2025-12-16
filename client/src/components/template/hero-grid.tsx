@@ -176,14 +176,18 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
             {/* Navigation Buttons */}
             <div className="absolute bottom-6 left-10 z-10 flex gap-3">
               <button
+                type="button"
                 onClick={handlePrev}
                 className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
+                aria-label="Previous hero slide"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
+                type="button"
                 onClick={handleNext}
                 className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
+                aria-label="Next hero slide"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>

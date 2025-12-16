@@ -60,6 +60,9 @@ import type {
   WatchedProductsResult,
   WatchListStats,
   NormalizedPricePoint,
+  SharedWatchListWithCount,
+  WatchListSharePermission,
+  WatchListShareWithUser,
 } from './storage/types';
 import { db } from './db';
 import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count } from 'drizzle-orm';
@@ -168,6 +171,26 @@ export interface IStorage {
     options?: WatchedProductsOptions
   ): Promise<WatchedProductsResult>;
   getWatchListStats(userId: number): Promise<WatchListStats>;
+
+  // Watch List Sharing
+  getSharedWatchLists(userId: number): Promise<SharedWatchListWithCount[]>;
+  shareWatchListByEmail(
+    ownerUserId: number,
+    watchListId: number,
+    email: string,
+    permission: WatchListSharePermission
+  ): Promise<{
+    shareId: number;
+    sharedWithUserId: number;
+    sharedWithUsername: string;
+    permission: WatchListSharePermission;
+  }>;
+  listWatchListShares(ownerUserId: number, watchListId: number): Promise<WatchListShareWithUser[]>;
+  revokeWatchListShare(
+    ownerUserId: number,
+    watchListId: number,
+    sharedWithUserId: number
+  ): Promise<boolean>;
 
   // Users - Basic operations
   getUserCount(): Promise<number>;
@@ -1439,6 +1462,40 @@ export class MemStorage implements IStorage {
         triggeredAlerts: 0,
       },
     };
+  }
+
+  // Watch List Sharing (stub implementations for in-memory storage)
+  async getSharedWatchLists(_userId: number): Promise<SharedWatchListWithCount[]> {
+    return [];
+  }
+
+  async shareWatchListByEmail(
+    _ownerUserId: number,
+    _watchListId: number,
+    _email: string,
+    _permission: WatchListSharePermission
+  ): Promise<{
+    shareId: number;
+    sharedWithUserId: number;
+    sharedWithUsername: string;
+    permission: WatchListSharePermission;
+  }> {
+    throw new Error('Watch lists not supported in memory storage');
+  }
+
+  async listWatchListShares(
+    _ownerUserId: number,
+    _watchListId: number
+  ): Promise<WatchListShareWithUser[]> {
+    return [];
+  }
+
+  async revokeWatchListShare(
+    _ownerUserId: number,
+    _watchListId: number,
+    _sharedWithUserId: number
+  ): Promise<boolean> {
+    throw new Error('Watch lists not supported in memory storage');
   }
 
   // Additional stub implementations for MemStorage
@@ -2841,6 +2898,39 @@ export class DatabaseStorage implements IStorage {
    */
   async getWatchListStats(userId: number): Promise<WatchListStats> {
     return this.watchListStorage.getWatchListStats(userId);
+  }
+
+  async getSharedWatchLists(userId: number): Promise<SharedWatchListWithCount[]> {
+    return this.watchListStorage.getSharedWatchLists(userId);
+  }
+
+  async shareWatchListByEmail(
+    ownerUserId: number,
+    watchListId: number,
+    email: string,
+    permission: WatchListSharePermission
+  ): Promise<{
+    shareId: number;
+    sharedWithUserId: number;
+    sharedWithUsername: string;
+    permission: WatchListSharePermission;
+  }> {
+    return this.watchListStorage.shareWatchListByEmail(ownerUserId, watchListId, email, permission);
+  }
+
+  async listWatchListShares(
+    ownerUserId: number,
+    watchListId: number
+  ): Promise<WatchListShareWithUser[]> {
+    return this.watchListStorage.listWatchListShares(ownerUserId, watchListId);
+  }
+
+  async revokeWatchListShare(
+    ownerUserId: number,
+    watchListId: number,
+    sharedWithUserId: number
+  ): Promise<boolean> {
+    return this.watchListStorage.revokeWatchListShare(ownerUserId, watchListId, sharedWithUserId);
   }
 
   // Admin Product/Retailer Management

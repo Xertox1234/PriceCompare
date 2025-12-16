@@ -7,8 +7,10 @@ interface WatchList {
   userId: number;
   name: string;
   description: string | null;
+  color: string | null;
   icon: string | null;
-  isPublic: boolean;
+  isDefault: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,15 +59,11 @@ interface WatchListWithProducts extends WatchList {
 interface CreateWatchListInput {
   name: string;
   description?: string;
-  icon?: string;
-  isPublic?: boolean;
 }
 
 interface UpdateWatchListInput {
   name?: string;
   description?: string;
-  icon?: string;
-  isPublic?: boolean;
 }
 
 interface AddProductInput {
@@ -77,7 +75,8 @@ export function useWatchLists() {
   return useQuery<WatchList[]>({
     queryKey: ['/api/watchlists'],
     queryFn: async () => {
-      return apiRequest<WatchList[]>('/api/watchlists');
+      const result = await apiRequest<{ watchLists: WatchList[] }>('/api/watchlists');
+      return result.watchLists;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes

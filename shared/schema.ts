@@ -648,6 +648,33 @@ export const productWatches = pgTable(
   })
 );
 
+// Watch list sharing - invite-by-email with view/edit permissions
+export const watchListShares = pgTable(
+  'watch_list_shares',
+  {
+    id: serial('id').primaryKey(),
+    watchListId: integer('watch_list_id')
+      .references(() => watchLists.id, { onDelete: 'cascade' })
+      .notNull(),
+    sharedWithUserId: integer('shared_with_user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    permission: varchar('permission', { length: 10 }).notNull(), // 'view' | 'edit'
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (table) => ({
+    watchListIdIdx: index('watch_list_shares_watch_list_id_idx').on(table.watchListId),
+    sharedWithUserIdIdx: index('watch_list_shares_shared_with_user_id_idx').on(
+      table.sharedWithUserId
+    ),
+    uniqueWatchListShare: unique('unique_watch_list_share').on(
+      table.watchListId,
+      table.sharedWithUserId
+    ),
+  })
+);
+
 // User reputation for gamification
 export const userReputation = pgTable('user_reputation', {
   id: serial('id').primaryKey(),
@@ -924,6 +951,7 @@ export type Badge = typeof badges.$inferSelect;
 export type UserBadge = typeof userBadges.$inferSelect;
 export type WatchList = typeof watchLists.$inferSelect;
 export type ProductWatch = typeof productWatches.$inferSelect;
+export type WatchListShare = typeof watchListShares.$inferSelect;
 export type UserReputation = typeof userReputation.$inferSelect;
 export type DealSpotting = typeof dealSpottings.$inferSelect;
 export type PostRevision = typeof postRevisions.$inferSelect;
@@ -946,6 +974,7 @@ export type InsertPrivateMessage = z.infer<typeof insertPrivateMessageSchema>;
 export type InsertBadge = z.infer<typeof insertBadgeSchema>;
 export type InsertWatchList = z.infer<typeof insertWatchListSchema>;
 export type InsertProductWatch = z.infer<typeof insertProductWatchSchema>;
+export type InsertWatchListShare = typeof watchListShares.$inferInsert;
 export type InsertUserReputation = z.infer<typeof insertUserReputationSchema>;
 export type InsertDealSpotting = z.infer<typeof insertDealSpottingSchema>;
 export type InsertPostRevision = z.infer<typeof insertPostRevisionSchema>;

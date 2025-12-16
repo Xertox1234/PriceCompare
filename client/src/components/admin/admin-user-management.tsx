@@ -88,7 +88,7 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
                     value={user.role}
                     onValueChange={(role) => handleUpdateUserRole(user.id, role)}
                   >
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-32" aria-label={`Role for ${user.username}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

@@ -179,8 +179,9 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
         <ThemeToggle />
 
         {user && (
-          <Button variant="ghost" size="sm" className="relative">
+          <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
             <Bell className="h-4 w-4" />
+            <span className="sr-only">Notifications</span>
           </Button>
         )}
 

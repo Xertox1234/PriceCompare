@@ -1,12 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import {
   useWatchLists,
+  useSharedWatchLists,
   useCreateWatchList,
   useDeleteWatchList,
   useWatchListProducts,
   useBulkRemoveProductWatches,
   useMoveProductsToWatchList,
+  useImportWatchLists,
+  useShareWatchList,
+  useRemoveProductFromWatchList,
+  type SharedWatchListWithStats,
+  type WatchListSharePermission,
 } from '@/hooks/use-community';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,13 +45,93 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Trash2, Download, MoveRight } from 'lucide-react';
+import { Loader2, Plus, Trash2, Download, MoveRight, Upload } from 'lucide-react';
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  const pushCell = () => {
+    row.push(cell);
+    cell = '';
+  };
+  const pushRow = () => {
+    // Avoid adding a trailing empty row if the file ends with a newline
+    if (row.length > 0 && !(row.length === 1 && row[0] === '')) {
+      rows.push(row);
+    }
+    row = [];
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        const next = text[i + 1];
+        if (next === '"') {
+          cell += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (char === ',') {
+      pushCell();
+      continue;
+    }
+
+    if (char === '\n') {
+      pushCell();
+      pushRow();
+      continue;
+    }
+
+    if (char === '\r') {
+      // Ignore CR (handles CRLF)
+      continue;
+    }
+
+    cell += char;
+  }
+
+  // Flush final cell/row
+  pushCell();
+  pushRow();
+
+  return rows;
+}
+
+function normalizeHeader(header: string): string {
+  return header.trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
 export default function WatchListManager() {
   const { toast } = useToast();
   const { data: watchlistsData, isLoading } = useWatchLists();
+  const { data: sharedWatchlistsData } = useSharedWatchLists();
+
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const watchlists = watchlistsData || [];
+  const sharedWatchlists = sharedWatchlistsData || [];
+  const allWatchlists = [...watchlists, ...sharedWatchlists];
+
+  const isSharedWatchlist = (wl: unknown): wl is SharedWatchListWithStats => {
+    return typeof wl === 'object' && wl !== null && 'sharedPermission' in wl && 'ownerUsername' in wl;
+  };
 
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -61,13 +147,36 @@ export default function WatchListManager() {
   const deleteMutation = useDeleteWatchList();
   const bulkDeleteMutation = useBulkRemoveProductWatches();
   const moveMutation = useMoveProductsToWatchList();
+  const importMutation = useImportWatchLists();
+  const shareMutation = useShareWatchList();
+  const removeFromListMutation = useRemoveProductFromWatchList();
+
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharePermission, setSharePermission] = useState<WatchListSharePermission>('view');
+  const [shareTargetWatchlistId, setShareTargetWatchlistId] = useState<number | null>(null);
+
+  const [sharedRemoveDialogOpen, setSharedRemoveDialogOpen] = useState(false);
+  const [sharedRemoveProductId, setSharedRemoveProductId] = useState<number | null>(null);
+
+  const defaultWatchlistId = watchlists[0]?.id ?? sharedWatchlists[0]?.id ?? null;
+  const activeWatchlistId = selectedWatchlistId ?? defaultWatchlistId ?? 0;
 
   const { data: productsData, isLoading: isLoadingProducts } = useWatchListProducts(
-    selectedWatchlistId || 0
+    activeWatchlistId
   );
   const products = productsData || [];
 
-  const selectedWatchlist = watchlists.find((wl) => wl.id === selectedWatchlistId);
+  const selectedWatchlist = allWatchlists.find((wl) => wl.id === activeWatchlistId);
+
+  // Ensure the products query uses the same watchlist as the default selected tab.
+  // Without this, the first tab can be active while `selectedWatchlistId` is null,
+  // leading to a products query for watchlist id=0 and an empty list.
+  useEffect(() => {
+    if (selectedWatchlistId === null && defaultWatchlistId !== null) {
+      setSelectedWatchlistId(defaultWatchlistId);
+    }
+  }, [selectedWatchlistId, defaultWatchlistId]);
 
   // Auto-select newly created watchlist once it appears in the array
   // This prevents race condition where we try to select before refetch completes
@@ -194,12 +303,80 @@ export default function WatchListManager() {
     );
   };
 
+  const handleShareWatchlist = () => {
+    if (!shareTargetWatchlistId) return;
+
+    const email = shareEmail.trim();
+    if (!email) {
+      toast({
+        title: 'Error',
+        description: 'Please enter an email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    shareMutation.mutate(
+      {
+        watchListId: shareTargetWatchlistId,
+        email,
+        permission: sharePermission,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Invite sent',
+            description: 'Watchlist shared successfully',
+          });
+          setShareDialogOpen(false);
+          setShareEmail('');
+          setSharePermission('view');
+          setShareTargetWatchlistId(null);
+        },
+        onError: () => {
+          toast({
+            title: 'Error',
+            description: 'Failed to share watchlist',
+            variant: 'destructive',
+          });
+        },
+      }
+    );
+  };
+
+  const handleSharedRemove = () => {
+    if (!selectedWatchlist || !isSharedWatchlist(selectedWatchlist)) return;
+    if (sharedRemoveProductId === null) return;
+
+    removeFromListMutation.mutate(
+      { watchListId: selectedWatchlist.id, productId: sharedRemoveProductId },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Removed',
+            description: 'Product removed from watchlist',
+          });
+          setSharedRemoveDialogOpen(false);
+          setSharedRemoveProductId(null);
+        },
+        onError: () => {
+          toast({
+            title: 'Error',
+            description: 'Failed to remove product',
+            variant: 'destructive',
+          });
+        },
+      }
+    );
+  };
+
   const handleExport = () => {
     if (!selectedWatchlist) return;
 
     // Generate CSV data
-    const headers = ['Product Name', 'Priority', 'Target Price', 'Notes'];
+    const headers = ['Product ID', 'Product Name', 'Priority', 'Target Price', 'Notes'];
     const rows = products.map((p) => [
+      String(p.productId),
       p.productName || '',
       p.priority?.toString() || '',
       p.targetPrice || '',
@@ -231,6 +408,74 @@ export default function WatchListManager() {
     });
   };
 
+  const handleImportCsv = async (file: File) => {
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length < 2) {
+      throw new Error('CSV file must include a header row and at least one product row');
+    }
+
+    const headerRow = rows[0].map(normalizeHeader);
+    const columnIndex = (names: string[]) =>
+      headerRow.findIndex((h) => names.some((n) => h === normalizeHeader(n)));
+
+    const productIdIdx = columnIndex(['product id', 'productid', 'id']);
+    if (productIdIdx < 0) {
+      throw new Error('CSV must include a "Product ID" column');
+    }
+
+    const priorityIdx = columnIndex(['priority']);
+    const targetPriceIdx = columnIndex(['target price', 'targetprice']);
+    const notesIdx = columnIndex(['notes', 'note']);
+
+    const productsToImport = rows
+      .slice(1)
+      .map((row) => {
+        const rawProductId = (row[productIdIdx] ?? '').trim();
+        const productId = Number.parseInt(rawProductId, 10);
+        if (!Number.isFinite(productId) || productId <= 0) return null;
+
+        const rawPriority = priorityIdx >= 0 ? (row[priorityIdx] ?? '').trim() : '';
+        const parsedPriority = rawPriority ? Number.parseInt(rawPriority, 10) : undefined;
+        const priority =
+          parsedPriority && Number.isFinite(parsedPriority) ? Math.min(5, Math.max(1, parsedPriority)) : undefined;
+
+        const targetPrice = targetPriceIdx >= 0 ? (row[targetPriceIdx] ?? '').trim() : '';
+        const notes = notesIdx >= 0 ? (row[notesIdx] ?? '').trim() : '';
+
+        return {
+          productId,
+          ...(notes ? { notes } : {}),
+          ...(priority ? { priority } : {}),
+          ...(targetPrice ? { targetPrice } : {}),
+        };
+      })
+      .filter((p): p is { productId: number; notes?: string; priority?: number; targetPrice?: string } =>
+        Boolean(p)
+      );
+
+    if (productsToImport.length === 0) {
+      throw new Error('No valid Product ID rows found in CSV');
+    }
+
+    const filenameBase = file.name.replace(/\.[^.]+$/, '').trim();
+    const watchListName = filenameBase || 'Imported Watchlist';
+
+    const result = await importMutation.mutateAsync({
+      watchLists: [
+        {
+          name: watchListName,
+          products: productsToImport,
+        },
+      ],
+    });
+
+    toast({
+      title: 'Import successful',
+      description: `Created ${result.created} list(s), skipped ${result.skipped} duplicate(s)`,
+    });
+  };
+
   const toggleProductSelection = (productWatchId: number) => {
     setSelectedProductWatchIds((prev) =>
       prev.includes(productWatchId)
@@ -254,13 +499,47 @@ export default function WatchListManager() {
           <h1 className="text-3xl font-bold">My Watchlists</h1>
           <p className="text-muted-foreground">Organize and track your favorite products</p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Watchlist
-        </Button>
+        <div className="flex gap-2">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+
+              void (async () => {
+                try {
+                  await handleImportCsv(file);
+                } catch (error) {
+                  toast({
+                    title: 'Import failed',
+                    description: error instanceof Error ? error.message : 'Failed to import watchlist',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  e.target.value = '';
+                }
+              })();
+            }}
+          />
+          <Button
+            variant="outline"
+            onClick={() => importInputRef.current?.click()}
+            disabled={importMutation.isPending}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Import Watchlist
+          </Button>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Watchlist
+          </Button>
+        </div>
       </div>
 
-      {watchlists.length === 0 ? (
+      {allWatchlists.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>No watchlists yet</CardTitle>
@@ -275,7 +554,7 @@ export default function WatchListManager() {
         </Card>
       ) : (
         <Tabs
-          value={selectedWatchlistId?.toString() || (watchlists[0]?.id?.toString() ?? '')}
+          value={activeWatchlistId.toString()}
           onValueChange={(value) => {
             setSelectedWatchlistId(parseInt(value));
             setSelectedProductWatchIds([]);
@@ -283,18 +562,28 @@ export default function WatchListManager() {
           className="space-y-6"
         >
           <TabsList className="flex flex-wrap gap-2">
-            {watchlists.map((watchlist) => (
-              <TabsTrigger key={watchlist.id} value={watchlist.id.toString()}>
-                {watchlist.name}
-                <span className="ml-2 text-xs text-muted-foreground">
-                  ({watchlist.watchCount} items)
-                </span>
-              </TabsTrigger>
-            ))}
+            {allWatchlists.map((watchlist) => {
+              const shared = isSharedWatchlist(watchlist);
+              return (
+                <TabsTrigger key={watchlist.id} value={watchlist.id.toString()}>
+                  {watchlist.name}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({watchlist.watchCount} items)
+                    {shared && (
+                      <> Shared by {watchlist.ownerUsername} ({watchlist.sharedPermission})</>
+                    )}
+                  </span>
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
-          {watchlists.map((watchlist) => (
-            <TabsContent key={watchlist.id} value={watchlist.id.toString()}>
+          {allWatchlists.map((watchlist) => {
+            const shared = isSharedWatchlist(watchlist);
+            const canEdit = !shared || watchlist.sharedPermission === 'edit';
+
+            return (
+              <TabsContent key={watchlist.id} value={watchlist.id.toString()}>
               <Card data-testid="watchlist-card">
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -302,6 +591,9 @@ export default function WatchListManager() {
                       <CardTitle>{watchlist.name}</CardTitle>
                       <CardDescription>
                         {watchlist.watchCount} {watchlist.watchCount === 1 ? 'item' : 'items'}
+                        {shared && (
+                          <> Shared by {watchlist.ownerUsername} ({watchlist.sharedPermission})</>
+                        )}
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">
@@ -311,16 +603,29 @@ export default function WatchListManager() {
                           Export
                         </Button>
                       )}
-                      <Button
-                        variant="destructive"
-                        onClick={() => {
-                          setWatchlistToDelete(watchlist.id);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </Button>
+                      {!shared && (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShareTargetWatchlistId(watchlist.id);
+                              setShareDialogOpen(true);
+                            }}
+                          >
+                            Share
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onClick={() => {
+                              setWatchlistToDelete(watchlist.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -336,7 +641,7 @@ export default function WatchListManager() {
                     </div>
                   ) : (
                     <>
-                      {selectedProductWatchIds.length > 0 && (
+                      {!shared && selectedProductWatchIds.length > 0 && (
                         <div className="mb-4 flex gap-2">
                           <Button
                             variant="destructive"
@@ -362,12 +667,14 @@ export default function WatchListManager() {
                           <Card key={product.id} data-testid="product-card">
                             <CardContent className="p-4">
                               <div className="flex items-start gap-3">
-                                <Checkbox
-                                  checked={selectedProductWatchIds.includes(product.id)}
-                                  onCheckedChange={() => toggleProductSelection(product.id)}
-                                  data-testid={`product-checkbox-${product.productId}`}
-                                  className="mt-1"
-                                />
+                                {!shared && (
+                                  <Checkbox
+                                    checked={selectedProductWatchIds.includes(product.id)}
+                                    onCheckedChange={() => toggleProductSelection(product.id)}
+                                    data-testid={`product-checkbox-${product.productId}`}
+                                    className="mt-1"
+                                  />
+                                )}
                                 <div className="flex-1">
                                   <h3 className="font-medium">{product.productName}</h3>
                                   {product.targetPrice && (
@@ -380,18 +687,34 @@ export default function WatchListManager() {
                                       {product.notes}
                                     </p>
                                   )}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="mt-2"
-                                    onClick={() => {
-                                      setSelectedProductWatchIds([product.id]);
-                                      setDeleteProductsDialogOpen(true);
-                                    }}
-                                  >
-                                    <Trash2 className="mr-2 h-3 w-3" />
-                                    Remove
-                                  </Button>
+                                  {!shared && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={() => {
+                                        setSelectedProductWatchIds([product.id]);
+                                        setDeleteProductsDialogOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="mr-2 h-3 w-3" />
+                                      Remove
+                                    </Button>
+                                  )}
+                                  {shared && canEdit && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={() => {
+                                        setSharedRemoveProductId(product.productId);
+                                        setSharedRemoveDialogOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="mr-2 h-3 w-3" />
+                                      Remove
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </CardContent>
@@ -403,7 +726,8 @@ export default function WatchListManager() {
                 </CardContent>
               </Card>
             </TabsContent>
-          ))}
+            );
+          })}
         </Tabs>
       )}
 
@@ -530,6 +854,92 @@ export default function WatchListManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Share Watchlist Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Watchlist</DialogTitle>
+            <DialogDescription>
+              Invite someone by email to view or edit this watchlist.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="share-email">Email</Label>
+              <Input
+                id="share-email"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+                placeholder="name@example.com"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !shareMutation.isPending) {
+                    handleShareWatchlist();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="share-permission">Permission</Label>
+              <Select value={sharePermission} onValueChange={(v) => setSharePermission(v as WatchListSharePermission)}>
+                <SelectTrigger id="share-permission">
+                  <SelectValue placeholder="Select permission" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="view">View</SelectItem>
+                  <SelectItem value="edit">Edit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShareDialogOpen(false);
+                setShareEmail('');
+                setSharePermission('view');
+                setShareTargetWatchlistId(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleShareWatchlist} disabled={shareMutation.isPending}>
+              {shareMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Share
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shared Watchlist Remove Confirmation */}
+      <AlertDialog open={sharedRemoveDialogOpen} onOpenChange={setSharedRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this product from the shared watchlist?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setSharedRemoveDialogOpen(false);
+                setSharedRemoveProductId(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSharedRemove}
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={removeFromListMutation.isPending}
+            >
+              Confirm Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

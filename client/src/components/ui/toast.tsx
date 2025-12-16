@@ -77,6 +77,7 @@ const ToastClose = React.forwardRef<
       'text-foreground/50 hover:text-foreground group-[.destructive]:text-destructive-foreground/70 group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive group-[.destructive]:focus:ring-offset-destructive absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus:ring-2 focus:outline-none',
       className
     )}
+    aria-label="Close"
     toast-close=""
     {...props}
   >

@@ -1,7 +1,7 @@
 # Frontend Patterns
 
 **Version:** 2.1
-**Last Updated:** 2025-12-08
+**Last Updated:** 2025-12-16
 **Migrated From:**
 - docs/FRONTEND_PATTERNS.md (v1.0 - 2025-11-26)
 - docs/PHASE1_WATCHLIST_PATTERNS.md (React Query patterns, form handling, pagination - 2025-11-29)
@@ -12,33 +12,35 @@
 
 1. [Overview](#overview)
 2. [React Component Patterns](#react-component-patterns)
-   - [Component Reuse](#component-reuse)
-   - [Design System Compliance](#design-system-compliance)
-   - [Conditional UI Rendering](#conditional-ui-rendering)
+  - [Component Reuse](#component-reuse)
+  - [Design System Compliance](#design-system-compliance)
+  - [Conditional UI Rendering](#conditional-ui-rendering)
+  - [Accessibility: Icon-Only Buttons Must Have Names](#accessibility-icon-only-buttons-must-have-names-new---2025-12-15)
 3. [React Query Patterns](#react-query-patterns)
-   - [Mutation Best Practices](#mutation-best-practices)
-   - [Query Invalidation Strategy](#query-invalidation-strategy)
-   - [Async Handler ESLint Compliance](#async-handler-eslint-compliance)
-   - [Cursor-Based Pagination](#cursor-based-pagination)
+  - [Mutation Best Practices](#mutation-best-practices)
+  - [Query Invalidation Strategy](#query-invalidation-strategy)
+  - [Async Handler ESLint Compliance](#async-handler-eslint-compliance)
+  - [Cursor-Based Pagination](#cursor-based-pagination)
 4. [Form Handling](#form-handling)
-   - [Dialog Component Design](#dialog-component-design)
-   - [Inline Editing Pattern](#inline-editing-pattern)
-   - [Decimal Field Handling](#decimal-field-handling)
+  - [Dialog Component Design](#dialog-component-design)
+  - [Inline Editing Pattern](#inline-editing-pattern)
+  - [Decimal Field Handling](#decimal-field-handling)
 5. [State Management](#state-management)
-   - [Local State vs Server State](#local-state-vs-server-state)
-   - [Component Integration Pattern](#component-integration-pattern)
+  - [Local State vs Server State](#local-state-vs-server-state)
+  - [Component Integration Pattern](#component-integration-pattern)
 6. [API Integration Patterns](#api-integration-patterns)
-   - [Centralized API Client](#centralized-api-client)
-   - [Error Handling](#error-handling)
+  - [Centralized API Client](#centralized-api-client)
+  - [Watchlist Hook Ownership](#watchlist-hook-ownership-new---2025-12-16)
+  - [Error Handling](#error-handling)
 7. [Performance Patterns](#performance-patterns)
-   - [Client-Side Data Aggregation Anti-Pattern](#client-side-data-aggregation-anti-pattern)
-   - [Deterministic Sorting for Pagination](#deterministic-sorting-for-pagination)
+  - [Client-Side Data Aggregation Anti-Pattern](#client-side-data-aggregation-anti-pattern)
+  - [Deterministic Sorting for Pagination](#deterministic-sorting-for-pagination)
 8. [Common Anti-Patterns](#common-anti-patterns)
-   - [Hardcoded Values](#hardcoded-values)
+  - [Hardcoded Values](#hardcoded-values)
 9. [CSS & Tailwind 4 Patterns](#css--tailwind-4-patterns)
-   - [Theme Configuration](#theme-configuration)
-   - [Custom Utility Classes](#custom-utility-classes)
-   - [Avoiding Arbitrary Values](#avoiding-arbitrary-values)
+  - [Theme Configuration](#theme-configuration)
+  - [Custom Utility Classes](#custom-utility-classes)
+  - [Avoiding Arbitrary Values](#avoiding-arbitrary-values)
 10. [Testing Patterns](#testing-patterns)
 11. [Checklist](#frontend-checklist)
 
@@ -302,6 +304,44 @@ Truly dynamic colors calculated at runtime are acceptable:
 - Clearer intent in code
 - No CSS display tricks
 - Better for accessibility (element not in DOM when hidden)
+
+---
+
+### Accessibility: Icon-Only Buttons Must Have Names (NEW - 2025-12-15)
+
+**Rule:** Any icon-only interactive control MUST have an accessible name.
+
+#### Anti-Pattern
+
+```tsx
+// ❌ WRONG - No accessible name (Axe: button-name)
+<Button variant="ghost" size="icon" onClick={toggleWishlist}>
+  <Heart className="h-4 w-4" />
+</Button>
+```
+
+#### Correct Pattern
+
+```tsx
+// ✅ CORRECT - aria-label provides an accessible name
+<Button
+  type="button"
+  variant="ghost"
+  size="icon"
+  aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+  onClick={toggleWishlist}
+>
+  <Heart className="h-4 w-4" aria-hidden="true" focusable="false" />
+</Button>
+```
+
+**Notes:**
+- Use `type="button"` when a button is inside a `<form>` to avoid accidental submits.
+- Images that communicate meaning need descriptive `alt` text; decorative images should use `alt=""`.
+
+**Reference fixes:**
+- `client/src/pages/product-detail-new.tsx` (gallery arrows, thumbnails, icon buttons)
+- `client/src/components/auth/login-form.tsx` (password visibility toggle)
 
 ---
 
@@ -1818,6 +1858,17 @@ const newProduct = await apiRequest<Product>('/api/products', {
 
 ---
 
+### Watchlist Hook Ownership (NEW - 2025-12-16)
+
+Watchlist-related hooks exist in **two places** for historical reasons. To avoid contract drift, treat these files as having different “ownership”:
+
+- `client/src/hooks/useWatchList.ts`: **Price Watch dashboard** data (stats + infinite lists via `/api/watchlists/products`, `/api/watchlists/stats`). Keep types aligned to the server watchlist schema (`name`, `description`, `color`, `icon`, `isDefault`, `sortOrder`).
+- `client/src/hooks/use-community.ts`: **Watchlist manager / community flows** (watchlist CRUD, list products, import/export, sharing). This is where sharing hooks live.
+
+**Contract rule (lists):** list endpoints should return named properties (e.g. `{ watchLists }`) inside the server success envelope; client hooks should **unwrap** and return `WatchList[]` to callers.
+
+---
+
 ### Error Handling
 
 ```typescript
@@ -1863,7 +1914,10 @@ function PriceWatchDashboard() {
   // Fetches ALL watch lists with ALL products (potentially 1000s of records)
   const { data: watchLists } = useQuery({
     queryKey: ['watchlists'],
-    queryFn: () => apiRequest<WatchList[]>('/api/watchlists'),
+    queryFn: async () => {
+      const result = await apiRequest<{ watchLists: WatchList[] }>('/api/watchlists');
+      return result.watchLists;
+    },
   });
 
   // Client-side aggregation - WRONG!

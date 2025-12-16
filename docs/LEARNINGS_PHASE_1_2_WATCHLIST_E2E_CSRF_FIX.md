@@ -431,13 +431,13 @@ export function useWatchLists() {
       const response = await fetch('/api/watchlists', {
         credentials: 'include',
       });
-      return response.json(); // Returns: { success: true, data: [...] }
+      return response.json(); // Returns: { success: true, data: { watchLists: [...] } }
     },
   });
 }
 
-// Component receives: { data: { success: true, data: [...] } }
-// Expected: { data: [...] }
+// Component receives: { data: { success: true, data: { watchLists: [...] } } }
+// Expected: { data: { watchLists: [...] } }
 ```
 
 **Impact**: Components crashed with `TypeError: find is not a function` because they expected an array but received an object with a nested `data` property.
@@ -453,7 +453,8 @@ import { apiRequest } from '@/lib/queryClient';
 export function useWatchLists() {
   return useQuery<WatchListWithStats[]>({
     queryFn: async () => {
-      return apiRequest<WatchListWithStats[]>('/api/watchlists');
+      const result = await apiRequest<{ watchLists: WatchListWithStats[] }>('/api/watchlists');
+      return result.watchLists;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,

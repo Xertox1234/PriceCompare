@@ -2,28 +2,42 @@
 
 **Status**: 🔵 In Progress
 **Created**: 2025-12-11
-**Goal**: Expand E2E test coverage from 3 test suites to comprehensive user journey testing
-**Target**: 40-60 E2E tests covering all critical user flows
+**Goal**: Expand E2E test coverage from 3 foundational suites to comprehensive user journey coverage
+**Target**: 60-80 E2E tests covering all critical user flows (including visual + a11y)
 
 ## Executive Summary
 
-PriceCompare currently has excellent Playwright infrastructure with 3 foundational test suites (auth, price alerts, product discovery). This plan outlines a phased approach to expand coverage to all critical user journeys through story-driven E2E tests.
+PriceCompare has strong Playwright infrastructure and has expanded beyond the original 3 foundational test suites (auth, price alerts, product discovery). This plan tracks the remaining work to complete the last planned coverage areas (accessibility + infra/CI optimization) while keeping the suite stable and deterministic.
 
-**Current State**:
-- ✅ 3 E2E test suites (1,214 lines)
-- ✅ Comprehensive helper utilities (`e2e/helpers.ts`)
-- ✅ Sequential execution for database safety
-- ✅ Well-documented patterns (`e2e/README.md`)
+**Current State (as of 2025-12-16)**:
+- ✅ 8+ core E2E suites implemented (auth, product discovery, price alerts, admin, watchlist, notifications, advanced search, price analytics)
+- ✅ Visual regression suite implemented (Price Analytics) with stable baselines
+- ✅ Accessibility smoke checks implemented (8 tests) in `e2e/accessibility.spec.ts`
+- ✅ Helper utilities and per-suite DB cleanup patterns established (`e2e/helpers.ts`, `e2e/helpers/*`)
+- ✅ Sequential execution enforced (`workers: 1`) for database safety in `playwright.config.ts`
 
-**Target State**:
-- 🎯 8+ test suites covering all user journeys
-- 🎯 35-50 total E2E tests
-- 🎯 WebSocket/real-time feature testing
-- 🎯 Visual regression testing for UI consistency
-- 🎯 Accessibility compliance testing
-- 🎯 Parallel execution with database isolation (optional)
+**Remaining Target State**:
+- 🎯 Performance + CI/CD optimizations (Phase 4), with parallelism as an opt-in when isolation is available
 
 **Note**: Forum functionality has been removed from the application. Any references to forums are legacy code for product comments.
+
+---
+
+## Established Patterns ("New Normal") (as of 2025-12-16)
+
+These are the default expectations for E2E going forward.
+
+- **DB safety**: keep Playwright sequential by default (`workers: 1`, `fullyParallel: false`).
+- **CI speed-up**: parallelize only via **job-level sharding** (`--shard=X/Y`) and keep `--workers=1` inside each shard.
+- **Ports**: local E2E baseURL defaults to `http://localhost:5001`; CI uses `http://localhost:5000` via `PLAYWRIGHT_TEST_BASE_URL`.
+- **Fixtures**: prefer opt-in fixtures (`import { test, expect } from './fixtures'`) with auto `cleanDb` for per-test isolation.
+- **Artifacts**: CI uploads per-shard artifacts (HTML report + JUnit always, videos on failure) with shard-specific names to avoid collisions.
+- **Accessibility**: use `@axe-core/playwright` with scoped scans (`include(...)`) and WCAG tags (`wcag2a`, `wcag2aa`).
+
+**Canonical references**:
+- Patterns: `docs/08_TESTING_PATTERNS.md`
+- E2E README: `e2e/README.md`
+- CI workflow: `.github/workflows/e2e-tests.yml`
 
 ---
 
@@ -277,6 +291,13 @@ test.describe('Admin - Dashboard Management', () => {
 
 ### 1.2 Watchlist Management (`e2e/watchlist.spec.ts`)
 
+**Status (2025-12-15)**: 🟢 Complete
+
+**Implementation notes (stability + contracts)**:
+- The suite is migrated to opt-in fixtures (`import { test, expect } from './fixtures'`) and relies on the auto `cleanDb` fixture.
+- Watchlist API contract is standardized for list endpoints: `GET /api/watchlists` returns `data.watchLists` (not a raw array). Client hooks unwrap this so callers still receive `WatchList[]`.
+- Watchlist detail payloads include a stable identifier for bulk operations (`id` is the product watch ID) plus `productId`/`productName` fields for the UI.
+
 **User Stories**:
 
 ```gherkin
@@ -342,13 +363,11 @@ Scenario: Import watchlist
 
 ```typescript
 // e2e/watchlist.spec.ts
-import { test, expect } from '@playwright/test';
-import { cleanDatabase, registerUser, loginUser } from './helpers';
+import { test, expect } from './fixtures';
+import { registerUser } from './helpers';
 
 test.describe('Watchlist - Product Organization', () => {
-  test.beforeEach(async ({ page }) => {
-    await cleanDatabase();
-  });
+  // DB cleanup is handled by the auto `cleanDb` fixture.
 
   test('should create new watchlist', async ({ page }) => {
     await registerUser(page, 'watchlistuser', 'watchlist@example.com', 'Password123!');
@@ -791,70 +810,68 @@ test.describe('Visual Regression Tests', () => {
 
 ### 3.3 Accessibility Testing
 
-**Test Implementation**:
+**Status (2025-12-16)**: 🟢 Complete (8/8 implemented)
+
+**Implemented**:
+- ✅ Homepage: scoped WCAG A/AA scan of main content
+- ✅ Products listing: scoped WCAG A/AA scan of main content
+- ✅ Price analytics page: scoped WCAG A/AA scan of main content
+- ✅ Product detail page: scoped WCAG A/AA scan of main content (seeded product)
+- ✅ Auth modal: focus trap + ESC close + scoped WCAG A/AA scan of modal
+- ✅ Toast/alerts: deterministic toast trigger + scoped WCAG A/AA scan of toast region
+- ✅ Admin dashboard: scoped WCAG A/AA scan of main content
+- ✅ Admin Users tab: scoped WCAG A/AA scan of main content
+
+**Location**: `e2e/accessibility.spec.ts`
+
+**Principles**:
+- Treat accessibility failures as product bugs (fix UI when possible).
+- Keep the suite deterministic: stable seeded data, minimal navigation, no timeouts.
+- Prefer targeted scans (`include(...)`) over whole-app scans for flake reduction.
+
+**Dependency**:
+- ✅ `@axe-core/playwright` (dev dependency)
+
+**Planned Test Cases (8)**:
+1. ✅ Homepage baseline scan (WCAG A/AA)
+2. ✅ Products listing / results area scan (WCAG A/AA)
+3. ✅ Product details page: scan of product detail main content (seeded product)
+4. ✅ Price analytics page: time-range controls + scan of analytics container
+5. ✅ Admin dashboard: scan of admin dashboard main content
+6. ✅ Auth modal: focus trap + ESC close + scan modal subtree
+7. ✅ Toast/alerts: deterministic toast trigger + scan of toast region (`[data-radix-toast-viewport]`)
+8. ✅ Admin Users tab: scan of admin Users tab main content
+
+**Pattern (reference implementation)**:
 
 ```typescript
-// e2e/accessibility.spec.ts
-import { test, expect } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { test, expect } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
 
-test.describe('Accessibility Compliance', () => {
-  test('homepage accessibility', async ({ page }) => {
-    await page.goto('/');
+async function runA11yScan(page: Page, include?: string) {
+  const builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']);
+  if (include) builder.include(include);
+  return builder.analyze();
+}
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
-
-    expect(results.violations).toEqual([]);
-  });
-
-  test('product search keyboard navigation', async ({ page }) => {
-    await page.goto('/products');
-
-    // Navigate with keyboard only
-    await page.keyboard.press('Tab');
-    await expect(page.getByPlaceholder('Search products')).toBeFocused();
-
-    await page.keyboard.type('iPhone');
-    await page.keyboard.press('Enter');
-
-    // Verify search executed
-    await expect(page).toHaveURL(/search/);
-
-    // Run accessibility scan
-    const results = await new AxeBuilder({ page })
-      .withTags(['keyboard', 'wcag2a'])
-      .analyze();
-
-    expect(results.violations).toEqual([]);
-  });
-
-  test('form labels and ARIA attributes', async ({ page }) => {
-    await page.goto('/products/1');
-
-    const priceAlertForm = page.getByTestId('price-alert-form');
-    const results = await new AxeBuilder({ page })
-      .include('[data-testid="price-alert-form"]')
-      .withTags(['label', 'wcag2a'])
-      .analyze();
-
-    expect(results.violations).toEqual([]);
-  });
-
-  test('color contrast compliance', async ({ page }) => {
-    await page.goto('/');
-
-    const results = await new AxeBuilder({ page })
-      .withTags(['color-contrast', 'wcag2aa'])
-      .analyze();
-
-    expect(results.violations).toEqual([]);
-  });
+test('example: scan main content', async ({ page }) => {
+  await page.goto('/price-watch');
+  const results = await runA11yScan(page, 'main');
+  expect(results.violations).toEqual([]);
 });
 ```
 
-**Estimated Tests**: 6-8 tests
+**Progress**: 8/8 implemented
+
+**Verification (last run: 2025-12-16)**:
+- ✅ `npm run type-check`
+- ✅ `npm run lint` (may emit a `@typescript-eslint` TypeScript-version support warning; lint still passes)
+- ✅ `npm run test:e2e -- e2e/accessibility.spec.ts` (8/8)
+- ✅ `npm run test:e2e -- e2e/auth.spec.ts` (12/12)
+- ✅ `npm run test:e2e -- e2e/admin.spec.ts` (14 passed, 7 skipped)
+- ✅ `npm run test:e2e -- e2e/watchlist.spec.ts` (7 passed, 4 skipped)
+- ✅ `npm run test:e2e -- e2e/price-analytics.spec.ts` (10/10)
 
 ---
 
@@ -863,51 +880,76 @@ test.describe('Accessibility Compliance', () => {
 **Duration**: Week 7
 **Focus**: Test infrastructure improvements and CI/CD integration
 
+**Current Baseline (today)**:
+- `playwright.config.ts` runs sequentially (`workers: 1`, `fullyParallel: false`) to avoid database race conditions.
+- Phase 4 optimizations should be **opt-in** (keep the default safe).
+- ✅ CI job-level sharding is implemented in `.github/workflows/e2e-tests.yml` (4 shards), with `--workers=1` inside each shard.
+
 ### 4.1 Test Fixtures for Faster Setup
+
+**Status (2025-12-15)**: ✅ Implemented (opt-in scaffold)
+
+**Location**: `e2e/fixtures/index.ts`
+
+**Notes**:
+- This is an additive layer; existing suites can migrate gradually.
+- Default execution remains DB-safe and sequential; fixtures just reduce boilerplate.
+- Example migrations:
+  - `e2e/accessibility.spec.ts` imports `test/expect` from `./fixtures` and relies on the auto `cleanDb` fixture.
+  - `e2e/admin.spec.ts` imports `test/expect` from `./fixtures` and relies on the auto `cleanDb` fixture.
+  - `e2e/price-analytics.spec.ts` imports `test/expect` from `./fixtures` and relies on the auto `cleanDb` fixture.
+- Convenience barrel: `e2e/fixtures.ts` re-exports `test/expect` so suites can `import { test, expect } from './fixtures'`.
 
 **Implementation**:
 
 ```typescript
 // e2e/fixtures/index.ts
-import { test as base, type Page } from '@playwright/test';
-import type { SafeUser, Product, Retailer } from '@shared/schema';
-import { cleanDatabase, registerUser } from '../helpers';
+import { test as base, expect, type Page } from '@playwright/test';
+import { cleanDatabase, registerUser, generateTestEmail, generateTestUsername } from '../helpers';
 
-interface PriceCompareFixtures {
-  authenticatedPage: Page;
-  adminPage: Page;
-  testProduct: { product: Product; retailer: Retailer };
+type TestUser = { username: string; email: string; password: string };
+
+type PriceCompareFixtures = {
   cleanDb: void;
-}
+  authenticatedUser: TestUser;
+  authenticatedPage: Page;
+  adminUser: TestUser;
+  adminPage: Page;
+};
 
 export const test = base.extend<PriceCompareFixtures>({
-  // Auto-cleanup database before each test
-  cleanDb: [async ({}, use) => {
-    await cleanDatabase();
-    await use();
-  }, { scope: 'test', auto: true }],
+  cleanDb: [
+    async ({}, use) => {
+      await cleanDatabase();
+      await use();
+    },
+    { scope: 'test', auto: true },
+  ],
 
-  // Authenticated user page
-  authenticatedPage: async ({ page }, use) => {
-    await registerUser(page, 'testuser', 'test@example.com', 'Password123!');
+  authenticatedUser: async ({ page }, use) => {
+    const username = generateTestUsername('e2e');
+    const email = generateTestEmail('e2e');
+    await registerUser(page, username, email, 'Password123!');
+    await use({ username, email, password: 'Password123!' });
+  },
+
+  authenticatedPage: async ({ page, authenticatedUser }, use) => {
+    void authenticatedUser;
     await use(page);
   },
 
-  // Admin user page
-  adminPage: async ({ page }, use) => {
-    await cleanDatabase(); // First user = admin
+  adminUser: async ({ page }, use) => {
     await registerUser(page, 'admin', 'admin@pricecompare.com', 'AdminPass123!');
-    await use(page);
+    await use({ username: 'admin', email: 'admin@pricecompare.com', password: 'AdminPass123!' });
   },
 
-  // Pre-seeded test product
-  testProduct: async ({ page }, use) => {
-    const product = await seedTestProduct();
-    await use(product);
+  adminPage: async ({ page, adminUser }, use) => {
+    void adminUser;
+    await use(page);
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect };
 ```
 
 **Usage in tests**:
@@ -925,19 +967,29 @@ test('should create price alert', async ({ authenticatedPage, testProduct }) => 
 
 ### 4.2 Parallel Execution with Database Isolation
 
-**Configuration Update**:
+**Recommended approach (lowest risk)**:
+- Keep `workers: 1` inside each job, and use **CI sharding** (`--shard`) for parallelism at the job level.
+- Job-level parallelism is naturally isolated (each GitHub Actions job has its own Postgres/Redis service container), which avoids most DB race conditions.
+
+**Optional advanced approach (highest complexity)**:
+- Enable multiple Playwright workers in a single job **only** if you also provide true per-worker isolation (DB + server instance).
+
+**Configuration Update (opt-in)**:
 
 ```typescript
 // playwright.config.ts
 export default defineConfig({
-  fullyParallel: process.env.CI ? true : false,
-  workers: process.env.CI ? 4 : 1,
+  // Default stays sequential for safety; enable parallelism explicitly.
+  fullyParallel: process.env.PLAYWRIGHT_FULLY_PARALLEL === '1',
+  workers: process.env.CI ? Number(process.env.PLAYWRIGHT_WORKERS ?? '1') : 1,
 
   // Rest of config...
 });
 ```
 
 **Worker-Specific Database Pattern**:
+
+> Important: per-worker DB isolation typically also requires **per-worker app servers**, because the server process reads `DATABASE_URL` at startup. If you share a single server across workers, they will share the same DB.
 
 ```typescript
 // e2e/fixtures/database.ts
@@ -972,10 +1024,38 @@ export const test = base.extend({
 
 **Workflow Configuration**:
 
+**Ports**:
+- **Local dev/E2E** defaults to `http://localhost:5001` via `playwright.config.ts` (to avoid macOS port 5000 conflicts); override with `PLAYWRIGHT_TEST_BASE_URL`.
+- **GitHub Actions** uses `http://localhost:5000` inside the runner.
+
+**Artifacts (per shard)**:
+- `playwright-report-shard-N`: HTML report (always uploaded)
+- `playwright-junit-shard-N`: `test-results/junit.xml` (always uploaded)
+- `playwright-videos-shard-N`: videos/screenshots (failure only)
+
+**Manual shard count (workflow dispatch)**:
+- Run the **E2E Tests** workflow manually and choose `shard_count` (2/4/6/8).
+- PRs keep the safe default: **4 shards**.
+- Each shard still runs with `--workers=1` (no DB-parallelism within a job).
+
+**Local reproduction (no port changes)**:
+```bash
+npx playwright test --shard=1/4 --workers=1
+```
+
 ```yaml
 # .github/workflows/e2e-tests.yml
 name: E2E Tests
-on: [push, pull_request]
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      shard_count:
+        description: 'Number of Playwright shards (job-level parallelism; each shard runs with --workers=1)'
+        required: false
+        default: '4'
+        type: choice
+        options: ['2', '4', '6', '8']
 
 jobs:
   e2e:
@@ -1024,7 +1104,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
           SESSION_SECRET: test-session-secret-min-32-chars-long
           CSRF_SECRET: test-csrf-secret-min-32-chars
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+        run: npx playwright test --shard=${{ matrix.shard }}/4 --workers=1
 
       - name: Upload test results
         if: failure()
@@ -1054,30 +1134,29 @@ jobs:
 | Auth | ✅ 100% | 100% | Critical |
 | Price Alerts | ✅ 100% | 100% | Critical |
 | Product Discovery | ✅ 100% | 100% | Critical |
-| Admin Features | ❌ 0% | 90% | High |
-| Watchlist | ❌ 0% | 85% | High |
-| Notifications | ❌ 0% | 80% | Medium |
-| Advanced Search | ❌ 0% | 70% | Medium |
-| Price Analytics | ❌ 0% | 70% | Low |
-| Visual Regression | ❌ 0% | 60% | Low |
-| Accessibility | ❌ 0% | 60% | Low |
+| Admin Features | ✅ 14/21 runnable (7 skipped) | 90% runnable | High |
+| Watchlist | ✅ 7/11 runnable (4 skipped) | 85% runnable | High |
+| Notifications | ✅ 14/15 runnable (1 future) | 80% runnable | Medium |
+| Advanced Search | ✅ 11/11 runnable | 70%+ | Medium |
+| Price Analytics | ✅ 10/10 passing | 70%+ | Low |
+| Visual Regression | ✅ 8/8 passing | 60%+ | Low |
+| Accessibility | ✅ 8/8 passing | 60%+ | Low |
 
 ### Performance Targets
 
 - **Test execution time (single worker)**: < 10 minutes
-- **Test execution time (4 workers)**: < 3 minutes
-- **CI/CD pipeline (4 shards)**: < 5 minutes total
+- **CI/CD pipeline (4 shards, `--workers=1` per shard)**: < 5 minutes total
 - **Flaky test rate**: < 2%
 - **Test maintenance time**: < 10% of development time
 
 ### Quality Gates
 
-- ✅ All critical user journeys covered
-- ✅ Zero accessibility violations (WCAG AA)
-- ✅ Visual regression baseline for all key pages
-- ✅ WebSocket/real-time features tested
-- ✅ Mobile responsive layouts validated
-- ✅ CI/CD integration with automated runs
+- All critical user journeys covered
+- Zero accessibility violations (WCAG AA) on selected key pages
+- Visual regression baseline for all key pages in scope
+- WebSocket/real-time features tested where user-visible
+- Mobile responsive layouts validated on at least one representative viewport
+- CI/CD integration with automated E2E runs
 
 ---
 
@@ -1097,14 +1176,14 @@ jobs:
 ### Week 5-6: Advanced Features
 - ✅ Price analytics (8-10 tests)
 - ✅ Visual regression (6-8 tests)
-- ✅ Accessibility (6-8 tests)
+- ✅ Accessibility (8/8 passing)
 - 📊 **Total**: ~65 tests
 
 ### Week 7: Optimization
-- ✅ Test fixtures implementation
-- ✅ Parallel execution setup
-- ✅ CI/CD integration
-- ✅ Documentation updates
+- 🟢 Test fixtures implementation (opt-in scaffold)
+- 🟡 Parallel execution setup (opt-in; requires DB isolation)
+- 🟢 CI/CD integration (Playwright sharding via `--shard`)
+- 🟢 Documentation updates
 
 ---
 
@@ -1251,8 +1330,8 @@ async function seedTestRetailer() {
 | Phase 2.2: Advanced Search | 🟢 Complete | 11/11 (11 runnable, 0 skipped) | TBD (graceful skip) | 2025-12-12 |
 | Phase 3.1: Price Analytics | 🟢 Complete | 10/10 (10 passing, 0 skipped) | 10/10 (100%) | 2025-12-15 |
 | Phase 3.2: Visual Regression | 🟢 Complete | 8/8 (8 passing, 0 skipped) | 8/8 (100%) | 2025-12-15 |
-| Phase 3.3: Accessibility | 🟡 Not Started | 0/8 | 0/8 | - |
-| Phase 4: Optimization | 🟡 Not Started | - | - | - |
+| Phase 3.3: Accessibility | 🟢 Complete | 8/8 (8 passing, 0 skipped) | 8/8 (100%) | 2025-12-16 |
+| Phase 4: Optimization | 🔵 In Progress | - | - | 2025-12-15 |
 
 **Legend**: 🟡 Not Started | 🔵 In Progress | 🟢 Complete | 🔴 Blocked
 
@@ -1273,15 +1352,10 @@ async function seedTestRetailer() {
 - Admin Creation: 2 tests
 
 **Code Review Findings** (by code-review-specialist):
-- 🔴 **Critical**: `createAdminUser()` register button selector failing - needs role-based selector
-- 🔴 **Critical**: N+1 query pattern in `seedAnalyticsData()` - needs batch inserts (23x performance gain)
-- 🟡 **High**: Inconsistent selector strategies between helpers - standardize on getByRole/getByLabel
-- 🟡 **Medium**: Weak assertions using flexible checks - use stronger exact matches
-- 🟡 **Medium**: 7 skipped tests need specific implementation plans
-
-**Known Issues**:
-1. Registration modal selector not finding button (blocks all tests)
-2. Performance optimization needed for data seeding helpers
+- ✅ **Resolved**: `createAdminUser()` selector issues (suite now uses modal-based auth + role-based locators; admin runnable tests pass)
+- 🟡 **Optimization backlog**: `seedAnalyticsData()` can use batch inserts (perf-only; not required for deterministic passing)
+- ✅ **Improved**: selector strategies standardized in active suites (prefer `getByRole`/`getByLabel`)
+- 🟡 **Backlog**: skipped admin tests need implementation plans once the corresponding UI exists
 
 **Critical Bug Fixes (Completed 2025-12-11)**:
 
@@ -1361,7 +1435,7 @@ async function seedTestRetailer() {
 2. ~~Update form field selectors~~ ✅ **FIXED** - Modal-based auth implemented
 3. ~~Fix schema field name mismatches in test helpers~~ ✅ **FIXED** (2025-12-11)
 4. ~~Fix password length validation (Pass123! → TestUserPass123!)~~ ✅ **FIXED** (2025-12-11)
-5. ⚠️ **BLOCKED**: Investigate API timeout issues (3 tests) - See "Current Blockers" below
+5. ~~Investigate API timeout issues (3 tests)~~ ✅ **FIXED** (admin suite now stable)
 6. Implement batch inserts in `seedAnalyticsData()` for performance (optimization backlog)
 7. Resume E2E test expansion for admin dashboard features
 
@@ -1379,16 +1453,16 @@ async function seedTestRetailer() {
 - Import/Export: 2 tests (1 runnable - CSV export, 1 skipped - CSV import)
 - Watchlist Sharing: 2 tests (both skipped - feature not implemented)
 
-**Test Results** (2025-12-11):
+**Initial Test Results** (2025-12-11):
 - **Total Tests**: 11 tests (7 runnable, 4 skipped)
 - **Passing**: 0/7 runnable (0%)
 - **Failing**: 7/7 runnable (100%)
 - **Root Cause**: `/watchlists` page UI not implemented
 
-**Blocking Issues**:
-- 🔴 **CRITICAL**: Watchlist UI not implemented - All 7 runnable tests fail at line 48/348
-- **Error**: `TimeoutError: locator.click: Timeout 10000ms exceeded` for "Create Watchlist" button
-- **Impact**: Cannot proceed with watchlist E2E testing until UI is built
+**Resolved (2025-12-13)**: `/watchlists` UI implemented; runnable watchlist tests are passing (4 skipped remain for unimplemented features).
+
+**Blocking Issues (historical)**:
+- ✅ **Resolved**: Watchlist UI was missing at the time; runnable tests now pass (see Session 4 below)
 
 **Test Patterns Applied** (from Phase 1.1):
 - ✅ Modal-based authentication pattern
@@ -1402,19 +1476,9 @@ async function seedTestRetailer() {
 - `addProductToWatchlist(page, productId, watchlistName)` - Add product to watchlist via UI
 
 **Next Steps for Phase 1.2**:
-1. 🎯 Implement `/watchlists` page UI with:
-   - "Create Watchlist" button
-   - Watchlist list view
-   - Watchlist detail view with products
-2. 🎯 Implement watchlist API endpoints (if not already present):
-   - `POST /api/watchlists` - Create watchlist
-   - `GET /api/watchlists` - List user's watchlists
-   - `DELETE /api/watchlists/:id` - Delete watchlist
-   - `POST /api/watchlists/:id/products` - Add product to watchlist
-   - `DELETE /api/watchlists/:id/products/:productId` - Remove product
-   - `POST /api/watchlists/:id/products/:productId/move` - Move product between lists
-3. 🎯 Run tests again after UI implementation
-4. 🎯 Address any failing tests and refine selectors
+1. ✅ `/watchlists` UI implemented (Phase 1.2 unblocked; runnable tests passing)
+2. 🟡 Optional: implement skipped features (CSV import, sharing) and unskip related tests
+3. 🟡 Optional: extend coverage/assertions as UI evolves
 
 **TDD Benefit Demonstrated**:
 Tests written first reveal exactly what UI components and API endpoints need to be implemented. The failing tests provide clear acceptance criteria for the watchlist feature.
@@ -1609,11 +1673,11 @@ return watchlist.products; // Extract the products array
 
 ---
 
-## Current Blockers (2025-12-11)
+## Historical Blockers (2025-12-11; resolved by 2025-12-16)
 
 ### API Timeout Issues - 3 Tests Failing
 
-**Status**: 🔴 Blocking Phase 1.1 completion
+**Status**: ✅ Resolved (admin runnable tests now pass)
 **Impact**: 13/16 runnable tests passing (81% pass rate with skipped tests excluded)
 **Priority**: High - Required for Phase 1.1 completion
 
@@ -1756,14 +1820,16 @@ await registerUser(page, 'testuser1', 'user1@example.com', 'TestUserPass123!');
 
 ---
 
-### Test Suite Results - 13/16 Passing (81%) ✅
+### Historical Test Suite Results (2025-12-11) - 13/16 Passing (81%) ✅
 
 **Overall Results**:
 - **Total Tests**: 21 tests defined
 - **Runnable Tests**: 14 tests (7 skipped - UI not implemented)
 - **Passing**: 13 tests (93% of runnable tests)
-- **Failing**: 3 tests (API timeouts - see "Current Blockers")
+- **Failing**: 3 tests (API timeouts - see "Historical Blockers")
 - **Pass Rate**: 81% including skipped tests, 93% excluding skipped tests
+
+**Current (2025-12-16)**: admin suite is stable with 14/14 runnable passing (7 skipped remain for unimplemented UI).
 
 **Test Breakdown by Category**:
 
@@ -1833,7 +1899,7 @@ await registerUser(page, 'testuser1', 'user1@example.com', 'TestUserPass123!');
 ### Documentation Updates ✅
 
 **Plan File Updated**:
-- ✅ "Current Blockers" section added with detailed API timeout investigation plan
+- ✅ "Historical Blockers" section added with detailed API timeout investigation plan
 - ✅ "Session Successes" section added with comprehensive wins
 - ✅ "Next Steps" updated to reflect completed fixes
 - ✅ Investigation steps documented for fresh session
@@ -1854,12 +1920,12 @@ await registerUser(page, 'testuser1', 'user1@example.com', 'TestUserPass123!');
 4. ✅ Verification after each fix (running `npm run check`)
 
 **What to Improve**:
-1. ⚠️ API timeout investigation needs dedicated debugging session
+1. ~~⚠️ API timeout investigation needs dedicated debugging session~~ ✅ Resolved (admin suite stable)
 2. ⚠️ Consider adding schema migration tests to catch field name changes
 3. ⚠️ Document password validation requirements in test helper comments
 
 **Next Session Priorities**:
-1. 🎯 Investigate 3 API timeout failures (see "Current Blockers")
+1. ~~🎯 Investigate 3 API timeout failures (see "Historical Blockers")~~ ✅ Resolved (see "Historical Blockers")
 2. 🎯 Run full test suite to confirm 100% pass rate
 3. 🎯 Implement batch inserts in `seedAnalyticsData()` (performance optimization)
 4. 🎯 Begin Phase 1.2 (Watchlist Management tests)
@@ -1938,10 +2004,10 @@ await registerUser(page, 'testuser1', 'user1@example.com', 'TestUserPass123!');
 - **Prevention**: Future code reviews catch these issues automatically
 
 **Next Steps**:
-1. 🎯 Resume watchlist UI implementation (Phase 1.2 blocked until UI complete)
+1. ~~Resume watchlist UI implementation (Phase 1.2 blocked until UI complete)~~ ✅ Completed
 2. 🎯 Apply E2E type safety patterns to all test files
 3. 🎯 Audit remaining React Query hooks for correct pattern usage
-4. 🎯 Begin Phase 2.1 (Notifications System) when Phase 1.2 unblocked
+4. ~~Begin Phase 2.1 (Notifications System) when Phase 1.2 unblocked~~ ✅ Completed
 
 ---
 
@@ -2651,6 +2717,25 @@ Updated 3 reviewer agent configuration files with new automatic enforcement patt
 2. ✅ Baselines stabilized via deterministic seeded data + masked dynamic axis ticks
 3. ✅ Transient “Reconnecting…” overlay removed from screenshots via `[data-testid="connection-status"]`
 
+### Phase 3.2 Completion Summary (2025-12-15 Final)
+
+**Status**: 🟢 COMPLETE - Visual baselines stable and committed
+
+**Final Metrics**:
+- ✅ **Visual Suite**: 8/8 passing (100%)
+- ✅ **Stability Fix**: WebSocket “Reconnecting…” overlay hidden in screenshots via `[data-testid="connection-status"]`
+- ✅ **Determinism**: Seeded price history data used for chart baselines
+
+**Verification**:
+- `npm run test:e2e -- e2e/price-analytics.visual.spec.ts` → ✅ 8/8 passing (re-verified after commits)
+
+**Commits**:
+- `264eb62` - `feat(price-analytics): add UI + stabilize Playwright visual baselines`
+- `b650506` - `docs(e2e): mark Phase 3.2 visual regression complete`
+
+**Branch**:
+- ✅ Pushed to `origin/add_scraping` (upstream set)
+
 **Success Criteria Met**:
 - ✅ All implemented features have passing E2E tests
 - ✅ Code quality standards exceeded (0 warnings, 100% type-safe)
@@ -2659,5 +2744,51 @@ Updated 3 reviewer agent configuration files with new automatic enforcement patt
 - ✅ Comprehensive documentation delivered
 - ✅ Multi-agent workflow validated (Implement → Test → Review → Fix → Codify)
 
-**Session Closure**: Phase 3.1 successfully delivered production-ready Price Analytics UI with automated pattern enforcement for future development.
+**Session Closure**: Phase 3.1 (interactive Price Analytics UI) and Phase 3.2 (visual regression baselines) are complete, passing, documented, and pushed.
+
+---
+
+## Next Session Prompt (Copy/Paste)
+
+```text
+You are continuing work in the PriceCompare repo on branch `add_scraping`.
+
+Context:
+- Phase 3.1 (Price Analytics interactive UI) is complete.
+- Phase 3.2 (Visual Regression) is complete.
+- Visual regression spec `e2e/price-analytics.visual.spec.ts` is stable and passing (8/8).
+- Auth is modal-based (no `/login` route). Auth success indicator is `data-testid="user-menu-button"`.
+- Screenshot stability techniques in use: fixed viewport, disable animations, deterministic seeded data, mask dynamic axis ticks, and hide `[data-testid="connection-status"]`.
+
+Recent commits:
+- `264eb62` feat(price-analytics): add UI + stabilize Playwright visual baselines
+- `b650506` docs(e2e): mark Phase 3.2 visual regression complete
+
+What I want next:
+1) Continue Phase 4 improvements without breaking the “new normal”.
+  - CI parallelism stays job-level (`--shard=X/Y`) with `--workers=1` per shard.
+  - Local E2E default stays on port 5001 (CI uses 5000 via `PLAYWRIGHT_TEST_BASE_URL`).
+
+2) Optional: migrate one more stable suite to fixtures.
+  - Use `import { test, expect } from './fixtures'` and rely on auto `cleanDb`.
+  - Prefer suites that are already deterministic; avoid flaky/outdated suites.
+
+Constraints:
+- Playwright ONLY (no Puppeteer).
+- Follow existing security/testing patterns in the repo.
+
+First steps:
+- Run: `npm run type-check`
+- Run: `npm run lint`
+- Run: `npm run test:e2e -- e2e/accessibility.spec.ts`
+- Run: `npm run test:e2e -- e2e/price-analytics.spec.ts`
+- If touching visual baselines, re-run: `npm run test:e2e -- e2e/price-analytics.visual.spec.ts`
+
+Recent known-good results (2025-12-16):
+- `e2e/accessibility.spec.ts` → ✅ 8/8 passing
+- `e2e/auth.spec.ts` → ✅ 12/12 passing
+- `e2e/admin.spec.ts` → ✅ 14 passed, 7 skipped
+- `e2e/watchlist.spec.ts` → ✅ 7 passed, 4 skipped
+- `e2e/price-analytics.spec.ts` → ✅ 10/10 passing
+```
 

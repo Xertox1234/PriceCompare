@@ -332,22 +332,26 @@ export function CategoryGrid({ categories }: { categories: CategoryData[] }) {
           <h2 className="text-foreground text-xl font-bold lg:text-2xl">Browse by Category</h2>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => scroll('left')}
               className={cn(
                 'border-border flex h-10 w-10 items-center justify-center rounded-full border transition-all',
                 'bg-background hover:bg-muted hover:border-primary text-foreground'
               )}
               style={{ backgroundColor: 'var(--floating-header-bg, white)' }}
+              aria-label="Previous categories"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
+              type="button"
               onClick={() => scroll('right')}
               className={cn(
                 'border-border flex h-10 w-10 items-center justify-center rounded-full border transition-all',
                 'bg-background hover:bg-muted hover:border-primary text-foreground'
               )}
               style={{ backgroundColor: 'var(--floating-header-bg, white)' }}
+              aria-label="Next categories"
             >
               <ChevronRight className="h-5 w-5" />
             </button>

@@ -89,8 +89,7 @@
  * - Time ranges: 7d, 30d, 90d for comprehensive coverage
  * - Multi-retailer: 3 retailers with varied price histories
  */
-import { test, expect } from '@playwright/test';
-import { cleanDatabase } from './helpers';
+import { test, expect } from './fixtures';
 import { seedTestProduct } from './helpers/admin-helpers';
 import {
   navigateToPriceHistory,
@@ -111,9 +110,6 @@ test.describe('Price History & Analytics', () => {
   let testProductId: number;
 
   test.beforeEach(async () => {
-    // Clean database before each test for isolation
-    await cleanDatabase();
-
     // Create test product with price history
     const { product } = await seedTestProduct({
       name: 'iPhone 15 Pro',

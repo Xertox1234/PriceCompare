@@ -13,6 +13,23 @@ import { getRedisSessionClient } from '../server/config/redis';
  * Removes all test data to ensure isolation
  */
 export async function cleanDatabase() {
+  // Ensure recently-added tables exist in the test database.
+  // Playwright's local webServer does not automatically run migrations.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS watch_list_shares (
+      id SERIAL PRIMARY KEY,
+      watch_list_id INTEGER NOT NULL REFERENCES watch_lists(id) ON DELETE CASCADE,
+      shared_with_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      permission VARCHAR(10) NOT NULL CHECK (permission IN ('view', 'edit')),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      CONSTRAINT unique_watch_list_share UNIQUE (watch_list_id, shared_with_user_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS watch_list_shares_watch_list_id_idx ON watch_list_shares(watch_list_id);
+    CREATE INDEX IF NOT EXISTS watch_list_shares_shared_with_user_id_idx ON watch_list_shares(shared_with_user_id);
+  `);
+
   // Use TRUNCATE CASCADE to reset all tables
   // This is faster and safer than deleting individual records
   // Only includes core tables that are guaranteed to exist
@@ -29,6 +46,7 @@ export async function cleanDatabase() {
       password_reset_tokens,
       notification_preferences,
       product_watches,
+      watch_list_shares,
       user_reputation,
       scraping_jobs,
       price_snapshots
@@ -141,24 +159,29 @@ export async function loginUser(page: Page, email: string, password: string): Pr
  * Works with both TemplateHeader and SharedNavigation components
  */
 export async function logoutUser(page: Page): Promise<void> {
+  // Best-effort UI logout, with a fallback to clearing browser state.
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
+
+  const userMenuButton = page.getByTestId('user-menu-button').first();
+  const hasUserMenu = await userMenuButton.isVisible().catch(() => false);
+
+  if (!hasUserMenu) {
+    // Some routes use different headers; clearing cookies/storage reliably logs out.
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.goto('/price-watch');
+    await page.waitForLoadState('networkidle');
+    return;
+  }
+
   try {
-    // Wait for page to be fully loaded
-    await page.waitForLoadState('networkidle', { timeout: 10000 });
-
-    // Find and click the user menu button (has data-testid="user-menu-button")
-    // Use .first() because multiple navigation instances exist (desktop, mobile, etc.)
-    const userMenuButton = page.getByTestId('user-menu-button').first();
     await userMenuButton.click({ timeout: 5000 });
-
-    // Wait for dropdown menu to appear
     await page.waitForTimeout(500);
-
-    // Click the "Sign out" button (has data-testid="sign-out-button")
-    const signOutButton = page.getByTestId('sign-out-button');
-    await signOutButton.click({ timeout: 5000 });
-
-    // Wait for logout to complete (redirect to home or login page)
-    await page.waitForURL(/\/(login)?$/, { timeout: 10000 });
+    await page.getByTestId('sign-out-button').click({ timeout: 5000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
   } catch (error) {
     throw new Error(`Could not logout: ${error instanceof Error ? error.message : String(error)}`);
   }

@@ -125,6 +125,7 @@ export function ProductCard({
               e.preventDefault();
               onWatchlist(product);
             }}
+            aria-label={`${product.inWatchlist ? 'Remove from' : 'Add to'} watchlist: ${product.name}`}
           >
             <Heart
               className={cn('h-4 w-4', product.inWatchlist && 'fill-destructive text-destructive')}
@@ -140,6 +141,7 @@ export function ProductCard({
               e.preventDefault();
               onCompare(product);
             }}
+            aria-label={`Compare product: ${product.name}`}
           >
             <BarChart2 className="h-4 w-4" />
           </Button>
@@ -153,6 +155,7 @@ export function ProductCard({
               e.preventDefault();
               onQuickView(product);
             }}
+            aria-label={`Quick view: ${product.name}`}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -322,6 +325,7 @@ function HorizontalProductCard({
           variant="ghost"
           className="flex-shrink-0"
           onClick={() => onWatchlist(product)}
+          aria-label={`${product.inWatchlist ? 'Remove from' : 'Add to'} watchlist: ${product.name}`}
         >
           <Heart
             className={cn('h-4 w-4', product.inWatchlist && 'fill-destructive text-destructive')}
@@ -407,6 +411,7 @@ function FeaturedProductCard({
               e.preventDefault();
               onWatchlist(product);
             }}
+            aria-label={`${product.inWatchlist ? 'Remove from' : 'Add to'} watchlist: ${product.name}`}
           >
             <Heart
               className={cn('h-5 w-5', product.inWatchlist && 'fill-destructive text-destructive')}

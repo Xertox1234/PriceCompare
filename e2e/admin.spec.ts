@@ -12,9 +12,8 @@
  * - Performance metrics viewing
  * - User account management
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import {
-  cleanDatabase,
   registerUser,
   loginUser,
   logoutUser,
@@ -28,11 +27,6 @@ import {
 } from './helpers/admin-helpers';
 
 test.describe('Admin - Dashboard Management', () => {
-  test.beforeEach(async () => {
-    // Clean database before each test for isolation
-    await cleanDatabase();
-  });
-
   test.describe('Dashboard Access', () => {
     test('should allow admin to access admin dashboard', async ({ page }) => {
       await createAdminUser(page);

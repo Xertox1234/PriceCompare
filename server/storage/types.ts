@@ -619,6 +619,32 @@ export interface WatchListImportData {
   }>;
 }
 
+export type WatchListSharePermission = 'view' | 'edit';
+
+export interface WatchListShareRecord {
+  id: number;
+  watchListId: number;
+  sharedWithUserId: number;
+  permission: WatchListSharePermission;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface WatchListShareWithUser {
+  id: number;
+  watchListId: number;
+  sharedWithUserId: number;
+  sharedWithUsername: string;
+  permission: WatchListSharePermission;
+  createdAt: Date | null;
+}
+
+export interface SharedWatchListWithCount extends WatchListWithCount {
+  ownerUserId: number;
+  ownerUsername: string;
+  sharedPermission: WatchListSharePermission;
+}
+
 export interface WatcherNotificationData {
   type: string;
   title: string;

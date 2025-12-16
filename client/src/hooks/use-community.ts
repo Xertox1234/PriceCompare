@@ -510,6 +510,14 @@ export interface WatchListWithStats extends WatchList {
   highPriorityCount: number;
 }
 
+export type WatchListSharePermission = 'view' | 'edit';
+
+export interface SharedWatchListWithStats extends WatchListWithStats {
+  ownerUserId: number;
+  ownerUsername: string;
+  sharedPermission: WatchListSharePermission;
+}
+
 export interface WatchListProduct extends ProductWatch {
   productName?: string;
   productImage?: string;
@@ -572,10 +580,16 @@ export function useWatchLists() {
     queryFn: async () => {
       // API returns WatchListWithCount (productCount field)
       // Transform to WatchListWithStats (watchCount + highPriorityCount fields)
-      const data = await apiRequest<Array<Omit<WatchListWithStats, 'watchCount' | 'highPriorityCount'> & { productCount: number }>>('/api/watchlists');
+      const result = await apiRequest<{
+        watchLists: Array<
+          Omit<WatchListWithStats, 'watchCount' | 'highPriorityCount'> & { productCount: number }
+        >;
+      }>('/api/watchlists');
+
+      const data = result.watchLists;
 
       // Transform productCount -> watchCount, set highPriorityCount to 0
-      return data.map(list => ({
+      return data.map((list) => ({
         ...list,
         watchCount: list.productCount,
         highPriorityCount: 0, // TODO: Calculate from product watches
@@ -583,6 +597,72 @@ export function useWatchLists() {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
+  });
+}
+
+export function useSharedWatchLists() {
+  return useQuery<SharedWatchListWithStats[]>({
+    queryKey: ['/api/watchlists/shared'],
+    queryFn: async () => {
+      const result = await apiRequest<{
+        watchLists: Array<
+          Omit<SharedWatchListWithStats, 'watchCount' | 'highPriorityCount'> & { productCount: number }
+        >;
+      }>('/api/watchlists/shared');
+
+      return result.watchLists.map((list) => ({
+        ...list,
+        watchCount: list.productCount,
+        highPriorityCount: 0,
+      })) as SharedWatchListWithStats[];
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+}
+
+export function useShareWatchList() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      watchListId: number;
+      email: string;
+      permission: WatchListSharePermission;
+    }) => {
+      return apiRequest<{
+        shareId: number;
+        sharedWithUserId: number;
+        sharedWithUsername: string;
+        permission: WatchListSharePermission;
+      }>(`/api/watchlists/${data.watchListId}/shares`, {
+        method: 'POST',
+        body: JSON.stringify({ email: data.email, permission: data.permission }),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ['/api/watchlists/shared'] });
+    },
+  });
+}
+
+export function useRemoveProductFromWatchList() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { watchListId: number; productId: number }) => {
+      return apiRequest<{ success: true }>(
+        `/api/watchlists/${data.watchListId}/products/${data.productId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+    },
+    onSuccess: async (_, { watchListId }) => {
+      await queryClient.refetchQueries({ queryKey: ['/api/watchlists', watchListId, 'products'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/watchlists/shared'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/watchlists'] });
+    },
   });
 }
 
@@ -909,15 +989,11 @@ export function useExportWatchLists() {
   return useQuery({
     queryKey: ['watchlists', 'export'],
     queryFn: async () => {
-      interface ExportResponse {
-        data: unknown;
-      }
-
       // Fetch export data using apiRequest for consistency
-      const data = await apiRequest<ExportResponse>('/api/watchlists/export');
+      const data = await apiRequest<WatchListExportData>('/api/community/watch-lists/export');
 
       // Download as JSON file
-      const blob = new Blob([JSON.stringify(data.data, null, 2)], {
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: 'application/json',
       });
       const url = URL.createObjectURL(blob);
@@ -934,6 +1010,25 @@ export function useExportWatchLists() {
     enabled: false, // Don't auto-fetch - only trigger manually via refetch()
     retry: false, // Don't retry download operations
   });
+}
+
+interface WatchListExportData {
+  exportDate: string;
+  userId: number;
+  watchLists: Array<{
+    name: string;
+    description: string | null;
+    color: string | null;
+    icon: string | null;
+    products: Array<{
+      productId: number;
+      productName?: string;
+      category: string | null;
+      notes: string | null;
+      priority: number | null;
+      targetPrice: string | null;
+    }>;
+  }>;
 }
 
 interface WatchListImportData {
@@ -965,7 +1060,7 @@ export function useImportWatchLists() {
 
   return useMutation({
     mutationFn: async (importData: WatchListImportData) => {
-      return apiRequest<{ created: number; skipped: number }>('/api/watchlists/import', {
+      return apiRequest<{ created: number; skipped: number }>('/api/community/watch-lists/import', {
         method: 'POST',
         body: JSON.stringify(importData),
       });
