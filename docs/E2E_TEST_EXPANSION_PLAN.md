@@ -1029,9 +1029,9 @@ export const test = base.extend({
 - **GitHub Actions** uses `http://localhost:5000` inside the runner.
 
 **Artifacts (per shard)**:
-- `playwright-report-shard-N`: HTML report (always uploaded)
-- `playwright-junit-shard-N`: `test-results/junit.xml` (always uploaded)
-- `playwright-videos-shard-N`: videos/screenshots (failure only)
+- PR runs: `playwright-report-shard-N-of-4`, `playwright-junit-shard-N-of-4`, `playwright-videos-shard-N-of-4`
+- Manual runs: `playwright-report-shard-N-of-TOTAL`, `playwright-junit-shard-N-of-TOTAL`, `playwright-videos-shard-N-of-TOTAL`
+- Uploads should use `if-no-files-found: ignore` to avoid failing CI when artifacts aren’t produced (e.g. early abort)
 
 **Manual shard count (workflow dispatch)**:
 - Run the **E2E Tests** workflow manually and choose `shard_count` (2/4/6/8).

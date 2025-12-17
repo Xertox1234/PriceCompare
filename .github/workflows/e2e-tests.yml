@@ -157,24 +157,27 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-shard-${{ matrix.shard }}
+          name: playwright-report-shard-${{ matrix.shard }}-of-4
           path: playwright-report/
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-junit-shard-${{ matrix.shard }}
+          name: playwright-junit-shard-${{ matrix.shard }}-of-4
           path: test-results/junit.xml
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload test videos
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-videos-shard-${{ matrix.shard }}
+          name: playwright-videos-shard-${{ matrix.shard }}-of-4
           path: test-results/
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Comment PR with test results
@@ -351,6 +354,7 @@ jobs:
         with:
           name: playwright-report-shard-${{ matrix.shard }}-of-${{ needs.e2e-tests-manual-matrix.outputs.total }}
           path: playwright-report/
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload JUnit results
@@ -359,6 +363,7 @@ jobs:
         with:
           name: playwright-junit-shard-${{ matrix.shard }}-of-${{ needs.e2e-tests-manual-matrix.outputs.total }}
           path: test-results/junit.xml
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload test videos
@@ -367,6 +372,7 @@ jobs:
         with:
           name: playwright-videos-shard-${{ matrix.shard }}-of-${{ needs.e2e-tests-manual-matrix.outputs.total }}
           path: test-results/
+          if-no-files-found: ignore
           retention-days: 7
 
   e2e-summary:
