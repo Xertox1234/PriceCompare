@@ -884,6 +884,7 @@ test('example: scan main content', async ({ page }) => {
 - `playwright.config.ts` runs sequentially (`workers: 1`, `fullyParallel: false`) to avoid database race conditions.
 - Phase 4 optimizations should be **opt-in** (keep the default safe).
 - ✅ CI job-level sharding is implemented in `.github/workflows/e2e-tests.yml` (4 shards), with `--workers=1` inside each shard.
+- ✅ CI artifacts are standardized per shard and uploads tolerate missing files (2025-12-17).
 
 ### 4.1 Test Fixtures for Faster Setup
 
