@@ -3,29 +3,9 @@ import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { toast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
+import { apiRequest } from '@/lib/queryClient';
 
 const log = createLogger('SmartNotifications');
-
-// Type-safe error extraction from unknown JSON response
-interface ApiErrorResponse {
-  error?: string;
-  message?: string;
-}
-
-function extractErrorMessage(data: unknown, fallback: string): string {
-  if (typeof data === 'object' && data !== null) {
-    const obj = data as ApiErrorResponse;
-    if (typeof obj.error === 'string') return obj.error;
-    if (typeof obj.message === 'string') return obj.message;
-  }
-  return fallback;
-}
-
-// Type-safe JSON parsing helper
-async function parseJsonResponse<T>(response: Response): Promise<T> {
-  const data: unknown = await response.json();
-  return data as T;
-}
 
 /**
  * Smart Notification Interface
@@ -50,8 +30,7 @@ export interface SmartNotification {
   };
 }
 
-export interface SmartNotificationsResponse {
-  success: boolean;
+export interface SmartNotificationsPayload {
   data: SmartNotification[];
   count: number;
 }
@@ -75,19 +54,9 @@ export function useSmartNotifications(filters?: SmartNotificationFilters) {
   if (filters?.limit) params.append('limit', filters.limit.toString());
   if (filters?.offset) params.append('offset', filters.offset.toString());
 
-  return useQuery<SmartNotificationsResponse>({
+  return useQuery<SmartNotificationsPayload>({
     queryKey: ['/api/notifications/smart', filters],
-    queryFn: async () => {
-      const res = await fetch(`/api/notifications/smart?${params}`, {
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to fetch smart notifications');
-      }
-
-      return parseJsonResponse<SmartNotificationsResponse>(res);
-    },
+    queryFn: () => apiRequest<SmartNotificationsPayload>(`/api/notifications/smart?${params}`),
     refetchInterval: 30000, // Poll every 30 seconds
     staleTime: 10000, // Consider data stale after 10 seconds
     gcTime: 30000, // Keep in cache for 30 seconds (3x staleTime)
@@ -113,19 +82,10 @@ export function useSnoozeNotification() {
       id: number;
       duration: number;
     }): Promise<SnoozeResponse> => {
-      const res = await fetch(`/api/notifications/smart/${id}/snooze`, {
+      return apiRequest<SnoozeResponse>(`/api/notifications/smart/${id}/snooze`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ duration }),
       });
-
-      if (!res.ok) {
-        const errorData: unknown = await res.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to snooze notification'));
-      }
-
-      return parseJsonResponse<SnoozeResponse>(res);
     },
     onSuccess: (data, variables) => {
       // Invalidate smart notifications query to refetch
@@ -155,17 +115,9 @@ export function useDismissNotification() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/notifications/smart/${id}/dismiss`, {
+      return apiRequest<{ success: boolean }>(`/api/notifications/smart/${id}/dismiss`, {
         method: 'POST',
-        credentials: 'include',
       });
-
-      if (!res.ok) {
-        const errorData: unknown = await res.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to dismiss notification'));
-      }
-
-      return parseJsonResponse<{ success: boolean }>(res);
     },
     onSuccess: () => {
       // Invalidate smart notifications query to refetch
@@ -235,10 +187,9 @@ export function useRealtimeNotifications() {
         // Update query cache optimistically
         queryClient.setQueryData(
           ['/api/notifications/smart'],
-          (old: SmartNotificationsResponse | undefined) => {
+          (old: SmartNotificationsPayload | undefined) => {
             if (!old) {
               return {
-                success: true,
                 data: [notification],
                 count: 1,
               };

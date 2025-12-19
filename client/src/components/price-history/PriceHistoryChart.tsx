@@ -392,6 +392,12 @@ export function PriceHistoryChart({
                             if (cx === null || cy === null) return null;
 
                             const price = getNumericPrice(props.value);
+                            const payload =
+                              props.payload && typeof props.payload === 'object'
+                                ? (props.payload as Record<string, unknown>)
+                                : null;
+                            const date =
+                              payload && typeof payload.date === 'string' ? payload.date : null;
 
                             return (
                               <circle
@@ -401,6 +407,8 @@ export function PriceHistoryChart({
                                 r={4}
                                 fill={color}
                                 style={{ cursor: 'pointer' }}
+                                data-price={price !== null ? String(price) : undefined}
+                                data-date={date ?? undefined}
                                 onClick={() => {
                                   if (price !== null) onChartClick(price);
                                 }}
@@ -420,6 +428,12 @@ export function PriceHistoryChart({
                             if (cx === null || cy === null) return null;
 
                             const price = getNumericPrice(props.value);
+                            const payload =
+                              props.payload && typeof props.payload === 'object'
+                                ? (props.payload as Record<string, unknown>)
+                                : null;
+                            const date =
+                              payload && typeof payload.date === 'string' ? payload.date : null;
 
                             return (
                               <circle
@@ -429,6 +443,8 @@ export function PriceHistoryChart({
                                 r={6}
                                 fill={color}
                                 style={{ cursor: 'pointer' }}
+                                data-price={price !== null ? String(price) : undefined}
+                                data-date={date ?? undefined}
                                 onClick={() => {
                                   if (price !== null) onChartClick(price);
                                 }}

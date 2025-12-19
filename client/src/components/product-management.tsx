@@ -74,6 +74,7 @@ export function ProductManagement() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editCategory, setEditCategory] = useState<string>('');
   const [newProduct, setNewProduct] = useState<CreateProductForm>({
     name: '',
     description: '',
@@ -183,6 +184,7 @@ export function ProductManagement() {
 
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
+    setEditCategory(product.category || '');
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -485,10 +487,16 @@ export function ProductManagement() {
 
                     {/* Action Buttons */}
                     <div className="ml-4 flex items-center gap-1">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" aria-label={`View product ${product.name}`}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditProduct(product)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditProduct(product)}
+                        aria-label={`Edit product ${product.name}`}
+                        data-testid={`admin-product-edit-${product.id}`}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
@@ -496,6 +504,8 @@ export function ProductManagement() {
                         size="sm"
                         onClick={() => handleDeleteProduct(product.id)}
                         disabled={deleteProductMutation.isPending}
+                        aria-label={`Delete product ${product.name}`}
+                        data-testid={`admin-product-delete-${product.id}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -525,7 +535,15 @@ export function ProductManagement() {
       </Card>
 
       {/* Edit Product Dialog */}
-      <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
+      <Dialog
+        open={!!editingProduct}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingProduct(null);
+            setEditCategory('');
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -536,6 +554,7 @@ export function ProductManagement() {
           </DialogHeader>
 
           <form onSubmit={handleSaveEdit} className="space-y-4">
+            <input type="hidden" name="category" value={editCategory} />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-product-name">Product Name</Label>
@@ -559,8 +578,8 @@ export function ProductManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-product-category">Category</Label>
-                <Select name="category" defaultValue={editingProduct?.category || ''}>
-                  <SelectTrigger>
+                <Select value={editCategory} onValueChange={setEditCategory}>
+                  <SelectTrigger aria-label="Category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>

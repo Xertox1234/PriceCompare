@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Bell } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 
 interface PriceAlertModalProps {
   productId: number;
@@ -47,29 +48,14 @@ export function PriceAlertModal({
   }, [prefilledPrice]);
 
   const createAlertMutation = useMutation({
-    mutationFn: async (price: string) => {
-      const res = await fetch('/api/price-alerts', {
+    mutationFn: async (price: number) => {
+      return apiRequest('/api/price-alerts', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
         body: JSON.stringify({
           productId,
           targetPrice: price,
         }),
       });
-
-      if (!res.ok) {
-        const error = (await res
-          .json()
-          .catch(() => ({ error: 'Failed to create alert' }))) as {
-          error?: string;
-        };
-        throw new Error(error.error || 'Failed to create alert');
-      }
-
-      return res.json();
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
@@ -102,7 +88,7 @@ export function PriceAlertModal({
       return;
     }
 
-    createAlertMutation.mutate(targetPrice);
+    createAlertMutation.mutate(price);
   };
 
   return (
@@ -123,7 +109,7 @@ export function PriceAlertModal({
             <div className="space-y-2">
               <Label htmlFor="target-price">Target Price</Label>
               <div className="relative">
-                <span className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2">
+                <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2">
                   $
                 </span>
                 <Input

@@ -92,10 +92,13 @@ test.describe('Admin - Dashboard Management', () => {
       await expect(page.getByText(/Retailers/i).first()).toBeVisible();
     });
 
-    test.skip('should display user growth chart - UI not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when admin dashboard UI is built
+    test('should display user growth chart', async ({ page }) => {
+      await createAdminUser(page);
+
+      await page.goto('/admin');
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.getByText(/User Growth/i)).toBeVisible();
     });
   });
 
@@ -121,7 +124,7 @@ test.describe('Admin - Dashboard Management', () => {
         data: {
           name: 'TechMart',
           website: 'https://techmart.com',
-          logoUrl: 'https://techmart.com/logo.png',
+          logo: 'https://techmart.com/logo.png',
           isActive: true,
         },
       });
@@ -133,16 +136,21 @@ test.describe('Admin - Dashboard Management', () => {
       expect(responseData.data.name).toBe('TechMart');
     });
 
-    test.skip('should create retailer via UI form - UI not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when retailer creation UI is built
-      // Expected flow:
-      // 1. Click "Add Retailer" button
-      // 2. Fill form with retailer details
-      // 3. Upload logo (if supported)
-      // 4. Submit form
-      // 5. Verify retailer appears in list
+    test('should create retailer via UI form', async ({ page }) => {
+      await createAdminUser(page);
+
+      await page.goto('/admin/retailers');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByRole('button', { name: /add retailer/i }).click();
+
+      await page.getByLabel(/retailer name/i).fill('UITest Retailer');
+      await page.getByLabel(/website url/i).fill('https://ui-test-retailer.example');
+      await page.getByLabel(/logo url/i).fill('https://ui-test-retailer.example/logo.png');
+
+      await page.getByRole('button', { name: /create retailer/i }).click();
+
+      await expect(page.getByText('UITest Retailer')).toBeVisible({ timeout: 5000 });
     });
 
     test('should list all retailers', async ({ page }) => {
@@ -207,16 +215,32 @@ test.describe('Admin - Dashboard Management', () => {
       expect(responseData.data.category).toBe('Smartphones');
     });
 
-    test.skip('should edit product via UI form - UI not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when product edit UI is built
-      // Expected flow:
-      // 1. Navigate to product details
-      // 2. Click "Edit Product" button
-      // 3. Update description and category fields
-      // 4. Save changes
-      // 5. Verify updated values display
+    test('should edit product via UI form', async ({ page }) => {
+      await createAdminUser(page);
+      const { product } = await seedTestProduct({ name: 'UI Edit Product' });
+
+      await page.goto('/admin/products');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByRole('tab', { name: /^products$/i }).click();
+
+      await page.getByTestId(`admin-product-edit-${product.id}`).click();
+      await expect(page.getByRole('dialog', { name: /edit product/i })).toBeVisible();
+
+      // Brand is required in the admin edit form; seeded products may not include it
+      await page.getByLabel(/^brand$/i).fill('TestBrand');
+      await page.getByLabel(/description/i).fill('Updated description with new features');
+      await page.getByRole('button', { name: /save changes/i }).click();
+
+      // Mutation success closes the dialog
+      await expect(page.getByRole('dialog', { name: /edit product/i })).toBeHidden({
+        timeout: 5000,
+      });
+
+      // Verify updated description is rendered in the list
+      await expect(page.getByText(/Updated description with new features/i)).toBeVisible({
+        timeout: 5000,
+      });
     });
 
     test('should delete product via API', async ({ page }) => {
@@ -248,14 +272,25 @@ test.describe('Admin - Dashboard Management', () => {
       expect(getResponse.status()).toBe(404);
     });
 
-    test.skip('should delete product via UI - UI not yet implemented', async ({ page: _page }) => {
-      // TODO: Implement when product deletion UI is built
-      // Expected flow:
-      // 1. Navigate to admin products page
-      // 2. Find product in list
-      // 3. Click delete button
-      // 4. Confirm deletion in dialog
-      // 5. Verify product removed from list
+    test('should delete product via UI', async ({ page }) => {
+      await createAdminUser(page);
+      const { product } = await seedTestProduct({ name: 'UI Delete Product' });
+
+      await page.goto('/admin/products');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByRole('tab', { name: /^products$/i }).click();
+
+      page.once('dialog', async (dialog) => {
+        await dialog.accept();
+      });
+
+      await page.getByTestId(`admin-product-delete-${product.id}`).click();
+
+      // Toast renders in multiple places (region + aria-live); use a strict single locator
+      await expect(page.getByText('Product Deleted', { exact: true })).toBeVisible({
+        timeout: 5000,
+      });
     });
 
     test('should list all products in admin view', async ({ page }) => {
@@ -318,15 +353,16 @@ test.describe('Admin - Dashboard Management', () => {
       expect(Array.isArray(responseData.data)).toBe(true);
     });
 
-    test.skip('should display real-time monitoring dashboard - UI not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when monitoring dashboard UI is built
-      // Expected features:
-      // - Real-time API response times chart
-      // - Database connection pool stats
-      // - Scraping job status
-      // - System resource usage (CPU, memory)
+    test('should display real-time monitoring dashboard', async ({ page }) => {
+      await createAdminUser(page);
+
+      await page.goto('/monitoring');
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.getByRole('heading', { name: /AI Agent Monitoring/i })).toBeVisible({
+        timeout: 10000,
+      });
+      await expect(page.getByText(/System Health/i)).toBeVisible();
     });
   });
 
@@ -355,27 +391,100 @@ test.describe('Admin - Dashboard Management', () => {
       expect(responseData.data.length).toBeGreaterThanOrEqual(3); // Admin + 2 users
     });
 
-    test.skip('should view user details in modal - UI not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when user management UI is built
-      // Expected flow:
-      // 1. Navigate to /admin/users
-      // 2. Click on a user in the list
-      // 3. User details modal opens
-      // 4. Modal shows user info and action buttons
-      // 5. Options to suspend or promote user
+    test('should view user details in modal', async ({ page }) => {
+      await createAdminUser(page);
+
+      // Create an additional user to open details for
+      await logoutUser(page);
+      await registerUser(page, 'modaluser', 'modaluser@example.com', 'TestUserPass123!');
+      await logoutUser(page);
+      await loginUser(page, 'admin@pricecompare.com', 'AdminPass123!');
+
+      await page.goto('/admin/users');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByRole('tab', { name: /users/i }).click();
+
+      const usersResponse = await page.request.get('/api/admin/users');
+      expect(usersResponse.status()).toBe(200);
+      const usersData = await usersResponse.json();
+      const modalUser = (usersData.data as Array<{ id: number; username: string }>).find(
+        (u) => u.username === 'modaluser'
+      );
+      expect(modalUser).toBeDefined();
+      await page.getByTestId(`admin-user-view-${modalUser!.id}`).click();
+
+      await expect(page.getByRole('dialog', { name: /user details/i })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /suspend user|reinstate user/i })
+      ).toBeVisible();
     });
 
-    test.skip('should suspend user account - feature not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when user suspension feature is added
-      // Expected flow:
-      // 1. Open user details
-      // 2. Click "Suspend User" button
-      // 3. Confirm suspension
-      // 4. User account is suspended (can't login)
+    test('should suspend user account', async ({ page }) => {
+      await createAdminUser(page);
+
+      await logoutUser(page);
+      await registerUser(page, 'suspendme', 'suspendme@example.com', 'TestUserPass123!');
+      await logoutUser(page);
+      await loginUser(page, 'admin@pricecompare.com', 'AdminPass123!');
+
+      await page.goto('/admin/users');
+      await page.waitForLoadState('networkidle');
+      await page.getByRole('tab', { name: /users/i }).click();
+
+      const usersResponse = await page.request.get('/api/admin/users');
+      expect(usersResponse.status()).toBe(200);
+      const usersData = await usersResponse.json();
+      const suspendMeUser = (usersData.data as Array<{ id: number; username: string }>).find(
+        (u) => u.username === 'suspendme'
+      );
+      expect(suspendMeUser).toBeDefined();
+
+      await page.getByTestId(`admin-user-view-${suspendMeUser!.id}`).click();
+      await page.getByRole('button', { name: /suspend user/i }).click();
+
+      // Suspension mutation closes the modal on success
+      await expect(page.getByRole('dialog', { name: /user details/i })).toBeHidden({
+        timeout: 10000,
+      });
+
+      // Confirm suspended state via admin users API (more robust than toast assertions)
+      await expect
+        .poll(
+          async () => {
+            const refreshed = await page.request.get('/api/admin/users');
+            if (!refreshed.ok()) return false;
+            const refreshedData = await refreshed.json();
+            const refreshedUser = (
+              refreshedData.data as Array<{ id: number; isSuspended?: boolean }>
+            ).find((u) => u.id === suspendMeUser!.id);
+            return Boolean(refreshedUser?.isSuspended);
+          },
+          { timeout: 10000 }
+        )
+        .toBe(true);
+
+      // Verify suspended user cannot login
+      await logoutUser(page);
+
+      // Attempt login and assert we see the error (don't use loginUser helper; it expects success)
+      await page.goto('/price-watch');
+      await page.waitForLoadState('networkidle');
+      await page
+        .getByRole('button', { name: /sign in/i })
+        .first()
+        .click();
+      await page.waitForSelector('input#email', { state: 'visible', timeout: 5000 });
+      await page.getByLabel(/email/i).fill('suspendme@example.com');
+      await page
+        .getByLabel(/^password$/i)
+        .first()
+        .fill('TestUserPass123!');
+      await page.getByRole('button', { name: /^sign in$/i }).click();
+
+      await expect(page.getByText(/account suspended|account inactive/i)).toBeVisible({
+        timeout: 10000,
+      });
     });
   });
 

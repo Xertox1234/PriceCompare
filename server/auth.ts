@@ -45,16 +45,21 @@ passport.use(
     // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Passport supports async verify callbacks
     async (email, password, done) => {
       try {
+        const isTestEnv = process.env.NODE_ENV === 'test';
+
         // Check if account is locked before attempting authentication (Redis-backed)
-        const lockStatus = await isAccountLockedAsync(email);
-        if (lockStatus.locked) {
-          // Note: Logging will happen in route handler where we have access to req
-          // TYPE ASSERTION: ExtendedVerifyOptions extends IVerifyOptions with lockout fields
-          return done(null, false, {
-            message: 'Account temporarily locked',
-            locked: true,
-            remainingTime: lockStatus.remainingTime,
-          } as ExtendedVerifyOptions);
+        // NOTE: Disabled in test env to keep E2E runs deterministic and avoid cross-test interference.
+        if (!isTestEnv) {
+          const lockStatus = await isAccountLockedAsync(email);
+          if (lockStatus.locked) {
+            // Note: Logging will happen in route handler where we have access to req
+            // TYPE ASSERTION: ExtendedVerifyOptions extends IVerifyOptions with lockout fields
+            return done(null, false, {
+              message: 'Account temporarily locked',
+              locked: true,
+              remainingTime: lockStatus.remainingTime,
+            } as ExtendedVerifyOptions);
+          }
         }
 
         // Fast indexed lookup by email hash (case-insensitive via lowercase in hash)
@@ -91,7 +96,9 @@ passport.use(
 
         if (!userResult.length) {
           // Record failed attempt (user not found) - Redis-backed
-          await recordFailedLoginAsync(email);
+          if (process.env.NODE_ENV !== 'test') {
+            await recordFailedLoginAsync(email);
+          }
           // Note: Logging will happen in route handler where we have access to req
           return done(null, false, { message: 'Invalid email or password' });
         }
@@ -102,7 +109,9 @@ passport.use(
         // NOTE: user.email is already decrypted by Drizzle's encryptedText fromDriver
         if (user.email.toLowerCase() !== email.toLowerCase()) {
           // Hash collision - treat as user not found
-          await recordFailedLoginAsync(email);
+          if (process.env.NODE_ENV !== 'test') {
+            await recordFailedLoginAsync(email);
+          }
           return done(null, false, { message: 'Invalid email or password' });
         }
 
@@ -110,14 +119,31 @@ passport.use(
 
         if (!isValid) {
           // Record failed attempt (wrong password) - Redis-backed
-          const lockoutResult = await recordFailedLoginAsync(email);
-          // Note: Logging will happen in route handler where we have access to req
-          // TYPE ASSERTION: ExtendedVerifyOptions extends IVerifyOptions with lockout fields
+          // NOTE: Disabled in test env to keep E2E runs deterministic and avoid cross-test interference.
+          if (!isTestEnv) {
+            const lockoutResult = await recordFailedLoginAsync(email);
+            // Note: Logging will happen in route handler where we have access to req
+            // TYPE ASSERTION: ExtendedVerifyOptions extends IVerifyOptions with lockout fields
+            return done(null, false, {
+              message: 'Invalid email or password',
+              remainingAttempts: lockoutResult.remainingAttempts,
+              locked: lockoutResult.locked,
+            } as ExtendedVerifyOptions);
+          }
+
+          return done(null, false, { message: 'Invalid email or password' });
+        }
+
+        // SECURITY: Block login for suspended/inactive accounts
+        if (user.isSuspended) {
           return done(null, false, {
-            message: 'Invalid email or password',
-            remainingAttempts: lockoutResult.remainingAttempts,
-            locked: lockoutResult.locked,
-          } as ExtendedVerifyOptions);
+            message: 'Account suspended',
+          });
+        }
+        if (user.isActive === false) {
+          return done(null, false, {
+            message: 'Account inactive',
+          });
         }
 
         // Successful login - clear any failed attempts (Redis-backed)

@@ -1,7 +1,11 @@
-// Load environment variables from .env file
-import 'dotenv/config';
+// Load environment variables early.
+// E2E runs the server with NODE_ENV=test; use `.env.test` so the server and Playwright
+// test runner share the same DATABASE_URL and other test-only settings.
+import { config as loadEnv } from 'dotenv';
 
-// IMPORTANT: Sentry must be initialized FIRST before any other imports
+loadEnv({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' });
+
+// IMPORTANT: After env loading, Sentry must be initialized FIRST before other server imports.
 import {
   initializeSentry,
   sentryRequestHandler,

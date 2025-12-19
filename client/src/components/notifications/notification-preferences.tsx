@@ -56,21 +56,6 @@ export function NotificationPreferences() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="mt-2 h-4 w-64" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Price Drop Notifications */}
@@ -87,6 +72,7 @@ export function NotificationPreferences() {
             <Label htmlFor="priceDropEnabled">Enable price drop notifications</Label>
             <Switch
               id="priceDropEnabled"
+              aria-label="Enable price drop notifications"
               checked={prefs.priceDropEnabled}
               onCheckedChange={(checked) => setPrefs({ ...prefs, priceDropEnabled: checked })}
             />
@@ -165,6 +151,7 @@ export function NotificationPreferences() {
             <Label htmlFor="emailEnabled">Email notifications</Label>
             <Switch
               id="emailEnabled"
+              aria-label="Email notification"
               checked={prefs.emailEnabled}
               onCheckedChange={(checked) => setPrefs({ ...prefs, emailEnabled: checked })}
             />
@@ -239,6 +226,13 @@ export function NotificationPreferences() {
       <Button onClick={handleSave} disabled={updatePrefs.isPending} className="w-full">
         {updatePrefs.isPending ? 'Saving...' : 'Save Preferences'}
       </Button>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+      ) : null}
     </div>
   );
 }

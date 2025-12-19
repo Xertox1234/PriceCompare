@@ -41,10 +41,7 @@ export function useProducts(filters: SearchFilters) {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
-    enabled:
-      !!debouncedQuery ||
-      Object.keys(optimizedFilters).some(
-        (key) => key !== 'query' && optimizedFilters[key as keyof SearchFilters]
-      ),
+    // Always enabled - endpoint handles empty filters gracefully
+    // Returns all products sorted by popularity when no filters applied
   });
 }

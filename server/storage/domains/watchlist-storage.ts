@@ -17,6 +17,7 @@
  */
 
 import { and, eq, desc, asc, sql, inArray, count, gt } from 'drizzle-orm';
+import crypto from 'crypto';
 import {
   watchLists,
   productWatches,
@@ -175,6 +176,8 @@ export class WatchListStorage extends BaseStorage {
           color: watchLists.color,
           icon: watchLists.icon,
           isDefault: watchLists.isDefault,
+          isPublic: watchLists.isPublic,
+          publicShareToken: watchLists.publicShareToken,
           sortOrder: watchLists.sortOrder,
           createdAt: watchLists.createdAt,
           updatedAt: watchLists.updatedAt,
@@ -462,6 +465,146 @@ export class WatchListStorage extends BaseStorage {
       return result;
     } catch (error) {
       this.handleError(error, 'updateWatchList');
+    }
+  }
+
+  // ============================================================================
+  // Public Sharing (Unauthenticated Link)
+  // ============================================================================
+
+  /**
+   * Enable/disable public sharing for a watch list.
+   * When enabling, generates (or reuses) a token and returns it.
+   * SECURITY: Owner-only.
+   */
+  async setWatchListPublic(
+    watchListId: number,
+    userId: number,
+    isPublic: boolean
+  ): Promise<{ isPublic: boolean; publicShareToken: string | null }> {
+    try {
+      this.validateWatchListId(watchListId);
+      this.validateUserId(userId);
+
+      // Owner-only access
+      const access = await this.getWatchListAccess(watchListId, userId);
+      if (!access || access.role !== 'owner') {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
+      if (!isPublic) {
+        const [result] = await this.db
+          .update(watchLists)
+          .set({ isPublic: false, publicShareToken: null, updatedAt: new Date() })
+          .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, access.ownerUserId)))
+          .returning({
+            isPublic: watchLists.isPublic,
+            publicShareToken: watchLists.publicShareToken,
+          });
+
+        return {
+          isPublic: result?.isPublic ?? false,
+          publicShareToken: result?.publicShareToken ?? null,
+        };
+      }
+
+      // Enabling: generate token if missing.
+      const token = crypto.randomBytes(24).toString('hex');
+
+      const [result] = await this.db
+        .update(watchLists)
+        .set({
+          isPublic: true,
+          publicShareToken: sql<string>`COALESCE(${watchLists.publicShareToken}, ${token})`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, access.ownerUserId)))
+        .returning({
+          isPublic: watchLists.isPublic,
+          publicShareToken: watchLists.publicShareToken,
+        });
+
+      if (!result) {
+        throw new Error('Watch list not found or unauthorized');
+      }
+
+      return {
+        isPublic: result.isPublic ?? true,
+        publicShareToken: result.publicShareToken ?? token,
+      };
+    } catch (error) {
+      this.handleError(error, 'setWatchListPublic');
+    }
+  }
+
+  /**
+   * Get a public watchlist by token (no authentication).
+   */
+  async getPublicWatchListByToken(token: string): Promise<WatchListWithProducts | null> {
+    try {
+      const safeToken = token.trim();
+      if (!safeToken) return null;
+
+      const [watchList] = await this.db
+        .select({
+          id: watchLists.id,
+          name: watchLists.name,
+          description: watchLists.description,
+          color: watchLists.color,
+          icon: watchLists.icon,
+          isDefault: watchLists.isDefault,
+          sortOrder: watchLists.sortOrder,
+          createdAt: watchLists.createdAt,
+          updatedAt: watchLists.updatedAt,
+        })
+        .from(watchLists)
+        .where(and(eq(watchLists.isPublic, true), eq(watchLists.publicShareToken, safeToken)))
+        .limit(1);
+
+      if (!watchList) return null;
+
+      // Minimal product list (reusing existing “enriched” watch list query shape is overkill here)
+      const productRows = await this.db
+        .select({
+          id: productWatches.id,
+          name: products.name,
+          imageUrl: products.image,
+          addedAt: productWatches.createdAt,
+          currentPrice: sql<number>`COALESCE(MIN(${productOffers.price})::numeric, 0)::float`.as(
+            'current_price'
+          ),
+          lowestHistoricalPrice:
+            sql<number>`COALESCE(MIN(${priceHistory.price})::numeric, 0)::float`.as(
+              'lowest_historical_price'
+            ),
+          priceDropPercent: sql<number>`0::float`.as('price_drop_percent'),
+        })
+        .from(productWatches)
+        .innerJoin(products, eq(products.id, productWatches.productId))
+        .leftJoin(productOffers, eq(productOffers.productId, products.id))
+        .leftJoin(priceHistory, eq(priceHistory.productId, products.id))
+        .where(eq(productWatches.watchListId, watchList.id))
+        .groupBy(productWatches.id, products.name, products.image, productWatches.createdAt)
+        .orderBy(desc(productWatches.createdAt));
+
+      return {
+        id: watchList.id,
+        name: watchList.name,
+        description: watchList.description ?? null,
+        color: watchList.color ?? null,
+        icon: watchList.icon ?? null,
+        products: productRows.map((p) => ({
+          id: p.id,
+          name: p.name,
+          imageUrl: p.imageUrl ?? '',
+          addedAt: p.addedAt ?? new Date(),
+          currentPrice: p.currentPrice ?? 0,
+          lowestHistoricalPrice: p.lowestHistoricalPrice ?? 0,
+          priceDropPercent: p.priceDropPercent ?? 0,
+        })),
+      };
+    } catch (error) {
+      this.handleError(error, 'getPublicWatchListByToken');
     }
   }
 
@@ -945,7 +1088,9 @@ export class WatchListStorage extends BaseStorage {
               const [watchList] = await tx
                 .select({ id: watchLists.id })
                 .from(watchLists)
-                .where(and(eq(watchLists.id, watchListId), eq(watchLists.userId, access.ownerUserId)))
+                .where(
+                  and(eq(watchLists.id, watchListId), eq(watchLists.userId, access.ownerUserId))
+                )
                 .limit(1);
 
               if (!watchList) {
@@ -1155,6 +1300,8 @@ export class WatchListStorage extends BaseStorage {
           description: watchLists.description,
           color: watchLists.color,
           icon: watchLists.icon,
+          isPublic: watchLists.isPublic,
+          publicShareToken: watchLists.publicShareToken,
           isDefault: watchLists.isDefault,
           sortOrder: watchLists.sortOrder,
           createdAt: watchLists.createdAt,
@@ -1192,7 +1339,12 @@ export class WatchListStorage extends BaseStorage {
     watchListId: number,
     email: string,
     permission: WatchListSharePermission
-  ): Promise<{ shareId: number; sharedWithUserId: number; sharedWithUsername: string; permission: WatchListSharePermission }> {
+  ): Promise<{
+    shareId: number;
+    sharedWithUserId: number;
+    sharedWithUsername: string;
+    permission: WatchListSharePermission;
+  }> {
     try {
       this.validateUserId(ownerUserId);
       this.validateWatchListId(watchListId);
@@ -1265,7 +1417,10 @@ export class WatchListStorage extends BaseStorage {
     }
   }
 
-  async listWatchListShares(ownerUserId: number, watchListId: number): Promise<WatchListShareWithUser[]> {
+  async listWatchListShares(
+    ownerUserId: number,
+    watchListId: number
+  ): Promise<WatchListShareWithUser[]> {
     try {
       this.validateUserId(ownerUserId);
       this.validateWatchListId(watchListId);
@@ -1500,6 +1655,8 @@ export class WatchListStorage extends BaseStorage {
           description: watchLists.description,
           color: watchLists.color,
           icon: watchLists.icon,
+          isPublic: watchLists.isPublic,
+          publicShareToken: watchLists.publicShareToken,
           isDefault: watchLists.isDefault,
           sortOrder: watchLists.sortOrder,
           createdAt: watchLists.createdAt,
@@ -1540,6 +1697,8 @@ export class WatchListStorage extends BaseStorage {
           description: watchLists.description,
           color: watchLists.color,
           icon: watchLists.icon,
+          isPublic: watchLists.isPublic,
+          publicShareToken: watchLists.publicShareToken,
           isDefault: watchLists.isDefault,
           sortOrder: watchLists.sortOrder,
           createdAt: watchLists.createdAt,

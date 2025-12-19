@@ -382,9 +382,7 @@ export function useMostWatchedProducts(limit = 10) {
   return useQuery<MostWatchedProductsResponse>({
     queryKey: ['/api/community/most-watched', limit],
     queryFn: async () => {
-      return apiRequest<MostWatchedProductsResponse>(
-        `/api/community/most-watched?limit=${limit}`
-      );
+      return apiRequest<MostWatchedProductsResponse>(`/api/community/most-watched?limit=${limit}`);
     },
     refetchInterval: 60000, // Refresh every minute
   });
@@ -606,7 +604,9 @@ export function useSharedWatchLists() {
     queryFn: async () => {
       const result = await apiRequest<{
         watchLists: Array<
-          Omit<SharedWatchListWithStats, 'watchCount' | 'highPriorityCount'> & { productCount: number }
+          Omit<SharedWatchListWithStats, 'watchCount' | 'highPriorityCount'> & {
+            productCount: number;
+          }
         >;
       }>('/api/watchlists/shared');
 
@@ -741,6 +741,47 @@ export function useDeleteWatchList() {
 }
 
 /**
+ * Toggle public sharing for a watch list
+ *
+ * @security CSRF protected - Automatic via apiRequest()
+ * @security Authentication required
+ */
+export function useSetWatchListPublic() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ watchListId, isPublic }: { watchListId: number; isPublic: boolean }) => {
+      return apiRequest<{ isPublic: boolean; publicShareToken: string | null }>(
+        `/api/watchlists/${watchListId}/public`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ isPublic }),
+        }
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ['/api/watchlists'] });
+    },
+  });
+}
+
+/**
+ * Fetch a public watchlist by token (no auth)
+ */
+export function usePublicWatchList(token: string | null) {
+  return useQuery<WatchListApiResponse>({
+    queryKey: ['/api/watchlists/public', token],
+    queryFn: async () => {
+      if (!token) throw new Error('Missing token');
+      return apiRequest<WatchListApiResponse>(`/api/watchlists/public/${token}`);
+    },
+    enabled: !!token,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
  * Get products in a watch list
  *
  * Fetches the full watchlist from the server and extracts just the products array.
@@ -850,13 +891,7 @@ export function useAddProductToWatchList() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      listId,
-      productId,
-    }: {
-      listId: number;
-      productId: number;
-    }) => {
+    mutationFn: async ({ listId, productId }: { listId: number; productId: number }) => {
       return apiRequest<ProductWatch>(`/api/watchlists/${listId}/products`, {
         method: 'POST',
         body: JSON.stringify({ productId }),

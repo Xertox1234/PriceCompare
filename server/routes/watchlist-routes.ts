@@ -83,6 +83,10 @@ const shareWatchListSchema = z.object({
   permission: z.enum(['view', 'edit']),
 });
 
+const setPublicSchema = z.object({
+  isPublic: z.boolean(),
+});
+
 // ============================================================================
 // Rate Limiters
 // ============================================================================
@@ -104,6 +108,26 @@ const productAddLimiter = createRateLimiter(WATCHLIST_RATE_LIMITS.PRODUCT_ADD);
 // ============================================================================
 
 export function registerWatchListRoutes(app: Express): void {
+  /**
+   * GET /api/watchlists/public/:token
+   * Fetch a public watchlist by token (no authentication).
+   */
+  app.get('/api/watchlists/public/:token', async (req, res) => {
+    try {
+      const token = z.string().trim().min(1).max(64).parse(req.params.token);
+      const watchList = await storage.getPublicWatchListByToken(token);
+
+      if (!watchList) {
+        sendError(res, 'Watch list not found', 404);
+        return;
+      }
+
+      sendSuccess(res, watchList);
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'GetPublicWatchList');
+    }
+  });
+
   /**
    * GET /api/watchlists/shared
    * Get watch lists shared with the authenticated user
@@ -154,7 +178,11 @@ export function registerWatchListRoutes(app: Express): void {
    * @security CSRF protection required
    * @security User ID taken from authenticated session (req.user.id)
    */
-  app.post('/api/watchlists', csrfProtection, requireAuth, watchlistCreateLimiter,
+  app.post(
+    '/api/watchlists',
+    csrfProtection,
+    requireAuth,
+    watchlistCreateLimiter,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -273,6 +301,30 @@ export function registerWatchListRoutes(app: Express): void {
   );
 
   /**
+   * PATCH /api/watchlists/:id/public
+   * Toggle public sharing for a watch list.
+   * @security CSRF protection required
+   * @security Owner-only
+   */
+  app.patch(
+    '/api/watchlists/:id/public',
+    csrfProtection,
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = (req as AuthenticatedRequest).user.id;
+        const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
+        const { isPublic } = setPublicSchema.parse(req.body);
+
+        const result = await storage.setWatchListPublic(watchListId, userId, isPublic);
+        sendSuccess(res, result);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'SetWatchListPublic');
+      }
+    }
+  );
+
+  /**
    * GET /api/watchlists/:id/shares
    * List users this watchlist is shared with (owner-only)
    */
@@ -295,7 +347,10 @@ export function registerWatchListRoutes(app: Express): void {
    * POST /api/watchlists/:id/shares
    * Invite a user by email to share this watchlist (owner-only)
    */
-  app.post('/api/watchlists/:id/shares', csrfProtection, requireAuth,
+  app.post(
+    '/api/watchlists/:id/shares',
+    csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         const ownerUserId = (req as AuthenticatedRequest).user.id;
@@ -320,7 +375,10 @@ export function registerWatchListRoutes(app: Express): void {
    * DELETE /api/watchlists/:id/shares/:sharedWithUserId
    * Revoke share access (owner-only)
    */
-  app.delete('/api/watchlists/:id/shares/:sharedWithUserId', csrfProtection, requireAuth,
+  app.delete(
+    '/api/watchlists/:id/shares/:sharedWithUserId',
+    csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         const ownerUserId = (req as AuthenticatedRequest).user.id;
@@ -329,7 +387,11 @@ export function registerWatchListRoutes(app: Express): void {
           min: 1,
         });
 
-        const revoked = await storage.revokeWatchListShare(ownerUserId, watchListId, sharedWithUserId);
+        const revoked = await storage.revokeWatchListShare(
+          ownerUserId,
+          watchListId,
+          sharedWithUserId
+        );
         sendSuccess(res, { revoked });
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'RevokeWatchListShare');
@@ -347,7 +409,10 @@ export function registerWatchListRoutes(app: Express): void {
    * @security CSRF protection required
    * @security Ownership verification in storage layer
    */
-  app.patch('/api/watchlists/:id', csrfProtection, requireAuth,
+  app.patch(
+    '/api/watchlists/:id',
+    csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -378,7 +443,10 @@ export function registerWatchListRoutes(app: Express): void {
    * @security Ownership verification in storage layer
    * @note Product watches are automatically deleted via CASCADE constraint
    */
-  app.delete('/api/watchlists/:id', csrfProtection, requireAuth,
+  app.delete(
+    '/api/watchlists/:id',
+    csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -409,7 +477,11 @@ export function registerWatchListRoutes(app: Express): void {
    * @security Ownership verification in storage layer
    * @note Storage validates: product exists, not duplicate, max 100 products/list
    */
-  app.post('/api/watchlists/:id/products', csrfProtection, requireAuth, productAddLimiter,
+  app.post(
+    '/api/watchlists/:id/products',
+    csrfProtection,
+    requireAuth,
+    productAddLimiter,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware
@@ -445,7 +517,10 @@ export function registerWatchListRoutes(app: Express): void {
    * @security CSRF protection required
    * @security Ownership verification in storage layer
    */
-  app.delete('/api/watchlists/:id/products/:productId', csrfProtection, requireAuth,
+  app.delete(
+    '/api/watchlists/:id/products/:productId',
+    csrfProtection,
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         // Type assertion safe after requireAuth middleware

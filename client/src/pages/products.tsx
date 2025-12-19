@@ -1,11 +1,11 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { EnhancedSearchHeader } from '@/components/enhanced-search-header';
 import { FilterSidebar } from '@/components/filter-sidebar';
 import { ProductGrid } from '@/components/product-grid';
 import { ComparisonModal } from '@/components/comparison-modal';
 import { useEnhancedProductsSearch } from '@/hooks/use-enhanced-products-search';
 import { useComparison } from '@/hooks/use-comparison';
-import { SearchFilters } from '@shared/schema';
+import { SearchFilters, type ProductWithOffers } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,6 +15,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Filter } from 'lucide-react';
+
+const PAGE_SIZE = 12;
 
 export default function Products() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -26,14 +28,14 @@ export default function Products() {
     setFilters,
     search,
     products,
-    metadata: _metadata,
+    metadata,
     isLoading,
     error,
     isSearching: _isSearching,
     autoSearchResults,
     defaultProductsQuery,
   } = useEnhancedProductsSearch({
-    initialFilters: { sortBy: 'popularity' },
+    initialFilters: { sortBy: 'popularity', page: 1, limit: PAGE_SIZE },
     autoSearch: true,
   });
 
@@ -80,6 +82,112 @@ export default function Products() {
     if (filters.category) count++;
     return count;
   }, [filters]);
+
+  const currentPage = useMemo(() => {
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    const params = new URLSearchParams(search);
+    const pageParam = params.get('page');
+    const parsed = pageParam ? Number.parseInt(pageParam, 10) : 1;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }, [filters.page]);
+
+  const totalPages = useMemo(() => {
+    if (metadata?.totalPages && metadata.totalPages > 0) return metadata.totalPages;
+    const total = metadata?.total ?? products?.length ?? 0;
+    return Math.max(1, Math.ceil(total / PAGE_SIZE));
+  }, [metadata?.total, metadata?.totalPages, products]);
+
+  const setPage = useCallback(
+    (nextPage: number) => {
+      const safeNext = Math.min(Math.max(nextPage, 1), totalPages);
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', String(safeNext));
+        window.history.pushState({}, '', `${url.pathname}?${url.searchParams.toString()}`);
+      }
+
+      // Sync filter state immediately so backend paging updates.
+      setFilters({ page: safeNext, limit: PAGE_SIZE });
+    },
+    [setFilters, totalPages]
+  );
+
+  // Avoid transient empty grids during pagination fetches (E2E stability)
+  // by keeping the last rendered list while a new page request is in-flight.
+  // Do NOT do this for filter changes (needed for correct empty-state UX).
+  const activeFilterSignature = useMemo(
+    () =>
+      JSON.stringify({
+        query,
+        category: filters.category,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        minRating: filters.minRating,
+        sortBy: filters.sortBy,
+        retailers: (filters.retailers ?? []).slice().sort(),
+        availability: (filters.availability ?? []).slice().sort(),
+      }),
+    [
+      query,
+      filters.availability,
+      filters.category,
+      filters.maxPrice,
+      filters.minPrice,
+      filters.minRating,
+      filters.retailers,
+      filters.sortBy,
+    ]
+  );
+
+  const lastStableResultsRef = useRef<{ signature: string; products: ProductWithOffers[] }>({
+    signature: activeFilterSignature,
+    products: products ?? [],
+  });
+
+  useEffect(() => {
+    if (!isLoading && products) {
+      lastStableResultsRef.current = {
+        signature: activeFilterSignature,
+        products,
+      };
+    }
+  }, [activeFilterSignature, isLoading, products]);
+
+  const displayProducts = useMemo(() => {
+    if (isLoading && (!products || products.length === 0)) {
+      const isPaginationOnlyChange =
+        activeFilterSignature === lastStableResultsRef.current.signature;
+      if (isPaginationOnlyChange) {
+        return lastStableResultsRef.current.products;
+      }
+    }
+    return products ?? [];
+  }, [activeFilterSignature, isLoading, products]);
+
+  // Keep backend paging in sync with the URL page param.
+  useEffect(() => {
+    if (filters.page !== currentPage || filters.limit !== PAGE_SIZE) {
+      setFilters({ page: currentPage, limit: PAGE_SIZE });
+    }
+  }, [currentPage, filters.limit, filters.page, setFilters]);
+
+  // Reset to page 1 when query/filters change to avoid empty pages.
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setPage(1);
+    }
+  }, [
+    currentPage,
+    query,
+    filters.category,
+    filters.minPrice,
+    filters.maxPrice,
+    filters.minRating,
+    filters.sortBy,
+    (filters.retailers ?? []).join(','),
+    (filters.availability ?? []).join(','),
+    setPage,
+  ]);
 
   return (
     <>
@@ -175,12 +283,38 @@ export default function Products() {
             {/* Products Grid */}
             <div className="flex-1">
               <ProductGrid
-                products={products || []}
+                products={displayProducts}
                 isLoading={isLoading}
                 error={error}
                 onAddToComparison={addToComparison}
                 onRetry={handleRetry}
               />
+
+              {/* Pagination */}
+              {(isLoading || totalPages > 1) && (
+                <div
+                  className="mt-8 flex items-center justify-center gap-3"
+                  data-testid="pagination"
+                >
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="text-muted-foreground text-sm">
+                    Page {Math.min(currentPage, totalPages)} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage(currentPage + 1)}
+                    disabled={!isLoading && currentPage >= totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

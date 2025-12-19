@@ -1,5 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -18,6 +28,7 @@ interface User {
   email: string;
   role: string;
   isActive: boolean;
+  isSuspended?: boolean;
   reputation: number;
   createdAt: string;
 }
@@ -30,6 +41,7 @@ interface AdminUserManagementProps {
 export function AdminUserManagement({ users, isLoading }: AdminUserManagementProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const updateUserRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
@@ -50,6 +62,26 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
   const handleUpdateUserRole = (userId: number, role: string) => {
     updateUserRoleMutation.mutate({ userId, role });
   };
+
+  const updateUserSuspensionMutation = useMutation({
+    mutationFn: async ({ userId, isSuspended }: { userId: number; isSuspended: boolean }) => {
+      return apiRequest(`/api/admin/users/${userId}/suspension`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          isSuspended,
+          reason: isSuspended ? 'Suspended by administrator' : undefined,
+        }),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      setSelectedUser(null);
+      toast({ title: 'User status updated successfully!' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to update user status', variant: 'destructive' });
+    },
+  });
 
   return (
     <Card>
@@ -84,6 +116,15 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedUser(user)}
+                    data-testid={`admin-user-view-${user.id}`}
+                  >
+                    View
+                  </Button>
                   <Select
                     value={user.role}
                     onValueChange={(role) => handleUpdateUserRole(user.id, role)}
@@ -100,6 +141,7 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
                   <Badge variant={user.isActive ? 'default' : 'secondary'}>
                     {user.isActive ? 'Active' : 'Inactive'}
                   </Badge>
+                  {user.isSuspended ? <Badge variant="destructive">Suspended</Badge> : null}
                 </div>
               </div>
             ))
@@ -107,6 +149,68 @@ export function AdminUserManagement({ users, isLoading }: AdminUserManagementPro
             <div className="text-muted-foreground text-center">No users found</div>
           )}
         </div>
+
+        <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+              <DialogDescription>View user info and take actions</DialogDescription>
+            </DialogHeader>
+
+            {selectedUser ? (
+              <div className="space-y-3">
+                <div>
+                  <div className="font-medium">{selectedUser.username}</div>
+                  <div className="text-muted-foreground text-sm">{selectedUser.email}</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">Role: {selectedUser.role}</Badge>
+                  <Badge variant={selectedUser.isActive ? 'default' : 'secondary'}>
+                    {selectedUser.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                  {selectedUser.isSuspended ? <Badge variant="destructive">Suspended</Badge> : null}
+                </div>
+                <div className="text-muted-foreground text-sm">
+                  Reputation: {selectedUser.reputation} • Joined:{' '}
+                  {new Date(selectedUser.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            ) : null}
+
+            <DialogFooter>
+              {selectedUser && selectedUser.role !== 'admin' ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => handleUpdateUserRole(selectedUser.id, 'admin')}
+                >
+                  Make Admin
+                </Button>
+              ) : null}
+
+              {selectedUser ? (
+                <Button
+                  type="button"
+                  variant={selectedUser.isSuspended ? 'secondary' : 'destructive'}
+                  onClick={() =>
+                    updateUserSuspensionMutation.mutate({
+                      userId: selectedUser.id,
+                      isSuspended: !selectedUser.isSuspended,
+                    })
+                  }
+                  disabled={updateUserSuspensionMutation.isPending}
+                  data-testid={`admin-user-toggle-suspension-${selectedUser.id}`}
+                >
+                  {selectedUser.isSuspended ? 'Reinstate User' : 'Suspend User'}
+                </Button>
+              ) : null}
+
+              <Button type="button" variant="outline" onClick={() => setSelectedUser(null)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SearchFilters, ProductWithOffers } from '@shared/schema';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, apiRequestRaw } from '@/lib/queryClient';
 import { useDebounce } from './use-debounce';
+import type { ApiResponse, ApiPaginatedResponse } from '@shared/api-types';
 
 interface SearchFacets {
   categories?: Record<string, number>;
@@ -29,6 +30,76 @@ interface UseEnhancedProductsSearchProps {
   initialFilters?: SearchFilters;
   autoSearch?: boolean;
   debounceMs?: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeSearchResults(raw: unknown): EnhancedSearchResults {
+  // Standardized envelope: { success, data, meta? }
+  if (isRecord(raw) && 'success' in raw) {
+    // NOTE: This response is validated by runtime checks below.
+    const response = raw as unknown as ApiResponse<ProductWithOffers>;
+
+    if (response.success === false) {
+      throw new Error(response.error);
+    }
+
+    if (response.success === true && 'meta' in response && Array.isArray(response.data)) {
+      const meta = (response as ApiPaginatedResponse<ProductWithOffers>).meta;
+      return {
+        results: response.data,
+        metadata: {
+          ...meta,
+        },
+      };
+    }
+
+    return normalizeSearchResults(response.data);
+  }
+
+  // Legacy/expected shape: { results, metadata }
+  if (isRecord(raw) && 'results' in raw) {
+    const results = (raw as { results: unknown }).results;
+    const metadata = (raw as { metadata?: unknown }).metadata;
+
+    if (!Array.isArray(results)) {
+      throw new Error('Invalid search results');
+    }
+
+    if (isRecord(metadata)) {
+      return {
+        results: results as ProductWithOffers[],
+        metadata: metadata as EnhancedSearchResults['metadata'],
+      };
+    }
+
+    return {
+      results: results as ProductWithOffers[],
+      metadata: {
+        total: results.length,
+        page: 1,
+        limit: results.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  // Unwrapped paginated endpoints currently return arrays via apiRequest()
+  if (Array.isArray(raw)) {
+    return {
+      results: raw as ProductWithOffers[],
+      metadata: {
+        total: raw.length,
+        page: 1,
+        limit: raw.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  throw new Error('Unexpected search response');
 }
 
 export function useEnhancedProductsSearch({
@@ -92,6 +163,10 @@ export function useEnhancedProductsSearch({
 
       // Add filters to search params
       Object.entries(searchFilters).forEach(([key, value]) => {
+        if (key === 'query') {
+          // `query` is already appended above; adding it again makes Express parse it as an array.
+          return;
+        }
         if (value !== undefined && value !== null && value !== '') {
           if (Array.isArray(value)) {
             value.forEach((v) => searchParams.append(key, v.toString()));
@@ -101,8 +176,8 @@ export function useEnhancedProductsSearch({
         }
       });
 
-      // apiRequest already returns parsed JSON
-      return apiRequest<EnhancedSearchResults>(`${endpoint}?${searchParams.toString()}`);
+      const raw = await apiRequestRaw<unknown>(`${endpoint}?${searchParams.toString()}`);
+      return normalizeSearchResults(raw);
     },
     onSuccess: (data, variables) => {
       // Update search history
@@ -126,8 +201,8 @@ export function useEnhancedProductsSearch({
     queryFn: async () => {
       if (!debouncedQuery.trim()) {
         // Return default products when no query
-        // apiRequest already returns parsed JSON
-        return apiRequest('/api/products/search');
+        const raw = await apiRequestRaw<unknown>('/api/products/search');
+        return normalizeSearchResults(raw);
       }
 
       // Use the search mutation's function for consistency
@@ -158,8 +233,8 @@ export function useEnhancedProductsSearch({
         }
       });
 
-      // apiRequest already returns parsed JSON
-      return apiRequest<EnhancedSearchResults>(`/api/products/search?${searchParams.toString()}`);
+      const raw = await apiRequestRaw<unknown>(`/api/products/search?${searchParams.toString()}`);
+      return normalizeSearchResults(raw);
     },
     enabled: !autoSearch || !debouncedQuery.trim(),
     staleTime: 5 * 60 * 1000, // 5 minutes

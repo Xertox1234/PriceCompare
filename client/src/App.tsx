@@ -18,6 +18,7 @@ import HomeNew from '@/pages/home-new';
 import ForgotPassword from '@/pages/forgot-password';
 import ResetPassword from '@/pages/reset-password';
 import NotFound from '@/pages/not-found';
+import PublicWatchlistPage from '@/pages/public-watchlist';
 
 // ============================================
 // Lazy-loaded pages (loaded on demand)
@@ -32,6 +33,8 @@ import {
   LazyMonitoringDashboard,
   LazyPriceWatch,
   LazyNotificationsPage,
+  LazyAlertsPage,
+  LazyNotificationSettingsPage,
   LazyProductsPage,
   LazyProductsNewPage,
   LazyProductDetailPage,
@@ -148,6 +151,15 @@ function Router() {
                 </RouteErrorBoundary>
               </Route>
 
+              {/* Admin deep links (tab routes) */}
+              <Route path="/admin/:tab">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyAdminPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
               {/* Monitoring dashboard - Lazy loaded (charts, WebSocket) */}
               <Route path="/monitoring">
                 <RouteErrorBoundary>
@@ -175,6 +187,24 @@ function Router() {
                 </RouteErrorBoundary>
               </Route>
 
+              {/* Alerts - Lazy loaded */}
+              <Route path="/alerts">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyAlertsPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
+              {/* Notification settings - Lazy loaded */}
+              <Route path="/settings/notifications">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyNotificationSettingsPage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
               {/* Watch lists - Lazy loaded */}
               <Route path="/watchlists">
                 <RouteErrorBoundary>
@@ -183,6 +213,9 @@ function Router() {
                   </Suspense>
                 </RouteErrorBoundary>
               </Route>
+
+              {/* Public watchlist - no auth */}
+              <Route path="/watchlists/public/:token" component={PublicWatchlistPage} />
 
               {/* Price history - Lazy loaded (chart-heavy, loads recharts) */}
               <Route path="/products/:id/price-history">

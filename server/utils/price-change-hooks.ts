@@ -2,7 +2,7 @@ import { recordPriceChange } from '../services/price-history-service';
 import { processPriceChange } from '../services/price-drop-detection';
 import { db } from '../db';
 import { productOffers, priceAlerts, users, notifications } from '@shared/schema';
-import { eq, and, lte } from 'drizzle-orm';
+import { eq, and, lte, inArray } from 'drizzle-orm';
 import { createLogger } from './logger';
 
 const log = createLogger('PriceChangeHooks');
@@ -107,35 +107,34 @@ async function _checkAndNotifyPriceAlerts(productOfferId: number, newPrice: numb
         )
       );
 
-    // Create notifications for triggered alerts
-    for (const alert of alerts) {
-      try {
-        // Create notification
-        await db.insert(notifications).values({
-          userId: alert.userId,
-          type: 'price_alert',
-          title: 'Price Alert Triggered!',
-          content: `The price has dropped to $${newPrice.toFixed(2)}, meeting your target of $${parseFloat(alert.targetPrice).toFixed(2)}`,
-          relatedPostId: null,
-          relatedTopicId: null,
-          isRead: false,
-        });
-
-        // Optionally deactivate the alert (one-time notification)
-        // You can change this behavior based on requirements
-        await db
-          .update(priceAlerts)
-          .set({ isActive: false })
-          .where(eq(priceAlerts.id, alert.alertId));
-
-        log.info(
-          `Price alert notification sent to user ${alert.username} for product ${offer.productId}`
-        );
-      } catch (error) {
-        log.error(`Error creating notification for alert ${alert.alertId}:`, { error });
-        // Continue with other alerts
-      }
+    if (alerts.length === 0) {
+      return;
     }
+
+    const alertIds = alerts.map((a) => a.alertId);
+    const notificationRows = alerts.map((alert) => ({
+      userId: alert.userId,
+      type: 'price_alert' as const,
+      title: 'Price Alert Triggered!',
+      content: `The price has dropped to $${newPrice.toFixed(2)}, meeting your target of $${parseFloat(alert.targetPrice).toFixed(2)}`,
+      relatedPostId: null,
+      relatedTopicId: null,
+      isRead: false,
+    }));
+
+    await db.transaction(async (tx) => {
+      await tx.insert(notifications).values(notificationRows);
+      // One-time notification behavior: deactivate all triggered alerts.
+      await tx
+        .update(priceAlerts)
+        .set({ isActive: false })
+        .where(inArray(priceAlerts.id, alertIds));
+    });
+
+    log.info('Price alert notifications sent', {
+      productId: offer.productId,
+      alertCount: alerts.length,
+    });
   } catch (error) {
     log.error('Error checking price alerts:', { error });
   }

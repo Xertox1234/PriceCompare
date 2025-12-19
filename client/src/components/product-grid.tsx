@@ -54,7 +54,7 @@ export function ProductGrid({
     );
   }
 
-  if (isLoading) {
+  if (isLoading && products.length === 0) {
     return (
       <section className="flex-1" aria-label="Loading products" role="status" aria-live="polite">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">

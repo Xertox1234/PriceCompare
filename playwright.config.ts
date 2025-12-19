@@ -12,6 +12,11 @@ export default defineConfig({
   // Test directory
   testDir: './e2e',
 
+  // Default E2E suite should reflect production user flows.
+  // Exclude diagnostic/debug specs and visual regression specs from `npm run test:e2e`.
+  // Run them explicitly via dedicated npm scripts/configs.
+  testIgnore: ['**/*debug*.spec.ts', '**/*.visual.spec.ts'],
+
   // Run tests sequentially to avoid database conflicts
   fullyParallel: false,
 

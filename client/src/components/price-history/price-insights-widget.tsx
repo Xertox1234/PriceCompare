@@ -48,7 +48,10 @@ export function PriceInsightsWidget({ productId, offerId, className }: PriceInsi
   const seasonalPatterns = calculateSeasonalPatterns(history);
 
   // Generate buy recommendation
-  const buyRecommendation = generateBuyRecommendation(stats as LocalPriceStats | undefined, history);
+  const buyRecommendation = generateBuyRecommendation(
+    stats as LocalPriceStats | undefined,
+    history
+  );
 
   // Calculate price volatility
   const volatility = stats ? calculateVolatility(stats as LocalPriceStats) : null;
@@ -196,21 +199,54 @@ function PriceVolatilitySection({
     'Very Volatile': 'text-red-600',
   };
 
+  const normalizedLevel: 'low' | 'moderate' | 'high' | 'very-high' = (() => {
+    switch (volatility.level) {
+      case 'Very Stable':
+      case 'Stable':
+        return 'low';
+      case 'Moderate':
+        return 'moderate';
+      case 'Volatile':
+        return 'high';
+      case 'Very Volatile':
+        return 'very-high';
+      default:
+        return 'moderate';
+    }
+  })();
+
+  const score = (() => {
+    switch (normalizedLevel) {
+      case 'low':
+        return 20;
+      case 'moderate':
+        return 50;
+      case 'high':
+        return 75;
+      case 'very-high':
+        return 90;
+    }
+  })();
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="price-volatility">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4" />
           <h4 className="font-medium">Price Volatility</h4>
         </div>
-        <Badge variant="outline" className={colorMap[volatility.level]}>
-          {volatility.level}
+        <Badge
+          variant="outline"
+          className={colorMap[volatility.level]}
+          data-testid="volatility-level"
+        >
+          {normalizedLevel}
         </Badge>
       </div>
       <p className="text-muted-foreground text-sm">{volatility.description}</p>
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Volatility Index:</span>
-        <span className="font-medium">{volatility.percentage.toFixed(1)}%</span>
+        <span className="text-muted-foreground">Volatility Score:</span>
+        <span className="font-medium">{score}/100</span>
       </div>
     </div>
   );

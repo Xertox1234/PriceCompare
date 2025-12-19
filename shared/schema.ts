@@ -612,12 +612,18 @@ export const watchLists = pgTable(
     color: varchar('color', { length: 7 }), // Hex color code
     icon: varchar('icon', { length: 50 }), // Icon name
     isDefault: boolean('is_default').default(false),
+    isPublic: boolean('is_public').default(false),
+    publicShareToken: varchar('public_share_token', { length: 64 }),
     sortOrder: integer('sort_order').default(0),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
   },
   (table) => ({
     userIdIdx: index('watch_lists_user_id_idx').on(table.userId),
+    publicShareTokenIdx: index('watch_lists_public_share_token_idx').on(table.publicShareToken),
+    publicShareTokenUnique: unique('watch_lists_public_share_token_unique').on(
+      table.publicShareToken
+    ),
   })
 );
 

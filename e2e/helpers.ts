@@ -7,6 +7,7 @@ import { type Page } from '@playwright/test';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
 import { getRedisSessionClient } from '../server/config/redis';
+import { nextDeterministicSuffix } from './helpers/deterministic';
 
 /**
  * Clean database before tests
@@ -179,8 +180,9 @@ export async function logoutUser(page: Page): Promise<void> {
 
   try {
     await userMenuButton.click({ timeout: 5000 });
-    await page.waitForTimeout(500);
-    await page.getByTestId('sign-out-button').click({ timeout: 5000 });
+    const signOutButton = page.getByTestId('sign-out-button');
+    await signOutButton.waitFor({ state: 'visible', timeout: 5000 });
+    await signOutButton.click({ timeout: 5000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
   } catch (error) {
     throw new Error(`Could not logout: ${error instanceof Error ? error.message : String(error)}`);
@@ -262,16 +264,12 @@ export async function isLoggedIn(page: Page): Promise<boolean> {
  * Generate unique test email
  */
 export function generateTestEmail(prefix = 'test'): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(7);
-  return `${prefix}-${timestamp}-${random}@example.com`;
+  return `${prefix}-${nextDeterministicSuffix('email')}@example.com`;
 }
 
 /**
  * Generate unique test username
  */
 export function generateTestUsername(prefix = 'user'): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(7);
-  return `${prefix}_${timestamp}_${random}`;
+  return `${prefix}_${nextDeterministicSuffix('user')}`;
 }

@@ -411,6 +411,42 @@ export class UserStorage extends BaseStorage {
     }
   }
 
+  async unsuspendUser(userId: number, moderatorId: number): Promise<void> {
+    try {
+      this.validateUserId(userId);
+      this.validateUserId(moderatorId);
+
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(users)
+          .set({ isSuspended: false, updatedAt: new Date() })
+          .where(eq(users.id, userId));
+
+        await tx.insert(notifications).values({
+          userId,
+          type: 'moderation',
+          title: 'Account reinstated',
+          content: 'Your account has been reinstated',
+          relatedUserId: moderatorId,
+        });
+      });
+
+      await storageCache.invalidateUserCache(userId);
+    } catch (error) {
+      this.handleError(error, 'unsuspendUser');
+    }
+  }
+
+  async updateUserRole(userId: number, role: 'user' | 'moderator' | 'admin'): Promise<void> {
+    try {
+      this.validateUserId(userId);
+      await this.db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, userId));
+      await storageCache.invalidateUserCache(userId);
+    } catch (error) {
+      this.handleError(error, 'updateUserRole');
+    }
+  }
+
   // ============================================================================
   // Admin User Operations
   // ============================================================================
@@ -431,6 +467,7 @@ export class UserStorage extends BaseStorage {
           email: users.email,
           role: users.role,
           isActive: users.isActive,
+          isSuspended: users.isSuspended,
           reputation: users.reputation,
           createdAt: users.createdAt,
         })

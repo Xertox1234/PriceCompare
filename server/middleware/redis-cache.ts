@@ -104,6 +104,12 @@ export function redisCacheMiddleware(options: CacheOptions = {}) {
   } = options;
 
   return async (req: Request, res: Response, next: NextFunction) => {
+    // Tests (Vitest/Playwright) rely on deterministic, fresh responses after seeding.
+    // Caching can cause stale data to leak across test cases (e.g., pagination not appearing).
+    if (process.env.NODE_ENV === 'test') {
+      return next();
+    }
+
     // Only cache GET requests
     if (req.method !== 'GET') {
       return next();

@@ -118,7 +118,7 @@ export function registerHealthRoutes(app: Express): void {
   // CSP Violation Report Endpoint
   // SECURITY: Receives browser reports of CSP violations for monitoring
   // Browsers send violation reports to this endpoint when CSP blocks a resource
-  app.post(
+  app.post( // CSRF exempt: endpoint is called cross-origin by browsers; no user state mutation.
     '/api/csp-violation-report',
     express.json({ type: ['application/json', 'application/csp-report'] }),
     (req, res) => {

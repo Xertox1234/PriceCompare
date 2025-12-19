@@ -44,10 +44,10 @@ export function useNotifications(filters?: { isRead?: boolean; type?: string; li
   if (filters?.type) params.append('type', filters.type);
   if (filters?.limit) params.append('limit', filters.limit.toString());
 
-  return useQuery<{ notifications: Notification[]; count: number }>({
+  return useQuery<{ data: Notification[]; count: number }>({
     queryKey: ['/api/notifications', filters],
     queryFn: () =>
-      apiRequest<{ notifications: Notification[]; count: number }>(`/api/notifications?${params}`),
+      apiRequest<{ data: Notification[]; count: number }>(`/api/notifications?${params}`),
   });
 }
 
@@ -74,12 +74,7 @@ export function useMarkAsRead() {
 
   return useMutation({
     mutationFn: async (notificationId: number) => {
-      const res = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to mark as read');
-      return res.json();
+      return apiRequest(`/api/notifications/${notificationId}/read`, { method: 'POST' });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -94,12 +89,7 @@ export function useMarkAllAsRead() {
 
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/notifications/read-all', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to mark all as read');
-      return res.json();
+      return apiRequest('/api/notifications/read-all', { method: 'POST' });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -114,12 +104,7 @@ export function useDeleteNotification() {
 
   return useMutation({
     mutationFn: async (notificationId: number) => {
-      const res = await fetch(`/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to delete notification');
-      return res.json();
+      return apiRequest(`/api/notifications/${notificationId}`, { method: 'DELETE' });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -134,14 +119,10 @@ export function useUpdateNotificationPreferences() {
 
   return useMutation({
     mutationFn: async (updates: Partial<NotificationPreferences>) => {
-      const res = await fetch('/api/notifications/preferences', {
+      return apiRequest('/api/notifications/preferences', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error('Failed to update preferences');
-      return res.json();
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/notifications/preferences'] });

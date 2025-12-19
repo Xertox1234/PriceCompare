@@ -6,6 +6,7 @@ import { parseIntSafe } from '../utils/validation-helpers';
 import { getPerformanceStats, getSlowestEndpoints } from '../middleware/performance';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { csrfProtection } from '../middleware/security';
+import { z } from 'zod';
 
 /**
  * Admin Routes
@@ -23,6 +24,51 @@ export function registerAdminRoutes(app: Express): void {
         sendSuccess(res, Array.isArray(usersData) ? usersData : []);
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'FetchUsers');
+      }
+    })
+  );
+
+  app.patch(
+    '/api/admin/users/:id/role',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
+        const body = z.object({ role: z.enum(['user', 'moderator', 'admin']) }).parse(req.body);
+
+        await storage.updateUserRole(userId, body.role);
+        sendSuccess(res, { message: 'User role updated' });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'UpdateUserRole');
+      }
+    })
+  );
+
+  app.patch(
+    '/api/admin/users/:id/suspension',
+    csrfProtection,
+    withAdmin(async (req, res) => {
+      try {
+        const userId = parseIntSafe(req.params.id, 'userId', { min: 1 });
+        const body = z
+          .object({ isSuspended: z.boolean(), reason: z.string().optional() })
+          .parse(req.body);
+
+        if (body.isSuspended) {
+          await storage.suspendUser(
+            userId,
+            body.reason ?? 'Suspended by administrator',
+            req.user.id
+          );
+        } else {
+          await storage.unsuspendUser(userId, req.user.id);
+        }
+
+        sendSuccess(res, {
+          message: body.isSuspended ? 'User suspended' : 'User reinstated',
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'UpdateUserSuspension');
       }
     })
   );

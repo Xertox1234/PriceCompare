@@ -27,6 +27,26 @@ import { cn } from '@/lib/utils';
 import { useProducts } from '@/hooks/use-products';
 import { transformProduct } from '@/hooks/use-home-data';
 import { categories } from '@/data/template-data';
+import { useToast } from '@/hooks/use-toast';
+import { useAddProductToWatchList, useWatchLists } from '@/hooks/use-community';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // Filter options
 const brands = [
@@ -63,6 +83,7 @@ interface Filters {
 }
 
 function ProductsContent() {
+  const { toast } = useToast();
   const {
     toggleWishlist,
     isInWishlist,
@@ -71,6 +92,10 @@ function ProductsContent() {
     isCartOpen: _isCartOpen,
     closeCart: _closeCart,
   } = useShop();
+
+  const { data: watchlistsData } = useWatchLists();
+  const watchlists = watchlistsData ?? [];
+  const addToWatchList = useAddProductToWatchList();
   const searchParams = useSearch();
   const urlParams = new URLSearchParams(searchParams);
   const initialCategory = urlParams.get('category');
@@ -95,6 +120,11 @@ function ProductsContent() {
   const [sortBy, setSortBy] = useState('default');
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Bulk watchlist add state
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  const [bulkAddDialogOpen, setBulkAddDialogOpen] = useState(false);
+  const [bulkTargetWatchlistId, setBulkTargetWatchlistId] = useState('');
 
   // Custom price range
   const [customMinPrice, setCustomMinPrice] = useState('');
@@ -195,6 +225,68 @@ function ProductsContent() {
 
   const handleQuickView = (product: ProductData) => {
     setQuickviewProduct(product);
+  };
+
+  const toggleProductSelection = (productId: number, checked: boolean) => {
+    setSelectedProductIds((prev) => {
+      if (checked) {
+        return prev.includes(productId) ? prev : [...prev, productId];
+      }
+      return prev.filter((id) => id !== productId);
+    });
+  };
+
+  const clearBulkSelection = () => {
+    setSelectedProductIds([]);
+    setBulkTargetWatchlistId('');
+  };
+
+  const handleBulkAddToWatchlist = async () => {
+    if (selectedProductIds.length === 0) return;
+
+    if (!bulkTargetWatchlistId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a watchlist',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const listId = parseInt(bulkTargetWatchlistId, 10);
+    if (!Number.isFinite(listId) || listId < 1) {
+      toast({
+        title: 'Error',
+        description: 'Invalid watchlist selection',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      selectedProductIds.map((productId) => addToWatchList.mutateAsync({ listId, productId }))
+    );
+
+    const successCount = results.filter((r) => r.status === 'fulfilled').length;
+    const failureCount = results.length - successCount;
+
+    if (successCount > 0) {
+      toast({
+        title: 'Success',
+        description: `Added ${successCount} ${successCount === 1 ? 'item' : 'items'} to watchlist`,
+      });
+    }
+
+    if (failureCount > 0) {
+      toast({
+        title: 'Some items failed',
+        description: `${failureCount} ${failureCount === 1 ? 'item' : 'items'} could not be added`,
+        variant: 'destructive',
+      });
+    }
+
+    setBulkAddDialogOpen(false);
+    clearBulkSelection();
   };
 
   // Filter Sidebar Component
@@ -648,6 +740,28 @@ function ProductsContent() {
             )}
 
             {/* Products Grid */}
+            {selectedProductIds.length > 0 && (
+              <div className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 mb-4 flex items-center justify-between gap-3 rounded-lg border px-4 py-3 backdrop-blur">
+                <div className="text-sm">
+                  <span className="font-medium">{selectedProductIds.length}</span> selected
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={clearBulkSelection}
+                    aria-label="Clear selection"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    data-testid="bulk-add-to-watchlist"
+                    onClick={() => setBulkAddDialogOpen(true)}
+                  >
+                    Add to Watchlist
+                  </Button>
+                </div>
+              </div>
+            )}
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="text-primary h-8 w-8 animate-spin" />
@@ -666,14 +780,26 @@ function ProductsContent() {
                 )}
               >
                 {products.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    variant={viewMode === 'list' ? 'horizontal' : 'default'}
-                    onWatchlist={() => handleWatchlist(product)}
-                    onCompare={() => handleCompare(product)}
-                    onQuickView={() => handleQuickView(product)}
-                  />
+                  <div key={product.id} className="relative">
+                    <div className="bg-background/80 absolute top-2 left-2 z-20 rounded p-1 backdrop-blur">
+                      <Checkbox
+                        data-testid={`product-checkbox-${product.id}`}
+                        checked={selectedProductIds.includes(product.id)}
+                        onCheckedChange={(checked) =>
+                          toggleProductSelection(product.id, checked === true)
+                        }
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Select ${product.name}`}
+                      />
+                    </div>
+                    <ProductCard
+                      product={product}
+                      variant={viewMode === 'list' ? 'horizontal' : 'default'}
+                      onWatchlist={() => handleWatchlist(product)}
+                      onCompare={() => handleCompare(product)}
+                      onQuickView={() => handleQuickView(product)}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -762,6 +888,48 @@ function ProductsContent() {
         onClose={() => setQuickviewProduct(null)}
         product={quickviewProduct}
       />
+
+      {/* Bulk Add to Watchlist Dialog */}
+      <Dialog open={bulkAddDialogOpen} onOpenChange={setBulkAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add to Watchlist</DialogTitle>
+            <DialogDescription>
+              Select a watchlist to add the selected products to
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-watchlist-select">Select watchlist</Label>
+              <Select value={bulkTargetWatchlistId} onValueChange={setBulkTargetWatchlistId}>
+                <SelectTrigger id="bulk-watchlist-select">
+                  <SelectValue placeholder="Choose a watchlist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {watchlists.map((watchlist) => (
+                    <SelectItem key={watchlist.id} value={watchlist.id.toString()}>
+                      {watchlist.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleBulkAddToWatchlist()}
+              disabled={addToWatchList.isPending}
+            >
+              {addToWatchList.isPending ? 'Adding…' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

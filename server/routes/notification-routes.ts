@@ -40,7 +40,7 @@ export function registerNotificationRoutes(app: Express) {
           isRead: z
             .enum(['true', 'false'])
             .optional()
-            .transform((val) => val === 'true'),
+            .transform((val) => (val === undefined ? undefined : val === 'true')),
           type: z.string().optional(),
           limit: z
             .string()
@@ -324,7 +324,7 @@ export function registerNotificationRoutes(app: Express) {
           unread: z
             .enum(['true', 'false'])
             .optional()
-            .transform((val) => val === 'true'),
+            .transform((val) => (val === undefined ? undefined : val === 'true')),
           limit: z
             .string()
             .optional()

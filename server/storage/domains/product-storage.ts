@@ -387,25 +387,25 @@ export class ProductStorage extends BaseStorage {
         switch (filters.sortBy) {
           case 'price_low':
             finalQuery = baseQuery
-              .orderBy(asc(sql`best_price`))
+              .orderBy(asc(sql`best_price`), asc(products.id))
               .limit(limit)
               .offset(offset);
             break;
           case 'price_high':
             finalQuery = baseQuery
-              .orderBy(desc(sql`best_price`))
+              .orderBy(desc(sql`best_price`), asc(products.id))
               .limit(limit)
               .offset(offset);
             break;
           case 'rating':
             finalQuery = baseQuery
-              .orderBy(desc(sql`AVG(CAST(${productOffers.rating} AS DECIMAL))`))
+              .orderBy(desc(sql`AVG(CAST(${productOffers.rating} AS DECIMAL))`), asc(products.id))
               .limit(limit)
               .offset(offset);
             break;
           case 'popularity':
             finalQuery = baseQuery
-              .orderBy(desc(sql`SUM(${productOffers.reviewCount})`))
+              .orderBy(desc(sql`SUM(${productOffers.reviewCount})`), asc(products.id))
               .limit(limit)
               .offset(offset);
             break;
@@ -413,7 +413,7 @@ export class ProductStorage extends BaseStorage {
             finalQuery = baseQuery.limit(limit).offset(offset);
         }
       } else {
-        finalQuery = baseQuery.limit(limit).offset(offset);
+        finalQuery = baseQuery.orderBy(asc(products.id)).limit(limit).offset(offset);
       }
 
       // Execute both queries in parallel

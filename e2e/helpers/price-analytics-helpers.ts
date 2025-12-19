@@ -8,10 +8,6 @@ import { db } from '../../server/db';
 import { products, retailers, productOffers, priceHistory } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 
-// Animation timing constants
-const COLLAPSIBLE_ANIMATION_MS = 300;
-const TOOLTIP_ANIMATION_MS = 200;
-
 /**
  * Navigate to price history page for a specific product
  * Phase 3.1 components are on /product/:id (singular) in collapsible section
@@ -36,8 +32,21 @@ export async function navigateToPriceHistory(page: Page, productId: number): Pro
     // Click to open if closed
     if (isOpen !== 'open') {
       await analyticsTrigger.click();
-      // Wait for collapsible animation to complete
-      await page.waitForTimeout(COLLAPSIBLE_ANIMATION_MS);
+
+      // Best-effort wait for content to appear (avoid hard sleeps and avoid throwing)
+      await page.waitForLoadState('networkidle').catch(() => null);
+      await page
+        .locator(
+          [
+            '[data-testid="price-chart"]',
+            '[class*="recharts-wrapper"]',
+            'text=/Historical\\s+Facts/i',
+            'text=/Volatility/i',
+          ].join(', ')
+        )
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 })
+        .catch(() => null);
     }
   }
 }
@@ -56,7 +65,7 @@ export async function selectTimeRange(
     '30d': '30 Days',
     '90d': '90 Days',
     '1y': '1 Year',
-    'all': 'All Time',
+    all: 'All Time',
   }[range];
 
   // Try button group pattern (most common for time range selectors)
@@ -124,12 +133,13 @@ export async function getPriceDataPoints(
     if ((await chartArea.count()) > 0) {
       // Hover over chart to trigger tooltip
       await chartArea.hover();
-      await page.waitForTimeout(TOOLTIP_ANIMATION_MS); // Wait for tooltip animation
-
       // Use .first() to avoid strict mode violation (tooltip div vs cursor path)
       const tooltip = page
         .locator('[class*="recharts-tooltip"], [data-testid="chart-tooltip"]')
         .first();
+
+      // Prefer waiting for tooltip visibility over fixed animation timing
+      await tooltip.waitFor({ state: 'visible', timeout: 2000 }).catch(() => null);
 
       if ((await tooltip.count()) > 0) {
         const tooltipText = await tooltip.textContent();
@@ -305,7 +315,6 @@ export async function getBestDealBadge(page: Page): Promise<string | null> {
 export async function clickChartDataPoint(page: Page, dataPointIndex = 0): Promise<void> {
   // Wait for chart to be fully rendered
   await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(500); // Wait for chart animation
 
   const chartArea = page
     .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
@@ -314,6 +323,13 @@ export async function clickChartDataPoint(page: Page, dataPointIndex = 0): Promi
   if ((await chartArea.count()) === 0) {
     return;
   }
+
+  await chartArea.waitFor({ state: 'visible', timeout: 15000 });
+  await chartArea
+    .locator('svg')
+    .first()
+    .waitFor({ state: 'visible', timeout: 15000 })
+    .catch(() => null);
 
   await chartArea.scrollIntoViewIfNeeded();
 
@@ -417,9 +433,10 @@ export async function seedPriceHistoryData(
 
   // Always ensure we have the standard 3 test retailers
   // Check if they exist first to avoid duplicates
-  const existingRetailers = await db.select().from(retailers).where(
-    sql`${retailers.name} IN ('Amazon', 'Best Buy', 'Walmart')`
-  );
+  const existingRetailers = await db
+    .select()
+    .from(retailers)
+    .where(sql`${retailers.name} IN ('Amazon', 'Best Buy', 'Walmart')`);
 
   let retailerList: Array<{
     id: number;

@@ -4,7 +4,8 @@
  * Visual baselines for the "Price Analytics & History" section on product detail.
  * Uses deterministic seeded price history data to reduce screenshot noise.
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
 import { cleanDatabase, registerUser, generateTestEmail, generateTestUsername } from './helpers';
 import { seedTestProduct } from './helpers/admin-helpers';
 import {
@@ -36,11 +37,7 @@ async function stabilizeForScreenshot(page: Page) {
 function getPriceAnalyticsSection(page: Page) {
   // Collapsible content container should include chart + stats.
   // Fallback to main content if structure changes.
-  return page
-    .locator('text=/Price Analytics.*History/i')
-    .first()
-    .locator('..')
-    .locator('..');
+  return page.locator('text=/Price Analytics.*History/i').first().locator('..').locator('..');
 }
 
 test.describe('Price Analytics - Visual Regression', () => {
@@ -130,9 +127,7 @@ test.describe('Price Analytics - Visual Regression', () => {
     await navigateToPriceHistory(page, testProductId);
     await stabilizeForScreenshot(page);
 
-    const chart = page
-      .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
-      .first();
+    const chart = page.locator('[data-testid="price-chart"], [class*="recharts-wrapper"]').first();
 
     if ((await chart.count()) === 0) {
       test.skip();
@@ -154,9 +149,7 @@ test.describe('Price Analytics - Visual Regression', () => {
   test('alert modal baseline (opened from chart click)', async ({ page }) => {
     await navigateToPriceHistory(page, testProductId);
 
-    const chart = page
-      .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
-      .first();
+    const chart = page.locator('[data-testid="price-chart"], [class*="recharts-wrapper"]').first();
 
     if ((await chart.count()) === 0) {
       test.skip();
@@ -217,10 +210,7 @@ test.describe('Price Analytics - Visual Regression', () => {
     await navigateToPriceHistory(page, testProductId);
     await stabilizeForScreenshot(page);
 
-    const comparison = page
-      .locator('text=/cross-retailer\\s+comparison/i')
-      .first()
-      .locator('..');
+    const comparison = page.locator('text=/cross-retailer\\s+comparison/i').first().locator('..');
 
     if ((await comparison.count()) === 0) {
       test.skip();

@@ -737,7 +737,7 @@ export class PriceAggregationService {
       const day = currentDate.getUTCDate();
 
       try {
-        await db.transaction(
+        await db.transaction( // N+1 safe: aggregation intentionally processes one day per loop iteration
           async (tx) => {
             const { startDate: dayStart, endDate: dayEnd } = this.getDayDateRange(year, month, day);
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

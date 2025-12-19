@@ -10,6 +10,7 @@ import {
   useMoveProductsToWatchList,
   useImportWatchLists,
   useShareWatchList,
+  useSetWatchListPublic,
   useRemoveProductFromWatchList,
   type SharedWatchListWithStats,
   type WatchListSharePermission,
@@ -118,6 +119,10 @@ function normalizeHeader(header: string): string {
   return header.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function getPublicWatchlistUrl(token: string) {
+  return `${window.location.origin}/watchlists/public/${token}`;
+}
+
 export default function WatchListManager() {
   const { toast } = useToast();
   const { data: watchlistsData, isLoading } = useWatchLists();
@@ -130,7 +135,9 @@ export default function WatchListManager() {
   const allWatchlists = [...watchlists, ...sharedWatchlists];
 
   const isSharedWatchlist = (wl: unknown): wl is SharedWatchListWithStats => {
-    return typeof wl === 'object' && wl !== null && 'sharedPermission' in wl && 'ownerUsername' in wl;
+    return (
+      typeof wl === 'object' && wl !== null && 'sharedPermission' in wl && 'ownerUsername' in wl
+    );
   };
 
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -149,6 +156,7 @@ export default function WatchListManager() {
   const moveMutation = useMoveProductsToWatchList();
   const importMutation = useImportWatchLists();
   const shareMutation = useShareWatchList();
+  const setPublicMutation = useSetWatchListPublic();
   const removeFromListMutation = useRemoveProductFromWatchList();
 
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -159,15 +167,66 @@ export default function WatchListManager() {
   const [sharedRemoveDialogOpen, setSharedRemoveDialogOpen] = useState(false);
   const [sharedRemoveProductId, setSharedRemoveProductId] = useState<number | null>(null);
 
+  const [publicLinkDialogOpen, setPublicLinkDialogOpen] = useState(false);
+  const [publicLinkToken, setPublicLinkToken] = useState<string | null>(null);
+
   const defaultWatchlistId = watchlists[0]?.id ?? sharedWatchlists[0]?.id ?? null;
   const activeWatchlistId = selectedWatchlistId ?? defaultWatchlistId ?? 0;
 
-  const { data: productsData, isLoading: isLoadingProducts } = useWatchListProducts(
-    activeWatchlistId
-  );
+  const { data: productsData, isLoading: isLoadingProducts } =
+    useWatchListProducts(activeWatchlistId);
   const products = productsData || [];
 
   const selectedWatchlist = allWatchlists.find((wl) => wl.id === activeWatchlistId);
+
+  const setWatchlistPublic = async (nextIsPublic: boolean) => {
+    if (!selectedWatchlist || isSharedWatchlist(selectedWatchlist)) {
+      toast({
+        title: 'Error',
+        description: 'Only the owner can change public sharing',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const result = await setPublicMutation.mutateAsync({
+        watchListId: selectedWatchlist.id,
+        isPublic: nextIsPublic,
+      });
+
+      setPublicLinkToken(result.publicShareToken);
+
+      if (result.isPublic && result.publicShareToken) {
+        setPublicLinkDialogOpen(true);
+        toast({ title: 'Success', description: 'Watchlist is now public' });
+      } else {
+        toast({ title: 'Success', description: 'Watchlist is now private' });
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to update public sharing',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const copyPublicLink = async () => {
+    if (!publicLinkToken) return;
+    const url = getPublicWatchlistUrl(publicLinkToken);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Copied', description: 'Public link copied to clipboard' });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to copy link',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Ensure the products query uses the same watchlist as the default selected tab.
   // Without this, the first tab can be active while `selectedWatchlistId` is null,
@@ -438,7 +497,9 @@ export default function WatchListManager() {
         const rawPriority = priorityIdx >= 0 ? (row[priorityIdx] ?? '').trim() : '';
         const parsedPriority = rawPriority ? Number.parseInt(rawPriority, 10) : undefined;
         const priority =
-          parsedPriority && Number.isFinite(parsedPriority) ? Math.min(5, Math.max(1, parsedPriority)) : undefined;
+          parsedPriority && Number.isFinite(parsedPriority)
+            ? Math.min(5, Math.max(1, parsedPriority))
+            : undefined;
 
         const targetPrice = targetPriceIdx >= 0 ? (row[targetPriceIdx] ?? '').trim() : '';
         const notes = notesIdx >= 0 ? (row[notesIdx] ?? '').trim() : '';
@@ -450,8 +511,9 @@ export default function WatchListManager() {
           ...(targetPrice ? { targetPrice } : {}),
         };
       })
-      .filter((p): p is { productId: number; notes?: string; priority?: number; targetPrice?: string } =>
-        Boolean(p)
+      .filter(
+        (p): p is { productId: number; notes?: string; priority?: number; targetPrice?: string } =>
+          Boolean(p)
       );
 
     if (productsToImport.length === 0) {
@@ -487,7 +549,7 @@ export default function WatchListManager() {
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="text-primary h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -515,7 +577,8 @@ export default function WatchListManager() {
                 } catch (error) {
                   toast({
                     title: 'Import failed',
-                    description: error instanceof Error ? error.message : 'Failed to import watchlist',
+                    description:
+                      error instanceof Error ? error.message : 'Failed to import watchlist',
                     variant: 'destructive',
                   });
                 } finally {
@@ -567,10 +630,13 @@ export default function WatchListManager() {
               return (
                 <TabsTrigger key={watchlist.id} value={watchlist.id.toString()}>
                   {watchlist.name}
-                  <span className="ml-2 text-xs text-muted-foreground">
+                  <span className="text-muted-foreground ml-2 text-xs">
                     ({watchlist.watchCount} items)
                     {shared && (
-                      <> Shared by {watchlist.ownerUsername} ({watchlist.sharedPermission})</>
+                      <>
+                        {' '}
+                        Shared by {watchlist.ownerUsername} ({watchlist.sharedPermission})
+                      </>
                     )}
                   </span>
                 </TabsTrigger>
@@ -584,148 +650,161 @@ export default function WatchListManager() {
 
             return (
               <TabsContent key={watchlist.id} value={watchlist.id.toString()}>
-              <Card data-testid="watchlist-card">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle>{watchlist.name}</CardTitle>
-                      <CardDescription>
-                        {watchlist.watchCount} {watchlist.watchCount === 1 ? 'item' : 'items'}
-                        {shared && (
-                          <> Shared by {watchlist.ownerUsername} ({watchlist.sharedPermission})</>
-                        )}
-                      </CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      {products.length > 0 && (
-                        <Button variant="outline" onClick={handleExport}>
-                          <Download className="mr-2 h-4 w-4" />
-                          Export
-                        </Button>
-                      )}
-                      {!shared && (
-                        <>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setShareTargetWatchlistId(watchlist.id);
-                              setShareDialogOpen(true);
-                            }}
-                          >
-                            Share
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            onClick={() => {
-                              setWatchlistToDelete(watchlist.id);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent>
-                  {isLoadingProducts ? (
-                    <div className="flex h-32 items-center justify-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    </div>
-                  ) : products.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">
-                      No products in this watchlist yet
-                    </div>
-                  ) : (
-                    <>
-                      {!shared && selectedProductWatchIds.length > 0 && (
-                        <div className="mb-4 flex gap-2">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setDeleteProductsDialogOpen(true)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Selected ({selectedProductWatchIds.length})
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setMoveProductsDialogOpen(true)}
-                          >
-                            <MoveRight className="mr-2 h-4 w-4" />
-                            Move to
-                          </Button>
-                        </div>
-                      )}
-
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {products.map((product) => (
-                          <Card key={product.id} data-testid="product-card">
-                            <CardContent className="p-4">
-                              <div className="flex items-start gap-3">
-                                {!shared && (
-                                  <Checkbox
-                                    checked={selectedProductWatchIds.includes(product.id)}
-                                    onCheckedChange={() => toggleProductSelection(product.id)}
-                                    data-testid={`product-checkbox-${product.productId}`}
-                                    className="mt-1"
-                                  />
-                                )}
-                                <div className="flex-1">
-                                  <h3 className="font-medium">{product.productName}</h3>
-                                  {product.targetPrice && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Target: ${product.targetPrice}
-                                    </p>
-                                  )}
-                                  {product.notes && (
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                      {product.notes}
-                                    </p>
-                                  )}
-                                  {!shared && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="mt-2"
-                                      onClick={() => {
-                                        setSelectedProductWatchIds([product.id]);
-                                        setDeleteProductsDialogOpen(true);
-                                      }}
-                                    >
-                                      <Trash2 className="mr-2 h-3 w-3" />
-                                      Remove
-                                    </Button>
-                                  )}
-                                  {shared && canEdit && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="mt-2"
-                                      onClick={() => {
-                                        setSharedRemoveProductId(product.productId);
-                                        setSharedRemoveDialogOpen(true);
-                                      }}
-                                    >
-                                      <Trash2 className="mr-2 h-3 w-3" />
-                                      Remove
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                <Card data-testid="watchlist-card">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle>{watchlist.name}</CardTitle>
+                        <CardDescription>
+                          {watchlist.watchCount} {watchlist.watchCount === 1 ? 'item' : 'items'}
+                          {shared && (
+                            <>
+                              {' '}
+                              Shared by {watchlist.ownerUsername} ({watchlist.sharedPermission})
+                            </>
+                          )}
+                        </CardDescription>
                       </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      <div className="flex gap-2">
+                        {products.length > 0 && (
+                          <Button variant="outline" onClick={handleExport}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Export
+                          </Button>
+                        )}
+                        {!shared && (
+                          <>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShareTargetWatchlistId(watchlist.id);
+                                setShareDialogOpen(true);
+                              }}
+                            >
+                              Share
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                // "Make Public" behavior: enable public sharing + show link dialog
+                                void setWatchlistPublic(true);
+                              }}
+                              disabled={setPublicMutation.isPending}
+                            >
+                              Make Public
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              onClick={() => {
+                                setWatchlistToDelete(watchlist.id);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent>
+                    {isLoadingProducts ? (
+                      <div className="flex h-32 items-center justify-center">
+                        <Loader2 className="text-primary h-6 w-6 animate-spin" />
+                      </div>
+                    ) : products.length === 0 ? (
+                      <div className="text-muted-foreground py-8 text-center">
+                        No products in this watchlist yet
+                      </div>
+                    ) : (
+                      <>
+                        {!shared && selectedProductWatchIds.length > 0 && (
+                          <div className="mb-4 flex gap-2">
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteProductsDialogOpen(true)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Selected ({selectedProductWatchIds.length})
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setMoveProductsDialogOpen(true)}
+                            >
+                              <MoveRight className="mr-2 h-4 w-4" />
+                              Move to
+                            </Button>
+                          </div>
+                        )}
+
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {products.map((product) => (
+                            <Card key={product.id} data-testid="product-card">
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                  {!shared && (
+                                    <Checkbox
+                                      checked={selectedProductWatchIds.includes(product.id)}
+                                      onCheckedChange={() => toggleProductSelection(product.id)}
+                                      data-testid={`product-checkbox-${product.productId}`}
+                                      className="mt-1"
+                                    />
+                                  )}
+                                  <div className="flex-1">
+                                    <h3 className="font-medium">{product.productName}</h3>
+                                    {product.targetPrice && (
+                                      <p className="text-muted-foreground text-sm">
+                                        Target: ${product.targetPrice}
+                                      </p>
+                                    )}
+                                    {product.notes && (
+                                      <p className="text-muted-foreground mt-2 text-sm">
+                                        {product.notes}
+                                      </p>
+                                    )}
+                                    {!shared && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="mt-2"
+                                        onClick={() => {
+                                          setSelectedProductWatchIds([product.id]);
+                                          setDeleteProductsDialogOpen(true);
+                                        }}
+                                      >
+                                        <Trash2 className="mr-2 h-3 w-3" />
+                                        Remove
+                                      </Button>
+                                    )}
+                                    {shared && canEdit && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="mt-2"
+                                        onClick={() => {
+                                          setSharedRemoveProductId(product.productId);
+                                          setSharedRemoveDialogOpen(true);
+                                        }}
+                                      >
+                                        <Trash2 className="mr-2 h-3 w-3" />
+                                        Remove
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
             );
           })}
         </Tabs>
@@ -881,7 +960,10 @@ export default function WatchListManager() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="share-permission">Permission</Label>
-              <Select value={sharePermission} onValueChange={(v) => setSharePermission(v as WatchListSharePermission)}>
+              <Select
+                value={sharePermission}
+                onValueChange={(v) => setSharePermission(v as WatchListSharePermission)}
+              >
                 <SelectTrigger id="share-permission">
                   <SelectValue placeholder="Select permission" />
                 </SelectTrigger>
@@ -907,6 +989,34 @@ export default function WatchListManager() {
             <Button onClick={handleShareWatchlist} disabled={shareMutation.isPending}>
               {shareMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Share
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Public Link Dialog */}
+      <Dialog open={publicLinkDialogOpen} onOpenChange={setPublicLinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Public Watchlist Link</DialogTitle>
+            <DialogDescription>Anyone with this link can view your watchlist.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-4">
+            <Label htmlFor="public-watchlist-link">Shareable link</Label>
+            <Input
+              id="public-watchlist-link"
+              readOnly
+              value={publicLinkToken ? getPublicWatchlistUrl(publicLinkToken) : ''}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPublicLinkDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => void copyPublicLink()} disabled={!publicLinkToken}>
+              Copy Link
             </Button>
           </DialogFooter>
         </DialogContent>

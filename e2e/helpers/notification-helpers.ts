@@ -19,6 +19,7 @@ export async function createTestNotification(
     content?: string;
     isRead?: boolean;
     relatedProductId?: number;
+    createdAt?: Date;
   } = {}
 ): Promise<number> {
   const [notification] = await db
@@ -30,6 +31,7 @@ export async function createTestNotification(
       content: options.content || 'This is a test notification',
       isRead: options.isRead || false,
       relatedProductId: options.relatedProductId || null,
+      createdAt: options.createdAt,
     })
     .returning();
 
@@ -131,8 +133,11 @@ export async function waitForNotificationBadge(page: Page, expectedCount: number
  * Navigate to notifications page
  */
 export async function navigateToNotifications(page: Page): Promise<void> {
-  await page.goto('/notifications');
-  await page.waitForLoadState('networkidle');
+  await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { name: /^Notifications$/ }).waitFor({
+    state: 'visible',
+    timeout: 15000,
+  });
 }
 
 /**
@@ -152,8 +157,19 @@ export async function openNotificationDropdown(page: Page): Promise<void> {
     .getByRole('button', { name: /notification/i })
     .first()
     .click();
-  // Wait for dropdown animation - intentional timeout for CSS transitions
-  await page.waitForTimeout(500);
+
+  // Best-effort: if a dropdown/popup exists, wait for it to become visible.
+  // If the UI doesn't render a dropdown yet (button-only), this should no-op.
+  await Promise.race([
+    page.getByRole('menu').first().waitFor({ state: 'visible', timeout: 1500 }),
+    page.getByRole('dialog').first().waitFor({ state: 'visible', timeout: 1500 }),
+    page
+      .locator(
+        '[data-testid="notifications-dropdown"], [data-testid="notifications-menu"], [data-testid="notifications-panel"]'
+      )
+      .first()
+      .waitFor({ state: 'visible', timeout: 1500 }),
+  ]).catch(() => null);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -17,14 +17,19 @@ export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarPro
     queryKey: ['/api/retailers'],
   });
 
-  // Memoize price range handler
-  const handlePriceRangeChange = useCallback(
-    (field: 'minPrice' | 'maxPrice', value: string) => {
-      const numValue = value === '' ? undefined : parseFloat(value);
-      onFilterChange({ [field]: numValue });
-    },
-    [onFilterChange]
-  );
+  const [minPriceDraft, setMinPriceDraft] = useState<string>('');
+  const [maxPriceDraft, setMaxPriceDraft] = useState<string>('');
+
+  useEffect(() => {
+    setMinPriceDraft(filters.minPrice !== undefined ? String(filters.minPrice) : '');
+    setMaxPriceDraft(filters.maxPrice !== undefined ? String(filters.maxPrice) : '');
+  }, [filters.maxPrice, filters.minPrice]);
+
+  const applyPriceRange = useCallback(() => {
+    const min = minPriceDraft === '' ? undefined : parseFloat(minPriceDraft);
+    const max = maxPriceDraft === '' ? undefined : parseFloat(maxPriceDraft);
+    onFilterChange({ minPrice: min, maxPrice: max });
+  }, [maxPriceDraft, minPriceDraft, onFilterChange]);
 
   // Memoize retailer change handler
   const handleRetailerChange = useCallback(
@@ -63,6 +68,7 @@ export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarPro
   // Memoize clear filters handler
   const clearFilters = useCallback(() => {
     onFilterChange({
+      category: undefined,
       minPrice: undefined,
       maxPrice: undefined,
       retailers: undefined,
@@ -74,6 +80,26 @@ export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarPro
   return (
     <div role="complementary" aria-label="Product filters">
       <h2 className="text-foreground mb-4 text-lg font-semibold">Filters</h2>
+
+      {/* Category Filter */}
+      <div className="mb-6">
+        <Label htmlFor="category-select" className="text-foreground mb-2 block text-sm font-medium">
+          Category
+        </Label>
+        <select
+          id="category-select"
+          className="border-input bg-background text-foreground focus:border-ring focus:ring-ring w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2"
+          value={filters.category || ''}
+          onChange={(e) => onFilterChange({ category: e.target.value || undefined })}
+        >
+          <option value="">All categories</option>
+          <option value="Electronics">Electronics</option>
+          <option value="Computers">Computers</option>
+          <option value="Smartphones">Smartphones</option>
+          <option value="Tablets">Tablets</option>
+          <option value="Accessories">Accessories</option>
+        </select>
+      </div>
 
       {/* Price Range Filter */}
       <div className="mb-6">
@@ -89,8 +115,8 @@ export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarPro
                 type="number"
                 placeholder="Min"
                 className="focus:ring-ring focus:border-ring focus:ring-2"
-                value={filters.minPrice || ''}
-                onChange={(e) => handlePriceRangeChange('minPrice', e.target.value)}
+                value={minPriceDraft}
+                onChange={(e) => setMinPriceDraft(e.target.value)}
                 aria-label="Minimum price"
               />
             </div>
@@ -104,12 +130,16 @@ export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarPro
                 type="number"
                 placeholder="Max"
                 className="focus:ring-ring focus:border-ring focus:ring-2"
-                value={filters.maxPrice || ''}
-                onChange={(e) => handlePriceRangeChange('maxPrice', e.target.value)}
+                value={maxPriceDraft}
+                onChange={(e) => setMaxPriceDraft(e.target.value)}
                 aria-label="Maximum price"
               />
             </div>
           </div>
+
+          <Button type="button" variant="outline" className="w-full" onClick={applyPriceRange}>
+            Apply Filters
+          </Button>
         </div>
       </div>
 

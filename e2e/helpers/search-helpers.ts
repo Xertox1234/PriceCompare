@@ -5,20 +5,77 @@
  */
 import { type Page } from '@playwright/test';
 
+function getResultCardLocator(page: Page) {
+  // Current UI renders product results as expandable cards.
+  // Keep legacy selectors as fallbacks.
+  return page.locator('.expandable-card, [data-testid="product-card"], .product-card');
+}
+
+function normalizeSortValue(sortBy: string): string {
+  const key = sortBy.trim().toLowerCase();
+
+  if (key === 'price') {
+    // UI default for price sorting is low-to-high.
+    return 'price_low';
+  }
+
+  // Map common test-friendly aliases to UI option values.
+  if (key === 'price_low' || key === 'price: low to high' || key === 'price low' || key === 'low') {
+    return 'price_low';
+  }
+  if (
+    key === 'price_high' ||
+    key === 'price: high to low' ||
+    key === 'price high' ||
+    key === 'high'
+  ) {
+    return 'price_high';
+  }
+  // IMPORTANT: Some test inputs include both "high" and "low" (e.g. "high.*low").
+  // Prefer descending/high-to-low when any strong descending signal is present.
+  if (key === 'price-desc' || key === 'price_desc' || key === 'desc' || key.includes('high')) {
+    return 'price_high';
+  }
+  if (key === 'price-asc' || key === 'price_asc' || key === 'asc' || key.includes('low')) {
+    return 'price_low';
+  }
+  if (key === 'rating') {
+    return 'rating';
+  }
+  if (key === 'popularity' || key === 'relevance') {
+    return 'popularity';
+  }
+
+  return key;
+}
+
 /**
  * Perform a product search with query term
  * Navigates to search page and submits search query
  */
 export async function performSearch(page: Page, query: string): Promise<void> {
-  // Navigate to search page
-  await page.goto('/');
+  // Navigate to products page (current search UI lives here)
+  await page.goto('/products');
   await page.waitForLoadState('networkidle');
+
+  // Tests should prefer basic mode to avoid SmartSearch flakiness/errors.
+  const switchToBasic = page.getByRole('button', { name: /switch to basic search mode/i }).first();
+  if (await switchToBasic.isVisible().catch(() => false)) {
+    await switchToBasic.click();
+  }
 
   // Find search input (multiple possible patterns)
   const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]').first();
 
   await searchInput.fill(query);
   await searchInput.press('Enter');
+
+  // Wait for the products search request to complete.
+  await page
+    .waitForResponse((r) => r.url().includes('/api/products') && r.status() === 200, {
+      timeout: 10000,
+    })
+    .catch(() => null);
 
   // Wait for results to load
   await page.waitForLoadState('networkidle');
@@ -74,11 +131,9 @@ export async function applyPriceRangeFilter(
   await maxPriceInput.fill(maxPrice.toString());
 
   // Look for apply/submit button (may or may not exist - auto-apply is common)
-  const applyButton = page.getByRole('button', { name: /apply.*filter|search/i });
-
-  if ((await applyButton.count()) > 0) {
-    await applyButton.click();
-  }
+  // IMPORTANT: Do NOT include /search/i here (it collides with the search mode toggle and "Clear Search").
+  const applyButton = page.getByRole('button', { name: /^apply filters$/i });
+  if ((await applyButton.count()) > 0) await applyButton.first().click();
 
   // Wait for filtered results
   await page.waitForLoadState('networkidle');
@@ -115,8 +170,38 @@ export async function sortSearchResults(page: Page, sortBy: string): Promise<voi
   // Find sort dropdown
   const sortSelect = page.getByLabel(/sort.*by|order.*by/i);
 
+  const normalizedValue = normalizeSortValue(sortBy);
+
   if ((await sortSelect.count()) > 0) {
-    await sortSelect.selectOption(sortBy);
+    // Prefer value-based selection to avoid brittle label matching.
+    try {
+      await sortSelect.selectOption({ value: normalizedValue });
+    } catch {
+      // Fallback: resolve an option by inspecting option text/label/value.
+      const fallbackValue = await sortSelect.evaluate((el, value) => {
+        const select = el as HTMLSelectElement;
+        const options = Array.from(select.options);
+
+        const patterns: Record<string, RegExp> = {
+          price_low: /price\s*[:-]?\s*low\s*to\s*high|low\s*to\s*high|asc/i,
+          price_high: /price\s*[:-]?\s*high\s*to\s*low|high\s*to\s*low|desc/i,
+          popularity: /most\s*popular|popularity|relevance/i,
+          rating: /rating/i,
+        };
+
+        const re = patterns[value] ?? new RegExp(String(value).replace(/_/g, '\\s*'), 'i');
+        const match = options.find(
+          (o) => re.test(o.label) || re.test(o.textContent ?? '') || re.test(o.value)
+        );
+        return match?.value ?? null;
+      }, normalizedValue);
+
+      if (fallbackValue) {
+        await sortSelect.selectOption({ value: fallbackValue });
+      } else {
+        await sortSelect.selectOption(normalizedValue);
+      }
+    }
     await page.waitForLoadState('networkidle');
     return;
   }
@@ -127,11 +212,12 @@ export async function sortSearchResults(page: Page, sortBy: string): Promise<voi
   if ((await sortButton.count()) > 0) {
     await sortButton.click();
 
-    // Wait for menu to appear
-    await page.waitForTimeout(300);
-
     // Click sort option
-    await page.getByRole('menuitem', { name: new RegExp(sortBy, 'i') }).click();
+    const sortMenuItem = page
+      .getByRole('menuitem', { name: new RegExp(normalizedValue, 'i') })
+      .first();
+    await sortMenuItem.waitFor({ state: 'visible', timeout: 3000 });
+    await sortMenuItem.click();
     await page.waitForLoadState('networkidle');
   }
 }
@@ -143,10 +229,7 @@ export async function sortSearchResults(page: Page, sortBy: string): Promise<voi
 export async function waitForSearchResults(page: Page): Promise<void> {
   // Wait for either product cards or empty state message
   await Promise.race([
-    page
-      .locator('[data-testid="product-card"], .product-card')
-      .first()
-      .waitFor({ state: 'visible', timeout: 10000 }),
+    getResultCardLocator(page).first().waitFor({ state: 'visible', timeout: 10000 }),
     page
       .locator('text=/no.*results|no.*products.*found|nothing.*found/i')
       .waitFor({ state: 'visible', timeout: 10000 }),
@@ -158,8 +241,7 @@ export async function waitForSearchResults(page: Page): Promise<void> {
  * Returns the number of product cards visible on current page
  */
 export async function getSearchResultCount(page: Page): Promise<number> {
-  const productCards = page.locator('[data-testid="product-card"], .product-card');
-  return await productCards.count();
+  return await getResultCardLocator(page).count();
 }
 
 /**
@@ -216,7 +298,7 @@ export async function getCurrentPageNumber(page: Page): Promise<number> {
  * Returns array of prices as numbers
  */
 export async function getSearchResultPrices(page: Page): Promise<number[]> {
-  const productCards = page.locator('[data-testid="product-card"], .product-card');
+  const productCards = getResultCardLocator(page);
   const count = await productCards.count();
   const prices: number[] = [];
 
@@ -241,7 +323,7 @@ export async function getSearchResultPrices(page: Page): Promise<number[]> {
  * Returns array of category names
  */
 export async function getSearchResultCategories(page: Page): Promise<string[]> {
-  const productCards = page.locator('[data-testid="product-card"], .product-card');
+  const productCards = getResultCardLocator(page);
   const count = await productCards.count();
   const categories: string[] = [];
 
@@ -250,7 +332,9 @@ export async function getSearchResultCategories(page: Page): Promise<string[]> {
 
     // Look for category badge/tag
     const categoryText = await card
-      .locator('[data-testid="category"], .category, .badge')
+      .locator(
+        '[data-testid="product-category"], [data-testid="category"], .category, .badge, [class*="badge"]'
+      )
       .first()
       .textContent()
       .catch(() => null);

@@ -64,17 +64,36 @@ echo ""
 # -----------------------------------------------------------------------------
 echo "   🔐 Checking CSRF protection on mutations..."
 
-# Find POST/PUT/PATCH/DELETE routes without csrfProtection
-CSRF_MISSING=$(grep -rn "app\.\(post\|put\|patch\|delete\)\|router\.\(post\|put\|patch\|delete\)" server/ --include="*.ts" 2>/dev/null | \
-  grep -v "csrfProtection" | \
-  grep -v "// CSRF exempt" | \
-  grep -v "__tests__" | \
-  grep -v "\.test\." | \
-  grep -v "\.spec\." | \
-  grep -v "health" | \
-  grep -v "webhook" | \
-  grep -v "track-click" | \
-  grep -v "csrf-token" || true)
+# Find POST/PUT/PATCH/DELETE routes without csrfProtection.
+# NOTE: Route middleware is often multi-line, so we inspect a small window of lines
+# after the route definition to look for csrfProtection.
+CSRF_MISSING_LINES=()
+while IFS=: read -r file line rest; do
+  # Skip tests
+  if [[ "$file" == *"__tests__"* ]] || [[ "$file" == *".test."* ]] || [[ "$file" == *".spec."* ]]; then
+    continue
+  fi
+
+  snippet=$(sed -n "${line},$((line+8))p" "$file" 2>/dev/null || true)
+
+  # Skip known exemptions
+  if echo "$snippet" | grep -q "// CSRF exempt"; then
+    continue
+  fi
+
+  # Skip known public endpoints
+  if echo "$snippet" | grep -qiE "health|webhook|track-click|csrf-token"; then
+    continue
+  fi
+
+  if echo "$snippet" | grep -q "csrfProtection"; then
+    continue
+  fi
+
+  CSRF_MISSING_LINES+=("$file:$line:  $rest")
+done < <(grep -rnE "(app|router)\.(post|put|patch|delete)\(" server/ --include="*.ts" 2>/dev/null || true)
+
+CSRF_MISSING=$(printf "%s\n" "${CSRF_MISSING_LINES[@]}")
 
 if [ -n "$CSRF_MISSING" ]; then
   echo -e "${RED}   ❌ BLOCKER: Mutations found without csrfProtection middleware:${NC}"
@@ -150,9 +169,23 @@ fi
 # -----------------------------------------------------------------------------
 echo "   🔗 Checking foreign key cascade rules..."
 
-FK_NO_CASCADE=$(grep -n "\.references(" shared/schema.ts 2>/dev/null | \
-  grep -v "onDelete:" | \
-  grep -v "// CASCADE handled" || true)
+# NOTE: references() options are often multi-line; check a small window for onDelete.
+FK_NO_CASCADE_LINES=()
+while IFS=: read -r line rest; do
+  snippet=$(sed -n "${line},$((line+8))p" shared/schema.ts 2>/dev/null || true)
+
+  if echo "$snippet" | grep -q "// CASCADE handled"; then
+    continue
+  fi
+
+  if echo "$snippet" | grep -q "onDelete:"; then
+    continue
+  fi
+
+  FK_NO_CASCADE_LINES+=("$line:  $rest")
+done < <(grep -n "\.references(" shared/schema.ts 2>/dev/null || true)
+
+FK_NO_CASCADE=$(printf "%s\n" "${FK_NO_CASCADE_LINES[@]}")
 
 if [ -n "$FK_NO_CASCADE" ]; then
   echo -e "${RED}   ❌ BLOCKER: Foreign keys found without onDelete cascade rules:${NC}"

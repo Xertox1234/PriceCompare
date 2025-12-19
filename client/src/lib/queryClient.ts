@@ -156,6 +156,100 @@ export async function apiRequest<T = unknown>(url: string, options: RequestInit 
   return parsedResponse as T;
 }
 
+/**
+ * Make an API request but return the parsed response without unwrapping
+ * standardized envelopes.
+ *
+ * Useful for callers that need access to pagination metadata.
+ */
+export async function apiRequestRaw<T = unknown>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  // Merge existing headers
+  if (options.headers) {
+    const existingHeaders = new Headers(options.headers);
+    existingHeaders.forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
+
+  // Add CSRF token for non-GET requests
+  if (options.method && !['GET', 'HEAD', 'OPTIONS'].includes(options.method.toUpperCase())) {
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
+  const defaultOptions: RequestInit = {
+    method: 'GET',
+    headers,
+    credentials: 'include',
+    ...options,
+  };
+
+  const res = await fetch(url, defaultOptions);
+
+  // Extract CSRF token from response headers
+  const newCsrfToken = res.headers.get('X-CSRF-Token');
+  if (newCsrfToken) {
+    csrfToken = newCsrfToken;
+  }
+
+  // Handle empty responses (204 No Content)
+  if (res.status === 204) {
+    return null as T;
+  }
+
+  // Parse response body
+  const text = await res.text();
+  if (!text) {
+    if (!res.ok) {
+      throw new ApiError(res.statusText || 'Request failed', res.status);
+    }
+    return null as T;
+  }
+
+  let parsedResponse: unknown;
+  try {
+    parsedResponse = JSON.parse(text);
+  } catch {
+    // Non-JSON response
+    if (!res.ok) {
+      throw new ApiError(text || res.statusText, res.status);
+    }
+    return text as T;
+  }
+
+  // Standardized envelope error handling (do not unwrap)
+  if (
+    typeof parsedResponse === 'object' &&
+    parsedResponse !== null &&
+    'success' in parsedResponse
+  ) {
+    const envelopeResponse = parsedResponse as ApiResponse<unknown>;
+    if (isErrorResponse(envelopeResponse)) {
+      throw new ApiError(envelopeResponse.error, res.status, envelopeResponse.details);
+    }
+  }
+
+  // Legacy format (direct data)
+  if (!res.ok) {
+    throw new ApiError(
+      typeof parsedResponse === 'object' && parsedResponse !== null && 'error' in parsedResponse
+        ? String((parsedResponse as { error: unknown }).error)
+        : res.statusText,
+      res.status
+    );
+  }
+
+  return parsedResponse as T;
+}
+
 type UnauthorizedBehavior = 'returnNull' | 'throw';
 export function getQueryFn<T>(options: { on401: UnauthorizedBehavior }): QueryFunction<T> {
   return async ({ queryKey }) => {

@@ -44,9 +44,10 @@
  *    - Check element existence before assertions
  *    - Comments indicate flexible patterns
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { cleanDatabase } from './helpers';
 import { seedMultipleProducts } from './helpers/admin-helpers';
+import { deterministicNumberInRange, deterministicPriceString } from './helpers/deterministic';
 import {
   performSearch,
   applyCategoryFilter,
@@ -71,23 +72,20 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       // Create test products in different categories
       await seedProductsWithCategories();
 
-      // Perform search
-      await performSearch(page, 'product');
+      // Use the stable browse/search UI on /shop (avoids SmartSearch coupling)
+      await page.goto('/shop');
+      await page.waitForLoadState('networkidle');
       await waitForSearchResults(page);
 
       // Verify initial results show multiple categories
       const initialCount = await getSearchResultCount(page);
       expect(initialCount).toBeGreaterThan(0);
 
-      // Apply category filter
-      const categoryFilter = page.getByLabel(/category/i);
-
-      if ((await categoryFilter.count()) === 0) {
-        test.skip();
-        return;
-      }
-
-      await applyCategoryFilter(page, 'Electronics');
+      // Apply category filter (sidebar text links)
+      await page
+        .getByText(/electronics/i)
+        .first()
+        .click();
 
       // Wait for filtered results
       await waitForSearchResults(page);
@@ -577,7 +575,7 @@ async function seedProductsWithCategories(): Promise<void> {
     await db.insert(productOffers).values({
       productId: product.id,
       retailerId: retailer.id,
-      price: (Math.random() * 500 + 50).toFixed(2),
+      price: deterministicPriceString(10_000 + i, 50, 550),
       productUrl: `https://test-retailer.com/product/${product.id}`,
       availability: 'in_stock',
     });
@@ -609,7 +607,7 @@ async function seedProductsWithPrices(): Promise<void> {
 
   for (let i = 0; i < 15; i++) {
     const range = priceRanges[i % priceRanges.length];
-    const price = Math.random() * (range.max - range.min) + range.min;
+    const price = deterministicNumberInRange(20_000 + i, range.min, range.max);
 
     const [product] = await db
       .insert(products)

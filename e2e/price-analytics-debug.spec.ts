@@ -2,13 +2,10 @@
  * DEBUG VERSION of price-analytics.spec.ts
  * Captures page state and screenshots to diagnose why elements aren't found
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { cleanDatabase } from './helpers';
 import { seedTestProduct } from './helpers/admin-helpers';
-import {
-  navigateToPriceHistory,
-  seedPriceHistoryData,
-} from './helpers/price-analytics-helpers';
+import { navigateToPriceHistory, seedPriceHistoryData } from './helpers/price-analytics-helpers';
 import { db } from '../server/db';
 import { productOffers, priceHistory } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -31,7 +28,10 @@ test.beforeEach(async () => {
   await seedPriceHistoryData(testProductId, 30, { min: 900, max: 1100 });
 
   // Get the first offer ID for API testing
-  const offers = await db.select().from(productOffers).where(eq(productOffers.productId, testProductId));
+  const offers = await db
+    .select()
+    .from(productOffers)
+    .where(eq(productOffers.productId, testProductId));
   testOfferId = offers[0]?.id || 0;
 
   console.log('=== SETUP COMPLETE ===');

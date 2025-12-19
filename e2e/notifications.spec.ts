@@ -21,7 +21,7 @@
  *
  * 2. Explicit Waits for Dynamic Content
  *    - Always wait for notifications to load: waitForSelector('[role="list"]')
- *    - Wait for WebSocket updates: page.waitForTimeout() with reasonable duration
+ *    - Wait for WebSocket updates via UI/state changes (no hard sleeps)
  *    - Use .first() when multiple matches exist (desktop + mobile nav)
  *
  * 3. Semantic, Role-Based Selectors
@@ -46,12 +46,30 @@
  *    - Pattern: if ((await element.count()) > 0) { test } else { test.skip() }
  *    - Benefit: Tests pass on implemented features, skip gracefully otherwise
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
 import { cleanDatabase, registerUser, generateTestEmail, generateTestUsername } from './helpers';
 import { createTestNotification, navigateToNotifications } from './helpers/notification-helpers';
 import { db } from '../server/db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+
+async function waitForNotificationsPageReady(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: /^Notifications$/ })).toBeVisible({
+    timeout: 15000,
+  });
+  await expect(page.getByRole('tab', { name: /^Smart Alerts/i })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /^General/i })).toBeVisible();
+}
+
+async function selectNotificationsTab(
+  page: Page,
+  tabName: 'Smart Alerts' | 'General'
+): Promise<void> {
+  const tab = page.getByRole('tab', { name: new RegExp(`^${tabName}`, 'i') });
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+}
 
 test.describe('Notifications - Real-Time System', () => {
   test.beforeEach(async () => {
@@ -94,8 +112,13 @@ test.describe('Notifications - Real-Time System', () => {
       // Navigate to notifications page
       await navigateToNotifications(page);
 
-      // Wait for notifications to load
-      await page.waitForSelector('[role="list"]', { state: 'visible', timeout: 10000 });
+      await waitForNotificationsPageReady(page);
+      await selectNotificationsTab(page, 'General');
+
+      // Wait for general notifications list to render
+      await page
+        .getByRole('list', { name: /general notifications/i })
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Verify notifications are displayed
       await expect(page.getByText(/price dropped on iphone 15/i)).toBeVisible();
@@ -131,14 +154,13 @@ test.describe('Notifications - Real-Time System', () => {
       // Navigate to notifications page
       await navigateToNotifications(page);
 
-      // Wait for general tab to be active
-      await page.getByRole('tab', { name: /general/i }).click();
+      await waitForNotificationsPageReady(page);
 
-      // Wait for tab content to load (aria-selected indicates active tab)
-      await expect(page.getByRole('tab', { name: /general/i })).toHaveAttribute(
-        'aria-selected',
-        'true'
-      );
+      await selectNotificationsTab(page, 'General');
+
+      await page
+        .getByRole('list', { name: /general notifications/i })
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Find the unread notification card
       const unreadNotification = page.locator('[role="listitem"]', {
@@ -165,41 +187,45 @@ test.describe('Notifications - Real-Time System', () => {
       // Get user ID
       const [user] = await db.select().from(users).where(eq(users.email, email));
 
-      // Create notifications in sequence
+      const now = Date.now();
+
+      // Create notifications with deterministic timestamps
       await createTestNotification(user.id, {
         type: 'price_drop',
         title: 'First notification',
         content: 'Oldest notification',
         isRead: false,
+        createdAt: new Date(now - 3 * 60 * 1000),
       });
-
-      // Wait a bit to ensure different timestamps
-      await page.waitForTimeout(100);
 
       await createTestNotification(user.id, {
         type: 'price_alert',
         title: 'Second notification',
         content: 'Middle notification',
         isRead: false,
+        createdAt: new Date(now - 2 * 60 * 1000),
       });
-
-      await page.waitForTimeout(100);
 
       await createTestNotification(user.id, {
         type: 'system',
         title: 'Third notification',
         content: 'Newest notification',
         isRead: false,
+        createdAt: new Date(now - 1 * 60 * 1000),
       });
 
       // Navigate to notifications page
       await navigateToNotifications(page);
 
-      // Wait for notifications to load
-      await page.waitForSelector('[role="list"]', { state: 'visible', timeout: 10000 });
+      await waitForNotificationsPageReady(page);
+      await selectNotificationsTab(page, 'General');
 
-      // Get all notification titles in order using semantic heading selector
-      const notifications = page.locator('[role="listitem"]').getByRole('heading', { level: 3 });
+      await page
+        .getByRole('list', { name: /general notifications/i })
+        .waitFor({ state: 'visible', timeout: 10000 });
+
+      // General notifications render titles as text (not headings)
+      const notifications = page.locator('[role="listitem"]');
       const count = await notifications.count();
 
       // Verify newest is first (may need to adjust based on actual UI)
@@ -228,14 +254,12 @@ test.describe('Notifications - Real-Time System', () => {
       // Navigate to notifications page
       await navigateToNotifications(page);
 
-      // Switch to general tab
-      await page.getByRole('tab', { name: /general/i }).click();
+      await waitForNotificationsPageReady(page);
+      await selectNotificationsTab(page, 'General');
 
-      // Wait for tab to be active
-      await expect(page.getByRole('tab', { name: /general/i })).toHaveAttribute(
-        'aria-selected',
-        'true'
-      );
+      await page
+        .getByRole('list', { name: /general notifications/i })
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Find unread notification
       const notification = page.locator('[role="listitem"]', {
@@ -284,8 +308,12 @@ test.describe('Notifications - Real-Time System', () => {
       // Navigate to notifications page
       await navigateToNotifications(page);
 
-      // Wait for notifications to load
-      await page.waitForSelector('[role="list"]', { state: 'visible', timeout: 10000 });
+      await waitForNotificationsPageReady(page);
+      await selectNotificationsTab(page, 'General');
+
+      await page
+        .getByRole('list', { name: /general notifications/i })
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Look for "Mark all as read" button (may be in a menu or directly visible)
       // Try common patterns
@@ -345,8 +373,7 @@ test.describe('Notifications - Real-Time System', () => {
       // Navigate to notifications page
       await navigateToNotifications(page);
 
-      // Wait for notifications to load
-      await page.waitForSelector('[role="list"]', { state: 'visible', timeout: 10000 });
+      await waitForNotificationsPageReady(page);
 
       // Look for filter controls (may be dropdown or tabs)
       // Check if Smart Alerts tab exists (for smart notifications)
@@ -403,8 +430,7 @@ test.describe('Notifications - Real-Time System', () => {
       // Navigate to notifications page
       await navigateToNotifications(page);
 
-      // Wait for page to load
-      await page.waitForLoadState('networkidle');
+      await waitForNotificationsPageReady(page);
 
       // Click smart alerts tab
       const smartTab = page.getByRole('tab', { name: /smart/i });
@@ -426,7 +452,9 @@ test.describe('Notifications - Real-Time System', () => {
 
         // Wait for tab to be active and content to be visible
         await expect(generalTab).toHaveAttribute('aria-selected', 'true');
-        await expect(page.getByText(/regular price drop/i)).toBeVisible();
+        await page
+          .getByRole('list', { name: /general notifications/i })
+          .waitFor({ state: 'visible', timeout: 10000 });
 
         // On general tab, should see regular notifications
         await expect(page.getByText(/regular price drop/i)).toBeVisible();
@@ -599,22 +627,27 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Navigate to any page
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
-      // Look for notification badge (use aria-label for semantic selector)
-      // Badge might show "3" or be visible indicator
-      const badge = page
-        .getByLabel(/notification|unread/i)
-        .or(page.locator('[aria-label*="notification"]'));
-
-      // Check if badge exists and is visible
-      if ((await badge.count()) > 0) {
-        await expect(badge.first()).toBeVisible();
+      // Look for notification button/badge in navigation.
+      // Restrict to role=button to avoid matching hidden regions like "Notifications (F8)".
+      const notificationButtons = page.getByRole('button', { name: /^Notifications$/i });
+      if ((await notificationButtons.count()) > 0) {
+        const badgeText = notificationButtons.first().getByText(/^3$/);
+        if ((await badgeText.count()) > 0) {
+          await expect(badgeText.first()).toBeVisible();
+        }
       }
 
       // Navigate to notifications to verify count
       await navigateToNotifications(page);
-      await page.waitForLoadState('networkidle');
+
+      await waitForNotificationsPageReady(page);
+      await selectNotificationsTab(page, 'General');
+
+      await page
+        .getByRole('list', { name: /general notifications/i })
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Verify notifications are displayed
       await expect(page.getByText(/unread 1/i)).toBeVisible();
@@ -637,11 +670,17 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Navigate to home to see badge
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Navigate to notifications page
       await navigateToNotifications(page);
-      await page.waitForLoadState('networkidle');
+
+      await waitForNotificationsPageReady(page);
+      await selectNotificationsTab(page, 'General');
+
+      await page
+        .getByRole('list', { name: /general notifications/i })
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Verify both notifications visible
       await expect(page.getByText(/first unread/i)).toBeVisible();
@@ -662,7 +701,8 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Navigate to notifications page
       await navigateToNotifications(page);
-      await page.waitForLoadState('networkidle');
+
+      await waitForNotificationsPageReady(page);
 
       // Look for empty state message
       const emptyMessage = page.getByText(/no.*notification|no.*alert/i);

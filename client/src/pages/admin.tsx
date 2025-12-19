@@ -32,7 +32,7 @@ interface User {
 
 export default function AdminPage() {
   const { data: currentUser, isLoading: authLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   // FIXED: Move ALL useQuery hooks to top (before any conditional returns)
   // React Rules of Hooks: Hooks must be called in the same order on every render
@@ -71,6 +71,24 @@ export default function AdminPage() {
       setLocation('/');
     }
   }, [currentUser, authLoading, setLocation]);
+
+  const activeTab = (() => {
+    const match = location.match(/^\/admin(?:\/([^/]+))?$/);
+    const tab = match?.[1];
+    switch (tab) {
+      case undefined:
+      case 'dashboard':
+        return 'dashboard';
+      case 'overview':
+      case 'products':
+      case 'retailers':
+      case 'users':
+      case 'settings':
+        return tab;
+      default:
+        return 'dashboard';
+    }
+  })();
 
   // Show loading state while checking authentication
   if (authLoading) {
@@ -115,7 +133,13 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold">Administration Panel</h1>
         </div>
 
-        <Tabs defaultValue="dashboard" className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(next) => {
+            setLocation(next === 'dashboard' ? '/admin' : `/admin/${next}`);
+          }}
+          className="space-y-6"
+        >
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-1">
               <BarChart3 className="h-4 w-4" />

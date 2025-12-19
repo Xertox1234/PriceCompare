@@ -131,7 +131,9 @@ test.describe('Price History & Analytics', () => {
       await navigateToPriceHistory(page, testProductId);
 
       // Check if price history chart exists
-      const chart = page.locator('[data-testid="price-chart"], [class*="recharts-wrapper"]').first();
+      const chart = page
+        .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
+        .first();
 
       if ((await chart.count()) === 0) {
         // Price history UI not implemented yet
@@ -235,7 +237,10 @@ test.describe('Price History & Analytics', () => {
 
       // Wait for chart to update
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(200); // Chart animation (Pattern 8: documented timeout)
+      await page
+        .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 });
 
       // Get new data points
       const sevenDayDataPoints = await getPriceDataPoints(page);
@@ -247,7 +252,10 @@ test.describe('Price History & Analytics', () => {
       // Change to 90 days
       await selectTimeRange(page, '90d');
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(200); // Chart animation
+      await page
+        .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 });
 
       const ninetyDayDataPoints = await getPriceDataPoints(page);
 
@@ -427,11 +435,14 @@ test.describe('Price History & Analytics', () => {
       // Try clicking a data point
       await clickChartDataPoint(page, 0);
 
-      // Wait a moment for modal to potentially appear
-      await page.waitForTimeout(500);
-
       // Check if alert modal appeared
       const alertModal = page.locator('[data-testid="alert-modal"], [role="dialog"]');
+
+      // Give the modal a short window to appear; if it doesn't, the test will skip.
+      await alertModal
+        .first()
+        .waitFor({ state: 'visible', timeout: 2000 })
+        .catch(() => null);
 
       if ((await alertModal.count()) === 0) {
         // Feature may require authentication or not implemented

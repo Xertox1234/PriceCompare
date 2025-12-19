@@ -53,7 +53,12 @@ import { seedTestProduct, seedMultipleProducts } from './helpers/admin-helpers';
 test.describe('Watchlist - Product Organization', () => {
   test.describe('Watchlist CRUD Operations', () => {
     test('should create new watchlist', async ({ page }) => {
-      await registerUser(page, generateTestUsername('watchlist'), generateTestEmail('watchlist'), 'WatchlistPass123!');
+      await registerUser(
+        page,
+        generateTestUsername('watchlist'),
+        generateTestEmail('watchlist'),
+        'WatchlistPass123!'
+      );
 
       // Navigate to watchlists page
       await page.goto('/watchlists');
@@ -61,10 +66,16 @@ test.describe('Watchlist - Product Organization', () => {
 
       // Wait for data to load and button to appear (React Query data fetching)
       // Note: Two "Create Watchlist" buttons exist (header + empty state), use .first()
-      await page.getByRole('button', { name: /create watchlist/i }).first().waitFor({ state: 'visible', timeout: 15000 });
+      await page
+        .getByRole('button', { name: /create watchlist/i })
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 });
 
       // Click create button (header button)
-      await page.getByRole('button', { name: /create watchlist/i }).first().click();
+      await page
+        .getByRole('button', { name: /create watchlist/i })
+        .first()
+        .click();
 
       // Wait for modal/form to be visible
       await page.waitForSelector('[role="dialog"], form', { state: 'visible', timeout: 5000 });
@@ -88,12 +99,19 @@ test.describe('Watchlist - Product Organization', () => {
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      // Find watchlist and delete
-      const watchlistCard = page.locator('[data-testid="watchlist-card"]', {
-        hasText: 'List to Delete',
-      });
+      // Ensure the correct watchlist tab is active (TabsContent for non-active tabs can be hidden)
+      const watchlistTab = page.getByRole('tab', { name: /list to delete/i });
+      await watchlistTab.waitFor({ state: 'visible', timeout: 15000 });
+      await watchlistTab.click();
 
-      await watchlistCard.getByRole('button', { name: /delete/i }).click();
+      // Find watchlist and delete
+      const watchlistCard = page
+        .locator('[data-testid="watchlist-card"]')
+        .filter({ hasText: 'List to Delete' })
+        .first();
+      await expect(watchlistCard).toBeVisible({ timeout: 15000 });
+
+      await watchlistCard.getByRole('button', { name: /^delete$/i }).click();
 
       // Confirm deletion
       await page.getByRole('button', { name: /confirm.*delete/i }).click();
@@ -287,16 +305,41 @@ test.describe('Watchlist - Product Organization', () => {
       await expect(page.locator('[data-testid="product-card"]')).toHaveCount(2); // 2 remaining
     });
 
-    test.skip('should bulk add products to watchlist - UI not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when bulk add UI is built
-      // Expected flow:
-      // 1. Navigate to search results or category page
-      // 2. Select multiple products using checkboxes
-      // 3. Click "Add to Watchlist" bulk action
-      // 4. Select destination watchlist
-      // 5. Verify all products added
+    test('should bulk add products to watchlist', async ({ page }) => {
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
+
+      // Create destination list
+      await createWatchlist(page, 'Bulk Add List');
+
+      // Seed products and navigate to shop
+      const products = await seedMultipleProducts(3);
+      await page.goto('/shop');
+      await page.waitForLoadState('networkidle');
+
+      // Select all products using checkboxes on the listing page
+      for (const product of products) {
+        await page
+          .locator(`[data-testid="product-checkbox-${product.id}"]`)
+          .waitFor({ state: 'visible', timeout: 15000 });
+        await page.locator(`[data-testid="product-checkbox-${product.id}"]`).click();
+      }
+
+      // Bulk action
+      await page.getByTestId('bulk-add-to-watchlist').click();
+      await page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: 5000 });
+
+      // Select destination list
+      await page.getByLabel(/select watchlist/i).click();
+      await page.getByRole('option', { name: /bulk add list/i }).click();
+      await page.getByRole('button', { name: /^add$/i }).click();
+
+      // Verify all products added in watchlist
+      await page.goto('/watchlists');
+      await page.waitForLoadState('networkidle');
+      await page.getByRole('tab', { name: /bulk add list/i }).click();
+      for (const product of products) {
+        await expect(page.getByText(product.name)).toBeVisible({ timeout: 15000 });
+      }
     });
   });
 
@@ -366,7 +409,9 @@ test.describe('Watchlist - Product Organization', () => {
       await expect(page.getByText(/import successful/i).first()).toBeVisible({ timeout: 15000 });
 
       // New watchlist name derived from filename
-      await page.getByRole('tab', { name: /import test/i }).waitFor({ state: 'visible', timeout: 15000 });
+      await page
+        .getByRole('tab', { name: /import test/i })
+        .waitFor({ state: 'visible', timeout: 15000 });
       await page.getByRole('tab', { name: /import test/i }).click();
 
       await page.getByText(products[0].name).waitFor({ state: 'visible', timeout: 15000 });
@@ -420,7 +465,9 @@ test.describe('Watchlist - Product Organization', () => {
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
-      await page.getByRole('tab', { name: /shared list/i }).waitFor({ state: 'visible', timeout: 15000 });
+      await page
+        .getByRole('tab', { name: /shared list/i })
+        .waitFor({ state: 'visible', timeout: 15000 });
       await page.getByRole('tab', { name: /shared list/i }).click();
 
       await page.getByText(product.name).waitFor({ state: 'visible', timeout: 15000 });
@@ -434,15 +481,36 @@ test.describe('Watchlist - Product Organization', () => {
       await expect(page.getByText(product.name)).toBeHidden({ timeout: 15000 });
     });
 
-    test.skip('should make watchlist public - feature not yet implemented', async ({
-      page: _page,
-    }) => {
-      // TODO: Implement when public sharing is added
-      // Expected flow:
-      // 1. Open watchlist settings
-      // 2. Toggle "Make Public" switch
-      // 3. Generate shareable link
-      // 4. Verify watchlist accessible via link (unauthenticated)
+    test('should make watchlist public', async ({ page }) => {
+      await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
+
+      const { product } = await seedTestProduct();
+      await createWatchlist(page, 'Public List');
+      await addProductToWatchlist(page, product.id, 'Public List');
+
+      // Open watchlists
+      await page.goto('/watchlists');
+      await page.waitForLoadState('networkidle');
+      await page.getByRole('tab', { name: /public list/i }).click();
+
+      // Make public
+      await page.getByRole('button', { name: /make public/i }).click();
+      await page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: 10000 });
+
+      const linkInput = page.getByLabel(/shareable link/i);
+      await expect(linkInput).toBeVisible({ timeout: 10000 });
+      const url = (await linkInput.inputValue()).trim();
+      expect(url).toMatch(/\/watchlists\/public\//i);
+
+      // Close the dialog so it doesn't block the user menu click during logout
+      await page.keyboard.press('Escape');
+      await page.locator('[role="dialog"]').waitFor({ state: 'hidden', timeout: 5000 });
+
+      // Verify accessible unauthenticated
+      await logoutUser(page);
+      await page.goto(url);
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByText(product.name)).toBeVisible({ timeout: 15000 });
     });
   });
 });
@@ -457,7 +525,10 @@ async function createWatchlist(page: Page, name: string) {
   await page.waitForLoadState('networkidle');
 
   // Click header button (two buttons exist: header + empty state)
-  await page.getByRole('button', { name: /create watchlist/i }).first().click();
+  await page
+    .getByRole('button', { name: /create watchlist/i })
+    .first()
+    .click();
 
   // Wait for modal/form
   await page.waitForSelector('[role="dialog"], form', { state: 'visible', timeout: 5000 });
@@ -499,5 +570,8 @@ async function addProductToWatchlist(page: Page, productId: number, watchlistNam
   await page.getByRole('button', { name: /^add$/i }).click();
 
   // Wait for success notification (use .first() to handle duplicate aria-live regions)
-  await page.getByText(/added to watchlist/i).first().waitFor({ state: 'visible', timeout: 5000 });
+  await page
+    .getByText(/added to watchlist/i)
+    .first()
+    .waitFor({ state: 'visible', timeout: 5000 });
 }

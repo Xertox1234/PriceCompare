@@ -173,6 +173,12 @@ export class StorageCacheService {
     tier: CacheTier = CacheTier.WARM,
     useL1 = true
   ): Promise<T> {
+    // E2E/automated tests rely on clean database state per test.
+    // Caching across tests can serve stale/empty results and introduce flakes.
+    if (process.env.NODE_ENV === 'test') {
+      return await fetchFn();
+    }
+
     try {
       return await this.cache.getOrSet(cacheKey, fetchFn, tier, useL1);
     } catch (error) {

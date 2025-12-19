@@ -98,6 +98,8 @@ export interface WatchListWithCount {
   color: string | null;
   icon: string | null;
   isDefault: boolean | null;
+  isPublic: boolean | null;
+  publicShareToken: string | null;
   sortOrder: number | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -242,6 +244,7 @@ export interface AdminUser {
   email: string;
   role: string | null;
   isActive: boolean | null;
+  isSuspended: boolean | null;
   reputation: number | null;
   createdAt: Date | null;
 }

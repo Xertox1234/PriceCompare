@@ -66,6 +66,16 @@ export const LazyPriceWatch = lazy(() => import('@/pages/price-watch'));
 export const LazyNotificationsPage = lazy(() => import('@/pages/notifications'));
 
 /**
+ * Notification settings page
+ */
+export const LazyNotificationSettingsPage = lazy(() => import('@/pages/settings-notifications'));
+
+/**
+ * Alerts management page
+ */
+export const LazyAlertsPage = lazy(() => import('@/pages/alerts'));
+
+/**
  * Products page (legacy) - Product listing
  */
 export const LazyProductsPage = lazy(() => import('@/pages/products'));

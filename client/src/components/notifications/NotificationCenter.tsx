@@ -17,8 +17,14 @@ import {
   useDismissNotification,
   type SmartNotification,
 } from '@/hooks/useSmartNotifications';
-import { useNotifications, useNotificationStats } from '@/hooks/use-notifications';
+import {
+  useMarkAllAsRead,
+  useNotifications,
+  useNotificationStats,
+} from '@/hooks/use-notifications';
 import { formatDistanceToNow } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 type UrgencyFilter = 'all' | 'critical' | 'high' | 'medium' | 'low';
 type SortOption = 'recent' | 'urgent' | 'expiring';
@@ -90,6 +96,7 @@ export function NotificationCenter() {
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [activeTab, setActiveTab] = useState<'smart' | 'general'>('smart');
+  const { toast } = useToast();
 
   // Fetch smart notifications
   const { data: smartData, isLoading: isLoadingSmartNotifications } = useSmartNotifications({
@@ -101,6 +108,8 @@ export function NotificationCenter() {
 
   // Fetch notification stats for unread counts
   const { data: stats } = useNotificationStats();
+
+  const markAllAsRead = useMarkAllAsRead();
 
   // Mutations
   const snoozeNotification = useSnoozeNotification();
@@ -220,20 +229,36 @@ export function NotificationCenter() {
 
         {/* General Notifications Tab */}
         <TabsContent value="general" className="space-y-4">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                markAllAsRead.mutate(undefined, {
+                  onSuccess: () => toast({ title: 'Marked all as read' }),
+                  onError: (error: Error) =>
+                    toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+                })
+              }
+            >
+              Mark all as read
+            </Button>
+          </div>
+
           {isLoadingGeneral ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-20 w-full" />
               ))}
             </div>
-          ) : generalData?.notifications.length === 0 ? (
+          ) : (generalData?.data?.length || 0) === 0 ? (
             <div className="bg-muted/20 rounded-lg py-12 text-center">
               <Bell className="text-muted-foreground mx-auto mb-3 h-12 w-12" aria-hidden="true" />
               <p className="text-muted-foreground text-lg font-medium">No notifications</p>
             </div>
           ) : (
             <div className="space-y-2" role="list" aria-label="General notifications">
-              {generalData?.notifications.map((notification) => (
+              {generalData?.data?.map((notification) => (
                 <div
                   key={notification.id}
                   className={`rounded-lg border p-4 ${

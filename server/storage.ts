@@ -192,6 +192,14 @@ export interface IStorage {
     sharedWithUserId: number
   ): Promise<boolean>;
 
+  // Public Watch Lists (unauthenticated link)
+  setWatchListPublic(
+    watchListId: number,
+    userId: number,
+    isPublic: boolean
+  ): Promise<{ isPublic: boolean; publicShareToken: string | null }>;
+  getPublicWatchListByToken(token: string): Promise<WatchListWithProducts | null>;
+
   // Users - Basic operations
   getUserCount(): Promise<number>;
   getUserByIdSafe(id: number): Promise<SafeUser | null>;
@@ -302,6 +310,8 @@ export interface IStorage {
   ): Promise<void>;
   updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
   suspendUser(userId: number, reason: string, moderatorId: number): Promise<void>;
+  unsuspendUser(userId: number, moderatorId: number): Promise<void>;
+  updateUserRole(userId: number, role: 'user' | 'moderator' | 'admin'): Promise<void>;
 
   // Admin Analytics
   getAllUsers(): Promise<AdminUser[]>;
@@ -1498,6 +1508,18 @@ export class MemStorage implements IStorage {
     throw new Error('Watch lists not supported in memory storage');
   }
 
+  async setWatchListPublic(
+    _watchListId: number,
+    _userId: number,
+    _isPublic: boolean
+  ): Promise<{ isPublic: boolean; publicShareToken: string | null }> {
+    throw new Error('Watch lists not supported in memory storage');
+  }
+
+  async getPublicWatchListByToken(_token: string): Promise<WatchListWithProducts | null> {
+    return null;
+  }
+
   // Additional stub implementations for MemStorage
   async getAllRetailers(): Promise<Retailer[]> {
     return Array.from(this.retailers.values());
@@ -1551,6 +1573,14 @@ export class MemStorage implements IStorage {
   }
 
   async suspendUser(_userId: number, _reason: string, _suspendedBy: number): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async unsuspendUser(_userId: number, _moderatorId: number): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async updateUserRole(_userId: number, _role: 'user' | 'moderator' | 'admin'): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -2933,6 +2963,18 @@ export class DatabaseStorage implements IStorage {
     return this.watchListStorage.revokeWatchListShare(ownerUserId, watchListId, sharedWithUserId);
   }
 
+  async setWatchListPublic(
+    watchListId: number,
+    userId: number,
+    isPublic: boolean
+  ): Promise<{ isPublic: boolean; publicShareToken: string | null }> {
+    return this.watchListStorage.setWatchListPublic(watchListId, userId, isPublic);
+  }
+
+  async getPublicWatchListByToken(token: string): Promise<WatchListWithProducts | null> {
+    return this.watchListStorage.getPublicWatchListByToken(token);
+  }
+
   // Admin Product/Retailer Management
   async getAdminProducts(): Promise<AdminProduct[]> {
     return db
@@ -3078,6 +3120,14 @@ export class DatabaseStorage implements IStorage {
 
   async suspendUser(userId: number, reason: string, moderatorId: number): Promise<void> {
     return this.userStorage.suspendUser(userId, reason, moderatorId);
+  }
+
+  async unsuspendUser(userId: number, moderatorId: number): Promise<void> {
+    return this.userStorage.unsuspendUser(userId, moderatorId);
+  }
+
+  async updateUserRole(userId: number, role: 'user' | 'moderator' | 'admin'): Promise<void> {
+    return this.userStorage.updateUserRole(userId, role);
   }
 
   // Admin Analytics
@@ -5354,6 +5404,7 @@ export interface AdminUser {
   email: string;
   role: string | null;
   isActive: boolean | null;
+  isSuspended: boolean | null;
   reputation: number | null;
   createdAt: Date | null;
 }

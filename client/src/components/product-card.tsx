@@ -19,7 +19,9 @@ export const ProductCard = memo(
     // Memoize bestOffer calculation to avoid expensive reduce on every render
     const bestOffer = useMemo(() => {
       if (!product.offers || product.offers.length === 0) return null;
-      return product.offers.reduce((best, offer) => (offer.price < best.price ? offer : best));
+      return product.offers.reduce((best, offer) =>
+        Number(offer.price) < Number(best.price) ? offer : best
+      );
     }, [product.offers]);
 
     // Memoize price calculations to avoid recalculation on every render
@@ -97,7 +99,7 @@ export const ProductCard = memo(
     const { originalPrice, currentPrice, savings, savingsPercentage } = priceInfo;
 
     return (
-      <Card className="group overflow-hidden rounded-2xl">
+      <Card className="product-card group overflow-hidden rounded-2xl" data-testid="product-card">
         <div className="relative">
           <img
             src={getProductImageUrl(product.image)}
@@ -140,6 +142,14 @@ export const ProductCard = memo(
             {product.brand && (
               <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
                 {product.brand}
+              </p>
+            )}
+            {product.category && (
+              <p
+                className="text-muted-foreground text-xs font-medium"
+                data-testid="product-category"
+              >
+                {product.category}
               </p>
             )}
           </div>

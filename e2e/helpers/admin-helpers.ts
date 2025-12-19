@@ -8,6 +8,7 @@ import { db } from '../../server/db';
 import { products, retailers, productOffers, priceHistory } from '@shared/schema';
 import type { Product, Retailer } from '@shared/schema';
 import { waitForApiResponse } from '../helpers';
+import { deterministicPriceString } from './deterministic';
 
 /**
  * Creates an admin user by registering the first user in a clean database.
@@ -176,12 +177,12 @@ export async function seedAnalyticsData(options?: {
 
   // Batch create product offers (avoid N+1 queries)
   const offerData = createdProducts.map((product) => {
-    const retailer = createdRetailers[Math.floor(Math.random() * createdRetailers.length)];
+    const retailer = createdRetailers[product.id % createdRetailers.length];
     return {
       productId: product.id,
       retailerId: retailer.id,
       productUrl: `https://${retailer.website}/products/${product.id}`,
-      price: (Math.random() * 1000 + 50).toFixed(2),
+      price: deterministicPriceString(30_000 + product.id, 50, 1050),
       availability: 'in_stock',
     };
   });
@@ -191,6 +192,7 @@ export async function seedAnalyticsData(options?: {
   // Batch create price history entries (23x faster than loop)
   const priceEntriesPerProduct = Math.floor(priceHistoryCount / createdProducts.length);
   const priceHistoryData = [];
+  const now = new Date();
 
   for (let i = 0; i < createdProducts.length; i++) {
     const product = createdProducts[i];
@@ -198,14 +200,13 @@ export async function seedAnalyticsData(options?: {
 
     for (let j = 0; j < priceEntriesPerProduct; j++) {
       const daysAgo = Math.floor((j / priceEntriesPerProduct) * 30); // Spread over 30 days
-      const recordedAt = new Date();
-      recordedAt.setDate(recordedAt.getDate() - daysAgo);
+      const recordedAt = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
 
       priceHistoryData.push({
         productOfferId: offer.id,
         productId: product.id,
         retailerId: offer.retailerId,
-        price: (Math.random() * 1000 + 50).toFixed(2),
+        price: deterministicPriceString(40_000 + product.id * 1000 + j, 50, 1050),
         recordedAt,
       });
     }
@@ -249,12 +250,13 @@ export async function seedMultipleProducts(count: number): Promise<Product[]> {
   const createdProducts = await db.insert(products).values(productData).returning();
 
   // Create offers for each product
-  for (const product of createdProducts) {
+  for (let i = 0; i < createdProducts.length; i++) {
+    const product = createdProducts[i];
     await db.insert(productOffers).values({
       productId: product.id,
       retailerId: retailer.id,
       productUrl: `https://${retailer.website}/products/${product.id}`,
-      price: (Math.random() * 500 + 100).toFixed(2),
+      price: deterministicPriceString(50_000 + i, 100, 600),
       availability: 'in_stock',
     });
   }
