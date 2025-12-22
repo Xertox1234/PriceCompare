@@ -73,7 +73,8 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // ✅ /alerts page is implemented - tests ready to run
+  // ✅ /alerts page implemented with full CRUD support
+  // Tests: list alerts (3 tests), view status, empty state
   test.describe('View Price Alerts', () => {
     test('should list all user alerts', async ({ authenticatedPage: page }) => {
       // /alerts route is implemented
@@ -113,7 +114,8 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // ✅ /alerts page is implemented with edit functionality
+  // ✅ /alerts page implemented with edit functionality
+  // Tests: update target price (2 tests), validation
   test.describe('Edit Price Alert', () => {
     test('should update alert target price', async ({ authenticatedPage: page }) => {
       // /alerts route with edit functionality is implemented
@@ -157,7 +159,8 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // ✅ /alerts page is implemented with delete functionality
+  // ✅ /alerts page implemented with delete functionality
+  // Tests: delete alert (2 tests), confirmation dialog
   test.describe('Delete Price Alert', () => {
     test('should delete an alert', async ({ authenticatedPage: page }) => {
       // /alerts route with delete functionality is implemented
@@ -216,12 +219,15 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // ✅ /alerts page is implemented - notification integration ready
+  // BLOCKER: Alert notification integration pending
+  // Requires: price-drop-detection service to create notifications when alerts trigger
+  // Backend: server/services/price-drop-detection.ts needs notification integration
+  // Effort: ~2-3 hours (Phase 3, Feature 3.1)
   test.describe.skip('Alert Notifications', () => {
     test('should show notification when price drops below target', async ({
       authenticatedPage: page,
     }) => {
-      // /alerts route is implemented - awaiting notification backend integration
+      // /alerts route is implemented - awaiting notification backend integration (Phase 3.1)
       await createAlertViaModal(page, testProduct.productId, 2000.0);
 
       await page.goto('/alerts');
