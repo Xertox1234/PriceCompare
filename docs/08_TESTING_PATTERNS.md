@@ -1,7 +1,7 @@
 # Testing Patterns
 
-**Version:** 1.8
-**Last Updated:** 2025-12-15
+**Version:** 1.9
+**Last Updated:** 2025-12-22
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
@@ -1032,14 +1032,16 @@ This section covers end-to-end testing patterns with Playwright based on 2025 in
 4. [CSRF Token Patterns](#e2e-csrf-token-patterns) (NEW - Phase 1.2)
 5. [Accessibility Testing (Axe)](#e2e-accessibility-testing-axe-new---2025-12-15) (NEW - 2025-12-15)
 6. [Type Safety - Playwright Types](#e2e-type-safety---playwright-type-imports-new---2025-12-12) (NEW - 2025-12-12)
-7. [Test Organization](#e2e-test-organization)
-8. [Authentication State Reuse](#authentication-state-reuse)
-9. [WebSocket Testing](#websocket-testing)
-10. [Database Management](#e2e-database-management)
-11. [CI/CD Configuration](#e2e-cicd-configuration)
-12. [Visual Regression Testing (Screenshots)](#visual-regression-testing-screenshots)
-13. [Flaky Test Prevention](#e2e-flaky-test-prevention)
-14. [Debugging](#e2e-debugging)
+7. [Test Documentation Patterns](#e2e-test-documentation-patterns-new---2025-12-22) (NEW - 2025-12-22)
+8. [Test-Driven E2E Development](#test-driven-e2e-development-with-skipped-tests-new---2025-12-22) (NEW - 2025-12-22)
+9. [Test Organization](#e2e-test-organization)
+10. [Authentication State Reuse](#authentication-state-reuse)
+11. [WebSocket Testing](#websocket-testing)
+12. [Database Management](#e2e-database-management)
+13. [CI/CD Configuration](#e2e-cicd-configuration)
+14. [Visual Regression Testing (Screenshots)](#visual-regression-testing-screenshots)
+15. [Flaky Test Prevention](#e2e-flaky-test-prevention)
+16. [Debugging](#e2e-debugging)
 
 ---
 
@@ -2402,6 +2404,479 @@ test('should not have console errors', async ({ page }) => {
 
 ---
 
+### E2E Test Documentation Patterns (NEW - 2025-12-22)
+
+**Source**: Phase 1.1 - Missing features implementation plan
+**Issue**: E2E tests claimed `/alerts` page "doesn't exist" but page was fully implemented (231 lines)
+
+E2E test comments must accurately reflect implementation reality. Stale comments create confusion and waste debugging time.
+
+#### The Problem: Documentation Drift
+
+```typescript
+// e2e/price-alerts.spec.ts - WRONG (outdated comment)
+
+// SKIPPED: View Price Alerts tests require /alerts page that doesn't exist
+// Re-enable when dedicated alerts management page is implemented
+test.describe.skip('View Price Alerts', () => {
+  // 6 tests skipped...
+});
+
+// Reality: /alerts page exists at client/src/pages/alerts.tsx (231 lines)
+// Tests would pass if unskipped - comment is 100% wrong!
+```
+
+**Why This Happens**:
+- Feature implemented but developer forgets to update test comments
+- Test written before implementation, never revisited
+- Multiple developers working on feature and tests separately
+
+**Impact**:
+- Wasted time investigating "missing" features that exist
+- False sense of incomplete work
+- Tests not exercising real functionality
+- Test coverage metrics inaccurate
+
+#### The Solution: Structured Comment Format
+
+Use a **standardized format** that states WHAT exists and HOW MANY tests:
+
+```typescript
+// ✅ CORRECT - Accurate status with test count
+
+// ✅ /alerts page implemented with full CRUD support
+// Tests: list alerts (3 tests), view status, empty state
+test.describe('View Price Alerts', () => {
+  test('should list all user alerts', async ({ authenticatedPage: page }) => {
+    // Test implementation...
+  });
+
+  test('should show empty state when no alerts', async ({ authenticatedPage: page }) => {
+    // Test implementation...
+  });
+
+  test('should show alert status (active/triggered)', async ({ authenticatedPage: page }) => {
+    // Test implementation...
+  });
+});
+```
+
+#### Comment Format Template
+
+```typescript
+// [STATUS] [Feature/page name] [implementation status]
+// Tests: [brief list of test scenarios]
+// BLOCKER: [if skipped, specific reason] (optional)
+
+// Examples:
+
+// ✅ /alerts page implemented with full CRUD support
+// Tests: list alerts (3 tests), view status, empty state
+test.describe('View Price Alerts', () => { /* ... */ });
+
+// ✅ /alerts page implemented with edit functionality
+// Tests: update target price (2 tests), validation
+test.describe('Edit Price Alert', () => { /* ... */ });
+
+// ❌ Feature not implemented yet
+// BLOCKER: Requires backend notification service integration
+test.describe.skip('Real-time Alerts', () => { /* ... */ });
+```
+
+#### Status Indicators
+
+Use **emoji/text prefixes** for quick visual scanning:
+
+- **✅** - Feature fully implemented and tested
+- **⚠️** - Feature partially implemented (specify what's missing)
+- **❌** - Feature not implemented yet
+- **🚧** - Feature in progress (mention who/when)
+
+#### Maintenance Pattern
+
+**CRITICAL**: Update test comments immediately when:
+1. Implementing a feature that has skipped tests
+2. Discovering skipped tests for existing features
+3. Refactoring features that change test scenarios
+
+```typescript
+// Before implementing feature
+// ❌ Price volatility indicator not implemented
+// Tests: volatility badge, calculation accuracy, edge cases
+test.describe.skip('Price Volatility', () => {
+  // Tests waiting for implementation...
+});
+
+// After implementing feature - UPDATE COMMENT IMMEDIATELY
+// ✅ Price volatility indicator implemented
+// Tests: volatility badge (3 levels), calculation accuracy, edge cases
+test.describe('Price Volatility', () => {
+  // Tests now active!
+});
+```
+
+#### Test Count Accuracy
+
+**Always include test counts** for accountability:
+
+```typescript
+// ✅ CORRECT - Exact count helps verify completeness
+// Tests: create alert (2 tests), validation (3 tests), edge cases (1 test)
+test.describe('Alert Creation', () => {
+  // 6 total tests
+});
+
+// ❌ WRONG - Vague, no accountability
+// Tests: alert creation and validation
+test.describe('Alert Creation', () => {
+  // How many tests? No idea.
+});
+```
+
+#### Detection Pattern
+
+Add to code review checklist:
+
+```bash
+# Find potentially stale skip comments
+grep -rn "doesn't exist\|not implemented\|TODO.*skip" e2e/ --include="*.ts"
+
+# Cross-reference with actual implementation
+# If comment says "doesn't exist" but file exists, update comment!
+```
+
+#### Example: Real Fix from Session
+
+**Before (Incorrect)**:
+```typescript
+// e2e/price-alerts.spec.ts
+
+// SKIPPED: View Price Alerts tests require /alerts page that doesn't exist
+// Re-enable when dedicated alerts management page is implemented
+test.describe.skip('View Price Alerts', () => {
+  test('should list all user alerts', async ({ authenticatedPage: page }) => {
+    await page.goto('/alerts');  // This page EXISTS!
+    // ...
+  });
+});
+```
+
+**After (Accurate)**:
+```typescript
+// e2e/price-alerts.spec.ts
+
+// ✅ /alerts page implemented with full CRUD support
+// Tests: list alerts (3 tests), view status, empty state
+test.describe('View Price Alerts', () => {
+  test('should list all user alerts', async ({ authenticatedPage: page }) => {
+    await page.goto('/alerts');
+    await page.waitForLoadState('networkidle');
+    // Should show alerts for the seeded product
+    await expect(page.locator('text=/Gaming Laptop/i').first()).toBeVisible();
+  });
+
+  test('should show empty state when no alerts', async ({ authenticatedPage: page }) => {
+    // ...
+  });
+
+  test('should show alert status (active/triggered)', async ({ authenticatedPage: page }) => {
+    // ...
+  });
+});
+```
+
+**Impact**: +6 E2E tests activated, accurate documentation, no wasted investigation time.
+
+#### Test Documentation Checklist
+
+Before committing E2E test files:
+
+- [ ] Comments accurately reflect implementation status (not stale)
+- [ ] Status indicator used (✅/⚠️/❌/🚧)
+- [ ] Test count specified for each describe block
+- [ ] Skip reasons are specific with blockers documented
+- [ ] Cross-referenced with actual implementation (files exist)
+- [ ] Updated comments after implementing features
+
+**Reference**: `todos/2025-12-22_missing-features-implementation-plan.md` (Section 1.1)
+
+---
+
+### Test-Driven E2E Development with Skipped Tests (NEW - 2025-12-22)
+
+**Source**: Phase 1 missing features analysis
+**Pattern**: Write E2E tests using `test.skip()` before implementation, tests self-activate when UI appears
+
+E2E tests can serve as **living feature specifications** that automatically activate when implementation is complete.
+
+#### The TDD Pattern for E2E Tests
+
+**Traditional TDD**: Write unit test → implement code → test passes
+**E2E TDD**: Write E2E test with `test.skip()` → implement UI → test auto-activates
+
+```typescript
+// Step 1: Write test BEFORE feature exists
+test.skip('should highlight best deal among retailers', async ({ page }) => {
+  await page.goto(`/products/${productId}`);
+
+  const bestDealBadge = page.locator('text=/best deal/i');
+  await expect(bestDealBadge).toBeVisible();
+  // Test waits for "Best Deal" text to appear in UI
+});
+
+// Step 2: Implement feature
+// Add <Badge>Best Deal</Badge> to RetailerCard component
+
+// Step 3: Remove skip - test automatically passes!
+test('should highlight best deal among retailers', async ({ page }) => {
+  await page.goto(`/products/${productId}`);
+
+  const bestDealBadge = page.locator('text=/best deal/i');
+  await expect(bestDealBadge).toBeVisible();
+  // ✅ Now passes because badge exists in DOM
+});
+```
+
+#### Auto-Activation with skipIfMissing Helper
+
+For even better automation, use a helper that skips tests when UI elements are missing:
+
+```typescript
+// e2e/helpers/skip-if-missing.ts
+import { type Page } from '@playwright/test';
+
+export async function skipIfMissing(
+  page: Page,
+  selector: string,
+  featureName: string
+): Promise<void> {
+  const element = page.locator(selector);
+  const exists = await element.count() > 0;
+
+  if (!exists) {
+    console.log(`⏭️  Skipping test - ${featureName} not implemented (selector: ${selector})`);
+    return; // Test automatically skips
+  }
+}
+
+// Usage in tests
+test('should show time range selector', async ({ page }) => {
+  await page.goto(`/products/${productId}`);
+
+  // Auto-skip if selector doesn't exist
+  await skipIfMissing(page, '[data-testid="time-range-selector"]', 'Time Range Selector');
+
+  // If we reach here, feature is implemented!
+  await expect(page.getByTestId('time-range-selector')).toBeVisible();
+  await page.getByRole('tab', { name: '30d' }).click();
+  // ... rest of test
+});
+```
+
+#### Benefits of TDD E2E Pattern
+
+1. **Self-Documenting**: Skipped tests are a visible todo list
+2. **No Manual Tracking**: Test suite shows exactly what's missing
+3. **Automatic Activation**: Implement feature → test passes (no test updates needed)
+4. **Prevents Regressions**: If feature breaks, test immediately fails
+5. **Clear Acceptance Criteria**: Test defines "done" for the feature
+
+#### Structured Blocker Documentation
+
+When tests are skipped for **specific blockers** (not just missing UI), use structured format:
+
+```typescript
+// BLOCKER: [What's blocking]
+// Requires: [Specific technical requirement]
+// Backend: [File/service that needs changes]
+// Effort: [Time estimate] (Phase reference)
+test.describe.skip('Feature Name', () => {
+  test('should do something', async ({ page }) => {
+    // Test implementation...
+  });
+});
+```
+
+**Example**:
+```typescript
+// BLOCKER: Alert notification integration pending
+// Requires: price-drop-detection service to create notifications when alerts trigger
+// Backend: server/services/price-drop-detection.ts needs notification integration
+// Effort: ~2-3 hours (Phase 3, Feature 3.1)
+test.describe.skip('Alert Notifications', () => {
+  test('should show notification when price drops below target', async ({ authenticatedPage: page }) => {
+    await createAlertViaModal(page, testProduct.productId, 2000.0);
+
+    await page.goto('/alerts');
+    await page.waitForLoadState('networkidle');
+
+    // Should show that alert was triggered or notification exists
+    await expect(
+      page.locator('text=/triggered|price.*dropped|target.*met|notification/i')
+    ).toBeVisible();
+  });
+});
+```
+
+#### Implementation Tracking Pattern
+
+Combine TDD E2E tests with a **feature tracking document**:
+
+```markdown
+# todos/missing-features-implementation-plan.md
+
+## Phase 1: Quick Wins
+
+### 1.1 Update /alerts Test Documentation (15 minutes)
+**Status**: ✅ COMPLETED 2025-12-22
+**E2E Tests Activated**: +6 tests in price-alerts.spec.ts
+
+### 1.2 Add "Best Deal" Badge (1 hour)
+**Status**: ✅ COMPLETED 2025-12-22 (Already implemented)
+**E2E Tests Activated**: +1 test in price-analytics.spec.ts
+
+### 1.3 Price Change % Badges (1-2 hours)
+**Status**: ⏳ Not Started
+**E2E Tests Waiting**: 1 test in price-analytics.spec.ts
+
+## Progress: 2/15 features complete, +7 E2E tests activated
+```
+
+#### Test as Feature Specification
+
+Write E2E tests as **acceptance criteria**:
+
+```typescript
+// This test IS the feature specification
+test.skip('should filter notifications by type', async ({ authenticatedPage: page }) => {
+  // GIVEN multiple notification types exist
+  await seedNotifications([
+    { type: 'price_drop', title: 'Price dropped!' },
+    { type: 'price_alert', title: 'Alert triggered!' },
+    { type: 'system', title: 'System update' },
+  ]);
+
+  // WHEN user navigates to notifications page
+  await page.goto('/notifications');
+
+  // AND selects "Price Alerts" filter
+  await page.getByRole('combobox', { name: /filter/i }).click();
+  await page.getByRole('option', { name: /price alerts/i }).click();
+
+  // THEN only price alert notifications are shown
+  await expect(page.getByText('Alert triggered!')).toBeVisible();
+  await expect(page.getByText('Price dropped!')).not.toBeVisible();
+  await expect(page.getByText('System update')).not.toBeVisible();
+
+  // AND count updates to reflect filter
+  await expect(page.getByText('1 notification')).toBeVisible();
+});
+
+// Developer reads this test and knows EXACTLY what to build:
+// 1. Dropdown filter component
+// 2. Filter by notification.type field
+// 3. Update count to reflect filtered results
+// 4. URL parameter to persist filter (?type=price_alert)
+```
+
+#### Component Verification Pattern
+
+**CRITICAL**: Always **run E2E test to verify** before marking feature complete.
+
+```typescript
+// Implementation plan says "Feature 1.2: Add Best Deal Badge"
+// Developer thinks: "I'll just add the badge and mark it done"
+
+// ❌ WRONG - Marking complete without verification
+// - Might already be implemented
+// - Might be implemented differently than expected
+// - Test might not actually pass
+
+// ✅ CORRECT - Run test first
+npm run test:e2e -- e2e/price-analytics.spec.ts --grep "best deal"
+
+// If test passes → Feature already exists! Update plan.
+// If test fails → Implement feature, then run test again.
+// Only mark complete when test actually passes.
+```
+
+**Example from Session**:
+```bash
+# Feature 1.2: Add "Best Deal" Badge
+# Developer was about to implement...
+
+$ npm run test:e2e -- e2e/price-analytics.spec.ts --grep "best deal"
+
+# Test PASSED! Feature already implemented!
+# Saved 1 hour of duplicate work.
+# Updated plan to mark as "Already implemented"
+```
+
+#### TDD E2E Anti-Patterns
+
+**❌ DON'T**:
+- Skip tests with vague reasons ("not working", "flaky", "todo")
+- Leave tests skipped indefinitely (tech debt accumulates)
+- Write tests after implementation (loses TDD benefit)
+- Forget to remove `skip()` after implementing feature
+
+**✅ DO**:
+- Use structured blocker format (specific, actionable)
+- Track skipped tests in feature roadmap
+- Write tests before or during implementation
+- Run tests to verify before marking features complete
+- Update test comments when implementation status changes
+
+#### Skipped Test Inventory Pattern
+
+Periodically audit skipped tests:
+
+```bash
+# Find all skipped E2E tests
+grep -rn "test.skip\|test.describe.skip" e2e/ --include="*.spec.ts"
+
+# Create inventory
+# e2e/price-alerts.spec.ts:226 - Alert Notifications (BLOCKER: backend integration)
+# e2e/price-analytics.spec.ts:89 - Time Range Selector (frontend UI missing)
+# e2e/notifications.spec.ts:45 - Filter by Type (dropdown component missing)
+
+# Estimate total effort: ~12 hours
+# Prioritize by user value
+# Create implementation plan
+```
+
+#### Success Metrics
+
+**When TDD E2E pattern is working well**:
+- Skipped test count decreases over time
+- Feature roadmap automatically syncs with test suite
+- No "surprise" missing features (tests document everything)
+- Test suite serves as living feature documentation
+- Developers know exactly what to build (tests are specs)
+
+**Example from Session**:
+- Started with 41 skipped E2E tests
+- Discovered 6 tests for existing `/alerts` page
+- Activated +6 tests with just comment updates (15 minutes)
+- Discovered "Best Deal" badge already implemented (+1 test)
+- **Result**: +7 tests activated, accurate feature tracking, no wasted work
+
+#### TDD E2E Checklist
+
+Before writing skipped E2E tests:
+
+- [ ] Test describes specific user behavior (not implementation)
+- [ ] Skip reason is structured with blocker details
+- [ ] Test count tracked in feature roadmap
+- [ ] Acceptance criteria clear from test assertions
+- [ ] Test will auto-activate when UI elements appear
+- [ ] Effort estimate included for implementation
+- [ ] Related backend/frontend files documented
+
+**Reference**: `todos/2025-12-22_missing-features-implementation-plan.md` (entire document is TDD E2E pattern)
+
+---
+
 ### E2E Testing Checklist
 
 Before committing E2E tests:
@@ -2416,6 +2891,10 @@ Before committing E2E tests:
 - [ ] Tests pass in isolation (any order)
 - [ ] CI configured with test sharding
 - [ ] Trace enabled in CI for debugging failures
+- [ ] **Test comments accurately reflect implementation status** (NEW)
+- [ ] **Skip reasons use structured blocker format** (NEW)
+- [ ] **Test count specified for each describe block** (NEW)
+- [ ] **Verify feature exists via test before marking complete** (NEW)
 
 ---
 
