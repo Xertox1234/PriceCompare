@@ -101,10 +101,10 @@ describe('Product Routes - Integration Tests', () => {
     registerProductRoutes(app);
 
     // Clean database
-    await db.delete(priceHistory);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
+    await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create test data
@@ -182,10 +182,10 @@ describe('Product Routes - Integration Tests', () => {
   });
 
   afterEach(async () => {
-    await db.delete(priceHistory);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
+    await db.execute(sql`TRUNCATE TABLE price_history RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
   });
 

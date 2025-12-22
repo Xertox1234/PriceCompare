@@ -37,7 +37,7 @@ describe.sequential('Password Reset Service', () => {
     process.env.ENCRYPTION_KEY = 'a'.repeat(64);
 
     // Clean database
-    await db.delete(passwordResetTokens);
+    await db.execute(sql`TRUNCATE TABLE password_reset_tokens RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create test user with unique identifier to avoid conflicts when tests run in parallel
@@ -57,7 +57,7 @@ describe.sequential('Password Reset Service', () => {
 
   afterEach(async () => {
     // Cleanup
-    await db.delete(passwordResetTokens);
+    await db.execute(sql`TRUNCATE TABLE password_reset_tokens RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
   });
 

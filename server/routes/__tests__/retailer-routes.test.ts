@@ -184,7 +184,7 @@ describe('Retailer Routes - Integration Tests', () => {
 
     it('should return empty array when no retailers exist', async () => {
       // Delete all retailers
-      await db.delete(retailers);
+      await cleanupTestData(db, ['retailers']);
 
       const response = await request(app).get('/api/retailers');
 

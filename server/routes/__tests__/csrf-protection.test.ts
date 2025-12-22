@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { sql } from 'drizzle-orm';
 import { hashEmail } from '../../utils/encryption';
 
 // Mock dependencies before imports
@@ -150,9 +151,9 @@ describe('CSRF Protection', () => {
     registerMonitoringRoutes(app);
 
     // Clean database
-    await db.delete(products);
-    await db.delete(retailers);
-    await db.delete(users);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create admin user
     // SECURITY: NEVER expose passwordHash in queries - this is test setup only
@@ -180,9 +181,9 @@ describe('CSRF Protection', () => {
 
   afterEach(async () => {
     // Clean database
-    await db.delete(products);
-    await db.delete(retailers);
-    await db.delete(users);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
     vi.clearAllMocks();
   });
 

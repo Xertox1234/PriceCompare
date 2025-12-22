@@ -243,7 +243,7 @@ export class UserStorage extends BaseStorage {
               const userCountNum = typeof count === 'number' ? count : count ? Number(count) : 0;
               isFirstUser = userCountNum === 0;
 
-              // Create user - must be in same transaction as count check
+              // Create user - must be in same transaction as count check (serializable isolation)
               // SECURITY: passwordHash stored securely, NEVER exposed in return value
               const newUserResult = await tx
                 .insert(users)

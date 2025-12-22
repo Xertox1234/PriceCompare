@@ -72,10 +72,10 @@ describe('Smart Notification Service', () => {
 
   beforeEach(async () => {
     // Clean database
-    await db.delete(notifications);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
+    await db.execute(sql`TRUNCATE TABLE notifications RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create test user
@@ -127,10 +127,10 @@ describe('Smart Notification Service', () => {
 
   afterEach(async () => {
     // Clean up
-    await db.delete(notifications);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
+    await db.execute(sql`TRUNCATE TABLE notifications RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Clear mocks

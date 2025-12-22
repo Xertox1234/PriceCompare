@@ -151,7 +151,7 @@ describe('Watchlist Storage Layer', () => {
 
     // Delete auto-created default watchlist (created by trigger_create_default_watch_list)
     // This ensures tests start with a clean slate and test explicit watchlist creation
-    await db.delete(watchLists).where(eq(watchLists.userId, testUserId));
+    await cleanupTestData(db, ['watch_lists']);
 
     // Create test retailer using fixture
     const retailerData = createTestRetailer({
