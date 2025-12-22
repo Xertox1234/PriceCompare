@@ -96,7 +96,7 @@ export default defineConfig({
   // Global timeout for each test
   timeout: 30000,
 
-  // Global test setup
-  globalSetup: undefined,
+  // Global test setup - runs migrations before E2E tests
+  globalSetup: './e2e/global-setup.ts',
   globalTeardown: undefined,
 });

@@ -12,28 +12,52 @@ import { nextDeterministicSuffix } from './helpers/deterministic';
 /**
  * Clean database before tests
  * Removes all test data to ensure isolation
+ *
+ * SAFETY GUARDRAILS:
+ * - Only runs when NODE_ENV=test
+ * - Validates database name contains "test"
+ * - Validates Redis URL doesn't contain "production"
+ * - Uses SCAN instead of KEYS for non-blocking Redis operations
  */
 export async function cleanDatabase() {
-  // Ensure recently-added tables exist in the test database.
-  // Playwright's local webServer does not automatically run migrations.
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS watch_list_shares (
-      id SERIAL PRIMARY KEY,
-      watch_list_id INTEGER NOT NULL REFERENCES watch_lists(id) ON DELETE CASCADE,
-      shared_with_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      permission VARCHAR(10) NOT NULL CHECK (permission IN ('view', 'edit')),
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
-      CONSTRAINT unique_watch_list_share UNIQUE (watch_list_id, shared_with_user_id)
+  // SAFETY: Validate we're in test mode
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      'cleanDatabase() can only run when NODE_ENV=test. ' +
+      `Current NODE_ENV: ${process.env.NODE_ENV || 'undefined'}`
     );
+  }
 
-    CREATE INDEX IF NOT EXISTS watch_list_shares_watch_list_id_idx ON watch_list_shares(watch_list_id);
-    CREATE INDEX IF NOT EXISTS watch_list_shares_shared_with_user_id_idx ON watch_list_shares(shared_with_user_id);
-  `);
+  // SAFETY: Validate database name contains "test"
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (dbUrl) {
+    try {
+      const url = new URL(dbUrl);
+      const dbName = url.pathname.slice(1); // Remove leading slash
+
+      if (!dbName.includes('test')) {
+        throw new Error(
+          `Refusing to truncate database "${dbName}" - name must contain "test". ` +
+          `Set DATABASE_NAME=pricecompare_test in .env.test or use a DATABASE_URL with "test" in the database name.`
+        );
+      }
+    } catch (error) {
+      if (error instanceof TypeError) {
+        // Invalid URL format - let it fail naturally below
+        // eslint-disable-next-line no-console -- Test helper needs diagnostic output
+        console.warn(`⚠️  Could not parse DATABASE_URL for validation: ${dbUrl}`);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  // SCHEMA: Tables created via global setup migrations (e2e/global-setup.ts)
+  // No manual CREATE TABLE needed - schema managed by migrations/
 
   // Use TRUNCATE CASCADE to reset all tables
   // This is faster and safer than deleting individual records
-  // Only includes core tables that are guaranteed to exist
+  // CASCADE handles foreign key dependencies automatically (order doesn't matter)
   await db.execute(sql`
     TRUNCATE TABLE
       users,
@@ -58,8 +82,36 @@ export async function cleanDatabase() {
   // Sessions persist in Redis even after database truncation and browser cookie clearing
   const redisClient = getRedisSessionClient();
   if (redisClient) {
-    // Clear all session keys (prefix: sess:)
-    const sessionKeys = await redisClient.keys('sess:*');
+    // SAFETY: Validate Redis URL doesn't contain "production"
+    const redisUrl = process.env.REDIS_URL || '';
+    if (redisUrl.includes('production') || redisUrl.includes('prod-')) {
+      throw new Error(
+        `Refusing to clear sessions - Redis URL contains "production" or "prod-". ` +
+        `Redis URL: ${redisUrl.substring(0, 30)}...`
+      );
+    }
+
+    // PERFORMANCE: Use SCAN instead of KEYS (non-blocking, O(N) but doesn't block Redis)
+    // KEYS is O(N) and blocks all Redis operations during execution
+    const sessionKeys: string[] = [];
+    let cursor = '0';
+
+    do {
+      // SCAN iterates in chunks of 100 keys at a time
+      // Returns object: {cursor: string, keys: string[]}
+      const result = await redisClient.scan(cursor, {
+        MATCH: 'sess:*',
+        COUNT: 100,
+      });
+      cursor = result.cursor;
+      const keys = result.keys;
+
+      if (keys.length > 0) {
+        sessionKeys.push(...keys);
+      }
+    } while (cursor !== '0');
+
+    // Delete all session keys in a single operation
     if (sessionKeys.length > 0) {
       await redisClient.del(sessionKeys);
     }
