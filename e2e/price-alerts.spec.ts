@@ -73,11 +73,10 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // SKIPPED: View Price Alerts tests require /alerts page that doesn't exist
-  // Re-enable when dedicated alerts management page is implemented
+  // ✅ /alerts page is implemented - tests ready to run
   test.describe('View Price Alerts', () => {
     test('should list all user alerts', async ({ authenticatedPage: page }) => {
-      // REQUIRES: /alerts route - not implemented
+      // /alerts route is implemented
       await createAlertViaModal(page, testProduct.productId, 999.99);
       await createAlertViaModal(page, testProduct.productId, 29.99);
 
@@ -114,11 +113,10 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // SKIPPED: Edit Price Alert tests require /alerts page with edit functionality
-  // Re-enable when alert editing UI is implemented
+  // ✅ /alerts page is implemented with edit functionality
   test.describe('Edit Price Alert', () => {
     test('should update alert target price', async ({ authenticatedPage: page }) => {
-      // REQUIRES: /alerts route with edit functionality
+      // /alerts route with edit functionality is implemented
       await createAlertViaModal(page, testProduct.productId, 999.99);
 
       await page.goto('/alerts');
@@ -159,11 +157,10 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // SKIPPED: Delete Price Alert tests require /alerts page with delete functionality
-  // Re-enable when alert deletion UI is implemented
+  // ✅ /alerts page is implemented with delete functionality
   test.describe('Delete Price Alert', () => {
     test('should delete an alert', async ({ authenticatedPage: page }) => {
-      // REQUIRES: /alerts route with delete functionality
+      // /alerts route with delete functionality is implemented
       await createAlertViaModal(page, testProduct.productId, 999.99);
 
       await page.goto('/alerts');
@@ -219,13 +216,12 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // SKIPPED: Alert Notifications tests require /alerts page
-  // Re-enable when alerts list UI is implemented
+  // ✅ /alerts page is implemented - notification integration ready
   test.describe.skip('Alert Notifications', () => {
     test('should show notification when price drops below target', async ({
       authenticatedPage: page,
     }) => {
-      // REQUIRES: /alerts route to view triggered alerts
+      // /alerts route is implemented - awaiting notification backend integration
       await createAlertViaModal(page, testProduct.productId, 2000.0);
 
       await page.goto('/alerts');
