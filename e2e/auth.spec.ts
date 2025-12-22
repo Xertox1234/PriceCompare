@@ -4,30 +4,17 @@
  * Tests user registration, login, logout, and password management
  */
 import { test, expect } from './fixtures';
-import type { Page } from '@playwright/test';
 import {
   registerUser,
   loginUser,
   logoutUser,
+  openRegisterModal,
+  openLoginModal,
   generateTestEmail,
   generateTestUsername,
 } from './helpers';
 
 test.describe('Authentication Flow', () => {
-  async function openRegisterModal(page: Page): Promise<void> {
-    await page.goto('/price-watch');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /sign up/i }).first().click();
-    await page.waitForSelector('input#username', { state: 'visible', timeout: 5000 });
-  }
-
-  async function openLoginModal(page: Page): Promise<void> {
-    await page.goto('/price-watch');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /sign in/i }).first().click();
-    await page.waitForSelector('input#email', { state: 'visible', timeout: 5000 });
-  }
-
   test.describe('User Registration', () => {
     test('should register a new user successfully', async ({ page }) => {
       const username = generateTestUsername('newuser');

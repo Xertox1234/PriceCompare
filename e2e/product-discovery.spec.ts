@@ -5,21 +5,14 @@
  */
 import { test, expect } from './fixtures';
 import { waitForApiResponse } from './helpers';
-import { db } from '../server/db';
-import {
-  products,
-  productOffers,
-  priceHistory,
-  retailers,
-  watchLists,
-  users,
-} from '../shared/schema';
-import { eq } from 'drizzle-orm';
+import { seedProductDiscoveryTestData } from './helpers/product-discovery-seed-helpers';
+import { getUserIdByEmail } from './helpers/user-helpers';
+import { ensureUserHasWatchlist } from './helpers/watchlist-helpers';
 
 test.describe('Product Discovery & Price Tracking', () => {
   test.beforeEach(async () => {
     // Seed test data
-    await seedTestData();
+    await seedProductDiscoveryTestData();
   });
 
   test.describe('Product Search', () => {
@@ -267,20 +260,8 @@ test.describe('Product Discovery & Price Tracking', () => {
       authenticatedPage: page,
       authenticatedUser,
     }) => {
-      // Get the actual user ID from the database (fixture only has username/email/password)
-      const [dbUser] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, authenticatedUser.email));
-
-      // Create a watchlist for the user (required for adding products)
-      await db
-        .insert(watchLists)
-        .values({
-          userId: dbUser.id,
-          name: 'My Test Watchlist',
-        })
-        .returning();
+      const userId = await getUserIdByEmail(authenticatedUser.email);
+      await ensureUserHasWatchlist(userId, 'My Test Watchlist');
 
       // Go to product page
       await page.goto('/shop');
@@ -371,76 +352,3 @@ test.describe('Product Discovery & Price Tracking', () => {
   });
 });
 
-/**
- * Seed test data for product discovery tests
- */
-async function seedTestData() {
-  // Create test retailer
-  const [retailer1] = await db
-    .insert(retailers)
-    .values({
-      name: 'Test Electronics Store',
-      logo: 'https://via.placeholder.com/150',
-    })
-    .returning();
-
-  const [retailer2] = await db
-    .insert(retailers)
-    .values({
-      name: 'Budget Tech Shop',
-      logo: 'https://via.placeholder.com/150',
-    })
-    .returning();
-
-  // Create test product
-  const [product] = await db
-    .insert(products)
-    .values({
-      name: 'Test Gaming Laptop',
-      description: 'High-performance gaming laptop with RTX graphics',
-      image: 'https://via.placeholder.com/400',
-      category: 'Electronics',
-    })
-    .returning();
-
-  // Create offers for the product
-  const offers = await db
-    .insert(productOffers)
-    .values([
-      {
-        productId: product.id,
-        retailerId: retailer1.id,
-        price: '1299.99',
-        productUrl: 'https://test-electronics.example.com/laptop',
-        availability: 'in_stock',
-      },
-      {
-        productId: product.id,
-        retailerId: retailer2.id,
-        price: '1249.99',
-        productUrl: 'https://budget-tech.example.com/laptop',
-        availability: 'in_stock',
-      },
-    ])
-    .returning();
-
-  // Create price history
-  const now = new Date();
-  const priceHistoryData = [];
-
-  for (let i = 30; i >= 0; i--) {
-    // Calculate date without timezone bias - subtract milliseconds directly
-    // This ensures consistent date boundaries across all timezones
-    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-
-    priceHistoryData.push({
-      productOfferId: offers[0].id, // Use first offer's ID
-      productId: product.id,
-      retailerId: retailer1.id,
-      price: (1299.99 - (i % 10) * 7.5).toFixed(2),
-      recordedAt: date,
-    });
-  }
-
-  await db.insert(priceHistory).values(priceHistoryData);
-}

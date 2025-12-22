@@ -6,7 +6,7 @@
  */
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { cleanDatabase, registerUser, generateTestEmail, generateTestUsername } from './helpers';
+import { registerUser, generateTestEmail, generateTestUsername } from './helpers';
 import { seedTestProduct } from './helpers/admin-helpers';
 import {
   navigateToPriceHistory,
@@ -44,8 +44,6 @@ test.describe('Price Analytics - Visual Regression', () => {
   let testProductId: number;
 
   test.beforeEach(async ({ page }) => {
-    await cleanDatabase();
-
     // Auth not required for viewing, but needed for alert modal actions.
     await registerUser(
       page,

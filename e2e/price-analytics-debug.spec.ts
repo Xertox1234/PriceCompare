@@ -3,7 +3,6 @@
  * Captures page state and screenshots to diagnose why elements aren't found
  */
 import { test, expect } from './fixtures';
-import { cleanDatabase } from './helpers';
 import { seedTestProduct } from './helpers/admin-helpers';
 import { navigateToPriceHistory, seedPriceHistoryData } from './helpers/price-analytics-helpers';
 import { db } from '../server/db';
@@ -14,8 +13,6 @@ let testProductId: number;
 let testOfferId: number;
 
 test.beforeEach(async () => {
-  await cleanDatabase();
-
   const { product } = await seedTestProduct({
     name: 'iPhone 15 Pro',
     description: 'Latest iPhone with price history',
@@ -71,7 +68,7 @@ test('DEBUG: test API endpoint directly', async ({ page }) => {
   await page.waitForLoadState('networkidle');
 
   // Test API endpoint
-  const apiUrl = `http://localhost:5000/api/products/${testProductId}/offers/${testOfferId}/price-history?limit=100`;
+  const apiUrl = `/api/products/${testProductId}/offers/${testOfferId}/price-history?limit=100`;
   console.log('API URL:', apiUrl);
 
   const response = await page.request.get(apiUrl);

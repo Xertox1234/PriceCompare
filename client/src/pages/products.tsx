@@ -171,23 +171,16 @@ export default function Products() {
     }
   }, [currentPage, filters.limit, filters.page, setFilters]);
 
-  // Reset to page 1 when query/filters change to avoid empty pages.
+  // Reset to page 1 when query/filters change (excluding pagination) to avoid empty pages.
+  const lastFilterSignatureRef = useRef(activeFilterSignature);
   useEffect(() => {
-    if (currentPage !== 1) {
-      setPage(1);
+    if (lastFilterSignatureRef.current !== activeFilterSignature) {
+      lastFilterSignatureRef.current = activeFilterSignature;
+      if (currentPage !== 1) {
+        setPage(1);
+      }
     }
-  }, [
-    currentPage,
-    query,
-    filters.category,
-    filters.minPrice,
-    filters.maxPrice,
-    filters.minRating,
-    filters.sortBy,
-    (filters.retailers ?? []).join(','),
-    (filters.availability ?? []).join(','),
-    setPage,
-  ]);
+  }, [activeFilterSignature, currentPage, setPage]);
 
   return (
     <>

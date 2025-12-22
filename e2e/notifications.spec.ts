@@ -48,11 +48,9 @@
  */
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { cleanDatabase, registerUser, generateTestEmail, generateTestUsername } from './helpers';
+import { registerUser, generateTestEmail, generateTestUsername } from './helpers';
 import { createTestNotification, navigateToNotifications } from './helpers/notification-helpers';
-import { db } from '../server/db';
-import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { getUserIdByEmail } from './helpers/user-helpers';
 
 async function waitForNotificationsPageReady(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: /^Notifications$/ })).toBeVisible({
@@ -72,11 +70,6 @@ async function selectNotificationsTab(
 }
 
 test.describe('Notifications - Real-Time System', () => {
-  test.beforeEach(async () => {
-    // Clean database before each test for isolation
-    await cleanDatabase();
-  });
-
   test.describe('Notification History', () => {
     test('should display notification history with all notifications', async ({ page }) => {
       // Register user
@@ -85,24 +78,24 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'NotifPass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create multiple test notifications
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_drop',
         title: 'Price dropped on iPhone 15',
         content: 'iPhone 15 Pro is now $999',
         isRead: false,
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_alert',
         title: 'Price alert triggered',
         content: 'Your alert for MacBook Pro was triggered',
         isRead: false,
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'system',
         title: 'Welcome to PriceCompare',
         content: 'Thanks for joining!',
@@ -133,10 +126,10 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'UnreadPass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create unread notification
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_drop',
         title: 'Unread price drop',
         content: 'New price drop notification',
@@ -144,7 +137,7 @@ test.describe('Notifications - Real-Time System', () => {
       });
 
       // Create read notification
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_alert',
         title: 'Read notification',
         content: 'This was already read',
@@ -185,12 +178,12 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'SortedPass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       const now = Date.now();
 
       // Create notifications with deterministic timestamps
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_drop',
         title: 'First notification',
         content: 'Oldest notification',
@@ -198,7 +191,7 @@ test.describe('Notifications - Real-Time System', () => {
         createdAt: new Date(now - 3 * 60 * 1000),
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_alert',
         title: 'Second notification',
         content: 'Middle notification',
@@ -206,7 +199,7 @@ test.describe('Notifications - Real-Time System', () => {
         createdAt: new Date(now - 2 * 60 * 1000),
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'system',
         title: 'Third notification',
         content: 'Newest notification',
@@ -241,10 +234,10 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'MarkReadPass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create unread notification
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_drop',
         title: 'Click to mark read',
         content: 'This should be marked as read when clicked',
@@ -284,22 +277,22 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'MarkAllPass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create multiple unread notifications
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_drop',
         title: 'First unread',
         isRead: false,
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_alert',
         title: 'Second unread',
         isRead: false,
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'system',
         title: 'Third unread',
         isRead: false,
@@ -346,24 +339,24 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'FilterPass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create notifications of different types
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_drop',
         title: 'Price drop notification',
         content: 'Price dropped',
         isRead: false,
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_alert',
         title: 'Price alert notification',
         content: 'Alert triggered',
         isRead: false,
       });
 
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'system',
         title: 'System notification',
         content: 'System message',
@@ -409,10 +402,10 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'TypeFilterPass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create smart alert notification
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'smart_alert',
         title: 'Smart alert notification',
         content: 'Price drop detected. Stock running low. Popular product',
@@ -420,7 +413,7 @@ test.describe('Notifications - Real-Time System', () => {
       });
 
       // Create regular notification
-      await createTestNotification(user.id, {
+      await createTestNotification(userId, {
         type: 'price_drop',
         title: 'Regular price drop',
         content: 'Standard price drop',
@@ -615,15 +608,15 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'BadgePass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create unread notifications
-      await createTestNotification(user.id, { isRead: false, title: 'Unread 1' });
-      await createTestNotification(user.id, { isRead: false, title: 'Unread 2' });
-      await createTestNotification(user.id, { isRead: false, title: 'Unread 3' });
+      await createTestNotification(userId, { isRead: false, title: 'Unread 1' });
+      await createTestNotification(userId, { isRead: false, title: 'Unread 2' });
+      await createTestNotification(userId, { isRead: false, title: 'Unread 3' });
 
       // Create read notification (should not count)
-      await createTestNotification(user.id, { isRead: true, title: 'Read notification' });
+      await createTestNotification(userId, { isRead: true, title: 'Read notification' });
 
       // Navigate to any page
       await page.goto('/');
@@ -662,11 +655,11 @@ test.describe('Notifications - Real-Time System', () => {
       await registerUser(page, username, email, 'BadgeUpdatePass123!');
 
       // Get user ID
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const userId = await getUserIdByEmail(email);
 
       // Create two unread notifications
-      await createTestNotification(user.id, { isRead: false, title: 'First unread' });
-      await createTestNotification(user.id, { isRead: false, title: 'Second unread' });
+      await createTestNotification(userId, { isRead: false, title: 'First unread' });
+      await createTestNotification(userId, { isRead: false, title: 'Second unread' });
 
       // Navigate to home to see badge
       await page.goto('/');

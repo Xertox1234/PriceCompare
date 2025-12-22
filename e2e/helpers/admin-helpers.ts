@@ -7,7 +7,6 @@ import { type Page } from '@playwright/test';
 import { db } from '../../server/db';
 import { products, retailers, productOffers, priceHistory } from '@shared/schema';
 import type { Product, Retailer } from '@shared/schema';
-import { waitForApiResponse } from '../helpers';
 import { deterministicPriceString } from './deterministic';
 
 /**
@@ -66,9 +65,6 @@ export async function createAdminUser(
 
   // Submit form (button text is "Create Account")
   await page.getByRole('button', { name: /create account/i }).click();
-
-  // Wait for registration to complete
-  await waitForApiResponse(page, '/api/auth/register', 201);
 
   // CRITICAL: Wait for user to be logged in (modal closes and user menu appears)
   // Registration API returns 201 but React needs time to update auth state

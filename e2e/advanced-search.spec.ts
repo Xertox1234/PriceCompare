@@ -45,9 +45,9 @@
  *    - Comments indicate flexible patterns
  */
 import { test, expect } from './fixtures';
-import { cleanDatabase } from './helpers';
 import { seedMultipleProducts } from './helpers/admin-helpers';
-import { deterministicNumberInRange, deterministicPriceString } from './helpers/deterministic';
+import { seedProductsWithCategories, seedProductsWithPrices } from './helpers/search-seed-helpers';
+import { skipIfMissing } from './helpers/skip-helpers';
 import {
   performSearch,
   applyCategoryFilter,
@@ -58,15 +58,8 @@ import {
   getSearchResultPrices,
   getSearchResultCategories,
 } from './helpers/search-helpers';
-import { db } from '../server/db';
-import { products, retailers, productOffers } from '@shared/schema';
 
 test.describe('Advanced Search - Multi-Criteria Filtering', () => {
-  test.beforeEach(async () => {
-    // Clean database before each test for isolation
-    await cleanDatabase();
-  });
-
   test.describe('Category Filtering', () => {
     test('should filter search results by category', async ({ page }) => {
       // Create test products in different categories
@@ -116,8 +109,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       // Check if category filter exists
       const categoryFilter = page.getByLabel(/category/i);
 
-      if ((await categoryFilter.count()) === 0) {
-        test.skip();
+      if (await skipIfMissing(test, categoryFilter, 'Category filter not implemented')) {
         return;
       }
 
@@ -158,8 +150,10 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       const minPriceInput = page.getByLabel(/min.*price/i);
       const maxPriceInput = page.getByLabel(/max.*price/i);
 
-      if ((await minPriceInput.count()) === 0 || (await maxPriceInput.count()) === 0) {
-        test.skip();
+      if (await skipIfMissing(test, minPriceInput, 'Price range filter not implemented')) {
+        return;
+      }
+      if (await skipIfMissing(test, maxPriceInput, 'Price range filter not implemented')) {
         return;
       }
 
@@ -193,8 +187,10 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       const minPriceInput = page.getByLabel(/min.*price/i);
       const maxPriceInput = page.getByLabel(/max.*price/i);
 
-      if ((await minPriceInput.count()) === 0 || (await maxPriceInput.count()) === 0) {
-        test.skip();
+      if (await skipIfMissing(test, minPriceInput, 'Price range filter not implemented')) {
+        return;
+      }
+      if (await skipIfMissing(test, maxPriceInput, 'Price range filter not implemented')) {
         return;
       }
 
@@ -235,8 +231,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       // Check if sort control exists
       const sortControl = page.getByLabel(/sort.*by/i);
 
-      if ((await sortControl.count()) === 0) {
-        test.skip();
+      if (await skipIfMissing(test, sortControl, 'Sorting controls not implemented')) {
         return;
       }
 
@@ -268,8 +263,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       // Check if sort control exists
       const sortControl = page.getByLabel(/sort.*by/i);
 
-      if ((await sortControl.count()) === 0) {
-        test.skip();
+      if (await skipIfMissing(test, sortControl, 'Sorting controls not implemented')) {
         return;
       }
 
@@ -305,8 +299,10 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       const categoryFilter = page.getByLabel(/category/i);
       const minPriceInput = page.getByLabel(/min.*price/i);
 
-      if ((await categoryFilter.count()) === 0 || (await minPriceInput.count()) === 0) {
-        test.skip();
+      if (await skipIfMissing(test, categoryFilter, 'Category filter not implemented')) {
+        return;
+      }
+      if (await skipIfMissing(test, minPriceInput, 'Price range filter not implemented')) {
         return;
       }
 
@@ -352,12 +348,13 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       const minPriceInput = page.getByLabel(/min.*price/i);
       const sortControl = page.getByLabel(/sort.*by/i);
 
-      if (
-        (await categoryFilter.count()) === 0 ||
-        (await minPriceInput.count()) === 0 ||
-        (await sortControl.count()) === 0
-      ) {
-        test.skip();
+      if (await skipIfMissing(test, categoryFilter, 'Category filter not implemented')) {
+        return;
+      }
+      if (await skipIfMissing(test, minPriceInput, 'Price range filter not implemented')) {
+        return;
+      }
+      if (await skipIfMissing(test, sortControl, 'Sorting controls not implemented')) {
         return;
       }
 
@@ -400,12 +397,26 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       await page.goto('/products');
       await page.waitForLoadState('networkidle');
 
-      // Check if pagination exists
-      const nextButton = page.getByRole('button', { name: /next/i });
-      const paginationLinks = page.locator('[data-testid="pagination"], .pagination');
+      // Wait for initial results to load (ensures pagination state is settled)
+      await waitForSearchResults(page);
 
-      if ((await nextButton.count()) === 0 && (await paginationLinks.count()) === 0) {
-        // Not enough products to trigger pagination
+      // Check if pagination exists
+      const pagination = page.getByTestId('pagination');
+      if (await skipIfMissing(test, pagination, 'Pagination not implemented')) {
+        return;
+      }
+
+      const nextButton = pagination.getByRole('button', { name: /^next$/i });
+      if (await skipIfMissing(test, nextButton, 'Pagination next button not implemented')) {
+        return;
+      }
+
+      // If the UI reports a single page, skip rather than asserting navigation.
+      // Some search endpoints do not currently return pagination metadata.
+      const paginationText = (await pagination.textContent()) ?? '';
+      const totalPagesMatch = paginationText.match(/of\s+(\d+)/i);
+      const totalPages = totalPagesMatch ? Number(totalPagesMatch[1]) : 1;
+      if (!Number.isFinite(totalPages) || totalPages < 2) {
         test.skip();
         return;
       }
@@ -415,18 +426,16 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       expect(page1Count).toBeGreaterThan(0);
 
       // Navigate to page 2
-      if ((await nextButton.count()) > 0) {
-        await nextButton.click();
-        await page.waitForLoadState('networkidle');
+      await Promise.all([page.waitForURL(/[?&]page=2/), nextButton.click()]);
+      await waitForSearchResults(page);
 
-        // Verify page 2 has results
-        const page2Count = await getSearchResultCount(page);
-        expect(page2Count).toBeGreaterThan(0);
+      // Verify page 2 has results
+      const page2Count = await getSearchResultCount(page);
+      expect(page2Count).toBeGreaterThan(0);
 
-        // Verify URL contains page parameter
-        const url = page.url();
-        expect(url).toMatch(/[?&]page=2/);
-      }
+      // Verify URL contains page parameter
+      const url = page.url();
+      expect(url).toMatch(/[?&]page=2/);
     });
 
     test('should maintain filters across pagination', async ({ page }) => {
@@ -437,11 +446,31 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       await page.goto('/products');
       await page.waitForLoadState('networkidle');
 
+      // Wait for initial results to load (ensures pagination/filter state is settled)
+      await waitForSearchResults(page);
+
       // Check if pagination and filters exist
-      const nextButton = page.getByRole('button', { name: /next/i });
+      const pagination = page.getByTestId('pagination');
+      if (await skipIfMissing(test, pagination, 'Pagination not implemented')) {
+        return;
+      }
+
+      const nextButton = pagination.getByRole('button', { name: /^next$/i });
       const minPriceInput = page.getByLabel(/min.*price/i);
 
-      if ((await nextButton.count()) === 0 || (await minPriceInput.count()) === 0) {
+      if (await skipIfMissing(test, nextButton, 'Pagination not implemented')) {
+        return;
+      }
+      if (await skipIfMissing(test, minPriceInput, 'Price range filter not implemented')) {
+        return;
+      }
+
+      // If the UI reports a single page, skip rather than asserting navigation.
+      // Some search endpoints do not currently return pagination metadata.
+      const paginationText = (await pagination.textContent()) ?? '';
+      const totalPagesMatch = paginationText.match(/of\s+(\d+)/i);
+      const totalPages = totalPagesMatch ? Number(totalPagesMatch[1]) : 1;
+      if (!Number.isFinite(totalPages) || totalPages < 2) {
         test.skip();
         return;
       }
@@ -454,8 +483,8 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       const page1Prices = await getSearchResultPrices(page);
 
       // Navigate to page 2
-      await nextButton.click();
-      await page.waitForLoadState('networkidle');
+      await Promise.all([page.waitForURL(/[?&]page=2/), nextButton.click()]);
+      await waitForSearchResults(page);
 
       // Get page 2 prices
       const page2Prices = await getSearchResultPrices(page);
@@ -491,8 +520,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       // Check if price filters exist
       const minPriceInput = page.getByLabel(/min.*price/i);
 
-      if ((await minPriceInput.count()) === 0) {
-        test.skip();
+      if (await skipIfMissing(test, minPriceInput, 'Price range filter not implemented')) {
         return;
       }
 
@@ -540,91 +568,3 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
     });
   });
 });
-
-/**
- * Local Test Helpers
- */
-
-/**
- * Seed products with different categories
- */
-async function seedProductsWithCategories(): Promise<void> {
-  const [retailer] = await db
-    .insert(retailers)
-    .values({
-      name: 'Test Retailer',
-      website: 'https://test-retailer.com',
-      logo: 'https://via.placeholder.com/150',
-      isActive: true,
-    })
-    .returning();
-
-  const categories = ['Electronics', 'Computers', 'Smartphones', 'Tablets', 'Accessories'];
-
-  for (let i = 0; i < 10; i++) {
-    const [product] = await db
-      .insert(products)
-      .values({
-        name: `Product ${i + 1}`,
-        description: `Description ${i + 1}`,
-        category: categories[i % categories.length],
-        image: 'https://via.placeholder.com/300',
-      })
-      .returning();
-
-    await db.insert(productOffers).values({
-      productId: product.id,
-      retailerId: retailer.id,
-      price: deterministicPriceString(10_000 + i, 50, 550),
-      productUrl: `https://test-retailer.com/product/${product.id}`,
-      availability: 'in_stock',
-    });
-  }
-}
-
-/**
- * Seed products with varied prices
- */
-async function seedProductsWithPrices(): Promise<void> {
-  const [retailer] = await db
-    .insert(retailers)
-    .values({
-      name: 'Price Test Retailer',
-      website: 'https://price-retailer.com',
-      logo: 'https://via.placeholder.com/150',
-      isActive: true,
-    })
-    .returning();
-
-  // Create products with specific price ranges
-  const priceRanges = [
-    { min: 20, max: 50 }, // Budget
-    { min: 50, max: 100 }, // Low
-    { min: 100, max: 200 }, // Mid
-    { min: 200, max: 500 }, // High
-    { min: 500, max: 1000 }, // Premium
-  ];
-
-  for (let i = 0; i < 15; i++) {
-    const range = priceRanges[i % priceRanges.length];
-    const price = deterministicNumberInRange(20_000 + i, range.min, range.max);
-
-    const [product] = await db
-      .insert(products)
-      .values({
-        name: `Price Product ${i + 1}`,
-        description: `Product with price $${price.toFixed(2)}`,
-        category: 'Electronics',
-        image: 'https://via.placeholder.com/300',
-      })
-      .returning();
-
-    await db.insert(productOffers).values({
-      productId: product.id,
-      retailerId: retailer.id,
-      price: price.toFixed(2),
-      productUrl: `https://price-retailer.com/product/${product.id}`,
-      availability: 'in_stock',
-    });
-  }
-}

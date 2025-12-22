@@ -567,6 +567,7 @@ export class WatchListStorage extends BaseStorage {
       const productRows = await this.db
         .select({
           id: productWatches.id,
+          productId: productWatches.productId,
           name: products.name,
           imageUrl: products.image,
           addedAt: productWatches.createdAt,
@@ -584,7 +585,13 @@ export class WatchListStorage extends BaseStorage {
         .leftJoin(productOffers, eq(productOffers.productId, products.id))
         .leftJoin(priceHistory, eq(priceHistory.productId, products.id))
         .where(eq(productWatches.watchListId, watchList.id))
-        .groupBy(productWatches.id, products.name, products.image, productWatches.createdAt)
+        .groupBy(
+          productWatches.id,
+          productWatches.productId,
+          products.name,
+          products.image,
+          productWatches.createdAt
+        )
         .orderBy(desc(productWatches.createdAt));
 
       return {
@@ -595,8 +602,11 @@ export class WatchListStorage extends BaseStorage {
         icon: watchList.icon ?? null,
         products: productRows.map((p) => ({
           id: p.id,
+          productId: p.productId,
           name: p.name,
+          productName: p.name,
           imageUrl: p.imageUrl ?? '',
+          productImage: p.imageUrl ?? '',
           addedAt: p.addedAt ?? new Date(),
           currentPrice: p.currentPrice ?? 0,
           lowestHistoricalPrice: p.lowestHistoricalPrice ?? 0,

@@ -194,7 +194,7 @@ Many suites (legacy pattern) use `cleanDatabase()` in `beforeEach`:
 ```typescript
 test.beforeEach(async () => {
   await cleanDatabase(); // Truncate all tables
-  await seedTestData(); // Insert test data
+  await seedSomeSuiteData(); // Insert test data (prefer `e2e/helpers/*-seed-helpers.ts`)
 });
 ```
 
@@ -214,6 +214,13 @@ Shared utilities in `helpers.ts`:
 - `generateTestEmail()` - Generate unique test emails
 - `generateTestUsername()` - Generate unique test usernames
 
+Suite-specific utilities in `e2e/helpers/` (preferred for DB seeding and feature helpers):
+
+- `helpers/skip-helpers.ts` - `skipIfMissing()` for standardized “feature missing” skips
+- `helpers/user-helpers.ts` - `getUserIdByEmail()` (avoid repeating DB lookup boilerplate)
+- `helpers/watchlist-helpers.ts` - `ensureUserHasWatchlist()`
+- `helpers/*-seed-helpers.ts` - per-suite DB seeding helpers (keeps specs UI-focused)
+
 Admin-specific utilities in `helpers/admin-helpers.ts`:
 
 - `createAdminUser()` - Register first user (auto-assigned admin role)
@@ -223,26 +230,23 @@ Admin-specific utilities in `helpers/admin-helpers.ts`:
 
 ### Test Data
 
-Tests seed their own data to ensure isolation:
+Tests seed their own data to ensure isolation.
 
-```typescript
-async function seedTestData() {
-  const [retailer] = await db
-    .insert(retailers)
-    .values({
-      name: 'Test Store',
-      domain: 'test-store.example.com',
-    })
-    .returning();
+Preferred pattern: keep DB seeding out of spec files; put it in `e2e/helpers/*-seed-helpers.ts` and call it from `beforeEach` (or a fixture) so specs stay focused on UI flows.
 
-  const [product] = await db
-    .insert(products)
-    .values({
-      name: 'Test Product',
-      categoryId: 1,
-    })
-    .returning();
+```ts
+// e2e/helpers/some-suite-seed-helpers.ts
+export async function seedSomeSuiteData() {
+  // Insert retailers/products/offers/price history via Drizzle
 }
+
+// e2e/some-suite.spec.ts
+import { test } from './fixtures';
+import { seedSomeSuiteData } from './helpers/some-suite-seed-helpers';
+
+test.beforeEach(async () => {
+  await seedSomeSuiteData();
+});
 ```
 
 ## Test Structure

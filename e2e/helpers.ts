@@ -75,30 +75,7 @@ export async function registerUser(
   email: string,
   password: string
 ): Promise<void> {
-  // Navigate to /price-watch page which uses SharedNavigation (has Sign Up button)
-  // Can't use /admin (redirects unauthenticated users) or / (uses TemplateHeader, no Sign Up)
-  await page.goto('/price-watch');
-
-  // Clear all browser state to ensure clean test environment (must be after navigation)
-  await page.context().clearCookies();
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
-
-  // Reload page to apply cleared state
-  await page.reload();
-  await page.waitForLoadState('networkidle');
-
-  // Click Sign Up button in navigation to open auth modal
-  // Use .first() because there are multiple Sign Up buttons (nav, main, footer)
-  await page
-    .getByRole('button', { name: /sign up/i })
-    .first()
-    .click();
-
-  // Wait for modal to open
-  await page.waitForSelector('input#username', { state: 'visible', timeout: 5000 });
+  await openRegisterModal(page);
 
   // Fill registration form (uses id selectors based on actual form structure)
   await page.getByLabel(/username/i).fill(username);
@@ -122,23 +99,35 @@ export async function registerUser(
 }
 
 /**
- * Login an existing user through the UI (via modal)
+ * Open the registration modal (without submitting)
  */
-export async function loginUser(page: Page, email: string, password: string): Promise<void> {
-  // Navigate to /price-watch page which uses SharedNavigation (has Sign In button)
-  // Login is a modal - /login route triggers 404
+export async function openRegisterModal(page: Page): Promise<void> {
+  // Navigate to /price-watch page which uses SharedNavigation (has Sign Up button)
   await page.goto('/price-watch');
+
+  // Ensure clean browser state (must be after navigation)
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  await page.reload();
   await page.waitForLoadState('networkidle');
 
-  // Click Sign In button in navigation to open auth modal
-  // Use .first() because there may be multiple Sign In buttons
   await page
-    .getByRole('button', { name: /sign in/i })
+    .getByRole('button', { name: /sign up/i })
     .first()
     .click();
 
-  // Wait for modal to open
-  await page.waitForSelector('input#email', { state: 'visible', timeout: 5000 });
+  await page.waitForSelector('input#username', { state: 'visible', timeout: 5000 });
+}
+
+/**
+ * Login an existing user through the UI (via modal)
+ */
+export async function loginUser(page: Page, email: string, password: string): Promise<void> {
+  await openLoginModal(page);
 
   // Fill login form using label-based selectors (matches registerUser pattern)
   await page.getByLabel(/email/i).fill(email);
@@ -153,6 +142,30 @@ export async function loginUser(page: Page, email: string, password: string): Pr
   // CRITICAL: Wait for user to be logged in (modal closes and user menu appears)
   // Use .first() because multiple navigation instances exist (desktop, mobile, etc.)
   await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: 10000 });
+}
+
+/**
+ * Open the login modal (without submitting)
+ */
+export async function openLoginModal(page: Page): Promise<void> {
+  await page.goto('/price-watch');
+
+  // Ensure clean browser state (must be after navigation)
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  await page
+    .getByRole('button', { name: /sign in/i })
+    .first()
+    .click();
+
+  await page.waitForSelector('input#email', { state: 'visible', timeout: 5000 });
 }
 
 /**
@@ -183,7 +196,21 @@ export async function logoutUser(page: Page): Promise<void> {
     const signOutButton = page.getByTestId('sign-out-button');
     await signOutButton.waitFor({ state: 'visible', timeout: 5000 });
     await signOutButton.click({ timeout: 5000 });
+
+    // Wait for a stable logged-out state to avoid navigation races.
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
+    await Promise.race([
+      page
+        .getByTestId('user-menu-button')
+        .first()
+        .waitFor({ state: 'hidden', timeout: 10000 })
+        .catch(() => undefined),
+      page
+        .getByRole('button', { name: /sign in/i })
+        .first()
+        .waitFor({ state: 'visible', timeout: 10000 })
+        .catch(() => undefined),
+    ]);
   } catch (error) {
     throw new Error(`Could not logout: ${error instanceof Error ? error.message : String(error)}`);
   }

@@ -2,13 +2,11 @@
  * DEBUG: Time Range Button Detection
  */
 import { test } from './fixtures';
-import { cleanDatabase } from './helpers';
 import { seedTestProduct } from './helpers/admin-helpers';
 import { navigateToPriceHistory, seedPriceHistoryData } from './helpers/price-analytics-helpers';
 
 test('DEBUG: find time range buttons', async ({ page }) => {
   // Setup
-  await cleanDatabase();
   const { product } = await seedTestProduct({
     name: 'iPhone 15 Pro',
     description: 'Latest iPhone',

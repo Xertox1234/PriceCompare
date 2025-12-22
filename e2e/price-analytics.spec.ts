@@ -91,6 +91,7 @@
  */
 import { test, expect } from './fixtures';
 import { seedTestProduct } from './helpers/admin-helpers';
+import { skipIfMissing } from './helpers/skip-helpers';
 import {
   navigateToPriceHistory,
   selectTimeRange,
@@ -135,9 +136,7 @@ test.describe('Price History & Analytics', () => {
         .locator('[data-testid="price-chart"], [class*="recharts-wrapper"]')
         .first();
 
-      if ((await chart.count()) === 0) {
-        // Price history UI not implemented yet
-        test.skip();
+      if (await skipIfMissing(test, chart, 'Price history chart not implemented')) {
         return;
       }
 
