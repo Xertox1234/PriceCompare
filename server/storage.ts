@@ -4075,18 +4075,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async countUserAlerts(userId: number): Promise<number> {
+    // Input validation: Prevent invalid queries
+    if (!userId || userId < 1) {
+      throw new Error(`Invalid userId: ${userId}`);
+    }
+
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(priceAlerts)
       .where(eq(priceAlerts.userId, userId));
+
+    // Type assertion: Drizzle's sql<number> returns count(*) as number at runtime
     return Number(result[0].count);
   }
 
+  /**
+   * Count alerts for a specific user and product
+   *
+   * Currently unused but available for future features such as:
+   * - Per-product alert limits (e.g., max 5 alerts per product)
+   * - Alert deduplication (prevent multiple alerts for same price point)
+   *
+   * @param userId - User ID to count alerts for
+   * @param productId - Product ID to filter by
+   * @returns Number of active alerts for the user and product
+   */
   async countUserAlertsForProduct(userId: number, productId: number): Promise<number> {
+    // Input validation: Prevent invalid queries
+    if (!userId || userId < 1) {
+      throw new Error(`Invalid userId: ${userId}`);
+    }
+    if (!productId || productId < 1) {
+      throw new Error(`Invalid productId: ${productId}`);
+    }
+
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(priceAlerts)
       .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.productId, productId)));
+
+    // Type assertion: Drizzle's sql<number> returns count(*) as number at runtime
     return Number(result[0].count);
   }
 

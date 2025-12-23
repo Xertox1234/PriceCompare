@@ -38,12 +38,16 @@ async function throwIfResNotOk(res: Response) {
 
 /**
  * Custom error class for API errors with status codes
+ *
+ * The `details` field can be:
+ * - string: Development-only error details (stack traces, debug info)
+ * - Record<string, unknown>: Rich error metadata for client handling (error codes, limits, etc.)
  */
 export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public details?: string
+    public details?: string | Record<string, unknown>
   ) {
     super(message);
     this.name = 'ApiError';

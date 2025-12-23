@@ -55,12 +55,17 @@ export function CreatePriceAlertDialog({
       // Close dialog
       onOpenChange(false);
     },
-    onError: (error: Error & { code?: string; limit?: number; current?: number }) => {
+    onError: (error: Error) => {
+      // Type-safe error details extraction from ApiError
+      // Type assertion: ApiError.details can be string | Record, narrowing to object for property access
+      const apiError = error as Error & { details?: string | Record<string, unknown> };
+      const details = typeof apiError.details === 'object' ? apiError.details : undefined;
+
       // Handle alert limit error with specific message
-      if (error.code === 'ALERT_LIMIT_REACHED') {
+      if (details?.code === 'ALERT_LIMIT_REACHED') {
         toast({
           title: 'Alert Limit Reached',
-          description: `You can only have ${error.limit || 50} active alerts. Delete some alerts to create new ones.`,
+          description: `You can only have ${details.limit || 50} active alerts. Delete some alerts to create new ones.`,
           variant: 'destructive',
         });
       } else {
