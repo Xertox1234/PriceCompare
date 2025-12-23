@@ -1,0 +1,261 @@
+name: Pattern Validation
+
+on:
+  pull_request:
+    branches: [main, develop, add_scraping]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'server/**/*.ts'
+      - 'client/**/*.ts'
+      - 'client/**/*.tsx'
+      - 'shared/**/*.ts'
+      - 'docs/*_PATTERNS.md'
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pattern-validation:
+    name: Validate Against Pattern Files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for pattern extraction
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E '\.(ts|tsx)$' | tr '\n' ' ' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Run pattern validation
+        id: validation
+        run: |
+          echo "🔍 Running pattern validation on changed files..."
+
+          # Get list of changed TypeScript files
+          CHANGED_FILES="${{ steps.changed-files.outputs.files }}"
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "✅ No TypeScript files changed - skipping pattern validation"
+            exit 0
+          fi
+
+          echo "📁 Changed files:"
+          echo "$CHANGED_FILES" | tr ' ' '\n' | sed 's/^/  - /'
+          echo ""
+
+          # TODO: Integrate pattern-validator agent when Claude Code CLI is available in CI
+          # For now, run basic pattern checks using grep
+
+          CRITICAL_ISSUES=0
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 Pattern Validation Checks"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          # Check 1: CSRF Protection on POST/PUT/PATCH/DELETE routes
+          echo "📋 Check 1: CSRF Protection"
+          for file in $CHANGED_FILES; do
+            if [[ $file == server/routes/*.ts ]]; then
+              # Check for POST/PUT/PATCH/DELETE without csrfProtection
+              if grep -q "app\.\(post\|put\|patch\|delete\)" "$file"; then
+                if ! grep -q "csrfProtection" "$file"; then
+                  echo "  ⚠️  WARNING: $file has mutating endpoints but may be missing csrfProtection"
+                  echo "     Pattern: docs/04_SECURITY_PATTERNS.md (CSRF Protection)"
+                fi
+              fi
+            fi
+          done
+          echo ""
+
+          # Check 2: Storage Layer Usage (no direct db imports in routes)
+          echo "📋 Check 2: Storage Layer Pattern"
+          for file in $CHANGED_FILES; do
+            if [[ $file == server/routes/*.ts ]]; then
+              if grep -q "import.*{.*db.*}.*from.*['\"].*\/db['\"]" "$file"; then
+                echo "  ❌ CRITICAL: $file imports db directly (should use storage layer)"
+                echo "     Pattern: docs/02_DATABASE_PATTERNS.md (Storage Layer Usage)"
+                CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
+              fi
+            fi
+          done
+          echo ""
+
+          # Check 3: sendSuccess/sendError usage (no manual JSON responses)
+          echo "📋 Check 3: API Response Standardization"
+          for file in $CHANGED_FILES; do
+            if [[ $file == server/routes/*.ts ]]; then
+              # Check for manual res.json({ success: ... })
+              if grep -q "res\.json.*{.*success:" "$file"; then
+                echo "  ⚠️  WARNING: $file may have manual response envelope (use sendSuccess/sendError)"
+                echo "     Pattern: docs/03_API_PATTERNS.md (API Response Standardization)"
+              fi
+            fi
+          done
+          echo ""
+
+          # Check 4: Type safety - no 'any' types
+          echo "📋 Check 4: Type Safety (any types)"
+          for file in $CHANGED_FILES; do
+            if grep -q ": any\|<any>\|as any" "$file"; then
+              echo "  ❌ CRITICAL: $file contains 'any' types (strict type safety required)"
+              echo "     Pattern: docs/01_TYPESCRIPT_PATTERNS.md (Type Safety)"
+              CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
+            fi
+          done
+          echo ""
+
+          # Check 5: N+1 Query Pattern (queries in loops)
+          echo "📋 Check 5: N+1 Query Prevention"
+          for file in $CHANGED_FILES; do
+            if [[ $file == server/**/*.ts ]]; then
+              # Simplified check: for...of with await db/storage inside
+              if grep -Pzo "for\s*\(.*of.*\)[\s\S]*?await\s+(db\.|storage\.)" "$file" > /dev/null 2>&1; then
+                echo "  ❌ CRITICAL: $file may have N+1 query pattern (loop with await db/storage)"
+                echo "     Pattern: docs/02_DATABASE_PATTERNS.md (N+1 Prevention)"
+                CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
+              fi
+            fi
+          done
+          echo ""
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Pattern Validation Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if [ $CRITICAL_ISSUES -eq 0 ]; then
+            echo "✅ No critical pattern violations detected"
+            echo ""
+            echo "💡 Note: This is a basic automated check. For comprehensive validation:"
+            echo "   Run: claude task pattern-validator 'Validate changed files'"
+            exit 0
+          else
+            echo "❌ Found $CRITICAL_ISSUES critical pattern violation(s)"
+            echo ""
+            echo "📖 Next Steps:"
+            echo "  1. Review the pattern files referenced above"
+            echo "  2. Fix the critical violations"
+            echo "  3. For comprehensive validation, run:"
+            echo "     claude task pattern-validator 'Validate changed files'"
+            echo ""
+            exit 1
+          fi
+
+      - name: Comment PR with validation results
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ❌ Pattern Validation Failed
+
+            The automated pattern validation detected critical violations in this PR.
+
+            **Critical Issues Found:**
+            - Direct \`db\` imports in routes (should use storage layer)
+            - \`any\` types detected (strict type safety required)
+            - Potential N+1 query patterns (await in loops)
+
+            **Next Steps:**
+            1. Check the workflow logs for specific files and line numbers
+            2. Review the referenced pattern files in \`docs/*_PATTERNS.md\`
+            3. Fix the violations following the documented patterns
+            4. For detailed validation, run locally:
+               \`\`\`bash
+               claude task pattern-validator "Validate changed files"
+               \`\`\`
+
+            **Pattern Files:**
+            - 📘 [TypeScript Patterns](../blob/main/docs/01_TYPESCRIPT_PATTERNS.md)
+            - 📘 [Database Patterns](../blob/main/docs/02_DATABASE_PATTERNS.md)
+            - 📘 [API Patterns](../blob/main/docs/03_API_PATTERNS.md)
+            - 📘 [Security Patterns](../blob/main/docs/04_SECURITY_PATTERNS.md)
+
+            Once fixed, push your changes to re-trigger validation.
+            `
+            })
+
+  pattern-sync-check:
+    name: Check Pattern File Synchronization
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify pattern file versions are updated
+        run: |
+          echo "🔍 Checking pattern file version synchronization..."
+
+          # Check if pattern files were modified
+          CHANGED_PATTERNS=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep 'docs/.*_PATTERNS\.md' || true)
+
+          if [ -z "$CHANGED_PATTERNS" ]; then
+            echo "✅ No pattern files changed - skipping version check"
+            exit 0
+          fi
+
+          echo "📁 Changed pattern files:"
+          echo "$CHANGED_PATTERNS" | sed 's/^/  - /'
+          echo ""
+
+          ISSUES=0
+
+          for file in $CHANGED_PATTERNS; do
+            # Check if "Last Updated" was modified
+            if git diff origin/${{ github.base_ref }}..HEAD "$file" | grep -q "Last Updated"; then
+              echo "✅ $file: Timestamp updated"
+            else
+              echo "⚠️  $file: Missing timestamp update"
+              echo "   Pattern files should update 'Last Updated' when modified"
+              ISSUES=$((ISSUES + 1))
+            fi
+
+            # Check if Version was incremented
+            if git diff origin/${{ github.base_ref }}..HEAD "$file" | grep -q "Version:"; then
+              echo "✅ $file: Version incremented"
+            else
+              echo "⚠️  $file: Missing version increment"
+              ISSUES=$((ISSUES + 1))
+            fi
+          done
+
+          echo ""
+
+          if [ $ISSUES -gt 0 ]; then
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "⚠️  Pattern File Synchronization Issues"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "When modifying pattern files, please:"
+            echo "  1. Increment the version number (e.g., 2.1 → 2.2)"
+            echo "  2. Update the 'Last Updated' date (YYYY-MM-DD)"
+            echo ""
+            echo "This helps track pattern evolution and ensures documentation stays current."
+            echo ""
+            exit 1
+          else
+            echo "✅ All pattern files properly synchronized"
+          fi
