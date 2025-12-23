@@ -20,7 +20,7 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 
 ### Security-First Development (MANDATORY)
 
-Follow `SECURITY_GUIDELINES.md` religiously. Common violations that **will break the build**:
+Follow `CLAUDE.md` (Security Patterns section) and `docs/04_SECURITY_PATTERNS.md` religiously. Common violations that **will break the build**:
 
 1. **NEVER expose password hashes** in database queries
 
@@ -514,7 +514,8 @@ Extension shares types from `shared/` but runs independently from main app.
 ### Core Documentation (Read These First)
 
 - `ARCHITECTURE.md` - **Essential system overview**: diagrams, data flows, ADRs, caching strategy, deployment
-- `SECURITY_GUIDELINES.md` - **Mandatory security patterns** (never expose passwords, sanitize errors, etc.)
+- `CLAUDE.md` - **Mandatory security patterns** (never expose passwords, sanitize errors, etc.)
+- `docs/04_SECURITY_PATTERNS.md` - Comprehensive security pattern documentation
 - `CONTRIBUTING.md` - Setup guide, development workflow, environment variables
 
 ### Pattern Libraries (docs/)

@@ -1265,7 +1265,7 @@ Before committing tests:
 
 ## Related Documentation
 
-- **[TEST_OVERVIEW.md](../TEST_OVERVIEW.md)** - Test suite organization
+- **[TEST_OVERVIEW.md](testing/TEST_OVERVIEW.md)** - Test suite organization
 - **[LEARNINGS_TODO_001_WATCHLIST_TEST_FIX.md](LEARNINGS_TODO_001_WATCHLIST_TEST_FIX.md)** - Redis mock discovery
 - **[vitest.config.ts](../vitest.config.ts)** - Test configuration
 

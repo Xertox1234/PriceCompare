@@ -1,7 +1,7 @@
-# Insightify API Documentation
+# PriceCompare API Documentation
 
 ## Overview
-The Insightify REST API provides endpoints for product search, price comparison, and retailer information. All endpoints return JSON data and follow RESTful conventions.
+The PriceCompare REST API provides endpoints for product search, price comparison, and retailer information. All endpoints return JSON data and follow RESTful conventions.
 
 ## Base URL
 - Development: `http://localhost:5000/api`

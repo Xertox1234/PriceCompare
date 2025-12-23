@@ -388,7 +388,7 @@ Before deploying to production:
 ## Related Documentation
 
 - [CLAUDE.md](../CLAUDE.md) - Project architecture and patterns
-- [SECURITY_GUIDELINES.md](../SECURITY_GUIDELINES.md) - Security best practices
+- [CLAUDE.md - Security Patterns](../CLAUDE.md) - Security best practices
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture overview
 - [todos/002-completed-p1-fix-redis-session-storage.md](../todos/002-completed-p1-fix-redis-session-storage.md) - Original implementation task
 

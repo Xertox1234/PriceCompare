@@ -78,7 +78,7 @@
 - [ ] `npm run check` (TypeScript) passes
 - [ ] `npm run test` passes
 - [ ] Manual testing completed
-- [ ] Security Guidelines reviewed (`SECURITY_GUIDELINES.md`)
+- [ ] Security Guidelines reviewed (CLAUDE.md - Security Patterns section)
 
 ## Related Issues
 
@@ -95,4 +95,4 @@
 ---
 
 **For Reviewers:**
-Please verify all items in the Security Checklist above. Refer to `SECURITY_GUIDELINES.md` for patterns and best practices.
+Please verify all items in the Security Checklist above. Refer to `CLAUDE.md` (Security Patterns section) and `docs/04_SECURITY_PATTERNS.md` for patterns and best practices.
