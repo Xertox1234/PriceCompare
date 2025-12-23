@@ -52,9 +52,10 @@ export async function bulkAddProductsToWatchlist(
     userId,
     productId,
     watchListId,
-    priority: 3, // Default priority
+    // Priority defaults to 3 (matches schema default and UI behavior)
+    priority: 3,
   }));
 
   // Insert all product watches in a single transaction for speed
-  await db.insert(productWatches).values(productWatchesToCreate);
+  await db.insert(productWatches).values(productWatchesToCreate).returning();
 }

@@ -183,12 +183,12 @@ test.describe('Watchlist - Product Organization', () => {
       // Get the authenticated user's ID (cleanDb ensures only one user exists)
       const [user] = await db.select().from(users).limit(1);
 
-      // Create watchlist and add product via database (fast setup, bypassing UI)
+      // SETUP PHASE: Use database helpers for speed (100ms vs 5-7s via UI)
       const { product } = await seedTestProduct();
       const { watchListId } = await ensureUserHasWatchlist(user.id, 'My List');
       await bulkAddProductsToWatchlist(user.id, watchListId, [product.id]);
 
-      // Navigate to watchlist
+      // TEST PHASE: Verify UI behavior for removal (the actual feature being tested)
       await page.goto('/watchlists');
       await page.waitForLoadState('networkidle');
 
@@ -198,17 +198,17 @@ test.describe('Watchlist - Product Organization', () => {
       // Wait for product to load
       await page.getByText(product.name).waitFor({ state: 'visible', timeout: 15000 });
 
-      // Remove product
+      // Remove product via UI
       const productCard = page.locator('[data-testid="product-card"]', {
         hasText: product.name,
       });
 
       await productCard.getByRole('button', { name: /remove/i }).click();
 
-      // Confirm removal
+      // Confirm removal in dialog
       await page.getByRole('button', { name: /confirm.*remove/i }).click();
 
-      // Verify removal (use .first() to avoid duplicate toast + aria-live region)
+      // VERIFY PHASE: Assert UI reflects the removal
       await expect(page.getByText(/deleted successfully/i).first()).toBeVisible();
       await expect(productCard).not.toBeVisible();
     });
