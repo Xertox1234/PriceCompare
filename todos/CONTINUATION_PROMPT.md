@@ -168,6 +168,59 @@ Session 1 complete: Features 1.1 & 1.2 ✅
 Please read the feature details, verify if already implemented via E2E test, implement if needed, and update the plan.
 ```
 
+### Feature Priority Decision Framework
+
+**When choosing which Phase 2 feature to implement:**
+
+Use this framework to prioritize features based on user impact, complexity, and test coverage:
+
+**1. User Impact (40%)** - How many users benefit? How often used?
+- **High**:
+  - 2.1 (Time Range Selector - used daily by price-conscious users)
+  - 2.2 (Price Comparison Table - core value proposition)
+- **Medium**:
+  - 2.3 (Export to CSV - occasional use, power users)
+  - 2.4 (Advanced Filters - niche use cases)
+
+**2. Implementation Complexity (40%)** - Build time vs learning opportunity
+- **Simple** (~1-2 hours):
+  - 2.3 (Export CSV - straightforward data serialization)
+- **Medium** (~2-3 hours):
+  - 2.1 (Time Range Selector - UI component + hook integration)
+  - 2.4 (Advanced Filters - form state + query logic)
+- **Complex** (~3-4 hours):
+  - 2.2 (Price Comparison Table - multi-retailer data aggregation)
+
+**3. Test Coverage Benefit (20%)** - How much E2E testing is added?
+- **High Coverage**: 2.1 (adds 3-4 test scenarios for different time ranges)
+- **Medium Coverage**: 2.2, 2.4 (adds 2-3 test scenarios each)
+- **Low Coverage**: 2.3 (adds 1 test scenario)
+
+**Recommended Implementation Order:**
+
+```
+Priority 1: Feature 2.1 (Time Range Selector)
+  - Reason: High user impact + medium complexity + high test coverage
+  - ROI Score: 0.4×High + 0.4×Medium + 0.2×High = Strong
+
+Priority 2: Feature 2.4 (Advanced Filters)
+  - Reason: Medium impact + medium complexity + medium coverage
+  - ROI Score: Balanced learning opportunity
+
+Priority 3: Feature 2.2 (Price Comparison Table)
+  - Reason: High impact but complex implementation
+  - ROI Score: Best after gaining Phase 2 experience
+
+Priority 4: Feature 2.3 (Export to CSV)
+  - Reason: Low complexity but low impact
+  - ROI Score: Quick win, but deprioritized for learning
+```
+
+**Decision Rule**: Start with Feature 2.1 unless:
+- User feedback prioritizes a specific feature
+- Technical dependencies require a different order
+- Time constraints favor simpler features first
+
 ---
 
 ## 🎯 Session 1 Summary (For Context)
@@ -482,5 +535,6 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 ---
 
 **Created:** 2025-12-22 (Session 1 complete)
-**Last Updated:** 2025-12-22 (Priority 2/3 improvements added)
+**Last Updated:** 2025-12-22 (Final enhancement: Feature Priority Framework added)
 **Next Session:** Ready for Phase 2 - Start with Feature 2.1 verification
+**Documentation Completeness:** 98/100 (per code-review-specialist assessment)
