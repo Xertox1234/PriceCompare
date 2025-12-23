@@ -1,7 +1,12 @@
 # Testing Patterns
 
-**Version:** 2.1
-**Last Updated:** 2025-12-23 (added Custom Agent Patterns section)
+**Version:** 2.3
+**Last Updated:** 2025-12-23
+**Changelog:**
+- 2.3 (2025-12-23): Expanded Bulk Database Helpers with watchlist example, added Test Phase Separation pattern (Feature 4.3)
+- 2.2 (2025-12-23): Added Bulk Database Helpers for E2E Tests pattern (Feature 3.3)
+- 2.1 (2025-12-23): Added Custom Agent Patterns section
+
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
@@ -2378,6 +2383,184 @@ export async function cleanDatabase() {
 ```
 
 **Use when**: Testing transaction boundaries or multi-connection scenarios.
+
+---
+
+#### Bulk Database Helpers for E2E Tests (NEW - Feature 3.3)
+
+**When to Use:** When E2E tests need many database records to test edge cases (limits, pagination) but don't need to test the creation flow itself.
+
+**Context:** E2E tests typically create data through the UI to test full user flows. However, testing edge cases like "user has 49/50 alerts" requires creating many records, which is slow through the UI. Bulk database helpers bypass UI/API layers for fast test setup while keeping the actual test focused on the user story.
+
+**Pattern:** Create feature-specific bulk helpers in `e2e/helpers/` that use direct database insertion.
+
+```typescript
+// e2e/helpers/alert-helpers.ts
+import { db } from '../../server/db';
+import { priceAlerts } from '../../shared/schema';
+
+/**
+ * Bulk create price alerts via direct database insertion (fast)
+ *
+ * Use this for tests that need many alerts without testing the creation flow itself.
+ * Bypasses UI and API layers for speed.
+ *
+ * @param userId - User ID to create alerts for
+ * @param productId - Product ID for all alerts
+ * @param count - Number of alerts to create
+ * @param startingPrice - Base price (each alert increments by $1)
+ *
+ * @example
+ * // Test: User cannot create alert when at limit (50/50)
+ * await bulkCreateAlerts(1, 123, 49, 100); // Create 49 alerts
+ * // Now test creating 50th alert via UI (should hit limit)
+ */
+export async function bulkCreateAlerts(
+  userId: number,
+  productId: number,
+  count: number,
+  startingPrice: number = 100
+): Promise<void> {
+  const alertsToCreate = Array.from({ length: count }, (_, i) => ({
+    userId,
+    productId,
+    targetPrice: (startingPrice + i).toFixed(2),
+    isActive: true,
+  }));
+
+  // Insert all alerts in a single transaction for speed
+  await db.insert(priceAlerts).values(alertsToCreate);
+}
+```
+
+**Usage in E2E Tests:**
+
+```typescript
+// e2e/price-alerts.spec.ts
+import { test, expect } from './fixtures';
+import { bulkCreateAlerts } from './helpers/alert-helpers';
+
+test('should prevent creating alert when at limit (50/50)', async ({ authenticatedPage }) => {
+  const { page, user, product } = authenticatedPage;
+
+  // SETUP: Create 49 alerts via database (fast, not part of test)
+  await bulkCreateAlerts(user.id, product.id, 49);
+
+  // TEST: Try to create 50th alert via UI (this is what we're testing)
+  await page.goto(`/product/${product.id}`);
+  await page.click('[data-testid="create-alert-button"]');
+  await page.fill('#target-price', '99.99');
+  await page.click('button:has-text("Create Alert")');
+
+  // VERIFY: User sees limit error
+  await expect(page.locator('text=/alert limit reached/i')).toBeVisible();
+});
+```
+
+**Key Points:**
+
+1. **Speed**: 49 database inserts in <100ms vs 49 UI interactions in ~30 seconds
+2. **Focus**: Test stays focused on the user story (creating 50th alert)
+3. **Clarity**: JSDoc explains when to use vs when to use UI creation
+4. **Isolation**: Each test still gets clean database via fixtures
+5. **Transaction Safety**: Single `db.insert()` call is atomic
+
+**When NOT to Use:**
+
+- ❌ Testing the alert creation flow itself (use UI)
+- ❌ Testing validation logic (use API/unit tests)
+- ❌ Testing user-visible creation success messages (use UI)
+- ✅ Testing limits, edge cases, bulk operations
+
+**Benefits:**
+
+- **Test Speed**: Reduces 30s setup to <1s
+- **Test Maintainability**: Changing alert creation UI doesn't break limit tests
+- **Test Clarity**: Test name matches test content (limit enforcement, not creation)
+
+**Additional Example - Watchlist Products (Feature 4.3):**
+
+```typescript
+// e2e/helpers/watchlist-helpers.ts
+import { db } from '../../server/db';
+import { productWatches } from '../../shared/schema';
+
+/**
+ * Bulk add products to watchlist via direct database insertion (fast)
+ *
+ * Use this for tests that need watchlist setup without testing the addition flow itself.
+ * Bypasses UI and API layers for speed.
+ *
+ * @param userId - User ID who owns the watchlist
+ * @param watchListId - Watchlist ID to add products to
+ * @param productIds - Array of product IDs to add
+ *
+ * @example
+ * const { watchListId } = await ensureUserHasWatchlist(1, 'My List');
+ * await bulkAddProductsToWatchlist(1, watchListId, [123, 124, 125]);
+ */
+export async function bulkAddProductsToWatchlist(
+  userId: number,
+  watchListId: number,
+  productIds: number[]
+): Promise<void> {
+  const productWatchesToCreate = productIds.map((productId) => ({
+    userId,
+    productId,
+    watchListId,
+    // Priority defaults to 3 (matches schema default and UI behavior)
+    priority: 3,
+  }));
+
+  // Insert all product watches in a single transaction for speed
+  await db.insert(productWatches).values(productWatchesToCreate).returning();
+}
+```
+
+**Code Review Learnings (Feature 4.3):**
+1. **Always use `.returning()`** after bulk inserts for consistency with other helpers
+2. **Document default values** (e.g., priority) - explain why that value matches UI/schema
+3. **Single transaction** - batch inserts are atomic without explicit `db.transaction()`
+
+**Performance Comparison:**
+- UI-based setup (create watchlist + add 3 products): ~5-7 seconds
+- Database helper setup: ~100ms
+- **Speedup: 50-70x faster**
+
+**Test Phase Separation Pattern (NEW - Feature 4.3):**
+
+Use comments to clearly separate test phases for maintainability:
+
+```typescript
+test('should remove product from watchlist', async ({ page }) => {
+  // SETUP PHASE: Use database helpers for speed (100ms vs 5-7s via UI)
+  const { product } = await seedTestProduct();
+  const { watchListId } = await ensureUserHasWatchlist(user.id, 'My List');
+  await bulkAddProductsToWatchlist(user.id, watchListId, [product.id]);
+
+  // TEST PHASE: Verify UI behavior for removal (the actual feature being tested)
+  await page.goto('/watchlists');
+  await page.getByRole('tab', { name: /my list/i }).click();
+  await productCard.getByRole('button', { name: /remove/i }).click();
+  await page.getByRole('button', { name: /confirm.*remove/i }).click();
+
+  // VERIFY PHASE: Assert UI reflects the removal
+  await expect(page.getByText(/deleted successfully/i).first()).toBeVisible();
+  await expect(productCard).not.toBeVisible();
+});
+```
+
+**Why Phase Separation:**
+- **Clarity**: Instantly understand what's setup vs what's being tested
+- **Debugging**: Know which phase failed when test breaks
+- **Refactoring**: Easy to see which code can be extracted to helpers
+- **Code Review**: Reviewers can quickly validate test structure
+
+**Related Patterns:**
+
+- See "Transaction Rollback" for automatic cleanup
+- See "E2E Test Organization" for helper file structure
+- See "User Story-Driven E2E Tests" for when to use UI vs database setup
 
 ---
 
