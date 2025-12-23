@@ -1,6 +1,13 @@
 {
   "pre-commit": {
     "agent": "code-review-specialist",
-    "prompt": "Review the staged changes in this commit. Focus on the diff and highlight any issues before I commit."
+    "prompt": "Review the staged changes in this commit. Focus on the diff and highlight any issues before I commit.\n\nAfter the review, if any significant patterns were identified (security issues, performance anti-patterns, recurring mistakes, or architectural decisions), recommend running:\n\nclaude task pattern-codifier 'Codify patterns from this review session focusing on [specific domain]'\n\nOnly recommend pattern codification if the review identified learnings worth documenting."
+  },
+  "post-code-review": {
+    "enabled": false,
+    "description": "Optional: Run pattern-codifier after code reviews to extract learnings",
+    "agent": "pattern-codifier",
+    "prompt": "Extract and codify patterns from the recent code review session. Focus on:\n- Security vulnerabilities that were fixed\n- Performance anti-patterns that were corrected\n- Pre-commit hook violations that were resolved\n- Recurring review feedback worth documenting\n\nOnly create patterns if there are significant learnings to capture.",
+    "note": "Enable by setting 'enabled': true. This will automatically run pattern-codifier after every code review. Most users prefer manual invocation for more control."
   }
 }

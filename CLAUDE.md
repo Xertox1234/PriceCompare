@@ -1591,6 +1591,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 - `docs/API_DOCUMENTATION.md` - Complete API endpoint reference
 - `docs/AFFILIATE_REQUIREMENTS.md` - Retailer affiliate program requirements and setup
 - `docs/NPM_OVERRIDES_TRACKING.md` - Active npm overrides monitoring and removal tracking (NEW)
+- `docs/PATTERN_CODIFICATION_GUIDE.md` - **Pattern extraction workflow** (NEW - 2025-12-23)
 - `server/ai/README.md` - AI prompt system documentation
 
 ### Learnings Documentation (Real-World Examples)
@@ -1619,6 +1620,45 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 **After implementing features or making changes:**
 
-- Always invoke the `code-review-specialist` subagent to review files changed in the session
-- The agent will check against all pattern files and pre-commit hook requirements
-- Address any critical issues before committing
+1. **Code Review** - Always invoke the `code-review-specialist` subagent to review files changed in the session
+   - The agent will check against all pattern files and pre-commit hook requirements
+   - Address any critical issues before committing
+
+2. **Pattern Codification** (NEW - 2025-12-23) - Extract learnings from the review session
+   - Invoke the `pattern-codifier` agent to document patterns from the review
+   - Agent extracts patterns and adds them to appropriate `docs/*_PATTERNS.md` files
+   - Include updated pattern files in your commit
+
+**Workflow Example:**
+
+```bash
+# 1. After making changes
+git add .
+
+# 2. Review changes (pre-commit hook runs code-review-specialist automatically)
+git commit -m "..."
+
+# 3. If review identifies patterns worth documenting
+claude task pattern-codifier "Codify patterns from this review session focusing on [domain]"
+
+# 4. Commit pattern updates
+git add docs/*_PATTERNS.md
+git commit --amend --no-edit  # Add patterns to the same commit
+
+# OR create separate commit for pattern documentation
+git commit -m "docs: codify [pattern name] from code review
+
+- Added pattern to [PATTERN_FILE]
+- Source: Code review session [date]"
+```
+
+**When to Codify Patterns:**
+
+- ✅ Security vulnerabilities fixed (ALWAYS codify)
+- ✅ Performance optimizations applied
+- ✅ Pre-commit hook blocks encountered and resolved
+- ✅ Recurring review feedback (seen 2+ times)
+- ✅ New architectural patterns introduced
+- ⏭️ One-off fixes or trivial changes (skip codification)
+
+**See `docs/PATTERN_CODIFICATION_GUIDE.md` for complete workflow documentation.**

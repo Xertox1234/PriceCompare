@@ -1,7 +1,7 @@
 # Testing Patterns
 
-**Version:** 2.0
-**Last Updated:** 2025-12-22 (added Verification-First Methodology & Component Discovery Patterns)
+**Version:** 2.1
+**Last Updated:** 2025-12-23 (added Custom Agent Patterns section)
 **Related Patterns:**
 - docs/01_TYPESCRIPT_PATTERNS.md (type safety in tests)
 - docs/05_FRONTEND_PATTERNS.md (component testing)
@@ -44,7 +44,9 @@
    - [Testing Missing Route Parameters](#testing-missing-route-parameters)
    - [Express Route Not Found Behavior](#express-route-not-found-behavior)
 8. [Avoiding Skipped Tests](#avoiding-skipped-tests)
-9. [Checklist](#testing-checklist)
+9. [Custom Agent Patterns (NEW)](#custom-agent-patterns-new---2025-12-23)
+   - [Creating Project-Specific Subagents](#creating-project-specific-subagents)
+10. [Checklist](#testing-checklist)
 
 ---
 
@@ -986,6 +988,255 @@ it.skip('temporarily skipped while debugging auth flow - fix by EOD', () => {
 ```
 
 **Rule:** If a test is skipped for more than one PR, either fix it or delete it.
+
+---
+
+## Custom Agent Patterns (NEW - 2025-12-23)
+
+**Source:** Pattern-codifier agent creation session, 2025-12-23
+
+Custom agents codify project-specific workflows into reusable, self-documenting tools that leverage Claude Code's subagent system.
+
+### Creating Project-Specific Subagents
+
+**Context:** When you need to create custom agents for project-specific workflows (like pattern codification, specialized code review, or domain-specific validation).
+
+**Problem:** Generic agents may not fit project-specific needs. Need a way to codify project-specific workflows and processes into reusable agents that understand the codebase structure, conventions, and quality standards.
+
+#### ✅ Preferred Approach: Custom Agent Definition Files
+
+```markdown
+<!-- .claude/agents/pattern-codifier.md -->
+---
+name: pattern-codifier
+description: Extract patterns from code reviews and codify into docs/*_PATTERNS.md files. Use after completing PR reviews or when capturing learnings from development sessions.
+tools: Read, Write, Edit, Grep, Glob, Bash, WebSearch
+model: sonnet
+---
+
+You are a pattern documentation specialist for the PriceCompare codebase. Your mission is to extract learnings from code reviews, development sessions, and feedback, then codify them into the appropriate pattern documentation files.
+
+## When to Invoke This Agent
+
+- After completing a code review (manual or via code-review-specialist)
+- After resolving a complex bug with lessons learned
+- After implementing a feature with new patterns to document
+- When you notice recurring issues that should be codified
+- After a development session where anti-patterns were corrected
+
+## Codification Workflow
+
+### 1. Gather Feedback Sources
+
+**Priority order:**
+
+1. **Recent PR comments** (if applicable):
+   ```bash
+   gh pr view [PR_NUMBER] --comments --json comments
+   ```
+
+2. **Recent git commits** (review messages):
+   ```bash
+   git log --since="1 week ago" --pretty=format:"%h %s%n%b" --grep="review\|fix\|pattern\|refactor"
+   ```
+
+3. **Current conversation context**: Analyze the messages in this session for:
+   - Corrections made during development
+   - Anti-patterns identified and fixed
+   - Security issues resolved
+   - Performance optimizations applied
+   - Type safety improvements
+
+<!-- Full agent workflow documentation continues... -->
+```
+
+**Invoke the agent:**
+
+```bash
+# After code review session
+claude task pattern-codifier "Codify patterns from this development session"
+
+# Analyze specific PR
+claude task pattern-codifier "Analyze PR #123 and extract patterns"
+
+# From recent commits
+claude task pattern-codifier "Review last 10 commits and extract patterns worth documenting"
+```
+
+**Key Features:**
+
+1. **YAML Frontmatter Configuration:**
+   - `name`: Agent identifier for invocation
+   - `description`: What the agent does and when to use it
+   - `tools`: Which tools the agent can access
+   - `model`: LLM model to use (sonnet, opus, haiku)
+
+2. **Comprehensive Documentation:**
+   - When to invoke the agent
+   - Step-by-step workflows
+   - Quality standards and checklists
+   - Examples and templates
+   - Integration with other agents
+
+3. **Self-Documenting:**
+   - Agent definition IS the documentation
+   - No separate README needed
+   - Clear invocation examples in the file
+
+4. **Project Context Awareness:**
+   - References to specific files (docs/01_TYPESCRIPT_PATTERNS.md, etc.)
+   - Codebase conventions (sendSuccess/sendError patterns)
+   - Pre-commit hook integration
+   - Existing agent system (code-review-specialist)
+
+#### ❌ Anti-Pattern: Hardcoded Workflows Without Agent Abstraction
+
+```bash
+# ❌ WRONG - One-off script without reusability
+# create-pattern.sh (no agent definition)
+#!/bin/bash
+echo "What pattern are you documenting?"
+read pattern_name
+echo "Which file should it go in?"
+read target_file
+# ... hardcoded logic with no documentation
+
+# Problems:
+# - Not discoverable (no `claude task` integration)
+# - No documentation of workflow
+# - No validation or quality checks
+# - Can't leverage Claude Code's context
+# - No integration with other agents
+```
+
+```typescript
+// ❌ WRONG - Generic agent without project specifics
+// .claude/agents/generic-documenter.md
+---
+name: generic-documenter
+description: Document code
+tools: Read, Write
+model: sonnet
+---
+
+Please document the code.
+
+// Problems:
+// - Doesn't know about docs/*_PATTERNS.md structure
+// - Doesn't understand project conventions
+// - No workflow guidance
+// - No quality standards
+// - Missing cross-references to existing systems
+```
+
+**Rationale:**
+
+**Why Custom Agents Are Superior:**
+
+1. **Codified Expertise:** Captures project-specific knowledge that would otherwise live in developer heads
+2. **Reusable Across Sessions:** Same agent works for all developers in all sessions
+3. **Self-Documenting:** Agent definition IS the documentation (no README drift)
+4. **Consistent Quality:** Built-in quality checks ensure standards are met
+5. **Discoverable:** `claude task [agent-name]` makes workflows easily findable
+6. **Integrated:** Works with other agents (code-review-specialist → pattern-codifier)
+
+**Why YAML Frontmatter:**
+
+- Structured metadata (name, description, tools, model)
+- Easy to parse programmatically
+- Familiar pattern (GitHub Actions, Jekyll, Hugo)
+- Keeps configuration separate from documentation
+
+**Why `.claude/agents/` Directory:**
+
+- Standard location (convention over configuration)
+- Claude Code automatically discovers agents here
+- Keeps agents separate from hooks (.claude/hooks.json)
+- Easy to version control and share across team
+
+**Agent Creation Checklist:**
+
+Before creating a custom agent:
+
+- ✅ Workflow is project-specific (not generic)
+- ✅ Will be reused across multiple sessions
+- ✅ Requires understanding of codebase structure
+- ✅ Has quality standards to enforce
+- ✅ Integrates with existing systems (git, gh, pre-commit hooks)
+- ✅ Benefits from Claude's reasoning (not just a script)
+
+**Integration Patterns:**
+
+**Agent Chaining (Sequential):**
+
+```bash
+# 1. Review code changes
+claude task code-review-specialist "Review recent changes in server/routes/"
+
+# 2. Address review feedback, make corrections
+
+# 3. Extract patterns from the review
+claude task pattern-codifier "Codify patterns from this review session"
+
+# 4. Commit everything together
+git add .
+git commit -m "feat: implement feature X with codified patterns"
+```
+
+**Agent Hooks (Automatic Invocation):**
+
+```json
+// .claude/hooks.json
+{
+  "pre-commit": {
+    "agent": "code-review-specialist",
+    "prompt": "Review the staged changes in this commit. Focus on the diff and highlight any issues before I commit."
+  }
+}
+```
+
+**When reviewing commits through Claude Code, the code-review-specialist agent automatically runs** to validate changes against pattern files and pre-commit hook requirements.
+
+**Related Patterns:**
+
+- Pattern codification workflow: `.claude/agents/pattern-codifier.md` (full workflow documentation)
+- Code review integration: `.claude/hooks.json` (automatic code-review-specialist invocation)
+- Subagent system: `.claude/knowledge/claude-code-subagent-setup-guide.md`
+- Pattern files: `docs/01_TYPESCRIPT_PATTERNS.md` through `docs/08_TESTING_PATTERNS.md`
+- Pre-commit hooks: `.git/hooks/pre-commit`, `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md`
+
+**Examples of Custom Agents in This Project:**
+
+1. **pattern-codifier** (`.claude/agents/pattern-codifier.md`)
+   - Purpose: Extract and document patterns from development sessions
+   - When to use: After code reviews, bug fixes, feature implementations
+   - Integration: Works with code-review-specialist, updates pattern files
+
+2. **code-review-specialist** (referenced in `.claude/hooks.json`)
+   - Purpose: Review code changes for pattern violations
+   - When to use: Pre-commit hook, manual code reviews
+   - Integration: Checks against all pattern files, pre-commit hook rules
+
+**Agent Development Tips:**
+
+1. **Start with Workflow Documentation:** Write the step-by-step process first, then convert to agent
+2. **Include Examples:** Show real invocations with expected outputs
+3. **Reference Actual Files:** Use real paths from the codebase, not placeholders
+4. **Quality Over Quantity:** One well-documented agent > five poorly documented agents
+5. **Test Before Committing:** Actually invoke the agent to verify it works
+6. **Version Control:** Agent definitions are code - review and version them
+
+**Common Use Cases for Custom Agents:**
+
+- **Pattern Codification:** Extract learnings from sessions (pattern-codifier)
+- **Code Review:** Specialized review for domain patterns (code-review-specialist)
+- **Migration:** Automated refactoring with quality checks (migration-specialist)
+- **Security Audits:** Security-focused code analysis (security-auditor)
+- **Documentation:** Generate/update docs from code (doc-generator)
+- **Testing:** Test generation following project patterns (test-generator)
+
+*Source: Pattern-codifier agent creation session, 2025-12-23*
+*Added: 2025-12-23*
 
 ---
 
@@ -3271,5 +3522,5 @@ Before committing E2E tests:
 
 ---
 
-**Last Updated:** 2025-12-22 (added Verification-First Methodology & Component Discovery Patterns)
+**Last Updated:** 2025-12-23 (added Custom Agent Patterns section)
 **Maintained By:** PriceCompare Development Team
