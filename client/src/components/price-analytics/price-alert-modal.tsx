@@ -66,12 +66,21 @@ export function PriceAlertModal({
       onClose();
       setTargetPrice('');
     },
-    onError: (error: Error) => {
-      toast({
-        title: 'Failed to create alert',
-        description: error.message,
-        variant: 'destructive',
-      });
+    onError: (error: Error & { code?: string; limit?: number; current?: number }) => {
+      // Handle alert limit error with specific message
+      if (error.code === 'ALERT_LIMIT_REACHED') {
+        toast({
+          title: 'Alert Limit Reached',
+          description: `You can only have ${error.limit || 50} active alerts. Delete some alerts to create new ones.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Failed to create alert',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
   });
 

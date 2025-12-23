@@ -5,8 +5,10 @@
  */
 import { test, expect } from './fixtures';
 import { waitForApiResponse } from './helpers';
-import { createAlertViaModal, openAlertModalViaChart } from './helpers/alert-helpers';
+import { createAlertViaModal, openAlertModalViaChart, bulkCreateAlerts } from './helpers/alert-helpers';
 import { seedPriceAlertTestData } from './helpers/price-alerts-seed-helpers';
+import { db } from '../server/db';
+import { users } from '../shared/schema';
 
 test.describe('Price Alert Management', () => {
   let testProduct: { productId: number; productName: string };
@@ -264,14 +266,37 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // SKIPPED: Alert Limits test would require creating multiple alerts and checking UI
-  // Could be re-implemented to test via API or modal flow if needed
-  test.describe.skip('Alert Limits', () => {
-    test('should enforce maximum alerts per user', async ({ authenticatedPage: page }) => {
-      // REQUIRES: Ability to check alert count, possibly via /alerts page or API
-      for (let i = 0; i < 10; i++) {
-        await createAlertViaModal(page, testProduct.productId, 99.99 + i);
-      }
+  test.describe('Alert Limits', () => {
+    test('should enforce maximum alerts per user (50 limit)', async ({
+      authenticatedPage: page,
+    }) => {
+      // MAX_ALERTS_PER_USER = 50 from server/utils/constants.ts
+
+      // Get the authenticated user's ID (cleanDb ensures only one user exists)
+      const [user] = await db.select().from(users).limit(1);
+
+      // Create 49 alerts via direct database insertion (fast)
+      // This gets us to one away from the limit
+      await bulkCreateAlerts(user.id, testProduct.productId, 49, 100);
+
+      // Try to create the 50th alert via UI - should succeed (at limit)
+      await openAlertModalViaChart(page, testProduct.productId);
+      await page.fill('#target-price', '999.98');
+      await page.click('button:has-text("Create Alert")');
+      await waitForApiResponse(page, '/api/price-alerts', 201);
+
+      // Wait for success toast to appear and disappear
+      await page.locator('text=/alert.*created|price alert created/i').waitFor({ state: 'visible' });
+
+      // Try to create the 51st alert - should fail with limit error
+      await openAlertModalViaChart(page, testProduct.productId);
+      await page.fill('#target-price', '999.99');
+      await page.click('button:has-text("Create Alert")');
+
+      // Should show "Alert Limit Reached" error toast (match first visible element)
+      await expect(
+        page.locator('text=/Alert Limit Reached|You can only have.*active alerts/i').first()
+      ).toBeVisible({ timeout: 5000 });
     });
   });
 });

@@ -443,6 +443,8 @@ export interface IStorage {
     updates: { targetPrice?: string; isActive?: boolean; notifyForum?: boolean }
   ): Promise<PriceAlert | null>;
   deletePriceAlert(alertId: number, userId: number): Promise<boolean>;
+  countUserAlerts(userId: number): Promise<number>;
+  countUserAlertsForProduct(userId: number, productId: number): Promise<number>;
 
   // Phase 8B: Price History Service Support
   getRawPriceHistoryWithRetailers(
@@ -1988,6 +1990,12 @@ export class MemStorage implements IStorage {
   }
   async deletePriceAlert(_alertId: number, _userId: number): Promise<boolean> {
     return false;
+  }
+  async countUserAlerts(_userId: number): Promise<number> {
+    return 0;
+  }
+  async countUserAlertsForProduct(_userId: number, _productId: number): Promise<number> {
+    return 0;
   }
 
   // Phase 8B: Price History Service Support - STUBS
@@ -4064,6 +4072,22 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(priceAlerts.id, alertId), eq(priceAlerts.userId, userId)))
       .returning();
     return !!deleted;
+  }
+
+  async countUserAlerts(userId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(priceAlerts)
+      .where(eq(priceAlerts.userId, userId));
+    return Number(result[0].count);
+  }
+
+  async countUserAlertsForProduct(userId: number, productId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(priceAlerts)
+      .where(and(eq(priceAlerts.userId, userId), eq(priceAlerts.productId, productId)));
+    return Number(result[0].count);
   }
 
   // Phase 8B: Price History Service Support

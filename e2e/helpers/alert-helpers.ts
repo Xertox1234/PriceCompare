@@ -6,6 +6,8 @@
  */
 import type { Page } from '@playwright/test';
 import { waitForApiResponse } from '../helpers';
+import { db } from '../../server/db';
+import { priceAlerts } from '../../shared/schema';
 
 export async function openAlertModalViaChart(page: Page, productId: number): Promise<void> {
   // Navigate to product detail page
@@ -81,4 +83,35 @@ export async function createAlertViaModal(
     .locator('text=/alert.*created|price alert created/i')
     .first()
     .waitFor({ state: 'visible', timeout: 5000 });
+}
+
+/**
+ * Bulk create price alerts via direct database insertion (fast)
+ *
+ * Use this for tests that need many alerts without testing the creation flow itself.
+ * Bypasses UI and API layers for speed.
+ *
+ * @param userId - User ID to create alerts for
+ * @param productId - Product ID for all alerts
+ * @param count - Number of alerts to create
+ * @param startingPrice - Base price (each alert increments by $1)
+ *
+ * @example
+ * await bulkCreateAlerts(1, 123, 49, 100); // Creates 49 alerts with prices 100, 101, 102...
+ */
+export async function bulkCreateAlerts(
+  userId: number,
+  productId: number,
+  count: number,
+  startingPrice: number = 100
+): Promise<void> {
+  const alertsToCreate = Array.from({ length: count }, (_, i) => ({
+    userId,
+    productId,
+    targetPrice: (startingPrice + i).toFixed(2),
+    isActive: true,
+  }));
+
+  // Insert all alerts in a single transaction for speed
+  await db.insert(priceAlerts).values(alertsToCreate);
 }

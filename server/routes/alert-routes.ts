@@ -6,6 +6,7 @@ import { parseIntSafe } from '../utils/validation-helpers';
 import { csrfProtection } from '../middleware/security';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { logger } from '../utils/logger';
+import { PRICE_ALERT } from '../utils/constants';
 
 /**
  * Schema for creating a new price alert
@@ -58,6 +59,17 @@ export function registerAlertRoutes(app: Express): void {
         const product = await storage.getProductById(validatedData.productId);
         if (!product) {
           sendError(res, 'Product not found', 404);
+          return;
+        }
+
+        // Check user alert limit (prevents spam/abuse)
+        const userAlertCount = await storage.countUserAlerts(user.id);
+        if (userAlertCount >= PRICE_ALERT.MAX_ALERTS_PER_USER) {
+          sendError(res, `Alert limit reached. You can only have ${PRICE_ALERT.MAX_ALERTS_PER_USER} active alerts.`, 400, {
+            code: 'ALERT_LIMIT_REACHED',
+            limit: PRICE_ALERT.MAX_ALERTS_PER_USER,
+            current: userAlertCount,
+          });
           return;
         }
 
