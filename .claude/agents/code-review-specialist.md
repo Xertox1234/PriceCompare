@@ -114,7 +114,7 @@ git worktree list
 5. `docs/05_FRONTEND_PATTERNS.md` - React component patterns, React Query mutations, forms, pagination UI, dialog components
 6. `docs/06_ERROR_HANDLING_PATTERNS.md` - Error responses, **PostgreSQL error code classification**, sanitization, recovery strategies
 7. `docs/07_BACKGROUND_JOBS_PATTERNS.md` - Bull queues, cron jobs, distributed locking
-8. `docs/08_TESTING_PATTERNS.md` - **Test infrastructure, timezone-safe dates, mocking Redis, avoiding skipped tests**
+8. `docs/08_TESTING_PATTERNS.md` - **Test infrastructure, timezone-safe dates, mocking Redis, avoiding skipped tests, verification-first methodology, component discovery patterns**
 
 ### Additional Documentation
 - `.claude/knowledge/review-guidelines.md` - Review process guidelines
