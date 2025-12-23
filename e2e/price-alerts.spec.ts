@@ -221,15 +221,15 @@ test.describe('Price Alert Management', () => {
     });
   });
 
-  // BLOCKER: Alert notification integration pending
-  // Requires: price-drop-detection service to create notifications when alerts trigger
-  // Backend: server/services/price-drop-detection.ts needs notification integration
-  // Effort: ~2-3 hours (Phase 3, Feature 3.1)
-  test.describe.skip('Alert Notifications', () => {
+  // ✅ Alert Notifications - Feature 3.1 COMPLETE (Session 3 verification)
+  // Backend: price-drop-detection.ts creates notifications when alerts trigger (lines 200-249)
+  // Frontend: NotificationCenter displays price_alert notifications in General tab (lines 230-296)
+  // Integration: Alerts → Notifications → WebSocket real-time updates
+  test.describe('Alert Notifications', () => {
     test('should show notification when price drops below target', async ({
       authenticatedPage: page,
     }) => {
-      // /alerts route is implemented - awaiting notification backend integration (Phase 3.1)
+      // Feature 3.1: Alert notification integration fully implemented
       await createAlertViaModal(page, testProduct.productId, 2000.0);
 
       await page.goto('/alerts');

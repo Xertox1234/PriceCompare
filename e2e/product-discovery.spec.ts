@@ -290,18 +290,9 @@ test.describe('Product Discovery & Price Tracking', () => {
       await expect(page.locator('text=/added.*watchlist/i').first()).toBeVisible({ timeout: 5000 });
     });
 
-    // ✅ Watchlist removal implemented in /price-watch page
-    // Feature: Remove button (X icon) in WatchedProductCard component
-    // API: DELETE /api/watchlists/:id/products/:productId
-    // UX: Button → handleRemoveProduct() → API call → Toast notification → UI update
-    // Location: client/src/pages/price-watch.tsx (lines 136-150, 317)
-    //           client/src/components/price-watch/WatchedProductCard.tsx (lines 169-181)
-    //           server/routes/watchlist-routes.ts (lines 520-542)
-    test.skip('should remove product from watchlist', async ({ authenticatedPage: _page }) => {
-      // SKIPPED: E2E test needs rewrite for /price-watch page flow
-      // Current test looks for removal in product detail page, but feature is in watchlist page
-      // TODO: Rewrite test to navigate to /price-watch, verify Remove button, test removal
-    });
+    // ✅ Watchlist removal - DUPLICATE TEST REMOVED
+    // Feature is tested in e2e/watchlist.spec.ts (Feature 4.3)
+    // Verified: "should remove product from watchlist" test passes with database helpers
 
     test('should require authentication to add to watchlist', async ({ page }) => {
       // Go to product page without logging in
