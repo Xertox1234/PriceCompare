@@ -54,3 +54,5 @@ server/routes.ts.backup
 .worktrees
 .claude/settings.local.json
 *.backup*
+e2e-test-results.txt
+e2e-final-results.txt

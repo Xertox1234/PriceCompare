@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.7
+**Version:** 2.8
 **Last Updated:** 2025-12-23
 **Changelog:**
+- 2.8 (2025-12-23): Expanded storage layer ID validation pattern with code examples from Feature 3.3
 - 2.7 (2025-12-23): Added verification commands and migration pattern to Foreign Key Cascade Rules section
 - 2.6 (2025-12-23): Added storage layer ID validation pattern
 

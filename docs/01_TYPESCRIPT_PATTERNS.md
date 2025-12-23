@@ -1,6 +1,6 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.3
+**Version:** 2.4
 **Last Updated:** 2025-12-23
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
@@ -9,6 +9,7 @@
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 **Changelog:**
+- 2.4 (2025-12-23): Added Type-Safe API Error Details Extraction pattern (Feature 3.3)
 - 2.3 (2025-12-23): Added "When to Use" context to ESLint patterns, Error Type Handling, and Critical Type Safety Violations sections
 - 2.2 (2025-12-23): Added JSDoc documentation pattern for unused code
 - 2.1 (2025-12-04): Added Zod DECIMAL field validation pattern
@@ -1279,6 +1280,93 @@ try {
   }
 }
 ```
+
+---
+
+### Type-Safe API Error Details Extraction (NEW - Feature 3.3)
+
+**When to Use:** When handling API errors in React Query `onError` callbacks that need to access structured error details from the backend.
+
+**Context:** The `apiRequest()` helper throws `ApiError` objects with a `details` property that can be either `string` (development-only error context) OR `Record<string, unknown>` (client-useful metadata like error codes, limits). TypeScript requires explicit type narrowing before accessing object properties.
+
+**Pattern:** Use `typeof` check to narrow error details type before property access.
+
+```typescript
+// client/src/components/price-analytics/price-alert-modal.tsx
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+
+const createAlertMutation = useMutation({
+  mutationFn: async (price: number) => {
+    return apiRequest('/api/price-alerts', {
+      method: 'POST',
+      body: JSON.stringify({
+        productId,
+        targetPrice: price,
+      }),
+    });
+  },
+  onError: (error: Error) => {
+    // Type assertion: ApiError extends Error with optional details property
+    // Type assertion: ApiError.details can be string | Record, narrowing to object for property access
+    const apiError = error as Error & { details?: string | Record<string, unknown> };
+    const details = typeof apiError.details === 'object' ? apiError.details : undefined;
+
+    // Type-safe access to error code and metadata
+    if (details?.code === 'ALERT_LIMIT_REACHED') {
+      toast({
+        title: 'Alert Limit Reached',
+        description: `You can only have ${details.limit || 50} active alerts. Delete some alerts to create new ones.`,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Failed to create alert',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  },
+});
+```
+
+**Key Points:**
+
+1. **Type Assertion with Comment**: `const apiError = error as Error & { details?: ... }` with inline explanation
+2. **Runtime Type Narrowing**: `typeof apiError.details === 'object'` before property access
+3. **Fallback Values**: Use `|| 50` for safety when accessing numeric metadata
+4. **Discriminated Unions**: Check `code` property to handle specific error cases
+
+**Why This Pattern:**
+
+- **Compile-Time Safety**: TypeScript enforces type checks, prevents property access errors
+- **Runtime Safety**: `typeof` check prevents accessing properties on strings
+- **Pre-Commit Hook Compliance**: Inline comment explains type assertion (required by hook)
+- **Flexible API Contract**: Supports both string details (dev) and object details (client UX)
+
+**Anti-Patterns:**
+
+```typescript
+// ❌ WRONG - No type narrowing, TypeScript error
+const apiError = error as Error & { details?: string | Record<string, unknown> };
+if (apiError.details.code === 'ALERT_LIMIT_REACHED') {
+  // TypeScript error: Property 'code' does not exist on type 'string | Record<...>'
+}
+
+// ❌ WRONG - Type assertion without explanation
+const details = apiError.details as Record<string, unknown>;
+// Pre-commit hook warning: Missing explanation for type assertion
+
+// ❌ WRONG - Accessing without fallback
+description: `You can only have ${details.limit} active alerts.`
+// Runtime error if 'limit' is undefined
+```
+
+**Related Patterns:**
+
+- See "Business Rule Validation with Rich Error Details" in `docs/03_API_PATTERNS.md`
+- See "Error Response Helper Functions" in `docs/06_ERROR_HANDLING_PATTERNS.md`
 
 ---
 

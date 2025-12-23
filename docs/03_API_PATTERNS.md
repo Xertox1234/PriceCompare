@@ -1,9 +1,11 @@
 # API & Route Patterns
 
-**Version:** 2.0
-**Last Updated:** 2025-11-29
+**Version:** 2.1
+**Last Updated:** 2025-12-23
 **Migrated From:** 6 source documents (see References)
 **Status:** Active - Mandatory for all API/route code
+**Changelog:**
+- 2.1 (2025-12-23): Added business rule validation pattern (Feature 3.3 - alert limits)
 
 ---
 
@@ -1471,6 +1473,100 @@ router.get('/api/products/:id', async (req, res) => {
   }
 });
 ```
+
+---
+
+#### Business Rule Validation with Rich Error Details (NEW - Feature 3.3)
+
+**When to Use:** When enforcing business rules (rate limits, quotas, feature limits) that need to return structured error metadata to clients.
+
+**Context:** Business rule validation differs from schema validation - it checks application-level constraints (user limits, system quotas) that require database queries or service state checks. The error response should include both a user-friendly message AND structured metadata for client-side handling.
+
+**Pattern:** Validate business rules after schema validation, return rich error details using object format.
+
+```typescript
+// server/routes/alert-routes.ts
+import { PRICE_ALERT } from '../utils/constants';
+
+app.post(
+  '/api/price-alerts',
+  csrfProtection,
+  withAuth(async (req, res) => {
+    try {
+      // Step 1: Schema validation (input structure)
+      const validatedData = createPriceAlertSchema.parse(req.body);
+      const user = req.user;
+
+      // Step 2: Foreign key validation (data integrity)
+      const product = await storage.getProductById(validatedData.productId);
+      if (!product) {
+        sendError(res, 'Product not found', 404);
+        return;
+      }
+
+      // Step 3: Business rule validation (application constraints)
+      const userAlertCount = await storage.countUserAlerts(user.id);
+      if (userAlertCount >= PRICE_ALERT.MAX_ALERTS_PER_USER) {
+        sendError(
+          res,
+          `Alert limit reached. You can only have ${PRICE_ALERT.MAX_ALERTS_PER_USER} active alerts.`,
+          400,
+          {
+            code: 'ALERT_LIMIT_REACHED',
+            limit: PRICE_ALERT.MAX_ALERTS_PER_USER,
+            current: userAlertCount,
+          }
+        );
+        return;
+      }
+
+      // Step 4: Create resource
+      const alert = await storage.createPriceAlert({
+        userId: user.id,
+        productId: validatedData.productId,
+        targetPrice: validatedData.targetPrice.toFixed(2),
+        notifyForum: validatedData.notifyForum,
+      });
+
+      sendSuccess(res, alert, 201);
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'CreatePriceAlert');
+    }
+  })
+);
+```
+
+**Key Points:**
+
+1. **Validation Order**: Schema → Foreign keys → Business rules → Create
+2. **Rich Error Metadata**: Use object `details` parameter for structured data
+3. **Error Codes**: Include `code` field for client-side conditional handling
+4. **User-Friendly Messages**: Error message explains limit + current state
+5. **Constants**: Business rules sourced from `server/utils/constants.ts`
+
+**Error Response Format:**
+
+```typescript
+// Client receives:
+{
+  success: false,
+  error: "Alert limit reached. You can only have 50 active alerts.",
+  code: "ALERT_LIMIT_REACHED",
+  limit: 50,
+  current: 50
+}
+```
+
+**Why Object Details Over String:**
+
+- `sendError(res, msg, status, "string")` → Development-only (filtered in production)
+- `sendError(res, msg, status, { ... })` → Always included (client UX metadata)
+- See `docs/06_ERROR_HANDLING_PATTERNS.md` for complete `details` parameter guide
+
+**Related Patterns:**
+
+- See "Frontend Type-Safe Error Details Extraction" in `docs/01_TYPESCRIPT_PATTERNS.md`
+- See "Middleware Rich Metadata Pattern" in `docs/MIDDLEWARE_API_PATTERNS.md`
 
 ---
 
