@@ -49,6 +49,9 @@ import {
   generateTestEmail,
 } from './helpers';
 import { seedTestProduct, seedMultipleProducts } from './helpers/admin-helpers';
+import { ensureUserHasWatchlist, bulkAddProductsToWatchlist } from './helpers/watchlist-helpers';
+import { db } from '../server/db';
+import { users } from '@shared/schema';
 
 test.describe('Watchlist - Product Organization', () => {
   test.describe('Watchlist CRUD Operations', () => {
@@ -177,10 +180,13 @@ test.describe('Watchlist - Product Organization', () => {
     test('should remove product from watchlist', async ({ page }) => {
       await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
-      // Create watchlist and add product
-      await createWatchlist(page, 'My List');
+      // Get the authenticated user's ID (cleanDb ensures only one user exists)
+      const [user] = await db.select().from(users).limit(1);
+
+      // Create watchlist and add product via database (fast setup, bypassing UI)
       const { product } = await seedTestProduct();
-      await addProductToWatchlist(page, product.id, 'My List');
+      const { watchListId } = await ensureUserHasWatchlist(user.id, 'My List');
+      await bulkAddProductsToWatchlist(user.id, watchListId, [product.id]);
 
       // Navigate to watchlist
       await page.goto('/watchlists');
