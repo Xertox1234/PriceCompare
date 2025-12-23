@@ -58,6 +58,70 @@ Let's start with Feature 2.1 (or verify it first following Session 1 pattern!).
 
 ---
 
+## 🔍 Phase 2 Verification Pattern Reminder
+
+**CRITICAL: Follow the verify-first methodology from Phase 1**
+
+Before implementing ANY Phase 2 feature, use this systematic approach:
+
+### Step 1: Verification via E2E Test
+
+```bash
+# Example for Feature 2.1 (Time Range Selector)
+npm run test:e2e -- e2e/price-analytics.spec.ts --grep "time range"
+
+# If test exists and is skipped: Feature may already be implemented
+# If test doesn't exist: Feature definitely needs implementation
+# If test passes: Feature is implemented, update documentation only
+```
+
+### Step 2: Component Discovery
+
+```bash
+# Search for potential existing implementation
+# Pattern: Use functional keywords, not exact planned names
+
+# Feature 2.1 example searches:
+grep -rn "TimeRange\|time.*range\|range.*selector" client/src/components/
+ls client/src/components/**/*range*.tsx
+ls client/src/components/**/*time*.tsx
+
+# Check PriceHistoryChart for time range controls
+grep -rn "days\|period\|duration" client/src/components/price-history/
+```
+
+### Step 3: Decision Tree
+
+```
+Test Result?
+├─ ✅ PASSING → Feature exists
+│   ├─ Update implementation plan with "Already Implemented"
+│   ├─ Document actual implementation location
+│   └─ Move to next feature (save 2-3 hours!)
+│
+├─ ⏭️ SKIPPED → Investigate
+│   ├─ Check skip reason in test comments
+│   ├─ Search for component (may exist but untested)
+│   └─ If found: Document. If not: Implement
+│
+└─ ❌ FAILING or MISSING → Implement
+    ├─ Follow implementation plan details
+    ├─ Write/activate E2E test
+    ├─ Implement feature
+    └─ Verify test passes
+```
+
+### Step 4: Documentation Update
+
+**ALWAYS update implementation plan** regardless of outcome:
+- Found existing: Document discovery, save time estimate
+- Need to implement: Document actual time, learnings
+- Format: Match Phase 1 documentation style
+
+**Phase 1 Success Rate:** 4/4 features already existed (100% time savings via verification)
+
+---
+
 ## 📋 Alternative Prompts
 
 ### If You Want to Continue Phase 1
@@ -267,6 +331,156 @@ grep -rn "ComponentName" client/src/
 
 ---
 
+## 🔧 Troubleshooting Guide
+
+### Common Issues When Starting Phase 2
+
+**Issue 1: E2E Tests Failing to Start**
+```bash
+# Symptom: "Error: Cannot find module '@playwright/test'"
+# Fix: Install Playwright browsers
+npx playwright install chromium
+
+# Symptom: Port 5000 already in use
+# Fix: Kill existing dev server or change port
+npx kill-port 5000
+# OR
+PORT=5001 npm run dev
+```
+
+**Issue 2: Database Connection Errors**
+```bash
+# Symptom: "Error: Connection terminated unexpectedly"
+# Check 1: PostgreSQL running?
+pg_isready -h localhost -p 5432
+
+# Check 2: DATABASE_URL correct?
+echo $DATABASE_URL
+# Should match: postgresql://user:pass@localhost:5432/dbname
+
+# Fix: Restart PostgreSQL
+brew services restart postgresql  # macOS
+sudo systemctl restart postgresql # Linux
+```
+
+**Issue 3: Phase 1 Tests Regressed**
+```bash
+# Symptom: Previously passing tests now fail
+# Likely cause: Code changes affected existing features
+
+# Strategy 1: Check recent commits
+git log --oneline -5
+git diff HEAD~1 client/src/components/price-analytics/
+
+# Strategy 2: Revert to last known good state
+git stash
+npm run test:e2e -- e2e/price-analytics.spec.ts
+
+# Strategy 3: Check component imports
+# PriceTrendIndicator may have been moved/renamed
+grep -rn "PriceTrendIndicator" client/src/
+```
+
+**Issue 4: Implementation Plan Out of Sync**
+```bash
+# Symptom: Plan shows Feature X.Y as pending, but it exists
+# This is EXPECTED if features were implemented outside this plan
+
+# Fix: Run verification for ALL Phase 2 features first
+npm run test:e2e -- e2e/price-analytics.spec.ts --grep "range"
+npm run test:e2e -- e2e/price-analytics.spec.ts --grep "comparison"
+npm run test:e2e -- e2e/price-analytics.spec.ts --grep "export"
+
+# Update plan with actual status before implementing
+```
+
+**Issue 5: Redis Connection Warnings**
+```
+# Symptom: "Redis not available, using in-memory fallback"
+# Impact: Rate limiting and caching won't work across server restarts
+# Severity: Warning only (safe to ignore in development)
+
+# Fix (optional): Start local Redis
+brew services start redis  # macOS
+sudo systemctl start redis # Linux
+docker run -p 6379:6379 redis # Docker
+
+# Verify: Check .env for REDIS_URL
+# Should be: redis://localhost:6379
+```
+
+**Issue 6: TypeScript Errors After Feature Implementation**
+```bash
+# Symptom: "Property 'newFeature' does not exist on type..."
+# Likely cause: Schema not updated after adding feature
+
+# Fix: Update shared/schema.ts with new types
+# Then run type check
+npm run check
+
+# Common pattern: Add to existing interface
+export interface Product {
+  id: number;
+  name: string;
+  timeRangeSelector?: string; // Add optional field
+}
+```
+
+---
+
+## 📝 Feature 2.1 Commit Message Template
+
+When implementing Feature 2.1 (Time Range Selector), use this commit message format:
+
+```bash
+git commit -m "feat(analytics): implement time range selector for price history
+
+Implements Feature 2.1 from missing-features-implementation-plan.md
+
+**Feature:**
+- Time range selector component (TimeRangeSelector.tsx)
+- Integrates with PriceHistoryChart to filter data by period
+- Supports: 7d, 30d, 90d, 6m, 1y, All time
+- Default: 30 days (matches current behavior)
+
+**Implementation:**
+- Component: client/src/components/price-analytics/TimeRangeSelector.tsx
+- Integration: client/src/components/price-history/PriceHistoryChart.tsx
+- Hook: usePriceHistory() updated to accept timeRange parameter
+- API: GET /api/products/:id/price-history?days=N (backend support)
+
+**Testing:**
+- E2E test: e2e/price-analytics.spec.ts - 'should filter by time range' ✅
+- Unit tests: TimeRangeSelector.test.tsx (component)
+- Unit tests: usePriceHistory.test.tsx (hook)
+
+**UI/UX:**
+- Button group with active state styling
+- Default selection highlighted (30d)
+- Smooth data transition on range change
+- Loading state during data fetch
+
+**Time:** X hours (estimated: 2-3 hours)
+**Status:** Phase 2 Feature 2.1 COMPLETE ✅
+
+Refs: todos/2025-12-22_missing-features-implementation-plan.md#feature-21
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+```
+
+**Commit Message Checklist:**
+- [ ] Starts with `feat(analytics):` (conventional commits)
+- [ ] References Feature 2.1 in body
+- [ ] Lists all modified files
+- [ ] Includes E2E test status
+- [ ] Documents actual time spent vs estimate
+- [ ] References implementation plan
+- [ ] Includes Claude Code footer
+
+---
+
 **Created:** 2025-12-22 (Session 1 complete)
-**Last Updated:** 2025-12-22
-**Next Session:** Ready to continue with 1.3, 1.4, or 2.1
+**Last Updated:** 2025-12-22 (Priority 2/3 improvements added)
+**Next Session:** Ready for Phase 2 - Start with Feature 2.1 verification
