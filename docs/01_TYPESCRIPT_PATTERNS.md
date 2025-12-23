@@ -1,7 +1,7 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.1
-**Last Updated:** 2025-12-04
+**Version:** 2.2
+**Last Updated:** 2025-12-23
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -2835,6 +2835,127 @@ grep -rn "window\.\w* =" client/src/hooks --include="*.ts"
 - **`client/src/hooks/useRateLimit.ts`** - Production example at line 90
 - **`docs/08_TESTING_PATTERNS.md`** - E2E test patterns with Playwright
 - **`docs/05_FRONTEND_PATTERNS.md`** - React hooks patterns
+
+---
+
+## JSDoc Documentation for Unused Code (NEW - 2025-12-23)
+
+### Pattern: Documenting Future-Use Methods
+
+**Context:** Storage layer methods or utility functions that are currently unused but have clear future use cases planned.
+
+**Problem:** Code cleanup tools and developers may delete unused methods without understanding their future purpose, requiring reimplementation later. Without documentation, it's unclear whether unused code is:
+- Dead code safe to delete
+- Placeholder for planned features
+- Part of interface compliance
+
+**Preferred Pattern:**
+
+```typescript
+/**
+ * Count alerts for a specific user and product
+ *
+ * Currently unused but available for future features such as:
+ * - Per-product alert limits (e.g., max 5 alerts per product)
+ * - Alert deduplication (prevent multiple alerts for same price point)
+ *
+ * @param userId - User ID to count alerts for
+ * @param productId - Product ID to filter by
+ * @returns Number of active alerts for the user and product
+ */
+async countUserAlertsForProduct(userId: number, productId: number): Promise<number> {
+  // Input validation: Prevent invalid queries
+  if (!userId || userId < 1) {
+    throw new Error(`Invalid userId: ${userId}`);
+  }
+  if (!productId || productId < 1) {
+    throw new Error(`Invalid productId: ${productId}`);
+  }
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(priceAlerts)
+    .where(and(
+      eq(priceAlerts.userId, userId),
+      eq(priceAlerts.productId, productId)
+    ));
+
+  // Type assertion: Drizzle's sql<number> returns count(*) as number at runtime
+  return Number(result[0].count);
+}
+```
+
+**Anti-Pattern:**
+
+```typescript
+// ❌ WRONG - No documentation about future use
+async countUserAlertsForProduct(userId: number, productId: number): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(priceAlerts)
+    .where(and(
+      eq(priceAlerts.userId, userId),
+      eq(priceAlerts.productId, productId)
+    ));
+  return Number(result[0].count);
+}
+// Problem: Looks like dead code, likely to be deleted during cleanup
+
+// ❌ WRONG - Vague or incomplete documentation
+/**
+ * Count alerts for product
+ * TODO: Use this later
+ */
+async countUserAlertsForProduct(userId: number, productId: number): Promise<number> {
+  // ...
+}
+// Problem: Doesn't explain WHY or WHEN it will be used
+
+// ❌ WRONG - Only inline comment
+async countUserAlertsForProduct(userId: number, productId: number): Promise<number> {
+  // This will be needed for per-product limits
+  const result = await db.select(...);
+  return Number(result[0].count);
+}
+// Problem: Not visible in IDE hover tooltips, easy to miss
+```
+
+**Rationale:**
+
+- **Preservation**: Documents intent so future developers know not to delete
+- **Visibility**: JSDoc appears in IDE tooltips when method is referenced
+- **Planning**: Makes future feature requirements visible in code
+- **Interface Compliance**: Explains why interface methods exist even if unused
+- **Searchability**: `grep "Currently unused"` finds all placeholder methods
+- **Maintenance**: Prevents "delete unused code" PRs from removing needed methods
+
+**JSDoc Format Guidelines:**
+
+1. **First line**: Brief description of what method does
+2. **"Currently unused" clause**: Explicit statement that method is not yet used
+3. **Future use cases**: Bullet list of specific features that will need it
+4. **Standard JSDoc tags**: `@param`, `@returns`, `@throws` as appropriate
+
+**When to Use:**
+
+- Storage layer methods required by IStorage interface but not yet called
+- Utility functions built for upcoming features
+- Methods that complete a logical API surface (e.g., CRUD operations with only CR implemented)
+- Interface implementations with placeholder methods
+
+**When NOT to Use:**
+
+- Truly dead code with no planned use - just delete it
+- Code temporarily commented out during debugging
+- Failed experiments or abandoned approaches
+- Methods that are actually used (even if only in tests)
+
+**Related:**
+- See `02_DATABASE_PATTERNS.md` Section 1 for IStorage interface compliance
+- See `docs/LEARNINGS_TODO_178_STORAGE_LAYER_MIGRATION_COMPLETENESS.md` for storage layer documentation patterns
+- See `.eslintrc.json` for `no-unused-vars` rule configuration (warnings, not errors)
+
+**Source:** Commits ce38f21 and e0cfe72, 2025-12-23
 
 ---
 

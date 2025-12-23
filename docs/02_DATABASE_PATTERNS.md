@@ -1,7 +1,7 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.5
-**Last Updated:** 2025-12-09
+**Version:** 2.6
+**Last Updated:** 2025-12-23
 **Migrated From:**
 - `docs/DATABASE_PATTERNS.md` (v1.0)
 - `.claude/knowledge/storage-refactoring-patterns.md`
@@ -372,6 +372,89 @@ async getNotificationCountByType(
   }
 }
 ```
+
+#### Pattern: Simplified ID Validation (NEW - 2025-12-23)
+
+**Context:** Storage layer methods that accept userId, productId, or other entity IDs as parameters.
+
+**Problem:** Entity IDs must be positive integers (database primary keys start at 1). Invalid IDs (0, negative, null, undefined) cause meaningless database queries and can indicate bugs in calling code.
+
+**Preferred Pattern:**
+
+```typescript
+async countUserAlerts(userId: number): Promise<number> {
+  // Input validation: Prevent invalid queries
+  if (!userId || userId < 1) {
+    throw new Error(`Invalid userId: ${userId}`);
+  }
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(priceAlerts)
+    .where(eq(priceAlerts.userId, userId));
+
+  // Type assertion: Drizzle's sql<number> returns count(*) as number at runtime
+  return Number(result[0].count);
+}
+
+async countUserAlertsForProduct(userId: number, productId: number): Promise<number> {
+  // Input validation: Prevent invalid queries
+  if (!userId || userId < 1) {
+    throw new Error(`Invalid userId: ${userId}`);
+  }
+  if (!productId || productId < 1) {
+    throw new Error(`Invalid productId: ${productId}`);
+  }
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(priceAlerts)
+    .where(and(
+      eq(priceAlerts.userId, userId),
+      eq(priceAlerts.productId, productId)
+    ));
+
+  // Type assertion: Drizzle's sql<number> returns count(*) as number at runtime
+  return Number(result[0].count);
+}
+```
+
+**Anti-Pattern:**
+
+```typescript
+// ❌ WRONG - No validation, allows invalid queries
+async countUserAlerts(userId: number): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(priceAlerts)
+    .where(eq(priceAlerts.userId, userId)); // Could query with userId=0 or negative
+
+  return Number(result[0].count);
+}
+```
+
+**Rationale:**
+
+- **Fail Fast**: Catches bugs early with clear error messages rather than returning empty results
+- **Simplified Check**: Uses `!userId || userId < 1` instead of `!Number.isFinite(userId) || userId <= 0`
+  - TypeScript already guarantees `userId` is a number type
+  - `!userId` catches 0 (falsy), null, undefined
+  - `userId < 1` catches negative numbers
+- **Performance**: Prevents unnecessary database round-trips for invalid IDs
+- **Debugging**: Error message includes the invalid value for easier troubleshooting
+- **Database Protection**: PostgreSQL primary keys start at 1, so 0 or negative is always invalid
+
+**When to Use Simplified vs Comprehensive Validation:**
+
+- **Simplified (`!id || id < 1`)**: Use for ID parameters where TypeScript already enforces number type
+- **Comprehensive (`!Number.isFinite(id) || id <= 0`)**: Use when accepting `any` or `unknown` types, or in validation utilities
+
+**Related:**
+- See Section 6 "Type Safety in Queries" for sql<number> type assertions
+- See `parseIntSafe()` in `server/utils/validation-helpers.ts` for route-level validation
+- See `SECURITY_PATTERNS.md` for input validation at API boundaries
+
+**Source:** Commits ce38f21 and e0cfe72, 2025-12-23
 
 ### Storage Layer Constants
 

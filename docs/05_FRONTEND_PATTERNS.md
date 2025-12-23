@@ -1,7 +1,7 @@
 # Frontend Patterns
 
-**Version:** 2.1
-**Last Updated:** 2025-12-16
+**Version:** 2.2
+**Last Updated:** 2025-12-23
 **Migrated From:**
 - docs/FRONTEND_PATTERNS.md (v1.0 - 2025-11-26)
 - docs/PHASE1_WATCHLIST_PATTERNS.md (React Query patterns, form handling, pagination - 2025-11-29)
@@ -1897,6 +1897,120 @@ function ProductView({ id }: { id: number }) {
   return <ProductDetails product={data} />;
 }
 ```
+
+#### Pattern: Type-Safe Error Details Extraction (NEW - 2025-12-23)
+
+**Context:** Frontend error handlers that need to access rich error metadata from ApiError.details field for user-friendly error messages or conditional UI logic.
+
+**Problem:** The `ApiError.details` field can be either:
+- `string` - Development-only error details (stack traces, debug info)
+- `Record<string, unknown>` - Rich error metadata for client handling (error codes, limits, retry timing)
+
+Without type narrowing, TypeScript cannot guarantee property access is safe, leading to type errors or unsafe `any` assertions.
+
+**Preferred Pattern:**
+
+```typescript
+// client/src/lib/queryClient.ts
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public details?: string | Record<string, unknown>  // Flexible type
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+// client/src/components/price-analytics/price-alert-modal.tsx
+const mutation = useMutation({
+  mutationFn: async () => {
+    return apiRequest<PriceAlert>('/api/alerts', {
+      method: 'POST',
+      body: JSON.stringify(alertData),
+    });
+  },
+  onError: (error: Error) => {
+    // Type-safe error details extraction from ApiError
+    // Type assertion: ApiError.details can be string | Record, narrowing to object for property access
+    const apiError = error as Error & { details?: string | Record<string, unknown> };
+    const details = typeof apiError.details === 'object' ? apiError.details : undefined;
+
+    // Handle alert limit error with specific message
+    if (details?.code === 'ALERT_LIMIT_REACHED') {
+      toast({
+        title: 'Alert Limit Reached',
+        description: `You can only have ${details.limit || 50} active alerts. Delete some alerts to create new ones.`,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  },
+});
+```
+
+**Anti-Pattern:**
+
+```typescript
+// ❌ WRONG - Accessing details properties without type narrowing
+onError: (error: Error & { details?: string | Record<string, unknown> }) => {
+  // TypeScript error: Property 'code' does not exist on type 'string | Record<string, unknown>'
+  if (error.details?.code === 'ALERT_LIMIT_REACHED') {
+    // ...
+  }
+}
+
+// ❌ WRONG - Using 'any' type assertion (disables type safety)
+onError: (error: any) => {
+  if (error.details?.code === 'ALERT_LIMIT_REACHED') {
+    // No type checking - could break silently
+  }
+}
+
+// ❌ WRONG - Hardcoding details as object only
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public details?: Record<string, unknown>  // Too restrictive
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+// Problem: Cannot accept development-only string details like stack traces
+```
+
+**Rationale:**
+
+- **Type Safety**: `typeof` check narrows `string | Record<string, unknown>` to `Record<string, unknown>`
+- **IDE Autocomplete**: After narrowing, TypeScript knows `details` is an object and allows property access
+- **Flexibility**: ApiError supports both development strings and rich client metadata
+- **Fail-Safe**: If details is a string, `details` becomes `undefined` and conditional checks short-circuit safely
+- **No `any` Types**: Maintains strict TypeScript compliance (project has zero-tolerance for `any`)
+- **Future-Proof**: Pattern scales to additional error metadata fields (retryAfter, locked, etc.)
+
+**When to Use:**
+
+- React Query mutation error handlers that need structured error data
+- Form validation error displays
+- Rate limiting or quota error messages
+- Account lockout notifications
+- Any error handler that needs to access specific error properties
+
+**Related:**
+- See `ERROR_HANDLING_PATTERNS.md` for backend error response structure
+- See `API_PATTERNS.md` for sendError() middleware patterns with rich metadata
+- See `TYPESCRIPT_PATTERNS.md` for type narrowing and assertion best practices
+- See `.eslintrc.json` for strict type safety rules (no-explicit-any, no-unsafe-*)
+
+**Source:** Commits ce38f21 and e0cfe72, 2025-12-23
 
 ---
 
