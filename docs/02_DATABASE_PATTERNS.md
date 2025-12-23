@@ -1,7 +1,11 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.6
+**Version:** 2.7
 **Last Updated:** 2025-12-23
+**Changelog:**
+- 2.7 (2025-12-23): Added verification commands and migration pattern to Foreign Key Cascade Rules section
+- 2.6 (2025-12-23): Added storage layer ID validation pattern
+
 **Migrated From:**
 - `docs/DATABASE_PATTERNS.md` (v1.0)
 - `.claude/knowledge/storage-refactoring-patterns.md`
@@ -1244,6 +1248,66 @@ orders: {
     .references(() => products.id, { onDelete: 'set null' }),
 }
 ```
+
+#### Detection Rule for Code Review
+
+Flag any foreign key reference without explicit cascade rules:
+
+```bash
+# Search for foreign keys without onDelete in schema
+grep -rn "\.references(" shared/schema.ts | grep -v "onDelete"
+
+# Search for foreign keys in migrations without ON DELETE
+grep -rn "REFERENCES" migrations/ | grep -v "ON DELETE"
+```
+
+#### Verification Commands
+
+```bash
+# Check existing foreign keys in database for missing cascade rules
+# Connect to PostgreSQL and run:
+SELECT
+  tc.table_name,
+  kcu.column_name,
+  ccu.table_name AS foreign_table_name,
+  ccu.column_name AS foreign_column_name,
+  rc.delete_rule  -- Shows: CASCADE, SET NULL, RESTRICT, or NO ACTION
+FROM information_schema.table_constraints AS tc
+JOIN information_schema.key_column_usage AS kcu
+  ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.constraint_column_usage AS ccu
+  ON ccu.constraint_name = tc.constraint_name
+JOIN information_schema.referential_constraints AS rc
+  ON rc.constraint_name = tc.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+  AND tc.table_schema = 'public'
+ORDER BY tc.table_name, kcu.column_name;
+
+# Flag foreign keys with NO ACTION (PostgreSQL default - should be explicit)
+# If delete_rule = 'NO ACTION', add explicit cascade rule
+```
+
+#### Migration Pattern for Adding Cascade Rules
+
+```sql
+-- Add cascade rule to existing foreign key
+ALTER TABLE product_offers
+  DROP CONSTRAINT IF EXISTS product_offers_product_id_fkey;
+
+ALTER TABLE product_offers
+  ADD CONSTRAINT product_offers_product_id_fkey
+    FOREIGN KEY (product_id)
+    REFERENCES products(id)
+    ON DELETE CASCADE;
+
+-- Verify cascade rule was applied
+SELECT delete_rule
+FROM information_schema.referential_constraints
+WHERE constraint_name = 'product_offers_product_id_fkey';
+-- Should return: CASCADE
+```
+
+---
 
 ### 5.2 NULL-Safe UNIQUE Constraints (Phase 0 Pattern)
 

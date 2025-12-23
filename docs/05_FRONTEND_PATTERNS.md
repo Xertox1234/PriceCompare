@@ -1,7 +1,11 @@
 # Frontend Patterns
 
-**Version:** 2.2
+**Version:** 2.3
 **Last Updated:** 2025-12-23
+**Changelog:**
+- 2.3 (2025-12-23): Added "When to Use" context to Component Reuse pattern
+- 2.2 (2025-12-16): Added Watchlist Hook Ownership pattern
+
 **Migrated From:**
 - docs/FRONTEND_PATTERNS.md (v1.0 - 2025-11-26)
 - docs/PHASE1_WATCHLIST_PATTERNS.md (React Query patterns, form handling, pagination - 2025-11-29)
@@ -69,6 +73,10 @@ This document codifies frontend patterns to ensure consistent, performant, and m
 ## React Component Patterns
 
 ### Component Reuse
+
+**When to Use:** Before creating any new component, especially for navigation, layouts, or common UI elements.
+
+**Context:** The codebase has many shared components (`SharedNavigation`, `HeroSection`, `Categories`, etc.). Duplicating components creates maintenance burden, inconsistent UX, and violates DRY principles. Always search first.
 
 **NEVER duplicate components.** Search for existing implementations first.
 

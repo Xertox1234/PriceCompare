@@ -1,12 +1,17 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.2
+**Version:** 2.3
 **Last Updated:** 2025-12-23
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
 - docs/PHASE1_WATCHLIST_PATTERNS.md (Pattern 9: ESLint compliance)
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
+
+**Changelog:**
+- 2.3 (2025-12-23): Added "When to Use" context to ESLint patterns, Error Type Handling, and Critical Type Safety Violations sections
+- 2.2 (2025-12-23): Added JSDoc documentation pattern for unused code
+- 2.1 (2025-12-04): Added Zod DECIMAL field validation pattern
 
 ---
 
@@ -69,7 +74,9 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
 
 #### Pattern 1: `await-thenable` - Awaiting Non-Promise Values ❌
 
-**Problem:** Awaiting values that aren't Promises.
+**When to Use:** When you see ESLint warning `await-thenable` about awaiting non-Promise values.
+
+**Problem:** Awaiting values that aren't Promises creates unnecessary overhead and indicates a misunderstanding of async/await.
 
 ```typescript
 // ❌ WRONG
@@ -79,13 +86,17 @@ const count = await parseInt(value); // parseInt returns number, not Promise
 const count = parseInt(value); // No await needed
 ```
 
-**Fix:** Remove `await` keyword when value isn't a Promise.
+**Fix:** Remove `await` keyword when value isn't a Promise. Only await actual Promises (database calls, fetch, async functions).
 
 ---
 
 #### Pattern 2: `require-await` - Unnecessary Async in Tests ❌
 
-**Problem:** Test mock functions declared `async` without `await`.
+**When to Use:** When you see ESLint warning `require-await` in test files (`.test.ts`, `.spec.ts`).
+
+**Context:** Test mocks should match the synchronicity of their implementation. If a mock returns data directly without async operations, don't make it async - it creates unnecessary Promise wrapping.
+
+**Problem:** Test mock functions declared `async` without `await` return `Promise<T>` instead of `T`, causing type mismatches.
 
 ```typescript
 // ❌ WRONG
@@ -99,13 +110,17 @@ vi.spyOn(storage, 'getProduct').mockImplementation((id) => {
 });
 ```
 
-**Fix:** Remove `async` from test mocks that don't use `await`.
+**Fix:** Remove `async` from test mocks that don't use `await`. This makes tests faster and types clearer.
 
 ---
 
 #### Pattern 3: `require-await` - Route Handlers Without Await ❌
 
-**Problem:** Route handlers declared `async` but calling only synchronous functions.
+**When to Use:** When you see ESLint warning `require-await` in route handler files (`*-routes.ts`).
+
+**Context:** Route handlers should only be `async` if they perform asynchronous operations (database calls, external APIs, file I/O). If all operations are synchronous, making the handler async adds unnecessary overhead.
+
+**Problem:** Route handlers declared `async` but calling only synchronous functions waste resources and may hide the fact that no async work is happening.
 
 ```typescript
 // ❌ WRONG
@@ -121,7 +136,7 @@ app.get('/api/stats', requireAuth, requireAdmin, (req, res) => {
 });
 ```
 
-**Fix:** Remove `async` if no actual `await` operations occur.
+**Fix:** Remove `async` if no actual `await` operations occur. This improves performance and makes it clear the handler is synchronous.
 
 ---
 
@@ -435,6 +450,10 @@ Create `docs/TYPESCRIPT_ERRORS_ANALYSIS.md`:
 ---
 
 ## Critical Type Safety Violations
+
+**When to Apply:** During code reviews, pre-commit validation, and when writing new code. These patterns are enforced by ESLint and pre-commit hooks.
+
+**Context:** These violations indicate fundamental type safety issues that MUST be fixed before committing. They are automatically detected and will block commits to prevent type safety erosion.
 
 These violations will **FAIL pre-commit hooks** and block commits.
 
@@ -1174,6 +1193,10 @@ type ApiResponse<T> = {
 ---
 
 ## Error Type Handling
+
+**When to Use:** When handling errors in try/catch blocks, custom error classes, or error boundary components.
+
+**Context:** TypeScript 4.4+ makes catch block variables `unknown` by default, requiring explicit type narrowing. This prevents unsafe assumptions about error types and encourages defensive error handling.
 
 ### Catch Block Types
 
