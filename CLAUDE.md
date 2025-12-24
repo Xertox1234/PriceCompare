@@ -455,6 +455,7 @@ const config: Record<string, unknown> = {};
 - `docs/COMPONENT_GUIDE.md` - React component architecture
 - `docs/API_DOCUMENTATION.md` - API endpoint reference
 - `docs/PATTERN_CODIFICATION_GUIDE.md` - Pattern extraction workflow
+- `docs/LINT_ERROR_PATTERNS.md` - Common ESLint errors and fixes (1624 errors codified)
 
 ### Learnings (Real-World Examples)
 
