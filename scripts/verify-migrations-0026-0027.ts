@@ -151,7 +151,20 @@ async function verifyMigrations() {
         [tableName]
       );
 
-      const actualCount = parseInt(countResult.rows[0].count);
+      // Type assertion: SQL count() returns string or number depending on PostgreSQL driver
+      const countValue = countResult.rows[0]?.count;
+      const actualCount =
+        typeof countValue === 'number'
+          ? countValue
+          : typeof countValue === 'string'
+            ? parseInt(countValue, 10)
+            : 0;
+
+      if (isNaN(actualCount) || actualCount < 0) {
+        console.error(`\n   ❌ Invalid column count for ${tableName}: "${countValue}"`);
+        process.exit(1);
+      }
+
       const icon = actualCount === expectedCount ? '✅' : '❌';
       console.log(
         `   ${icon} ${tableName}: ${actualCount} columns (expected ${expectedCount})`

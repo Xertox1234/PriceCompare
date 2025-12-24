@@ -17,6 +17,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Validate environment
+if [ -z "$DATABASE_URL" ]; then
+  echo -e "${RED}❌ Error: DATABASE_URL environment variable not set${NC}"
+  exit 1
+fi
+
 ISSUES_FOUND=0
 
 # 1. Schema vs Database validation
@@ -33,7 +39,7 @@ echo ""
 # 2. Check for tables without migrations
 echo "2️⃣  Migration Coverage Check"
 echo "-----------------------------------"
-TABLES=$(psql $DATABASE_URL -t -c "
+TABLES=$(psql "$DATABASE_URL" -t -c "
   SELECT table_name
   FROM information_schema.tables
   WHERE table_schema = 'public'
@@ -63,7 +69,7 @@ echo ""
 # 3. Check for foreign keys without cascade rules
 echo "3️⃣  Foreign Key Cascade Rules Check"
 echo "-----------------------------------"
-FK_RESULT=$(psql $DATABASE_URL -t -c "
+FK_RESULT=$(psql "$DATABASE_URL" -t -c "
   SELECT
     tc.table_name,
     kcu.column_name,
@@ -93,7 +99,7 @@ echo ""
 # 4. Check for tables without primary keys
 echo "4️⃣  Primary Key Check"
 echo "-----------------------------------"
-PK_RESULT=$(psql $DATABASE_URL -t -c "
+PK_RESULT=$(psql "$DATABASE_URL" -t -c "
   SELECT table_name
   FROM information_schema.tables t
   WHERE table_schema = 'public'

@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS agent_sessions (
 CREATE TABLE IF NOT EXISTS scraping_jobs (
   id SERIAL PRIMARY KEY,
   job_type VARCHAR(50) NOT NULL, -- discovery, search, scrape, validate, price_update
-  priority INTEGER DEFAULT 5, -- 1-10, higher = more priority
+  priority INTEGER DEFAULT 5, -- 1-10 range (see check_scraping_jobs_priority_range constraint)
   status VARCHAR(20) DEFAULT 'pending', -- pending, running, completed, failed, retrying
   target_data TEXT NOT NULL, -- JSON with job parameters
   result_data TEXT, -- JSON with job results

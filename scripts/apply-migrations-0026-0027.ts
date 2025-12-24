@@ -56,6 +56,7 @@ async function applyMigrations() {
     `);
 
     // Check which migrations are already applied
+    // Type assertion: Native DB driver query() returns unknown result shape, cast to expected schema_migrations structure
     const appliedRows = (await pool.query('SELECT filename FROM schema_migrations')) as {
       rows: Array<{ filename: string }>;
     };
@@ -94,6 +95,7 @@ async function applyMigrations() {
 
         console.log(`✅ Migration ${filename} completed successfully\n`);
       } catch (error) {
+        // Type assertion: Database error object has code and message properties per PostgreSQL driver spec
         const err = error as { code?: string; message?: string };
 
         // Check if it's an idempotent error (objects already exist)

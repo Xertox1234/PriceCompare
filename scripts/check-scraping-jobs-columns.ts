@@ -15,6 +15,7 @@ async function checkColumns() {
   `);
 
   console.log('\nColumns in scraping_jobs table:\n');
+  // Type assertion: query() result columns match information_schema.columns structure
   result.rows.forEach((row: { column_name: string; data_type: string; character_maximum_length: number | null }, i: number) => {
     console.log(`${i + 1}. ${row.column_name} (${row.data_type}${row.character_maximum_length ? `(${row.character_maximum_length})` : ''})`);
   });
