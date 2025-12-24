@@ -429,6 +429,7 @@ const config: Record<string, unknown> = {};
 7. **Input validation**: Zod schemas first
 8. **Dual Redis clients**: `ioredis` for cache, `redis` for sessions
 9. **NPM Overrides**: Track in `docs/NPM_OVERRIDES_TRACKING.md`
+10. **Schema-Migration Mismatch**: ALWAYS validate `npm run validate:schema` before commit (See `docs/LEARNINGS_SCHEMA_MIGRATION_MISMATCH_PREVENTION.md`)
 
 ## Pattern Documentation (CRITICAL)
 
@@ -460,6 +461,8 @@ const config: Record<string, unknown> = {};
 - `LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md` - Hook patterns, security markers
 - `LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md` - UTC-first date handling
 - `LEARNINGS_PHASE_1_2_WATCHLIST_E2E_CSRF_FIX.md` - E2E CSRF patterns
+- `LEARNINGS_SCHEMA_MIGRATION_MISMATCH_PREVENTION.md` - Migration validation (P0 CRITICAL)
+- `SCHEMA_MIGRATION_QUICK_REFERENCE.md` - Fast migration reference card
 
 **See `docs/` directory for complete list.**
 
