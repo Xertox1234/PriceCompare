@@ -2,9 +2,7 @@ import { BaseAgent } from './base-agent';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { ScraperUtils } from '../utils/scraper-utils';
-import { db } from '../db';
-import { products, productOffers, retailers } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { storage } from '../storage';
 import type { ExtractedProductData, ExtractionTask } from './types';
 import { logger } from '../utils/logger';
 import type { AxiosResponse } from 'axios';
@@ -313,62 +311,33 @@ export class DataExtractionAgent extends BaseAgent {
     searchQuery?: string
   ): Promise<void> {
     try {
-      // Find or create retailer
-      let retailer = await db.query.retailers.findFirst({
-        where: eq(retailers.website, retailerDomain),
+      // Find or create retailer using storage layer
+      const retailer = await storage.findOrCreateRetailer(retailerDomain, {
+        name: this.capitalizeRetailerName(retailerDomain),
+        logo: `https://logo.clearbit.com/${retailerDomain}`,
+        isActive: true,
       });
 
-      if (!retailer) {
-        const [newRetailer] = await db
-          .insert(retailers)
-          .values({
-            name: this.capitalizeRetailerName(retailerDomain),
-            website: retailerDomain,
-            logo: `https://logo.clearbit.com/${retailerDomain}`,
-            isActive: true,
-          })
-          .returning();
-        retailer = newRetailer;
-      }
+      // Find or create product using storage layer
+      const product = await storage.findOrCreateProduct(
+        data.title,
+        this.inferCategory(data.title, searchQuery || ''),
+        {
+          description: data.description,
+          brand: data.brand,
+          image: data.imageUrl,
+        }
+      );
 
-      // Find or create product
-      let product = await db.query.products.findFirst({
-        where: eq(products.name, data.title),
+      // Create or update product offer using storage layer
+      await storage.upsertProductOffer({
+        productId: product.id,
+        retailerId: retailer.id,
+        price: data.price ? data.price.toString() : '0',
+        availability: data.availability,
+        productUrl: url,
+        lastLinkCheck: new Date(),
       });
-
-      if (!product) {
-        const [newProduct] = await db
-          .insert(products)
-          .values({
-            name: data.title,
-            description: data.description,
-            brand: data.brand,
-            image: data.imageUrl,
-            category: this.inferCategory(data.title, searchQuery || ''),
-          })
-          .returning();
-        product = newProduct;
-      }
-
-      // Create or update product offer
-      await db
-        .insert(productOffers)
-        .values({
-          productId: product.id,
-          retailerId: retailer.id,
-          price: data.price ? data.price.toString() : '0',
-          availability: data.availability,
-          productUrl: url,
-          lastLinkCheck: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [productOffers.productId, productOffers.retailerId],
-          set: {
-            price: data.price ? data.price.toString() : '0',
-            availability: data.availability,
-            lastLinkCheck: new Date(),
-          },
-        });
 
       logger.info(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
     } catch (error) {

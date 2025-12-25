@@ -1,8 +1,6 @@
 import { BaseAgent, AgentConfig } from './base-agent';
 import { affiliateLinkService } from '../services/affiliate-link-service';
-import { db } from '../db';
-import { productOffers, retailers } from '../../shared/schema';
-import { eq, and, isNull, lt } from 'drizzle-orm';
+import { storage } from '../storage';
 import type { ProductOffer, Retailer as _Retailer } from '../../shared/schema';
 import type { AffiliateLinkTask, LinkHealthCheckTask, AffiliateStats } from './types';
 import { logger } from '../utils/logger';
@@ -91,20 +89,8 @@ export class AffiliateLinkAgent extends BaseAgent {
     const retailerId = typeof params.retailerId === 'number' ? params.retailerId : undefined;
 
     try {
-      // Get offers without affiliate links
-      const whereConditions = [isNull(productOffers.affiliateUrl)];
-
-      if (retailerId !== undefined) {
-        whereConditions.push(eq(productOffers.retailerId, retailerId));
-      }
-
-      const query = db
-        .select()
-        .from(productOffers)
-        .where(and(...whereConditions))
-        .limit(limit);
-
-      const offers = await query;
+      // Get offers without affiliate links using storage layer
+      const offers = await storage.getOffersWithoutAffiliateLinks(limit, retailerId);
       const results = [];
 
       for (const offer of offers) {
@@ -187,18 +173,9 @@ export class AffiliateLinkAgent extends BaseAgent {
         return await affiliateLinkService.healthCheckRetailerLinks(params.retailerId);
       }
 
-      // Health check all links older than 24 hours
+      // Health check all links older than 24 hours using storage layer
       const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const staleOffers = await db
-        .select()
-        .from(productOffers)
-        .where(
-          and(
-            eq(productOffers.affiliateUrl, productOffers.affiliateUrl), // Not null
-            lt(productOffers.lastLinkCheck, staleCutoff)
-          )
-        )
-        .limit(100);
+      const staleOffers = await storage.getStaleAffiliateLinks(staleCutoff, 100);
 
       let healthy = 0;
       let broken = 0;
@@ -238,11 +215,7 @@ export class AffiliateLinkAgent extends BaseAgent {
    * Health check a single offer's affiliate link
    */
   private async healthCheckSingleOffer(offerId: number): Promise<SingleHealthCheckResult> {
-    const [offer] = await db
-      .select()
-      .from(productOffers)
-      .where(eq(productOffers.id, offerId))
-      .limit(1);
+    const offer = await storage.getProductOfferById(offerId);
 
     if (!offer || !offer.affiliateUrl) {
       throw new Error(`No affiliate link found for offer ${offerId}`);
@@ -282,11 +255,7 @@ export class AffiliateLinkAgent extends BaseAgent {
   ): Promise<UpdateOfferResult | ProcessOfferResult> {
     const { offerId, retailerId: _retailerId, productUrl: _productUrl, forceRegenerate } = params;
 
-    const [offer] = await db
-      .select()
-      .from(productOffers)
-      .where(eq(productOffers.id, offerId))
-      .limit(1);
+    const offer = await storage.getProductOfferById(offerId);
 
     if (!offer) {
       throw new Error(`Offer ${offerId} not found`);
@@ -310,12 +279,8 @@ export class AffiliateLinkAgent extends BaseAgent {
   private async batchProcessRetailer(params: { retailerId: number }): Promise<GenerateLinksResult> {
     const { retailerId } = params;
 
-    // Verify retailer has affiliate configuration
-    const [retailer] = await db
-      .select()
-      .from(retailers)
-      .where(eq(retailers.id, retailerId))
-      .limit(1);
+    // Verify retailer has affiliate configuration using storage layer
+    const retailer = await storage.getRetailerById(retailerId);
 
     if (!retailer) {
       throw new Error(`Retailer ${retailerId} not found`);

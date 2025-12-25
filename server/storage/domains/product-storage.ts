@@ -11,7 +11,7 @@
  * Phase 3A: Core Product Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { eq, and, gte, lte, inArray, sql, desc, asc, like } from 'drizzle-orm';
+import { eq, and, gte, lte, inArray, sql, desc, asc, like, isNull, isNotNull, lt } from 'drizzle-orm';
 import {
   retailers,
   products,
@@ -224,6 +224,92 @@ export class ProductStorage extends BaseStorage {
       return result || null;
     } catch (error) {
       this.handleError(error, 'deleteProduct');
+    }
+  }
+
+  /**
+   * Find existing product by name or create new one
+   * Used by: ExtractionAgent for product discovery from scraping
+   *
+   * @param name - Product name to search for
+   * @param category - Optional product category
+   * @returns Existing or newly created product
+   */
+  async findOrCreateProduct(
+    name: string,
+    category?: string,
+    metadata?: { description?: string; brand?: string; image?: string }
+  ): Promise<Product> {
+    try {
+      // Try to find existing product
+      const existing = await this.db.query.products.findFirst({
+        where: eq(products.name, name),
+      });
+
+      if (existing) {
+        this.logSuccess('findOrCreateProduct', { productId: existing.id, found: true });
+        return existing;
+      }
+
+      // Create new product if not found
+      const [product] = await this.db
+        .insert(products)
+        .values({
+          name,
+          category: category || null,
+          description: metadata?.description || null,
+          brand: metadata?.brand || null,
+          image: metadata?.image || null,
+          model: null,
+          embedding: null,
+          embeddingUpdatedAt: null,
+        })
+        .returning();
+
+      this.logSuccess('findOrCreateProduct', { productId: product.id, found: false });
+      return product;
+    } catch (error) {
+      this.handleError(error, 'findOrCreateProduct');
+    }
+  }
+
+  /**
+   * Find existing retailer by website or create new one
+   * Used by: ExtractionAgent for retailer discovery from scraping
+   *
+   * @param website - Retailer website domain
+   * @returns Existing or newly created retailer
+   */
+  async findOrCreateRetailer(
+    website: string,
+    metadata?: { name?: string; logo?: string; isActive?: boolean }
+  ): Promise<Retailer> {
+    try {
+      // Try to find existing retailer
+      const existing = await this.db.query.retailers.findFirst({
+        where: eq(retailers.website, website),
+      });
+
+      if (existing) {
+        this.logSuccess('findOrCreateRetailer', { retailerId: existing.id, found: true });
+        return existing;
+      }
+
+      // Create new retailer if not found
+      const [retailer] = await this.db
+        .insert(retailers)
+        .values({
+          name: metadata?.name || website, // Use provided name or website as fallback
+          website,
+          logo: metadata?.logo || null,
+          isActive: metadata?.isActive ?? true, // Default to true if not specified
+        })
+        .returning();
+
+      this.logSuccess('findOrCreateRetailer', { retailerId: retailer.id, found: false });
+      return retailer;
+    } catch (error) {
+      this.handleError(error, 'findOrCreateRetailer');
     }
   }
 
@@ -542,6 +628,130 @@ export class ProductStorage extends BaseStorage {
       return result;
     } catch (error) {
       this.handleError(error, 'createProductOffer');
+    }
+  }
+
+  /**
+   * Upsert product offer (create or update if exists)
+   * Used by: Data extraction agent for storing/updating scraped offers
+   *
+   * @param offer - Product offer data to upsert
+   * @returns Upserted product offer
+   */
+  async upsertProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
+    try {
+      const [result] = await this.db
+        .insert(productOffers)
+        .values({
+          ...offer,
+          availability: offer.availability || null,
+          rating: offer.rating || null,
+          originalPrice: offer.originalPrice || null,
+          reviewCount: offer.reviewCount || null,
+          shippingInfo: offer.shippingInfo || null,
+          dealType: offer.dealType || null,
+          productUrl: offer.productUrl || null,
+        })
+        .onConflictDoUpdate({
+          target: [productOffers.productId, productOffers.retailerId],
+          set: {
+            price: offer.price,
+            availability: offer.availability || null,
+            productUrl: offer.productUrl || null,
+            lastLinkCheck: offer.lastLinkCheck || new Date(),
+            lastUpdated: new Date(),
+          },
+        })
+        .returning();
+
+      this.logSuccess('upsertProductOffer', { productId: offer.productId, retailerId: offer.retailerId });
+      return result;
+    } catch (error) {
+      this.handleError(error, 'upsertProductOffer');
+    }
+  }
+
+  /**
+   * Get product offers without affiliate links
+   * Used by: Affiliate agent for batch affiliate link generation
+   *
+   * @param limit - Maximum number of offers to return
+   * @param retailerId - Optional filter by retailer
+   * @returns Array of product offers without affiliate links
+   */
+  async getOffersWithoutAffiliateLinks(
+    limit: number,
+    retailerId?: number
+  ): Promise<ProductOffer[]> {
+    // Input validation
+    if (!Number.isInteger(limit) || limit <= 0 || limit > 1000) {
+      throw new Error(`Invalid limit: ${limit}. Must be between 1 and 1000.`);
+    }
+
+    try {
+      const whereConditions = [isNull(productOffers.affiliateUrl)];
+
+      if (retailerId !== undefined) {
+        if (!Number.isInteger(retailerId) || retailerId <= 0) {
+          throw new Error(`Invalid retailerId: ${retailerId}. Must be a positive integer.`);
+        }
+        whereConditions.push(eq(productOffers.retailerId, retailerId));
+      }
+
+      const offers = await this.db
+        .select()
+        .from(productOffers)
+        .where(and(...whereConditions))
+        .limit(limit);
+
+      this.logSuccess('getOffersWithoutAffiliateLinks', {
+        limit,
+        retailerId,
+        found: offers.length,
+      });
+      return offers;
+    } catch (error) {
+      this.handleError(error, 'getOffersWithoutAffiliateLinks');
+    }
+  }
+
+  /**
+   * Get product offers with stale affiliate link checks
+   * Used by: Affiliate agent for link health validation
+   *
+   * @param cutoffDate - Links checked before this date are considered stale
+   * @param limit - Maximum number of offers to return
+   * @returns Array of product offers with stale link checks
+   */
+  async getStaleAffiliateLinks(cutoffDate: Date, limit: number): Promise<ProductOffer[]> {
+    // Input validation
+    if (!(cutoffDate instanceof Date) || isNaN(cutoffDate.getTime())) {
+      throw new Error('Invalid cutoffDate: Must be a valid Date object.');
+    }
+    if (!Number.isInteger(limit) || limit <= 0 || limit > 1000) {
+      throw new Error(`Invalid limit: ${limit}. Must be between 1 and 1000.`);
+    }
+
+    try {
+      const offers = await this.db
+        .select()
+        .from(productOffers)
+        .where(
+          and(
+            isNotNull(productOffers.affiliateUrl), // Has affiliate link
+            lt(productOffers.lastLinkCheck, cutoffDate) // Stale check
+          )
+        )
+        .limit(limit);
+
+      this.logSuccess('getStaleAffiliateLinks', {
+        cutoffDate: cutoffDate.toISOString(),
+        limit,
+        found: offers.length,
+      });
+      return offers;
+    } catch (error) {
+      this.handleError(error, 'getStaleAffiliateLinks');
     }
   }
 

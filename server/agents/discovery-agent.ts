@@ -1,7 +1,5 @@
 import { BaseAgent, AgentConfig } from './base-agent';
-import { db } from '../db';
-import { trendingProducts } from '../../shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { storage } from '../storage';
 import type { InsertTrendingProduct } from '../../shared/schema';
 import type { TrendData, DiscoveryTaskData } from './types';
 import OpenAI from 'openai';
@@ -318,7 +316,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
 
     if (productsToInsert.length > 0) {
       try {
-        await db.insert(trendingProducts).values(productsToInsert);
+        await storage.bulkCreateTrendingProducts(productsToInsert);
         logger.info(`Stored ${productsToInsert.length} trending products`);
       } catch (error) {
         logger.error('Failed to store trending products', {
@@ -330,12 +328,7 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
   }
 
   async getStoredTrendingProducts(limit = 50) {
-    return db
-      .select()
-      .from(trendingProducts)
-      .where(eq(trendingProducts.status, 'discovered'))
-      .orderBy(desc(trendingProducts.trendScore))
-      .limit(limit);
+    return storage.getTrendingProducts('discovered', limit);
   }
 }
 

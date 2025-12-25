@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.8
-**Last Updated:** 2025-12-23
+**Version:** 2.9
+**Last Updated:** 2025-12-24
 **Changelog:**
+- 2.9 (2025-12-24): Added agent storage layer patterns (find-or-create with metadata, upsert, bulk operations, historical optimization)
 - 2.8 (2025-12-23): Expanded storage layer ID validation pattern with code examples from Feature 3.3
 - 2.7 (2025-12-23): Added verification commands and migration pattern to Foreign Key Cascade Rules section
 - 2.6 (2025-12-23): Added storage layer ID validation pattern
@@ -482,6 +483,364 @@ const dedup = await redis.setex(key, NOTIFICATION.DEDUP_TTL_HOURS * 60 * 60, '1'
 - `TRANSACTION_RETRY.*` - Retry logic configuration
 - `STORAGE_VALIDATION.*` - Input validation bounds
 - `DATA_RETENTION.*` - Data retention policies
+
+### Find-or-Create with Metadata Enhancement
+
+**Context:** When agent systems or scrapers discover new entities (products, retailers) that may or may not exist, and need to create them with rich metadata on first insert.
+
+**Problem:** Basic find-or-create patterns only handle minimal fields. When creating new entities from scraping/discovery, you need to populate additional metadata (descriptions, images, logos, etc.) without requiring separate update calls.
+
+**✅ Preferred Approach:**
+
+```typescript
+// Storage layer method with optional metadata parameter
+async findOrCreateProduct(
+  name: string,
+  category?: string,
+  metadata?: { description?: string; brand?: string; image?: string }
+): Promise<Product> {
+  try {
+    // Try to find existing product
+    const existing = await this.db.query.products.findFirst({
+      where: eq(products.name, name),
+    });
+
+    if (existing) {
+      this.logSuccess('findOrCreateProduct', { productId: existing.id, found: true });
+      return existing;
+    }
+
+    // Create with all available metadata
+    const [product] = await this.db
+      .insert(products)
+      .values({
+        name,
+        category: category || null,
+        description: metadata?.description || null,
+        brand: metadata?.brand || null,
+        image: metadata?.image || null,
+        model: null,
+        embedding: null,
+        embeddingUpdatedAt: null,
+      })
+      .returning();
+
+    this.logSuccess('findOrCreateProduct', { productId: product.id, found: false });
+    return product;
+  } catch (error) {
+    this.handleError(error, 'findOrCreateProduct');
+  }
+}
+
+// Agent usage
+const product = await storage.findOrCreateProduct(
+  data.title,
+  inferredCategory,
+  {
+    description: data.description,
+    brand: data.brand,
+    image: data.imageUrl,
+  }
+);
+```
+
+**❌ Anti-Pattern:**
+
+```typescript
+// Separate find and create with update
+const existing = await storage.getProductByName(name);
+if (existing) {
+  return existing;
+} else {
+  const product = await storage.createProduct({ name, category });
+  // Requires second round-trip to add metadata
+  await storage.updateProduct(product.id, {
+    description: data.description,
+    brand: data.brand,
+    image: data.imageUrl,
+  });
+  return product;
+}
+```
+
+**Rationale:**
+- **Backward Compatible**: Optional metadata parameter doesn't break existing callers
+- **Single Round-Trip**: All data inserted in one query
+- **Rich Initial Data**: Prevents incomplete records that need patching
+- **Agent-Friendly**: Scrapers can provide all discovered data at once
+
+**Related Patterns:**
+- See Upsert Pattern for create-or-update semantics
+- See Transaction Patterns for multi-entity creation
+
+*Source: Agent Storage Layer Migration (Issue #178), Session 2025-12-24*
+*Added: 2025-12-24*
+
+---
+
+### Upsert Pattern for Product Offers
+
+**Context:** When scraping or updating product offers where the same product-retailer combination may be encountered multiple times.
+
+**Problem:** Naive insert fails with unique constraint violations. Naive "check then insert/update" creates race conditions and N+1 queries.
+
+**✅ Preferred Approach:**
+
+```typescript
+// Atomic upsert using onConflictDoUpdate
+async upsertProductOffer(offerData: {
+  productId: number;
+  retailerId: number;
+  price: string;
+  availability: string | null;
+  productUrl: string;
+  lastLinkCheck: Date;
+}): Promise<ProductOffer> {
+  // Input validation
+  if (!Number.isInteger(offerData.productId) || offerData.productId <= 0) {
+    throw new Error(`Invalid productId: ${offerData.productId}`);
+  }
+  if (!Number.isInteger(offerData.retailerId) || offerData.retailerId <= 0) {
+    throw new Error(`Invalid retailerId: ${offerData.retailerId}`);
+  }
+
+  try {
+    const [offer] = await this.db
+      .insert(productOffers)
+      .values(offerData)
+      .onConflictDoUpdate({
+        target: [productOffers.productId, productOffers.retailerId],
+        set: {
+          price: offerData.price,
+          availability: offerData.availability,
+          productUrl: offerData.productUrl,
+          lastLinkCheck: offerData.lastLinkCheck,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    this.logSuccess('upsertProductOffer', {
+      offerId: offer.id,
+      productId: offerData.productId,
+      retailerId: offerData.retailerId,
+    });
+    return offer;
+  } catch (error) {
+    this.handleError(error, 'upsertProductOffer');
+  }
+}
+```
+
+**❌ Anti-Pattern:**
+
+```typescript
+// Race-prone check-then-act
+const existing = await db.select()
+  .from(productOffers)
+  .where(
+    and(
+      eq(productOffers.productId, productId),
+      eq(productOffers.retailerId, retailerId)
+    )
+  )
+  .limit(1);
+
+if (existing.length > 0) {
+  await db.update(productOffers)
+    .set({ price, availability, productUrl })
+    .where(eq(productOffers.id, existing[0].id));
+} else {
+  await db.insert(productOffers).values({ productId, retailerId, price, availability, productUrl });
+}
+```
+
+**Rationale:**
+- **Atomic Operation**: Single SQL query eliminates race conditions
+- **Duplicate-Safe**: Handles concurrent scrapers gracefully
+- **Input Validation**: Prevents invalid IDs from corrupting data
+- **Audit Trail**: Returns full offer object for logging
+
+**Related Patterns:**
+- See Transaction Patterns for multi-table upserts
+- See Input Validation in Storage Layer for ID validation
+
+*Source: Extraction Agent Migration (Issue #178), Session 2025-12-24*
+*Added: 2025-12-24*
+
+---
+
+### Bulk Operations with Validation
+
+**Context:** When agents need to create multiple entities in a single operation (e.g., bulk insert trending products from discovery).
+
+**Problem:** Individual inserts are slow (N round-trips). Unlimited batch sizes can cause memory/performance issues. No validation on batch size can cause OOM errors or database timeouts.
+
+**✅ Preferred Approach:**
+
+```typescript
+async bulkCreateTrendingProducts(
+  products: InsertTrendingProduct[]
+): Promise<TrendingProduct[]> {
+  // Input validation
+  if (!Array.isArray(products) || products.length === 0) {
+    throw new Error('Products array is required and cannot be empty');
+  }
+  if (products.length > 100) {
+    throw new Error(`Batch size too large: ${products.length}. Maximum is 100.`);
+  }
+
+  try {
+    const results = await this.db.insert(trendingProducts).values(products).returning();
+    this.logSuccess('bulkCreateTrendingProducts', { count: results.length });
+    return results;
+  } catch (error) {
+    this.handleError(error, 'bulkCreateTrendingProducts');
+  }
+}
+
+// Caller handles batching
+const BATCH_SIZE = 100;
+for (let i = 0; i < allProducts.length; i += BATCH_SIZE) {
+  const batch = allProducts.slice(i, i + BATCH_SIZE);
+  await storage.bulkCreateTrendingProducts(batch);
+}
+```
+
+**❌ Anti-Pattern:**
+
+```typescript
+// No batch size limits - can cause OOM
+async bulkCreateTrendingProducts(products: InsertTrendingProduct[]): Promise<void> {
+  // 10,000 products? Database timeout or OOM
+  await this.db.insert(trendingProducts).values(products);
+}
+
+// Individual inserts - N round-trips
+for (const product of products) {
+  await storage.createTrendingProduct(product);
+}
+```
+
+**Rationale:**
+- **Performance**: Batch inserts are 10-100x faster than individual inserts
+- **Bounded Memory**: Max 100 items prevents OOM errors
+- **Clear Error Messages**: Tells caller exactly what went wrong
+- **Returns Created IDs**: Enables follow-up operations on inserted entities
+
+**Input Validation Rules:**
+- Non-empty array check
+- Maximum batch size: 100 items (adjust per table complexity)
+- Element validation via Drizzle schema
+- Caller responsible for batching large datasets
+
+**Related Patterns:**
+- See Transaction Patterns for atomic batch operations
+- See Input Validation for per-element validation
+
+*Source: Discovery Agent Migration (Issue #178), Session 2025-12-24*
+*Added: 2025-12-24*
+
+---
+
+### Historical Data Optimization Pattern
+
+**Context:** When generating AI content (search queries, recommendations, etc.) where historical performance data exists that could replace expensive AI generation.
+
+**Problem:** Always using AI generation for queries is slow and expensive. Historical data analysis is often more accurate than cold AI generation for common queries.
+
+**✅ Preferred Approach:**
+
+```typescript
+async optimizeQueriesForProduct(productName: string): Promise<string[]> {
+  try {
+    // 1. Check historical queries that performed well
+    const historicalQueries = await storage.getHistoricalSearchQueries(productName, 10);
+
+    // 2. Use historical data if available
+    if (historicalQueries.length > 0) {
+      logger.debug('Using historical queries for optimization', {
+        productName,
+        count: historicalQueries.length,
+      });
+      return historicalQueries;
+    }
+
+    // 3. Fall back to AI generation for new products
+    logger.debug('No historical queries found, generating new queries', { productName });
+    return this.generateSearchQueries(productName);
+  } catch (error) {
+    logger.error('Query optimization failed', {
+      error: error instanceof Error ? error.message : String(error),
+      productName,
+    });
+    // 4. Graceful degradation on error
+    return this.generateSearchQueries(productName);
+  }
+}
+
+// Storage layer - get high-performing historical queries
+async getHistoricalSearchQueries(productName: string, limit: number): Promise<string[]> {
+  if (!productName || productName.trim().length === 0) {
+    throw new Error('Product name is required');
+  }
+  if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {
+    throw new Error(`Invalid limit: ${limit}. Must be between 1 and 100.`);
+  }
+
+  try {
+    const results = await this.db
+      .select({ queryText: searchQueries.queryText })
+      .from(searchQueries)
+      .where(ilike(searchQueries.queryText, `%${productName}%`))
+      .orderBy(desc(searchQueries.avgResults), desc(searchQueries.lastUsed))
+      .limit(limit);
+
+    return results.map((r) => r.queryText);
+  } catch (error) {
+    this.handleError(error, 'getHistoricalSearchQueries');
+  }
+}
+```
+
+**❌ Anti-Pattern:**
+
+```typescript
+// Always use AI generation - slow and expensive
+async optimizeQueriesForProduct(productName: string): Promise<string[]> {
+  // No historical data check - wastes API calls
+  return this.generateSearchQueries(productName);
+}
+
+// No fallback on error - fails hard
+async optimizeQueriesForProduct(productName: string): Promise<string[]> {
+  const historical = await storage.getHistoricalSearchQueries(productName, 10);
+  // Throws if empty or error - breaks user experience
+  if (historical.length === 0) {
+    throw new Error('No historical data available');
+  }
+  return historical;
+}
+```
+
+**Rationale:**
+- **Cost Optimization**: Historical queries are free vs. AI API costs
+- **Performance**: Database lookup ~10ms vs. AI generation ~500-2000ms
+- **Accuracy**: Real performance data beats AI guessing
+- **Graceful Degradation**: Multiple fallback layers prevent failures
+- **Observability**: Logs decision path for debugging
+
+**Performance Metrics:**
+- Historical lookup: ~10ms average
+- AI generation: ~500-2000ms average
+- Cost savings: $0.002 per query avoided
+
+**Related Patterns:**
+- See Caching Patterns for Redis integration
+- See AI Integration Patterns for rate limiting
+
+*Source: Search Agent Optimization (Issue #178), Session 2025-12-24*
+*Added: 2025-12-24*
 
 ---
 

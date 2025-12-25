@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 2.3
-**Last Updated:** 2025-12-23
+**Version:** 2.4
+**Last Updated:** 2025-12-24
 **Changelog:**
+- 2.4 (2025-12-24): Added MemStorage Stub Implementation pattern for storage layer testing
 - 2.3 (2025-12-23): Expanded Bulk Database Helpers with watchlist example, added Test Phase Separation pattern (Feature 4.3)
 - 2.2 (2025-12-23): Added Bulk Database Helpers for E2E Tests pattern (Feature 3.3)
 - 2.1 (2025-12-23): Added Custom Agent Patterns section
@@ -463,6 +464,147 @@ vi.mock('../../config/redis', () => ({
 ```
 
 **Why this matters:** The `storage-cache.ts` and `advanced-cache.ts` modules require Redis at import time. Without this mock, tests fail during module initialization.
+
+---
+
+### MemStorage Stub Implementation Pattern
+
+**Context:** When adding new storage layer methods, you must also implement test doubles in the MemStorage class to support in-memory testing without a database.
+
+**Problem:** TypeScript strict null/undefined checks cause errors when MemStorage stubs return `undefined` instead of proper types. Spread operators (`...data`) can propagate undefined fields, violating schema constraints.
+
+**✅ Preferred Approach:**
+
+```typescript
+// Explicit field mapping - matches exact schema structure
+async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
+  return {
+    id: 1,
+    agentType: sessionData.agentType,
+    sessionId: sessionData.sessionId,
+    sessionStart: sessionData.sessionStart || null,
+    sessionEnd: null,
+    tasksCompleted: 0,
+    successRate: '0',
+    errorsEncountered: 0,
+    performanceMetrics: '{}',
+    status: sessionData.status || null,
+    createdAt: new Date(),
+    // NO updatedAt field - schema doesn't have it
+  };
+}
+
+async createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob> {
+  return {
+    id: 1,
+    jobType: jobData.jobType,
+    priority: jobData.priority || null,
+    status: jobData.status || null,
+    targetData: jobData.targetData,
+    resultData: jobData.resultData || null,
+    errorMessage: null,
+    retryCount: 0,
+    maxRetries: jobData.maxRetries || 3,
+    scheduledAt: jobData.scheduledAt || null,
+    startedAt: null,
+    completedAt: null,
+    agentSessionId: jobData.agentSessionId || null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+// Collection methods return empty arrays
+async getPendingScrapingJobs(_limit: number): Promise<ScrapingJob[]> {
+  return [];
+}
+
+// Update methods are no-ops
+async updateProductOffer(_offerId: number, _updates: Partial<ProductOffer>): Promise<void> {
+  // No-op for test doubles
+}
+
+// Stats methods return zero-filled structures
+async getMonitoringStats(): Promise<{
+  recentChecks: { last24h: number; last7d: number };
+  activeAlerts: { total: number; triggered: number; byType: Record<string, unknown> };
+  priceChanges: { increases: number; decreases: number; stable: number };
+  availability: { available: number; outOfStock: number; unknown: number };
+  timestamp: string;
+}> {
+  return {
+    recentChecks: { last24h: 0, last7d: 0 },
+    activeAlerts: { total: 0, triggered: 0, byType: {} },
+    priceChanges: { increases: 0, decreases: 0, stable: 0 },
+    availability: { available: 0, outOfStock: 0, unknown: 0 },
+    timestamp: new Date().toISOString(),
+  };
+}
+```
+
+**❌ Anti-Pattern:**
+
+```typescript
+// Spread operator propagates undefined fields
+async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
+  return {
+    ...sessionData,  // ❌ May include undefined fields
+    id: 1,
+    sessionEnd: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),  // ❌ Field doesn't exist in schema!
+  };
+}
+
+// Returns undefined instead of empty array
+async getPendingScrapingJobs(_limit: number): Promise<ScrapingJob[]> {
+  throw new Error('Not supported in memory storage');  // ❌ Breaks tests
+}
+
+// Undefined vs null confusion
+async createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob> {
+  return {
+    ...jobData,
+    id: 1,
+    createdAt: new Date(),
+    attempts: 0,  // ❌ Schema has 'retryCount', not 'attempts'
+  };
+}
+```
+
+**Rationale:**
+- **Explicit Fields**: Prevents TypeScript `undefined` vs `null` errors
+- **Schema Match**: Every field matches exactly what the database schema expects
+- **No Throws**: Test doubles return empty data, not errors
+- **Realistic Stubs**: Return type-correct dummy data for property access
+
+**TypeScript Errors Prevented:**
+```
+❌ Type 'undefined' is not assignable to type 'string | null'
+   (caused by spread operator including undefined optional fields)
+
+❌ Property 'updatedAt' does not exist in type 'AgentSession'
+   (caused by adding fields not in schema)
+
+❌ Property 'attempts' does not exist in type 'ScrapingJob'
+   (caused by field name mismatch with schema)
+```
+
+**Implementation Checklist:**
+- ✅ Check database schema for exact field names
+- ✅ Use `|| null` for optional parameters to avoid undefined
+- ✅ Return empty arrays `[]` for collection queries
+- ✅ No-op for `Promise<void>` update methods
+- ✅ Return zero-filled objects for stats methods
+- ✅ Match timestamp field types (Date vs string)
+- ✅ Never throw errors - return realistic empty data
+
+**Related Patterns:**
+- See `docs/01_TYPESCRIPT_PATTERNS.md` for null vs undefined handling
+- See `docs/02_DATABASE_PATTERNS.md` for storage layer architecture
+
+*Source: Agent Storage Layer Migration (Issue #178), MemStorage stub fixes, Session 2025-12-24*
+*Added: 2025-12-24*
 
 ---
 

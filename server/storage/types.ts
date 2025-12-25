@@ -471,13 +471,8 @@ export interface PriceTrendWithRetailer {
   updatedAt: Date | null;
 }
 
-export interface TrendingProduct {
-  id: number;
-  name: string;
-  category: string | null;
-  status: string;
-  discoveredAt: Date | null;
-}
+// Note: TrendingProduct type is imported from @shared/schema
+// Do not redefine here to avoid conflicts
 
 export interface WeeklyAggregate {
   id: number;

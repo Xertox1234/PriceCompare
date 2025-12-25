@@ -53,6 +53,13 @@ import {
   type InsertNotificationPreferences,
   type PriceAlert,
   type InsertPriceAlert,
+  type AgentSession,
+  type InsertAgentSession,
+  type ScrapingJob,
+  type InsertScrapingJob,
+  type TrendingProduct,
+  type InsertTrendingProduct,
+  type InsertSearchQuery,
 } from '@shared/schema';
 import type {
   WatchListImportData,
@@ -76,6 +83,7 @@ import { WatchListStorage } from './storage/domains/watchlist-storage';
 import { RetailerStorage } from './storage/domains/retailer-storage';
 import { JobLockStorage } from './storage/domains/job-lock-storage';
 import { NotificationStorage } from './storage/domains/notification-storage';
+import { AgentStorage } from './storage/domains/agent-storage';
 
 export interface IStorage {
   // Retailers
@@ -102,6 +110,7 @@ export interface IStorage {
   // Product Offers
   getProductOffers(productId: number): Promise<(ProductOffer & { retailer: Retailer })[]>;
   createProductOffer(offer: InsertProductOffer): Promise<ProductOffer>;
+  upsertProductOffer(offer: InsertProductOffer): Promise<ProductOffer>;
 
   // Affiliate Link Operations
   getProductOfferById(offerId: number): Promise<ProductOffer | null>;
@@ -114,6 +123,8 @@ export interface IStorage {
     }
   ): Promise<void>;
   incrementProductOfferClickCount(offerId: number): Promise<void>;
+  getOffersWithoutAffiliateLinks(limit: number, retailerId?: number): Promise<ProductOffer[]>;
+  getStaleAffiliateLinks(cutoffDate: Date, limit: number): Promise<ProductOffer[]>;
   getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]>;
   getProductOffersByProductId(productId: number): Promise<ProductOffer[]>;
   getAllOffersWithDetails(): Promise<
@@ -219,6 +230,11 @@ export interface IStorage {
 
   // Trending Products (Scraping)
   getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]>;
+  bulkCreateTrendingProducts(products: InsertTrendingProduct[]): Promise<TrendingProduct[]>;
+
+  // Search Query Analytics
+  createSearchQuery(queryData: Partial<InsertSearchQuery>): Promise<void>;
+  getHistoricalSearchQueries(productName: string, limit: number): Promise<string[]>;
 
   // Price Analytics
   getWeeklyAggregates(
@@ -615,6 +631,136 @@ export interface IStorage {
    * @returns Count of active sessions started within the time window
    */
   getActiveAgentSessionsCount(minutes: number): Promise<number>;
+
+  /**
+   * Create product from trending product with atomic transaction
+   * @param trendingProduct - Trending product to convert
+   * @param offerData - Product offer data to create
+   * @returns Created product
+   */
+  createProductFromTrendingProduct(
+    trendingProduct: TrendingProduct,
+    offerData: InsertProductOffer[]
+  ): Promise<Product>;
+
+  /**
+   * Get stale product offers with relations for price monitoring
+   * @param cutoffTime - Offers with lastLinkCheck before this are stale
+   * @param limit - Maximum number of offers to return
+   * @returns Array of product offers with product and retailer relations
+   */
+  getPriceMonitoringOffers(
+    cutoffTime: Date,
+    limit: number
+  ): Promise<Array<ProductOffer & { product: Product | null; retailer: Retailer | null }>>;
+
+  /**
+   * Get active price alerts with nested product and offer relations
+   * @returns Array of price alerts with product offers
+   */
+  getActivePriceAlertsWithRelations(): Promise<
+    Array<
+      PriceAlert & {
+        product:
+          | (Product & {
+              offers: Array<ProductOffer & { retailer: Retailer | null }>;
+            })
+          | null;
+      }
+    >
+  >;
+
+  /**
+   * Find existing product by name or create new one
+   * @param name - Product name to search for
+   * @param category - Optional product category
+   * @param metadata - Optional metadata for initial product creation
+   * @returns Existing or newly created product
+   */
+  findOrCreateProduct(
+    name: string,
+    category?: string,
+    metadata?: { description?: string; brand?: string; image?: string }
+  ): Promise<Product>;
+
+  /**
+   * Find existing retailer by website or create new one
+   * @param website - Retailer website domain
+   * @param metadata - Optional metadata for initial retailer creation
+   * @returns Existing or newly created retailer
+   */
+  findOrCreateRetailer(
+    website: string,
+    metadata?: { name?: string; logo?: string; isActive?: boolean }
+  ): Promise<Retailer>;
+
+  /**
+   * Create a new agent session
+   * @param sessionData - Agent session data
+   * @returns Created agent session
+   */
+  createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession>;
+
+  /**
+   * Update an agent session
+   * @param sessionId - Agent session ID
+   * @param updates - Partial updates to apply
+   */
+  updateAgentSession(sessionId: number, updates: Partial<AgentSession>): Promise<void>;
+
+  /**
+   * Create a new scraping job
+   * @param jobData - Scraping job data
+   * @returns Created scraping job
+   */
+  createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob>;
+
+  /**
+   * Update a scraping job
+   * @param jobId - Scraping job ID
+   * @param updates - Partial updates to apply
+   */
+  updateScrapingJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void>;
+
+  /**
+   * Update a trending product
+   * @param id - Trending product ID
+   * @param updates - Partial updates to apply
+   */
+  updateTrendingProduct(id: number, updates: Partial<TrendingProduct>): Promise<void>;
+
+  /**
+   * Get pending scraping jobs that are due to run
+   * @param limit - Maximum number of jobs to return
+   * @returns Array of pending jobs ordered by priority
+   */
+  getPendingScrapingJobs(limit: number): Promise<ScrapingJob[]>;
+
+  /**
+   * Update a product offer (admin/system use)
+   * @param offerId - Product offer ID
+   * @param updates - Partial updates to apply
+   */
+  updateProductOffer(offerId: number, updates: Partial<ProductOffer>): Promise<void>;
+
+  /**
+   * Update a price alert (admin/system use, no user check)
+   * @param alertId - Price alert ID
+   * @param updates - Partial updates to apply
+   */
+  updatePriceAlertAdmin(alertId: number, updates: Partial<PriceAlert>): Promise<void>;
+
+  /**
+   * Get monitoring statistics (optimized aggregate queries)
+   * @returns Monitoring statistics including recent checks, alerts, and availability
+   */
+  getMonitoringStats(): Promise<{
+    recentChecks: { last24h: number; last7d: number };
+    activeAlerts: { total: number; triggered: number; byType: Record<string, unknown> };
+    priceChanges: { increases: number; decreases: number; stable: number };
+    availability: { available: number; outOfStock: number; unknown: number };
+    timestamp: string;
+  }>;
 
   // ============================================================================
   // Price Drop Detection Operations (Phase 6 Storage Migration)
@@ -1289,6 +1435,27 @@ export class MemStorage implements IStorage {
     return newOffer;
   }
 
+  async upsertProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
+    // Find existing offer by productId and retailerId
+    const existing = Array.from(this.productOffers.values()).find(
+      (o) => o.productId === offer.productId && o.retailerId === offer.retailerId
+    );
+
+    if (existing) {
+      // Update existing offer
+      const updated: ProductOffer = {
+        ...existing,
+        ...offer,
+        lastUpdated: new Date(),
+      };
+      this.productOffers.set(existing.id, updated);
+      return updated;
+    } else {
+      // Create new offer
+      return this.createProductOffer(offer);
+    }
+  }
+
   // Affiliate Link Operations (MemStorage stubs)
   async getProductOfferById(offerId: number): Promise<ProductOffer | null> {
     return this.productOffers.get(offerId) ?? null;
@@ -1321,6 +1488,20 @@ export class MemStorage implements IStorage {
         clickCount: (offer.clickCount ?? 0) + 1,
       });
     }
+  }
+
+  async getOffersWithoutAffiliateLinks(
+    _limit: number,
+    retailerId?: number
+  ): Promise<ProductOffer[]> {
+    return Array.from(this.productOffers.values()).filter(
+      (offer) => !offer.affiliateUrl && (!retailerId || offer.retailerId === retailerId)
+    );
+  }
+
+  async getStaleAffiliateLinks(_cutoffDate: Date, _limit: number): Promise<ProductOffer[]> {
+    // Return all offers with affiliate links in memory storage (no date tracking)
+    return Array.from(this.productOffers.values()).filter((offer) => offer.affiliateUrl);
   }
 
   async getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]> {
@@ -1621,6 +1802,18 @@ export class MemStorage implements IStorage {
   }
 
   async getTrendingProducts(_status: string, _limit: number): Promise<TrendingProduct[]> {
+    return [];
+  }
+
+  async bulkCreateTrendingProducts(_products: InsertTrendingProduct[]): Promise<TrendingProduct[]> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async createSearchQuery(_queryData: Partial<InsertSearchQuery>): Promise<void> {
+    // No-op for memory storage - analytics not needed in tests
+  }
+
+  async getHistoricalSearchQueries(_productName: string, _limit: number): Promise<string[]> {
     return [];
   }
 
@@ -2229,6 +2422,125 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
 
+  async createProductFromTrendingProduct(
+    _trendingProduct: TrendingProduct,
+    _offerData: InsertProductOffer[]
+  ): Promise<Product> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getPriceMonitoringOffers(
+    _cutoffTime: Date,
+    _limit: number
+  ): Promise<Array<ProductOffer & { product: Product | null; retailer: Retailer | null }>> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getActivePriceAlertsWithRelations(): Promise<
+    Array<
+      PriceAlert & {
+        product:
+          | (Product & {
+              offers: Array<ProductOffer & { retailer: Retailer | null }>;
+            })
+          | null;
+      }
+    >
+  > {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async findOrCreateProduct(
+    _name: string,
+    _category?: string,
+    _metadata?: { description?: string; brand?: string; image?: string }
+  ): Promise<Product> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async findOrCreateRetailer(
+    _website: string,
+    _metadata?: { name?: string; logo?: string; isActive?: boolean }
+  ): Promise<Retailer> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
+    return {
+      id: 1,
+      agentType: sessionData.agentType,
+      sessionId: sessionData.sessionId,
+      sessionStart: sessionData.sessionStart || null,
+      sessionEnd: null,
+      tasksCompleted: 0,
+      successRate: '0',
+      errorsEncountered: 0,
+      performanceMetrics: '{}',
+      status: sessionData.status || null,
+      createdAt: new Date(),
+    };
+  }
+
+  async updateAgentSession(_sessionId: number, _updates: Partial<AgentSession>): Promise<void> {
+    // No-op for test doubles
+  }
+
+  async createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob> {
+    return {
+      id: 1,
+      jobType: jobData.jobType,
+      priority: jobData.priority || null,
+      status: jobData.status || null,
+      targetData: jobData.targetData,
+      resultData: jobData.resultData || null,
+      errorMessage: null,
+      retryCount: 0,
+      maxRetries: jobData.maxRetries || 3,
+      scheduledAt: jobData.scheduledAt || null,
+      startedAt: null,
+      completedAt: null,
+      agentSessionId: jobData.agentSessionId || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateScrapingJob(_jobId: number, _updates: Partial<ScrapingJob>): Promise<void> {
+    // No-op for test doubles
+  }
+
+  async updateTrendingProduct(_id: number, _updates: Partial<TrendingProduct>): Promise<void> {
+    // No-op for test doubles
+  }
+
+  async getPendingScrapingJobs(_limit: number): Promise<ScrapingJob[]> {
+    return [];
+  }
+
+  async updateProductOffer(_offerId: number, _updates: Partial<ProductOffer>): Promise<void> {
+    // No-op for test doubles
+  }
+
+  async updatePriceAlertAdmin(_alertId: number, _updates: Partial<PriceAlert>): Promise<void> {
+    // No-op for test doubles
+  }
+
+  async getMonitoringStats(): Promise<{
+    recentChecks: { last24h: number; last7d: number };
+    activeAlerts: { total: number; triggered: number; byType: Record<string, unknown> };
+    priceChanges: { increases: number; decreases: number; stable: number };
+    availability: { available: number; outOfStock: number; unknown: number };
+    timestamp: string;
+  }> {
+    return {
+      recentChecks: { last24h: 0, last7d: 0 },
+      activeAlerts: { total: 0, triggered: 0, byType: {} },
+      priceChanges: { increases: 0, decreases: 0, stable: 0 },
+      availability: { available: 0, outOfStock: 0, unknown: 0 },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   // Price Drop Detection (4 methods)
   async getPriceHistoryByOfferId(_productOfferId: number, _limit: number): Promise<PriceHistory[]> {
     throw new Error('Not supported in memory storage');
@@ -2564,11 +2876,13 @@ export class DatabaseStorage implements IStorage {
   private retailerStorage: RetailerStorage;
   private jobLockStorage: JobLockStorage;
   private notificationStorage: NotificationStorage;
+  private agentStorage: AgentStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
     this.productStorage = new ProductStorage(db);
     this.priceStorage = new PriceStorage(db);
+    this.agentStorage = new AgentStorage(db);
     this.watchListStorage = new WatchListStorage(db);
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
@@ -2733,6 +3047,10 @@ export class DatabaseStorage implements IStorage {
     return this.productStorage.createProductOffer(offer);
   }
 
+  async upsertProductOffer(offer: InsertProductOffer): Promise<ProductOffer> {
+    return this.productStorage.upsertProductOffer(offer);
+  }
+
   // Affiliate Link Operations
   async getProductOfferById(offerId: number): Promise<ProductOffer | null> {
     return this.productStorage.getProductOfferById(offerId);
@@ -2751,6 +3069,17 @@ export class DatabaseStorage implements IStorage {
 
   async incrementProductOfferClickCount(offerId: number): Promise<void> {
     return this.productStorage.incrementProductOfferClickCount(offerId);
+  }
+
+  async getOffersWithoutAffiliateLinks(
+    limit: number,
+    retailerId?: number
+  ): Promise<ProductOffer[]> {
+    return this.productStorage.getOffersWithoutAffiliateLinks(limit, retailerId);
+  }
+
+  async getStaleAffiliateLinks(cutoffDate: Date, limit: number): Promise<ProductOffer[]> {
+    return this.productStorage.getStaleAffiliateLinks(cutoffDate, limit);
   }
 
   async getProductOffersByRetailerId(retailerId: number): Promise<ProductOffer[]> {
@@ -3207,24 +3536,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTrendingProducts(status: string, limit: number): Promise<TrendingProduct[]> {
-    const result = await db
-      .select({
-        id: trendingProducts.id,
-        name: trendingProducts.name,
-        category: trendingProducts.category,
-        status: trendingProducts.status,
-        discoveredAt: trendingProducts.discoveryDate,
-      })
-      .from(trendingProducts)
-      .where(eq(trendingProducts.status, status))
-      .orderBy(desc(trendingProducts.createdAt))
-      .limit(limit);
+    // Delegate to agentStorage to maintain storage layer abstraction
+    return this.agentStorage.getTrendingProductsByStatus(status, limit);
+  }
 
-    // Map to ensure status is never null (filtered by WHERE clause above)
-    return result.map((row) => ({
-      ...row,
-      status: row.status || 'unknown',
-    }));
+  async bulkCreateTrendingProducts(
+    products: InsertTrendingProduct[]
+  ): Promise<TrendingProduct[]> {
+    return this.agentStorage.bulkCreateTrendingProducts(products);
+  }
+
+  async createSearchQuery(queryData: Partial<InsertSearchQuery>): Promise<void> {
+    return this.agentStorage.createSearchQuery(queryData);
+  }
+
+  async getHistoricalSearchQueries(productName: string, limit: number): Promise<string[]> {
+    return this.agentStorage.getHistoricalSearchQueries(productName, limit);
   }
 
   async getWeeklyAggregates(
@@ -4797,6 +5124,91 @@ export class DatabaseStorage implements IStorage {
     return Number(result[0]?.count ?? 0);
   }
 
+  async createProductFromTrendingProduct(
+    trendingProduct: TrendingProduct,
+    offerData: InsertProductOffer[]
+  ): Promise<Product> {
+    return this.agentStorage.createProductFromTrendingProduct(trendingProduct, offerData);
+  }
+
+  async getPriceMonitoringOffers(
+    cutoffTime: Date,
+    limit: number
+  ): Promise<Array<ProductOffer & { product: Product | null; retailer: Retailer | null }>> {
+    return this.agentStorage.getPriceMonitoringOffers(cutoffTime, limit);
+  }
+
+  async getActivePriceAlertsWithRelations(): Promise<
+    Array<
+      PriceAlert & {
+        product:
+          | (Product & {
+              offers: Array<ProductOffer & { retailer: Retailer | null }>;
+            })
+          | null;
+      }
+    >
+  > {
+    return this.agentStorage.getActivePriceAlertsWithRelations();
+  }
+
+  async findOrCreateProduct(
+    name: string,
+    category?: string,
+    metadata?: { description?: string; brand?: string; image?: string }
+  ): Promise<Product> {
+    return this.productStorage.findOrCreateProduct(name, category, metadata);
+  }
+
+  async findOrCreateRetailer(
+    website: string,
+    metadata?: { name?: string; logo?: string; isActive?: boolean }
+  ): Promise<Retailer> {
+    return this.productStorage.findOrCreateRetailer(website, metadata);
+  }
+
+  async createAgentSession(sessionData: InsertAgentSession): Promise<AgentSession> {
+    return this.agentStorage.createAgentSession(sessionData);
+  }
+
+  async updateAgentSession(sessionId: number, updates: Partial<AgentSession>): Promise<void> {
+    await this.agentStorage.updateAgentSession(sessionId, updates);
+  }
+
+  async createScrapingJob(jobData: InsertScrapingJob): Promise<ScrapingJob> {
+    return this.agentStorage.createScrapingJob(jobData);
+  }
+
+  async updateScrapingJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void> {
+    await this.agentStorage.updateScrapingJob(jobId, updates);
+  }
+
+  async updateTrendingProduct(id: number, updates: Partial<TrendingProduct>): Promise<void> {
+    await this.agentStorage.updateTrendingProduct(id, updates);
+  }
+
+  async getPendingScrapingJobs(limit: number): Promise<ScrapingJob[]> {
+    return this.agentStorage.getPendingScrapingJobs(limit);
+  }
+
+  async updateProductOffer(offerId: number, updates: Partial<ProductOffer>): Promise<void> {
+    await this.agentStorage.updateProductOffer(offerId, updates);
+  }
+
+  async updatePriceAlertAdmin(alertId: number, updates: Partial<PriceAlert>): Promise<void> {
+    await this.agentStorage.updatePriceAlertAdmin(alertId, updates);
+  }
+
+  async getMonitoringStats(): Promise<{
+    recentChecks: { last24h: number; last7d: number };
+    activeAlerts: { total: number; triggered: number; byType: Record<string, unknown> };
+    priceChanges: { increases: number; decreases: number; stable: number };
+    availability: { available: number; outOfStock: number; unknown: number };
+    timestamp: string;
+  }> {
+    return this.agentStorage.getMonitoringStats();
+  }
+
   // ============================================================================
   // Phase 6: Price Drop Detection Methods
   // ============================================================================
@@ -5680,13 +6092,7 @@ export interface PriceTrendWithRetailer {
 }
 
 // Existing Interface Types (for pre-existing IStorage methods)
-export interface TrendingProduct {
-  id: number;
-  name: string;
-  category: string | null;
-  status: string;
-  discoveredAt: Date | null;
-}
+// Note: TrendingProduct type is now imported from @shared/schema (line 60)
 
 export interface WeeklyAggregate {
   id: number;

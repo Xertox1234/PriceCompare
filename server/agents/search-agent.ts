@@ -1,7 +1,5 @@
 import { BaseAgent, AgentConfig } from './base-agent';
-import { db } from '../db';
-import { searchQueries } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
+import { storage } from '../storage';
 import type { InsertSearchQuery } from '../../shared/schema';
 import type { SearchTaskData, SearchResult } from './types';
 import OpenAI from 'openai';
@@ -398,14 +396,7 @@ OUTPUT CONSTRAINTS:
 
   private async storeSearchQuery(queryData: Partial<InsertSearchQuery>): Promise<void> {
     try {
-      await db.insert(searchQueries).values({
-        queryText: queryData.queryText || '',
-        retailer: queryData.retailer,
-        queryType: queryData.queryType || 'product_search',
-        avgResults: queryData.avgResults || 0,
-        trendingProductId: queryData.trendingProductId,
-        lastUsed: new Date(),
-      });
+      await storage.createSearchQuery(queryData);
     } catch (error) {
       logger.error('Failed to store search query', {
         error: error instanceof Error ? error.message : String(error),
@@ -415,24 +406,29 @@ OUTPUT CONSTRAINTS:
   }
 
   async optimizeQueriesForProduct(productName: string): Promise<string[]> {
-    // Analyze historical performance and suggest optimized queries
     try {
-      const historicalQueries = await db
-        .select()
-        .from(searchQueries)
-        .where(eq(searchQueries.queryText, productName))
-        .orderBy(searchQueries.avgResults);
+      // Get historical queries that performed well for similar products
+      const historicalQueries = await storage.getHistoricalSearchQueries(productName, 10);
 
+      // If we have historical data, use it
       if (historicalQueries.length > 0) {
-        return historicalQueries.slice(0, 3).map((q) => q.queryText);
+        logger.debug('Using historical queries for optimization', {
+          productName,
+          count: historicalQueries.length,
+        });
+        return historicalQueries;
       }
+
+      // Fall back to AI-generated queries if no historical data
+      logger.debug('No historical queries found, generating new queries', { productName });
+      return this.generateSearchQueries(productName);
     } catch (error) {
-      logger.error('Failed to get historical queries', {
+      logger.error('Query optimization failed', {
         error: error instanceof Error ? error.message : String(error),
         productName,
       });
+      // Fall back to AI-generated queries on error
+      return this.generateSearchQueries(productName);
     }
-
-    return this.generateSearchQueries(productName);
   }
 }
