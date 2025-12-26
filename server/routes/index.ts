@@ -25,6 +25,7 @@ import { registerCommunityRoutes } from './community-routes';
 import { registerWishlistRoutes } from './wishlist-routes';
 import { registerSpecificationRoutes } from './specification-routes';
 import { registerAgentLimitsRoutes } from './agent-limits-routes';
+import { registerApiV1Routes } from './api-v1-routes';
 
 /**
  * Register all application routes
@@ -54,8 +55,12 @@ import { registerAgentLimitsRoutes } from './agent-limits-routes';
  * - agent-limits-routes: AI agent query limits
  * - aggregation-metrics-routes: Price aggregation metrics
  * - admin-aggregation-routes: Admin aggregation management
+ * - api-v1-routes: Agent-native API with HTTP Basic Auth
  */
 export function registerRoutes(app: Express): Server {
+  // Register API v1 routes (agent-native, HTTP Basic Auth)
+  registerApiV1Routes(app);
+
   // Register core route modules
   registerHealthRoutes(app);
   registerAuthRoutes(app);

@@ -361,4 +361,16 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
+/**
+ * Verify password against hash
+ * Used by HTTP Basic Auth middleware
+ *
+ * @param password - Plain text password
+ * @param passwordHash - Bcrypt hash from database
+ * @returns Promise<boolean> - True if password matches
+ */
+export async function verifyPassword(password: string, passwordHash: string): Promise<boolean> {
+  return bcrypt.compare(password, passwordHash);
+}
+
 export { passport };

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { getRequiredEnv } from '../config/env-validation';
 import { logSecurityEvent, SecurityEventType } from '../utils/security-logger';
 import { createLogger } from '../utils/logger';
 import { sanitizeObject, sanitizeString, SanitizationContext } from '../utils/sanitization';
@@ -168,8 +167,10 @@ declare global {
 }
 
 const CSRF_TOKEN_LENGTH = 32;
-// SECURITY: Required for secure CSRF token generation - never use fallback values
-const _CSRF_SECRET = getRequiredEnv('CSRF_SECRET');
+
+// SECURITY: CSRF tokens are session-based (stored in req.session.csrfToken)
+// No separate CSRF_SECRET is needed as tokens are generated with crypto.randomBytes()
+// and validated by comparing with the session-stored value
 
 /**
  * List of public endpoints that don't require CSRF protection

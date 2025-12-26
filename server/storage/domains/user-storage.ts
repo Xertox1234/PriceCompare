@@ -20,6 +20,7 @@ import {
   products,
   retailers,
   priceAlerts,
+  type User,
 } from '@shared/schema';
 import { BaseStorage } from '../base-storage';
 import type { SafeUser, AdminUser, AdminAnalyticsOverview, UserGrowthData } from '../types';
@@ -129,6 +130,54 @@ export class UserStorage extends BaseStorage {
       return user || null;
     } catch (error) {
       this.handleError(error, 'getUserByIdSafe');
+    }
+  }
+
+  /**
+   * Get user by username with passwordHash for authentication
+   * SECURITY: Returns passwordHash for password verification ONLY
+   * Used by: HTTP Basic Auth middleware
+   *
+   * @param username - Username (case-sensitive)
+   * @returns User with passwordHash for verification, or null if not found
+   */
+  async getUserByUsername(username: string): Promise<User | null> {
+    try {
+      // SECURITY: This method returns passwordHash for password verification
+      // NEVER use this for API responses - use getUserByIdSafe instead
+      const [user] = await this.db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          emailHash: users.emailHash,
+          passwordHash: users.passwordHash, // SECURITY: For password verification only
+          role: users.role,
+          trustLevel: users.trustLevel,
+          isActive: users.isActive,
+          isSuspended: users.isSuspended,
+          reputation: users.reputation,
+          avatarUrl: users.avatarUrl,
+          bio: users.bio,
+          location: users.location,
+          website: users.website,
+          lastSeenAt: users.lastSeenAt,
+          postCount: users.postCount,
+          topicCount: users.topicCount,
+          likesGiven: users.likesGiven,
+          likesReceived: users.likesReceived,
+          timeReadPosts: users.timeReadPosts,
+          daysVisited: users.daysVisited,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .where(eq(users.username, username))
+        .limit(1);
+
+      return user || null;
+    } catch (error) {
+      this.handleError(error, 'getUserByUsername');
     }
   }
 

@@ -42,6 +42,7 @@ import {
   type ProductFull,
   type SpecificationGroup,
   type PasswordResetToken,
+  type User,
   type UserReputation,
   type DealSpotting,
   type Badge,
@@ -214,6 +215,7 @@ export interface IStorage {
   // Users - Basic operations
   getUserCount(): Promise<number>;
   getUserByIdSafe(id: number): Promise<SafeUser | null>;
+  getUserByUsername(username: string): Promise<User | null>; // SECURITY: Returns passwordHash for auth only
 
   // User Registration (with transaction) - SECURITY: passwordHash handled internally, NEVER exposed
   registerUser(userData: {
@@ -1744,6 +1746,10 @@ export class MemStorage implements IStorage {
   }
 
   async getUserByIdSafe(_id: number): Promise<SafeUser | null> {
+    return null;
+  }
+
+  async getUserByUsername(_username: string): Promise<User | null> {
     return null;
   }
 
@@ -3481,6 +3487,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByIdSafe(id: number): Promise<SafeUser | null> {
     return this.userStorage.getUserByIdSafe(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | null> {
+    return this.userStorage.getUserByUsername(username);
   }
 
   async getUserCount(): Promise<number> {
