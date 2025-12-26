@@ -1,8 +1,6 @@
 import { BaseAgent } from './base-agent';
 import { dataExtractionAgent } from './extraction-agent';
-import { db } from '../db';
-import { productOffers, priceAlerts } from '@shared/schema';
-import { eq, lt, desc, sql, count } from 'drizzle-orm';
+import { storage } from '../storage';
 import { ScraperUtils } from '../utils/scraper-utils';
 import type { MonitoringTask, MonitoringStats } from './types';
 import { logger } from '../utils/logger';
@@ -42,26 +40,6 @@ interface AlertNotification {
   retailerName: string;
   url: string;
 }
-
-// Type definitions for query results with relations
-import type { Product, ProductOffer, Retailer, PriceAlert } from '@shared/schema';
-
-type ProductOfferWithRelations = ProductOffer & {
-  product: Product | null;
-  retailer: Retailer | null;
-};
-
-type OfferWithRetailer = ProductOffer & {
-  retailer: Retailer | null;
-};
-
-type ProductWithOffers = Product & {
-  offers: OfferWithRetailer[];
-};
-
-type PriceAlertWithProduct = PriceAlert & {
-  product: ProductWithOffers | null;
-};
 
 /**
  * Price Monitoring Agent - Tracks price changes and triggers alerts
@@ -127,15 +105,8 @@ export class PriceMonitoringAgent extends BaseAgent {
 
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
 
-    // Get offers that need checking
-    const staleOffers: ProductOfferWithRelations[] = await db.query.productOffers.findMany({
-      where: lt(productOffers.lastLinkCheck, cutoffTime),
-      with: {
-        product: true,
-        retailer: true,
-      },
-      limit: 50, // Process in batches
-    });
+    // Get offers that need checking using storage layer
+    const staleOffers = await storage.getPriceMonitoringOffers(cutoffTime, 50);
 
     this.logInfo(`Found ${staleOffers.length} offers to check`);
 
@@ -157,15 +128,12 @@ export class PriceMonitoringAgent extends BaseAgent {
         if (extractionResult.success && extractionResult.data.price) {
           const newPrice = extractionResult.data.price;
 
-          // Update the offer with new data
-          await db
-            .update(productOffers)
-            .set({
-              price: extractionResult.data.price.toString(),
-              availability: extractionResult.data.availability,
-              lastLinkCheck: new Date(),
-            })
-            .where(eq(productOffers.id, offer.id));
+          // Update the offer with new data using storage layer
+          await storage.updateProductOffer(offer.id, {
+            price: extractionResult.data.price.toString(),
+            availability: extractionResult.data.availability,
+            lastLinkCheck: new Date(),
+          });
 
           checkedCount++;
 
@@ -197,10 +165,9 @@ export class PriceMonitoringAgent extends BaseAgent {
         this.logError(`Failed to check offer ${offer.id}: ${error}`);
 
         // Update last checked even if failed to avoid repeated failures
-        await db
-          .update(productOffers)
-          .set({ lastLinkCheck: new Date() })
-          .where(eq(productOffers.id, offer.id));
+        await storage.updateProductOffer(offer.id, {
+          lastLinkCheck: new Date(),
+        });
       }
     }
 
@@ -217,22 +184,8 @@ export class PriceMonitoringAgent extends BaseAgent {
   private async checkPriceAlerts(): Promise<{ triggered: AlertNotification[]; checked: number }> {
     this.logInfo('Checking price alerts');
 
-    // Get active price alerts with current offers
-    const alerts: PriceAlertWithProduct[] = await db.query.priceAlerts.findMany({
-      where: eq(priceAlerts.isActive, true),
-      with: {
-        product: {
-          with: {
-            offers: {
-              with: {
-                retailer: true,
-              },
-              orderBy: [desc(productOffers.lastLinkCheck)],
-            },
-          },
-        },
-      },
-    });
+    // Get active price alerts with current offers using storage layer
+    const alerts = await storage.getActivePriceAlertsWithRelations();
 
     const triggeredAlerts: AlertNotification[] = [];
 
@@ -240,7 +193,7 @@ export class PriceMonitoringAgent extends BaseAgent {
       const product = alert.product;
 
       // Find the best current price across all retailers
-      const offers: OfferWithRetailer[] = product?.offers || [];
+      const offers = product?.offers || [];
       const bestOffer = offers
         .filter((offer) => offer.availability === 'in_stock')
         .sort((a, b) => parseFloat(a.price) - parseFloat(b.price))[0];
@@ -262,13 +215,10 @@ export class PriceMonitoringAgent extends BaseAgent {
         triggeredAlerts.push(notification);
         this.logInfo(`Price alert triggered: ${product?.name} at $${currentPrice}`);
 
-        // Deactivate the alert
-        await db
-          .update(priceAlerts)
-          .set({
-            isActive: false,
-          })
-          .where(eq(priceAlerts.id, alert.id));
+        // Deactivate the alert using storage layer (admin method - no user check needed)
+        await storage.updatePriceAlertAdmin(alert.id, {
+          isActive: false,
+        });
       }
     }
 
@@ -289,14 +239,8 @@ export class PriceMonitoringAgent extends BaseAgent {
 
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
 
-    const staleOffers: ProductOfferWithRelations[] = await db.query.productOffers.findMany({
-      where: lt(productOffers.lastLinkCheck, cutoffTime),
-      with: {
-        retailer: true,
-        product: true,
-      },
-      limit: 20, // Smaller batch for full refresh
-    });
+    // Get stale offers using storage layer (smaller batch for full refresh)
+    const staleOffers = await storage.getPriceMonitoringOffers(cutoffTime, 20);
 
     let refreshed = 0;
     let failed = 0;
@@ -323,10 +267,9 @@ export class PriceMonitoringAgent extends BaseAgent {
         this.logError(`Failed to refresh offer ${offer.id}: ${error}`);
 
         // Mark as checked to avoid infinite retries
-        await db
-          .update(productOffers)
-          .set({ lastLinkCheck: new Date() })
-          .where(eq(productOffers.id, offer.id));
+        await storage.updateProductOffer(offer.id, {
+          lastLinkCheck: new Date(),
+        });
       }
     }
 
@@ -336,60 +279,10 @@ export class PriceMonitoringAgent extends BaseAgent {
   }
 
   /**
-   * Get monitoring statistics
-   *
-   * Optimized: Combines multiple queries into 2 aggregate queries using conditional counting
-   * - 1 query for all offer statistics (instead of 3 separate queries)
-   * - 1 query for all alert statistics (instead of 2 separate queries)
+   * Get monitoring statistics using storage layer
    */
   async getMonitoringStats(): Promise<MonitoringStats> {
-    const now = new Date();
-    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    // Combine all offer statistics into a single query using conditional counting
-    // This replaces 5 separate queries with 2 aggregate queries
-    const [offerStats] = await db
-      .select({
-        recentChecks24h: sql<number>`count(case when ${productOffers.lastLinkCheck} >= ${last24h} then 1 end)`,
-        recentChecks7d: sql<number>`count(case when ${productOffers.lastLinkCheck} >= ${last7d} then 1 end)`,
-        available: sql<number>`count(case when ${productOffers.availability} = 'in_stock' then 1 end)`,
-        outOfStock: sql<number>`count(case when ${productOffers.availability} = 'out_of_stock' then 1 end)`,
-        unknownAvailability: sql<number>`count(case when ${productOffers.availability} is null or ${productOffers.availability} not in ('in_stock', 'out_of_stock') then 1 end)`,
-      })
-      .from(productOffers);
-
-    // Combine all alert statistics into a single query using conditional counting
-    const [alertStats] = await db
-      .select({
-        totalAlerts: count(),
-        activeAlerts: sql<number>`count(case when ${priceAlerts.isActive} = true then 1 end)`,
-        triggeredAlerts: sql<number>`count(case when ${priceAlerts.isActive} = false then 1 end)`,
-      })
-      .from(priceAlerts);
-
-    return {
-      recentChecks: {
-        last24h: Number(offerStats?.recentChecks24h ?? 0),
-        last7d: Number(offerStats?.recentChecks7d ?? 0),
-      },
-      activeAlerts: {
-        total: Number(alertStats?.totalAlerts ?? 0),
-        triggered: Number(alertStats?.triggeredAlerts ?? 0),
-        byType: {}, // Would require additional grouping query if needed
-      },
-      priceChanges: {
-        increases: 0, // Would require price history comparison
-        decreases: 0,
-        stable: 0,
-      },
-      availability: {
-        available: Number(offerStats?.available ?? 0),
-        outOfStock: Number(offerStats?.outOfStock ?? 0),
-        unknown: Number(offerStats?.unknownAvailability ?? 0),
-      },
-      timestamp: now.toISOString(),
-    };
+    return storage.getMonitoringStats() as Promise<MonitoringStats>;
   }
 
   /**

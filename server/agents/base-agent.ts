@@ -1,9 +1,6 @@
 import { EventEmitter } from 'events';
 import * as crypto from 'crypto';
-// TODO: Migrate to storage layer - direct db access violates architecture pattern (see CLAUDE.md)
-import { db } from '../db';
-import { agentSessions, scrapingJobs } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
+import { storage } from '../storage';
 import type { AgentSession, ScrapingJob, InsertScrapingJob } from '../../shared/schema';
 import type { TaskResult, TaskMetrics } from './types';
 import { logger } from '../utils/logger';
@@ -46,7 +43,7 @@ export abstract class BaseAgent extends EventEmitter {
         status: 'active' as const,
       };
 
-      const [session] = await db.insert(agentSessions).values(sessionData).returning();
+      const session = await storage.createAgentSession(sessionData);
       this.dbSessionId = session.id;
 
       this.emit('initialized', { sessionId: this.sessionId, dbSessionId: this.dbSessionId });
@@ -136,7 +133,7 @@ export abstract class BaseAgent extends EventEmitter {
           ...jobData,
         };
 
-        const [createdJob] = await db.insert(scrapingJobs).values(job).returning();
+        const createdJob = await storage.createScrapingJob(job);
         dbJobId = createdJob.id;
       } catch (error) {
         logger.error('Failed to create job record', {
@@ -219,7 +216,7 @@ export abstract class BaseAgent extends EventEmitter {
     if (!this.dbSessionId) return;
 
     try {
-      await db.update(agentSessions).set(updates).where(eq(agentSessions.id, this.dbSessionId));
+      await storage.updateAgentSession(this.dbSessionId, updates);
     } catch (error) {
       logger.error(`Failed to update session ${this.dbSessionId}`, {
         error: error instanceof Error ? error.message : String(error),
@@ -230,7 +227,7 @@ export abstract class BaseAgent extends EventEmitter {
 
   private async updateJob(jobId: number, updates: Partial<ScrapingJob>): Promise<void> {
     try {
-      await db.update(scrapingJobs).set(updates).where(eq(scrapingJobs.id, jobId));
+      await storage.updateScrapingJob(jobId, updates);
     } catch (error) {
       logger.error(`Failed to update job ${jobId}`, {
         error: error instanceof Error ? error.message : String(error),
