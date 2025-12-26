@@ -174,6 +174,9 @@ class AlertService {
    * Send alert to Slack webhook
    */
   private async sendSlackAlert(alert: Alert): Promise<void> {
+    // SECURITY: SLACK_WEBHOOK_URL is ops-controlled environment variable (NOT user input)
+    // No SSRF validation needed - environment variables are controlled by deployment team.
+    // For future user-configurable webhooks, use validateWebhookUrl() from url-validation.ts
     const webhookUrl = process.env.SLACK_WEBHOOK_URL;
 
     if (!webhookUrl) {
