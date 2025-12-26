@@ -97,7 +97,7 @@ export interface IStorage {
 
   // Products
   getProducts(): Promise<Product[]>;
-  createProduct(product: InsertProduct): Promise<Product>;
+  createProduct(product: InsertProduct, tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<Product>;
   updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | null>;
   deleteProduct(id: number): Promise<Product | null>;
   searchProducts(filters: SearchFilters): Promise<{
@@ -727,7 +727,7 @@ export interface IStorage {
    * @param id - Trending product ID
    * @param updates - Partial updates to apply
    */
-  updateTrendingProduct(id: number, updates: Partial<TrendingProduct>): Promise<void>;
+  updateTrendingProduct(id: number, updates: Partial<TrendingProduct>, tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<void>;
 
   /**
    * Get pending scraping jobs that are due to run
@@ -1200,7 +1200,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.products.values());
   }
 
-  async createProduct(product: InsertProduct): Promise<Product> {
+  async createProduct(
+    product: InsertProduct,
+    _tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
+  ): Promise<Product> {
     const id = this.currentProductId++;
     const newProduct: Product = {
       ...product,
@@ -2509,7 +2512,11 @@ export class MemStorage implements IStorage {
     // No-op for test doubles
   }
 
-  async updateTrendingProduct(_id: number, _updates: Partial<TrendingProduct>): Promise<void> {
+  async updateTrendingProduct(
+    _id: number,
+    _updates: Partial<TrendingProduct>,
+    _tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
+  ): Promise<void> {
     // No-op for test doubles
   }
 
@@ -2978,8 +2985,8 @@ export class DatabaseStorage implements IStorage {
     return this.productStorage.getProducts();
   }
 
-  async createProduct(product: InsertProduct): Promise<Product> {
-    return this.productStorage.createProduct(product);
+  async createProduct(product: InsertProduct, tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<Product> {
+    return this.productStorage.createProduct(product, tx);
   }
 
   async updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | null> {
@@ -5183,8 +5190,8 @@ export class DatabaseStorage implements IStorage {
     await this.agentStorage.updateScrapingJob(jobId, updates);
   }
 
-  async updateTrendingProduct(id: number, updates: Partial<TrendingProduct>): Promise<void> {
-    await this.agentStorage.updateTrendingProduct(id, updates);
+  async updateTrendingProduct(id: number, updates: Partial<TrendingProduct>, tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<void> {
+    await this.agentStorage.updateTrendingProduct(id, updates, tx);
   }
 
   async getPendingScrapingJobs(limit: number): Promise<ScrapingJob[]> {

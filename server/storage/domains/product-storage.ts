@@ -26,6 +26,7 @@ import {
 } from '@shared/schema';
 import { BaseStorage } from '../base-storage';
 import { storageCache } from '../../services/storage-cache';
+import { db } from '../../db';
 
 /**
  * ProductStorage - Domain repository for product operations
@@ -152,9 +153,15 @@ export class ProductStorage extends BaseStorage {
    * @param product - Product data to insert
    * @returns Created product with generated ID
    */
-  async createProduct(product: InsertProduct): Promise<Product> {
+  async createProduct(
+    product: InsertProduct,
+    tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
+  ): Promise<Product> {
     try {
-      const [result] = await this.db
+      // Use transaction if provided, otherwise use default db connection
+      const database = tx ?? this.db;
+
+      const [result] = await database
         .insert(products)
         .values({
           name: product.name,
@@ -171,6 +178,10 @@ export class ProductStorage extends BaseStorage {
 
       return result;
     } catch (error) {
+      // If in transaction, re-throw to trigger rollback
+      if (tx) {
+        throw error;
+      }
       this.handleError(error, 'createProduct');
     }
   }

@@ -18,6 +18,7 @@ import {
   searchQueries,
 } from '@shared/schema';
 import { BaseStorage } from '../base-storage';
+import { logger } from '../../utils/logger';
 import type {
   AgentSession,
   InsertAgentSession,
@@ -32,7 +33,7 @@ import type {
   PriceAlert,
   InsertProductOffer,
 } from '@shared/schema';
-import type { db } from '../../db';
+import { db } from '../../db';
 
 // Type alias for database connection (matches BaseStorage pattern)
 type Database = typeof db;
@@ -401,13 +402,36 @@ export class AgentStorage extends BaseStorage {
    */
   async updateTrendingProduct(
     productId: number,
-    updates: Partial<InsertTrendingProduct>
+    updates: Partial<InsertTrendingProduct>,
+    tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
   ): Promise<void> {
     try {
-      await this.db.update(trendingProducts).set(updates).where(eq(trendingProducts.id, productId));
+      // Use transaction if provided, otherwise use default db connection
+      const database = tx ?? this.db;
+
+      const result = await database
+        .update(trendingProducts)
+        .set(updates)
+        .where(eq(trendingProducts.id, productId))
+        .returning({ id: trendingProducts.id });
+
+      // If in transaction and no rows updated, throw error to trigger rollback
+      if (tx && result.length === 0) {
+        throw new Error(`Trending product with id ${productId} not found`);
+      } else if (!tx && result.length === 0) {
+        // Log warning for visibility in non-transaction context
+        logger.warn('updateTrendingProduct: no rows updated', {
+          productId,
+          updates: Object.keys(updates),
+        });
+      }
 
       this.logSuccess('updateTrendingProduct', { productId, updates });
     } catch (error) {
+      // If in transaction, re-throw to trigger rollback
+      if (tx) {
+        throw error;
+      }
       this.handleError(error, 'updateTrendingProduct');
     }
   }

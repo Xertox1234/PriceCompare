@@ -1,14 +1,12 @@
 import { BaseAgent, AgentConfig } from './base-agent';
 import { ProductDiscoveryAgent } from './discovery-agent';
 import { SearchOrchestrationAgent } from './search-agent';
-// TODO: Migrate to storage layer - direct db access violates architecture pattern (see CLAUDE.md)
-import { db } from '../db';
-import { scrapingJobs, trendingProducts, products, productOffers } from '../../shared/schema';
-import { eq, and, lt } from 'drizzle-orm';
+import { storage } from '../storage';
 import type { ScrapingJob, TrendingProduct, InsertProduct, Product } from '../../shared/schema';
 import type { SystemStatus, TrendData } from './types';
 import { logger } from '../utils/logger';
 import { jobLockService } from '../services/job-lock-service';
+import { db } from '../db';
 
 interface CoordinatorConfig {
   maxConcurrentJobs: number;
@@ -147,12 +145,8 @@ export class CoordinationAgent extends BaseAgent {
   }
 
   private async processTrendingProducts(): Promise<void> {
-    // Get unprocessed trending products
-    const trendingProductsList = await db
-      .select()
-      .from(trendingProducts)
-      .where(eq(trendingProducts.status, 'discovered'))
-      .limit(5);
+    // Get unprocessed trending products using storage layer
+    const trendingProductsList = await storage.getTrendingProducts('discovered', 5);
 
     // Process products in parallel with Promise.allSettled
     // This provides 5x performance improvement over sequential processing
@@ -175,10 +169,7 @@ export class CoordinationAgent extends BaseAgent {
   private async processIndividualProduct(product: TrendingProduct): Promise<void> {
     try {
       // Update status to processing
-      await db
-        .update(trendingProducts)
-        .set({ status: 'processing' })
-        .where(eq(trendingProducts.id, product.id));
+      await storage.updateTrendingProduct(product.id, { status: 'processing' });
 
       // Generate search queries and find product URLs
       const result = await this.searchAgent.processTask({
@@ -193,41 +184,43 @@ export class CoordinationAgent extends BaseAgent {
       const searchResults = (result as unknown[]) || [];
 
       if (searchResults.length > 0) {
-        // Create product record
-        const createdProduct = await this.createProductFromTrending(product);
+        // Atomic product creation + trending product link
+        // Note: Uses default READ COMMITTED isolation level for performance.
+        // For multi-instance deployments with high race condition risk, consider
+        // SERIALIZABLE: db.transaction(async (tx) => {...}, { isolationLevel: 'serializable' })
+        await db.transaction(async (tx) => {
+          // Create product record
+          const createdProduct = await this.createProductFromTrending(product, tx);
 
-        if (createdProduct) {
-          // Link trending product to created product
-          await db
-            .update(trendingProducts)
-            .set({
-              productId: createdProduct.id,
-              status: 'scraped' as const,
-            })
-            .where(eq(trendingProducts.id, product.id));
+          if (createdProduct) {
+            // Atomic link - if this fails, product creation rolls back
+            await storage.updateTrendingProduct(
+              product.id,
+              {
+                productId: createdProduct.id,
+                status: 'scraped',
+              },
+              tx
+            );
 
-          logger.info(`Successfully processed trending product: ${product.name}`);
-        }
+            logger.info(`Successfully processed trending product: ${product.name}`);
+          }
+        });
       } else {
-        await db
-          .update(trendingProducts)
-          .set({ status: 'failed' as const })
-          .where(eq(trendingProducts.id, product.id));
+        await storage.updateTrendingProduct(product.id, { status: 'failed' });
       }
     } catch (error) {
       logger.error(`Failed to process product ${product.name}`, {
         error: error instanceof Error ? error.message : String(error),
         productName: product.name,
       });
-      await db
-        .update(trendingProducts)
-        .set({ status: 'failed' as const })
-        .where(eq(trendingProducts.id, product.id));
+      await storage.updateTrendingProduct(product.id, { status: 'failed' });
     }
   }
 
   private async createProductFromTrending(
-    trendingProduct: TrendingProduct
+    trendingProduct: TrendingProduct,
+    tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
   ): Promise<Product | null> {
     try {
       const productData: InsertProduct = {
@@ -237,7 +230,7 @@ export class CoordinationAgent extends BaseAgent {
         brand: this.extractBrand(trendingProduct.name),
       };
 
-      const [createdProduct] = await db.insert(products).values(productData).returning();
+      const createdProduct = await storage.createProduct(productData, tx);
       return createdProduct;
     } catch (error) {
       logger.error('Failed to create product from trending', {
@@ -295,18 +288,18 @@ export class CoordinationAgent extends BaseAgent {
     }));
 
     if (jobsToCreate.length > 0) {
-      await db.insert(scrapingJobs).values(jobsToCreate);
+      // Create jobs individually through storage layer
+      for (const job of jobsToCreate) {
+        await storage.createScrapingJob(job);
+      }
       logger.info(`Queued ${jobsToCreate.length} search jobs`);
     }
   }
 
   private async updateExistingPrices(): Promise<void> {
-    // Get products that need price updates (older than 1 hour)
-    const staleProducts = await db
-      .select()
-      .from(productOffers)
-      .where(lt(productOffers.lastUpdated, new Date(Date.now() - 60 * 60 * 1000)))
-      .limit(10);
+    // Get products that need price updates (older than 1 hour) using storage layer
+    const cutoffTime = new Date(Date.now() - 60 * 60 * 1000);
+    const staleProducts = await storage.getPriceMonitoringOffers(cutoffTime, 10);
 
     for (const offer of staleProducts) {
       await this.queuePriceUpdateJob(offer.id);
@@ -324,7 +317,7 @@ export class CoordinationAgent extends BaseAgent {
       scheduledAt: new Date(),
     };
 
-    await db.insert(scrapingJobs).values(jobData);
+    await storage.createScrapingJob(jobData);
   }
 
   private async runFullCycle(_params: Record<string, unknown>): Promise<void> {
@@ -354,12 +347,9 @@ export class CoordinationAgent extends BaseAgent {
    */
   private async calculateSchedulingInterval(): Promise<number> {
     try {
-      const pendingJobsCount = await db
-        .select()
-        .from(scrapingJobs)
-        .where(eq(scrapingJobs.status, 'pending'));
-
-      const queueSize = pendingJobsCount.length;
+      // Get job status counts using storage layer
+      const statusCounts = await storage.getScrapingJobStatusCounts();
+      const queueSize = statusCounts.find((s) => s.status === 'pending')?.count || 0;
 
       // Aggressive: 5s when queue > 100
       if (queueSize > 100) {
@@ -407,11 +397,10 @@ export class CoordinationAgent extends BaseAgent {
 
   private async processQueuedJobs(): Promise<void> {
     try {
-      const pendingJobs = await db
-        .select()
-        .from(scrapingJobs)
-        .where(and(eq(scrapingJobs.status, 'pending'), lt(scrapingJobs.scheduledAt, new Date())))
-        .limit(this.coordinatorConfig.maxConcurrentJobs);
+      // Get pending jobs using storage layer
+      const pendingJobs = await storage.getPendingScrapingJobs(
+        this.coordinatorConfig.maxConcurrentJobs
+      );
 
       if (pendingJobs.length > 0) {
         logger.debug('Processing queued jobs', {
@@ -438,14 +427,11 @@ export class CoordinationAgent extends BaseAgent {
       const result = await jobLockService.withLock(
         lockKey,
         async () => {
-          // Update job status to running
-          await db
-            .update(scrapingJobs)
-            .set({
-              status: 'running' as const,
-              startedAt: new Date(),
-            })
-            .where(eq(scrapingJobs.id, job.id));
+          // Update job status to running using storage layer
+          await storage.updateScrapingJob(job.id, {
+            status: 'running' as const,
+            startedAt: new Date(),
+          });
 
           let taskResult: unknown;
           const targetData = JSON.parse(job.targetData) as Record<string, unknown>;
@@ -476,15 +462,12 @@ export class CoordinationAgent extends BaseAgent {
               throw new Error(`Unknown job type: ${job.jobType}`);
           }
 
-          // Mark job as completed
-          await db
-            .update(scrapingJobs)
-            .set({
-              status: 'completed' as const,
-              completedAt: new Date(),
-              resultData: JSON.stringify(taskResult),
-            })
-            .where(eq(scrapingJobs.id, job.id));
+          // Mark job as completed using storage layer
+          await storage.updateScrapingJob(job.id, {
+            status: 'completed' as const,
+            completedAt: new Date(),
+            resultData: JSON.stringify(taskResult),
+          });
 
           logger.info(`Job ${job.id} completed successfully`, {
             jobId: job.id,
@@ -510,39 +493,31 @@ export class CoordinationAgent extends BaseAgent {
         jobType: job.jobType,
       });
 
-      // Handle job failure - record in database
-      await db
-        .update(scrapingJobs)
-        .set({
-          status: 'failed' as const,
-          completedAt: new Date(),
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          retryCount: (job.retryCount || 0) + 1,
-        })
-        .where(eq(scrapingJobs.id, job.id));
+      // Handle job failure - record in database using storage layer
+      await storage.updateScrapingJob(job.id, {
+        status: 'failed' as const,
+        completedAt: new Date(),
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        retryCount: (job.retryCount || 0) + 1,
+      });
     }
   }
 
   async getSystemStatus(): Promise<SystemStatus> {
-    const [
-      totalJobs,
-      pendingJobs,
-      runningJobs,
-      completedJobs,
-      failedJobs,
-      discoveredProducts,
-      processedProducts,
-      totalProducts,
-    ] = await Promise.all([
-      db.select().from(scrapingJobs),
-      db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'pending')),
-      db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'running')),
-      db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'completed')),
-      db.select().from(scrapingJobs).where(eq(scrapingJobs.status, 'failed')),
-      db.select().from(trendingProducts).where(eq(trendingProducts.status, 'discovered')),
-      db.select().from(trendingProducts).where(eq(trendingProducts.status, 'scraped')),
-      db.select().from(trendingProducts),
+    const [jobStatusCounts, productStatusCounts] = await Promise.all([
+      storage.getScrapingJobStatusCounts(),
+      storage.getTrendingProductsStatusCounts(),
     ]);
+
+    // Convert status counts to lookup maps
+    const jobCounts = jobStatusCounts.reduce(
+      (acc, { status, count }) => ({ ...acc, [status]: count }),
+      {} as Record<string, number>
+    );
+    const productCounts = productStatusCounts.reduce(
+      (acc, { status, count }) => ({ ...acc, [status]: count }),
+      {} as Record<string, number>
+    );
 
     // Count active and idle agents
     const activeAgents = [
@@ -554,16 +529,16 @@ export class CoordinationAgent extends BaseAgent {
 
     return {
       jobs: {
-        total: totalJobs.length,
-        pending: pendingJobs.length,
-        running: runningJobs.length,
-        completed: completedJobs.length,
-        failed: failedJobs.length,
+        total: Object.values(jobCounts).reduce((sum, count) => sum + count, 0),
+        pending: jobCounts['pending'] || 0,
+        running: jobCounts['running'] || 0,
+        completed: jobCounts['completed'] || 0,
+        failed: jobCounts['failed'] || 0,
       },
       products: {
-        discovered: discoveredProducts.length,
-        processed: processedProducts.length,
-        total: totalProducts.length,
+        discovered: productCounts['discovered'] || 0,
+        processed: productCounts['scraped'] || 0,
+        total: Object.values(productCounts).reduce((sum, count) => sum + count, 0),
       },
       agents: {
         active: activeAgents,
