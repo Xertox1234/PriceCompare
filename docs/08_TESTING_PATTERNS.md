@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 2.4
-**Last Updated:** 2025-12-24
+**Version:** 2.5
+**Last Updated:** 2025-12-26
 **Changelog:**
+- 2.5 (2025-12-26): Added Transaction Atomicity Testing Patterns (5 comprehensive test patterns from TODO 004)
 - 2.4 (2025-12-24): Added MemStorage Stub Implementation pattern for storage layer testing
 - 2.3 (2025-12-23): Expanded Bulk Database Helpers with watchlist example, added Test Phase Separation pattern (Feature 4.3)
 - 2.2 (2025-12-23): Added Bulk Database Helpers for E2E Tests pattern (Feature 3.3)
@@ -34,6 +35,7 @@
    - [TRUNCATE CASCADE Pattern](#truncate-cascade-pattern)
    - [Strong vs Weak Assertions](#strong-vs-weak-assertions)
    - [Performance Benchmarks](#performance-benchmarks)
+   - [Transaction Atomicity Testing Patterns (NEW)](#transaction-atomicity-testing-patterns-new---2025-12-26)
 4. [Test Infrastructure](#test-infrastructure)
    - [Required Mocks for Route Tests](#required-mocks-for-route-tests)
    - [Redis Mock Pattern](#redis-mock-pattern)
@@ -394,6 +396,331 @@ describe('performance', () => {
 - Batch operations (10-50 records): <500ms
 - Large batch operations (50-200 records): <2000ms
 - Date range aggregations (7 days): <2000ms
+
+---
+
+### Transaction Atomicity Testing Patterns (NEW - 2025-12-26)
+
+**Context:** Multi-step database operations wrapped in transactions need comprehensive tests to verify atomicity guarantees.
+
+**Problem:** Without proper tests, you can't verify that transactions actually rollback on failure or commit only when all operations succeed.
+
+**Source:** TODO 004 - Transaction Boundaries Implementation
+
+#### Pattern 1: Atomic Success Test
+
+**Purpose:** Verify both operations commit together when transaction succeeds.
+
+```typescript
+import { describe, test, expect, beforeEach, afterAll } from 'vitest';
+import { db } from '../../db';
+import { products, trendingProducts } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import { storage } from '../../storage';
+
+describe('Transaction Atomicity Tests', () => {
+  beforeEach(async () => {
+    // Clean test data before each test
+    await db.delete(products).where(eq(products.category, 'TransactionTest'));
+    await db.delete(trendingProducts).where(eq(trendingProducts.category, 'TransactionTest'));
+  });
+
+  afterAll(async () => {
+    // Final cleanup
+    await db.delete(products).where(eq(products.category, 'TransactionTest'));
+    await db.delete(trendingProducts).where(eq(trendingProducts.category, 'TransactionTest'));
+  });
+
+  test('creates product and links to trending product atomically', async () => {
+    // Setup: Create trending product
+    const [trendProduct] = await db.insert(trendingProducts).values({
+      name: 'Atomic Test Product',
+      category: 'TransactionTest',
+      source: 'test',
+      trendScore: 85,
+      status: 'discovered',
+    }).returning();
+
+    const productData = {
+      name: 'Atomic Test Product',
+      category: 'TransactionTest',
+      description: 'Test product for atomic operation',
+    };
+
+    // Execute: Atomic operation
+    await db.transaction(async (tx) => {
+      const product = await storage.createProduct(productData, tx);
+      await storage.updateTrendingProduct(
+        trendProduct.id,
+        { productId: product.id, status: 'scraped' },
+        tx
+      );
+    });
+
+    // Verify: Both operations succeeded
+    const updatedTrending = await db
+      .select()
+      .from(trendingProducts)
+      .where(eq(trendingProducts.id, trendProduct.id));
+
+    expect(updatedTrending).toHaveLength(1);
+    expect(updatedTrending[0].status).toBe('scraped');
+    expect(updatedTrending[0].productId).toBeDefined();
+    expect(updatedTrending[0].productId).not.toBeNull();
+
+    // Verify product was created
+    const createdProduct = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, updatedTrending[0].productId!));
+
+    expect(createdProduct).toHaveLength(1);
+    expect(createdProduct[0].name).toBe('Atomic Test Product');
+  });
+});
+```
+
+**Key Assertions:**
+- ✅ Both operations completed (no partial state)
+- ✅ Foreign key relationship established (productId is set)
+- ✅ Status transitioned correctly (discovered → scraped)
+- ✅ Created record exists and is linked
+
+#### Pattern 2: Rollback on Failure Test
+
+**Purpose:** Verify earlier operations roll back when later operations fail.
+
+```typescript
+test('rolls back product creation if trending update fails', async () => {
+  const nonExistentTrendingId = 999999999; // ID that doesn't exist
+
+  const productData = {
+    name: 'Test Rollback Product',
+    category: 'TransactionTest',
+    description: 'This product should not be created',
+  };
+
+  // Execute: Transaction should fail and rollback
+  await expect(
+    db.transaction(async (tx) => {
+      const product = await storage.createProduct(productData, tx);
+
+      // This will fail (trending product doesn't exist)
+      await storage.updateTrendingProduct(
+        nonExistentTrendingId,
+        { productId: product.id, status: 'scraped' },
+        tx
+      );
+    })
+  ).rejects.toThrow(); // Expecting error
+
+  // Verify: Product was NOT created (rollback succeeded)
+  const allProducts = await db
+    .select()
+    .from(products)
+    .where(eq(products.name, 'Test Rollback Product'));
+
+  expect(allProducts).toHaveLength(0); // ✅ No orphaned product
+});
+```
+
+**Key Assertions:**
+- ✅ Transaction throws error (not silent failure)
+- ✅ Earlier operation rolled back (no orphaned records)
+- ✅ Database state unchanged (0 products created)
+
+#### Pattern 3: Constraint Violation Test
+
+**Purpose:** Verify transactions handle database constraints correctly.
+
+```typescript
+test('handles null product data gracefully in transaction', async () => {
+  // Setup: Create trending product
+  const [trendProduct] = await db.insert(trendingProducts).values({
+    name: 'Null Test Product',
+    category: 'TransactionTest',
+    source: 'test',
+    trendScore: 85,
+    status: 'discovered',
+  }).returning();
+
+  // Product data with null name (violates NOT NULL constraint)
+  const invalidProductData = {
+    name: null as unknown as string, // Force null to test constraint
+    category: 'TransactionTest',
+  };
+
+  // Execute: Should fail due to constraint
+  await expect(
+    db.transaction(async (tx) => {
+      const product = await storage.createProduct(invalidProductData, tx);
+      await storage.updateTrendingProduct(
+        trendProduct.id,
+        { productId: product.id, status: 'scraped' },
+        tx
+      );
+    })
+  ).rejects.toThrow(); // Database constraint error
+
+  // Verify: Trending product state unchanged
+  const unchanged = await db
+    .select()
+    .from(trendingProducts)
+    .where(eq(trendingProducts.id, trendProduct.id));
+
+  expect(unchanged).toHaveLength(1);
+  expect(unchanged[0].status).toBe('discovered'); // ✅ Status unchanged
+  expect(unchanged[0].productId).toBeNull(); // ✅ No partial link
+});
+```
+
+**Key Assertions:**
+- ✅ Constraint violations trigger rollback
+- ✅ Related records remain unchanged
+- ✅ No partial state persisted
+
+#### Pattern 4: Independent Transaction Test
+
+**Purpose:** Verify separate transactions don't interfere with each other.
+
+```typescript
+test('independent transactions do not interfere', async () => {
+  // Create two trending products
+  const [trend1] = await db.insert(trendingProducts).values({
+    name: 'Product 1',
+    category: 'TransactionTest',
+    source: 'test',
+    trendScore: 85,
+    status: 'discovered',
+  }).returning();
+
+  const [trend2] = await db.insert(trendingProducts).values({
+    name: 'Product 2',
+    category: 'TransactionTest',
+    source: 'test',
+    trendScore: 85,
+    status: 'discovered',
+  }).returning();
+
+  // Execute two separate transactions
+  await db.transaction(async (tx) => {
+    const product1 = await storage.createProduct(
+      { name: 'Product 1', category: 'TransactionTest' },
+      tx
+    );
+    await storage.updateTrendingProduct(
+      trend1,
+      { productId: product1.id, status: 'scraped' },
+      tx
+    );
+  });
+
+  await db.transaction(async (tx) => {
+    const product2 = await storage.createProduct(
+      { name: 'Product 2', category: 'TransactionTest' },
+      tx
+    );
+    await storage.updateTrendingProduct(
+      trend2,
+      { productId: product2.id, status: 'scraped' },
+      tx
+    );
+  });
+
+  // Verify both transactions succeeded independently
+  const result1 = await db
+    .select()
+    .from(trendingProducts)
+    .where(eq(trendingProducts.id, trend1));
+  const result2 = await db
+    .select()
+    .from(trendingProducts)
+    .where(eq(trendingProducts.id, trend2));
+
+  expect(result1[0].status).toBe('scraped');
+  expect(result1[0].productId).toBeDefined();
+  expect(result2[0].status).toBe('scraped');
+  expect(result2[0].productId).toBeDefined();
+  expect(result1[0].productId).not.toBe(result2[0].productId); // Different products
+});
+```
+
+**Key Assertions:**
+- ✅ Both transactions complete successfully
+- ✅ Each transaction creates distinct records
+- ✅ No cross-contamination between transactions
+
+#### Pattern 5: Multi-Update Atomicity Test
+
+**Purpose:** Verify transactions with multiple updates commit all-or-nothing.
+
+```typescript
+test('transaction with multiple updates commits all or none', async () => {
+  const [trend1] = await db.insert(trendingProducts).values({
+    name: 'Multi 1',
+    category: 'TransactionTest',
+    source: 'test',
+    trendScore: 85,
+    status: 'discovered',
+  }).returning();
+
+  const [trend2] = await db.insert(trendingProducts).values({
+    name: 'Multi 2',
+    category: 'TransactionTest',
+    source: 'test',
+    trendScore: 85,
+    status: 'discovered',
+  }).returning();
+
+  await db.transaction(async (tx) => {
+    const product = await storage.createProduct(
+      { name: 'Shared Product', category: 'TransactionTest' },
+      tx
+    );
+
+    // Update both trending products to reference same product
+    await storage.updateTrendingProduct(trend1, { productId: product.id, status: 'scraped' }, tx);
+    await storage.updateTrendingProduct(trend2, { productId: product.id, status: 'scraped' }, tx);
+  });
+
+  // Verify all updates committed
+  const results = await db
+    .select()
+    .from(trendingProducts)
+    .where(eq(trendingProducts.category, 'TransactionTest'));
+
+  const updated = results.filter((r) => r.status === 'scraped');
+  expect(updated).toHaveLength(2); // Both updated
+  expect(updated[0].productId).toBe(updated[1].productId); // Same product
+});
+```
+
+**Key Assertions:**
+- ✅ All updates in transaction committed
+- ✅ Foreign key relationships consistent
+- ✅ No partial updates
+
+#### Testing Checklist for Transactions
+
+When testing transaction boundaries, ensure you cover:
+
+1. ✅ **Atomic Success** - Both/all operations commit together
+2. ✅ **Rollback on Failure** - Earlier operations roll back when later ones fail
+3. ✅ **Constraint Violations** - Database constraints trigger rollback
+4. ✅ **Independent Transactions** - Separate transactions don't interfere
+5. ✅ **Multi-Update Atomicity** - Multiple updates commit all-or-nothing
+
+**Performance Expectations:**
+- Transaction tests should run fast (<100ms per test)
+- Use deterministic test data (no random values)
+- Clean state between tests (beforeEach cleanup)
+
+**Related Patterns:**
+- See `docs/02_DATABASE_PATTERNS.md` Section 4.4-4.7 for transaction implementation patterns
+- See Section "TRUNCATE CASCADE Pattern" above for efficient test cleanup
+
+*Source: TODO 004 - Transaction Boundaries Implementation*
+*Added: 2025-12-26*
 
 ---
 

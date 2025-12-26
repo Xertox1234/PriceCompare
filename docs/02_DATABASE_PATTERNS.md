@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.9
-**Last Updated:** 2025-12-24
+**Version:** 2.10
+**Last Updated:** 2025-12-26
 **Changelog:**
+- 2.10 (2025-12-26): Added 4 transaction boundary patterns from TODO 004 (transaction-aware error handling, row count validation, interface passthrough, inline vs abstraction trade-off)
 - 2.9 (2025-12-24): Added agent storage layer patterns (find-or-create with metadata, upsert, bulk operations, historical optimization)
 - 2.8 (2025-12-23): Expanded storage layer ID validation pattern with code examples from Feature 3.3
 - 2.7 (2025-12-23): Added verification commands and migration pattern to Foreign Key Cascade Rules section
@@ -1543,6 +1544,411 @@ try {
   // Email failure doesn't affect user creation
 }
 ```
+
+### 4.4 Transaction-Aware Error Handling Pattern (NEW - 2025-12-26)
+
+**Context:** Storage methods that can be called both inside and outside transactions need asymmetric error handling.
+
+**Problem:** If a storage method catches and logs errors when called inside a transaction, the transaction will silently commit despite failures, violating atomicity guarantees.
+
+**✅ Preferred Approach:**
+```typescript
+// Storage method that supports optional transaction context
+async createProduct(
+  productData: InsertProduct,
+  tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
+): Promise<Product> {
+  try {
+    // Use transaction if provided, otherwise use default db connection
+    const database = tx ?? this.db;
+
+    const [product] = await database
+      .insert(products)
+      .values(productData)
+      .returning();
+
+    return product;
+  } catch (error) {
+    // CRITICAL: Re-throw when in transaction to trigger rollback
+    if (tx) {
+      throw error;
+    }
+    // Normal error handling when NOT in transaction
+    this.handleError(error, 'createProduct');
+  }
+}
+```
+
+**❌ Anti-Pattern (Silent Transaction Success):**
+```typescript
+// WRONG - Catches error even when in transaction
+async createProduct(productData: InsertProduct, tx?: Transaction): Promise<Product> {
+  try {
+    const database = tx ?? this.db;
+    const [product] = await database.insert(products).values(productData).returning();
+    return product;
+  } catch (error) {
+    // BUG: Always logs and swallows error, even in transaction!
+    this.handleError(error, 'createProduct');
+    // Transaction commits despite error ❌
+  }
+}
+
+// Usage - transaction silently succeeds despite error
+await db.transaction(async (tx) => {
+  await storage.createProduct(invalidData, tx); // Error caught and logged
+  await storage.updateRelatedRecord(id, data, tx); // This still executes!
+  // Transaction commits ❌ - partial state persisted
+});
+```
+
+**Rationale:**
+- **Inside transaction**: Error MUST propagate to trigger rollback (data integrity)
+- **Outside transaction**: Error should be logged for observability (monitoring)
+- Asymmetric handling provides both correctness and observability
+- Single method supports both transaction and non-transaction contexts
+
+**Related Patterns:**
+- See Section 4.6 for row count validation in transactions
+- See `docs/08_TESTING_PATTERNS.md` for transaction testing patterns
+
+*Source: TODO 004 - Transaction Boundaries Implementation*
+*Added: 2025-12-26*
+
+### 4.5 Row Count Validation in Transactions (NEW - 2025-12-26)
+
+**Context:** UPDATE operations in PostgreSQL succeed silently even when matching 0 rows, which can cause orphaned state in multi-step transactions.
+
+**Problem:** If a transaction updates a record that doesn't exist, SQL returns success (0 rows affected). Without explicit validation, the transaction commits with orphaned state.
+
+**✅ Preferred Approach:**
+```typescript
+// Storage method with row count validation
+async updateTrendingProduct(
+  productId: number,
+  updates: Partial<TrendingProduct>,
+  tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
+): Promise<void> {
+  try {
+    const database = tx ?? this.db;
+
+    const result = await database
+      .update(trendingProducts)
+      .set(updates)
+      .where(eq(trendingProducts.id, productId))
+      .returning({ id: trendingProducts.id }); // Get affected rows
+
+    // CRITICAL: Validate row count when in transaction
+    if (tx && result.length === 0) {
+      throw new Error(`Trending product with id ${productId} not found`);
+    } else if (!tx && result.length === 0) {
+      // Log warning for visibility outside transactions
+      logger.warn('updateTrendingProduct: no rows updated', {
+        productId,
+        updates: Object.keys(updates),
+      });
+    }
+
+    this.logSuccess('updateTrendingProduct', { productId, updates });
+  } catch (error) {
+    if (tx) {
+      throw error; // Re-throw to trigger rollback
+    }
+    this.handleError(error, 'updateTrendingProduct');
+  }
+}
+
+// Usage - atomic operation with validation
+await db.transaction(async (tx) => {
+  const product = await storage.createProduct(productData, tx);
+
+  // If this fails (0 rows), entire transaction rolls back
+  await storage.updateTrendingProduct(
+    trendingProductId,
+    { productId: product.id, status: 'scraped' },
+    tx
+  );
+});
+```
+
+**❌ Anti-Pattern (Silent Success with Orphaned State):**
+```typescript
+// WRONG - No row count validation
+async updateTrendingProduct(productId: number, updates: Partial<TrendingProduct>, tx?: Transaction): Promise<void> {
+  const database = tx ?? this.db;
+
+  // This succeeds even if productId doesn't exist (0 rows updated)
+  await database
+    .update(trendingProducts)
+    .set(updates)
+    .where(eq(trendingProducts.id, productId));
+
+  // No validation - silent success ❌
+}
+
+// Usage - creates orphaned product
+await db.transaction(async (tx) => {
+  const product = await storage.createProduct(productData, tx);
+
+  // This "succeeds" but updates 0 rows (wrong ID)
+  await storage.updateTrendingProduct(999999, { productId: product.id }, tx);
+
+  // Transaction commits ❌
+  // Result: product exists but not linked to trending record
+});
+```
+
+**Rationale:**
+- SQL UPDATE with 0 matches is not an error in PostgreSQL (by design)
+- Multi-step transactions require explicit validation to prevent orphaned state
+- Warning logs outside transactions provide observability without breaking idempotency
+- Use `.returning()` to get affected rows (zero-cost in PostgreSQL)
+
+**When to Use:**
+- ✅ UPDATE operations inside transactions with foreign key dependencies
+- ✅ Multi-step operations where later steps depend on earlier ones
+- ❌ Idempotent UPSERT operations (silent success is acceptable)
+- ❌ Single-step operations outside transactions
+
+**Related Patterns:**
+- See Section 4.4 for transaction-aware error handling
+- See Section 4.7 for inline vs abstraction trade-offs
+
+*Source: TODO 004 - Transaction Boundaries Implementation*
+*Added: 2025-12-26*
+
+### 4.6 Interface Layer Transaction Passthrough Pattern (NEW - 2025-12-26)
+
+**Context:** When storage methods support optional transaction contexts, ALL interface layers must pass through the `tx` parameter, or transactions will silently break.
+
+**Problem:** PriceCompare uses a facade pattern (`Storage` class → domain storage classes). If any layer fails to pass through the `tx` parameter, transactions won't work despite correct implementation in the domain layer.
+
+**✅ Preferred Approach (3-Layer Passthrough):**
+```typescript
+// Layer 1: Domain storage method signature
+// File: server/storage/domains/product-storage.ts
+export class ProductStorage extends BaseStorage {
+  async createProduct(
+    product: InsertProduct,
+    tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]  // Transaction type
+  ): Promise<Product> {
+    const database = tx ?? this.db;
+    const [result] = await database.insert(products).values(product).returning();
+    return result;
+  }
+}
+
+// Layer 2: Interface definition
+// File: server/storage.ts
+export interface IStorage {
+  createProduct(
+    product: InsertProduct,
+    tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]  // MUST match domain signature
+  ): Promise<Product>;
+}
+
+// Layer 3: Wrapper implementation (facade)
+// File: server/storage.ts
+export class Storage implements IStorage {
+  private productStorage: ProductStorage;
+
+  async createProduct(
+    product: InsertProduct,
+    tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]  // MUST match interface
+  ): Promise<Product> {
+    return this.productStorage.createProduct(product, tx);  // MUST pass through tx
+  }
+}
+
+// Usage - transaction works correctly
+await db.transaction(async (tx) => {
+  const product = await storage.createProduct(productData, tx); // ✅ tx reaches domain layer
+});
+```
+
+**❌ Anti-Pattern (Missing Layer Update):**
+```typescript
+// Layer 1: Domain storage - CORRECT
+async createProduct(product: InsertProduct, tx?: Transaction): Promise<Product> { ... }
+
+// Layer 2: Interface definition - MISSING TX PARAMETER ❌
+export interface IStorage {
+  createProduct(product: InsertProduct): Promise<Product>;  // No tx parameter!
+}
+
+// Layer 3: Wrapper - MISSING TX PARAMETER ❌
+export class Storage implements IStorage {
+  async createProduct(product: InsertProduct): Promise<Product> {  // No tx parameter!
+    return this.productStorage.createProduct(product);  // tx NOT passed through ❌
+  }
+}
+
+// Usage - transaction silently ignored
+await db.transaction(async (tx) => {
+  const product = await storage.createProduct(productData, tx);
+  // tx parameter exists but never reaches domain layer ❌
+  // Operation executes outside transaction ❌
+});
+```
+
+**Rationale:**
+- Facade pattern requires parameter passthrough at ALL layers
+- TypeScript won't catch missing parameters if interface is incomplete
+- Silent failure: transaction wrapper exists but doesn't execute atomically
+- Must update 3 locations for every transaction-enabled method
+
+**Checklist for Transaction Support:**
+1. ✅ Domain storage method has `tx?` parameter
+2. ✅ `IStorage` interface includes `tx?` parameter
+3. ✅ `Storage` class wrapper passes through `tx?` parameter
+4. ✅ Test double (`MemStorage`) has matching signature for test compatibility
+
+**Related Patterns:**
+- See Section 1 for Storage Layer Architecture overview
+- See Section 4.4 for transaction-aware error handling
+- See `docs/08_TESTING_PATTERNS.md` for MemStorage stub patterns
+
+*Source: TODO 004 - Transaction Boundaries Implementation*
+*Added: 2025-12-26*
+
+### 4.7 Inline Transaction vs Storage Abstraction Trade-off (NEW - 2025-12-26)
+
+**Context:** When adding transaction boundaries, you must decide whether to wrap the transaction inline at the call site or create a storage method abstraction.
+
+**Problem:** Over-abstracting creates unnecessary indirection, hides transaction boundaries, and increases test surface area. Under-abstracting creates code duplication when multiple callers need the same transaction logic.
+
+**✅ Preferred Approach (Inline for Single Caller):**
+```typescript
+// Call site: coordinator-agent.ts
+// Operation used in EXACTLY ONE PLACE - use inline transaction
+await db.transaction(async (tx) => {
+  // Step 1: Create product record
+  const createdProduct = await storage.createProduct(productData, tx);
+
+  if (createdProduct) {
+    // Step 2: Atomic link - if this fails, product creation rolls back
+    await storage.updateTrendingProduct(
+      trendingProduct.id,
+      {
+        productId: createdProduct.id,
+        status: 'scraped',
+      },
+      tx
+    );
+
+    logger.info(`Successfully processed trending product`);
+  }
+});
+
+// BENEFITS:
+// ✅ Transaction boundary visible to maintainers
+// ✅ No hidden side effects (clear what's in the transaction)
+// ✅ 75% fewer LOC than storage method approach
+// ✅ No unnecessary test surface area
+```
+
+**✅ Preferred Approach (Storage Method for Multiple Callers):**
+```typescript
+// Storage layer: agent-storage.ts
+// Operation used in 2+ places - extract to storage method
+export class AgentStorage extends BaseStorage {
+  async createProductFromTrendingProduct(
+    trendingProduct: TrendingProduct,
+    offerData: InsertProductOffer[]
+  ): Promise<Product> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        // Step 1: Create the product
+        const [product] = await tx.insert(products).values({
+          name: trendingProduct.name,
+          category: trendingProduct.category,
+        }).returning();
+
+        // Step 2: Create product offers
+        if (offerData.length > 0) {
+          await tx.insert(productOffers).values(
+            offerData.map((offer) => ({ ...offer, productId: product.id }))
+          );
+        }
+
+        // Step 3: Update trending product status
+        await tx.update(trendingProducts)
+          .set({ status: 'processed', productId: product.id })
+          .where(eq(trendingProducts.id, trendingProduct.id));
+
+        return product;
+      });
+    } catch (error) {
+      this.handleError(error, 'createProductFromTrendingProduct');
+    }
+  }
+}
+
+// BENEFITS:
+// ✅ Reusable across multiple callers
+// ✅ Encapsulates complex business logic
+// ✅ Single source of truth for this workflow
+// ✅ Easier to test in isolation
+```
+
+**❌ Anti-Pattern (Premature Abstraction):**
+```typescript
+// WRONG - Creating storage method for single caller
+// File: agent-storage.ts
+async createProductAndLinkToTrending(
+  productData: InsertProduct,
+  trendingProductId: number
+): Promise<Product> {
+  return await this.db.transaction(async (tx) => {
+    const product = await this.createProduct(productData, tx);
+    await this.updateTrendingProduct(trendingProductId, { productId: product.id }, tx);
+    return product;
+  });
+}
+
+// File: coordinator-agent.ts (ONLY caller)
+const product = await storage.createProductAndLinkToTrending(productData, trendingProduct.id);
+
+// PROBLEMS:
+// ❌ Transaction boundary hidden from maintainers
+// ❌ Method name doesn't fully reveal side effects (updates trending_products)
+// ❌ Adds indirection without value (only 1 caller)
+// ❌ Increases test surface area unnecessarily
+// ❌ 75% more LOC than inline approach
+```
+
+**Decision Tree:**
+
+```
+Is the transaction logic used in 2+ places?
+├── YES → Extract to storage method
+│   ├── Complex business logic? → Storage method
+│   └── Simple 2-3 operations? → Consider inline (wait for 2nd caller)
+│
+└── NO (single caller) → Inline transaction at call site
+    ├── Transaction boundary visible
+    ├── No hidden side effects
+    └── Extract when 2nd caller appears (YAGNI)
+```
+
+**Rationale:**
+- **Inline transactions**: Prioritize clarity and simplicity for single-use operations
+- **Storage methods**: Prioritize reusability and encapsulation for multi-caller operations
+- YAGNI principle: Don't create abstractions until you need them (2+ callers)
+- Performance: Both approaches have identical performance characteristics
+
+**When to Refactor:**
+- ✅ 2nd caller appears → Extract inline transaction to storage method
+- ✅ Complex business logic (5+ operations) → Extract even for single caller
+- ❌ "Might be reused someday" → Keep inline until actually needed
+
+**Related Patterns:**
+- See Section 4.4 for transaction-aware error handling in storage methods
+- See Section 4.5 for row count validation patterns
+- See `docs/03_API_PATTERNS.md` for service layer patterns
+
+*Source: TODO 004 - Transaction Boundaries Implementation, Plan Review by DHH/Kieran/Simplicity Reviewers*
+*Added: 2025-12-26*
 
 ---
 
