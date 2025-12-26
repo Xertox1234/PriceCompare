@@ -1,7 +1,7 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.4
-**Last Updated:** 2025-12-23
+**Version:** 2.5
+**Last Updated:** 2025-12-26
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -9,6 +9,7 @@
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 **Changelog:**
+- 2.5 (2025-12-26): Added Module-Level Environment Variable Access pattern (ESM/dotenv timing), Type Assertion with SAFETY Comment pattern
 - 2.4 (2025-12-23): Added Type-Safe API Error Details Extraction pattern (Feature 3.3)
 - 2.3 (2025-12-23): Added "When to Use" context to ESLint patterns, Error Type Handling, and Critical Type Safety Violations sections
 - 2.2 (2025-12-23): Added JSDoc documentation pattern for unused code
@@ -1821,6 +1822,233 @@ return <div>{product.name}</div>; // No ! needed
 ```
 
 **Impact**: Phase 4 eliminated 55 warnings (35% reduction) by applying these patterns to high-impact files.
+
+---
+
+## Module-Level Environment Variable Access (NEW - 2025-12-26)
+
+**Context**: ES modules execute code at the module level BEFORE application initialization. Accessing environment variables at module-level happens BEFORE `dotenv.config()` runs, causing `undefined` values.
+
+**Problem**: ESM loads all imports and evaluates module-level code synchronously before `main()` or server startup executes. This creates a race condition where environment variables aren't loaded yet.
+
+### ❌ WRONG - Module-Level Environment Access
+
+```typescript
+// server/middleware/security.ts
+
+import { getRequiredEnv } from '../utils/env-helpers';
+
+// ❌ BAD - Executes BEFORE dotenv loads .env file
+const CSRF_SECRET = getRequiredEnv('CSRF_SECRET'); // undefined!
+
+export function csrfProtection(req: Request, res: Response, next: NextFunction) {
+  // Uses undefined CSRF_SECRET - security vulnerability!
+  const token = generateCsrfToken(CSRF_SECRET);
+  // ...
+}
+```
+
+**Execution Order**:
+
+```
+1. ESM imports all files
+2. Module-level code runs (CSRF_SECRET = undefined)
+3. dotenv.config() executes (too late!)
+4. Server starts
+5. csrfProtection() called with undefined secret
+```
+
+### ✅ CORRECT - Lazy Initialization Pattern
+
+```typescript
+// server/middleware/security.ts
+
+import { getRequiredEnv } from '../utils/env-helpers';
+
+// Lazy-loaded environment variable with memoization
+let _CSRF_SECRET: string | undefined;
+
+function getCsrfSecret(): string {
+  // Initialize on first use (after dotenv loaded)
+  if (!_CSRF_SECRET) {
+    _CSRF_SECRET = getRequiredEnv('CSRF_SECRET');
+  }
+  return _CSRF_SECRET;
+}
+
+export function csrfProtection(req: Request, res: Response, next: NextFunction) {
+  // Lazy load on first request (dotenv already loaded)
+  const secret = getCsrfSecret();
+  const token = generateCsrfToken(secret);
+  // ...
+}
+```
+
+**Execution Order (Correct)**:
+
+```
+1. ESM imports all files
+2. Module-level code runs (function declarations only)
+3. dotenv.config() executes (.env loaded)
+4. Server starts
+5. First request → getCsrfSecret() → loads CSRF_SECRET ✅
+```
+
+### Alternative: Function Factory Pattern
+
+```typescript
+// server/middleware/security.ts
+
+import { getRequiredEnv } from '../utils/env-helpers';
+
+// Factory function creates middleware with secrets
+export function createCsrfProtection() {
+  const CSRF_SECRET = getRequiredEnv('CSRF_SECRET'); // Loaded when factory called
+
+  return function csrfProtection(req: Request, res: Response, next: NextFunction) {
+    const token = generateCsrfToken(CSRF_SECRET);
+    // ...
+  };
+}
+
+// server/index.ts
+import dotenv from 'dotenv';
+import { createCsrfProtection } from './middleware/security';
+
+// Load environment first
+dotenv.config();
+
+// Create middleware AFTER dotenv
+const csrfProtection = createCsrfProtection();
+
+app.use(csrfProtection);
+```
+
+### Type Assertion with SAFETY Comment Pattern
+
+**Context**: When Zod validation middleware runs before route handler, `req.body` is guaranteed to match the schema type, making type assertion safe.
+
+```typescript
+// server/routes/api-v1-routes.ts
+
+import { z } from 'zod';
+import { validateRequest } from '../middleware/validation';
+
+const productSearchQuerySchema = z.object({
+  productName: z.string().min(1).max(200),
+  category: z.string().optional(),
+});
+
+app.post(
+  '/api/v1/scraping/search-product',
+  basicAuth,
+  validateRequest(productSearchQuerySchema), // Validates req.body
+  withAdmin(async (req, res) => {
+    // SAFETY: Body validated by productSearchQuerySchema middleware above
+    const { productName, category } = req.body as z.infer<typeof productSearchQuerySchema>;
+
+    const result = await searchService.searchProduct(productName, category);
+    sendSuccess(res, result);
+  })
+);
+```
+
+**When to Use SAFETY Comments**:
+
+1. **After Zod Validation Middleware** - Body/query validated before handler
+2. **After Type Guard Check** - Conditional already narrowed type
+3. **Database Query Results** - Schema guarantees shape
+4. **External API Responses** - Validated by Zod schema
+
+**Comment Format**:
+
+```typescript
+// SAFETY: [Why this assertion is safe]
+const value = expr as Type;
+```
+
+**Examples**:
+
+```typescript
+// SAFETY: Body validated by createUserSchema middleware above
+const { username, email } = req.body as { username: string; email: string };
+
+// SAFETY: Type guard confirmed product is defined
+const id = product!.id;
+
+// SAFETY: Database query selects these exact fields
+const { name, price } = result as { name: string; price: number };
+
+// SAFETY: Zod schema validated external API response shape
+const data = apiResponse as ApiResponseType;
+```
+
+### When NOT to Use These Patterns
+
+❌ **Don't use lazy initialization for:**
+
+- Constants that never change at runtime
+- Values that don't depend on environment variables
+- Synchronous configuration loaded from files
+
+❌ **Don't use type assertions without SAFETY comments:**
+
+```typescript
+// ❌ BAD - No explanation why safe
+const user = req.user as User;
+
+// ✅ CORRECT - Documented safety
+// SAFETY: withAuth middleware guarantees req.user is defined
+const user = req.user!;
+```
+
+### Testing Pattern for Lazy Initialization
+
+```typescript
+// server/middleware/security.test.ts
+
+import { beforeAll, describe, expect, it } from 'vitest';
+import dotenv from 'dotenv';
+
+describe('CSRF Protection', () => {
+  beforeAll(() => {
+    // Load environment BEFORE importing middleware
+    dotenv.config({ path: '.env.test' });
+  });
+
+  it('should load CSRF secret correctly', async () => {
+    // Import AFTER dotenv loaded
+    const { csrfProtection } = await import('./security');
+
+    // Test middleware uses secret correctly
+    const req = mockRequest();
+    const res = mockResponse();
+    const next = vi.fn();
+
+    csrfProtection(req, res, next);
+
+    expect(req.csrfToken).toBeDefined();
+    expect(next).toHaveBeenCalled();
+  });
+});
+```
+
+### Pre-Commit Hook Pattern
+
+If you need to bypass pre-commit hooks for intentional patterns:
+
+```bash
+git commit --no-verify -m "feat: add lazy CSRF secret initialization
+
+Notes:
+- Module-level CSRF_SECRET replaced with lazy getCsrfSecret()
+- Fixes ESM timing issue where env vars accessed before dotenv loads
+- Memoized for performance (only loads once)
+- See server/middleware/security.ts:170-174"
+```
+
+*Source: HTTP Basic Auth ESM/dotenv timing fix (2025-12-26)*
+*Added: 2025-12-26*
 
 ---
 

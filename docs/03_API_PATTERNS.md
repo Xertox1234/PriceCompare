@@ -1,10 +1,11 @@
 # API & Route Patterns
 
-**Version:** 2.1
-**Last Updated:** 2025-12-23
+**Version:** 2.2
+**Last Updated:** 2025-12-26
 **Migrated From:** 6 source documents (see References)
 **Status:** Active - Mandatory for all API/route code
 **Changelog:**
+- 2.2 (2025-12-26): Added Agent-Native Authentication Design pattern (HTTP Basic Auth)
 - 2.1 (2025-12-23): Added business rule validation pattern (Feature 3.3 - alert limits)
 
 ---
@@ -2778,6 +2779,283 @@ app.use('/api/scrape',
 ---
 
 ## Security & Authentication
+
+### Agent-Native Authentication Design (NEW - 2025-12-26)
+
+**Context**: Choosing authentication mechanisms for AI agents and automation requires balancing simplicity, security, and implementation cost.
+
+**Decision**: HTTP Basic Authentication over API keys for agent-native endpoints.
+
+#### Design Rationale
+
+**Why HTTP Basic Auth?**
+
+1. **Simplicity** - 2 hours implementation vs 8+ hours for API keys
+2. **Zero Database Changes** - No `api_keys` table, no migrations
+3. **Standard Compliance** - RFC 7617, works with all HTTP clients
+4. **Equally Secure** - Over HTTPS, same security as API keys
+5. **Stateless** - No session cookies, perfect for automation
+6. **Universal Support** - curl, SDKs, automation tools all support it
+
+**Trade-offs Accepted:**
+
+| Feature | HTTP Basic Auth | API Keys |
+|---------|----------------|----------|
+| Implementation Time | 2 hours | 8+ hours |
+| Database Changes | None | New table + migrations |
+| Per-User Keys | No | Yes |
+| Key Rotation | Manual | Programmatic |
+| Usage Analytics | IP-based only | Per-key metrics |
+| Rate Limiting | Per-user | Per-key |
+
+#### When to Upgrade to API Keys
+
+**Upgrade triggers** (any ONE triggers upgrade):
+
+1. **Scale**: 100+ users requesting individual keys
+2. **Compliance**: Audit requirements mandate key rotation logs
+3. **Analytics**: Per-key usage metrics needed for billing
+4. **Rate Limiting**: Different limits per key (not per user)
+
+**Current Status** (as of 2025-12-26):
+
+- Users: 1-10 (admins only)
+- Use Case: Internal automation, AI agents
+- Decision: HTTP Basic Auth sufficient
+
+#### Implementation Pattern
+
+```typescript
+// server/middleware/basic-auth.ts
+
+import bcrypt from 'bcryptjs';
+import { storage } from '../storage';
+import { sendError } from '../utils/api-response';
+import { logger } from '../utils/logger';
+
+export async function basicAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const authHeader = req.headers.authorization;
+
+  // Fall through to session auth if no Authorization header
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return next();
+  }
+
+  try {
+    // Decode Base64 credentials
+    const base64Credentials = authHeader.slice(6);
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+    const [username, password] = credentials.split(':');
+
+    // Validate input (DoS prevention)
+    if (!username || !password || username.length > 100 || password.length > 200) {
+      logger.warn('Basic auth failed: Invalid credentials format');
+      res.setHeader('WWW-Authenticate', 'Basic realm="PriceCompare API"');
+      sendError(res, 'Invalid credentials', 401);
+      return;
+    }
+
+    // Retrieve user with passwordHash
+    const user = await storage.getUserByUsername(username);
+
+    if (!user) {
+      logger.warn('Basic auth failed: User not found', { username });
+      res.setHeader('WWW-Authenticate', 'Basic realm="PriceCompare API"');
+      sendError(res, 'Invalid credentials', 401);
+      return;
+    }
+
+    // Check account status
+    if (user.isSuspended) {
+      logger.warn('Basic auth failed: Account suspended', { username });
+      sendError(res, 'Account suspended', 403);
+      return;
+    }
+
+    if (!user.isActive) {
+      logger.warn('Basic auth failed: Account inactive', { username });
+      sendError(res, 'Account inactive', 403);
+      return;
+    }
+
+    // Verify password
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isValid) {
+      logger.warn('Basic auth failed: Invalid password', { username });
+      res.setHeader('WWW-Authenticate', 'Basic realm="PriceCompare API"');
+      sendError(res, 'Invalid credentials', 401);
+      return;
+    }
+
+    // Attach user to request (same as session auth)
+    req.user = user;
+
+    logger.info('Basic auth successful', {
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+    });
+
+    next();
+  } catch (error) {
+    logger.error('Basic auth error:', error);
+    res.setHeader('WWW-Authenticate', 'Basic realm="PriceCompare API"');
+    sendError(res, 'Authentication failed', 500);
+  }
+}
+```
+
+#### Route Registration Pattern
+
+```typescript
+// server/routes/api-v1-routes.ts
+
+import { basicAuth } from '../middleware/basic-auth';
+import { withAuth, withAdmin } from './helpers';
+
+export function registerApiV1Routes(app: Express) {
+  /**
+   * Agent-Native Endpoints
+   * Authentication: HTTP Basic Auth (stateless)
+   * CSRF: Exempt (no session cookies)
+   */
+
+  app.post(
+    '/api/v1/scraping/discover-trends',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,        // 1. Authenticate via Authorization header
+    withAdmin(async (req, res) => {  // 2. Verify admin role
+      // 3. Execute business logic
+      const result = await coordinationAgent.processTask({
+        action: 'discover_trends',
+        sources: req.body.sources,
+      });
+      sendSuccess(res, { message: 'Completed', result });
+    })
+  );
+
+  // Additional agent endpoints...
+}
+```
+
+#### Client Usage Examples
+
+**curl**:
+
+```bash
+# Simple authentication
+curl -u "admin:password" https://api.pricecompare.com/api/v1/scraping/discover-trends
+
+# With request body
+curl -u "admin:password" \
+  -H "Content-Type: application/json" \
+  -d '{"sources": ["amazon", "ebay"]}' \
+  https://api.pricecompare.com/api/v1/scraping/discover-trends
+```
+
+**Python**:
+
+```python
+import requests
+
+# Using auth parameter (recommended)
+response = requests.post(
+    'https://api.pricecompare.com/api/v1/scraping/discover-trends',
+    auth=('admin', 'password'),
+    json={'sources': ['amazon', 'ebay']}
+)
+
+# Or manual header
+import base64
+credentials = base64.b64encode(b'admin:password').decode('utf-8')
+headers = {'Authorization': f'Basic {credentials}'}
+response = requests.post(url, headers=headers, json=data)
+```
+
+**Node.js**:
+
+```javascript
+// Using axios
+const axios = require('axios');
+
+const response = await axios.post(
+  'https://api.pricecompare.com/api/v1/scraping/discover-trends',
+  { sources: ['amazon', 'ebay'] },
+  {
+    auth: {
+      username: 'admin',
+      password: 'password'
+    }
+  }
+);
+
+// Using fetch with manual header
+const credentials = Buffer.from('admin:password').toString('base64');
+const response = await fetch(url, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Basic ${credentials}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(data)
+});
+```
+
+#### Security Checklist
+
+- [ ] **HTTPS Enforced** - Credentials sent in base64 (not encrypted)
+- [ ] **Rate Limiting** - Prevent brute force (5 req/min per IP)
+- [ ] **Account Lockout** - Lock after N failed attempts
+- [ ] **Account Status** - Validate `isActive` and `isSuspended`
+- [ ] **Input Validation** - Max username/password length (DoS)
+- [ ] **WWW-Authenticate Header** - Return on 401 for client retry
+- [ ] **Audit Logging** - Log all auth attempts (success + failure)
+- [ ] **Fallback to Session** - Support both auth methods
+
+#### Migration Path to API Keys
+
+**When to migrate**:
+
+```
+IF (users > 100 OR compliance_required OR per_key_metrics_needed)
+  THEN implement API keys system
+  ELSE keep HTTP Basic Auth
+```
+
+**Implementation checklist for future API keys**:
+
+1. Create `api_keys` table with schema:
+   ```sql
+   CREATE TABLE api_keys (
+     id SERIAL PRIMARY KEY,
+     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+     key_hash TEXT NOT NULL,
+     name TEXT NOT NULL,
+     last_used_at TIMESTAMP,
+     created_at TIMESTAMP DEFAULT NOW(),
+     expires_at TIMESTAMP,
+     is_active BOOLEAN DEFAULT true
+   );
+   ```
+
+2. Generate secure API keys with `crypto.randomBytes(32)`
+3. Store bcrypt-hashed keys (same as passwords)
+4. Add API key validation middleware
+5. Add key rotation endpoint
+6. Add usage analytics tracking
+7. Update documentation
+
+**Estimated effort**: 8 hours + testing
+
+*Source: HTTP Basic Auth implementation (2025-12-26), docs/HTTP_BASIC_AUTH_FINAL_SUMMARY.md*
+*Added: 2025-12-26*
+
+---
 
 ### Protected Route Pattern
 

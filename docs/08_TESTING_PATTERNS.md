@@ -1714,6 +1714,140 @@ git commit -m "feat: implement feature X with codified patterns"
 
 ---
 
+## Test-Only Secrets Pattern (NEW - 2025-12-26)
+
+**Context**: Test files need hardcoded secrets for session/middleware configuration. These are acceptable when properly documented and scoped to test environment only.
+
+**Problem**: Pre-commit hooks and security scanners may flag hardcoded secrets in test files. However, test-only secrets pose minimal security risk if never used in production.
+
+### ✅ CORRECT - Documented Test-Only Secrets
+
+```typescript
+// server/test/basic-auth.test.ts
+
+import session from 'express-session';
+import express, { type Express } from 'express';
+
+function createTestApp(): Express {
+  const app = express();
+
+  app.use(express.json());
+  app.use(
+    session({
+      secret: 'test-session-secret', // Test-only secret, not used in production
+      resave: false,
+      saveUninitialized: false,
+    })
+  );
+
+  // ... rest of test setup
+  return app;
+}
+```
+
+**Key Requirements:**
+
+1. **Inline Comment** - Explain this is test-only
+2. **Obvious Test Naming** - Use `test-session-secret`, not production-like values
+3. **Test File Only** - Never import test secrets into production code
+4. **Environment Check** - Test code only runs when `NODE_ENV === 'test'`
+
+### ❌ WRONG - Ambiguous or Reusable Secrets
+
+```typescript
+// ❌ BAD - Looks like a real secret
+session({
+  secret: 'MyApp-SessionSecret-2025', // Could be mistaken for production
+});
+
+// ❌ BAD - No documentation
+session({
+  secret: 'abc123',
+});
+
+// ❌ BAD - Shared with production
+import { TEST_SESSION_SECRET } from '../config/secrets'; // Risky import path
+```
+
+### Documentation Checklist for Test Secrets
+
+- [ ] **Inline comment** - Explains "Test-only secret, not used in production"
+- [ ] **Obvious naming** - Starts with `test-` or contains `test` keyword
+- [ ] **Scoped to test files** - Never in `src/`, `server/`, or `shared/` directories
+- [ ] **Not in environment files** - Don't add to `.env` or `.env.example`
+- [ ] **Not in configuration modules** - Hardcoded in test file, not imported
+
+### When Test Secrets are Acceptable
+
+✅ **Use test-only secrets for:**
+
+- Session middleware in test app setup
+- CSRF token generation in tests
+- JWT signing for auth tests
+- Encryption keys for test data
+- API keys for mocked services
+
+❌ **NEVER use test secrets for:**
+
+- Production code paths
+- Shared configuration modules
+- Environment variable fallbacks
+- Default values in production code
+
+### Pre-Commit Hook Bypass Pattern
+
+If pre-commit hook flags test secrets, document in commit message:
+
+```bash
+git commit -m "test: add HTTP Basic Auth integration tests
+
+Test-only secrets:
+- 'test-session-secret' in basic-auth.test.ts (line 26)
+- Only used in createTestApp() for Express session middleware
+- Never imported into production code
+- Scoped to test environment (NODE_ENV=test)"
+```
+
+### Alternative Pattern: Environment Variable
+
+For teams with strict secret policies, use test environment variables:
+
+```typescript
+// .env.test
+SESSION_SECRET=test-session-secret-from-env
+
+// server/test/basic-auth.test.ts
+import dotenv from 'dotenv';
+
+// Load test environment
+dotenv.config({ path: '.env.test' });
+
+function createTestApp(): Express {
+  const app = express();
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || 'fallback-test-secret',
+      resave: false,
+      saveUninitialized: false,
+    })
+  );
+
+  return app;
+}
+```
+
+**Trade-offs:**
+
+- **Pros**: No hardcoded secrets in code
+- **Cons**: Adds setup complexity, `.env.test` file needed
+- **Recommendation**: Use inline secrets for simplicity unless compliance requires otherwise
+
+*Source: HTTP Basic Auth integration tests (2025-12-26)*
+*Added: 2025-12-26*
+
+---
+
 ## Testing Checklist
 
 Before committing tests:
