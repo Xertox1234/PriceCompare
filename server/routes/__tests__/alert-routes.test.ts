@@ -281,8 +281,8 @@ describe('Price Alert Routes - Integration Tests', () => {
         targetPrice: 89.99,
       });
 
-      // CSRF check happens before auth, so expect 403 (CSRF missing)
-      expectErrorResponse(response, 403, 'CSRF token missing');
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expectErrorResponse(response, 401, 'Authentication required');
     });
 
     it('should allow multiple alerts for same product at different prices', async () => {
@@ -498,8 +498,8 @@ describe('Price Alert Routes - Integration Tests', () => {
         targetPrice: 69.99,
       });
 
-      // CSRF check happens before auth, so expect 403 (CSRF missing)
-      expectErrorResponse(response, 403, 'CSRF token missing');
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expectErrorResponse(response, 401, 'Authentication required');
     });
 
     it('should reject update to another users alert', async () => {
@@ -591,8 +591,8 @@ describe('Price Alert Routes - Integration Tests', () => {
     it('should reject unauthenticated request', async () => {
       const response = await request(app).delete(`/api/price-alerts/${testAlertId}`);
 
-      // CSRF check happens before auth check, so expect 403 (CSRF missing)
-      expect(response.status).toBe(403);
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expectErrorResponse(response, 401, 'Authentication required');
     });
 
     it('should reject delete of another users alert', async () => {

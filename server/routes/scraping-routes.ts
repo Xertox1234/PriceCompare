@@ -203,7 +203,8 @@ export function registerScrapingRoutes(app: Express): void {
         // Run full cycle in background
         // req.body may contain optional parameters for full cycle - type as unknown record
         const fullCycleParams = req.body as Record<string, unknown>;
-        coordinationAgent
+        // Fire-and-forget: intentionally not awaited as this is a background operation
+        void coordinationAgent
           .processTask({
             action: 'full_cycle',
             ...fullCycleParams,

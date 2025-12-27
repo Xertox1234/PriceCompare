@@ -222,8 +222,8 @@ describe('Watchlist Routes - Integration Tests', () => {
     it('should require authentication', async () => {
       const res = await request(app).post('/api/watchlists').send({ name: 'Test List' });
 
-      // CSRF middleware runs before auth, so unauthenticated requests get 403 (CSRF rejection)
-      expect(res.status).toBe(403);
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expect(res.status).toBe(401);
     });
 
     it('should require CSRF token', async () => {
@@ -393,8 +393,8 @@ describe('Watchlist Routes - Integration Tests', () => {
         .patch(`/api/watchlists/${watchListId}`)
         .send({ name: 'New Name' });
 
-      // CSRF middleware runs before auth, so unauthenticated requests get 403 (CSRF rejection)
-      expect(res.status).toBe(403);
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expect(res.status).toBe(401);
     });
 
     it('should require CSRF token', async () => {
@@ -461,8 +461,8 @@ describe('Watchlist Routes - Integration Tests', () => {
 
     it('should require authentication', async () => {
       const res = await request(app).delete(`/api/watchlists/${watchListId}`);
-      // CSRF middleware runs before auth, so unauthenticated requests get 403 (CSRF rejection)
-      expect(res.status).toBe(403);
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expect(res.status).toBe(401);
     });
 
     it('should require CSRF token', async () => {
@@ -547,8 +547,8 @@ describe('Watchlist Routes - Integration Tests', () => {
         .post(`/api/watchlists/${watchListId}/products`)
         .send({ productId: testProductId });
 
-      // CSRF middleware runs before auth, so unauthenticated requests get 403 (CSRF rejection)
-      expect(res.status).toBe(403);
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expect(res.status).toBe(401);
     });
 
     it('should require CSRF token', async () => {
@@ -633,8 +633,8 @@ describe('Watchlist Routes - Integration Tests', () => {
         `/api/watchlists/${watchListId}/products/${testProductId}`
       );
 
-      // CSRF middleware runs before auth, so unauthenticated requests get 403 (CSRF rejection)
-      expect(res.status).toBe(403);
+      // flexibleAuth checks authentication before CSRF, so expect 401
+      expect(res.status).toBe(401);
     });
 
     it('should require CSRF token', async () => {
