@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 2.5
+**Version:** 2.6
 **Last Updated:** 2025-12-26
 **Changelog:**
+- 2.6 (2025-12-26): Added E2E Environment-Specific Configuration Patterns (production vs dev server testing)
 - 2.5 (2025-12-26): Added Transaction Atomicity Testing Patterns (5 comprehensive test patterns from TODO 004)
 - 2.4 (2025-12-24): Added MemStorage Stub Implementation pattern for storage layer testing
 - 2.3 (2025-12-23): Expanded Bulk Database Helpers with watchlist example, added Test Phase Separation pattern (Feature 4.3)
@@ -1897,12 +1898,13 @@ This section covers end-to-end testing patterns with Playwright based on 2025 in
 10. [Authentication State Reuse](#authentication-state-reuse)
 11. [WebSocket Testing](#websocket-testing)
 12. [Database Management](#e2e-database-management)
-13. [CI/CD Configuration](#e2e-cicd-configuration)
-14. [Visual Regression Testing (Screenshots)](#visual-regression-testing-screenshots)
-15. [Flaky Test Prevention](#e2e-flaky-test-prevention)
-16. [Debugging](#e2e-debugging)
-17. [Verification-First Methodology](#verification-first-methodology-new---2025-12-22) (NEW - 2025-12-22)
-18. [Component Discovery Patterns](#component-discovery-patterns-new---2025-12-22) (NEW - 2025-12-22)
+13. [Environment-Specific Configuration](#e2e-environment-specific-configuration-patterns-new---2025-12-26) (NEW - 2025-12-26)
+14. [CI/CD Configuration](#e2e-cicd-configuration)
+15. [Visual Regression Testing (Screenshots)](#visual-regression-testing-screenshots)
+16. [Flaky Test Prevention](#e2e-flaky-test-prevention)
+17. [Debugging](#e2e-debugging)
+18. [Verification-First Methodology](#verification-first-methodology-new---2025-12-22) (NEW - 2025-12-22)
+19. [Component Discovery Patterns](#component-discovery-patterns-new---2025-12-22) (NEW - 2025-12-22)
 
 ---
 
@@ -3164,6 +3166,338 @@ test('should remove product from watchlist', async ({ page }) => {
 - See "Transaction Rollback" for automatic cleanup
 - See "E2E Test Organization" for helper file structure
 - See "User Story-Driven E2E Tests" for when to use UI vs database setup
+
+---
+
+### E2E Environment-Specific Configuration Patterns (NEW - 2025-12-26)
+
+**Source:** Bundle optimization E2E test investigation (401 errors, missing chunks)
+
+**Context:** Some E2E tests verify production-specific behavior (bundle chunks, code splitting, lazy loading) that doesn't exist in development environments. Testing production optimizations on dev server causes false negatives.
+
+**Problem:** Test environment mismatch - testing production bundle behavior on Vite dev server
+
+**Example Failure:**
+```
+❌ Test: performance: lazy chunks are actually separate files
+   loadedChunks.length = 0 (expected > 1)
+   401 Unauthorized errors for /assets/*.js requests
+```
+
+#### When Dev Server Tests Fail for Production Features
+
+**The Mismatch:**
+
+| Aspect | Vite Dev Server | Production Server |
+|--------|-----------------|-------------------|
+| **File Serving** | On-the-fly transformation | Static files from dist/ |
+| **JavaScript** | Virtual modules via HMR | Physical chunk files |
+| **Asset URLs** | `/@vite/client`, `/src/...` | `/assets/index-*.js` |
+| **Code Splitting** | Dynamic imports (no chunks) | Physical chunk files |
+| **NODE_ENV** | development, test | production |
+| **Middleware** | `setupVite()` | `serveStatic()` |
+
+**Why 401 Errors Occurred:**
+```typescript
+// server/index.ts:293-297
+if (app.get('env') === 'development' || app.get('env') === 'test') {
+  await setupVite(app, server);  // ← E2E tests use THIS (dev server)
+} else {
+  serveStatic(app);  // ← Bundle tests NEED this (static files)
+}
+```
+
+When bundle tests request `/assets/index-abc123.js`:
+1. Vite middleware doesn't match it (no such file exists in dev mode)
+2. Request falls through to app routes
+3. Route middleware blocks unrecognized request → 401 Unauthorized
+
+#### Pattern: Separate Playwright Configs for Dev vs Production
+
+**✅ CORRECT - Multiple Configs Based on What You're Testing**
+
+```typescript
+// playwright.config.ts (DEFAULT - functional tests)
+export default defineConfig({
+  testDir: './e2e',
+  testIgnore: '**/bundle-optimization.spec.ts',  // Exclude production-only tests
+
+  webServer: {
+    command: 'npm run dev:test',  // Vite dev server
+    url: 'http://localhost:5001',
+    timeout: 120000,  // Fast startup
+  },
+});
+```
+
+```typescript
+// playwright.bundle.config.ts (PRODUCTION - bundle tests)
+export default defineConfig({
+  testDir: './e2e',
+  testMatch: '**/bundle-optimization.spec.ts',  // ONLY bundle tests
+
+  webServer: {
+    // Build production bundle, then start production server
+    // NODE_ENV=bundle_test triggers serveStatic() but not Redis requirements
+    command: 'npm run build && NODE_ENV=bundle_test DATABASE_URL=$(grep DATABASE_URL .env.test | cut -d= -f2-) SESSION_SECRET=$(grep SESSION_SECRET .env.test | cut -d= -f2-) CSRF_SECRET=$(grep CSRF_SECRET .env.test | cut -d= -f2-) PORT=5002 node dist/index.js',
+    url: 'http://localhost:5002',
+    reuseExistingServer: false,  // Always rebuild for accurate bundle size tests
+    timeout: 180000,  // 3 minutes (build takes longer)
+  },
+});
+```
+
+**Key Decisions:**
+
+1. **`NODE_ENV=bundle_test`** - Not `production` (to avoid Redis requirements), not `test` (to avoid dev server)
+2. **`reuseExistingServer: false`** - Always rebuild to verify current bundle size
+3. **Longer timeout** - Production builds take 60-120s vs dev server's 5-10s
+4. **Separate port** - Avoid conflicts if dev server is running (5001 vs 5002)
+
+#### When to Use Each Config
+
+**Use `npm test:e2e` (default Playwright config):**
+- ✅ Functional tests (forms, navigation, auth)
+- ✅ UI interaction tests
+- ✅ Feature-specific E2E tests
+- ✅ Fast feedback (HMR, no build step)
+- ✅ Tests that don't depend on production optimizations
+
+**Use `npm run test:e2e:bundle` (bundle config):**
+- ✅ Bundle size verification
+- ✅ Code splitting verification
+- ✅ Lazy loading chunk tests
+- ✅ Performance budget enforcement
+- ✅ Production behavior validation
+- ✅ Tests that verify physical chunk files exist
+
+#### Test File Documentation Pattern
+
+**CRITICAL:** Tests requiring production builds MUST document this in file header
+
+```typescript
+/**
+ * E2E Tests for Bundle Optimization - Lazy Loading
+ *
+ * CRITICAL: These tests MUST run against production builds, not dev server.
+ * Use: npm run test:e2e:bundle (uses playwright.bundle.config.ts)
+ *
+ * Why? Bundle tests verify production chunk files at /assets/*.js.
+ * The dev server (Vite) doesn't create physical chunks - it serves
+ * transformed modules on-the-fly via HMR. Running these tests with
+ * `npm test:e2e` (dev server) will fail with 401 errors and 0 chunks.
+ *
+ * Verifies that lazy-loaded components on the home page work correctly:
+ * - Above-the-fold content loads immediately (FCP critical)
+ * - Below-the-fold sections lazy load without errors
+ * - Modals lazy load when opened
+ * - Lazy chunks are separate files (production build verification)
+ */
+
+import { test, expect } from '@playwright/test';
+
+test('performance: lazy chunks are actually separate files', async ({ page }) => {
+  const loadedChunks: string[] = [];
+
+  page.on('response', (response) => {
+    const url = response.url();
+    if (url.includes('/assets/') && url.endsWith('.js')) {
+      loadedChunks.push(url);
+    }
+  });
+
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  // Should have loaded multiple JavaScript chunks
+  expect(loadedChunks.length).toBeGreaterThan(1);
+
+  // Verify lazy chunks are separate (not vendor or main bundles)
+  const lazyChunks = loadedChunks.filter(
+    (url) => !url.includes('vendor-') && !url.includes('index-')
+  );
+  expect(lazyChunks.length).toBeGreaterThan(0);
+});
+```
+
+#### Package.json Scripts Pattern
+
+```json
+{
+  "scripts": {
+    "test:e2e": "playwright test",  // Default config (functional tests)
+    "test:e2e:bundle": "playwright test --config playwright.bundle.config.ts",  // Production tests
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
+  }
+}
+```
+
+#### CI/CD Integration
+
+**GitHub Actions** should run BOTH configs:
+
+```yaml
+- name: E2E Tests (Functional)
+  run: npm test:e2e
+
+- name: Build Production Bundle
+  run: npm run build
+
+- name: E2E Tests (Bundle Optimization)
+  run: npm run test:e2e:bundle
+```
+
+#### Alternative: Environment Detection in Tests
+
+For more robust tests, add environment detection (optional):
+
+```typescript
+test.beforeEach(async ({ page }) => {
+  // Detect if running against production build
+  const response = await page.goto('/');
+  const isProduction = response?.headers()['x-server-mode'] === 'production';
+
+  if (!isProduction) {
+    test.skip('This test requires production build. Use: npm run test:e2e:bundle');
+  }
+});
+```
+
+Requires server-side header:
+```typescript
+// server/index.ts
+app.use((req, res, next) => {
+  res.setHeader('X-Server-Mode', app.get('env'));
+  next();
+});
+```
+
+#### Anti-Pattern: Testing Production on Dev Server
+
+**❌ WRONG - Single Config for All Tests**
+
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  testDir: './e2e',  // Includes bundle tests!
+
+  webServer: {
+    command: 'npm run dev:test',  // Dev server
+  },
+});
+```
+
+**Problems:**
+- Bundle optimization tests fail with 401 errors
+- `loadedChunks.length = 0` (no physical chunks in dev mode)
+- False negatives - tests fail even when code is correct
+- Debugging waste - investigating "broken" code that's actually fine
+
+#### Test Reliability Pattern: Explicit test.skip() for Conditional Tests
+
+**Context:** Modal tests may fail if search button isn't available on page
+
+**❌ WRONG - Silent Skip with if-block**
+
+```typescript
+test('modals lazy load when opened', async ({ page }) => {
+  await page.goto('/');
+
+  const searchButton = page.locator('[aria-label*="Search"]').first();
+  const isSearchButtonAvailable = await searchButton.isVisible({ timeout: 2000 }).catch(() => false);
+
+  // Silent skip - test appears to pass but didn't run!
+  if (!isSearchButtonAvailable) {
+    return;  // ❌ Test runner thinks test passed
+  }
+
+  await searchButton.click();
+  // ... rest of test
+});
+```
+
+**Problems:**
+- Test runner reports "passing" when test didn't actually run
+- False sense of security (0 failures, but also 0 assertions)
+- Hard to detect skipped tests in CI logs
+
+**✅ CORRECT - Explicit test.skip()**
+
+```typescript
+test('modals lazy load when opened', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  // Try to find search button - skip test if not available
+  const searchButton = page.locator('[aria-label*="Search"]').first();
+  const isSearchButtonAvailable = await searchButton.isVisible({ timeout: 2000 }).catch(() => false);
+  if (!isSearchButtonAvailable) {
+    test.skip();  // ✅ Explicit skip - test runner marks as skipped
+  }
+
+  // Open search modal
+  await searchButton.click();
+  await page.waitForTimeout(300);
+
+  // Verify modal loaded
+  const searchModal = page.locator('[role="dialog"], [aria-modal="true"]').first();
+  await expect(searchModal).toBeVisible({ timeout: 2000 });
+});
+```
+
+**Benefits:**
+- Test runner reports `1 skipped` (not `1 passed`)
+- CI logs show skipped tests clearly
+- Metrics accurately reflect test coverage
+- Easy to identify flaky/conditional tests
+
+**Playwright Output:**
+```
+✓ above-the-fold content loads immediately (2.1s)
+✓ below-the-fold sections lazy load correctly (3.4s)
+- modals lazy load when opened (skipped)  ← Explicit skip
+✓ no layout shift when lazy components load (1.8s)
+✓ performance: lazy chunks are actually separate files (2.3s)
+
+5 passed, 1 skipped
+```
+
+#### Decision Matrix: When to Use Multiple Configs
+
+| Test Type | Config | Reason |
+|-----------|--------|--------|
+| **Bundle size verification** | Production | Verifies physical chunk files exist |
+| **Code splitting** | Production | Tests dynamic imports create separate chunks |
+| **Lazy loading behavior** | Production | Ensures chunks load when components render |
+| **Performance budgets** | Production | Validates actual production bundle sizes |
+| **Authentication flows** | Development | Fast feedback, no build needed |
+| **Form submissions** | Development | UI interactions, not bundle-dependent |
+| **Navigation** | Development | Route changes, not optimization-dependent |
+| **Modal interactions** | Development | Component behavior, not chunk loading |
+
+#### Key Takeaways
+
+**CRITICAL RULE:** When testing production optimizations (bundle size, code splitting, lazy loading), always test against production builds, not development servers.
+
+**Why this matters:**
+- Dev server uses virtual modules (HMR), not physical chunk files
+- Asset URLs differ (`/@vite/client` vs `/assets/*.js`)
+- Middleware routing differs (`setupVite()` vs `serveStatic()`)
+- Code splitting behaves differently (dynamic imports in memory vs disk)
+
+**Related Patterns:**
+- See "Lazy Loading for Bundle Size Optimization" in `docs/05_FRONTEND_PATTERNS.md`
+- See "Test Documentation Patterns" for header documentation requirements
+- See "E2E CI/CD Configuration" for running both configs in GitHub Actions
+
+**Reference:**
+- `docs/LEARNINGS_BUNDLE_OPTIMIZATION_E2E_TEST_FIX.md` - Full investigation writeup
+- `playwright.bundle.config.ts` - Production E2E configuration
+- `e2e/bundle-optimization.spec.ts` - Bundle test implementation
+- `package.json` - `test:e2e:bundle` script
+
+*Source: Bundle optimization E2E test debugging (2025-12-26)*
 
 ---
 

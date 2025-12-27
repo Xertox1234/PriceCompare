@@ -23,6 +23,7 @@
     "test:e2e:full": "playwright test --config playwright.full.config.ts",
     "test:e2e:visual": "playwright test --config playwright.visual.config.ts",
     "test:e2e:debug-specs": "playwright test --config playwright.debug-specs.config.ts",
+    "test:e2e:bundle": "playwright test --config playwright.bundle.config.ts",
     "db:push": "drizzle-kit push",
     "migrate": "tsx scripts/run-migrations.ts",
     "validate:schema": "tsx scripts/validate-schema-migrations.ts",
@@ -39,7 +40,8 @@
     "lint:security": "eslint --config eslint.security.config.mjs server/**/*.ts",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
-    "prepare": "command -v husky >/dev/null 2>&1 && husky install || true"
+    "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
+    "check-size": "bundlesize"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -183,6 +185,7 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@vitejs/plugin-react": "^5.1.1",
+    "bundlesize": "^0.18.2",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.7",
     "esbuild": "^0.27.0",
@@ -207,9 +210,27 @@
     "esbuild": "^0.27.0",
     "body-parser": "2.2.1"
   },
+  "bundlesize": [
+    {
+      "path": "./dist/public/assets/index-*.js",
+      "maxSize": "600 KB",
+      "compression": "none"
+    },
+    {
+      "path": "./dist/public/assets/vendor-charts-*.js",
+      "maxSize": "400 KB",
+      "compression": "none"
+    },
+    {
+      "path": "./dist/public/assets/vendor-ui-core-*.js",
+      "maxSize": "150 KB",
+      "compression": "none"
+    }
+  ],
   "_comments": {
     "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions. body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4 (DoS via URL encoding). Remove when Express 5.x naturally updates to body-parser >= 2.2.1.",
     "sentry-versions": "@sentry/node and @sentry/react updated to ^10.28.0 to fix GHSA-6465-jgvq-jhgp (sensitive headers leak when sendDefaultPii enabled). Patch applied 2025-12-02.",
-    "nodemailer-version": "nodemailer updated to ^7.0.11 to fix GHSA-rcmh-qjqh-p98v (DoS via recursive calls in addressparser). Patch applied 2025-12-02."
+    "nodemailer-version": "nodemailer updated to ^7.0.11 to fix GHSA-rcmh-qjqh-p98v (DoS via recursive calls in addressparser). Patch applied 2025-12-02.",
+    "bundlesize": "Performance budget enforces max bundle sizes to prevent regressions. Main bundle <600KB (current: ~597KB), Charts vendor <400KB, UI core <150KB. Run 'npm run check-size' after build to verify. Added 2025-12-26."
   }
 }

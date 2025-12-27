@@ -1,8 +1,10 @@
 # Frontend Patterns
 
-**Version:** 2.3
-**Last Updated:** 2025-12-23
+**Version:** 2.5
+**Last Updated:** 2025-12-26
 **Changelog:**
+- 2.5 (2025-12-26): Enhanced Lazy Loading verification checklist with production testing requirements
+- 2.4 (2025-12-26): Added Lazy Loading for Bundle Size Optimization pattern to Performance section
 - 2.3 (2025-12-23): Added "When to Use" context to Component Reuse pattern
 - 2.2 (2025-12-16): Added Watchlist Hook Ownership pattern
 
@@ -39,6 +41,7 @@
 7. [Performance Patterns](#performance-patterns)
   - [Client-Side Data Aggregation Anti-Pattern](#client-side-data-aggregation-anti-pattern)
   - [Deterministic Sorting for Pagination](#deterministic-sorting-for-pagination)
+  - [Lazy Loading for Bundle Size Optimization](#lazy-loading-for-bundle-size-optimization)
 8. [Common Anti-Patterns](#common-anti-patterns)
   - [Hardcoded Values](#hardcoded-values)
 9. [CSS & Tailwind 4 Patterns](#css--tailwind-4-patterns)
@@ -2185,6 +2188,208 @@ results.sort((a, b) => {
   return primaryDiff !== 0 ? primaryDiff : a.id - b.id;
 });
 ```
+
+### Lazy Loading for Bundle Size Optimization
+
+**When:** Large pages with heavy components, modals, or below-the-fold content
+
+**Context:** Bundle sizes >600KB trigger build warnings and impact performance. Use React.lazy() and Suspense to split code and reduce initial bundle size.
+
+**Added:** 2025-12-26 (Home page optimization: 655KB → 597KB)
+
+#### ❌ WRONG - Loading Everything Upfront
+```typescript
+// Imports ALL components regardless of visibility
+import { TemplateHeader, HeroGrid, FeaturesBar } from '@/components/template';
+import { ProductSection, CategoryCarousel, Footer } from '@/components/template';
+import { CartModal, SearchModal, MobileMenu } from '@/components/template/modals';
+
+function HomePage() {
+  return (
+    <div>
+      <TemplateHeader />
+      <HeroGrid />
+      <FeaturesBar />
+      {/* Below the fold - user hasn't scrolled yet */}
+      <ProductSection />
+      <CategoryCarousel />
+      <Footer />
+      {/* Modals - not even opened yet! */}
+      <CartModal isOpen={cartOpen} />
+      <SearchModal isOpen={searchOpen} />
+    </div>
+  );
+}
+```
+
+**Problems:**
+- Loads 20+ components on initial page load (600KB+ bundle)
+- Below-the-fold content delays above-the-fold rendering
+- Modals loaded even if never opened
+- Build warnings about chunk size
+- Slow First Contentful Paint (FCP)
+
+#### ✅ CORRECT - Lazy Load Below-the-Fold & Modals
+```typescript
+import { useState, lazy, Suspense } from 'react';
+
+// ABOVE THE FOLD - Eager loaded (critical for FCP)
+import { TemplateHeader, HeroGrid, FeaturesBar } from '@/components/template';
+
+// BELOW THE FOLD - Lazy loaded
+const ProductSection = lazy(() =>
+  import('@/components/template').then(m => ({ default: m.ProductSection }))
+);
+const CategoryCarousel = lazy(() =>
+  import('@/components/template').then(m => ({ default: m.CategoryCarousel }))
+);
+const Footer = lazy(() =>
+  import('@/components/template').then(m => ({ default: m.TemplateFooter }))
+);
+
+// MODALS - Lazy loaded (only opened on user action)
+const CartModal = lazy(() =>
+  import('@/components/template/modals').then(m => ({ default: m.CartModal }))
+);
+const SearchModal = lazy(() =>
+  import('@/components/template/modals').then(m => ({ default: m.SearchModal }))
+);
+
+function SectionLoadingFallback() {
+  return <div className="bg-muted h-48 w-full animate-pulse rounded-lg" />;
+}
+
+function HomePage() {
+  const [cartOpen, setCartOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  return (
+    <div>
+      {/* Above-the-fold: Eager loaded */}
+      <TemplateHeader onOpenCart={() => setCartOpen(true)} />
+      <HeroGrid />
+      <FeaturesBar />
+
+      {/* Below-the-fold: Lazy loaded with Suspense */}
+      <Suspense fallback={<SectionLoadingFallback />}>
+        <ProductSection />
+        <CategoryCarousel />
+        <Footer />
+      </Suspense>
+
+      {/* Modals: Lazy loaded (null fallback since invisible) */}
+      <Suspense fallback={null}>
+        <CartModal isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+        <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      </Suspense>
+    </div>
+  );
+}
+```
+
+**Benefits:**
+- ✅ Reduced initial bundle: 655KB → 597KB (58.88 KB reduction, 9% smaller)
+- ✅ Eliminated build warning (under 600KB threshold)
+- ✅ Faster FCP - above-the-fold content loads immediately
+- ✅ Below-the-fold content loads progressively as user scrolls
+- ✅ Modals only load when user opens them (~30KB deferred)
+- ✅ Better caching - vendor bundles unchanged, only home chunk updates
+
+**Key Principles:**
+1. **Above-the-fold eager** - Header, hero, critical navigation
+2. **Below-the-fold lazy** - Product sections, carousels, footer
+3. **Modals lazy** - Only load when user interaction requires them
+4. **Loading fallbacks** - Use skeleton loaders for visible sections, `null` for modals
+5. **Named exports** - Use `.then(m => ({ default: m.ComponentName }))` for barrel exports
+
+**Suspense Strategies:**
+```typescript
+// Single Suspense for multiple components (loads together)
+<Suspense fallback={<SectionLoadingFallback />}>
+  <ProductSection />
+  <CategoryCarousel />
+  <Footer />
+</Suspense>
+
+// Individual Suspense (loads independently - more granular)
+<Suspense fallback={<SectionLoadingFallback />}>
+  <ProductSection />
+</Suspense>
+<Suspense fallback={<SectionLoadingFallback />}>
+  <CategoryCarousel />
+</Suspense>
+
+// Null fallback for invisible components
+<Suspense fallback={null}>
+  <CartModal isOpen={false} />
+</Suspense>
+```
+
+**Performance Budget Enforcement:**
+```json
+// package.json
+{
+  "scripts": {
+    "check-size": "bundlesize"
+  },
+  "bundlesize": [
+    {
+      "path": "./dist/public/assets/index-*.js",
+      "maxSize": "600 KB",
+      "compression": "none"
+    }
+  ]
+}
+```
+
+**Testing:**
+```typescript
+// e2e/bundle-optimization.spec.ts
+test('above-the-fold content loads immediately', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('header')).toBeVisible();
+  await expect(page.locator('text=/Hero/i')).toBeVisible({ timeout: 5000 });
+});
+
+test('below-the-fold sections lazy load correctly', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => window.scrollTo(0, 1000));
+  await expect(page.locator('text=/Best Sellers/i')).toBeVisible({ timeout: 3000 });
+});
+```
+
+**Real-World Results:**
+- Home page (HomeNew): 655.86 KB → 596.98 KB
+- Build warning eliminated
+- TypeScript compiles cleanly
+- All E2E tests pass
+- No console errors during lazy loading
+
+**Verification Checklist:**
+- [ ] Run `npm run build` to create production bundle
+- [ ] Run `npm run check-size` to verify bundle sizes (must be under 600KB threshold)
+- [ ] Run `npm run test:e2e:bundle` to verify lazy loading in production mode
+  - **CRITICAL**: Use `test:e2e:bundle`, NOT `test:e2e` (dev server incompatible)
+  - Bundle tests verify chunk files at `/assets/*.js` which only exist in production
+  - Running with `test:e2e` will fail with 401 errors and 0 loaded chunks
+  - See "E2E Environment-Specific Configuration" in `docs/08_TESTING_PATTERNS.md`
+- [ ] Check Network tab in DevTools (scroll page to trigger lazy loads)
+- [ ] Verify no console errors during lazy loading
+- [ ] Confirm separate chunk files for lazy components (not in main bundle)
+
+**Why Production Tests Required:**
+- Vite dev server serves transformed modules on-the-fly (no physical chunks)
+- Production server serves static chunk files from `dist/public/assets/`
+- Bundle optimization tests verify physical chunk files exist and load correctly
+- Test environment must match what's being tested (production behavior)
+
+**See Also:**
+- `client/src/pages/home-new.tsx` - Reference implementation
+- `e2e/bundle-optimization.spec.ts` - E2E test suite
+- `playwright.bundle.config.ts` - Production-specific test configuration
+- `docs/08_TESTING_PATTERNS.md` - E2E Environment-Specific Configuration pattern
+- `docs/LEARNINGS_BUNDLE_OPTIMIZATION_E2E_TEST_FIX.md` - Investigation details
+- `todos/002-completed-frontend-bundle-size-optimization.md` - Full implementation details
 
 ---
 
