@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 2.8
-**Last Updated:** 2025-12-26
+**Version:** 2.9
+**Last Updated:** 2025-12-27
 **Changelog:**
+- 2.9 (2025-12-27): Added @ts-expect-error pattern for intentional test mocks, inline SECURITY comment pattern for test fixtures
 - 2.8 (2025-12-26): Added vi.mock() Intentional Duplication Pattern (test mock setup should stay local, not extracted - from TODO 002 rejection)
 - 2.7 (2025-12-26): Added Pattern 6 - Concurrent SERIALIZABLE Transaction Test (race condition prevention from TODO 006)
 - 2.6 (2025-12-26): Added E2E Environment-Specific Configuration Patterns (production vs dev server testing)
@@ -879,6 +880,250 @@ vi.mock('../../config/redis', () => ({
 ```
 
 **Why this matters:** The `storage-cache.ts` and `advanced-cache.ts` modules require Redis at import time. Without this mock, tests fail during module initialization.
+
+---
+
+### @ts-expect-error for Intentional Test Mocks (NEW - 2025-12-27)
+
+**Context**: When testing middleware or routes, you often need to create partial mock objects that don't fully implement Express types (`Request`, `Response`, `Session`, etc.). TypeScript will rightfully complain, but the tests are valid.
+
+**Problem**: Suppressing these TypeScript errors without documentation makes code review difficult and can hide real type issues.
+
+**✅ Correct Pattern - Document WHY the Error is Expected**
+
+```typescript
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
+import type { Request, Response, NextFunction } from 'express';
+import { flexibleAuth } from '../flexible-auth';
+
+describe('flexibleAuth middleware', () => {
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockNext: NextFunction;
+
+  beforeEach(() => {
+    // Default request mock
+    mockReq = {
+      headers: {},
+      path: '/api/test',
+      method: 'GET',
+      // @ts-expect-error - Test mock with partial Session object
+      session: {},
+      // @ts-expect-error - Test mock function without type predicate
+      isAuthenticated: vi.fn(() => false),
+    };
+
+    // Default response mock
+    mockRes = {
+      setHeader: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+
+    mockNext = vi.fn();
+  });
+
+  it('uses Basic Auth when Authorization header present', async () => {
+    mockReq.headers = {
+      // SECURITY: Test fixture - base64(user:pass), not a real secret
+      authorization: 'Basic dXNlcjpwYXNz', // SECURITY: Test data
+    };
+
+    await flexibleAuth(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockReq.isBasicAuth).toBe(true);
+  });
+
+  it('uses session auth when authenticated', async () => {
+    // @ts-expect-error - Test mock function
+    mockReq.isAuthenticated = vi.fn(() => true);
+    // @ts-expect-error - Test mock with partial user object
+    mockReq.user = { id: 1, username: 'testuser', role: 'user' };
+
+    await flexibleAuth(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockReq.isBasicAuth).toBe(false);
+  });
+});
+```
+
+**Why This Pattern Works**:
+
+1. **Explicit documentation** - Comment explains WHY error is expected
+2. **Scoped suppression** - Only suppresses specific line, not entire file
+3. **Descriptive comment** - "Test mock with partial Session object" tells reviewer what's happening
+4. **Type safety preserved** - TypeScript still checks the rest of the file
+
+**Comment Templates**:
+
+```typescript
+// For partial mocks:
+// @ts-expect-error - Test mock with partial Session object
+// @ts-expect-error - Test mock with partial user object
+// @ts-expect-error - Test mock with partial Express.Request type
+
+// For intentional mock functions without proper types:
+// @ts-expect-error - Test mock function without type predicate
+// @ts-expect-error - Test mock function (isAuthenticated doesn't match Passport type)
+
+// For intentional type mismatches:
+// @ts-expect-error - Intentional type mismatch for negative test case
+```
+
+**❌ Wrong Pattern - No Explanation**
+
+```typescript
+// ❌ BAD - No explanation why error is expected
+// @ts-expect-error
+mockReq.session = {};
+
+// ❌ BAD - Using @ts-ignore (doesn't require valid error)
+// @ts-ignore
+mockReq.user = { id: 1 };
+```
+
+**When NOT to Use This Pattern**:
+
+- ❌ Production code (fix the type issue)
+- ❌ When you can easily fix the type (use proper types instead)
+- ❌ Hiding real type errors (investigate and fix)
+
+**When to Use This Pattern**:
+
+- ✅ Test mocks that are intentionally partial
+- ✅ Mock functions that don't match exact signatures
+- ✅ Negative test cases with intentional type violations
+- ✅ Integration tests where full type implementation is impractical
+
+*Source: Unified authentication test suite (flexible-auth.test.ts) - 2025-12-27*
+*Added: 2025-12-27*
+
+---
+
+### Test Fixture SECURITY Comment Pattern (NEW - 2025-12-27)
+
+**Context**: Pre-commit hooks block commits containing `passwordHash` or `authorization: 'Basic'` patterns to prevent credential exposure. Test fixtures need inline `// SECURITY:` comments to pass these checks.
+
+**Problem**: Pre-commit hooks use line-by-line `grep` scanning and cannot see previous-line comments. Without inline comments, valid test code gets blocked.
+
+**✅ Correct Pattern - Inline SECURITY Comments**
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { hashPassword } from '../../auth';
+import { db } from '../../db';
+import { users } from '../../../shared/schema';
+import { hashEmail } from '../../utils/encryption';
+
+describe('CSRF Attack Prevention (Security Tests)', () => {
+  let testUser: {
+    id: number;
+    username: string;
+    email: string;
+    password: string;
+  };
+
+  beforeAll(async () => {
+    // Create test user (potential victim)
+    const password = 'VictimPassword123!'; // Test fixture password
+    const passwordHash = await hashPassword(password); // SECURITY: Test data only
+    const email = 'csrf-victim@example.com';
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        username: 'csrfvictim',
+        email,
+        emailHash: hashEmail(email),
+        passwordHash, // SECURITY: Test data - intentional use for database record
+        role: 'user',
+      })
+      .returning();
+
+    testUser = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      password,
+    };
+  });
+
+  it('blocks CSRF attack via session without CSRF token', async () => {
+    const agent = request.agent(app);
+
+    // Victim logs in
+    await agent.post('/auth/login').send({
+      email: testUser.email,
+      password: testUser.password,
+    });
+
+    // Attacker attempts mutation without CSRF token
+    const attackRes = await agent
+      .post('/api/sensitive-action')
+      .send({ action: 'delete_account' });
+
+    expect(attackRes.status).toBe(403);
+    expect(attackRes.body.error).toContain('CSRF');
+  });
+
+  it('allows Basic Auth request without CSRF token', async () => {
+    // Legitimate API client using Basic Auth
+    const res = await request(app)
+      .post('/api/sensitive-action')
+      .auth(testUser.username, testUser.password) // SECURITY: Test fixture credentials, not real secrets
+      .send({ action: 'legitimate_api_call' });
+
+    expect(res.status).toBe(200);
+  });
+});
+```
+
+**Required Comment Patterns**:
+
+| Use Case | Pattern |
+|----------|---------|
+| **Test password variable** | `const password = 'Test123!'; // Test fixture password` |
+| **passwordHash from hashing** | `const hash = await hashPassword(pwd); // SECURITY: Test data only` |
+| **passwordHash in insert** | `passwordHash, // SECURITY: Test data - intentional use for database record` |
+| **Basic Auth header** | `authorization: 'Basic dXNlcjpwYXNz', // SECURITY: Test data` |
+| **.auth() method** | `.auth('user', 'pass') // SECURITY: Test fixture credentials, not real secrets` |
+
+**❌ Wrong Pattern - Previous-Line Comment**
+
+```typescript
+// ❌ PRE-COMMIT FAILS - Hook doesn't see comment above
+const password = 'Test123!';
+const passwordHash = await hashPassword(password);
+
+const [user] = await db.insert(users).values({
+  username: 'testuser',
+  // SECURITY: Test data - intentional use for database record
+  passwordHash,  // ❌ Hook blocks this line
+});
+```
+
+**Why This Matters**:
+
+1. **Pre-commit hook uses `grep`** - Scans file line-by-line
+2. **Comments must be inline** - On same line as flagged pattern
+3. **Prevents false positives** - Hooks won't block valid test code
+4. **Documents intent** - Comment explains why credential is present
+
+**Pre-Commit Hook Failure Example**:
+
+```bash
+$ git commit -m "Add CSRF attack tests"
+ERROR: Potential password hash exposure detected
+  Line 91: passwordHash,
+  Line 82: const passwordHash = await hashPassword(password);
+
+✅ Fix: Add inline // SECURITY: comments
+```
+
+*Source: Unified authentication migration (csrf-attack-prevention.test.ts, flexible-auth.test.ts) - 2025-12-27*
+*Added: 2025-12-27*
+
+**See also**: `docs/04_SECURITY_PATTERNS.md` - Section 1a: "Inline SECURITY Comment Requirements"
 
 ---
 

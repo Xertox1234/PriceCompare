@@ -1,7 +1,7 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 2.5
-Last Updated: 2025-12-26
+Version: 2.6
+Last Updated: 2025-12-27
 Maintainer: Claude Code / Development Team
 Status: Active - SINGLE SOURCE OF TRUTH
 Migrated From:
@@ -11,6 +11,7 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (validation layer separation section)
 Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.6 (2025-12-27): Added Unified Authentication Middleware Order pattern (flexibleAuth → csrfProtection → withAuth), inline SECURITY comment requirements for pre-commit hooks
   - 2.5 (2025-12-26): Added HTTP Basic Auth CSRF exemption pattern, intentional passwordHash exposure documentation pattern
   - 2.4 (2025-12-09): Added XSS input sanitization middleware pattern using Object.defineProperty for read-only req.query
   - 2.3 (2025-12-02): Added nodemailer direct dependency example (GHSA-rcmh-qjqh-p98v), comprehensive decision tree for direct vs transitive dependency fixes, caret versioning best practices
@@ -241,6 +242,125 @@ Notes:
 
 *Source: HTTP Basic Auth implementation, user-storage.ts (2025-12-26)*
 *Added: 2025-12-26*
+
+---
+
+### 1a. Inline SECURITY Comment Requirements (CRITICAL - 2025-12-27)
+
+**Context**: Pre-commit hooks scan for security-sensitive patterns like `passwordHash` exposure. To pass these hooks, you MUST use **inline comments** (same line) with specific markers, not previous-line comments.
+
+**Problem**: The pre-commit hook uses `grep` line-by-line scanning. Previous-line comments are invisible to the checker.
+
+#### ❌ WRONG - Previous-Line Comment (Pre-Commit FAILS)
+
+```typescript
+// SECURITY: Test data - intentional use for database record
+passwordHash,  // ❌ Hook doesn't see comment above
+
+// SECURITY: Test fixture - base64(user:pass), not a real secret
+authorization: 'Basic dXNlcjpwYXNz',  // ❌ Hook doesn't see comment above
+```
+
+**Result**: Pre-commit hook BLOCKS commit with:
+```
+ERROR: Potential password hash exposure detected (lines: 91, 64)
+```
+
+#### ✅ CORRECT - Inline Comment (Pre-Commit PASSES)
+
+```typescript
+passwordHash, // SECURITY: Test data - intentional use for database record
+
+// SECURITY: Test fixture - base64(user:pass), not a real secret
+authorization: 'Basic dXNlcjpwYXNz', // SECURITY: Not a real secret
+```
+
+**Result**: Pre-commit hook PASSES (sees `// SECURITY:` marker on same line)
+
+#### Pattern Reference by Use Case
+
+**Use Case 1: Test Fixture Passwords**
+
+```typescript
+// In test setup (beforeAll, beforeEach)
+const password = 'VictimPassword123!'; // Test fixture password
+const passwordHash = await hashPassword(password); // SECURITY: Test data only
+
+const [user] = await db.insert(users).values({
+  username: 'testuser',
+  email: 'test@example.com',
+  emailHash: hashEmail(email),
+  passwordHash, // SECURITY: Test data - intentional use for database record
+  role: 'user',
+}).returning();
+```
+
+**Use Case 2: Test Fixture Basic Auth Credentials**
+
+```typescript
+// In test assertions
+const res = await request(app)
+  .post('/api/watchlists')
+  .auth('admin', 'password'); // SECURITY: Test fixture credentials, not real secrets
+```
+
+**Use Case 3: Intentional passwordHash Exposure for Authentication**
+
+```typescript
+// In storage layer methods
+async getUserByUsername(username: string): Promise<User | null> {
+  const [user] = await db.select({
+    id: users.id,
+    username: users.username,
+    passwordHash: users.passwordHash, // SECURITY: For password verification only
+  }).from(users).where(eq(users.username, username)).limit(1);
+
+  return user || null;
+}
+```
+
+**Use Case 4: Base64 Authorization Headers in Tests**
+
+```typescript
+// Unit tests with mock requests
+mockReq.headers = {
+  // SECURITY: Test fixture - base64(user:pass), not a real secret
+  authorization: 'Basic dXNlcjpwYXNz', // SECURITY: Test data
+};
+```
+
+#### Pre-Commit Hook Bypass Checklist
+
+Before using `--no-verify`, check:
+
+- [ ] **Is inline comment present?** - Add `// SECURITY:` on same line as sensitive code
+- [ ] **Is this test code?** - Test fixtures should have "Test fixture" or "Test data only"
+- [ ] **Is this authentication code?** - Methods should document "For password verification only"
+- [ ] **Is exposure intentional and documented?** - JSDoc explains why passwordHash is exposed
+- [ ] **Could comment be moved inline?** - Try inline comment before using `--no-verify`
+
+#### Detection Commands
+
+```bash
+# Find passwordHash usage without inline SECURITY comments
+grep -rn "passwordHash" server/ --include="*.ts" \
+  | grep -v "// SECURITY:" \
+  | grep -v "__tests__"
+
+# Find test authorization headers without inline comments
+grep -rn "authorization.*Basic" server/ --include="*.test.ts" \
+  | grep -v "// SECURITY:"
+```
+
+#### Why This Matters
+
+1. **Pre-commit hook uses line-based grep** - Can't see previous-line comments
+2. **Prevents accidental exposure** - Forces explicit documentation
+3. **Makes code review faster** - Security justification visible at usage site
+4. **Standardizes team practice** - Everyone uses same pattern
+
+*Source: Unified authentication migration pre-commit hook failures (2025-12-27)*
+*Added: 2025-12-27*
 
 ---
 
@@ -1410,48 +1530,104 @@ grep -E "router\.(post|patch|delete|put)" server/routes/notification-routes.ts |
 
 ### Middleware Order for CSRF (CRITICAL)
 
-**CORRECT order: `csrfProtection` → `withAuth/withAdmin` → handler**
+#### Pattern 1: Unified Authentication (NEW - 2025-12-27)
 
-#### ✅ CORRECT - CSRF Before Auth
+**MANDATORY order for unified auth routes: `flexibleAuth` → `csrfProtection` → `withAuth/withAdmin` → handler**
+
+This is the **STANDARD PATTERN** for all routes supporting both session and HTTP Basic Auth.
+
+#### ✅ CORRECT - Unified Auth Middleware Order
 ```typescript
+import { flexibleAuth } from '../middleware/flexible-auth';
 import { csrfProtection } from '../middleware/security';
 import { withAuth, withAdmin } from './helpers';
 
-// Standard authenticated endpoint
+// Standard authenticated endpoint (supports BOTH session AND HTTP Basic Auth)
+app.post('/api/watchlists',
+  flexibleAuth,       // 1. FIRST: Sets req.isBasicAuth flag (session=false, Basic=true)
+  csrfProtection,     // 2. SECOND: Checks flag for CSRF exemption
+  withAuth(async (req, res) => {  // 3. THIRD: Validates req.user exists
+    // 4. Execute business logic
+    const result = await storage.createWatchlist(req.user.id, req.body);
+    sendSuccess(res, result, 201);
+  })
+);
+
+// Admin-only endpoint (unified auth)
+app.delete('/api/admin/users/:id',
+  flexibleAuth,       // 1. Sets req.isBasicAuth
+  csrfProtection,     // 2. CSRF exempt for Basic Auth, required for session
+  withAdmin(async (req, res) => {  // 3. Validates req.user.role === 'admin'
+    // 4. Execute business logic
+  })
+);
+```
+
+**Why This Order MUST Be Followed:**
+
+1. **flexibleAuth** sets `req.isBasicAuth` flag:
+   - HTTP Basic Auth requests: `req.isBasicAuth = true`
+   - Session requests: `req.isBasicAuth = false`
+
+2. **csrfProtection** reads this flag:
+   - If `req.isBasicAuth === true`: SKIP CSRF (stateless auth)
+   - If `req.isBasicAuth === false`: REQUIRE CSRF (stateful session)
+
+3. **withAuth** validates authentication:
+   - Checks `req.user` exists
+   - Provides TypeScript type safety for handler
+
+**If order is reversed**, Basic Auth requests will incorrectly require CSRF tokens, breaking API clients.
+
+#### ❌ WRONG - Incorrect Middleware Order
+```typescript
+// ❌ CRITICAL ERROR - CSRF before flexibleAuth
+app.post('/api/watchlists',
+  csrfProtection,     // ❌ WRONG: Checks flag before it's set
+  flexibleAuth,       // ❌ Sets flag AFTER CSRF already checked
+  withAuth(handler)
+);
+// Result: Basic Auth requests fail with "CSRF token required"
+
+// ❌ CRITICAL ERROR - Missing flexibleAuth wrapper
+app.post('/api/watchlists',
+  csrfProtection,     // ❌ No flag to check, applies to ALL requests
+  async (req, res) => {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    // ❌ Manual auth check, no withAuth wrapper
+  }
+);
+// Result: Basic Auth requests require CSRF tokens
+
+// ❌ CRITICAL ERROR - Missing withAuth wrapper
+app.post('/api/watchlists',
+  flexibleAuth,       // ✅ Sets flag correctly
+  csrfProtection,     // ✅ Checks flag correctly
+  async (req, res) => {  // ❌ No withAuth - no runtime validation
+    // ❌ req.user might be undefined - TypeScript can't catch this
+    const result = await storage.createWatchlist(req.user.id, req.body);
+  }
+);
+// Result: TypeScript errors, potential runtime crashes
+```
+
+#### Pattern 2: Session-Only Routes (Legacy)
+
+**LEGACY pattern (pre-unified auth): `csrfProtection` → `withAuth/withAdmin` → handler**
+
+Use this ONLY for routes that don't support HTTP Basic Auth.
+
+```typescript
+// Session-only endpoint (no HTTP Basic Auth support)
 app.post('/api/endpoint',
   csrfProtection,     // 1. Verify CSRF token (fast, fails early)
   withAuth(async (req, res) => {  // 2. Verify authentication
     // 3. Execute business logic
   })
 );
-
-// Admin-only endpoint
-app.post('/api/admin/products',
-  csrfProtection,     // 1. Verify CSRF token
-  withAdmin(async (req, res) => {  // 2. Verify admin role
-    // 3. Execute business logic
-  })
-);
 ```
 
-#### ❌ WRONG - Auth Before CSRF
-```typescript
-// INEFFICIENT - authenticates before checking CSRF
-app.post('/api/endpoint',
-  requireAuth,        // ❌ Wastes resources on invalid CSRF requests
-  csrfProtection,
-  async (req, res) => {}
-);
-
-// INCONSISTENT - doesn't match project standard
-app.post('/api/notifications/:id/read',
-  requireAuth,        // ❌ Should be csrfProtection first
-  csrfProtection,
-  async (req, res) => {}
-);
-```
-
-**Why CSRF First:**
+**Why CSRF First (in session-only routes):**
 - CSRF validation is fast (token comparison)
 - Fails early for invalid requests
 - Prevents wasting auth resources on CSRF attacks
