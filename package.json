@@ -27,6 +27,8 @@
     "db:push": "drizzle-kit push",
     "migrate": "tsx scripts/run-migrations.ts",
     "validate:schema": "tsx scripts/validate-schema-migrations.ts",
+    "validate:fk-cascades": "tsx scripts/validate-fk-cascades.ts",
+    "validate:all": "npm run validate:schema && npm run validate:fk-cascades",
     "audit:columns": "tsx scripts/audit-table-columns.ts",
     "audit:monthly": "bash scripts/monthly-schema-audit.sh",
     "generate-embeddings": "tsx scripts/generate-embeddings.ts",
@@ -103,7 +105,7 @@
     "@types/user-agents": "^1.0.4",
     "@vitest/coverage-v8": "^4.0.14",
     "autoprefixer": "^10.4.22",
-    "axios": "^1.10.0",
+    "axios": "^1.13.1",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",
     "cheerio": "^1.1.0",
@@ -208,7 +210,8 @@
   },
   "overrides": {
     "esbuild": "^0.27.0",
-    "body-parser": "2.2.1"
+    "body-parser": "2.2.1",
+    "axios": "^1.13.1"
   },
   "bundlesize": [
     {
@@ -228,7 +231,7 @@
     }
   ],
   "_comments": {
-    "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions. body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4 (DoS via URL encoding). Remove when Express 5.x naturally updates to body-parser >= 2.2.1.",
+    "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions. body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4 (DoS via URL encoding). Remove when Express 5.x naturally updates to body-parser >= 2.2.1. axios override forces ^1.13.1 to fix bundlesize transitive dependency vulnerabilities (SSRF, DoS, credential leakage in axios 1.0.0-1.11.0). Remove when bundlesize updates to safe axios version.",
     "sentry-versions": "@sentry/node and @sentry/react updated to ^10.28.0 to fix GHSA-6465-jgvq-jhgp (sensitive headers leak when sendDefaultPii enabled). Patch applied 2025-12-02.",
     "nodemailer-version": "nodemailer updated to ^7.0.11 to fix GHSA-rcmh-qjqh-p98v (DoS via recursive calls in addressparser). Patch applied 2025-12-02.",
     "bundlesize": "Performance budget enforces max bundle sizes to prevent regressions. Main bundle <600KB (current: ~597KB), Charts vendor <400KB, UI core <150KB. Run 'npm run check-size' after build to verify. Added 2025-12-26."

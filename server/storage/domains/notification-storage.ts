@@ -24,6 +24,58 @@ import { logger } from '../../utils/logger';
 
 export class NotificationStorage extends BaseStorage {
   /**
+   * Build common notification select fields
+   * Used by: All notification query methods to ensure consistent field selection
+   * @private
+   */
+  private buildNotificationSelect() {
+    return {
+      id: notifications.id,
+      userId: notifications.userId,
+      type: notifications.type,
+      title: notifications.title,
+      content: notifications.content,
+      isRead: notifications.isRead,
+      createdAt: notifications.createdAt,
+      relatedPostId: notifications.relatedPostId,
+      relatedTopicId: notifications.relatedTopicId,
+      relatedUserId: notifications.relatedUserId,
+      relatedProductId: notifications.relatedProductId,
+    };
+  }
+
+  /**
+   * Get recent notifications by type for a user
+   * Used by: getRecentPriceDrops, getRecentPriceAlerts
+   * @private
+   */
+  private async getRecentNotificationsByType(
+    userId: number,
+    type: string,
+    days: number
+  ): Promise<Notification[]> {
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+
+      return await this.db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.userId, userId),
+            eq(notifications.type, type),
+            gte(notifications.createdAt, since)
+          )
+        )
+        .orderBy(desc(notifications.createdAt));
+    } catch (error) {
+      this.handleError(error, 'getRecentNotificationsByType');
+      return [];
+    }
+  }
+
+  /**
    * Get count of notifications by type for a user since a specific date
    *
    * @param userId - User ID to count notifications for
@@ -465,25 +517,7 @@ export class NotificationStorage extends BaseStorage {
    * Phase 8A: Migrated from notification-service.ts
    */
   async getRecentPriceDrops(userId: number, days = 7): Promise<Notification[]> {
-    try {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-
-      return await this.db
-        .select()
-        .from(notifications)
-        .where(
-          and(
-            eq(notifications.userId, userId),
-            eq(notifications.type, 'price_drop'),
-            gte(notifications.createdAt, since)
-          )
-        )
-        .orderBy(desc(notifications.createdAt));
-    } catch (error) {
-      this.handleError(error, 'getRecentPriceDrops');
-      return [];
-    }
+    return this.getRecentNotificationsByType(userId, 'price_drop', days);
   }
 
   /**
@@ -491,24 +525,6 @@ export class NotificationStorage extends BaseStorage {
    * Phase 8A: Migrated from notification-service.ts
    */
   async getRecentPriceAlerts(userId: number, days = 7): Promise<Notification[]> {
-    try {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-
-      return await this.db
-        .select()
-        .from(notifications)
-        .where(
-          and(
-            eq(notifications.userId, userId),
-            eq(notifications.type, 'price_alert'),
-            gte(notifications.createdAt, since)
-          )
-        )
-        .orderBy(desc(notifications.createdAt));
-    } catch (error) {
-      this.handleError(error, 'getRecentPriceAlerts');
-      return [];
-    }
+    return this.getRecentNotificationsByType(userId, 'price_alert', days);
   }
 }
