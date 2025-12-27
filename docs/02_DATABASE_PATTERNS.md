@@ -3782,6 +3782,252 @@ Keep custom logic when:
 
 ---
 
+## 10. When NOT to Optimize (Critical Decision Framework)
+
+### 10.1 The Background Job Exception
+
+**Anti-Pattern:** Optimizing non-user-facing operations that perform adequately
+
+**Real-World Example:** Date-range aggregation loop (TODO_003)
+
+#### ❌ PREMATURE OPTIMIZATION
+
+```typescript
+// Current: Simple loop processing one day per transaction
+while (currentDate <= endDate) {
+  await db.transaction(async (tx) => {
+    // Query for this single day
+    const priceData = await tx.select(...)
+      .from(priceHistory)
+      .where(gte(priceHistory.recordedAt, dayStart))
+      .where(lt(priceHistory.recordedAt, dayEnd));
+
+    // Aggregate and insert for this day
+    if (priceData.length > 0) {
+      await tx.insert(priceAggregatesDaily).values(aggregates);
+    }
+  });
+
+  currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+}
+```
+
+**Performance:** 90-day range = ~9 seconds (in background job)
+
+**Developer says:** "This is N+1! We need to optimize it to 500ms!"
+
+**Reality check:**
+- ✅ Simple loop - anyone can understand it
+- ✅ Per-day error isolation - day 45 fails, days 46-90 still process
+- ✅ Incremental logging - see which day is processing
+- ✅ Force re-aggregation - easy to re-run specific days
+- ✅ Works correctly - tested, debugged, production-ready
+- ⚠️ Runs in **weekly background job** - not user-facing
+- ⚠️ 9 seconds for 90 days = **100ms per day** - perfectly adequate
+
+#### ✅ CORRECT DECISION: Keep the Loop
+
+**Rationale:**
+1. **Context matters:** Background jobs can take seconds without user impact
+2. **Simplicity has value:** Error isolation, debuggability, maintainability
+3. **No measured problem:** No user complaints, no production bottlenecks
+4. **Risk vs reward:** Trading battle-tested code for 8.5 seconds in a weekly job
+
+### 10.2 Decision Framework: Is Optimization Worth It?
+
+Ask these questions **in order** before optimizing:
+
+#### Question 1: Is it user-facing?
+- **NO** → De-prioritize optimization (background jobs, admin tools, scheduled tasks)
+- **YES** → Continue to Question 2
+
+#### Question 2: Is performance measured as inadequate?
+- **NO** → Don't optimize (speculation doesn't count)
+- **YES** → Continue to Question 3
+
+**What counts as "measured":**
+- Profiling data with actual timings
+- Production metrics showing slowness
+- User complaints about slow load times
+- P95/P99 latency metrics exceeding SLAs
+
+**What DOESN'T count:**
+- "It feels slow"
+- "At 10x scale it will be slow" (you don't have 10x scale)
+- "This is an N+1 pattern" (not all N+1s are problems)
+- Theoretical performance calculations
+
+#### Question 3: Does it block critical paths?
+- **NO** → De-prioritize (can users complete their task despite slowness?)
+- **YES** → Continue to Question 4
+
+#### Question 4: Have you tried the simple fixes first?
+
+**Before rewriting queries, try:**
+1. **Add indexes** - 90% of "slow queries" are missing indexes
+2. **Adjust batch size** - Process 10 days instead of 1, don't jump to complex SQL
+3. **Add progress indicators** - If user-facing, show "Processing... 45% complete"
+4. **Run less frequently** - Does daily aggregation need to run hourly?
+5. **Add caching** - Can you cache the result for 5 minutes?
+
+**Only if all simple fixes fail → Consider complex optimization**
+
+### 10.3 Cost-Benefit Analysis Template
+
+When proposing optimization, document:
+
+| Factor | Current | Proposed | Trade-off |
+|--------|---------|----------|-----------|
+| **Performance** | 9s (background job) | 500ms | +8.5s saved |
+| **Code complexity** | Simple loop (9/10 readability) | Complex SQL (5/10 readability) | -4 points |
+| **Error isolation** | Per-day (can retry single day) | All-or-nothing (90 days fail together) | Lost capability |
+| **Debugging ease** | Logs show which day processing | Single query, unclear where it fails | Harder to debug |
+| **Business logic** | Median, volatility, day-over-day | SQL can't handle (must move to app) | Added complexity |
+| **Testing burden** | Simple assertions | Complex edge cases (timezone, concurrent inserts) | +3-4 test cases |
+| **Risk of bugs** | Low (battle-tested) | Medium (new complex SQL) | Production risk |
+
+**Decision:** Keep simple code. 8.5 seconds in weekly background job doesn't justify the complexity cost.
+
+### 10.4 Real-World Patterns That Justify Optimization
+
+**DO optimize when:**
+
+✅ **User-facing P95 latency > 200ms**
+```typescript
+// User clicks "View Product" → sees loading spinner for 3 seconds
+// This MUST be optimized (join tables, add indexes, cache)
+```
+
+✅ **N+1 in request-response cycle**
+```typescript
+// GET /api/products returns 100 products
+// For each product, make 1 query to fetch price
+// → 101 queries blocking HTTP response
+```
+
+✅ **Blocking critical business operations**
+```typescript
+// Checkout process waits for inventory check
+// Inventory query takes 5 seconds
+// → Users abandon cart
+```
+
+✅ **Exponential scaling (10x data = 100x time)**
+```typescript
+// 100 products = 1s
+// 1,000 products = 100s (not 10s)
+// → Algorithm is O(n²), must fix
+```
+
+**DON'T optimize when:**
+
+❌ **Background jobs performing adequately**
+```typescript
+// Nightly report generation takes 2 minutes
+// Runs at 3am, nobody watches it
+// → Not worth the complexity
+```
+
+❌ **Admin tools with low usage**
+```typescript
+// Admin gap-filling endpoint takes 5 seconds
+// Used once per month by 1 admin
+// → Admin can wait 5 seconds
+```
+
+❌ **Theoretical future scale**
+```typescript
+// "At 10x users, this will be slow"
+// You have 50 users today
+// → Solve 10x problems when you have 10x users
+```
+
+❌ **Non-blocking background processing**
+```typescript
+// Email sending after signup takes 500ms
+// User sees "Check your email" immediately
+// → 500ms is fine, user doesn't wait
+```
+
+### 10.5 The "60-Second Rule" for Background Jobs
+
+**Guideline:** Background jobs under 60 seconds rarely need optimization.
+
+**Rationale:**
+- Scheduled jobs run when users aren't waiting
+- Error retry logic can handle occasional slowness
+- Complexity cost outweighs marginal gains
+- Resources can be added (more RAM, faster DB) when needed
+
+**When to revisit:**
+- Job exceeds 60 seconds (measured, not estimated)
+- Job must run more frequently (hourly → every 5 min)
+- Job becomes user-facing (batch → real-time)
+- Users complain about stale data
+
+**Example from TODO_003:**
+```
+Current: 90-day aggregation = 9 seconds (weekly background job)
+Threshold: 60 seconds
+Decision: Deferred until exceeds threshold OR context changes
+Priority: P3 (nice-to-have)
+```
+
+### 10.6 Pattern: Defer Optimization, Document Threshold
+
+When deferring optimization, document the decision:
+
+```markdown
+## TODO_XXX: [Feature] Performance Optimization
+
+**Status:** deferred
+**Priority:** P3 (Nice-to-have)
+
+**Current Performance:**
+- 90-day aggregation: 9 seconds
+- Context: Weekly background job (not user-facing)
+- Impact: None (users don't wait for this)
+
+**Threshold for Revisiting:**
+- Job exceeds 60 seconds (measured with profiling), OR
+- Job becomes user-facing, OR
+- Users complain about stale data, OR
+- We reach 10x scale (whichever comes first)
+
+**Why Deferred:**
+- Background job context makes 9s acceptable
+- Current code is simple, maintainable, correct
+- No measured user impact
+- Optimization adds complexity without proportional benefit
+
+**If Optimization Becomes Necessary:**
+1. Add index on (recorded_at, product_id, retailer_id, aggregated_at)
+2. Profile to identify actual bottleneck
+3. Try 10-day batching (simple) before complex SQL (complex)
+```
+
+### 10.7 Multi-Agent Review Pattern (TODO_003 Case Study)
+
+**Context:** Price aggregation loop proposed for optimization
+
+**Review Process:** Three specialized agents analyzed in parallel:
+1. **DHH Rails Reviewer** - Pragmatic web development philosophy
+2. **Code Simplicity Reviewer** - YAGNI and complexity analysis
+3. **Kieran Technical Reviewer** - Code quality and correctness
+
+**Unanimous Finding:** Premature optimization
+
+**Key Insights:**
+- **DHH:** "9 seconds for weekly background job is not slow. Ship features instead."
+- **Simplicity:** "Current code clarity: 9/10. Proposed: 5/10. Trading maintainability for 8.5s."
+- **Kieran:** "Proposed SQL omits median, volatility, day-over-day change. Will break production."
+
+**Decision:** Deferred to P3. Focus on user-facing features.
+
+**Pattern Codified:** Background jobs under 60s rarely justify optimization complexity.
+
+---
+
 ## Review Checklist for Database Code
 
 When reviewing database-related code, check:

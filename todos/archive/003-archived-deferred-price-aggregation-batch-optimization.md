@@ -1,9 +1,10 @@
 # TODO 003: Optimize Price Aggregation Date Range Loop (N+1 Pattern)
 
-**Status:** pending
-**Priority:** P1 (Critical)
+**Status:** archived
+**Priority:** P3 (Deferred)
 **Created:** 2025-12-26
-**Tags:** performance, database, n+1-query, optimization
+**Archived:** 2025-12-26
+**Tags:** performance, database, n+1-query, optimization, premature-optimization, deferred
 
 ---
 
@@ -214,6 +215,112 @@ async aggregateToDaily(startDate: Date, endDate: Date): Promise<number> {
 ## Work Log
 
 **2025-12-26:** Issue identified during performance audit - N+1 pattern in date loop
+
+**2025-12-26:** Multi-agent review (3 specialized reviewers) - Unanimous recommendation to defer
+
+---
+
+## Archive Decision: Deferred to P3
+
+**Reviewed by:** 3 specialized agents in parallel
+- @agent-dhh-rails-reviewer (Pragmatic web development philosophy)
+- @agent-code-simplicity-reviewer (YAGNI and complexity analysis)
+- @agent-kieran-rails-reviewer (Technical correctness and code quality)
+
+**Unanimous Finding:** Premature optimization
+
+### Key Reasons for Deferral
+
+1. **Background Job Context** - 9 seconds for weekly scheduled job is adequate
+   - Not user-facing (runs at scheduled time, not during user requests)
+   - No user complaints about performance
+   - No production bottlenecks identified
+
+2. **No Measured Problem** - Performance claim based on speculation, not profiling
+   - No actual profiling data showing 9 seconds
+   - No production metrics indicating slowness
+   - Estimated performance, not measured reality
+
+3. **Code Simplicity Has Value** - Current loop is highly maintainable
+   - Readability: 9/10 (anyone can understand the loop)
+   - Error isolation: Day 45 fails → days 46-90 still process
+   - Incremental logging: See which day is processing in real-time
+   - Force re-aggregation: Easy to re-run specific days
+   - Battle-tested: Production-ready, debugged, working correctly
+
+4. **Proposed Solution Has Critical Bugs** - Would break production
+   - ❌ Missing median price calculation (analytics dashboards break)
+   - ❌ Missing volatility score (price alerts fail)
+   - ❌ Missing day-over-day change tracking (trend indicators break)
+   - ❌ Schema mismatch: Groups by (date, productId) but schema requires (date, productId, retailerId)
+   - ❌ Race condition: Marks concurrent inserts as aggregated without actually aggregating them
+   - ❌ Missing force re-aggregation check: Re-aggregates everything every time
+
+5. **Complexity Cost Exceeds Benefit** - Trading maintainability for 8.5 seconds
+   - Current code: Simple, clear, works
+   - Proposed code: Complex SQL, loses error isolation, harder to debug
+   - Risk: Production bugs in core aggregation logic
+   - Reward: 8.5 seconds saved in weekly background job
+
+### Cost-Benefit Analysis
+
+| Factor | Current | Proposed | Trade-off |
+|--------|---------|----------|-----------|
+| **Performance** | 9s (background job) | 500ms | +8.5s saved |
+| **Code complexity** | Simple loop (9/10) | Complex SQL (5/10) | -4 readability |
+| **Error isolation** | Per-day retry | All-or-nothing | Lost capability |
+| **Business logic** | Median, volatility, day-over-day | Would be lost | Breaking change |
+| **Risk of bugs** | Low (battle-tested) | High (new complex SQL) | Production risk |
+
+**Decision:** 8.5 seconds in weekly background job doesn't justify the complexity cost and production risk.
+
+### Threshold for Revisiting
+
+**Revisit this optimization when ANY of these conditions are met:**
+
+1. Background job exceeds **60 seconds** (measured with actual profiling data)
+2. Job becomes **user-facing** (batch → real-time analytics)
+3. Job must run more frequently (weekly → hourly)
+4. Users complain about stale data or slow analytics
+5. We reach **10x scale** with measured performance degradation
+
+**Current reality:**
+- 9 seconds for 60-day range in weekly background job
+- No user impact
+- No production issues
+- Code is maintainable and correct
+
+### If Optimization Becomes Necessary
+
+**Step 1: Measure first**
+```typescript
+const start = Date.now();
+const count = await aggregateToDaily(startDate, endDate);
+logger.info(`Aggregated ${count} days in ${Date.now() - start}ms`);
+```
+
+**Step 2: Try simple fixes first**
+```sql
+-- Add index (likely the real bottleneck)
+CREATE INDEX CONCURRENTLY idx_price_history_aggregation
+  ON price_history (recorded_at, product_id, retailer_id, aggregated_at)
+  WHERE aggregated_at IS NULL;
+```
+
+**Step 3: Only if still slow → Use 10-day batching (not complex SQL)**
+- Process 10 days per transaction instead of 1
+- Still keeps error isolation and simple loop structure
+- Achieves 10x improvement (9s → 900ms)
+- Lower risk than complex SQL rewrite
+
+### Pattern Documented
+
+**See:** `docs/02_DATABASE_PATTERNS.md` Section 10: "When NOT to Optimize"
+
+**Key Pattern:** Background jobs under 60 seconds rarely justify optimization complexity.
+
+**Quote from DHH Reviewer:**
+> "You're not here to write the most optimized price aggregation service in the world. You're here to build a product people want to use. 9 seconds on a background job is not standing in your way. Ship features. Get users. Measure real problems. Then optimize."
 
 ---
 
