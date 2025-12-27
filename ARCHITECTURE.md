@@ -532,6 +532,105 @@ Use Vite for frontend build tooling.
 
 ---
 
+### ADR-005: Fail-Fast for Critical Dependencies (Containerized Deployment Pattern)
+
+**Status:** Accepted
+**Date:** 2025-12-26
+**Related:** ADR-002 (Redis), TODO 005 (Rejected: Circuit Breaker)
+
+**Context:**
+In containerized environments (Docker/Kubernetes), applications must decide how to handle critical dependency failures (Redis, database). Two common patterns:
+1. **Fail-fast:** Exit immediately, rely on orchestration to restart
+2. **Graceful degradation:** Circuit breaker, fallback logic, degraded state
+
+**Decision:**
+Use **fail-fast pattern** for critical dependencies (Redis, PostgreSQL) in production.
+
+**Implementation:**
+```typescript
+// server/config/redis.ts
+redisClient.on('error', (error) => {
+  if (process.env.NODE_ENV === 'production') {
+    log.error('❌ FATAL: Redis connection lost');
+    process.exit(1);  // Let orchestration restart us
+  }
+});
+```
+
+**Rationale:**
+
+**Why fail-fast is correct for containerized deployments:**
+
+1. **Simpler** - No circuit breaker state machine, threshold tuning, or complex fallback logic
+2. **Kubernetes-native** - Orchestration already handles restarts, health checks, and traffic routing
+3. **Binary state** - App is either healthy or unhealthy (no degraded/half-broken states)
+4. **Prevents cascading failures** - Unhealthy pods removed from load balancer immediately
+5. **Forces proper infrastructure** - Can't deploy without proper dependency setup
+6. **Fast recovery** - Restarts automatically when dependency recovers
+
+**Why circuit breakers are NOT needed:**
+
+The orchestrator IS the circuit breaker:
+- **Health checks** = Circuit state detection (is app healthy?)
+- **Pod restarts** = Automatic recovery attempts (retry logic)
+- **Load balancer removal** = Circuit open (redirect traffic to healthy pods)
+- **Successful health check** = Circuit closed (restore traffic)
+- **Multiple instances** = High availability during single-pod failures
+
+**Consequences:**
+
+- ✅ **Simplicity:** No custom circuit breaker code (200+ lines avoided)
+- ✅ **Reliability:** Kubernetes handles restarts more reliably than app-level retry logic
+- ✅ **Clear monitoring:** Binary up/down state, not degraded state
+- ✅ **No half-broken states:** Can't serve traffic with broken cache/sessions
+- ❌ **Requires orchestration:** Not suitable for bare metal single-instance deployments
+- ✅ **Mitigated by:** Kubernetes/Docker standard in modern deployments
+
+**When to Use Fail-Fast (Containerized Environments):**
+
+✅ Running in Kubernetes/Docker with orchestration
+✅ Dependency is truly critical (can't function without it)
+✅ Orchestration can restart quickly (<30 seconds)
+✅ Multiple instances provide high availability
+✅ Dependency failure is total (not transient/flaky)
+
+**When to Use Circuit Breaker (Legacy Environments):**
+
+❌ Bare metal deployments without orchestration
+❌ Single long-lived process that must stay running
+❌ Frequent transient dependency failures
+❌ Graceful degradation required by business
+❌ No alternative instances available
+
+**Real-World Example:**
+
+**Scenario:** Redis goes down in production
+```
+1. Redis connection error detected
+2. App logs "FATAL: Redis connection lost"
+3. App calls process.exit(1)
+4. Kubernetes detects container exit (exit code 1)
+5. Orchestration restarts the pod
+6. Health checks fail until Redis recovers
+7. Traffic served by other healthy pods
+8. App recovers automatically when Redis is healthy
+```
+
+**No custom circuit breaker needed** - Kubernetes provides all circuit breaker functionality:
+- State management (pod status: Running/CrashLoopBackOff/Ready)
+- Failure detection (health check probes)
+- Traffic management (service load balancing)
+- Automatic recovery (restart policy)
+
+**Documentation:**
+- Implementation: `server/config/redis.ts`, `server/config/session-store.ts`
+- Tests: `REDIS_PRODUCTION_REQUIREMENT.md` (Test 5: Connection Lost Should Exit)
+- Rejected alternative: `todos/archive/005-archived-architectural-conflict-redis-circuit-breaker.md`
+
+**Pattern Codified:** Fail-fast for containerized dependencies (Section documented in this ADR)
+
+---
+
 ## Deployment Architecture
 
 ### Production Deployment
