@@ -1,7 +1,7 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.5
-**Last Updated:** 2025-12-26
+**Version:** 2.6
+**Last Updated:** 2025-12-27
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -9,6 +9,7 @@
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 **Changelog:**
+- 2.6 (2025-12-27): Added Empty Collection Edge Cases pattern (Math.min/max, reduce, semantic null)
 - 2.5 (2025-12-26): Added Module-Level Environment Variable Access pattern (ESM/dotenv timing), Type Assertion with SAFETY Comment pattern
 - 2.4 (2025-12-23): Added Type-Safe API Error Details Extraction pattern (Feature 3.3)
 - 2.3 (2025-12-23): Added "When to Use" context to ESLint patterns, Error Type Handling, and Critical Type Safety Violations sections
@@ -2554,6 +2555,212 @@ grep -rn "\.get(.*)\!" server/ client/src/ --include="*.ts"
 # Find double non-null assertions
 grep -rn "!\)!" server/ client/src/ --include="*.ts"
 ```
+
+---
+
+## Empty Collection Edge Cases (NEW - 2025-12-27)
+
+**Context:** Operations on collections (arrays, Maps, Sets) often have unexpected behavior when the collection is empty. This causes bugs that manifest as invalid data (`Infinity`, `NaN`, `undefined`) instead of meaningful values like `null`.
+
+**Problem:** Spread operators and aggregate functions like `Math.min()`, `Math.max()`, `Array.reduce()` behave unexpectedly on empty collections.
+
+### Empty Array with Math.min/Math.max (CRITICAL)
+
+**Issue:** `Math.min(...[])` returns `Infinity` (not `null`, `undefined`, or error). `Math.max(...[])` returns `-Infinity`.
+
+#### ❌ WRONG - No Empty Check Before Spread
+
+```typescript
+// Phase 3 Code Review finding - api-v1-routes.ts line 388
+const offers = await storage.getProductOffers(product.id);
+const prices = offers.map((o) => parseFloat(o.price));
+const bestPrice = Math.min(...prices);  // Returns Infinity if offers is empty!
+
+// API response: { bestPrice: Infinity }  // ❌ Invalid JSON, breaks clients
+```
+
+**Why this is wrong:**
+- `Math.min()` with zero arguments returns `Infinity` (by spec)
+- Clients expect `null` when no price exists, not `Infinity`
+- `Infinity` is technically valid JSON but semantically wrong
+- Edge case easily missed in testing (requires product with zero offers)
+
+#### ✅ CORRECT - Check Length Before Spread
+
+```typescript
+// Fixed in Phase 3 - api-v1-routes.ts line 387-388
+const offers = await storage.getProductOffers(product.id);
+const prices = offers.length > 0 ? offers.map((o) => parseFloat(o.price)) : [];
+const bestPrice = prices.length > 0 ? Math.min(...prices) : null;
+
+// API response: { bestPrice: null }  // ✅ Semantically correct
+```
+
+**Pattern:**
+```typescript
+// ALWAYS check collection.length before spread operator
+const values = collection.length > 0 ? collection.map(transform) : [];
+const min = values.length > 0 ? Math.min(...values) : null;
+const max = values.length > 0 ? Math.max(...values) : null;
+```
+
+#### Alternative: Array.reduce() for Safety
+
+```typescript
+// No spread operator - safer for large arrays
+const bestPrice = prices.reduce(
+  (min, price) => (price < min ? price : min),
+  Infinity  // Explicit initial value
+);
+
+// Still need empty check for semantic correctness
+const bestPrice = prices.length > 0
+  ? prices.reduce((min, price) => (price < min ? price : min), Infinity)
+  : null;
+```
+
+**Benefits of reduce:**
+- No spread operator (avoids stack overflow on huge arrays)
+- Explicit initial value (intent is clear)
+- Still need length check for semantic `null` vs `Infinity`
+
+### Empty Array with Array.reduce (MODERATE)
+
+**Issue:** `Array.reduce()` without initial value throws on empty arrays.
+
+#### ❌ WRONG - reduce() Without Initial Value
+
+```typescript
+const total = prices.reduce((sum, price) => sum + price);
+// Throws: "Reduce of empty array with no initial value"
+```
+
+#### ✅ CORRECT - Always Provide Initial Value
+
+```typescript
+const total = prices.reduce((sum, price) => sum + price, 0);
+// Returns: 0 (for empty array)
+
+// Or check length first for semantic null
+const total = prices.length > 0
+  ? prices.reduce((sum, price) => sum + price, 0)
+  : null;
+```
+
+### Empty Map/Set Edge Cases
+
+**Issue:** Iterating over empty Maps/Sets with aggregation operations.
+
+#### ❌ WRONG - No Empty Check
+
+```typescript
+const prices = new Map<number, number>();
+// ... populate map ...
+
+const allPrices = Array.from(prices.values());
+const avgPrice = allPrices.reduce((sum, p) => sum + p, 0) / allPrices.length;
+// Returns: 0 / 0 = NaN if map is empty
+```
+
+#### ✅ CORRECT - Check Size First
+
+```typescript
+const prices = new Map<number, number>();
+// ... populate map ...
+
+const avgPrice = prices.size > 0
+  ? Array.from(prices.values()).reduce((sum, p) => sum + p, 0) / prices.size
+  : null;
+// Returns: null if map is empty (semantically correct)
+```
+
+### String Join on Empty Arrays
+
+**Issue:** `array.join()` returns empty string for empty arrays, which might not be semantically correct.
+
+#### ❌ WRONG - Implicit Empty String
+
+```typescript
+const tags = product.tags.join(', ');
+// Returns: "" if tags is empty
+// API response: { tags: "" }  // Might confuse clients (empty vs no tags?)
+```
+
+#### ✅ CORRECT - Explicit Null for Missing Data
+
+```typescript
+const tags = product.tags.length > 0 ? product.tags.join(', ') : null;
+// Returns: null if tags is empty
+// API response: { tags: null }  // Clear: no tags exist
+```
+
+### Detection Pattern
+
+**Common symptoms:**
+- API responses containing `Infinity` or `-Infinity`
+- NaN in calculations
+- Empty strings where `null` expected
+- Unexpected 0 values
+
+**Detection commands:**
+```bash
+# Find Math.min/max without length checks
+grep -rn "Math\.min(\.\.\." server/ --include="*.ts" | \
+  grep -v "length > 0"
+
+# Find reduce without initial value
+grep -rn "\.reduce(" server/ --include="*.ts" | \
+  grep -v ", " | grep -v "0)"
+
+# Find array operations on potentially empty collections
+grep -rn "\.map(.*Math\." server/ --include="*.ts"
+```
+
+### Checklist: Operations on Collections
+
+Before using these operations, ALWAYS check collection size:
+
+- [ ] **Math.min(...array)** - Check `array.length > 0` first
+- [ ] **Math.max(...array)** - Check `array.length > 0` first
+- [ ] **array.reduce(fn)** - Provide initial value OR check length
+- [ ] **array[0]** - Use optional chaining `array[0] ?? null`
+- [ ] **Set/Map to Array** - Check `collection.size > 0` first
+- [ ] **array.join()** - Decide if `""` or `null` for empty array
+
+### Semantic Null Pattern (RECOMMENDED)
+
+**When in doubt, use `null` to indicate "data does not exist":**
+
+```typescript
+// ✅ GOOD - Semantic null for missing data
+const result = {
+  bestPrice: offers.length > 0 ? Math.min(...prices) : null,
+  avgRating: reviews.length > 0 ? calculateAvg(reviews) : null,
+  topReviewer: reviews.length > 0 ? reviews[0].author : null,
+  tags: product.tags.length > 0 ? product.tags.join(', ') : null,
+};
+
+// Clients can distinguish:
+// - null: Data does not exist (no offers, no reviews)
+// - 0: Data exists and value is zero (free product, 0-star review)
+// - undefined: Field not requested/included
+```
+
+**Rationale:**
+- **Data Integrity**: `Infinity`, `NaN`, `""` are technically valid but semantically wrong
+- **Client Experience**: Clients expect `null` for missing data, not edge case values
+- **Type Safety**: TypeScript understands `number | null`, not `number | Infinity`
+- **API Consistency**: All "no data" cases return `null` uniformly
+- **Debugging**: `Infinity` in logs immediately signals missing length check
+
+**Related Patterns:**
+- See `docs/02_DATABASE_PATTERNS.md` - Handling empty result sets
+- See `docs/03_API_PATTERNS.md` - Consistent response patterns
+- See `docs/06_ERROR_HANDLING_PATTERNS.md` - Meaningful error responses
+
+*Source: Phase 3 Code Review (api-v1-routes.ts line 388), empty offers array edge case*
+*Fixed: 2025-12-27*
+*Added: 2025-12-27*
 
 ---
 

@@ -12,6 +12,7 @@ import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-res
 import { parseIntSafe } from '../utils/validation-helpers';
 import { logger } from '../utils/logger';
 import { csrfProtection } from '../middleware/security';
+import { flexibleAuth } from '../middleware/flexible-auth';
 
 // Validation schemas
 const createWishlistSchema = z.object({
@@ -39,6 +40,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists - Get all user wishlists
   app.get(
     '/api/wishlists',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -53,6 +55,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists/items - Get all wishlist items for user (flat list)
   app.get(
     '/api/wishlists/items',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -67,6 +70,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists/check/:productId - Check if product is in any wishlist
   app.get(
     '/api/wishlists/check/:productId',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -82,6 +86,7 @@ export function registerWishlistRoutes(app: Express): void {
   // POST /api/wishlists - Create a new wishlist
   app.post(
     '/api/wishlists',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -107,6 +112,7 @@ export function registerWishlistRoutes(app: Express): void {
   // GET /api/wishlists/:id - Get specific wishlist with items
   app.get(
     '/api/wishlists/:id',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -128,6 +134,7 @@ export function registerWishlistRoutes(app: Express): void {
   // PATCH /api/wishlists/:id - Update wishlist
   app.patch(
     '/api/wishlists/:id',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -151,6 +158,7 @@ export function registerWishlistRoutes(app: Express): void {
   // DELETE /api/wishlists/:id - Delete wishlist
   app.delete(
     '/api/wishlists/:id',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -174,6 +182,7 @@ export function registerWishlistRoutes(app: Express): void {
   // POST /api/wishlists/:id/items - Add product to wishlist
   app.post(
     '/api/wishlists/:id/items',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -208,6 +217,7 @@ export function registerWishlistRoutes(app: Express): void {
   // DELETE /api/wishlists/:id/items/:productId - Remove product from wishlist
   app.delete(
     '/api/wishlists/:id/items/:productId',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {

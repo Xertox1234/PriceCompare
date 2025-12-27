@@ -189,6 +189,23 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
+  // UNIFIED AUTH (2025-12-27): Skip CSRF for HTTP Basic Auth requests
+  // Basic Auth is stateless (no session cookies), so no CSRF risk.
+  // The isBasicAuth flag is set by flexibleAuth middleware when Authorization: Basic header is used.
+  //
+  // Security rationale:
+  // - CSRF attacks exploit the browser's automatic cookie sending
+  // - Basic Auth doesn't use cookies - credentials in Authorization header
+  // - Attacker can't trigger browser to send Authorization header cross-origin
+  // - Therefore: Basic Auth requests are inherently CSRF-safe
+  if (req.isBasicAuth === true) {
+    log.debug('CSRF exempt: HTTP Basic Auth request (stateless)', {
+      method: req.method,
+      path: req.path,
+    });
+    return next();
+  }
+
   // Check if path is exempt from CSRF protection
   const isExempt = CSRF_EXEMPT_PATHS.some((path) => req.path.startsWith(path));
   if (isExempt) {

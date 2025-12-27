@@ -4,6 +4,7 @@ import { storage } from '../storage';
 import { withAuth } from './helpers';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { csrfProtection } from '../middleware/security';
+import { flexibleAuth } from '../middleware/flexible-auth';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { logger } from '../utils/logger';
 import { PRICE_ALERT } from '../utils/constants';
@@ -48,6 +49,7 @@ export function registerAlertRoutes(app: Express): void {
   // Create a new price alert
   app.post(
     '/api/price-alerts',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -90,6 +92,7 @@ export function registerAlertRoutes(app: Express): void {
   // Get all price alerts for the current user
   app.get(
     '/api/price-alerts',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user;
@@ -104,6 +107,7 @@ export function registerAlertRoutes(app: Express): void {
   // Update a price alert (activate/deactivate)
   app.patch(
     '/api/price-alerts/:id',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -135,6 +139,7 @@ export function registerAlertRoutes(app: Express): void {
   // Delete a price alert
   app.delete(
     '/api/price-alerts/:id',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {

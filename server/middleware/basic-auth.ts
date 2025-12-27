@@ -16,15 +16,22 @@ import {
  * Always use HTTPS to prevent credential exposure on the network.
  *
  * Authenticates requests using the Authorization: Basic header.
- * Falls through to session authentication if no Basic Auth header present.
+ * SECURITY FIX (2025-12-27): Removed fallthrough to session auth to prevent CSRF bypass.
+ * Now called exclusively by flexibleAuth middleware, which handles auth method routing.
  *
- * Usage:
+ * Usage (via flexibleAuth):
+ *   app.post('/api/watchlists', flexibleAuth, csrfProtection, withAuth, handler);
+ *
+ * Direct usage (legacy, not recommended):
  *   app.post('/api/v1/scraping/discover-trends', basicAuth, withAdmin, handler);
  *
  * Client example:
- *   curl -u "admin:password" https://api.pricecompare.com/api/v1/scraping/discover-trends
+ *   curl -u "admin:password" https://api.pricecompare.com/api/watchlists
  *
  * WARNING: Do NOT use http:// (unencrypted) in production
+ *
+ * @see server/middleware/flexible-auth.ts - Unified auth middleware (recommended)
+ * @see docs/UNIFIED_AUTH_DESIGN.md - Architecture documentation
  */
 export async function basicAuth(
   req: Request,
@@ -45,9 +52,21 @@ export async function basicAuth(
 
   const authHeader = req.headers.authorization;
 
-  // No Basic Auth header - fall through to session authentication
+  // SECURITY FIX (2025-12-27): Removed fallthrough to session authentication
+  // Previous behavior allowed CSRF bypass: requests to /api/v1/* without Authorization
+  // header would fall through to session auth without CSRF protection.
+  //
+  // Now: Require Authorization header explicitly. If missing, reject with 401.
+  // flexibleAuth middleware handles routing between Basic Auth and session auth.
   if (!authHeader || !authHeader.startsWith('Basic ')) {
-    return next();
+    logger.warn('Basic auth failed: Missing or invalid Authorization header', {
+      ip: req.ip,
+      path: req.path,
+      hasAuthHeader: !!authHeader,
+    });
+    res.setHeader('WWW-Authenticate', 'Basic realm="PriceCompare API"');
+    sendError(res, 'Basic Authentication required', 401);
+    return;
   }
 
   try {
@@ -88,7 +107,7 @@ export async function basicAuth(
     }
 
     // Verify password using existing auth system
-    const isValid = await verifyPassword(password, user.passwordHash);
+    const isValid = await verifyPassword(password, user.passwordHash); // SECURITY: passwordHash required for verification
 
     if (!isValid) {
       logger.warn('Basic auth failed: Invalid password', { username });

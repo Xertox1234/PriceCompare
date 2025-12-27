@@ -11,7 +11,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { basicAuth } from '../middleware/basic-auth';
+import { flexibleAuth } from '../middleware/flexible-auth';
 import { withAuth, withAdmin, shouldSkipCache } from './helpers';
 import { sendSuccess, sendError, sendErrorFromException, sendPaginated } from '../utils/api-response';
 import { agentService } from '../services/agent-service';
@@ -37,7 +37,7 @@ export function registerApiV1Routes(app: Express): void {
   app.post(
     '/api/v1/scraping/discover-trends',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAdmin(async (req: Request, res: Response) => {
       try {
         logger.info('API v1: Discover trends request', {
@@ -74,7 +74,7 @@ export function registerApiV1Routes(app: Express): void {
   app.post(
     '/api/v1/scraping/initialize',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAdmin(async (_req: Request, res: Response) => {
       try {
         logger.info('API v1: Initialize scraping system');
@@ -97,7 +97,7 @@ export function registerApiV1Routes(app: Express): void {
   app.post(
     '/api/v1/scraping/start-agents',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAdmin(async (_req: Request, res: Response) => {
       try {
         logger.info('API v1: Start agents request');
@@ -125,7 +125,7 @@ export function registerApiV1Routes(app: Express): void {
   app.post(
     '/api/v1/scraping/search-product',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     validateRequest(productSearchQuerySchema, 'body'),
     withAdmin(async (req: Request, res: Response) => {
       try {
@@ -160,7 +160,7 @@ export function registerApiV1Routes(app: Express): void {
   app.post(
     '/api/v1/scraping/google-search',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     validateRequest(googleSearchQuerySchema, 'body'),
     withAdmin(async (req: Request, res: Response) => {
       try {
@@ -181,7 +181,7 @@ export function registerApiV1Routes(app: Express): void {
           String(query),
           retailers || ['amazon.com', 'walmart.com', 'target.com'],
           {
-            maxResultsPerRetailer: Number(maxResults),
+            maxResultsPerRetailer: maxResults,
           }
         );
 
@@ -202,7 +202,7 @@ export function registerApiV1Routes(app: Express): void {
    */
   app.get(
     '/api/v1/scraping/status',
-    basicAuth,
+    flexibleAuth,
     withAuth(async (_req: Request, res: Response) => {
       try {
         logger.info('API v1: Get scraping status');
@@ -229,7 +229,7 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/watchlists',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
         const userId = req.user!.id;
@@ -252,7 +252,7 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/watchlists/:id',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
         const userId = req.user!.id;
@@ -282,7 +282,7 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/watchlists/:id/products',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
         const userId = req.user!.id;
@@ -312,7 +312,7 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/price-alerts',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
         const userId = req.user!.id;
@@ -335,7 +335,7 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/price-alerts/:id',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
         const userId = req.user!.id;
@@ -366,8 +366,8 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/products/search',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
-    async (req: Request, res: Response) => {
+    flexibleAuth,
+    withAuth(async (req: AuthenticatedRequest, res: Response) => {
       try {
         logger.info('API v1: Product search request');
 
@@ -384,8 +384,8 @@ export function registerApiV1Routes(app: Express): void {
 
           const { product } = result;
           const offers = await storage.getProductOffers(product.id);
-          const prices = offers.map((o) => parseFloat(o.price));
-          const bestPrice = Math.min(...prices);
+          const prices = offers.length > 0 ? offers.map((o) => parseFloat(o.price)) : [];
+          const bestPrice = prices.length > 0 ? Math.min(...prices) : null;
 
           sendSuccess(res, {
             product: {
@@ -427,7 +427,8 @@ export function registerApiV1Routes(app: Express): void {
             : 20,
         };
 
-        const skipCache = shouldSkipCache(req as AuthenticatedRequest);
+        // withAuth wrapper guarantees req.user exists for shouldSkipCache
+        const skipCache = shouldSkipCache(req);
         const { products, pagination } = skipCache
           ? await storage.searchProducts(filters)
           : await storageCache.searchProducts(filters);
@@ -441,7 +442,7 @@ export function registerApiV1Routes(app: Express): void {
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'SearchProducts');
       }
-    }
+    })
   );
 
   /**
@@ -452,14 +453,15 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/products/:id',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
-    async (req: Request, res: Response) => {
+    flexibleAuth,
+    withAuth(async (req: AuthenticatedRequest, res: Response) => {
       try {
         const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
 
         logger.info(`API v1: Fetching product ${id}`);
 
-        const skipCache = shouldSkipCache(req as AuthenticatedRequest);
+        // withAuth wrapper guarantees req.user exists for shouldSkipCache
+        const skipCache = shouldSkipCache(req);
         const product = skipCache
           ? await storage.getProductById(id)
           : await storageCache.getProductById(id);
@@ -473,7 +475,7 @@ export function registerApiV1Routes(app: Express): void {
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'FetchProduct');
       }
-    }
+    })
   );
 
   /**
@@ -484,10 +486,12 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/products/:id/price-history',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
-    async (req: Request, res: Response) => {
+    flexibleAuth,
+    withAuth(async (req: AuthenticatedRequest, res: Response) => {
+      // Parse id outside try block so it's available in catch
+      const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+
       try {
-        const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
         const days = parseIntOptional(req.query.days as string);
         const retailerId = parseIntOptional(req.query.retailerId as string);
 
@@ -512,11 +516,11 @@ export function registerApiV1Routes(app: Express): void {
       } catch (error: unknown) {
         logger.error('Error fetching price history', {
           error: error instanceof Error ? error.message : String(error),
-          productId: req.params.id,
+          productId: id,
         });
         sendErrorFromException(res, error, 'FetchPriceHistory');
       }
-    }
+    })
   );
 
   /**
@@ -527,7 +531,7 @@ export function registerApiV1Routes(app: Express): void {
   app.get(
     '/api/v1/notifications',
     // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
-    basicAuth,
+    flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
         const userId = req.user!.id;

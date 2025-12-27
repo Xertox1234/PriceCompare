@@ -6,6 +6,7 @@ import { storage } from '../storage';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { csrfProtection } from '../middleware/security';
+import { flexibleAuth } from '../middleware/flexible-auth';
 import { logger } from '../utils/logger';
 import { createRateLimiter } from '../middleware/redis-rate-limiter';
 import { WATCHLIST_RATE_LIMITS } from '../utils/constants';
@@ -134,6 +135,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.get(
     '/api/watchlists/shared',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -153,6 +155,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.get(
     '/api/watchlists',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -180,6 +183,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.post(
     '/api/watchlists',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     watchlistCreateLimiter,
@@ -216,6 +220,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.get(
     '/api/watchlists/products',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -255,6 +260,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.get(
     '/api/watchlists/stats',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -279,6 +285,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.get(
     '/api/watchlists/:id',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const userId = req.user.id;
@@ -308,6 +315,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.patch(
     '/api/watchlists/:id/public',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     async (req: Request, res: Response) => {
@@ -330,6 +338,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.get(
     '/api/watchlists/:id/shares',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const ownerUserId = req.user.id;
@@ -349,6 +358,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.post(
     '/api/watchlists/:id/shares',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     async (req: Request, res: Response) => {
@@ -377,6 +387,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.delete(
     '/api/watchlists/:id/shares/:sharedWithUserId',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     async (req: Request, res: Response) => {
@@ -411,6 +422,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.patch(
     '/api/watchlists/:id',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     async (req: Request, res: Response) => {
@@ -445,6 +457,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.delete(
     '/api/watchlists/:id',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     async (req: Request, res: Response) => {
@@ -479,6 +492,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.post(
     '/api/watchlists/:id/products',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     productAddLimiter,
@@ -519,6 +533,7 @@ export function registerWatchListRoutes(app: Express): void {
    */
   app.delete(
     '/api/watchlists/:id/products/:productId',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     async (req: Request, res: Response) => {

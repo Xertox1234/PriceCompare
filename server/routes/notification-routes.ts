@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as notificationService from '../services/notification-service';
 import { csrfProtection } from '../middleware/security';
+import { flexibleAuth } from '../middleware/flexible-auth';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { withAuth } from './helpers';
@@ -28,6 +29,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get(
     '/api/notifications',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -72,6 +74,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get(
     '/api/notifications/stats',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -94,7 +97,8 @@ export function registerNotificationRoutes(app: Express) {
    * Mark a notification as read
    * @security CSRF protection required
    */
-  app.post('/api/notifications/:id/read', csrfProtection, requireAuth, async (req, res) => {
+  app.post('/api/notifications/:id/read', flexibleAuth,
+    csrfProtection, requireAuth, async (req, res) => {
     try {
       const user = req.user; // Auth verified by requireAuth middleware
       if (!user) {
@@ -111,7 +115,7 @@ export function registerNotificationRoutes(app: Express) {
         return;
       }
 
-      sendSuccess(res, {});
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'MarkNotificationRead');
     }
@@ -122,7 +126,8 @@ export function registerNotificationRoutes(app: Express) {
    * Mark all notifications as read
    * @security CSRF protection required
    */
-  app.post('/api/notifications/read-all', csrfProtection, requireAuth, async (req, res) => {
+  app.post('/api/notifications/read-all', flexibleAuth,
+    csrfProtection, requireAuth, async (req, res) => {
     try {
       const user = req.user; // Auth verified by requireAuth middleware
       if (!user) {
@@ -143,7 +148,8 @@ export function registerNotificationRoutes(app: Express) {
    * Delete a notification
    * @security CSRF protection required
    */
-  app.delete('/api/notifications/:id', csrfProtection, requireAuth, async (req, res) => {
+  app.delete('/api/notifications/:id', flexibleAuth,
+    csrfProtection, requireAuth, async (req, res) => {
     try {
       const user = req.user; // Auth verified by requireAuth middleware
       if (!user) {
@@ -160,7 +166,7 @@ export function registerNotificationRoutes(app: Express) {
         return;
       }
 
-      sendSuccess(res, {});
+      sendSuccess(res, { success: true });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'DeleteNotification');
     }
@@ -171,7 +177,8 @@ export function registerNotificationRoutes(app: Express) {
    * Delete all notifications for the user
    * @security CSRF protection required
    */
-  app.delete('/api/notifications', csrfProtection, requireAuth, async (req, res) => {
+  app.delete('/api/notifications', flexibleAuth,
+    csrfProtection, requireAuth, async (req, res) => {
     try {
       const user = req.user; // Auth verified by requireAuth middleware
       if (!user) {
@@ -193,6 +200,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get(
     '/api/notifications/preferences',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -215,7 +223,8 @@ export function registerNotificationRoutes(app: Express) {
    * Update user's notification preferences
    * @security CSRF protection required
    */
-  app.patch('/api/notifications/preferences', csrfProtection, requireAuth, async (req, res) => {
+  app.patch('/api/notifications/preferences', flexibleAuth,
+    csrfProtection, requireAuth, async (req, res) => {
     try {
       const user = req.user; // Auth verified by requireAuth middleware
       if (!user) {
@@ -251,6 +260,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get(
     '/api/notifications/price-drops',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -281,6 +291,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get(
     '/api/notifications/price-alerts',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -311,6 +322,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.get(
     '/api/notifications/smart',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -376,7 +388,8 @@ export function registerNotificationRoutes(app: Express) {
    * Snooze a smart notification for specified duration
    * @security CSRF protection required
    */
-  app.post('/api/notifications/smart/:id/snooze', csrfProtection, requireAuth, async (req, res) => {
+  app.post('/api/notifications/smart/:id/snooze', flexibleAuth,
+    csrfProtection, requireAuth, async (req, res) => {
     try {
       const user = req.user; // Auth verified by requireAuth middleware
       if (!user) {

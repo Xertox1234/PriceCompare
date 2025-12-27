@@ -5,6 +5,7 @@ import { parseIntSafe, parseFloatSafe } from '../utils/validation-helpers';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { withAuth } from './helpers';
 import { csrfProtection } from '../middleware/security';
+import { flexibleAuth } from '../middleware/flexible-auth';
 
 /**
  * Smart Alerts Routes
@@ -38,7 +39,7 @@ export function registerSmartAlertsRoutes(app: Express) {
         );
 
         sendSuccess(res, {
-          data: suggestions,
+          suggestions,
           count: suggestions.length,
         });
       } catch (error: unknown) {
@@ -53,6 +54,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get(
     '/api/smart-alerts/predictive',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -74,6 +76,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get(
     '/api/smart-alerts/effectiveness',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -95,6 +98,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.get(
     '/api/smart-alerts/analytics',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -113,6 +117,7 @@ export function registerSmartAlertsRoutes(app: Express) {
    */
   app.post(
     '/api/smart-alerts/create-suggested',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res): Promise<void> => {
       try {

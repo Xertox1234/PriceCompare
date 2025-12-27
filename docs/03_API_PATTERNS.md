@@ -1,10 +1,11 @@
 # API & Route Patterns
 
-**Version:** 2.2
-**Last Updated:** 2025-12-26
+**Version:** 2.3
+**Last Updated:** 2025-12-27
 **Migrated From:** 6 source documents (see References)
 **Status:** Active - Mandatory for all API/route code
 **Changelog:**
+- 2.3 (2025-12-27): Added Unified Authentication Middleware Pattern (flexibleAuth + withAuth mandatory wrapper)
 - 2.2 (2025-12-26): Added Agent-Native Authentication Design pattern (HTTP Basic Auth)
 - 2.1 (2025-12-23): Added business rule validation pattern (Feature 3.3 - alert limits)
 
@@ -3054,6 +3055,263 @@ IF (users > 100 OR compliance_required OR per_key_metrics_needed)
 
 *Source: HTTP Basic Auth implementation (2025-12-26), docs/HTTP_BASIC_AUTH_FINAL_SUMMARY.md*
 *Added: 2025-12-26*
+
+---
+
+### Unified Authentication Middleware Pattern (MANDATORY - NEW 2025-12-27)
+
+**Context:** Routes that need to support both HTTP Basic Auth (for API clients/agents) AND session-based auth (for browsers) require a flexible authentication strategy.
+
+**Problem:** Using separate `basicAuth` and session auth middleware creates:
+- Route duplication (e.g., `/api/watchlists` vs `/api/v1/watchlists`)
+- Inconsistent CSRF protection
+- Maintenance burden (same logic in two places)
+- Type safety gaps
+
+**Pattern:** Use `flexibleAuth` middleware that tries Basic Auth first, then falls back to session auth.
+
+#### ✅ CORRECT - flexibleAuth Middleware Pipeline
+
+**CRITICAL**: `withAuth()` wrapper is **MANDATORY**, not optional. It provides:
+1. **Runtime guarantee** - Verifies `req.user` exists before handler executes
+2. **Type safety** - TypeScript knows `req.user` is defined in handler
+3. **Security enforcement** - Returns 401 if neither auth method succeeds
+4. **CSRF integration** - Sets `req.isBasicAuth` flag for downstream middleware
+
+```typescript
+// server/routes/watchlist-routes.ts
+
+import { flexibleAuth } from '../middleware/flexible-auth';
+import { csrfProtection } from '../middleware/security';
+import { withAuth } from './helpers';
+
+// ✅ GET route - Read-only
+app.get('/api/watchlists',
+  flexibleAuth,              // 1. Try Basic Auth → Session auth → Reject
+  withAuth(async (req, res) => {  // 2. MANDATORY: Verify req.user exists
+    const userId = req.user.id;   // 3. Type-safe access (no null check needed)
+    const watchlists = await storage.getUserWatchLists(userId);
+    sendSuccess(res, { watchlists });
+  })
+);
+
+// ✅ POST route - Mutation with CSRF protection
+app.post('/api/watchlists',
+  flexibleAuth,                   // 1. Authenticate (sets req.isBasicAuth flag)
+  csrfProtection,                 // 2. CSRF check (auto-exempts Basic Auth)
+  withAuth(async (req, res) => {  // 3. MANDATORY: Verify req.user exists
+    const userId = req.user.id;
+    const data = createWatchListSchema.parse(req.body);
+    const watchlist = await storage.createWatchList(userId, data);
+    sendSuccess(res, watchlist, 201);
+  })
+);
+```
+
+#### ❌ WRONG - Missing withAuth() Wrapper
+
+```typescript
+// ❌ SECURITY RISK: No runtime check that req.user exists!
+app.get('/api/watchlists',
+  flexibleAuth,
+  async (req, res) => {
+    // flexibleAuth might have failed silently
+    // req.user could be undefined here!
+    const userId = req.user.id; // Runtime error if auth failed
+    // ...
+  }
+);
+
+// ❌ TYPE SAFETY VIOLATION: Unsafe type assertion
+app.get('/api/watchlists',
+  flexibleAuth,
+  async (req, res) => {
+    // CLAUDE.md violation: undocumented type assertion
+    const skipCache = shouldSkipCache(req as AuthenticatedRequest);
+    // What if flexibleAuth failed? Type assertion lies!
+  }
+);
+```
+
+#### Why withAuth() is NOT Optional
+
+**Security Defense in Depth:**
+
+```
+Layer 1: flexibleAuth - Authenticates user (Basic Auth or Session)
+Layer 2: withAuth      - Verifies req.user exists, enforces type safety
+Layer 3: Handler       - Executes business logic with guaranteed user context
+```
+
+**What happens without withAuth():**
+
+1. `flexibleAuth` might fail to authenticate but not call `next()` properly
+2. Handler executes with `undefined` req.user
+3. Runtime error when accessing `req.user.id`
+4. Type system can't infer `req.user` exists
+
+**What withAuth() prevents:**
+
+```typescript
+// server/routes/helpers.ts
+export function withAuth(handler: (req: Request, res: Response) => Promise<void>) {
+  return async (req: Request, res: Response) => {
+    // Runtime check - ALWAYS runs before handler
+    if (!req.user) {
+      sendError(res, 'Authentication required', 401);
+      return; // Handler never executes
+    }
+
+    // Handler only runs if req.user exists
+    // TypeScript knows this is safe
+    await handler(req, res);
+  };
+}
+```
+
+#### CSRF Protection Integration
+
+**Automatic CSRF exemption for Basic Auth:**
+
+```typescript
+// server/middleware/flexible-auth.ts
+if (req.headers?.authorization?.startsWith('Basic ')) {
+  req.isBasicAuth = true;   // Signal to csrfProtection: EXEMPT
+  return basicAuth(req, res, next);
+}
+
+if (req.isAuthenticated()) {
+  req.isBasicAuth = false;  // Signal to csrfProtection: REQUIRE TOKEN
+  return next();
+}
+```
+
+```typescript
+// server/middleware/security.ts - csrfProtection reads the flag
+export const csrfProtection = (req: Request, res: Response, next: NextFunction) => {
+  // Basic Auth requests are stateless - CSRF-immune
+  if (req.isBasicAuth) {
+    return next(); // Skip CSRF validation
+  }
+
+  // Session-based requests need CSRF token
+  return csurf({ cookie: false })(req, res, next);
+};
+```
+
+**Benefits:**
+- No path-based CSRF exemption rules (error-prone)
+- Explicit auth method detection (clear intent)
+- Single middleware pipeline (no route duplication)
+- Type-safe (isBasicAuth flag is typed)
+
+#### Common Mistakes During Migration
+
+**Issue 1: Duplicate middleware (Phase 2 finding - 12 instances)**
+
+```typescript
+// ❌ WRONG - Automated migration created duplicates
+app.post('/api/watchlists',
+  flexibleAuth,        // First instance
+  csrfProtection,
+  flexibleAuth,        // Duplicate! (from failed sed script)
+  withAuth(...)
+);
+
+// ✅ CORRECT
+app.post('/api/watchlists',
+  flexibleAuth,        // Single instance only
+  csrfProtection,
+  withAuth(...)
+);
+```
+
+**Detection:**
+```bash
+grep -n "flexibleAuth" server/routes/watchlist-routes.ts | \
+  awk '{print $1}' | \
+  uniq -d  # Shows duplicate line numbers
+```
+
+**Issue 2: Type assertions instead of runtime checks (Phase 3 finding - 2 instances)**
+
+```typescript
+// ❌ WRONG - Type assertion without runtime guarantee
+app.get('/api/products/search',
+  flexibleAuth,
+  async (req, res) => {
+    // CLAUDE.md violation: undocumented 'as' cast
+    const skipCache = shouldSkipCache(req as AuthenticatedRequest);
+    // What if flexibleAuth failed? Assertion is unsafe!
+  }
+);
+
+// ✅ CORRECT - withAuth provides runtime guarantee
+app.get('/api/products/search',
+  flexibleAuth,
+  withAuth(async (req, res) => {
+    // withAuth guarantees req.user exists
+    // No type assertion needed - TypeScript infers correctly
+    const skipCache = shouldSkipCache(req);
+  })
+);
+```
+
+#### Migration Checklist
+
+When migrating routes to flexibleAuth:
+
+- [ ] **Import flexibleAuth** - `import { flexibleAuth } from '../middleware/flexible-auth';`
+- [ ] **Replace auth middleware** - `basicAuth` → `flexibleAuth` or add to session routes
+- [ ] **Add withAuth wrapper** - MANDATORY for all authenticated routes
+- [ ] **Check for duplicates** - Ensure flexibleAuth appears only once
+- [ ] **Remove type assertions** - `req as AuthenticatedRequest` → trust withAuth
+- [ ] **Update CSRF comments** - Document why Basic Auth is CSRF-exempt
+- [ ] **Test both auth methods** - Verify Basic Auth AND session auth work
+- [ ] **Verify error responses** - 401 for no auth, 403 for wrong role
+
+#### Testing Pattern
+
+```typescript
+// Test both authentication methods
+describe('GET /api/watchlists', () => {
+  it('should work with session auth', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/auth/login').send({ email, password });
+    const res = await agent.get('/api/watchlists');
+    expect(res.status).toBe(200);
+  });
+
+  it('should work with Basic Auth', async () => {
+    const res = await request(app)
+      .get('/api/watchlists')
+      .auth('username', 'password');  // HTTP Basic Auth
+    expect(res.status).toBe(200);
+  });
+
+  it('should reject unauthenticated requests', async () => {
+    const res = await request(app).get('/api/watchlists');
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Authentication required');
+  });
+});
+```
+
+**Rationale:**
+- **Defense in Depth**: Multiple layers prevent single points of failure
+- **Type Safety**: withAuth wrapper enables TypeScript to infer req.user exists
+- **CSRF Security**: Explicit flag-based exemption (not path-based guessing)
+- **Zero Breaking Changes**: Both auth methods work on same routes
+- **Code Quality**: Eliminates type assertions, reduces duplication
+
+**Related Patterns:**
+- See `docs/04_SECURITY_PATTERNS.md` - Intentional passwordHash exposure for auth
+- See `docs/01_TYPESCRIPT_PATTERNS.md` - Type assertions vs runtime checks
+- See `docs/08_TESTING_PATTERNS.md` - Integration testing with multiple auth methods
+
+*Source: Unified Auth Migration (Phases 1-3), 89 endpoints migrated, 23 issues fixed*
+*Code Reviews: PHASE_2_CODE_REVIEW_FIXES.md, PHASE_3_CODE_REVIEW_FIXES.md*
+*Added: 2025-12-27*
 
 ---
 

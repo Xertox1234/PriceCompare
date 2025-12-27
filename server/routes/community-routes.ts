@@ -4,6 +4,7 @@ import { parseIntSafe, parseIntOptional } from '../utils/validation-helpers';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { withAuth } from './helpers';
 import { csrfProtection } from '../middleware/security';
+import { flexibleAuth } from '../middleware/flexible-auth';
 import { z } from 'zod';
 
 // Validation schemas for community routes
@@ -124,6 +125,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post(
     '/api/community/watch/:productId',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -145,6 +147,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.delete(
     '/api/community/watch/:productId',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -171,6 +174,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get(
     '/api/community/watches',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -208,6 +212,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get(
     '/api/community/is-watching/:productId',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -247,6 +252,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get(
     '/api/community/reputation',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user; // Auth verified by withAuth middleware
@@ -288,6 +294,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post(
     '/api/community/watch-lists',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -315,6 +322,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get(
     '/api/community/watch-lists',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user;
@@ -336,6 +344,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get(
     '/api/community/watch-lists/:listId',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user;
@@ -361,6 +370,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.patch(
     '/api/community/watch-lists/:listId',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -388,6 +398,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.delete(
     '/api/community/watch-lists/:listId',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -414,6 +425,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get(
     '/api/community/watch-lists/:listId/products',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user;
@@ -437,6 +449,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.patch(
     '/api/community/product-watches/:watchId',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -464,6 +477,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post(
     '/api/community/product-watches/bulk-move',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -489,6 +503,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post(
     '/api/community/product-watches/bulk-delete',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
@@ -513,6 +528,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.get(
     '/api/community/watch-lists/export',
+    flexibleAuth,
     withAuth(async (req, res) => {
       try {
         const user = req.user;
@@ -531,6 +547,7 @@ export function registerCommunityRoutes(app: Express) {
    */
   app.post(
     '/api/community/watch-lists/import',
+    flexibleAuth,
     csrfProtection,
     withAuth(async (req, res) => {
       try {
