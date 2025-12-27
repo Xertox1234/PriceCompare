@@ -4026,6 +4026,108 @@ When deferring optimization, document the decision:
 
 **Pattern Codified:** Background jobs under 60s rarely justify optimization complexity.
 
+### 10.8 Admin Diagnostic Tools (TODO_004 Case Study)
+
+**Context:** Gap detection query for admin-only manual debugging (730 queries for 365 days)
+
+**Performance:** 365-day check = 14.6 seconds (2 queries × 365 days)
+
+**Proposed Optimization:** Single LEFT JOIN with date bucketing → 150ms (99% improvement)
+
+**Review Process:** Three specialized agents analyzed in parallel:
+1. **DHH Rails Reviewer** - Pragmatic optimization decisions
+2. **Kieran Rails Reviewer** - Critical implementation review
+3. **Code Simplicity Reviewer** - YAGNI analysis
+
+**Unanimous Finding:** Premature optimization - close TODO immediately
+
+#### Key Insights
+
+**DHH Finding: "Optimization Theater"**
+- This is an **admin-only diagnostic tool** that runs manually
+- Used maybe once per month when debugging production issues
+- No users have access to this endpoint - only admins
+- 14.6 seconds is perfectly acceptable for manual debugging
+- TODO falsely claimed "impossible to run on-demand for users" (users can't access it)
+- TODO falsely claimed "runs in background jobs" (only in admin UI)
+
+**Kieran Finding: "Critical Implementation Bugs"**
+- Proposed SQL had table alias mismatches (would fail with "column does not exist")
+- Return type mismatch (breaking change: `Date[]` vs `string[]`)
+- Missing product/retailer grouping (won't detect partial aggregation)
+- Timezone bugs (violates UTC-first pattern)
+- 8+ missing test cases
+- Actual effort: 7-8 hours, HIGH risk (not 3-4 hours, Low risk)
+
+**Simplicity Finding: "False Assumptions"**
+```markdown
+❌ "Scalability: Impossible to run on-demand for users"
+   Reality: Users can't access this endpoint at all (admin-only)
+
+❌ "Currently only runs in background jobs"
+   Reality: NOT in background jobs - only in admin UI manual diagnostics
+
+❌ "Priority: P1 (Critical)"
+   Reality: P4 at best, or delete entirely
+```
+
+#### Decision Framework Applied
+
+**Question 1: Is it user-facing?**
+- ❌ NO - Admin-only diagnostic tool
+
+**Conclusion: De-prioritize optimization**
+- Admin can wait 14.6 seconds when manually debugging
+- No user impact
+- No business justification
+
+#### The Correct Fix (If Needed)
+
+Instead of complex SQL optimization, add a simple range limit:
+
+```typescript
+// In admin route validation (5 minutes of work)
+if (daysBetween(startDate, endDate) > 90) {
+  return sendError(res, 'Gap detection limited to 90 days', 400);
+}
+// Now worst case: 3.6 seconds. Problem solved.
+```
+
+**Alternative:** Just add a loading message
+```typescript
+// In admin UI
+<Alert>Large date ranges may take up to 30 seconds. This is normal.</Alert>
+```
+
+#### Pattern Violations Found
+
+**The TODO violated the "When NOT to Optimize" pattern:**
+1. ✅ Code is only used by admins manually ← De-prioritize
+2. ✅ Current performance is acceptable for use case (15s is fine for diagnostics)
+3. ✅ Optimization adds significant complexity (LEFT JOINs with bugs)
+4. ✅ No user complaints or business impact
+5. ✅ Metrics look bad but context makes them irrelevant (730 queries!)
+
+**Root Cause:** Performance agent flagged N+1 pattern without understanding business context. Simple sequential loop is actually the RIGHT choice for admin diagnostics.
+
+#### Decision: TODO Closed
+
+**Status:** Closed/Archived (2025-12-26)
+
+**Rationale:**
+- Current implementation is simple, correct, and appropriate for use case
+- 14.6 seconds is acceptable for admin diagnostics used once per month
+- Proposed optimization had critical bugs and would break production
+- No user impact, no business justification
+- Trading battle-tested simple code for complex SQL saves 14 seconds in a manual admin tool
+
+**Pattern Codified:** Admin diagnostic tools don't need optimization - simplicity and correctness matter more than speed.
+
+**Real-World Files:**
+- Implementation: `server/services/price-aggregation-service.ts:933-963`
+- Admin route: `server/routes/admin-aggregation-routes.ts:122-155`
+- Closed TODO: `todos/archive/004-archived-not-applicable-gap-detection-optimization.md`
+
 ---
 
 ## Review Checklist for Database Code
