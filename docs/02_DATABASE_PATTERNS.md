@@ -4176,6 +4176,250 @@ if (daysBetween(startDate, endDate) > 90) {
 
 ---
 
+## Pattern: Cache Invalidation Outside Transactions (Transaction Resilience)
+
+**Context:** Password reset security fix (TODO 005 - atomic password reset, Dec 2025)
+
+**Problem:** Non-critical cleanup operations (cache invalidation, session cleanup) executed inside database transactions, causing critical operations to fail when cache/session services are unavailable.
+
+### The Anti-Pattern
+
+```typescript
+// ❌ WRONG - Cache invalidation inside transaction
+async resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  return await this.db.transaction(async (tx) => {
+    // Step 1: Validate token and mark as used
+    const result = await tx.execute(sql`UPDATE password_reset_tokens...`);
+    const tokenData = result.rows[0];
+
+    // Step 2: Update password
+    await tx.update(users).set({ passwordHash: newPasswordHash });
+
+    // Step 3: Invalidate cache INSIDE transaction
+    await storageCache.invalidateUserCache(tokenData.user_id); // ❌ Blocks if cache down!
+
+    return tokenData.user_id;
+  });
+}
+```
+
+**What Happens:**
+1. Password reset transaction starts
+2. Token validated, password updated successfully in database
+3. Cache service is unavailable (Redis down, network issue)
+4. `invalidateUserCache()` throws error
+5. **Entire transaction rolls back** - password NOT reset!
+6. User sees error even though database operation was successful
+
+### The Solution - Cache After Transaction
+
+```typescript
+// ✅ CORRECT - Cache invalidation after transaction commits
+async resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  // Execute transaction, capture result
+  const userId = await this.db.transaction(async (tx) => {
+    // Step 1: Validate token and mark as used
+    const result = await tx.execute(sql`UPDATE password_reset_tokens...`);
+    const tokenData = result.rows[0];
+
+    // Step 2: Update password
+    await tx.update(users).set({ passwordHash: newPasswordHash });
+
+    // Return userId (transaction commits here)
+    return tokenData.user_id;
+  }); // Transaction committed successfully ✓
+
+  // Cache invalidation AFTER transaction (non-critical, won't rollback)
+  try {
+    await storageCache.invalidateUserCache(userId);
+  } catch (cacheError) {
+    logger.warn('[Storage] Cache invalidation failed after password reset', {
+      userId,
+      error: cacheError instanceof Error ? cacheError.message : String(cacheError)
+    });
+    // Cache TTL will expire stale data eventually - acceptable
+  }
+
+  return userId;
+}
+```
+
+### Benefits
+
+1. **Critical operation succeeds** - password reset completes even if cache fails
+2. **Transaction commits** - database is in consistent state
+3. **Graceful degradation** - cache error logged but doesn't block user
+4. **Acceptable staleness** - cache TTL expires stale data eventually
+
+### Decision Framework: Inside vs Outside Transaction
+
+| Operation Type | Location | Rationale |
+|----------------|----------|-----------|
+| **INSIDE Transaction** | Token validation | Required for atomicity - prevents token reuse |
+| **INSIDE Transaction** | Password update | Required for atomicity - critical data mutation |
+| **INSIDE Transaction** | Token invalidation | Required for atomicity - security requirement |
+| **OUTSIDE Transaction** | Cache invalidation | Non-critical - has TTL fallback |
+| **OUTSIDE Transaction** | Session cleanup | Non-critical - best-effort security enhancement |
+| **OUTSIDE Transaction** | Email notifications | Non-critical - can retry async |
+| **OUTSIDE Transaction** | Analytics events | Non-critical - eventually consistent |
+
+### Return Value Capture Pattern
+
+```typescript
+// ✅ CORRECT - Assign transaction result to variable first
+const userId = await db.transaction(async (tx) => {
+  // ... critical operations ...
+  return someValue;
+}); // Transaction commits
+
+// Now use captured value for post-transaction operations
+await performNonCriticalCleanup(userId);
+return userId;
+
+// ❌ WRONG - Direct return prevents post-transaction operations
+return await db.transaction(async (tx) => {
+  // ... operations ...
+  await performNonCriticalCleanup(someValue); // ❌ Still inside transaction!
+  return someValue;
+});
+```
+
+### When to Flag During Code Review
+
+**🚨 FLAG - External service call inside transaction:**
+```typescript
+await db.transaction(async (tx) => {
+  await tx.update(users).set(...);
+  await redisClient.del(key); // ❌ External service
+  await emailService.send(...); // ❌ External service
+  await analytics.track(...); // ❌ External service
+});
+```
+
+**🚨 FLAG - Cache operation without error handling:**
+```typescript
+const userId = await db.transaction(async (tx) => {
+  // ... transaction ...
+  return user_id;
+});
+
+await storageCache.invalidateUserCache(userId); // ❌ No try/catch
+```
+
+**✅ ACCEPT - Critical operations only:**
+```typescript
+await db.transaction(async (tx) => {
+  await tx.update(users).set(...);
+  await tx.update(tokens).set(...);
+  await tx.delete(sessions).where(...);
+  // Only database operations = atomic unit of work
+});
+```
+
+### Real-World Example
+
+**File:** `server/storage/domains/user-storage.ts:309-372`
+
+```typescript
+async resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  // Pre-transaction input validation
+  if (!token || typeof token !== 'string' || token.trim().length === 0) {
+    throw new Error('Invalid token: must be non-empty string');
+  }
+  if (!newPasswordHash || typeof newPasswordHash !== 'string' || newPasswordHash.length < 60) {
+    throw new Error('Invalid password hash format');
+  }
+
+  // Execute transaction, capture result
+  const userId = await this.db.transaction(async (tx) => {
+    // Atomic UPDATE: validate + mark used
+    const result = await tx.execute(sql`
+      UPDATE password_reset_tokens
+      SET is_used = true, used_at = NOW()
+      WHERE token = ${token}
+        AND is_used = false
+        AND (expires_at AT TIME ZONE 'UTC') > NOW()
+      RETURNING id, user_id
+    `);
+
+    const row = result.rows[0] as unknown;
+    if (!row) throw new Error('Invalid or expired reset token');
+    const tokenData = row as { id: number; user_id: number };
+
+    // Update password
+    await tx.update(users).set({
+      passwordHash: newPasswordHash,
+      updatedAt: new Date()
+    }).where(eq(users.id, tokenData.user_id));
+
+    // Invalidate ALL other reset tokens for this user
+    await tx.update(passwordResetTokens)
+      .set({ isUsed: true })
+      .where(and(
+        eq(passwordResetTokens.userId, tokenData.user_id),
+        eq(passwordResetTokens.isUsed, false)
+      ));
+
+    return tokenData.user_id;
+  }); // Transaction commits here
+
+  // Post-transaction cleanup (non-critical)
+  try {
+    await storageCache.invalidateUserCache(userId);
+  } catch (cacheError) {
+    logger.warn('[Storage] Cache invalidation failed', { userId, error: cacheError });
+  }
+
+  return userId;
+}
+```
+
+**Service Layer:** `server/services/password-reset-service.ts:157-173`
+
+```typescript
+export async function resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  const userId: number = await storage.resetPasswordAtomic(token, newPasswordHash);
+
+  // Session cleanup AFTER storage transaction (non-critical, best-effort)
+  try {
+    const sessionsCleared = await clearUserSessions(userId);
+    logger.info('[PasswordReset] Cleared user sessions', { userId, sessionsCleared });
+  } catch (sessionError) {
+    logger.error('[PasswordReset] Failed to clear sessions', { userId, error: sessionError });
+    // Don't fail password reset - session cleanup is best-effort
+  }
+
+  return userId;
+}
+```
+
+### Review Checklist
+
+When reviewing database transactions:
+
+- [ ] Transaction contains ONLY critical database operations
+- [ ] Cache invalidation happens AFTER transaction commits
+- [ ] Session cleanup happens AFTER transaction commits
+- [ ] External service calls (email, analytics) are OUTSIDE transaction
+- [ ] Non-critical operations have try/catch + logging
+- [ ] Transaction return value captured to variable before post-transaction ops
+- [ ] Post-transaction operations documented as "non-critical" or "best-effort"
+
+### Pattern Summary
+
+**Principle:** Critical operations should not fail due to non-critical service unavailability.
+
+**Implementation:** Capture transaction result, perform non-critical cleanup after commit with error handling.
+
+**Benefits:** Resilient to cache/session service failures, graceful degradation, acceptable staleness.
+
+**Related Patterns:**
+- Transaction Boundaries (this file)
+- Error Handling (06_ERROR_HANDLING_PATTERNS.md)
+- Graceful Degradation (CLAUDE.md)
+
+---
+
 ## Review Checklist for Database Code
 
 When reviewing database-related code, check:

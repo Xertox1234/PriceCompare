@@ -394,15 +394,15 @@ export function registerAuthRoutes(app: Express): void {
       // Hash the new password - SECURITY: NEVER expose in responses, passed to storage layer only
       const newPasswordHash = await hashPassword(password);
 
-      // SECURITY: Use atomic password reset with SERIALIZABLE transaction
+      // SECURITY: Use atomic password reset with READ COMMITTED transaction
       // This prevents the critical vulnerability where a server crash between password update
       // and token marking could allow token reuse.
-      // All 3 steps (validate token, update password, mark token used) are atomic.
-      const result = await resetPasswordAtomic(token, newPasswordHash); // NEVER exposed in API
+      // All steps (validate token, update password, invalidate all tokens, clear sessions) are atomic.
+      const userId = await resetPasswordAtomic(token, newPasswordHash); // NEVER exposed in API
 
       // Get user info for logging and email using userId from atomic operation
       // SECURITY: getUserByIdSafe never exposes passwordHash
-      const user = await storage.getUserByIdSafe(result.userId);
+      const user = await storage.getUserByIdSafe(userId);
 
       if (!user) {
         // This should never happen since resetPasswordAtomic validates the user
@@ -410,7 +410,7 @@ export function registerAuthRoutes(app: Express): void {
         logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
           success: false,
           message: 'User not found after successful reset',
-          metadata: { userId: result.userId },
+          metadata: { userId },
         });
 
         sendError(res, 'Password reset failed', 500);

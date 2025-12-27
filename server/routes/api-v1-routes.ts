@@ -26,7 +26,8 @@ import {
   googleSearchQuerySchema,
 } from '../validation/admin-schemas';
 import { parseIntSafe, parseIntOptional, parseFloatSafe } from '../utils/validation-helpers';
-import type { SearchFilters, AuthenticatedRequest } from '@shared/types';
+import type { SearchFilters } from '@shared/schema';
+import type { AuthenticatedRequest } from '@shared/types';
 
 export function registerApiV1Routes(app: Express): void {
   /**

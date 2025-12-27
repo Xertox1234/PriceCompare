@@ -281,7 +281,7 @@ export interface IStorage {
   resetPasswordAtomic(
     token: string,
     newPasswordHash: string
-  ): Promise<{ success: boolean; userId: number }>;
+  ): Promise<number>;
 
   // Notification Operations (Phase 8E + Phase 8A)
   getNotificationCountByType(userId: number, type: string, sinceDate: Date): Promise<number>;
@@ -1794,6 +1794,11 @@ export class MemStorage implements IStorage {
     throw new Error('Not supported in memory storage');
   }
 
+  // SECURITY: passwordHash handled internally, NEVER exposed
+  async resetPasswordAtomic(_token: string, _newPasswordHash: string): Promise<number> {
+    throw new Error('Not supported in memory storage');
+  }
+
   async getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview> {
     return { totalUsers: 0, totalProducts: 0, totalRetailers: 0, totalAlerts: 0 };
   }
@@ -3031,7 +3036,7 @@ export class DatabaseStorage implements IStorage {
   async resetPasswordAtomic(
     token: string,
     newPasswordHash: string
-  ): Promise<{ success: boolean; userId: number }> {
+  ): Promise<number> {
     // SECURITY: NEVER expose
     return this.userStorage.resetPasswordAtomic(token, newPasswordHash); // SECURITY: NEVER expose
   }

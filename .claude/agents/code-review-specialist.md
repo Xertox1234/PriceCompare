@@ -1068,6 +1068,597 @@ if (bestOffer?.price) {
 
 ---
 
+### Pattern 20: Cache Invalidation Outside Transactions (NEW 2025-12-27)
+
+**What**: Non-critical cleanup operations (cache invalidation, session cleanup) executed inside database transactions, causing password resets or data mutations to fail when cache/session services are unavailable.
+
+**Source**: Password reset security fix code review (TODO 005 - atomic password reset)
+
+**The Resilience Principle**: Critical operations should not fail due to non-critical service unavailability.
+
+**Problem - Cache Inside Transaction**:
+```typescript
+// ❌ WRONG - Cache invalidation inside transaction
+async resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  return await this.db.transaction(async (tx) => {
+    // Step 1: Validate token and mark as used
+    const result = await tx.execute(sql`UPDATE ...`);
+    const tokenData = result.rows[0];
+
+    // Step 2: Update password
+    await tx.update(users).set({ passwordHash: newPasswordHash });
+
+    // Step 3: Invalidate cache INSIDE transaction
+    await storageCache.invalidateUserCache(tokenData.user_id); // ❌ Blocks transaction if cache unavailable!
+
+    return tokenData.user_id;
+  });
+}
+```
+
+**What Happens**:
+1. Password reset transaction starts
+2. Token validated, password updated successfully
+3. Cache service is unavailable (Redis down, network issue)
+4. `invalidateUserCache()` throws error
+5. **Entire transaction rolls back** - password NOT reset!
+6. User sees error even though database operation succeeded
+
+**Solution - Cache After Transaction**:
+```typescript
+// ✅ CORRECT - Cache invalidation after transaction commits
+async resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  // Execute transaction, capture result
+  const userId = await this.db.transaction(async (tx) => {
+    // Step 1: Validate token and mark as used
+    const result = await tx.execute(sql`UPDATE ...`);
+    const tokenData = result.rows[0];
+
+    // Step 2: Update password
+    await tx.update(users).set({ passwordHash: newPasswordHash });
+
+    // Return userId (transaction commits here)
+    return tokenData.user_id;
+  }); // Transaction committed successfully
+
+  // Cache invalidation AFTER transaction (non-critical, won't rollback)
+  try {
+    await storageCache.invalidateUserCache(userId);
+  } catch (cacheError) {
+    logger.warn('[Storage] Cache invalidation failed after password reset', {
+      userId,
+      error: cacheError instanceof Error ? cacheError.message : String(cacheError)
+    });
+    // Cache TTL will expire stale data eventually - acceptable
+  }
+
+  return userId;
+}
+```
+
+**Benefits**:
+1. **Critical operation succeeds** - password reset completes even if cache fails
+2. **Transaction commits** - database is in consistent state
+3. **Graceful degradation** - cache error logged but doesn't block user
+4. **Acceptable staleness** - cache TTL expires stale data eventually
+
+**Pattern Application**:
+
+| Operation Type | Location | Rationale |
+|----------------|----------|-----------|
+| **INSIDE Transaction** | Token validation | Required for atomicity |
+| **INSIDE Transaction** | Password update | Required for atomicity |
+| **INSIDE Transaction** | Token invalidation | Required for atomicity |
+| **OUTSIDE Transaction** | Cache invalidation | Non-critical, has TTL fallback |
+| **OUTSIDE Transaction** | Session cleanup | Non-critical, best-effort security |
+| **OUTSIDE Transaction** | Email notifications | Non-critical, can retry |
+| **OUTSIDE Transaction** | Analytics events | Non-critical, eventually consistent |
+
+**Return Value Capture Pattern**:
+```typescript
+// ✅ CORRECT - Assign transaction result to variable first
+const userId = await db.transaction(async (tx) => {
+  // ... critical operations ...
+  return someValue;
+}); // Transaction commits
+
+// Now use captured value for post-transaction operations
+await performNonCriticalCleanup(userId);
+return userId;
+
+// ❌ WRONG - Direct return prevents post-transaction operations
+return await db.transaction(async (tx) => {
+  // ... operations ...
+  await performNonCriticalCleanup(someValue); // ❌ Blocks inside transaction!
+  return someValue;
+});
+```
+
+**Review Checklist**:
+- [ ] Cache invalidation happens after transaction commits
+- [ ] Session cleanup happens after transaction commits
+- [ ] Transaction only contains atomicity-required operations
+- [ ] Non-critical operations have try/catch + logging
+- [ ] Transaction return value captured to variable first
+- [ ] Post-transaction operations documented as "non-critical"
+
+**When to Flag**:
+```typescript
+// 🚨 FLAG - External service call inside transaction
+await db.transaction(async (tx) => {
+  await tx.update(...);
+  await redisClient.del(key); // ❌ External service
+  await emailService.send(...); // ❌ External service
+});
+
+// 🚨 FLAG - Cache operation without error handling
+await storageCache.invalidateUserCache(userId); // ❌ No try/catch
+
+// ✅ ACCEPT - Critical operations only
+await db.transaction(async (tx) => {
+  await tx.update(users).set(...);
+  await tx.update(tokens).set(...);
+  // Only database operations = atomic unit of work
+});
+```
+
+**Reference**:
+- `server/storage/domains/user-storage.ts:309-372` - Production example (resetPasswordAtomic)
+- `server/services/password-reset-service.ts:157-173` - Service layer session cleanup
+- `docs/02_DATABASE_PATTERNS.md` - Transaction boundary guidance
+
+---
+
+### Pattern 21: Type Assertion Documentation (CLAUDE.md Compliance) (NEW 2025-12-27)
+
+**What**: Type assertions (`as` keyword) without explanatory inline comments explaining WHY the cast is necessary and safe.
+
+**Source**: Password reset security fix code review (missing comment on `result.rows[0] as unknown`)
+
+**CLAUDE.md Requirement**: ALL type assertions must have inline comment explaining WHY.
+
+**Problem - Undocumented Type Assertion**:
+```typescript
+// ❌ WRONG - No comment explaining the cast
+const row = result.rows[0] as unknown;
+if (!row) {
+  throw new Error('Invalid or expired reset token');
+}
+
+// Cast to specific type
+const tokenData = row as { id: number; user_id: number };
+```
+
+**Solution - Documented Type Assertions**:
+```typescript
+// ✅ CORRECT - Both casts documented
+// Type assertion: Drizzle sql.execute() returns unknown rows, must check existence before narrowing type
+const row = result.rows[0] as unknown;
+if (!row) {
+  throw new Error('Invalid or expired reset token');
+}
+
+// Type assertion: Map PostgreSQL snake_case to camelCase
+const tokenData = row as { id: number; user_id: number };
+```
+
+**Why This Matters**:
+1. **Maintainability** - Future developers understand why cast was necessary
+2. **Safety verification** - Comment forces reviewer to verify cast is safe
+3. **Pattern documentation** - Explains framework quirks (Drizzle returns unknown)
+4. **Refactoring safety** - Prevents accidental removal of necessary casts
+
+**Common Type Assertion Scenarios**:
+
+```typescript
+// ✅ Framework returns unknown/any (Drizzle, raw SQL)
+// Type assertion: Drizzle sql.execute() returns unknown, must narrow to expected type
+const result = dbResult as { id: number; name: string };
+
+// ✅ Unsafe third-party library types
+// Type assertion: Library types are incorrect, actual runtime type is string[]
+const items = libraryResult as string[];
+
+// ✅ PostgreSQL snake_case to TypeScript camelCase
+// Type assertion: Map PostgreSQL column names to TypeScript interface
+const user = dbRow as { userId: number; userName: string };
+
+// ✅ DOM element types
+// Type assertion: We know this element is a button from HTML structure
+const button = event.target as HTMLButtonElement;
+
+// ✅ JSON parsing with validation
+// Type assertion: JSON schema validated by Zod before this point
+const config = JSON.parse(str) as ConfigSchema;
+
+// ✅ Type narrowing after runtime check
+// Type assertion: Runtime check guarantees this property exists
+if ('email' in user) {
+  const email = (user as { email: string }).email;
+}
+
+// ❌ WRONG - No runtime safety guarantee
+const user = data as User; // Missing: Why is this safe? Validated by Zod?
+
+// ❌ WRONG - Hiding type error instead of fixing
+const result = dangerousOperation() as any; // Code smell!
+```
+
+**Comment Templates**:
+
+```typescript
+// Type assertion: <Framework/library> returns <original type>, <reason for cast>
+// Type assertion: Map <source format> to <target format>
+// Type assertion: Runtime check guarantees <safety condition>
+// Type assertion: Validated by <validation method> before this point
+// Type assertion: DOM structure ensures <element type>
+```
+
+**Review Checklist**:
+- [ ] Every `as` cast has inline comment
+- [ ] Comment explains WHY, not just WHAT
+- [ ] Comment documents safety guarantee (runtime check, validation, framework behavior)
+- [ ] No `as any` without extremely strong justification
+- [ ] Framework quirks documented (Drizzle unknown, PostgreSQL snake_case)
+
+**Severity Levels**:
+
+| Pattern | Severity | Action |
+|---------|----------|--------|
+| `as any` without comment | CRITICAL | Block PR, demand justification |
+| `as unknown` without comment | IMPORTANT | Add comment explaining narrowing |
+| `as TypeName` without comment | IMPORTANT | Add comment explaining safety |
+| Framework-specific cast | INFO | Suggest documenting framework behavior |
+
+**Reference**:
+- `server/storage/domains/user-storage.ts:325-334` - Production example
+- `CLAUDE.md` - Type assertion documentation requirement
+
+---
+
+### Pattern 22: Input Validation at Function Boundaries (Defense-in-Depth) (NEW 2025-12-27)
+
+**What**: Public functions accepting numeric IDs or user-controlled input without validating at function entry, relying on callers to provide valid input.
+
+**Source**: Password reset security fix code review (`clearUserSessions` missing userId validation)
+
+**The Defense-in-Depth Principle**: Validate input at every boundary, even if callers "should" provide valid data.
+
+**Problem - Missing Input Validation**:
+```typescript
+// ❌ WRONG - No validation at function boundary
+export async function clearUserSessions(userId: number): Promise<number> {
+  const redisClient = getRedisSessionClient();
+
+  // Uses userId directly in SCAN operation
+  // What if userId is 0, negative, NaN, or undefined?
+  for (const key of keys) {
+    const session = JSON.parse(sessionData) as SessionData;
+    if (session?.passport?.user === userId) { // ❌ Could match invalid userId!
+      await redisClient.del(key);
+    }
+  }
+}
+
+// ❌ WRONG - What happens?
+await clearUserSessions(0); // Deletes sessions for user 0 (doesn't exist)
+await clearUserSessions(-1); // Searches for negative user ID
+await clearUserSessions(NaN); // Never matches anything, wastes resources
+```
+
+**Solution - Validate at Boundary**:
+```typescript
+// ✅ CORRECT - Validate input immediately
+export async function clearUserSessions(userId: number): Promise<number> {
+  // Input validation (prevent invalid user ID from being used in Redis SCAN)
+  if (!userId || userId <= 0 || !Number.isInteger(userId)) {
+    throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+  }
+
+  const redisClient = getRedisSessionClient();
+  // ... rest of function (now safe to use userId)
+}
+
+// ✅ Behavior
+await clearUserSessions(0); // throws Error: "Invalid userId: 0"
+await clearUserSessions(-1); // throws Error: "Invalid userId: -1"
+await clearUserSessions(1.5); // throws Error: "Invalid userId: 1.5"
+await clearUserSessions(123); // ✓ Proceeds with valid input
+```
+
+**Validation Patterns by Input Type**:
+
+```typescript
+// ✅ User ID validation (all public functions)
+function processUser(userId: number) {
+  if (!userId || userId <= 0 || !Number.isInteger(userId)) {
+    throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+  }
+  // ... rest of function
+}
+
+// ✅ String validation (tokens, emails)
+function validateResetToken(token: string) {
+  if (!token || typeof token !== 'string' || token.trim().length === 0) {
+    throw new Error('Invalid token: must be non-empty string');
+  }
+  if (token.length > 255) {
+    throw new Error('Invalid token: exceeds maximum length');
+  }
+  // ... rest of function
+}
+
+// ✅ Array validation
+function processBatch(items: string[]) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('Invalid items: must be non-empty array');
+  }
+  // ... rest of function
+}
+
+// ✅ Enum validation
+function updateStatus(status: string) {
+  const validStatuses = ['pending', 'active', 'completed'];
+  if (!validStatuses.includes(status)) {
+    throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+  }
+  // ... rest of function
+}
+
+// ✅ Date validation
+function getRecentData(since: Date) {
+  if (!(since instanceof Date) || isNaN(since.getTime())) {
+    throw new Error('Invalid since: must be valid Date object');
+  }
+  if (since > new Date()) {
+    throw new Error('Invalid since: cannot be in the future');
+  }
+  // ... rest of function
+}
+```
+
+**Consistent with Storage Layer Pattern**:
+```typescript
+// From server/storage/domains/user-storage.ts
+private validateUserId(userId: number): void {
+  if (!userId || userId < 1 || !Number.isInteger(userId)) {
+    throw new Error(`Invalid userId: ${userId}. Must be a positive integer.`);
+  }
+}
+
+// Applied at every function entry:
+async getUserByIdSafe(userId: number): Promise<SafeUser | null> {
+  this.validateUserId(userId); // Defense-in-depth
+  // ... rest of function
+}
+```
+
+**When to Validate**:
+
+| Function Type | Validate? | Reason |
+|---------------|-----------|--------|
+| Public API | ✅ YES | User-controlled input |
+| Storage layer public method | ✅ YES | Called from routes/services |
+| Service layer public method | ✅ YES | Called from routes |
+| Utility function (exported) | ✅ YES | Unknown callers |
+| Private helper (internal) | ⚠️ OPTIONAL | Known callers, but still recommended |
+| Type-guarded function | ✅ YES | TypeScript types aren't runtime checks |
+
+**Review Checklist**:
+- [ ] Public functions validate all numeric IDs (positive integers)
+- [ ] Public functions validate all strings (non-empty, max length)
+- [ ] Public functions validate all arrays (non-empty if required)
+- [ ] Validation happens at function entry (before any operations)
+- [ ] Validation errors are descriptive (include invalid value + requirements)
+- [ ] Consistent with storage layer validation patterns
+
+**Common Mistakes**:
+
+```typescript
+// ❌ WRONG - TypeScript type doesn't guarantee runtime safety
+function deleteUser(userId: number) {
+  // TypeScript says it's a number, but what if it's 0, -1, NaN?
+  await db.delete(users).where(eq(users.id, userId));
+}
+
+// ❌ WRONG - Validation too late (after external operation)
+async function processPayment(amount: number) {
+  await chargeCard(amount); // External API call
+  if (amount <= 0) throw new Error('Invalid amount'); // Too late!
+}
+
+// ✅ CORRECT - Validate BEFORE external operations
+async function processPayment(amount: number) {
+  if (amount <= 0) throw new Error('Invalid amount');
+  await chargeCard(amount); // Safe to proceed
+}
+```
+
+**Reference**:
+- `server/utils/session-cleanup.ts:30-33` - Production example
+- `server/storage/domains/user-storage.ts:52-56` - Storage layer validation pattern
+- `docs/04_SECURITY_PATTERNS.md` - Input validation guidance
+
+---
+
+### Pattern 23: Module-Level Imports vs Dynamic Imports (Fail-Fast Principle) (NEW 2025-12-27)
+
+**What**: Using dynamic imports (`await import()`) for modules that should be imported at the top level, deferring import errors to runtime instead of app startup.
+
+**Source**: Password reset security fix code review (session cleanup dynamic import)
+
+**The Fail-Fast Principle**: Detect errors at app startup, not during user operations.
+
+**Problem - Dynamic Import Defers Errors**:
+```typescript
+// ❌ WRONG - Dynamic import during password reset
+export async function resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  const userId = await storage.resetPasswordAtomic(token, newPasswordHash);
+
+  // Dynamic import - error happens DURING password reset!
+  try {
+    const { clearUserSessions } = await import('../utils/session-cleanup');
+    await clearUserSessions(userId);
+  } catch (sessionError) {
+    // What if import() fails due to:
+    // - Typo in path: '../utils/session-cleanp' (missing u)
+    // - File doesn't exist
+    // - Syntax error in session-cleanup.ts
+    // User sees error during password reset!
+  }
+
+  return userId;
+}
+```
+
+**What Happens**:
+1. App starts successfully (no import errors detected)
+2. User requests password reset
+3. Password reset completes
+4. Dynamic import fails (file not found, syntax error)
+5. **User sees error message** even though password was reset
+6. Error logs show import failure, hard to diagnose
+
+**Solution - Module-Level Import**:
+```typescript
+// ✅ CORRECT - Top-level import
+import { clearUserSessions } from '../utils/session-cleanup';
+
+export async function resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  const userId = await storage.resetPasswordAtomic(token, newPasswordHash);
+
+  // Use imported function (import errors detected at app startup)
+  try {
+    await clearUserSessions(userId);
+  } catch (sessionError) {
+    // Only runtime Redis errors reach here, not import errors
+    logger.error('[PasswordReset] Failed to clear user sessions', {
+      userId,
+      error: sessionError instanceof Error ? sessionError.message : String(sessionError),
+    });
+  }
+
+  return userId;
+}
+```
+
+**Benefits**:
+1. **Startup-time detection** - Import errors prevent app from starting
+2. **Immediate feedback** - Developer sees error when running app
+3. **No user impact** - Import errors never reach production users
+4. **Simpler code** - No dynamic import boilerplate
+5. **Better IDE support** - Auto-import, jump-to-definition work
+
+**When to Use Dynamic Import** (Legitimate Cases):
+
+```typescript
+// ✅ CORRECT - Lazy-load heavy dependency (code splitting)
+async function generatePDF(data: ReportData) {
+  // Only load PDF library when actually generating PDFs
+  const { generateReport } = await import('../utils/pdf-generator'); // Large library
+  return generateReport(data);
+}
+
+// ✅ CORRECT - Conditional feature loading
+if (process.env.ENABLE_ANALYTICS === 'true') {
+  const analytics = await import('../services/analytics');
+  analytics.init();
+}
+
+// ✅ CORRECT - Plugin system (dynamic paths)
+async function loadPlugin(pluginName: string) {
+  const plugin = await import(`../plugins/${pluginName}`);
+  return plugin.activate();
+}
+
+// ❌ WRONG - Always-used utility (should be top-level)
+async function resetPassword(token: string) {
+  const { clearUserSessions } = await import('../utils/session-cleanup');
+  // This utility is ALWAYS used after password reset, not conditional
+}
+```
+
+**Decision Framework**:
+
+| Scenario | Use Module Import | Use Dynamic Import |
+|----------|-------------------|-------------------|
+| Always-used utility | ✅ YES | ❌ NO |
+| Core business logic | ✅ YES | ❌ NO |
+| Frequently called function | ✅ YES | ❌ NO |
+| Large optional dependency | ❌ NO | ✅ YES |
+| Conditional feature | ❌ NO | ✅ YES |
+| Plugin/dynamic path | ❌ NO | ✅ YES |
+
+**Review Checklist**:
+- [ ] Dynamic imports only for large optional dependencies
+- [ ] Core utilities use top-level imports
+- [ ] Business logic functions use top-level imports
+- [ ] No dynamic imports for always-used modules
+- [ ] Dynamic imports have clear justification (code splitting, conditional)
+
+**Code Smell Detection**:
+
+```typescript
+// 🚨 RED FLAG - Dynamic import in hot path
+app.post('/api/reset-password', async (req, res) => {
+  const { resetPassword } = await import('../services/password-reset');
+  // Import on EVERY request = performance penalty + deferred errors
+});
+
+// ✅ CORRECT - Top-level import
+import { resetPassword } from '../services/password-reset';
+app.post('/api/reset-password', async (req, res) => {
+  // Import once at startup = better performance + fail-fast
+});
+
+// 🚨 RED FLAG - Try/catch around import for error handling
+try {
+  const { helper } = await import('../utils/helper');
+  await helper();
+} catch (error) {
+  // Catching import errors = hiding configuration problems
+}
+
+// ✅ CORRECT - Let import errors propagate at startup
+import { helper } from '../utils/helper';
+try {
+  await helper();
+} catch (error) {
+  // Only runtime errors caught, import errors fail app startup
+}
+```
+
+**Migration Pattern**:
+
+```typescript
+// BEFORE (dynamic import)
+export async function someFunction() {
+  try {
+    const { utilityFunction } = await import('../utils/utility');
+    await utilityFunction();
+  } catch (error) {
+    logger.error('Failed', { error });
+  }
+}
+
+// AFTER (module-level import)
+import { utilityFunction } from '../utils/utility'; // Move to top
+
+export async function someFunction() {
+  try {
+    await utilityFunction(); // Use directly
+  } catch (error) {
+    logger.error('Failed', { error }); // Only runtime errors
+  }
+}
+```
+
+**Reference**:
+- `server/services/password-reset-service.ts:5,163` - Production example (module-level import)
+- ESLint rule: `@typescript-eslint/no-floating-promises` - Catches await import() without handling
+
+---
+
 ### Pattern 8: E2E Test `page: any` Types (NEW 2025-12-12)
 
 **What**: Using `any` type for Playwright's Page object in E2E test helper functions instead of proper Playwright types.
@@ -2898,10 +3489,11 @@ If you encounter unclear patterns:
 
 ---
 
-**Version**: 1.11
-**Last Updated**: 2025-12-15
+**Version**: 1.12
+**Last Updated**: 2025-12-27
 **Changes**:
-- v1.11: Added Pattern 18 (Named Constants for E2E Timing), Pattern 19 (YAGNI for Utility Extraction), and Pattern 20 (Union Types for Finite Value Sets) from Price Analytics code review codification session.
+- v1.12: Added Patterns 20-23 from password reset security fix code review: Pattern 20 (Cache Invalidation Outside Transactions - transaction resilience), Pattern 21 (Type Assertion Documentation - CLAUDE.md compliance), Pattern 22 (Input Validation at Function Boundaries - defense-in-depth), Pattern 23 (Module-Level vs Dynamic Imports - fail-fast principle). All patterns include production examples from server/storage/domains/user-storage.ts and server/services/password-reset-service.ts.
+- v1.11: Added Pattern 18 (Named Constants for E2E Timing), Pattern 19 (YAGNI for Utility Extraction) from Price Analytics code review codification session.
 - v1.10: Added Pattern 17 (Progressive DOM Scoping for E2E Selectors) for detecting and fixing ambiguous Playwright text selectors. Includes three-level DOM traversal pattern, regex escaping guidance, debugging workflow, and selector priority order.
 - v1.9: Added Pattern 16 (Async onClick Without Void Wrapper) for detecting async event handlers without proper void wrapping. Includes pre-commit detection commands, quick fix templates, and root cause analysis.
 - v1.8: Added Phase 2.2 E2E patterns (Patterns 13-15): local vs shared helper organization, flexible selector patterns, test data categorization. Expanded E2E review summary with new guidance.

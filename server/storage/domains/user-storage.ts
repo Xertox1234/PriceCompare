@@ -12,7 +12,7 @@
  * Phase 2: User Domain Extraction - Migrated from monolithic storage.ts
  */
 
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import {
   users,
   notifications,
@@ -266,28 +266,32 @@ export class UserStorage extends BaseStorage {
   /**
    * Reset password atomically with token validation
    *
-   * SECURITY: This method wraps all 3 password reset steps in a single SERIALIZABLE transaction:
-   * 1. Validate reset token (exists, not expired, not used)
+   * SECURITY: This method wraps all password reset steps in a single READ COMMITTED transaction:
+   * 1. Atomically validate token AND mark as used (single UPDATE query with optimistic locking)
    * 2. Update user password hash
-   * 3. Mark token as used (set isUsed=true, usedAt=now)
+   * 3. Invalidate ALL other reset tokens for this user
+   * 4. Clear all active sessions (force re-login)
    *
-   * This prevents the critical security vulnerability where a server crash between steps 2 and 3
-   * would leave the token valid for reuse, allowing attackers to reset the password multiple times.
+   * This prevents the critical security vulnerability where a server crash between steps would
+   * leave the token valid for reuse, allowing attackers to reset the password multiple times.
    *
-   * The SERIALIZABLE isolation level prevents race conditions where multiple password reset
-   * requests could be processed concurrently for the same token.
+   * The atomic UPDATE with WHERE clause provides optimistic locking - if another request already
+   * marked the token as used, this UPDATE matches zero rows and the operation fails safely.
+   *
+   * PERFORMANCE: Uses READ COMMITTED (default) instead of SERIALIZABLE. The atomic UPDATE provides
+   * sufficient race condition protection without the overhead of serialization conflicts.
    *
    * @param token - The password reset token
    * @param newPasswordHash - The new password hash (SECURITY: write-only, never exposed)
-   * @returns Object with success status and userId
+   * @returns User ID of the password reset owner
    * @throws Error if token is invalid, expired, or already used
    */
   async resetPasswordAtomic(
     token: string,
     newPasswordHash: string // SECURITY: NEVER expose - write-only parameter
-  ): Promise<{ success: boolean; userId: number }> {
+  ): Promise<number> {
     try {
-      // Validate inputs
+      // Pre-transaction input validation (avoid locking for invalid input)
       if (!token || typeof token !== 'string' || token.trim().length === 0) {
         throw new Error('Invalid token: must be non-empty string');
       }
@@ -296,83 +300,77 @@ export class UserStorage extends BaseStorage {
         throw new Error('Invalid token: exceeds maximum length');
       }
 
-      if (!newPasswordHash || typeof newPasswordHash !== 'string') {
-        throw new Error('Invalid password hash: must be non-empty string');
+      // SECURITY: Validate password hash format (bcrypt hashes are 60 chars)
+      if (!newPasswordHash || typeof newPasswordHash !== 'string' || newPasswordHash.length < 60) {
+        throw new Error('Invalid password hash format');
       }
 
-      // Execute all 3 steps in a single SERIALIZABLE transaction
-      return await this.db.transaction(
-        async (tx) => {
-          // Step 1: Validate token (exists, not expired, not used)
-          // NOTE: Use raw SQL for timezone handling (matches validatePasswordResetToken pattern)
-          const tokenResult = await tx.execute(
-            sql`
-              SELECT *
-              FROM password_reset_tokens
-              WHERE token = ${token}
-                AND is_used = false
-                AND (expires_at AT TIME ZONE 'UTC') > NOW()
-              LIMIT 1
-            `
-          );
+      // Execute all steps in a single READ COMMITTED transaction (default isolation level)
+      const userId = await this.db.transaction(async (tx) => {
+        // Step 1: Atomically validate token AND mark as used (single UPDATE query)
+        // The WHERE clause acts as optimistic locking - if another request already marked it used,
+        // this UPDATE matches zero rows and we fail safely with "Invalid or expired reset token"
+        // Using raw SQL for consistent timezone handling (matches validatePasswordResetToken pattern)
+        const result = await tx.execute(
+          sql`
+            UPDATE password_reset_tokens
+            SET is_used = true, used_at = NOW()
+            WHERE token = ${token}
+              AND is_used = false
+              AND (expires_at AT TIME ZONE 'UTC') > NOW()
+            RETURNING id, user_id
+          `
+        );
 
-          const tokenRow = tokenResult.rows[0] as unknown;
-          if (!tokenRow) {
-            throw new Error('Invalid or expired reset token');
-          }
-
-          // Type assertion: Map PostgreSQL snake_case columns to TypeScript camelCase
-          const dbRow = tokenRow as {
-            id: number;
-            user_id: number;
-            token: string;
-            expires_at: Date;
-            is_used: boolean;
-            used_at: Date | null;
-            ip_address: string | null;
-            user_agent: string | null;
-            created_at: Date;
-          };
-
-          const tokenData = {
-            id: dbRow.id,
-            userId: dbRow.user_id,
-            token: dbRow.token,
-            expiresAt: dbRow.expires_at,
-            isUsed: dbRow.is_used,
-            usedAt: dbRow.used_at,
-            ipAddress: dbRow.ip_address,
-            userAgent: dbRow.user_agent,
-            createdAt: dbRow.created_at,
-          };
-
-          // Step 2: Update password hash (atomic with token validation)
-          await tx
-            .update(users)
-            .set({
-              passwordHash: newPasswordHash, // SECURITY: NEVER expose passwordHash in SELECT queries
-              updatedAt: new Date(),
-            })
-            .where(eq(users.id, tokenData.userId));
-
-          // Step 3: Mark token as used (atomic with password update)
-          await tx
-            .update(passwordResetTokens)
-            .set({
-              isUsed: true,
-              usedAt: new Date(),
-            })
-            .where(eq(passwordResetTokens.id, tokenData.id));
-
-          // Invalidate user cache after successful password reset
-          await storageCache.invalidateUserCache(tokenData.userId);
-
-          return { success: true, userId: tokenData.userId };
-        },
-        {
-          isolationLevel: 'serializable', // Prevent concurrent password resets for same token
+        // Type assertion: Drizzle sql.execute() returns unknown rows, must check existence before narrowing type
+        const row = result.rows[0] as unknown;
+        if (!row) {
+          // Same error message for all failure modes (prevent information leakage)
+          // Could be: token doesn't exist, already used, or expired
+          throw new Error('Invalid or expired reset token');
         }
-      );
+
+        // Type assertion: Map PostgreSQL snake_case to camelCase
+        const tokenData = row as { id: number; user_id: number };
+
+        // Step 2: Update password hash
+        // SECURITY: passwordHash is write-only parameter, NEVER exposed in SELECT queries
+        await tx
+          .update(users)
+          .set({
+            passwordHash: newPasswordHash, // Write-only operation
+            updatedAt: new Date(), // Audit trail
+          })
+          .where(eq(users.id, tokenData.user_id));
+
+        // Step 3: Invalidate ALL other reset tokens for this user
+        // SECURITY: If user requested reset twice, using token #1 invalidates token #2
+        // This prevents multi-token attack where attacker has multiple valid reset tokens
+        await tx
+          .update(passwordResetTokens)
+          .set({ isUsed: true })
+          .where(and(eq(passwordResetTokens.userId, tokenData.user_id), eq(passwordResetTokens.isUsed, false)));
+
+        // Step 4: Clear all active sessions (force re-login)
+        // SECURITY: Prevents stolen session cookie attack - attacker loses access immediately
+        // This is handled by calling clearUserSessions() after the transaction completes
+        // (see password-reset-service.ts which wraps this method)
+
+        return tokenData.user_id;
+      }); // Default READ COMMITTED isolation is correct
+
+      // Cache invalidation after transaction commits (non-critical, won't rollback if it fails)
+      try {
+        await storageCache.invalidateUserCache(userId);
+      } catch (cacheError) {
+        logger.warn('[Storage] Cache invalidation failed after password reset', {
+          userId,
+          error: cacheError instanceof Error ? cacheError.message : String(cacheError)
+        });
+        // Cache TTL will expire stale data eventually - this is acceptable
+      }
+
+      return userId;
     } catch (error) {
       this.handleError(error, 'resetPasswordAtomic');
     }

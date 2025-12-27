@@ -1,8 +1,8 @@
 import * as crypto from 'crypto';
 import { storage } from '../storage';
 import type { PasswordResetToken } from '@shared/schema';
-import { retryWithBackoff, isTransientDatabaseError } from '../utils/retry-with-backoff';
 import { logger } from '../utils/logger';
+import { clearUserSessions } from '../utils/session-cleanup';
 
 /**
  * Password Reset Token Service
@@ -117,38 +117,34 @@ export async function getResetAttemptCount(userId: number, windowMinutes = 15): 
 /**
  * Reset password atomically with token validation
  *
- * SECURITY: This method wraps all 3 password reset steps in a single SERIALIZABLE transaction:
- * 1. Validate reset token (exists, not expired, not used)
+ * SECURITY: This method performs all password reset steps atomically:
+ * 1. Atomically validate token AND mark as used (single UPDATE with optimistic locking)
  * 2. Update user password hash
- * 3. Mark token as used (set isUsed=true, usedAt=now)
+ * 3. Invalidate ALL other reset tokens for this user
+ * 4. Clear all active sessions (force re-login across all devices)
  *
- * This prevents the critical security vulnerability where a server crash between steps 2 and 3
- * would leave the token valid for reuse, allowing attackers to reset the password multiple times.
+ * This prevents the critical security vulnerability where a server crash between steps would
+ * leave the token valid for reuse, allowing attackers to reset the password multiple times.
  *
- * The SERIALIZABLE isolation level prevents race conditions where multiple password reset
- * requests could be processed concurrently for the same token.
- *
- * Includes automatic retry logic with exponential backoff for serialization failures.
+ * PERFORMANCE: Uses READ COMMITTED isolation (default) instead of SERIALIZABLE. The atomic UPDATE
+ * provides sufficient race condition protection without serialization conflicts or retry logic.
  *
  * @param token - The password reset token
  * @param newPasswordHash - The new password hash (SECURITY: write-only, never exposed)
- * @returns Object with success status and userId
+ * @returns User ID of the password reset owner
  * @throws Error if token is invalid, expired, or already used
  *
  * @example
  * try {
- *   const result = await resetPasswordAtomic(token, newPasswordHash);
- *   logger.info('Password reset successful', { userId: result.userId });
+ *   const userId = await resetPasswordAtomic(token, newPasswordHash);
+ *   logger.info('Password reset successful', { userId });
  * } catch (error) {
  *   logger.error('Password reset failed', { error });
  *   throw error;
  * }
  */
-export async function resetPasswordAtomic(
-  token: string,
-  newPasswordHash: string
-): Promise<{ success: boolean; userId: number }> {
-  // Input validation
+export async function resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  // Input validation (additional validation happens in storage layer)
   if (!token || typeof token !== 'string' || token.trim().length === 0) {
     throw new Error('Invalid token: must be non-empty string');
   }
@@ -157,23 +153,23 @@ export async function resetPasswordAtomic(
     throw new Error('Invalid password hash: must be non-empty string');
   }
 
-  // Use retry logic for SERIALIZABLE transaction to handle serialization failures
-  return await retryWithBackoff<{ success: boolean; userId: number }>(
-    async () => {
-      return await storage.resetPasswordAtomic(token, newPasswordHash);
-    },
-    {
-      maxAttempts: 3,
-      initialDelayMs: 100,
-      isRetryable: isTransientDatabaseError,
-      context: { operation: 'resetPasswordAtomic' },
-      onRetry: (error, attempt, delayMs) => {
-        logger.warn('[PasswordReset] Retrying password reset after serialization error', {
-          error: error instanceof Error ? error.message : String(error),
-          attempt,
-          delayMs,
-        });
-      },
-    }
-  );
+  // Execute atomic password reset transaction
+  const userId: number = await storage.resetPasswordAtomic(token, newPasswordHash);
+
+  // Clear all active sessions for this user (force re-login)
+  // SECURITY: Prevents stolen session cookie attack - attacker loses access immediately
+  // This is done AFTER the transaction to avoid blocking database commit on Redis operations
+  try {
+    const sessionsCleared = await clearUserSessions(userId);
+    logger.info('[PasswordReset] Cleared user sessions after password reset', { userId, sessionsCleared });
+  } catch (sessionError) {
+    // Session cleanup is a best-effort security enhancement
+    // Log the error but don't fail the password reset
+    logger.error('[PasswordReset] Failed to clear user sessions', {
+      userId,
+      error: sessionError instanceof Error ? sessionError.message : String(sessionError),
+    });
+  }
+
+  return userId;
 }

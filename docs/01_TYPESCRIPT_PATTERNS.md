@@ -3298,6 +3298,193 @@ async countUserAlertsForProduct(userId: number, productId: number): Promise<numb
 
 ---
 
+## Pattern: Type Assertion Documentation (CLAUDE.md Compliance)
+
+**Context:** Password reset security fix code review (Dec 2025)
+
+**Problem:** Type assertions (`as` keyword) without explanatory comments, violating CLAUDE.md requirement.
+
+### CLAUDE.md Requirement
+
+**ALL type assertions MUST have inline comment explaining WHY.**
+
+### The Anti-Pattern
+
+```typescript
+// ❌ WRONG - No comment explaining the cast
+const row = result.rows[0] as unknown;
+const tokenData = row as { id: number; user_id: number };
+```
+
+### The Solution
+
+```typescript
+// ✅ CORRECT - Both casts documented
+// Type assertion: Drizzle sql.execute() returns unknown rows, must check existence before narrowing type
+const row = result.rows[0] as unknown;
+if (!row) throw new Error('Invalid token');
+
+// Type assertion: Map PostgreSQL snake_case to camelCase
+const tokenData = row as { id: number; user_id: number };
+```
+
+### Comment Templates
+
+```typescript
+// Type assertion: <Framework/library> returns <original type>, <reason for cast>
+// Type assertion: Map <source format> to <target format>
+// Type assertion: Runtime check guarantees <safety condition>
+// Type assertion: Validated by <validation method> before this point
+// Type assertion: DOM structure ensures <element type>
+```
+
+### Common Scenarios
+
+```typescript
+// ✅ Framework returns unknown/any (Drizzle, raw SQL)
+// Type assertion: Drizzle sql.execute() returns unknown, must narrow to expected type
+const result = dbResult as { id: number; name: string };
+
+// ✅ PostgreSQL snake_case to TypeScript camelCase
+// Type assertion: Map PostgreSQL column names to TypeScript interface
+const user = dbRow as { userId: number; userName: string };
+
+// ✅ DOM element types
+// Type assertion: We know this element is a button from HTML structure
+const button = event.target as HTMLButtonElement;
+
+// ❌ WRONG - Hiding type error instead of fixing
+const result = dangerousOperation() as any; // Code smell!
+```
+
+### Review Checklist
+
+- [ ] Every `as` cast has inline comment
+- [ ] Comment explains WHY, not just WHAT
+- [ ] Comment documents safety guarantee
+- [ ] No `as any` without extremely strong justification
+- [ ] Framework quirks documented (Drizzle unknown, PostgreSQL snake_case)
+
+**Real-World Example:** `server/storage/domains/user-storage.ts:325-334`
+
+---
+
+## Pattern: Module-Level Imports vs Dynamic Imports (Fail-Fast Principle)
+
+**Context:** Password reset security fix code review (Dec 2025)
+
+**Problem:** Using dynamic imports (`await import()`) for always-used modules, deferring import errors to runtime instead of app startup.
+
+### The Fail-Fast Principle
+
+**Detect errors at app startup, not during user operations.**
+
+### The Anti-Pattern
+
+```typescript
+// ❌ WRONG - Dynamic import during password reset
+export async function resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  const userId = await storage.resetPasswordAtomic(token, newPasswordHash);
+
+  // Dynamic import - error happens DURING password reset!
+  try {
+    const { clearUserSessions } = await import('../utils/session-cleanup');
+    await clearUserSessions(userId);
+  } catch (sessionError) {
+    // What if import() fails due to typo, missing file, syntax error?
+    // User sees error during password reset!
+  }
+
+  return userId;
+}
+```
+
+**What Happens:**
+1. App starts successfully (no import errors detected)
+2. User requests password reset
+3. Password reset completes
+4. Dynamic import fails (file not found, syntax error)
+5. **User sees error** even though password was reset
+
+### The Solution
+
+```typescript
+// ✅ CORRECT - Top-level import
+import { clearUserSessions } from '../utils/session-cleanup';
+
+export async function resetPasswordAtomic(token: string, newPasswordHash: string): Promise<number> {
+  const userId = await storage.resetPasswordAtomic(token, newPasswordHash);
+
+  // Use imported function (import errors detected at app startup)
+  try {
+    await clearUserSessions(userId);
+  } catch (sessionError) {
+    // Only runtime Redis errors reach here, not import errors
+    logger.error('[PasswordReset] Failed to clear sessions', { userId, error: sessionError });
+  }
+
+  return userId;
+}
+```
+
+**Benefits:**
+1. **Startup-time detection** - Import errors prevent app from starting
+2. **Immediate feedback** - Developer sees error when running app
+3. **No user impact** - Import errors never reach production users
+4. **Simpler code** - No dynamic import boilerplate
+5. **Better IDE support** - Auto-import, jump-to-definition work
+
+### When to Use Dynamic Import (Legitimate Cases)
+
+```typescript
+// ✅ CORRECT - Lazy-load heavy dependency (code splitting)
+async function generatePDF(data: ReportData) {
+  const { generateReport } = await import('../utils/pdf-generator'); // Large library
+  return generateReport(data);
+}
+
+// ✅ CORRECT - Conditional feature loading
+if (process.env.ENABLE_ANALYTICS === 'true') {
+  const analytics = await import('../services/analytics');
+  analytics.init();
+}
+
+// ✅ CORRECT - Plugin system (dynamic paths)
+async function loadPlugin(pluginName: string) {
+  const plugin = await import(`../plugins/${pluginName}`);
+  return plugin.activate();
+}
+
+// ❌ WRONG - Always-used utility (should be top-level)
+async function resetPassword(token: string) {
+  const { clearUserSessions } = await import('../utils/session-cleanup');
+  // This utility is ALWAYS used, not conditional
+}
+```
+
+### Decision Framework
+
+| Scenario | Use Module Import | Use Dynamic Import |
+|----------|-------------------|-------------------|
+| Always-used utility | ✅ YES | ❌ NO |
+| Core business logic | ✅ YES | ❌ NO |
+| Frequently called function | ✅ YES | ❌ NO |
+| Large optional dependency | ❌ NO | ✅ YES |
+| Conditional feature | ❌ NO | ✅ YES |
+| Plugin/dynamic path | ❌ NO | ✅ YES |
+
+### Review Checklist
+
+- [ ] Dynamic imports only for large optional dependencies
+- [ ] Core utilities use top-level imports
+- [ ] Business logic functions use top-level imports
+- [ ] No dynamic imports for always-used modules
+- [ ] Dynamic imports have clear justification (code splitting, conditional)
+
+**Real-World Example:** `server/services/password-reset-service.ts:5,163`
+
+---
+
 ## Related Documentation
 
 - [CLAUDE.md](../CLAUDE.md) - Main project guidelines

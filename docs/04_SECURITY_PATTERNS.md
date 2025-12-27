@@ -968,6 +968,385 @@ grep -rn "min(1).*\.trim()\|min(.\+).*\.trim()" server/routes/
 
 ---
 
+## Input Validation at Function Boundaries (Defense-in-Depth)
+
+**Pattern 22** - Added 2025-12-27 (Code Review: Password Reset Security Fix)
+
+### Overview
+
+**Defense-in-depth principle**: Validate inputs at **every function boundary**, even when callers are trusted internal code. This prevents cascading failures when upstream validation is bypassed, removed, or fails.
+
+**Key Insight**: Internal functions are exposed to:
+1. **Future refactoring** - New code paths may bypass validation
+2. **Bug introduction** - Caller validation may be accidentally removed
+3. **Transitive attacks** - Attacker controls data through intermediate layers
+
+**Rule**: **Public functions** (exported from modules, used across files) MUST validate all inputs, even if current callers already validate.
+
+### When to Apply This Pattern
+
+Apply input validation at function boundaries when **ANY** of these conditions are true:
+
+| Condition | Example | Why Validate |
+|-----------|---------|--------------|
+| **Function is exported** | `export async function clearUserSessions(userId: number)` | External callers may not validate |
+| **Function has side effects** | Redis operations, database writes, file I/O | Invalid input can corrupt state |
+| **Function is security-critical** | Password reset, session management, auth | Defense against privilege escalation |
+| **Input used in dangerous operations** | SQL queries, Redis SCAN, shell commands | Prevent injection attacks |
+| **Function might be refactored** | Any non-trivial function | Future changes may bypass caller validation |
+
+### ❌ WRONG - Trusting Caller Validation
+
+```typescript
+// ❌ BAD - No validation, assumes caller validates
+export async function clearUserSessions(userId: number): Promise<number> {
+  const redisClient = getRedisSessionClient();
+
+  // VULNERABLE: If userId is 0, -1, or NaN, Redis SCAN will behave unexpectedly
+  let cursor = 0;
+  do {
+    const result = await redisClient.scan(cursor, {
+      MATCH: 'sess:*',  // This scans ALL sessions if userId is invalid!
+      COUNT: 100,
+    });
+
+    // ... process sessions for userId ...
+  } while (cursor !== 0);
+}
+
+// Caller A validates
+const userId = parseIntSafe(req.params.id, 'userId', { min: 1 }); // ✅ Validated
+await clearUserSessions(userId);
+
+// Caller B forgets to validate
+await clearUserSessions(req.params.id as any); // ❌ No validation! Type cast bypasses safety
+```
+
+**Problems**:
+1. **Type casts bypass validation** - TypeScript `as any` or `as number` allows invalid values
+2. **Refactoring removes validation** - Caller validation may be accidentally deleted
+3. **New callers skip validation** - Future code may not know validation is required
+4. **Silent failures** - Invalid userId (0, -1, NaN) causes unexpected behavior
+
+### ✅ CORRECT - Validate at Function Boundary
+
+```typescript
+// ✅ GOOD - Defense-in-depth validation
+export async function clearUserSessions(userId: number): Promise<number> {
+  // Input validation (prevent invalid user ID from being used in Redis SCAN)
+  if (!userId || userId <= 0 || !Number.isInteger(userId)) {
+    throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+  }
+
+  const redisClient = getRedisSessionClient();
+
+  // Safe to proceed - userId is guaranteed valid
+  let cursor = 0;
+  do {
+    const result = await redisClient.scan(cursor, {
+      MATCH: 'sess:*',
+      COUNT: 100,
+    });
+
+    const sessionData = await redisClient.get(key);
+    const session = JSON.parse(sessionData) as SessionData;
+
+    // userId is guaranteed to be a positive integer
+    if (session?.passport?.user === userId) {
+      await redisClient.del(key);
+      sessionsClearedCount++;
+    }
+  } while (cursor !== 0);
+
+  return sessionsClearedCount;
+}
+
+// All callers protected, even if they forget to validate
+await clearUserSessions(req.params.id as any); // ✅ Throws immediately with clear error
+await clearUserSessions(0); // ✅ Throws: "Invalid userId: 0. Must be positive integer."
+await clearUserSessions(-1); // ✅ Throws: "Invalid userId: -1. Must be positive integer."
+```
+
+**Benefits**:
+1. **Fail-fast** - Invalid input throws immediately with actionable error message
+2. **Defense-in-depth** - Protects against caller mistakes and refactoring bugs
+3. **Self-documenting** - Error message explains validation requirements
+4. **Type-safe** - Validates at runtime, catching type casts and coercions
+
+### Validation Patterns by Input Type
+
+#### User IDs (Positive Integers)
+```typescript
+// Pattern: Non-zero, positive, integer
+if (!userId || userId <= 0 || !Number.isInteger(userId)) {
+  throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+}
+
+// Alternative pattern (more explicit)
+if (typeof userId !== 'number' || !Number.isInteger(userId) || userId <= 0) {
+  throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+}
+```
+
+#### Strings (Non-Empty, Trimmed)
+```typescript
+// Pattern: Non-empty after trimming
+if (!token || typeof token !== 'string' || token.trim().length === 0) {
+  throw new Error('Invalid token: must be non-empty string');
+}
+
+// For bounded strings (e.g., max length)
+if (!email || typeof email !== 'string' || email.length > 255) {
+  throw new Error('Invalid email: must be non-empty string (max 255 chars)');
+}
+```
+
+#### Arrays (Non-Empty)
+```typescript
+// Pattern: Array with min length
+if (!Array.isArray(items) || items.length === 0) {
+  throw new Error('Invalid items: must be non-empty array');
+}
+
+// With type guard
+if (!Array.isArray(items) || !items.every((item) => typeof item === 'string')) {
+  throw new Error('Invalid items: must be array of strings');
+}
+```
+
+#### Enums (Whitelisted Values)
+```typescript
+// Pattern: Enum validation
+const validStatuses = ['pending', 'completed', 'failed'] as const;
+if (!validStatuses.includes(status)) {
+  throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+}
+```
+
+#### Dates (Valid, Future/Past)
+```typescript
+// Pattern: Valid date object
+if (!(expiresAt instanceof Date) || isNaN(expiresAt.getTime())) {
+  throw new Error('Invalid expiresAt: must be valid Date object');
+}
+
+// Future date validation
+if (expiresAt <= new Date()) {
+  throw new Error('Invalid expiresAt: must be in the future');
+}
+```
+
+### Consistency with Storage Layer Patterns
+
+**IMPORTANT**: Function boundary validation should be **consistent** with existing storage layer validation patterns (see `docs/02_DATABASE_PATTERNS.md`).
+
+```typescript
+// Storage layer already validates user IDs
+class UserStorage {
+  private validateUserId(userId: number): void {
+    if (!userId || userId <= 0 || !Number.isInteger(userId)) {
+      throw new Error(`Invalid user ID: ${userId}`);
+    }
+  }
+
+  async getUser(userId: number) {
+    this.validateUserId(userId); // ✅ Consistent validation
+    return db.select().from(users).where(eq(users.id, userId));
+  }
+}
+
+// Public utility function uses SAME validation pattern
+export async function clearUserSessions(userId: number): Promise<number> {
+  // CRITICAL: Same validation logic as storage layer
+  if (!userId || userId <= 0 || !Number.isInteger(userId)) {
+    throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+  }
+  // ... rest of function
+}
+```
+
+**Consistency checklist**:
+- [ ] Error message format matches storage layer
+- [ ] Validation logic is identical (don't invent new rules)
+- [ ] Type guards are consistent across codebase
+- [ ] Enum whitelists match database schema
+
+### Detection and Review
+
+#### Code Review Checklist
+
+When reviewing public functions, check:
+
+- [ ] **Function is exported** - Does it have `export` keyword?
+- [ ] **Has side effects** - Does it modify state (DB, Redis, files)?
+- [ ] **Security-critical** - Does it handle auth, sessions, or sensitive data?
+- [ ] **All inputs validated** - Are all parameters validated at function start?
+- [ ] **Validation is defensive** - Does it check type, range, and format?
+- [ ] **Error messages are clear** - Do they explain what's invalid and what's expected?
+- [ ] **Consistent with storage layer** - Does validation match existing patterns?
+
+#### Automated Detection
+
+```bash
+# Find exported functions that might need validation
+grep -rn "^export.*function\|^export async function" server/ --include="*.ts" \
+  | grep -v "__tests__" \
+  | grep -v "type\|interface"
+
+# Find functions that use dangerous operations without validation
+grep -rn "redisClient\|db\.\|sql\`\|exec(" server/ --include="*.ts" \
+  | grep -v "if (!.*||.*<=.*)" \
+  | grep -v "throw new Error"
+
+# Find functions with numeric parameters that might need validation
+grep -rn "userId.*number\|id.*number" server/ --include="*.ts" \
+  | grep -v "validateUserId\|if (!.*userId"
+```
+
+### Real-World Example: Session Cleanup Function
+
+**File**: `server/utils/session-cleanup.ts:29-33`
+
+**Context**: Function clears all Redis sessions for a user after password reset. If `userId` is invalid (0, -1, NaN), Redis SCAN could delete wrong sessions or fail silently.
+
+```typescript
+/**
+ * Clear all active sessions for a user by scanning Redis keys
+ *
+ * SECURITY: Called after password reset to force re-login across all devices.
+ */
+export async function clearUserSessions(userId: number): Promise<number> {
+  // Input validation (prevent invalid user ID from being used in Redis SCAN)
+  // CRITICAL: Even though all current callers validate, we validate here because:
+  // 1. Future callers may forget to validate
+  // 2. Type casts can bypass caller validation
+  // 3. Redis SCAN with invalid userId could scan wrong sessions
+  if (!userId || userId <= 0 || !Number.isInteger(userId)) {
+    throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
+  }
+
+  const redisClient = getRedisSessionClient();
+
+  if (!redisClient) {
+    log.warn('[SessionCleanup] Redis session client not available, skipping session cleanup', { userId });
+    return 0;
+  }
+
+  try {
+    let sessionsClearedCount = 0;
+    let cursor = 0;
+
+    // Safe to use userId in Redis operations - validated above
+    do {
+      const result = await redisClient.scan(cursor, {
+        MATCH: 'sess:*',
+        COUNT: 100,
+      });
+
+      cursor = result.cursor;
+      const keys = result.keys;
+
+      for (const key of keys) {
+        try {
+          const sessionData = await redisClient.get(key);
+          if (!sessionData) continue;
+
+          const session = JSON.parse(sessionData) as SessionData;
+          const sessionUserId = session?.passport?.user;
+
+          // userId is guaranteed to be a positive integer
+          if (sessionUserId === userId) {
+            await redisClient.del(key);
+            sessionsClearedCount++;
+          }
+        } catch (parseError) {
+          log.warn('[SessionCleanup] Failed to parse session data', {
+            key,
+            error: parseError instanceof Error ? parseError.message : String(parseError),
+          });
+        }
+      }
+    } while (cursor !== 0);
+
+    return sessionsClearedCount;
+  } catch (error) {
+    log.error('[SessionCleanup] Failed to clear user sessions', {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
+}
+```
+
+**Why This Validation Matters**:
+1. **Caller in password-reset-service.ts** already validates (via storage layer)
+2. **But**: Function is `export`ed, so other code could call it
+3. **But**: TypeScript allows type casts (`as number`) that bypass caller validation
+4. **But**: Refactoring might remove caller validation
+5. **Defense-in-depth**: Validate at the function boundary regardless
+
+**Impact Without Validation**:
+- `userId = 0`: Might compare ALL sessions (session.passport.user === 0 is always false, but still scans)
+- `userId = -1`: Same issue, scans all sessions unnecessarily
+- `userId = NaN`: `NaN === NaN` is false, but still scans all sessions
+- `userId = 1.5`: Type coercion could cause unexpected comparisons
+
+**With Validation**: All invalid inputs throw immediately with clear error message, preventing silent failures.
+
+### When NOT to Apply This Pattern
+
+**Skip validation when:**
+
+1. **Private helper functions** - Only called from validated contexts, not exported
+   ```typescript
+   // ✅ OK to skip validation - private helper
+   function formatSessionKey(sessionId: string): string {
+     return `sess:${sessionId}`; // Caller already validated sessionId
+   }
+   ```
+
+2. **Type-safe builders** - TypeScript enforces correctness at compile time
+   ```typescript
+   // ✅ OK to skip validation - type system enforces safety
+   function buildUrl(base: string, path: string, query: Record<string, string>): URL {
+     const url = new URL(path, base); // URL constructor validates
+     Object.entries(query).forEach(([key, value]) => {
+       url.searchParams.set(key, value);
+     });
+     return url;
+   }
+   ```
+
+3. **Performance-critical paths** - Validated once at entry point, called millions of times
+   ```typescript
+   // ✅ OK to skip validation - performance-critical inner loop
+   // Validated once before loop, called 1M+ times inside loop
+   function processRecord(record: ValidatedRecord): ProcessedRecord {
+     // Skip validation - record already validated before loop
+     return { id: record.id, processed: true };
+   }
+   ```
+
+4. **Constructor guard patterns** - Private constructor with public factory that validates
+   ```typescript
+   // ✅ OK to skip validation in constructor - factory validates
+   class UserId {
+     private constructor(private readonly value: number) {}
+
+     static create(id: number): UserId {
+       if (!id || id <= 0 || !Number.isInteger(id)) {
+         throw new Error(`Invalid user ID: ${id}`);
+       }
+       return new UserId(id); // Private constructor, factory validated
+     }
+   }
+   ```
+
+**Rule of thumb**: If the function is `export`ed or has side effects, validate. Otherwise, consider skipping if caller validation is guaranteed.
+
+---
+
 ## CSRF Protection - SINGLE SOURCE OF TRUTH
 
 **This is the CANONICAL section for CSRF protection patterns.**

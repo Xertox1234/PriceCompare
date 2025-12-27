@@ -12,6 +12,7 @@ import {
   cleanupExpiredTokens,
   isRateLimitExceeded,
   getResetAttemptCount,
+  resetPasswordAtomic,
 } from '../password-reset-service';
 
 /**
@@ -624,6 +625,227 @@ describe.sequential('Password Reset Service', () => {
       // With 15 minute window, should not count (30 min ago is outside 15 min)
       const count15 = await getResetAttemptCount(testUserId, 15);
       expect(count15).toBe(0);
+    });
+  });
+
+  describe('Atomic Password Reset', () => {
+    it('should prevent token reuse after successful password reset', async () => {
+      const token = await createPasswordResetToken(testUserId);
+      const newPasswordHash = '$2b$10$' + 'a'.repeat(53); // Valid bcrypt hash format (60 chars)
+
+      // First reset should succeed
+      const userId = await resetPasswordAtomic(token, newPasswordHash);
+      expect(userId).toBe(testUserId);
+
+      // Verify password was updated
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, testUserId),
+      });
+      expect(user?.passwordHash).toBe(newPasswordHash);
+
+      // Verify token was marked as used
+      const tokenRecord = await db.query.passwordResetTokens.findFirst({
+        where: eq(passwordResetTokens.token, token),
+      });
+      expect(tokenRecord?.isUsed).toBe(true);
+      expect(tokenRecord?.usedAt).toBeDefined();
+
+      // Second reset with same token should fail
+      const anotherHash = '$2b$10$' + 'b'.repeat(53);
+      await expect(resetPasswordAtomic(token, anotherHash)).rejects.toThrow('Invalid or expired reset token');
+
+      // Verify password was NOT changed to second hash
+      const userAfter = await db.query.users.findFirst({
+        where: eq(users.id, testUserId),
+      });
+      expect(userAfter?.passwordHash).toBe(newPasswordHash); // Still first hash, not second
+    });
+
+    it('should invalidate ALL reset tokens for user when one is used', async () => {
+      // Create 3 reset tokens for the same user
+      // NOTE: Must insert directly to avoid auto-invalidation by createPasswordResetToken
+      const token1 = crypto.randomBytes(32).toString('hex');
+      const token2 = crypto.randomBytes(32).toString('hex');
+      const token3 = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      await db.insert(passwordResetTokens).values([
+        { userId: testUserId, token: token1, expiresAt, isUsed: false },
+        { userId: testUserId, token: token2, expiresAt, isUsed: false },
+        { userId: testUserId, token: token3, expiresAt, isUsed: false },
+      ]);
+
+      const newPasswordHash = '$2b$10$' + 'a'.repeat(53);
+
+      // Use token1 to reset password
+      await resetPasswordAtomic(token1, newPasswordHash);
+
+      // All 3 tokens should now be marked as used
+      const tokens = await db.query.passwordResetTokens.findMany({
+        where: eq(passwordResetTokens.userId, testUserId),
+      });
+
+      expect(tokens).toHaveLength(3);
+      expect(tokens.every((t) => t.isUsed === true)).toBe(true);
+
+      // Trying to use token2 or token3 should fail
+      const anotherHash = '$2b$10$' + 'b'.repeat(53);
+      await expect(resetPasswordAtomic(token2, anotherHash)).rejects.toThrow('Invalid or expired reset token');
+      await expect(resetPasswordAtomic(token3, anotherHash)).rejects.toThrow('Invalid or expired reset token');
+    });
+
+    it('should handle concurrent reset attempts safely', async () => {
+      const token = await createPasswordResetToken(testUserId);
+      const hash1 = '$2b$10$' + 'a'.repeat(53);
+      const hash2 = '$2b$10$' + 'b'.repeat(53);
+
+      // Simulate concurrent reset attempts with the same token
+      const results = await Promise.allSettled([
+        resetPasswordAtomic(token, hash1),
+        resetPasswordAtomic(token, hash2),
+      ]);
+
+      // One should succeed, one should fail
+      const succeeded = results.filter((r) => r.status === 'fulfilled');
+      const failed = results.filter((r) => r.status === 'rejected');
+
+      expect(succeeded).toHaveLength(1);
+      expect(failed).toHaveLength(1);
+
+      // Verify only one password was set
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, testUserId),
+      });
+      expect(user?.passwordHash === hash1 || user?.passwordHash === hash2).toBe(true);
+    });
+
+    it('should rollback on failure (transaction atomicity)', async () => {
+      const token = await createPasswordResetToken(testUserId);
+      // Invalid password hash (too short, less than 60 chars)
+      const invalidHash = 'tooshort';
+
+      // Reset should fail due to validation
+      await expect(resetPasswordAtomic(token, invalidHash)).rejects.toThrow();
+
+      // Verify token was NOT marked as used (rollback)
+      const tokenRecord = await db.query.passwordResetTokens.findFirst({
+        where: eq(passwordResetTokens.token, token),
+      });
+      expect(tokenRecord?.isUsed).toBe(false);
+      expect(tokenRecord?.usedAt).toBeNull();
+
+      // Verify password was NOT changed
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, testUserId),
+      });
+      expect(user?.passwordHash).toBe('hashed_password'); // Original password unchanged
+    });
+
+    it('should validate password hash format before transaction', async () => {
+      const token = await createPasswordResetToken(testUserId);
+
+      // Test various invalid formats
+      await expect(resetPasswordAtomic(token, '')).rejects.toThrow('Invalid password hash');
+      await expect(resetPasswordAtomic(token, 'short')).rejects.toThrow('Invalid password hash');
+      await expect(resetPasswordAtomic(token, 'a'.repeat(59))).rejects.toThrow('Invalid password hash');
+
+      // Verify token is still unused (no transaction started)
+      const tokenRecord = await db.query.passwordResetTokens.findFirst({
+        where: eq(passwordResetTokens.token, token),
+      });
+      expect(tokenRecord?.isUsed).toBe(false);
+    });
+
+    it('should reject expired token', async () => {
+      const token = crypto.randomBytes(32).toString('hex');
+      const pastDate = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      await db.insert(passwordResetTokens).values({
+        userId: testUserId,
+        token,
+        expiresAt: pastDate,
+        isUsed: false,
+      });
+
+      const validHash = '$2b$10$' + 'a'.repeat(53);
+      await expect(resetPasswordAtomic(token, validHash)).rejects.toThrow('Invalid or expired reset token');
+    });
+
+    it('should reject already used token', async () => {
+      const token = await createPasswordResetToken(testUserId);
+      await markTokenAsUsed(token);
+
+      const validHash = '$2b$10$' + 'a'.repeat(53);
+      await expect(resetPasswordAtomic(token, validHash)).rejects.toThrow('Invalid or expired reset token');
+    });
+
+    it('should update users.updatedAt timestamp', async () => {
+      const token = await createPasswordResetToken(testUserId);
+      const validHash = '$2b$10$' + 'a'.repeat(53);
+
+      const beforeReset = new Date();
+      await resetPasswordAtomic(token, validHash);
+      const afterReset = new Date();
+
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, testUserId),
+      });
+
+      expect(user?.updatedAt).toBeDefined();
+      if (!user?.updatedAt) throw new Error('Expected updatedAt to be defined');
+
+      const updatedAtTime = new Date(user.updatedAt).getTime();
+      expect(updatedAtTime).toBeGreaterThanOrEqual(beforeReset.getTime());
+      expect(updatedAtTime).toBeLessThanOrEqual(afterReset.getTime() + 1000);
+    });
+
+    it('should reject non-existent token', async () => {
+      const validHash = '$2b$10$' + 'a'.repeat(53);
+      await expect(resetPasswordAtomic('nonexistent-token', validHash)).rejects.toThrow('Invalid or expired reset token');
+    });
+
+    it('should only invalidate tokens for the specific user', async () => {
+      // Create second user
+      const [user2] = await db
+        .insert(users)
+        .values({
+          email: 'user2@example.com',
+          emailHash: hashEmail('user2@example.com'),
+          username: 'user2',
+          passwordHash: 'hashed_password_2',
+          role: 'user',
+        })
+        .returning();
+
+      // Create tokens for both users
+      // NOTE: Must insert directly to avoid auto-invalidation by createPasswordResetToken
+      const token1User1 = crypto.randomBytes(32).toString('hex');
+      const token2User1 = crypto.randomBytes(32).toString('hex');
+      const token1User2 = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      await db.insert(passwordResetTokens).values([
+        { userId: testUserId, token: token1User1, expiresAt, isUsed: false },
+        { userId: testUserId, token: token2User1, expiresAt, isUsed: false },
+        { userId: user2.id, token: token1User2, expiresAt, isUsed: false },
+      ]);
+
+      const validHash = '$2b$10$' + 'a'.repeat(53);
+
+      // Reset password for user 1
+      await resetPasswordAtomic(token1User1, validHash);
+
+      // User 1's tokens should be invalidated
+      const user1Tokens = await db.query.passwordResetTokens.findMany({
+        where: eq(passwordResetTokens.userId, testUserId),
+      });
+      expect(user1Tokens.every((t) => t.isUsed === true)).toBe(true);
+
+      // User 2's token should still be valid
+      const user2Token = await db.query.passwordResetTokens.findFirst({
+        where: eq(passwordResetTokens.token, token1User2),
+      });
+      expect(user2Token?.isUsed).toBe(false);
     });
   });
 });

@@ -1,9 +1,10 @@
 ---
-status: pending
+status: rejected
 priority: p2
 issue_id: "002"
 tags: [testing, code-quality, duplication, websocket]
 dependencies: []
+rejection_date: 2025-12-26
 ---
 
 # Consolidate WebSocket Test Setup (16 Duplications)
@@ -119,7 +120,21 @@ export function setupWebSocketTest() {
 
 ## Recommended Action
 
-**To be filled during triage.**
+**REJECTED - Do Not Implement**
+
+After parallel review by three specialized agents (DHH Rails, Code Simplicity, Kieran TypeScript), unanimous verdict: **This refactoring should NOT be done.**
+
+**Reasons:**
+1. **Technical impossibility**: Vitest hoisting requires `vi.mock()` at module scope - cannot be extracted to functions
+2. **Misleading metrics**: Actual duplication is ~165 lines, not 500+ (claim includes already-extracted utilities)
+3. **Test clarity**: Explicit mocks make tests self-documenting and easier to debug
+4. **Minimal benefit**: Net savings ~55 lines after abstraction overhead
+5. **Wrong optimization**: Tests should prioritize debuggability over DRY
+
+**Alternative actions taken:**
+- Fix type safety issues in test-utils.ts (remove `any` defaults)
+- Delete dead code: `setupWebSocketMocks()` (lines 369-403, unused)
+- Document pattern in `docs/08_TESTING_PATTERNS.md`
 
 ## Technical Details
 
@@ -160,6 +175,56 @@ export function setupWebSocketTest() {
 
 ## Work Log
 
+### 2025-12-26 - Parallel Review & Rejection Decision
+
+**By:** Three Specialized Review Agents (DHH Rails, Code Simplicity, Kieran TypeScript)
+
+**Review Process:**
+- Launched three agents in parallel via `/plan_review` command
+- Each agent independently analyzed the proposed refactoring
+- All three reached unanimous verdict: REJECT
+
+**DHH Rails Reviewer Findings:**
+- "Masturbatory Test Engineering" - solving non-problem
+- test-utils.ts (444 lines) already extracts the RIGHT utilities
+- `setupWebSocketMocks()` function exists but has ZERO usage (dead code)
+- Actual duplication: ~135 lines (27 lines × 5 files), not 500+
+- **vi.mock() MUST be at module scope** - cannot extract due to Vitest hoisting
+- Test clarity beats test DRY - explicit mocks aid debugging
+
+**Code Simplicity Reviewer Findings:**
+- Real duplication: ~165 lines (not 500+ as claimed)
+- Net savings after abstraction overhead: ~55 lines
+- Trade-off analysis: Save 55 lines, lose clarity, add debugging complexity
+- Optimizing for wrong metric (LOC instead of readability)
+- Test code ≠ production code: DRY often hurts test comprehension
+- Each test needs different mock behaviors (error-handling vs load vs integration)
+
+**Kieran TypeScript Reviewer Findings:**
+- The "duplication" is **40 lines of intentional test isolation**
+- Vitest hoisting mechanics make consolidation fundamentally impossible
+- Each test file requires DIFFERENT mock behaviors for its scenarios
+- **Found real issues to fix:**
+  - 6+ instances of `any` types in test-utils.ts (lines 109, 113, 120, 140, 176, 177)
+  - Dead code: `setupWebSocketMocks()` (lines 369-403) should be deleted
+- Test code prioritizes debuggability over DRY
+
+**Unanimous Conclusions:**
+1. **Technical impossibility**: Cannot extract vi.mock() due to hoisting
+2. **Misleading metrics**: jscpd doesn't understand test patterns
+3. **Current state is good**: test-utils.ts already extracts right things
+4. **Tests need flexibility**: Each file mocks differently based on test scenarios
+5. **Abstraction tax**: Proposed solutions add complexity for minimal gain
+
+**Decision:** REJECT all three proposed options. Mark as "Won't Fix - Duplication is Intentional"
+
+**Learnings:**
+- jscpd metrics can mislead when tool doesn't understand framework requirements
+- Vitest hoisting makes mock consolidation technically impossible
+- Test clarity > DRY: Explicit mocks = better debugging experience
+- test-utils.ts already has excellent pattern: extract utilities, keep mocks local
+- The "duplication" is beneficial repetition for test independence
+
 ### 2025-12-26 - Initial Discovery
 
 **By:** Pattern Recognition Specialist Agent (Code Review)
@@ -177,9 +242,14 @@ export function setupWebSocketTest() {
 - Simple extraction should preserve all test behavior
 - jscpd found 25 total duplications, 64% in WebSocket tests
 
+**Note:** Initial analysis overestimated duplication impact and didn't account for Vitest hoisting constraints
+
 ## Notes
 
-- **Severity:** Medium (quality issue, not functional bug)
-- **Quick win:** Reduces codebase size significantly with low risk
-- **Maintenance benefit:** Future WebSocket test setup changes only need 1 edit
-- Consider applying similar pattern to other test file groups if found
+- **Status:** REJECTED after parallel review by three specialized agents
+- **Severity:** Not a real problem - metrics were misleading
+- **Key insight:** Test code prioritizes debuggability over DRY
+- **Technical constraint:** Vitest hoisting requires vi.mock() at module scope
+- **Current state:** Already optimal - test-utils.ts extracts utilities, mocks stay local
+- **Alternative actions:** Fix type safety (`any` removal) and delete dead code instead
+- **Lesson learned:** Static analysis tools (jscpd) can misidentify intentional test patterns as problematic duplication

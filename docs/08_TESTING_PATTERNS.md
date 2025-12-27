@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 2.7
+**Version:** 2.8
 **Last Updated:** 2025-12-26
 **Changelog:**
+- 2.8 (2025-12-26): Added vi.mock() Intentional Duplication Pattern (test mock setup should stay local, not extracted - from TODO 002 rejection)
 - 2.7 (2025-12-26): Added Pattern 6 - Concurrent SERIALIZABLE Transaction Test (race condition prevention from TODO 006)
 - 2.6 (2025-12-26): Added E2E Environment-Specific Configuration Patterns (production vs dev server testing)
 - 2.5 (2025-12-26): Added Transaction Atomicity Testing Patterns (5 comprehensive test patterns from TODO 004)
@@ -42,6 +43,7 @@
    - [Required Mocks for Route Tests](#required-mocks-for-route-tests)
    - [Redis Mock Pattern](#redis-mock-pattern)
    - [Logger Mock Pattern (NEW)](#logger-mock-pattern-new)
+   - [vi.mock() Intentional Duplication - Do NOT Extract (NEW)](#vimock-intentional-duplication---do-not-extract-new---2025-12-26)
    - [CSRF Middleware Testing (NEW)](#csrf-middleware-testing-new)
 5. [Date and Time Testing](#date-and-time-testing)
    - [Timezone-Safe Date Assertions](#timezone-safe-date-assertions)
@@ -1139,6 +1141,153 @@ vi.mock('../../utils/logger', () => ({
 - `price-snapshot-cleanup.test.ts`
 - `price-history-optimized.test.ts`
 - Any service using `createLogger()` for namespaced logging
+
+---
+
+### vi.mock() Intentional Duplication - Do NOT Extract (NEW - 2025-12-26)
+
+**Context:** Static analysis tools (like jscpd) flag test mock declarations as "duplication" and suggest extraction. **This is a false positive.**
+
+**Problem:** Vitest's hoisting mechanics require `vi.mock()` calls at module scope (before imports). This makes extraction to shared functions **technically impossible**. Additionally, test clarity benefits from explicit, self-contained mock setup.
+
+**Critical Rule:** **vi.mock() declarations should NEVER be extracted to shared utilities.** Keep them local in each test file.
+
+#### ✅ Preferred Approach - Keep Mocks Local
+
+```typescript
+// server/websocket/__tests__/handlers.test.ts
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock declarations at module scope (REQUIRED by Vitest hoisting)
+vi.mock('../../config/redis', () => ({
+  getRedisClient: vi.fn(() => null),
+  redisClient: null,
+}));
+
+vi.mock('../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
+}));
+
+vi.mock('../../services/notification-service', () => ({
+  markAsRead: vi.fn(() => 1),
+  getNotificationStats: vi.fn(() => ({
+    total: 10,
+    unread: 3,
+    byType: {},
+  })),
+}));
+
+// Now safe to import modules that depend on mocked modules
+import { handleNotification } from '../handlers';
+
+describe('WebSocket Handlers', () => {
+  // Tests here have CLEAR visibility of what's mocked and how
+});
+```
+
+**Why this is GOOD duplication:**
+- **Self-documenting**: Each test file explicitly shows its dependencies and mock behavior
+- **Debuggability**: When a test fails, all mock setup is visible in the same file
+- **Flexibility**: Each test suite can customize mock behavior for its specific scenarios
+- **Test isolation**: No shared state between test files
+
+#### ❌ Anti-Pattern - Attempting Extraction (Fails!)
+
+```typescript
+// ❌ WRONG - test-utils.ts
+export function setupWebSocketMocks() {
+  // vi.mock() MUST be at module scope, NOT inside a function!
+  // This will NOT work due to Vitest hoisting
+  vi.mock('../../config/redis', () => ({
+    getRedisClient: vi.fn(() => null),
+  }));
+}
+
+// ❌ WRONG - handlers.test.ts
+import { setupWebSocketMocks } from './test-utils';
+
+setupWebSocketMocks(); // Too late! Imports already happened!
+import { handleNotification } from '../handlers'; // Already used mocked modules
+```
+
+**Why this fails:**
+1. **Vitest hoisting**: `vi.mock()` calls are hoisted to module scope automatically
+2. **Import order**: Module imports happen before function calls can execute
+3. **Runtime errors**: Modules use un-mocked dependencies, causing failures
+
+#### What TO Extract vs What to Keep Local
+
+**✅ DO Extract to test-utils.ts:**
+- Reusable test utilities (server setup, socket creation)
+- Event waiting helpers (`waitForEvent`, `waitForConnection`)
+- Test data factories (`createMockSession`, `createMockRedis`)
+- Cleanup functions (`disconnectSockets`, `closeTestServer`)
+
+**❌ DO NOT Extract:**
+- `vi.mock()` declarations (must stay at module scope)
+- Test-specific `beforeEach`/`afterEach` setup (test isolation)
+- Test-specific mock behaviors (each suite has different needs)
+
+**Example of GOOD extraction (from WebSocket tests):**
+
+```typescript
+// ✅ GOOD - test-utils.ts (444 lines of utilities)
+export async function createTestServer() { /* ... */ }
+export function createAuthenticatedSocket(userId: number) { /* ... */ }
+export function waitForEvent<T>(socket, eventName, timeout) { /* ... */ }
+export function createMockRedis() { /* ... */ }
+export function createMockSession(userId: number) { /* ... */ }
+
+// ✅ GOOD - handlers.test.ts (uses utilities, keeps mocks local)
+vi.mock('../../config/redis', () => ({ /* ... */ })); // Local mock
+
+import { createAuthenticatedSocket, waitForEvent } from './test-utils'; // Utilities
+
+describe('Tests', () => {
+  const socket = createAuthenticatedSocket(1); // Use utility
+});
+```
+
+**Rationale:**
+- **Technical impossibility**: Vitest hoisting prevents mock extraction
+- **Misleading metrics**: ~40 lines of intentional mock setup per file ≠ problematic duplication
+- **Test clarity > DRY**: Explicit mocks make tests self-documenting and easier to debug
+- **Correct pattern exists**: `test-utils.ts` already extracts the RIGHT things (utilities, not mocks)
+
+**When code duplication metrics report high duplication in test files:**
+1. **Ignore vi.mock() blocks** - This is intentional, beneficial repetition
+2. **Check if test-utils.ts exists** - Utilities should already be extracted
+3. **Ask: "Would extraction improve clarity?"** - Often the answer is NO for tests
+4. **Remember: Tests optimize for debuggability, not LOC**
+
+**Related Patterns:**
+- See "Required Mocks for Route Tests" above for common mock patterns
+- See "Redis Mock Pattern" for complete Redis mock structure
+- See "Logger Mock Pattern" for complete logger mock structure
+
+**Real-World Evidence:**
+- WebSocket test suite: 5 test files, ~40 lines of mock setup each
+- jscpd reported "500+ lines of duplication" - actually only ~165 lines of INTENTIONAL isolation
+- Three specialized reviewers (DHH Rails, Code Simplicity, Kieran TypeScript) unanimously rejected extraction
+- Dead code found: `setupWebSocketMocks()` function (lines 369-403) - existed but had ZERO usage
+
+**The Lesson:**
+Test code has different DRY rules than production code. Static analysis tools don't understand this distinction.
+
+*Source: TODO 002 - WebSocket Test Consolidation (REJECTED after parallel review)*
+*Reviewers: DHH Rails Specialist, Code Simplicity Specialist, Kieran TypeScript Specialist*
+*Added: 2025-12-26*
 
 ---
 
