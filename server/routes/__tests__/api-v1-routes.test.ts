@@ -4,7 +4,7 @@ import express, { type Express } from 'express';
 import { db } from '../../db';
 import { users, watchLists, products, priceAlerts, productOffers, retailers } from '@shared/schema';
 import { registerApiV1Routes } from '../api-v1-routes';
-import { sql, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { hashEmail } from '../../utils/encryption';
 import { PASSWORD } from '../../utils/constants';

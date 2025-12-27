@@ -4,13 +4,17 @@ This document describes the HTTP Basic Auth implementation for agent-native API 
 
 ## Overview
 
-AI agents can now authenticate to scraping endpoints using HTTP Basic Authentication instead of session cookies and CSRF tokens.
+AI agents can now authenticate to core platform endpoints using HTTP Basic Authentication instead of session cookies and CSRF tokens.
 
 **Authentication Method**: `Authorization: Basic base64(username:password)`
 
+**Agent Coverage**: 14 endpoints (7% of total API surface)
+
 ## Endpoints
 
-All scraping endpoints are available under `/api/v1/*` with HTTP Basic Auth:
+All agent-native endpoints are available under `/api/v1/*` with HTTP Basic Auth.
+
+### Scraping Operations (Admin Only)
 
 ### POST /api/v1/scraping/discover-trends
 Discover trending products from external sources.
@@ -89,6 +93,281 @@ Get current scraping system status.
 ```bash
 curl -u "admin:password" http://localhost:5000/api/v1/scraping/status
 ```
+
+---
+
+### Watchlist Operations (Authenticated Users)
+
+#### GET /api/v1/watchlists
+Get all watch lists for the authenticated user.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/watchlists
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "watchLists": [
+      {
+        "id": 1,
+        "userId": 1,
+        "name": "Holiday Shopping",
+        "description": "Items for holiday gifts",
+        "productCount": 5,
+        "createdAt": "2025-01-01T00:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+#### GET /api/v1/watchlists/:id
+Get a specific watch list with all products and pricing details.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/watchlists/1
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "Holiday Shopping",
+    "products": [
+      {
+        "id": 1,
+        "name": "Product Name",
+        "currentPrice": "99.99",
+        "priceDropPercent": 15.5
+      }
+    ]
+  }
+}
+```
+
+#### GET /api/v1/watchlists/:id/products
+Get products in a specific watch list.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/watchlists/1/products
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "products": [...]
+  }
+}
+```
+
+---
+
+### Price Alert Operations (Authenticated Users)
+
+#### GET /api/v1/price-alerts
+Get all price alerts for the authenticated user.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/price-alerts
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "userId": 1,
+      "productId": 10,
+      "targetPrice": "79.99",
+      "isActive": true,
+      "productName": "Product Name",
+      "currentPrice": "89.99"
+    }
+  ]
+}
+```
+
+#### GET /api/v1/price-alerts/:id
+Get a specific price alert by ID.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/price-alerts/1
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "targetPrice": "79.99",
+    "isActive": true
+  }
+}
+```
+
+---
+
+### Product Operations (Public/Authenticated)
+
+#### GET /api/v1/products/search
+Search products with filters.
+
+**Request**:
+```bash
+# Search by query
+curl -u "username:password" \
+  "http://localhost:5000/api/v1/products/search?query=laptop&minPrice=500&maxPrice=1500"
+
+# Search by URL (browser extension)
+curl -u "username:password" \
+  "http://localhost:5000/api/v1/products/search?url=https://amazon.com/product/123"
+```
+
+**Query Parameters**:
+- `query` - Search query string
+- `category` - Product category
+- `minPrice` - Minimum price filter
+- `maxPrice` - Maximum price filter
+- `retailers` - Retailer ID filter (array)
+- `minRating` - Minimum rating (0-5)
+- `availability` - Availability filter (array)
+- `sortBy` - Sort order: `price_low`, `price_high`, `rating`, `popularity`
+- `page` - Page number (default: 1)
+- `limit` - Results per page (default: 20, max: 100)
+- `url` - Product URL for direct lookup
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+#### GET /api/v1/products/:id
+Get product details by ID.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/products/10
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 10,
+    "name": "Product Name",
+    "description": "Product description",
+    "category": "electronics",
+    "imageUrl": "https://...",
+    "offers": [...]
+  }
+}
+```
+
+#### GET /api/v1/products/:id/price-history
+Get price history for a product.
+
+**Request**:
+```bash
+# All retailers, last 30 days
+curl -u "username:password" http://localhost:5000/api/v1/products/10/price-history
+
+# Specific retailer, last 90 days
+curl -u "username:password" \
+  "http://localhost:5000/api/v1/products/10/price-history?days=90&retailerId=1"
+```
+
+**Query Parameters**:
+- `days` - Number of days of history (default: 30)
+- `retailerId` - Filter by specific retailer ID
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "history": [
+      {
+        "date": "2025-01-01T00:00:00Z",
+        "price": 99.99,
+        "retailerId": 1,
+        "retailerName": "Amazon",
+        "availability": "in_stock"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Notification Operations (Authenticated Users)
+
+#### GET /api/v1/notifications
+Get user's notifications with optional filters.
+
+**Request**:
+```bash
+# All notifications
+curl -u "username:password" http://localhost:5000/api/v1/notifications
+
+# Unread notifications only
+curl -u "username:password" \
+  "http://localhost:5000/api/v1/notifications?isRead=false&limit=20"
+```
+
+**Query Parameters**:
+- `isRead` - Filter by read status: `true`, `false`
+- `type` - Filter by notification type
+- `limit` - Results per page (default: 50, max: 100)
+- `offset` - Pagination offset (default: 0)
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "data": [
+      {
+        "id": 1,
+        "userId": 1,
+        "type": "price_drop",
+        "title": "Price Drop Alert",
+        "message": "Product X dropped to $79.99",
+        "isRead": false,
+        "createdAt": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "count": 1
+  }
+}
+```
+
+---
 
 ## Security
 

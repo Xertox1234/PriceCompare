@@ -254,9 +254,6 @@ Update `.github/workflows/test.yml`:
 
     # Run envelope validation tests
     npm test -- --grep "envelope validation"
-
-    # Verify OpenAPI spec is valid
-    npm run validate:openapi
 ```
 
 #### 3. API Contract Testing
@@ -300,7 +297,6 @@ describe('API Contract Tests - Response Format', () => {
 - ✅ Pre-commit hooks block non-standard responses
 - ✅ CI fails if envelope format violated
 - ✅ Contract tests verify all endpoints
-- ✅ OpenAPI spec validated on every commit
 
 ---
 
@@ -503,19 +499,19 @@ expect(product.id).toBe(1);
 3. Verify 100% migration complete
 
 ### Day 4 - Documentation (4 hours)
-1. Define OpenAPI schemas for all resources
-2. Generate OpenAPI spec
-3. Deploy Swagger UI
+1. Write API style guide
+2. Update CLAUDE.md
+3. Create testing guide
 
 ### Day 5 - CI/CD & Performance (4 hours)
 1. Add pre-commit hooks
 2. Update CI pipeline
 3. Run performance benchmarks
 
-### Day 6 - Polish & Documentation (4 hours)
-1. Write API style guide
-2. Update CLAUDE.md
-3. Create testing guide
+### Day 6 - Polish & Review (4 hours)
+1. Final code review
+2. Update any remaining documentation
+3. Prepare for deployment
 
 ### Day 7 - Review & Deploy (2 hours)
 1. Final review of all changes
@@ -554,8 +550,6 @@ expect(product.id).toBe(1);
 - ✅ No memory leaks
 
 ### Documentation
-- ✅ Complete OpenAPI spec
-- ✅ Swagger UI deployed
 - ✅ Style guide published
 - ✅ Team trained
 
@@ -587,9 +581,8 @@ expect(product.id).toBe(1);
 
 1. Should we batch route test updates or do them incrementally?
 2. Priority order for endpoint migration?
-3. When to deploy Swagger UI (staging vs production)?
-4. Performance SLA targets need adjustment?
-5. Any additional testing requirements?
+3. Performance SLA targets need adjustment?
+4. Any additional testing requirements?
 
 ---
 

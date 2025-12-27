@@ -228,6 +228,9 @@ export class UserStorage extends BaseStorage {
    * Reset user password (with transaction)
    * SECURITY: passwordHash is write-only, NEVER exposed in queries
    *
+   * DEPRECATED: Use resetPasswordAtomic() instead for better security.
+   * This method is kept for backward compatibility but should not be used.
+   *
    * @param userId - User ID to reset password for
    * @param newPasswordHash - New password hash (write-only)
    * @param token - Reset token to mark as used
@@ -257,6 +260,121 @@ export class UserStorage extends BaseStorage {
       });
     } catch (error) {
       this.handleError(error, 'resetPassword');
+    }
+  }
+
+  /**
+   * Reset password atomically with token validation
+   *
+   * SECURITY: This method wraps all 3 password reset steps in a single SERIALIZABLE transaction:
+   * 1. Validate reset token (exists, not expired, not used)
+   * 2. Update user password hash
+   * 3. Mark token as used (set isUsed=true, usedAt=now)
+   *
+   * This prevents the critical security vulnerability where a server crash between steps 2 and 3
+   * would leave the token valid for reuse, allowing attackers to reset the password multiple times.
+   *
+   * The SERIALIZABLE isolation level prevents race conditions where multiple password reset
+   * requests could be processed concurrently for the same token.
+   *
+   * @param token - The password reset token
+   * @param newPasswordHash - The new password hash (SECURITY: write-only, never exposed)
+   * @returns Object with success status and userId
+   * @throws Error if token is invalid, expired, or already used
+   */
+  async resetPasswordAtomic(
+    token: string,
+    newPasswordHash: string // SECURITY: NEVER expose - write-only parameter
+  ): Promise<{ success: boolean; userId: number }> {
+    try {
+      // Validate inputs
+      if (!token || typeof token !== 'string' || token.trim().length === 0) {
+        throw new Error('Invalid token: must be non-empty string');
+      }
+
+      if (token.length > 255) {
+        throw new Error('Invalid token: exceeds maximum length');
+      }
+
+      if (!newPasswordHash || typeof newPasswordHash !== 'string') {
+        throw new Error('Invalid password hash: must be non-empty string');
+      }
+
+      // Execute all 3 steps in a single SERIALIZABLE transaction
+      return await this.db.transaction(
+        async (tx) => {
+          // Step 1: Validate token (exists, not expired, not used)
+          // NOTE: Use raw SQL for timezone handling (matches validatePasswordResetToken pattern)
+          const tokenResult = await tx.execute(
+            sql`
+              SELECT *
+              FROM password_reset_tokens
+              WHERE token = ${token}
+                AND is_used = false
+                AND (expires_at AT TIME ZONE 'UTC') > NOW()
+              LIMIT 1
+            `
+          );
+
+          const tokenRow = tokenResult.rows[0] as unknown;
+          if (!tokenRow) {
+            throw new Error('Invalid or expired reset token');
+          }
+
+          // Type assertion: Map PostgreSQL snake_case columns to TypeScript camelCase
+          const dbRow = tokenRow as {
+            id: number;
+            user_id: number;
+            token: string;
+            expires_at: Date;
+            is_used: boolean;
+            used_at: Date | null;
+            ip_address: string | null;
+            user_agent: string | null;
+            created_at: Date;
+          };
+
+          const tokenData = {
+            id: dbRow.id,
+            userId: dbRow.user_id,
+            token: dbRow.token,
+            expiresAt: dbRow.expires_at,
+            isUsed: dbRow.is_used,
+            usedAt: dbRow.used_at,
+            ipAddress: dbRow.ip_address,
+            userAgent: dbRow.user_agent,
+            createdAt: dbRow.created_at,
+          };
+
+          // Step 2: Update password hash (atomic with token validation)
+          await tx
+            .update(users)
+            .set({
+              passwordHash: newPasswordHash, // SECURITY: NEVER expose passwordHash in SELECT queries
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, tokenData.userId));
+
+          // Step 3: Mark token as used (atomic with password update)
+          await tx
+            .update(passwordResetTokens)
+            .set({
+              isUsed: true,
+              usedAt: new Date(),
+            })
+            .where(eq(passwordResetTokens.id, tokenData.id));
+
+          // Invalidate user cache after successful password reset
+          await storageCache.invalidateUserCache(tokenData.userId);
+
+          return { success: true, userId: tokenData.userId };
+        },
+        {
+          isolationLevel: 'serializable', // Prevent concurrent password resets for same token
+        }
+      );
+    } catch (error) {
+      this.handleError(error, 'resetPasswordAtomic');
     }
   }
 

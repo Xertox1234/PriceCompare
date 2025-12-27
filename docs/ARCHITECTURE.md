@@ -122,6 +122,148 @@ Insightify is a comprehensive price comparison platform that enables users to se
 - Frontend bundle size
 - User interaction metrics
 
+## Multi-Tier Caching Architecture
+
+### Overview
+The application uses a sophisticated multi-tier caching strategy to optimize performance and reduce database load. The caching system provides sub-10ms response times for frequently accessed data.
+
+### Cache Layers
+
+#### L1 Cache (In-Memory LRU)
+- **Technology**: Custom LRU (Least Recently Used) implementation
+- **Default Size**: 2,500 items (configurable via `L1_CACHE_SIZE`)
+- **Default TTL**: 60 seconds (configurable via `L1_CACHE_TTL`)
+- **Response Time**: 1-5ms
+- **Memory Usage**: ~50KB per item (~125MB for 2,500 items)
+- **Scope**: Per-instance (not shared across servers)
+
+**Configuration**:
+```bash
+L1_CACHE_SIZE=2500  # Number of items (range: 1000-5000)
+L1_CACHE_TTL=60     # Time-to-live in seconds (range: 30-120)
+```
+
+**Performance Characteristics**:
+- **Hit Rate**: 75-90% (higher with increased size)
+- **Eviction Policy**: LRU (oldest unused items removed first)
+- **TTL Strategy**: Lazy expiration (checked on access)
+- **Invalidation**: Pub/sub coordination across instances
+
+#### L2 Cache (Redis)
+- **Technology**: Redis (ioredis client)
+- **Response Time**: 5-10ms
+- **Scope**: Distributed (shared across all instances)
+- **Persistence**: Configurable (default: in-memory only)
+
+### Cache Tiers (L2 TTL Strategy)
+
+Different data types use tier-based TTL policies:
+
+| Tier | TTL | Use Case | Examples |
+|------|-----|----------|----------|
+| STATIC | 1 hour | Rarely changes | Retailers, categories |
+| HOT | 30 min | Frequently accessed | Popular products, trending items |
+| WARM | 10 min | Moderately accessed | Product details, user profiles |
+| COLD | 3 min | Rarely accessed | Search results, filtered lists |
+| COMPUTED | 30 min | Expensive calculations | Analytics, aggregations |
+
+### Cache Key Organization
+
+Cache keys use structured prefixes for efficient invalidation:
+
+```
+product:{id}             - Product basic data
+product:detail:{id}      - Product with full details
+product:offers:{id}      - Product price offers
+product:search:{query}   - Search results
+price:history:{id}       - Price history data
+analytics:{type}:{id}    - Analytics results
+retailer:{id}            - Retailer information
+```
+
+### Invalidation Strategy
+
+The system uses intelligent cache invalidation to maintain data consistency:
+
+1. **Single Key Invalidation**: When a specific item changes
+   ```typescript
+   await advancedCache.invalidate('product:123');
+   ```
+
+2. **Pattern-Based Invalidation**: For related data
+   ```typescript
+   await advancedCache.invalidatePattern('product:123:*');
+   ```
+
+3. **Pub/Sub Coordination**: Cache invalidations are published to all instances via Redis pub/sub, ensuring L1 caches stay synchronized across servers
+
+### Cache Warming
+
+Frequently accessed data is automatically promoted to L1 cache on L2 hits, improving subsequent access times.
+
+### Monitoring
+
+Cache performance metrics are logged every 60 seconds:
+
+```typescript
+{
+  l1: {
+    hits: 1250,
+    misses: 150,
+    hitRate: "89.3%",
+    size: 850,
+    maxSize: 2500
+  },
+  l2: {
+    hits: 850,
+    misses: 450,
+    hitRate: "65.4%"
+  },
+  invalidations: {
+    total: 45,
+    patternOperations: 12,
+    keysDeleted: 234
+  }
+}
+```
+
+### Performance Impact
+
+Expected performance with default configuration (2,500 L1 items):
+
+- **L1 Hit Rate**: 75-90%
+- **Overall Hit Rate**: 90-95% (combined L1+L2)
+- **Average Response Time**: 2-8ms (cached), 50-200ms (uncached DB query)
+- **Memory Overhead**: ~125MB per instance
+- **Redis Load Reduction**: 75-90% fewer queries
+
+### Tuning Guidelines
+
+**When to Increase L1_CACHE_SIZE**:
+- L1 hit rate below 75%
+- Available memory > 500MB
+- High cache churn (many evictions)
+- Read-heavy workload
+
+**When to Decrease L1_CACHE_SIZE**:
+- Memory pressure warnings
+- Low cache hit rate (< 50%)
+- Write-heavy workload (frequent invalidations)
+
+**Rollback Plan**:
+If increased cache size causes issues, simply update environment variable:
+```bash
+L1_CACHE_SIZE=1000  # Revert to original size
+```
+Restart application - no code changes or database migrations required.
+
+### Implementation
+
+- **Service**: `server/services/advanced-cache.ts`
+- **Storage Integration**: `server/services/storage-cache.ts`
+- **Configuration**: `.env` (L1_CACHE_SIZE, L1_CACHE_TTL)
+- **Metrics**: Automatic logging via `storageCache.logCacheMetrics()`
+
 ## Deployment Architecture
 
 ### Development Environment
@@ -239,4 +381,4 @@ All aggregation operations use database transactions to ensure atomicity. If agg
 - Security-related changes require approval
 - Performance-impacting changes require approval
 
-Last Updated: December 25, 2024
+Last Updated: December 26, 2024

@@ -278,6 +278,10 @@ export interface IStorage {
   markPasswordResetTokenAsUsed(token: string): Promise<void>;
   cleanupExpiredPasswordResetTokens(): Promise<number>;
   getPasswordResetAttemptCount(userId: number, sinceDate: Date): Promise<number>;
+  resetPasswordAtomic(
+    token: string,
+    newPasswordHash: string
+  ): Promise<{ success: boolean; userId: number }>;
 
   // Notification Operations (Phase 8E + Phase 8A)
   getNotificationCountByType(userId: number, type: string, sinceDate: Date): Promise<number>;
@@ -3021,6 +3025,15 @@ export class DatabaseStorage implements IStorage {
   async resetPassword(userId: number, newPasswordHash: string, token: string): Promise<void> {
     // SECURITY: NEVER expose
     return this.userStorage.resetPassword(userId, newPasswordHash, token); // SECURITY: NEVER expose
+  }
+
+  // SECURITY: passwordHash handled internally, NEVER exposed in queries
+  async resetPasswordAtomic(
+    token: string,
+    newPasswordHash: string
+  ): Promise<{ success: boolean; userId: number }> {
+    // SECURITY: NEVER expose
+    return this.userStorage.resetPasswordAtomic(token, newPasswordHash); // SECURITY: NEVER expose
   }
 
   /**

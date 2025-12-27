@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 2.6
+**Version:** 2.7
 **Last Updated:** 2025-12-26
 **Changelog:**
+- 2.7 (2025-12-26): Added Pattern 6 - Concurrent SERIALIZABLE Transaction Test (race condition prevention from TODO 006)
 - 2.6 (2025-12-26): Added E2E Environment-Specific Configuration Patterns (production vs dev server testing)
 - 2.5 (2025-12-26): Added Transaction Atomicity Testing Patterns (5 comprehensive test patterns from TODO 004)
 - 2.4 (2025-12-24): Added MemStorage Stub Implementation pattern for storage layer testing
@@ -701,6 +702,89 @@ test('transaction with multiple updates commits all or none', async () => {
 - ✅ Foreign key relationships consistent
 - ✅ No partial updates
 
+#### Pattern 6: Concurrent SERIALIZABLE Transaction Test (Race Condition Prevention)
+
+**Purpose:** Verify SERIALIZABLE transactions prevent race conditions in check-then-act scenarios (e.g., limit enforcement).
+
+**Context:** When concurrent operations could violate business rules (daily limits, quotas, sequential numbering), SERIALIZABLE isolation prevents phantom reads.
+
+```typescript
+// Source: server/services/__tests__/notification-service.test.ts:151-197
+test('should enforce daily limit under concurrent notification creation', async () => {
+  // CRITICAL RACE CONDITION TEST: Verifies SERIALIZABLE transaction prevents limit bypass
+  // Scenario: User at 9/10 limit, 5 concurrent price drops → only 1 should succeed
+
+  // Set limit to 10
+  await updateUserPreferences(testUserId, { maxDailyNotifications: 10 });
+
+  // Create 9 notifications to reach 9/10 limit
+  for (let i = 0; i < 9; i++) {
+    await createNotification({
+      userId: testUserId,
+      type: 'price_drop',
+      title: `Notification ${i + 1}`,
+      content: 'Test',
+    });
+  }
+
+  // Verify we're at 9/10
+  const beforeCount = await getUserNotifications(testUserId);
+  expect(beforeCount).toHaveLength(9);
+
+  // Attempt 5 concurrent notifications (simulates simultaneous price drops)
+  const concurrentAttempts = Array.from({ length: 5 }, (_, i) =>
+    createNotification({
+      userId: testUserId,
+      type: 'price_drop',
+      title: `Concurrent ${i + 1}`,
+      content: 'Concurrent test',
+    }).catch((error) => {
+      // Expected: 4 should fail with limit error
+      if (error instanceof Error && error.message === 'Daily notification limit reached') {
+        return null; // Mark as expected failure
+      }
+      throw error; // Unexpected error
+    })
+  );
+
+  const results = await Promise.all(concurrentAttempts);
+
+  // Verify exactly 1 succeeded (null = failed as expected)
+  const succeeded = results.filter((r) => r !== null);
+  expect(succeeded).toHaveLength(1);
+
+  // Verify final count is exactly 10 (limit respected)
+  const finalCount = await getUserNotifications(testUserId);
+  expect(finalCount).toHaveLength(10);
+});
+```
+
+**Key Assertions:**
+- ✅ Exactly 1 concurrent operation succeeds (not 2+)
+- ✅ Final count matches limit exactly (no overflow)
+- ✅ Expected errors caught and counted
+- ✅ Business rule enforced under high concurrency
+
+**Implementation Requirements:**
+- Storage method must use `{ isolationLevel: 'serializable' }`
+- Wrap in `retryWithBackoff()` to handle serialization failures
+- Test with 3-5 concurrent operations (more = better stress test)
+- Verify final state, not just error messages
+
+**Common Race Condition Scenarios:**
+- Daily/hourly notification limits
+- Sequential post/comment numbering
+- Quota enforcement (max alerts, max watchlists)
+- Inventory reservation
+- First-user admin role assignment
+
+**Related Patterns:**
+- See `docs/02_DATABASE_PATTERNS.md` Section 4.3 "When to Use SERIALIZABLE"
+- See `server/storage/domains/notification-storage.ts:247-315` for production example
+
+*Source: TODO 006 - Notification Daily Limit Race Condition Fix*
+*Added: 2025-12-26*
+
 #### Testing Checklist for Transactions
 
 When testing transaction boundaries, ensure you cover:
@@ -710,6 +794,7 @@ When testing transaction boundaries, ensure you cover:
 3. ✅ **Constraint Violations** - Database constraints trigger rollback
 4. ✅ **Independent Transactions** - Separate transactions don't interfere
 5. ✅ **Multi-Update Atomicity** - Multiple updates commit all-or-nothing
+6. ✅ **Concurrent SERIALIZABLE** - Race conditions prevented under concurrent access (NEW)
 
 **Performance Expectations:**
 - Transaction tests should run fast (<100ms per test)

@@ -12,6 +12,7 @@ import {
   validatePasswordResetToken,
   getUserByResetToken,
   isRateLimitExceeded,
+  resetPasswordAtomic,
 } from '../services/password-reset-service';
 import { emailService } from '../services/email-service';
 import { isAuthenticated } from './helpers';
@@ -95,6 +96,15 @@ export function registerAuthRoutes(app: Express): void {
 
       // Validate input with Zod schema
       const { username, email, password } = registerSchema.parse(req.body);
+
+      // VALIDATION: Explicit email format validation before encryption (defense-in-depth)
+      // Even though Zod validates email format, explicit check ensures valid emails before encryption
+      // Invalid emails would be stored encrypted and only discovered during password reset/notifications
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        sendError(res, 'Invalid email format', 400);
+        return;
+      }
 
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);
@@ -381,25 +391,31 @@ export function registerAuthRoutes(app: Express): void {
         return;
       }
 
-      // Validate the token
-      const user = await getUserByResetToken(token);
-
-      if (!user) {
-        logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
-          success: false,
-          message: 'Invalid or expired token',
-        });
-
-        sendError(res, 'Invalid or expired password reset token', 400);
-        return;
-      }
-
       // Hash the new password - SECURITY: NEVER expose in responses, passed to storage layer only
       const newPasswordHash = await hashPassword(password);
 
-      // SECURITY: Use storage layer's transactional resetPassword method
-      // Ensures password update and token marking are atomic
-      await storage.resetPassword(user.id, newPasswordHash, token); // NEVER exposed in API
+      // SECURITY: Use atomic password reset with SERIALIZABLE transaction
+      // This prevents the critical vulnerability where a server crash between password update
+      // and token marking could allow token reuse.
+      // All 3 steps (validate token, update password, mark token used) are atomic.
+      const result = await resetPasswordAtomic(token, newPasswordHash); // NEVER exposed in API
+
+      // Get user info for logging and email using userId from atomic operation
+      // SECURITY: getUserByIdSafe never exposes passwordHash
+      const user = await storage.getUserByIdSafe(result.userId);
+
+      if (!user) {
+        // This should never happen since resetPasswordAtomic validates the user
+        // but we handle it defensively
+        logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
+          success: false,
+          message: 'User not found after successful reset',
+          metadata: { userId: result.userId },
+        });
+
+        sendError(res, 'Password reset failed', 500);
+        return;
+      }
 
       // Log the successful password reset
       logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {

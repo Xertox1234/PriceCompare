@@ -57,6 +57,8 @@ vi.mock('../../services/notification-service', () => ({
   })),
 }));
 
+// Note: handlers.test.ts doesn't use server setup, so no changes needed for beforeAll/afterAll
+
 describe('WebSocket Event Handlers', () => {
   describe('Rate Limiting', () => {
     it('should allow requests within limit', async () => {

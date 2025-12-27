@@ -10,15 +10,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { Server as HTTPServer } from 'http';
-import type { Express } from 'express';
 import {
-  createTestServer,
-  closeTestServer,
+  setupWebSocketTestContext,
+  cleanupWebSocketTestContext,
   createAuthenticatedSocket,
   waitForEvent,
   disconnectSockets,
   spyOnSocketEvent,
+  type WebSocketTestContext,
 } from './test-utils';
 import { getSocketIO } from '../index';
 import {
@@ -61,19 +60,16 @@ vi.mock('../../services/notification-service', () => ({
 }));
 
 describe('WebSocket Integration Tests', () => {
-  let _app: Express;
-  let httpServer: HTTPServer;
+  let testContext: WebSocketTestContext;
   let port: number;
 
   beforeAll(async () => {
-    const server = await createTestServer();
-    _app = server.app;
-    httpServer = server.httpServer;
-    port = server.port;
+    testContext = await setupWebSocketTestContext();
+    port = testContext.port;
   });
 
   afterAll(async () => {
-    await closeTestServer(httpServer);
+    await cleanupWebSocketTestContext(testContext);
   });
 
   describe('Watch List Update Flow', () => {

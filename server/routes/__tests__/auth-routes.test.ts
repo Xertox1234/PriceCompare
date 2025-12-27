@@ -321,6 +321,86 @@ describe('Authentication Routes', () => {
       expectBadRequestError(response, 'Password must contain at least one special character');
     });
 
+    // Email format validation tests (defense-in-depth before encryption)
+    it('should reject email without @ symbol', async () => {
+      const response = await request(app).post('/api/auth/register').send({
+        email: 'notanemail.com',
+        username: 'testuser',
+        password: 'SecurePass123!',
+      });
+
+      // Zod .email() validation catches this first
+      expectErrorResponse(response, 400);
+    });
+
+    it('should reject email without domain', async () => {
+      const response = await request(app).post('/api/auth/register').send({
+        email: 'user@',
+        username: 'testuser',
+        password: 'SecurePass123!',
+      });
+
+      // Zod .email() validation catches this first
+      expectErrorResponse(response, 400);
+    });
+
+    it('should reject email without TLD (top-level domain)', async () => {
+      const response = await request(app).post('/api/auth/register').send({
+        email: 'user@domain',
+        username: 'testuser',
+        password: 'SecurePass123!',
+      });
+
+      // Explicit regex check or Zod catches this
+      expectErrorResponse(response, 400);
+    });
+
+    it('should reject email with spaces', async () => {
+      const response = await request(app).post('/api/auth/register').send({
+        email: 'user @example.com',
+        username: 'testuser',
+        password: 'SecurePass123!',
+      });
+
+      // Zod .email() validation catches this first
+      expectErrorResponse(response, 400);
+    });
+
+    it('should reject email with multiple @ symbols', async () => {
+      const response = await request(app).post('/api/auth/register').send({
+        email: 'user@@example.com',
+        username: 'testuser',
+        password: 'SecurePass123!',
+      });
+
+      // Zod .email() validation catches this first
+      expectErrorResponse(response, 400);
+    });
+
+    it('should accept valid email formats', async () => {
+      const validEmails = [
+        'user@example.com',
+        'user.name@example.com',
+        'user+tag@example.co.uk',
+        'user_name@sub.example.com',
+        'user123@example.org',
+      ];
+
+      for (const email of validEmails) {
+        // Clean up before each registration
+        await cleanupTestData(db, ['password_reset_tokens', 'users']);
+
+        const response = await request(app).post('/api/auth/register').send({
+          email,
+          username: `testuser${Math.random().toString(36).substring(7)}`,
+          password: 'SecurePass123!',
+        });
+
+        // All valid emails should be accepted
+        expectSuccessResponse(response, 201);
+      }
+    });
+
     it('should create session on successful registration', async () => {
       const agent = request.agent(app);
 

@@ -75,6 +75,24 @@ export class ProductStorage extends BaseStorage {
     }
   }
 
+  /**
+   * Build normalized product offer values for insert/update operations
+   * Used by: createProductOffer, upsertProductOffer
+   * @private
+   */
+  private buildProductOfferValues(offer: InsertProductOffer) {
+    return {
+      ...offer,
+      availability: offer.availability || null,
+      rating: offer.rating || null,
+      originalPrice: offer.originalPrice || null,
+      reviewCount: offer.reviewCount || null,
+      shippingInfo: offer.shippingInfo || null,
+      dealType: offer.dealType || null,
+      productUrl: offer.productUrl || null,
+    };
+  }
+
   // ============================================================================
   // Product CRUD Operations
   // ============================================================================
@@ -624,16 +642,7 @@ export class ProductStorage extends BaseStorage {
     try {
       const [result] = await this.db
         .insert(productOffers)
-        .values({
-          ...offer,
-          availability: offer.availability || null,
-          rating: offer.rating || null,
-          originalPrice: offer.originalPrice || null,
-          reviewCount: offer.reviewCount || null,
-          shippingInfo: offer.shippingInfo || null,
-          dealType: offer.dealType || null,
-          productUrl: offer.productUrl || null,
-        })
+        .values(this.buildProductOfferValues(offer))
         .returning();
 
       return result;
@@ -653,16 +662,7 @@ export class ProductStorage extends BaseStorage {
     try {
       const [result] = await this.db
         .insert(productOffers)
-        .values({
-          ...offer,
-          availability: offer.availability || null,
-          rating: offer.rating || null,
-          originalPrice: offer.originalPrice || null,
-          reviewCount: offer.reviewCount || null,
-          shippingInfo: offer.shippingInfo || null,
-          dealType: offer.dealType || null,
-          productUrl: offer.productUrl || null,
-        })
+        .values(this.buildProductOfferValues(offer))
         .onConflictDoUpdate({
           target: [productOffers.productId, productOffers.retailerId],
           set: {

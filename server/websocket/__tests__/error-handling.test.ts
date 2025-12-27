@@ -10,17 +10,15 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { Server as HTTPServer } from 'http';
-import type { Express } from 'express';
 import { io as ioClient, Socket as ClientSocket } from 'socket.io-client';
 import {
-  createTestServer,
-  closeTestServer,
+  setupWebSocketTestContext,
+  cleanupWebSocketTestContext,
   createAuthenticatedSocket,
   waitForEvent,
   disconnectSockets,
   spyOnSocketEvent,
-  TEST_PORT as _TEST_PORT,
+  type WebSocketTestContext,
 } from './test-utils';
 import { getSocketIO } from '../index';
 import { handleSocketError } from '../middleware/error-handler';
@@ -61,19 +59,16 @@ vi.mock('../../services/notification-service', () => ({
 }));
 
 describe('WebSocket Error Handling Tests', () => {
-  let _app: Express;
-  let httpServer: HTTPServer;
+  let testContext: WebSocketTestContext;
   let port: number;
 
   beforeAll(async () => {
-    const server = await createTestServer();
-    _app = server.app;
-    httpServer = server.httpServer;
-    port = server.port;
+    testContext = await setupWebSocketTestContext();
+    port = testContext.port;
   });
 
   afterAll(async () => {
-    await closeTestServer(httpServer);
+    await cleanupWebSocketTestContext(testContext);
   });
 
   beforeEach(() => {

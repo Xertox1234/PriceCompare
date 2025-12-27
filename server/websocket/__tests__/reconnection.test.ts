@@ -9,10 +9,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { Server as HTTPServer } from 'http';
-import type { Express } from 'express';
 import { io as ioClient } from 'socket.io-client';
-import { createTestServer, closeTestServer, waitForEvent, waitForCondition } from './test-utils';
+import {
+  setupWebSocketTestContext,
+  cleanupWebSocketTestContext,
+  waitForEvent,
+  waitForCondition,
+  type WebSocketTestContext,
+} from './test-utils';
 import { getSocketIO, shutdownWebSocket } from '../index';
 
 // Mock dependencies
@@ -37,19 +41,16 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 describe('WebSocket Reconnection Tests', () => {
-  let _app: Express;
-  let httpServer: HTTPServer;
+  let testContext: WebSocketTestContext;
   let port: number;
 
   beforeAll(async () => {
-    const server = await createTestServer();
-    _app = server.app;
-    httpServer = server.httpServer;
-    port = server.port;
+    testContext = await setupWebSocketTestContext();
+    port = testContext.port;
   });
 
   afterAll(async () => {
-    await closeTestServer(httpServer);
+    await cleanupWebSocketTestContext(testContext);
   });
 
   describe('Network Disconnect Recovery', () => {

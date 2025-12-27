@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.10
+**Version:** 2.11
 **Last Updated:** 2025-12-26
 **Changelog:**
+- 2.11 (2025-12-26): Added notification daily limit SERIALIZABLE transaction production example from TODO 006 (with retry logic)
 - 2.10 (2025-12-26): Added 4 transaction boundary patterns from TODO 004 (transaction-aware error handling, row count validation, interface passthrough, inline vs abstraction trade-off)
 - 2.9 (2025-12-24): Added agent storage layer patterns (find-or-create with metadata, upsert, bulk operations, historical optimization)
 - 2.8 (2025-12-23): Expanded storage layer ID validation pattern with code examples from Feature 3.3
@@ -1413,6 +1414,51 @@ await db.transaction(async (tx) => {
 }, {
   isolationLevel: 'serializable', // Prevents concurrent limit violations
 });
+
+// Daily notification limit with retry logic (PRODUCTION EXAMPLE)
+// Source: server/storage/domains/notification-storage.ts:247-315
+await retryWithBackoff(
+  async () =>
+    db.transaction(
+      async (tx) => {
+        // Check daily limit within transaction
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const todayCount = await tx
+          .select({ count: count() })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.userId, userId),
+              gte(notifications.createdAt, today)
+            )
+          );
+
+        if (
+          preferences.maxDailyNotifications &&
+          todayCount[0].count >= preferences.maxDailyNotifications
+        ) {
+          throw new Error('Daily notification limit reached');
+        }
+
+        // Create notification - atomic with limit check
+        const result = await tx.insert(notifications).values(notification).returning();
+        return result[0];
+      },
+      {
+        isolationLevel: 'serializable', // Prevent concurrent limit bypass
+      }
+    ),
+  {
+    maxAttempts: 3,
+    initialDelayMs: 100,
+    isRetryable: isTransientDatabaseError,
+    onRetry: (error, attempt, delayMs) => {
+      logger.warn('Retrying after serialization error', { error, attempt, delayMs });
+    },
+  }
+);
 ```
 
 **2. Sequential Numbering**

@@ -359,3 +359,85 @@ export function forceDisconnectUser(userId: number): void {
     });
   }
 }
+
+/**
+ * Setup common mock dependencies for WebSocket tests
+ * Call this function before importing WebSocket modules to ensure mocks are registered
+ *
+ * @returns Mock configuration object with references to mocked modules
+ */
+export function setupWebSocketMocks() {
+  // This function should be called in the test file's module scope
+  // before any WebSocket imports that depend on these mocks.
+  // The actual mocking is done via vi.mock() in each test file,
+  // but this provides a centralized reference for what needs to be mocked.
+
+  return {
+    mockConfig: {
+      redis: {
+        getRedisClient: vi.fn(() => null),
+        redisClient: null,
+      },
+      logger: {
+        info: vi.fn(),
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+      createLogger: vi.fn(() => ({
+        info: vi.fn(),
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      })),
+      notificationService: {
+        markAsRead: vi.fn(() => 1),
+        getNotificationStats: vi.fn(() => ({
+          total: 10,
+          unread: 3,
+          byType: {},
+        })),
+      },
+    },
+  };
+}
+
+/**
+ * Common test server setup for WebSocket tests
+ * Use this in beforeAll/afterAll hooks
+ *
+ * @example
+ * ```typescript
+ * let testContext: WebSocketTestContext;
+ *
+ * beforeAll(async () => {
+ *   testContext = await setupWebSocketTestContext();
+ * });
+ *
+ * afterAll(async () => {
+ *   await cleanupWebSocketTestContext(testContext);
+ * });
+ * ```
+ */
+export interface WebSocketTestContext {
+  app: Express;
+  httpServer: HTTPServer;
+  port: number;
+}
+
+/**
+ * Setup WebSocket test context (server, app, port)
+ */
+export async function setupWebSocketTestContext(): Promise<WebSocketTestContext> {
+  const { app, httpServer, port } = await createTestServer();
+  return { app, httpServer, port };
+}
+
+/**
+ * Cleanup WebSocket test context
+ */
+export async function cleanupWebSocketTestContext(
+  context: WebSocketTestContext
+): Promise<void> {
+  await closeTestServer(context.httpServer);
+}

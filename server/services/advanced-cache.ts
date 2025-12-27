@@ -223,8 +223,15 @@ export class AdvancedCacheService {
   private subscriber: Redis | null = null;
 
   constructor() {
-    // L1 cache: 1000 items, 60 second TTL
-    this.l1Cache = new LRUCache(1000, 60);
+    // L1 cache: Configurable size and TTL via environment variables
+    // Default: 2500 items (increased from 1000), 60 second TTL
+    const l1Size = process.env.L1_CACHE_SIZE
+      ? parseInt(process.env.L1_CACHE_SIZE, 10)
+      : 2500;
+
+    const l1Ttl = process.env.L1_CACHE_TTL ? parseInt(process.env.L1_CACHE_TTL, 10) : 60;
+
+    this.l1Cache = new LRUCache(l1Size, l1Ttl);
     this.stats = {
       l1Hits: 0,
       l1Misses: 0,

@@ -148,6 +148,54 @@ describe.sequential('Notification Service', () => {
       ).rejects.toThrow('Daily notification limit reached');
     });
 
+    it('should enforce daily limit under concurrent notification creation (race condition test)', async () => {
+      // CRITICAL RACE CONDITION TEST: Verifies SERIALIZABLE transaction prevents limit bypass
+      // Scenario: User at 9/10 limit, 5 concurrent price drops → only 1 should succeed
+
+      // Set limit to 10
+      await updateUserPreferences(testUserId, { maxDailyNotifications: 10 });
+
+      // Create 9 notifications to reach 9/10 limit
+      for (let i = 0; i < 9; i++) {
+        await createNotification({
+          userId: testUserId,
+          type: 'price_drop',
+          title: `Notification ${i + 1}`,
+          content: 'Test',
+        });
+      }
+
+      // Verify we're at 9/10
+      const beforeCount = await getUserNotifications(testUserId);
+      expect(beforeCount).toHaveLength(9);
+
+      // Attempt 5 concurrent notifications (simulates simultaneous price drops)
+      const concurrentAttempts = Array.from({ length: 5 }, (_, i) =>
+        createNotification({
+          userId: testUserId,
+          type: 'price_drop',
+          title: `Concurrent ${i + 1}`,
+          content: 'Concurrent test',
+        }).catch((error) => {
+          // Expected: 4 should fail with limit error
+          if (error instanceof Error && error.message === 'Daily notification limit reached') {
+            return null; // Mark as expected failure
+          }
+          throw error; // Unexpected error
+        })
+      );
+
+      const results = await Promise.all(concurrentAttempts);
+
+      // Verify exactly 1 succeeded (null = failed as expected)
+      const succeeded = results.filter((r) => r !== null);
+      expect(succeeded).toHaveLength(1);
+
+      // Verify final count is exactly 10 (limit respected)
+      const finalCount = await getUserNotifications(testUserId);
+      expect(finalCount).toHaveLength(10);
+    });
+
     it('should respect quiet hours', async () => {
       // Set quiet hours (current hour +/- window to ensure we're in quiet time)
       const currentHour = new Date().getHours();
