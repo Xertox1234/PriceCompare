@@ -33,6 +33,22 @@ import { registerApiV1Routes } from './api-v1-routes';
  * This is the single entry point for all route registration. It aggregates all
  * route modules and registers them with the Express app.
  *
+ * ⚠️ CRITICAL: Middleware Order for Protected Routes
+ * ================================================
+ * All authenticated routes MUST follow this exact middleware order:
+ *
+ * app.post('/api/endpoint',
+ *   flexibleAuth,        // 1. FIRST: Sets req.isBasicAuth flag
+ *   csrfProtection,      // 2. SECOND: Checks flag for CSRF exemption
+ *   withAuth(handler)    // 3. THIRD: Validates req.user exists
+ * );
+ *
+ * WHY THIS ORDER MATTERS:
+ * - flexibleAuth sets req.isBasicAuth = true|false based on auth method
+ * - csrfProtection reads this flag to exempt Basic Auth (stateless, CSRF-safe)
+ * - If order is reversed, Basic Auth requests will incorrectly require CSRF tokens
+ * - withAuth wrapper provides runtime validation that req.user exists
+ *
  * Route organization:
  * - health-routes: Health check endpoints
  * - auth-routes: Authentication (register, login, logout, password reset)

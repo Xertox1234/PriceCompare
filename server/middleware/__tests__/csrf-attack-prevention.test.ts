@@ -1,25 +1,55 @@
 /**
  * CSRF Attack Prevention Tests
  *
- * Validates that the unified auth system fixes the CSRF bypass vulnerability
- * that existed in the old basicAuth fallthrough behavior.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * VULNERABILITY BEING TESTED: CSRF Bypass via basicAuth Fallthrough
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * Attack Scenario (OLD SYSTEM - VULNERABLE):
- * 1. Victim logs in via browser → session cookie created
- * 2. Attacker crafts malicious request to /api/v1/* endpoint
- * 3. Request includes victim's session cookie, but NO Authorization header
- * 4. basicAuth sees no header → calls next() (fallthrough)
- * 5. Request uses victim's session without CSRF protection
- * 6. Attack succeeds! (CSRF bypass)
+ * OLD SYSTEM (VULNERABLE):
+ * ------------------------
+ * Problem: basicAuth middleware would silently call next() if Authorization header missing
  *
- * Fixed Behavior (NEW SYSTEM - SECURE):
+ * Attack Flow:
+ * 1. Victim logs in via browser → session cookie created (connect.sid)
+ * 2. Attacker crafts malicious request to /api/v1/* endpoint from attacker.com
+ * 3. Request includes victim's session cookie (browser auto-sends), but NO Authorization header
+ * 4. basicAuth middleware sees no header → calls next() (FALLTHROUGH)
+ * 5. Request silently uses victim's session auth WITHOUT CSRF protection
+ * 6. Mutation succeeds (creates/updates/deletes data as victim)
+ * 7. ❌ ATTACK SUCCEEDS - CSRF bypass!
+ *
+ * Why it was vulnerable:
+ * - basicAuth had implicit fallthrough behavior (no explicit flag)
+ * - Session requests with no CSRF token were not blocked
+ * - No way to distinguish "Basic Auth failed" from "no Basic Auth header"
+ * - CSRF protection couldn't tell which auth method was used
+ *
+ * NEW SYSTEM (FIXED):
+ * -------------------
+ * Solution: flexibleAuth explicitly marks authentication method via req.isBasicAuth flag
+ *
+ * Fixed Flow:
  * 1. Victim logs in via browser → session cookie created
- * 2. Attacker crafts malicious request
- * 3. flexibleAuth detects session auth (no Basic Auth header)
- * 4. Sets req.isBasicAuth = false
- * 5. csrfProtection checks flag → requires CSRF token
- * 6. No CSRF token → 403 Forbidden
- * 7. Attack blocked! ✅
+ * 2. Attacker crafts malicious request (no Authorization header)
+ * 3. flexibleAuth detects session auth (req.isAuthenticated() true, no Basic Auth header)
+ * 4. Sets req.isBasicAuth = false (EXPLICIT MARKER)
+ * 5. csrfProtection middleware checks flag → req.isBasicAuth !== true
+ * 6. Requires CSRF token for session requests
+ * 7. No CSRF token in attacker's request → 403 Forbidden
+ * 8. ✅ ATTACK BLOCKED!
+ *
+ * Why it's secure now:
+ * - flexibleAuth sets explicit flag for BOTH auth methods
+ * - Session requests (isBasicAuth=false) ALWAYS require CSRF token
+ * - Basic Auth requests (isBasicAuth=true) are exempt (stateless, CSRF-safe)
+ * - No more silent fallthrough to unprotected session auth
+ * - csrfProtection can reliably check which auth method was used
+ *
+ * Test Coverage:
+ * - Attack scenarios (session + no CSRF → blocked)
+ * - Legitimate flows (session + valid CSRF → allowed, Basic Auth → allowed)
+ * - Token validation (invalid/reused/cross-session tokens → blocked)
+ * - Cross-origin attacks (CSRF from attacker.com → blocked)
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
