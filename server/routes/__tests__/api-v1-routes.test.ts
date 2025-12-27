@@ -454,7 +454,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.data).toBeInstanceOf(Array);
+      expect(res.body.data.notifications).toBeInstanceOf(Array);
       expect(res.body.data.count).toBeDefined();
     });
 

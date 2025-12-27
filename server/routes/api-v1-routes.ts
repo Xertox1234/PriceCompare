@@ -7,15 +7,17 @@
  * Authentication: Authorization: Basic base64(username:password)
  * Example: curl -u "admin:password" https://api.pricecompare.com/api/v1/scraping/discover-trends
  *
- * All routes mirror the browser-based scraping routes but with Basic Auth instead of sessions.
+ * All routes mirror the browser-based routes but with Basic Auth instead of sessions.
  */
 
 import type { Express, Request, Response } from 'express';
 import { basicAuth } from '../middleware/basic-auth';
-import { withAuth, withAdmin } from './helpers';
-import { sendSuccess, sendErrorFromException } from '../utils/api-response';
+import { withAuth, withAdmin, shouldSkipCache } from './helpers';
+import { sendSuccess, sendError, sendErrorFromException, sendPaginated } from '../utils/api-response';
 import { agentService } from '../services/agent-service';
 import { googleSearchService } from '../services/google-search';
+import { storage } from '../storage';
+import { storageCache } from '../services/storage-cache';
 import { logger } from '../utils/logger';
 import { validateRequest } from '../validation';
 import {
@@ -23,6 +25,8 @@ import {
   productSearchQuerySchema,
   googleSearchQuerySchema,
 } from '../validation/admin-schemas';
+import { parseIntSafe, parseIntOptional, parseFloatSafe } from '../utils/validation-helpers';
+import type { SearchFilters, AuthenticatedRequest } from '@shared/types';
 
 export function registerApiV1Routes(app: Express): void {
   /**
@@ -212,5 +216,355 @@ export function registerApiV1Routes(app: Express): void {
     })
   );
 
-  logger.info('API v1 routes registered (HTTP Basic Auth)');
+  // =============================================================================
+  // PHASE 1: Core Read-Only Features
+  // =============================================================================
+
+  /**
+   * GET /api/v1/watchlists
+   * Get all watch lists for the authenticated user
+   * Agent-native equivalent of GET /api/watchlists
+   */
+  app.get(
+    '/api/v1/watchlists',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        logger.info(`API v1: Fetching watch lists for user ${userId}`);
+
+        const watchLists = await storage.getUserWatchLists(userId);
+
+        sendSuccess(res, { watchLists });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetWatchLists');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/watchlists/:id
+   * Get a specific watch list with all products and pricing details
+   * Agent-native equivalent of GET /api/watchlists/:id
+   */
+  app.get(
+    '/api/v1/watchlists/:id',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
+
+        logger.info(`API v1: Fetching watch list ${watchListId} for user ${userId}`);
+
+        const watchList = await storage.getWatchListById(watchListId, userId);
+
+        if (!watchList) {
+          sendError(res, 'Watch list not found or unauthorized', 404);
+          return;
+        }
+
+        sendSuccess(res, watchList);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetWatchList');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/watchlists/:id/products
+   * Get products in a specific watch list
+   * Agent-native endpoint (extracts products from watchlist details)
+   */
+  app.get(
+    '/api/v1/watchlists/:id/products',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
+
+        logger.info(`API v1: Fetching products for watch list ${watchListId}, user ${userId}`);
+
+        const watchList = await storage.getWatchListById(watchListId, userId);
+
+        if (!watchList) {
+          sendError(res, 'Watch list not found or unauthorized', 404);
+          return;
+        }
+
+        sendSuccess(res, { products: watchList.products || [] });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetWatchListProducts');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/price-alerts
+   * Get all price alerts for the authenticated user
+   * Agent-native equivalent of GET /api/price-alerts
+   */
+  app.get(
+    '/api/v1/price-alerts',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        logger.info(`API v1: Fetching price alerts for user ${userId}`);
+
+        const alerts = await storage.getUserPriceAlerts(userId);
+
+        sendSuccess(res, alerts);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetPriceAlerts');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/price-alerts/:id
+   * Get a specific price alert by ID
+   * Agent-native endpoint (extracts single alert from user's alerts)
+   */
+  app.get(
+    '/api/v1/price-alerts/:id',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
+
+        logger.info(`API v1: Fetching price alert ${alertId} for user ${userId}`);
+
+        const alerts = await storage.getUserPriceAlerts(userId);
+        const alert = alerts.find((a) => a.id === alertId);
+
+        if (!alert) {
+          sendError(res, 'Price alert not found or unauthorized', 404);
+          return;
+        }
+
+        sendSuccess(res, alert);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetPriceAlert');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/products/search
+   * Search products with filters
+   * Agent-native equivalent of GET /api/products/search
+   */
+  app.get(
+    '/api/v1/products/search',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    async (req: Request, res: Response) => {
+      try {
+        logger.info('API v1: Product search request');
+
+        // Handle URL-based search (browser extension compatibility)
+        if (req.query.url) {
+          const productUrl = decodeURIComponent(req.query.url as string);
+
+          const result = await storage.getProductByUrl(productUrl);
+
+          if (!result) {
+            sendSuccess(res, { product: null });
+            return;
+          }
+
+          const { product } = result;
+          const offers = await storage.getProductOffers(product.id);
+          const prices = offers.map((o) => parseFloat(o.price));
+          const bestPrice = Math.min(...prices);
+
+          sendSuccess(res, {
+            product: {
+              ...product,
+              offers,
+              bestPrice,
+            },
+          });
+          return;
+        }
+
+        // Normal search filters
+        const filters: SearchFilters = {
+          query: req.query.query as string,
+          category: req.query.category as string,
+          minPrice: req.query.minPrice
+            ? parseFloatSafe(req.query.minPrice as string, 'minPrice', { min: 0 })
+            : undefined,
+          maxPrice: req.query.maxPrice
+            ? parseFloatSafe(req.query.maxPrice as string, 'maxPrice', { min: 0 })
+            : undefined,
+          retailers: req.query.retailers
+            ? Array.isArray(req.query.retailers)
+              ? req.query.retailers.map((id) => parseIntSafe(id as string, 'retailerId', { min: 1 }))
+              : [parseIntSafe(req.query.retailers as string, 'retailerId', { min: 1 })]
+            : undefined,
+          minRating: req.query.minRating
+            ? parseFloatSafe(req.query.minRating as string, 'minRating', { min: 0, max: 5 })
+            : undefined,
+          availability: req.query.availability
+            ? Array.isArray(req.query.availability)
+              ? (req.query.availability as string[])
+              : [req.query.availability as string]
+            : undefined,
+          sortBy: req.query.sortBy as 'price_low' | 'price_high' | 'rating' | 'popularity',
+          page: req.query.page ? parseIntSafe(req.query.page as string, 'page', { min: 1 }) : 1,
+          limit: req.query.limit
+            ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 })
+            : 20,
+        };
+
+        const skipCache = shouldSkipCache(req as AuthenticatedRequest);
+        const { products, pagination } = skipCache
+          ? await storage.searchProducts(filters)
+          : await storageCache.searchProducts(filters);
+
+        sendPaginated(res, products, {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: pagination.total,
+          totalPages: pagination.totalPages,
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'SearchProducts');
+      }
+    }
+  );
+
+  /**
+   * GET /api/v1/products/:id
+   * Get product details by ID
+   * Agent-native equivalent of GET /api/products/:id
+   */
+  app.get(
+    '/api/v1/products/:id',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+
+        logger.info(`API v1: Fetching product ${id}`);
+
+        const skipCache = shouldSkipCache(req as AuthenticatedRequest);
+        const product = skipCache
+          ? await storage.getProductById(id)
+          : await storageCache.getProductById(id);
+
+        if (!product) {
+          sendError(res, 'Product not found', 404);
+          return;
+        }
+
+        sendSuccess(res, product);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'FetchProduct');
+      }
+    }
+  );
+
+  /**
+   * GET /api/v1/products/:id/price-history
+   * Get price history for a product
+   * Agent-native equivalent of GET /api/products/:id/price-history
+   */
+  app.get(
+    '/api/v1/products/:id/price-history',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
+        const days = parseIntOptional(req.query.days as string);
+        const retailerId = parseIntOptional(req.query.retailerId as string);
+
+        logger.info(`API v1: Fetching price history for product ${id}`);
+
+        let history;
+        if (retailerId) {
+          history = await storage.getRetailerPriceHistory(id, retailerId, days);
+        } else {
+          history = await storage.getPriceHistory(id, days);
+        }
+
+        const formattedHistory = history.map((h) => ({
+          date: h.recordedAt instanceof Date ? h.recordedAt.toISOString() : h.recordedAt,
+          price: parseFloat(h.price),
+          retailerId: h.retailerId,
+          retailerName: 'retailerName' in h ? h.retailerName : undefined,
+          availability: h.availability,
+        }));
+
+        sendSuccess(res, { history: formattedHistory });
+      } catch (error: unknown) {
+        logger.error('Error fetching price history', {
+          error: error instanceof Error ? error.message : String(error),
+          productId: req.params.id,
+        });
+        sendErrorFromException(res, error, 'FetchPriceHistory');
+      }
+    }
+  );
+
+  /**
+   * GET /api/v1/notifications
+   * Get user's notifications with optional filters
+   * Agent-native equivalent of GET /api/notifications
+   */
+  app.get(
+    '/api/v1/notifications',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    basicAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        logger.info(`API v1: Fetching notifications for user ${userId}`);
+
+        // Import notification service dynamically to avoid circular dependencies
+        const { getUserNotifications } = await import('../services/notification-service');
+
+        // Parse filters from query params
+        const filters: {
+          isRead?: boolean;
+          type?: string;
+          limit: number;
+          offset: number;
+        } = {
+          limit: req.query.limit ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 100 }) : 50,
+          offset: req.query.offset ? parseIntSafe(req.query.offset as string, 'offset', { min: 0 }) : 0,
+        };
+
+        if (req.query.isRead !== undefined) {
+          filters.isRead = req.query.isRead === 'true';
+        }
+
+        if (req.query.type) {
+          filters.type = req.query.type as string;
+        }
+
+        const notifications = await getUserNotifications(userId, filters);
+
+        sendSuccess(res, {
+          notifications,
+          count: notifications.length,
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetNotifications');
+      }
+    })
+  );
+
+  logger.info('API v1 routes registered (HTTP Basic Auth) - Phase 1: 14 endpoints');
 }
