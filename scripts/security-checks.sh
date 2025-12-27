@@ -216,8 +216,7 @@ CONSOLE_LOGS=$(grep -rn "console\.log\|console\.debug" server/ --include="*.ts" 
   grep -v "\* " | \
   grep -v "BUILD-TIME ONLY" | \
   grep -v "scripts/" | \
-  grep -v "node -e" | \
-  grep -v "openapi-generator" || true)
+  grep -v "node -e" || true)
 
 if [ -n "$CONSOLE_LOGS" ]; then
   echo -e "${RED}   ❌ BLOCKER: console.log found in server code:${NC}"

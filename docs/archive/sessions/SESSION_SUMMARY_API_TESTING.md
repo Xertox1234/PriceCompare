@@ -98,28 +98,7 @@ expect(product.id).toBe(1);
 
 **Run with**: `npm run test:bench`
 
-### 5. ✅ OpenAPI/Swagger Generator
-**File**: `server/utils/openapi-generator.ts`
-
-- Generate OpenAPI 3.0 specifications from TypeScript
-- Standardized response schema definitions
-- Helper functions for common patterns
-- Example implementation for product endpoints
-
-**Key Features**:
-- `successResponse(dataSchema)` - Generate success envelope
-- `errorResponse(includeDetails?)` - Generate error envelope
-- `paginatedResponse(itemSchema)` - Generate paginated envelope
-- `generateOpenAPISpec(config)` - Complete spec generation
-- `standardResponses` - Pre-built response objects (200, 201, 400, 401, 404, 500)
-
-**Next Steps**:
-1. Define schemas for all resources
-2. Define all 217 endpoints
-3. Generate complete spec
-4. Deploy Swagger UI at `/api-docs`
-
-### 6. ✅ Example Test File
+### 5. ✅ Example Test File
 **File**: `server/routes/__tests__/envelope-validation.example.test.ts`
 
 - Demonstrates old vs new testing patterns
@@ -129,7 +108,7 @@ expect(product.id).toBe(1);
 
 **Note**: Tests currently fail because auth routes haven't been migrated yet. This is expected and demonstrates the validation works!
 
-### 7. ✅ Comprehensive Documentation
+### 6. ✅ Comprehensive Documentation
 **Files Created**:
 
 1. **`docs/API_RESPONSE_TEST_COVERAGE.md`**
@@ -184,14 +163,13 @@ expect(product.id).toBe(1);
 ### Infrastructure Files
 4. `server/utils/api-response-schemas.ts` - Zod validation schemas
 5. `server/__tests__/helpers/response-validators.ts` - Test helpers
-6. `server/utils/openapi-generator.ts` - OpenAPI generator
 
 ### Documentation Files
-7. `docs/API_RESPONSE_TEST_COVERAGE.md` - Test coverage report
-8. `docs/API_TESTING_CONTINUATION_PLAN.md` - Implementation plan
-9. `docs/SESSION_SUMMARY_API_TESTING.md` - This summary
+6. `docs/API_RESPONSE_TEST_COVERAGE.md` - Test coverage report
+7. `docs/API_TESTING_CONTINUATION_PLAN.md` - Implementation plan
+8. `docs/SESSION_SUMMARY_API_TESTING.md` - This summary
 
-**Total**: 9 new files, ~2,500+ lines of code
+**Total**: 8 new files, ~2,000+ lines of code
 
 ---
 

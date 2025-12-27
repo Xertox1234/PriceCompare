@@ -34,18 +34,11 @@ This document outlines the complete plan to finish the API standardization testi
    - Stress tests with 100K+ item payloads
    - Overhead comparison vs direct `res.json()`
 
-5. **OpenAPI/Swagger Generator** (NEW)
-   - File: `server/utils/openapi-generator.ts`
-   - Generate OpenAPI 3.0 specs from TypeScript
-   - Standardized response schema definitions
-   - Ready for API documentation generation
-
 ### What's Remaining 🔨
 
 1. **Route Integration Tests** - Add envelope validation to existing tests
 2. **Migration Verification** - Ensure all 217 endpoints use standard helpers
-3. **Documentation** - Update API docs with OpenAPI specs
-4. **CI/CD Integration** - Add validation to deployment pipeline
+3. **CI/CD Integration** - Add validation to deployment pipeline
 
 ---
 
@@ -224,94 +217,7 @@ http GET localhost:5000/api/products/1
 
 ---
 
-## Phase 3: API Documentation Generation (PRIORITY 3)
-
-### Goal
-Generate comprehensive OpenAPI/Swagger documentation for all endpoints.
-
-### Implementation Steps
-
-#### Step 1: Define Schemas for All Resources
-Create schemas in `server/utils/openapi-schemas.ts`:
-
-```typescript
-export const schemas = {
-  Product: {
-    type: 'object',
-    properties: {
-      id: { type: 'integer' },
-      name: { type: 'string' },
-      description: { type: 'string', nullable: true },
-      category: { type: 'string', nullable: true },
-      // ... all fields
-    },
-    required: ['id', 'name'],
-  },
-
-  Alert: { /* ... */ },
-  Retailer: { /* ... */ },
-  // etc.
-};
-```
-
-#### Step 2: Define All Endpoints
-Create endpoint definitions in `server/utils/openapi-endpoints.ts`:
-
-```typescript
-import { generateProductEndpointsSpec, generateAlertEndpointsSpec } from './openapi-generator';
-
-export const allEndpoints = [
-  ...productEndpoints,
-  ...alertEndpoints,
-  ...authEndpoints,
-  // etc.
-];
-```
-
-#### Step 3: Generate Spec
-```typescript
-// scripts/generate-openapi.ts
-import { generateOpenAPISpec, writeOpenAPISpec } from '../server/utils/openapi-generator';
-import { allEndpoints } from '../server/utils/openapi-endpoints';
-
-const spec = generateOpenAPISpec({
-  info: {
-    title: 'PriceCompare API',
-    version: '1.0.0',
-    description: 'Complete API documentation',
-  },
-  endpoints: allEndpoints,
-});
-
-writeOpenAPISpec(spec, 'openapi.json');
-```
-
-#### Step 4: Deploy Swagger UI
-```bash
-npm install swagger-ui-express
-
-# In server/index.ts
-import swaggerUi from 'swagger-ui-express';
-import openApiSpec from '../docs/openapi.json';
-
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
-```
-
-### Estimated Time
-- Schema definitions: 4 hours
-- Endpoint definitions: 6 hours
-- Swagger UI setup: 1 hour
-- **Total: ~11 hours**
-
-### Success Criteria
-- ✅ OpenAPI 3.0 spec generated for all 217 endpoints
-- ✅ Swagger UI accessible at `/api-docs`
-- ✅ All response envelopes documented
-- ✅ Examples included for each endpoint
-
----
-
-## Phase 4: CI/CD Integration (PRIORITY 4)
+## Phase 3: CI/CD Integration (PRIORITY 3)
 
 ### Goal
 Enforce response format validation in automated testing and deployment.
@@ -624,10 +530,9 @@ expect(product.id).toBe(1);
 1. `server/utils/api-response-schemas.ts` - Zod validation schemas
 2. `server/__tests__/helpers/response-validators.ts` - Test helpers
 3. `server/utils/__tests__/api-response.bench.ts` - Performance benchmarks
-4. `server/utils/openapi-generator.ts` - OpenAPI spec generator
-5. `server/routes/__tests__/envelope-validation.example.test.ts` - Example tests
-6. `docs/API_RESPONSE_TEST_COVERAGE.md` - Coverage report
-7. `docs/API_TESTING_CONTINUATION_PLAN.md` - This document
+4. `server/routes/__tests__/envelope-validation.example.test.ts` - Example tests
+5. `docs/API_RESPONSE_TEST_COVERAGE.md` - Coverage report
+6. `docs/API_TESTING_CONTINUATION_PLAN.md` - This document
 
 ### Modified Files
 1. `server/utils/__tests__/api-response.test.ts` - Created (54 tests)

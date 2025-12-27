@@ -378,7 +378,6 @@ gh pr create --title "feat: Complete API standardization (Phase 4g)" \
 **Documentation:**
 - `docs/API_AUDIT_REPORT.md` - Comprehensive audit with detailed analysis
 - `docs/API_PATTERNS.md` - Response pattern documentation
-- `docs/openapi.yaml` - OpenAPI 3.1 specification
 
 **Response Helpers:**
 - `server/utils/api-response.ts` - sendSuccess, sendError, sendErrorFromException
@@ -438,7 +437,6 @@ app.get('/api/items/:id', async (req, res) => {
 - Review audit report: `docs/API_AUDIT_REPORT.md`
 - Check pattern docs: `docs/API_PATTERNS.md`
 - See completed migrations: Any of the 15 compliant route files
-- Test with OpenAPI spec: `docs/openapi.yaml`
 
 ---
 
