@@ -66,7 +66,8 @@ export async function flexibleAuth(
 
   // Priority 2: Try session auth (Passport session via cookie)
   // SECURITY: Session is stateful - uses cookies, requires CSRF protection
-  if (req.isAuthenticated()) {
+  // NOTE: req.isAuthenticated may not exist if Passport isn't initialized (e.g., in tests)
+  if (typeof req.isAuthenticated === 'function' && req.isAuthenticated()) {
     logger.debug('flexibleAuth: Using session auth', {
       path: req.path,
       method: req.method,
