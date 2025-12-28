@@ -571,5 +571,391 @@ export function registerApiV1Routes(app: Express): void {
     })
   );
 
-  logger.info('API v1 routes registered (HTTP Basic Auth) - Phase 1: 14 endpoints');
+  // =============================================================================
+  // PHASE 2: Write Operations
+  // =============================================================================
+
+  /**
+   * POST /api/v1/watchlists
+   * Create a new watch list
+   * Agent-native equivalent of POST /api/watchlists
+   */
+  app.post(
+    '/api/v1/watchlists',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+
+        // Import schema from watchlist-routes
+        const { z } = await import('zod');
+        const createWatchListSchema = z.object({
+          name: z
+            .string()
+            .trim()
+            .min(1, 'Name is required')
+            .max(100, 'Name must be 100 characters or less'),
+          description: z.string().max(500, 'Description must be 500 characters or less').optional(),
+        });
+
+        const data = createWatchListSchema.parse(req.body);
+
+        logger.info(`API v1: Creating watch list "${data.name}" for user ${userId}`);
+
+        const watchList = await storage.createWatchList(userId, data);
+
+        sendSuccess(res, watchList, 201);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'CreateWatchList');
+      }
+    })
+  );
+
+  /**
+   * PATCH /api/v1/watchlists/:id
+   * Update a watch list's name or description
+   * Agent-native equivalent of PATCH /api/watchlists/:id
+   */
+  app.patch(
+    '/api/v1/watchlists/:id',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
+
+        // Import schema from watchlist-routes
+        const { z } = await import('zod');
+        const updateWatchListSchema = z
+          .object({
+            name: z
+              .string()
+              .trim()
+              .min(1, 'Name cannot be empty')
+              .max(100, 'Name must be 100 characters or less')
+              .optional(),
+            description: z.string().max(500, 'Description must be 500 characters or less').optional(),
+          })
+          .refine((data) => data.name !== undefined || data.description !== undefined, {
+            message: 'At least one field (name or description) must be provided',
+          });
+
+        const updates = updateWatchListSchema.parse(req.body);
+
+        logger.info(`API v1: Updating watch list ${watchListId} for user ${userId}`);
+
+        const watchList = await storage.updateWatchList(watchListId, userId, updates);
+
+        sendSuccess(res, watchList);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'UpdateWatchList');
+      }
+    })
+  );
+
+  /**
+   * DELETE /api/v1/watchlists/:id
+   * Delete a watch list
+   * Agent-native equivalent of DELETE /api/watchlists/:id
+   */
+  app.delete(
+    '/api/v1/watchlists/:id',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
+
+        logger.info(`API v1: Deleting watch list ${watchListId} for user ${userId}`);
+
+        const deletedWatchList = await storage.deleteWatchList(watchListId, userId);
+
+        sendSuccess(res, {
+          deletedId: deletedWatchList.id,
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'DeleteWatchList');
+      }
+    })
+  );
+
+  /**
+   * POST /api/v1/watchlists/:id/products
+   * Add a product to a watch list
+   * Agent-native equivalent of POST /api/watchlists/:id/products
+   */
+  app.post(
+    '/api/v1/watchlists/:id/products',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
+
+        // Import schema from watchlist-routes
+        const { z } = await import('zod');
+        const addProductSchema = z.object({
+          productId: z.number().int().positive('Product ID must be a positive integer'),
+        });
+
+        const { productId } = addProductSchema.parse(req.body);
+
+        logger.info(`API v1: Adding product ${productId} to watch list ${watchListId} for user ${userId}`);
+
+        const productWatch = await storage.addProductToWatchList(watchListId, productId, userId);
+
+        sendSuccess(res, productWatch, 201);
+      } catch (error: unknown) {
+        // Handle duplicate product error with proper status code
+        if (error instanceof Error && error.message.includes('already')) {
+          sendError(res, error.message, 409);
+          return;
+        }
+        sendErrorFromException(res, error, 'AddProductToWatchList');
+      }
+    })
+  );
+
+  /**
+   * DELETE /api/v1/watchlists/:id/products/:productId
+   * Remove a product from a watch list
+   * Agent-native equivalent of DELETE /api/watchlists/:id/products/:productId
+   */
+  app.delete(
+    '/api/v1/watchlists/:id/products/:productId',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
+        const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
+
+        logger.info(
+          `API v1: Removing product ${productId} from watch list ${watchListId} for user ${userId}`
+        );
+
+        await storage.removeProductFromWatchList(watchListId, productId, userId);
+
+        sendSuccess(res, {});
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'RemoveProductFromWatchList');
+      }
+    })
+  );
+
+  /**
+   * POST /api/v1/price-alerts
+   * Create a new price alert
+   * Agent-native equivalent of POST /api/price-alerts
+   */
+  app.post(
+    '/api/v1/price-alerts',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+
+        // Import schema and constants
+        const { z } = await import('zod');
+        const { PRICE_ALERT } = await import('../utils/constants');
+
+        const createPriceAlertSchema = z.object({
+          productId: z.number().int('Product ID must be an integer').min(1, 'Product ID must be positive'),
+          targetPrice: z
+            .number()
+            .positive('Target price must be positive')
+            .multipleOf(0.01, 'Price must have maximum 2 decimal places'),
+          notifyForum: z.boolean().optional().default(false),
+        });
+
+        const validatedData = createPriceAlertSchema.parse(req.body);
+
+        // Verify product exists (prevents FK constraint failure)
+        const product = await storage.getProductById(validatedData.productId);
+        if (!product) {
+          sendError(res, 'Product not found', 404);
+          return;
+        }
+
+        // Check user alert limit (prevents spam/abuse)
+        const userAlertCount = await storage.countUserAlerts(userId);
+        if (userAlertCount >= PRICE_ALERT.MAX_ALERTS_PER_USER) {
+          sendError(
+            res,
+            `Alert limit reached. You can only have ${PRICE_ALERT.MAX_ALERTS_PER_USER} active alerts.`,
+            400,
+            {
+              code: 'ALERT_LIMIT_REACHED',
+              limit: PRICE_ALERT.MAX_ALERTS_PER_USER,
+              current: userAlertCount,
+            }
+          );
+          return;
+        }
+
+        logger.info(`API v1: Creating price alert for user ${userId}, product ${validatedData.productId}`);
+
+        const alert = await storage.createPriceAlert({
+          userId,
+          productId: validatedData.productId,
+          targetPrice: validatedData.targetPrice.toFixed(2),
+          notifyForum: validatedData.notifyForum,
+        });
+
+        sendSuccess(res, alert, 201);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'CreatePriceAlert');
+      }
+    })
+  );
+
+  /**
+   * PATCH /api/v1/price-alerts/:id
+   * Update a price alert
+   * Agent-native equivalent of PATCH /api/price-alerts/:id
+   */
+  app.patch(
+    '/api/v1/price-alerts/:id',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
+
+        // Import schema
+        const { z } = await import('zod');
+        const updatePriceAlertSchema = z
+          .object({
+            targetPrice: z
+              .number()
+              .positive('Target price must be positive')
+              .multipleOf(0.01, 'Price must have maximum 2 decimal places')
+              .optional(),
+            isActive: z.boolean().optional(),
+            notifyForum: z.boolean().optional(),
+          })
+          .refine((data) => Object.keys(data).length > 0, {
+            message: 'At least one field must be provided for update',
+          });
+
+        const validatedData = updatePriceAlertSchema.parse(req.body);
+
+        // Convert targetPrice to string if present (for decimal field)
+        const updates = {
+          ...validatedData,
+          targetPrice: validatedData.targetPrice?.toFixed(2),
+        };
+
+        logger.info(`API v1: Updating price alert ${alertId} for user ${userId}`);
+
+        const updatedAlert = await storage.updatePriceAlert(alertId, userId, updates);
+        if (!updatedAlert) {
+          sendError(res, 'Alert not found or unauthorized', 404);
+          return;
+        }
+
+        sendSuccess(res, updatedAlert);
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'UpdatePriceAlert');
+      }
+    })
+  );
+
+  /**
+   * DELETE /api/v1/price-alerts/:id
+   * Delete a price alert
+   * Agent-native equivalent of DELETE /api/price-alerts/:id
+   */
+  app.delete(
+    '/api/v1/price-alerts/:id',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
+
+        logger.info(`API v1: Deleting price alert ${alertId} for user ${userId}`);
+
+        const deleted = await storage.deletePriceAlert(alertId, userId);
+        if (!deleted) {
+          sendError(res, 'Alert not found or unauthorized', 404);
+          return;
+        }
+
+        sendSuccess(res, { deleted: true });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'DeletePriceAlert');
+      }
+    })
+  );
+
+  /**
+   * POST /api/v1/notifications/:id/read
+   * Mark a notification as read
+   * Agent-native equivalent of POST /api/notifications/:id/read
+   */
+  app.post(
+    '/api/v1/notifications/:id/read',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
+
+        logger.info(`API v1: Marking notification ${notificationId} as read for user ${userId}`);
+
+        // Import notification service dynamically
+        const { markAsRead } = await import('../services/notification-service');
+
+        const count = await markAsRead(userId, notificationId);
+
+        if (count === 0) {
+          sendError(res, 'Notification not found', 404);
+          return;
+        }
+
+        sendSuccess(res, { success: true });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'MarkNotificationRead');
+      }
+    })
+  );
+
+  /**
+   * POST /api/v1/notifications/read-all
+   * Mark all notifications as read
+   * Agent-native equivalent of POST /api/notifications/read-all
+   */
+  app.post(
+    '/api/v1/notifications/read-all',
+    // CSRF exempt: Uses HTTP Basic Auth (stateless), not session cookies
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+
+        logger.info(`API v1: Marking all notifications as read for user ${userId}`);
+
+        // Import notification service dynamically
+        const { markAllAsRead } = await import('../services/notification-service');
+
+        const count = await markAllAsRead(userId);
+
+        sendSuccess(res, { count });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'MarkAllNotificationsRead');
+      }
+    })
+  );
+
+  logger.info('API v1 routes registered (HTTP Basic Auth) - Phase 1 + Phase 2: 24 endpoints');
 }

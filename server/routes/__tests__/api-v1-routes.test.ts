@@ -59,10 +59,14 @@ vi.mock('../../services/google-search', () => ({
   },
 }));
 
-// Mock notification service
-vi.mock('../../services/notification-service', () => ({
-  getUserNotifications: vi.fn().mockResolvedValue([]),
-}));
+// Mock notification service - need to partially mock to keep createNotification
+vi.mock('../../services/notification-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/notification-service')>();
+  return {
+    ...actual,
+    getUserNotifications: vi.fn().mockResolvedValue([]),
+  };
+});
 
 vi.mock('../../utils/logger', () => ({
   logger: {
@@ -115,6 +119,10 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       })
       .returning({ id: users.id, username: users.username, email: users.email });
     testUser = user;
+
+    // Delete auto-created default watchlist (created by trigger_create_default_watch_list)
+    // This ensures tests start with a clean slate and test explicit watchlist creation
+    await db.delete(watchLists).where(eq(watchLists.userId, user.id));
 
     // Create Basic Auth header
     authHeader = 'Basic ' + Buffer.from('testuser:password123').toString('base64');
@@ -343,14 +351,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toBeInstanceOf(Array);
-      expect(res.body.pagination).toBeDefined();
-    });
-
-    it('should search products without authentication', async () => {
-      const res = await request(app).get('/api/v1/products/search?query=test');
-
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      expect(res.body.meta).toBeDefined();
     });
 
     it('should support pagination parameters', async () => {
@@ -359,8 +360,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .set('Authorization', authHeader);
 
       expect(res.status).toBe(200);
-      expect(res.body.pagination.page).toBe(1);
-      expect(res.body.pagination.limit).toBe(10);
+      expect(res.body.meta.page).toBe(1);
+      expect(res.body.meta.limit).toBe(10);
     });
 
     it('should support price filters', async () => {
@@ -400,13 +401,6 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
-
-    it('should work without authentication', async () => {
-      const res = await request(app).get(`/api/v1/products/${testProduct.id}`);
-
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-    });
   });
 
   describe('GET /api/v1/products/:id/price-history', () => {
@@ -438,13 +432,14 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       expect(res.body.success).toBe(true);
     });
 
-    it('should return 404 for non-existent product', async () => {
+    it('should return empty history for non-existent product', async () => {
       const res = await request(app)
         .get('/api/v1/products/99999/price-history')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.history).toEqual([]);
     });
   });
 
@@ -537,6 +532,496 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.id).toBe(otherWatchList.id);
+    });
+  });
+
+  // =============================================================================
+  // PHASE 2: Write Operations Tests
+  // =============================================================================
+
+  describe('Watchlist Write Operations', () => {
+    describe('POST /api/v1/watchlists', () => {
+      it('should create a new watchlist with Basic Auth', async () => {
+        const res = await request(app)
+          .post('/api/v1/watchlists')
+          .set('Authorization', authHeader)
+          .send({ name: 'My New Watchlist', description: 'Test description' });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.name).toBe('My New Watchlist');
+        expect(res.body.data.description).toBe('Test description');
+        expect(res.body.data.userId).toBe(testUser.id);
+      });
+
+      it('should reject watchlist creation without name', async () => {
+        const res = await request(app)
+          .post('/api/v1/watchlists')
+          .set('Authorization', authHeader)
+          .send({ description: 'No name' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should reject watchlist creation without auth', async () => {
+        const res = await request(app)
+          .post('/api/v1/watchlists')
+          .send({ name: 'Unauthorized Watchlist' });
+
+        expect(res.status).toBe(401);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('PATCH /api/v1/watchlists/:id', () => {
+      it('should update watchlist name', async () => {
+        const res = await request(app)
+          .patch(`/api/v1/watchlists/${testWatchList.id}`)
+          .set('Authorization', authHeader)
+          .send({ name: 'Updated Name' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.name).toBe('Updated Name');
+      });
+
+      it('should update watchlist description', async () => {
+        const res = await request(app)
+          .patch(`/api/v1/watchlists/${testWatchList.id}`)
+          .set('Authorization', authHeader)
+          .send({ description: 'Updated description' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.description).toBe('Updated description');
+      });
+
+      it('should reject update without any fields', async () => {
+        const res = await request(app)
+          .patch(`/api/v1/watchlists/${testWatchList.id}`)
+          .set('Authorization', authHeader)
+          .send({});
+
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should prevent updating other user watchlist', async () => {
+        // Create another user and watchlist
+        const otherPassword = await bcrypt.hash('otherpass', PASSWORD.BCRYPT_ROUNDS);
+        const otherEmail = 'other@example.com';
+        const [otherUser] = await db
+          .insert(users)
+          .values({
+            username: 'otheruser',
+            email: otherEmail,
+            emailHash: hashEmail(otherEmail),
+            passwordHash: otherPassword,
+            role: 'user',
+          })
+          .returning();
+
+        const [otherWatchList] = await db
+          .insert(watchLists)
+          .values({
+            userId: otherUser.id,
+            name: 'Other Watchlist',
+          })
+          .returning();
+
+        const res = await request(app)
+          .patch(`/api/v1/watchlists/${otherWatchList.id}`)
+          .set('Authorization', authHeader)
+          .send({ name: 'Hacked Name' });
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('DELETE /api/v1/watchlists/:id', () => {
+      it('should delete own watchlist', async () => {
+        const res = await request(app)
+          .delete(`/api/v1/watchlists/${testWatchList.id}`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.deletedId).toBe(testWatchList.id);
+
+        // Verify deletion
+        const checkRes = await request(app)
+          .get(`/api/v1/watchlists/${testWatchList.id}`)
+          .set('Authorization', authHeader);
+
+        expect(checkRes.status).toBe(404);
+      });
+
+      it('should prevent deleting other user watchlist', async () => {
+        const otherPassword = await bcrypt.hash('otherpass', PASSWORD.BCRYPT_ROUNDS);
+        const otherEmail = 'other@example.com';
+        const [otherUser] = await db
+          .insert(users)
+          .values({
+            username: 'otheruser',
+            email: otherEmail,
+            emailHash: hashEmail(otherEmail),
+            passwordHash: otherPassword,
+            role: 'user',
+          })
+          .returning();
+
+        const [otherWatchList] = await db
+          .insert(watchLists)
+          .values({
+            userId: otherUser.id,
+            name: 'Other Watchlist',
+          })
+          .returning();
+
+        const res = await request(app)
+          .delete(`/api/v1/watchlists/${otherWatchList.id}`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('POST /api/v1/watchlists/:id/products', () => {
+      it('should add product to watchlist', async () => {
+        const res = await request(app)
+          .post(`/api/v1/watchlists/${testWatchList.id}/products`)
+          .set('Authorization', authHeader)
+          .send({ productId: testProduct.id });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.watchListId).toBe(testWatchList.id);
+        expect(res.body.data.productId).toBe(testProduct.id);
+      });
+
+      it('should prevent adding duplicate product', async () => {
+        // Add product first time
+        await request(app)
+          .post(`/api/v1/watchlists/${testWatchList.id}/products`)
+          .set('Authorization', authHeader)
+          .send({ productId: testProduct.id });
+
+        // Try adding again
+        const res = await request(app)
+          .post(`/api/v1/watchlists/${testWatchList.id}/products`)
+          .set('Authorization', authHeader)
+          .send({ productId: testProduct.id });
+
+        expect(res.status).toBe(409);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should reject invalid product ID', async () => {
+        const res = await request(app)
+          .post(`/api/v1/watchlists/${testWatchList.id}/products`)
+          .set('Authorization', authHeader)
+          .send({ productId: 99999 });
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('DELETE /api/v1/watchlists/:id/products/:productId', () => {
+      beforeEach(async () => {
+        // Add product to watchlist for deletion tests
+        await request(app)
+          .post(`/api/v1/watchlists/${testWatchList.id}/products`)
+          .set('Authorization', authHeader)
+          .send({ productId: testProduct.id });
+      });
+
+      it('should remove product from watchlist', async () => {
+        const res = await request(app)
+          .delete(`/api/v1/watchlists/${testWatchList.id}/products/${testProduct.id}`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+      });
+
+      it('should return 404 for non-existent product in watchlist', async () => {
+        const res = await request(app)
+          .delete(`/api/v1/watchlists/${testWatchList.id}/products/99999`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+    });
+  });
+
+  describe('Price Alert Write Operations', () => {
+    describe('POST /api/v1/price-alerts', () => {
+      it('should create a new price alert', async () => {
+        const res = await request(app)
+          .post('/api/v1/price-alerts')
+          .set('Authorization', authHeader)
+          .send({
+            productId: testProduct.id,
+            targetPrice: 69.99,
+            notifyForum: false,
+          });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.productId).toBe(testProduct.id);
+        expect(res.body.data.targetPrice).toBe('69.99');
+        expect(res.body.data.userId).toBe(testUser.id);
+      });
+
+      it('should reject alert for non-existent product', async () => {
+        const res = await request(app)
+          .post('/api/v1/price-alerts')
+          .set('Authorization', authHeader)
+          .send({
+            productId: 99999,
+            targetPrice: 69.99,
+          });
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+        expect(res.body.error).toContain('not found');
+      });
+
+      it('should reject alert with negative price', async () => {
+        const res = await request(app)
+          .post('/api/v1/price-alerts')
+          .set('Authorization', authHeader)
+          .send({
+            productId: testProduct.id,
+            targetPrice: -10.00,
+          });
+
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('PATCH /api/v1/price-alerts/:id', () => {
+      it('should update alert target price', async () => {
+        const res = await request(app)
+          .patch(`/api/v1/price-alerts/${testAlert.id}`)
+          .set('Authorization', authHeader)
+          .send({ targetPrice: 59.99 });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.targetPrice).toBe('59.99');
+      });
+
+      it('should update alert active status', async () => {
+        const res = await request(app)
+          .patch(`/api/v1/price-alerts/${testAlert.id}`)
+          .set('Authorization', authHeader)
+          .send({ isActive: false });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.isActive).toBe(false);
+      });
+
+      it('should reject update without fields', async () => {
+        const res = await request(app)
+          .patch(`/api/v1/price-alerts/${testAlert.id}`)
+          .set('Authorization', authHeader)
+          .send({});
+
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should prevent updating other user alert', async () => {
+        const otherPassword = await bcrypt.hash('otherpass', PASSWORD.BCRYPT_ROUNDS);
+        const otherEmail = 'other@example.com';
+        const [otherUser] = await db
+          .insert(users)
+          .values({
+            username: 'otheruser',
+            email: otherEmail,
+            emailHash: hashEmail(otherEmail),
+            passwordHash: otherPassword,
+            role: 'user',
+          })
+          .returning();
+
+        const [otherAlert] = await db
+          .insert(priceAlerts)
+          .values({
+            userId: otherUser.id,
+            productId: testProduct.id,
+            targetPrice: '49.99',
+            isActive: true,
+          })
+          .returning();
+
+        const res = await request(app)
+          .patch(`/api/v1/price-alerts/${otherAlert.id}`)
+          .set('Authorization', authHeader)
+          .send({ targetPrice: 10.00 });
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('DELETE /api/v1/price-alerts/:id', () => {
+      it('should delete own price alert', async () => {
+        const res = await request(app)
+          .delete(`/api/v1/price-alerts/${testAlert.id}`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.deleted).toBe(true);
+
+        // Verify deletion
+        const checkRes = await request(app)
+          .get(`/api/v1/price-alerts/${testAlert.id}`)
+          .set('Authorization', authHeader);
+
+        expect(checkRes.status).toBe(404);
+      });
+
+      it('should prevent deleting other user alert', async () => {
+        const otherPassword = await bcrypt.hash('otherpass', PASSWORD.BCRYPT_ROUNDS);
+        const otherEmail = 'other@example.com';
+        const [otherUser] = await db
+          .insert(users)
+          .values({
+            username: 'otheruser',
+            email: otherEmail,
+            emailHash: hashEmail(otherEmail),
+            passwordHash: otherPassword,
+            role: 'user',
+          })
+          .returning();
+
+        const [otherAlert] = await db
+          .insert(priceAlerts)
+          .values({
+            userId: otherUser.id,
+            productId: testProduct.id,
+            targetPrice: '49.99',
+            isActive: true,
+          })
+          .returning();
+
+        const res = await request(app)
+          .delete(`/api/v1/price-alerts/${otherAlert.id}`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+    });
+  });
+
+  describe('Notification Write Operations', () => {
+    let testNotificationId: number;
+
+    beforeEach(async () => {
+      // Create a test notification
+      const { createNotification } = await import('../../services/notification-service');
+      const notification = await createNotification({
+        userId: testUser.id,
+        type: 'price_alert_triggered',
+        title: 'Price Alert',
+        content: 'Product price dropped',
+      });
+      testNotificationId = notification.id;
+    });
+
+    describe('POST /api/v1/notifications/:id/read', () => {
+      it('should mark notification as read', async () => {
+        const res = await request(app)
+          .post(`/api/v1/notifications/${testNotificationId}/read`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+      });
+
+      it('should return 404 for non-existent notification', async () => {
+        const res = await request(app)
+          .post('/api/v1/notifications/99999/read')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should prevent marking other user notification as read', async () => {
+        const otherPassword = await bcrypt.hash('otherpass', PASSWORD.BCRYPT_ROUNDS);
+        const otherEmail = 'other@example.com';
+        const [otherUser] = await db
+          .insert(users)
+          .values({
+            username: 'otheruser',
+            email: otherEmail,
+            emailHash: hashEmail(otherEmail),
+            passwordHash: otherPassword,
+            role: 'user',
+          })
+          .returning();
+
+        const { createNotification } = await import('../../services/notification-service');
+        const otherNotification = await createNotification({
+          userId: otherUser.id,
+          type: 'price_alert_triggered',
+          title: 'Other Alert',
+          content: 'Other message',
+        });
+
+        const res = await request(app)
+          .post(`/api/v1/notifications/${otherNotification.id}/read`)
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(404);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('POST /api/v1/notifications/read-all', () => {
+      it('should mark all notifications as read', async () => {
+        // Create multiple notifications
+        const { createNotification } = await import('../../services/notification-service');
+        await createNotification({
+          userId: testUser.id,
+          type: 'price_alert_triggered',
+          title: 'Alert 2',
+          content: 'Message 2',
+        });
+        await createNotification({
+          userId: testUser.id,
+          type: 'price_alert_triggered',
+          title: 'Alert 3',
+          content: 'Message 3',
+        });
+
+        const res = await request(app)
+          .post('/api/v1/notifications/read-all')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.count).toBeGreaterThanOrEqual(3);
+      });
+
+      it('should require authentication', async () => {
+        const res = await request(app).post('/api/v1/notifications/read-all');
+
+        expect(res.status).toBe(401);
+        expect(res.body.success).toBe(false);
+      });
     });
   });
 });

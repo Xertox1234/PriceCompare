@@ -8,7 +8,7 @@ AI agents can now authenticate to core platform endpoints using HTTP Basic Authe
 
 **Authentication Method**: `Authorization: Basic base64(username:password)`
 
-**Agent Coverage**: 14 endpoints (7% of total API surface)
+**Agent Coverage**: 24 endpoints (12% of total API surface)
 
 ## Endpoints
 
@@ -170,6 +170,120 @@ curl -u "username:password" http://localhost:5000/api/v1/watchlists/1/products
 }
 ```
 
+#### POST /api/v1/watchlists
+Create a new watch list.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X POST http://localhost:5000/api/v1/watchlists \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Holiday Shopping",
+    "description": "Items for holiday gifts"
+  }'
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "name": "Holiday Shopping",
+    "description": "Items for holiday gifts",
+    "createdAt": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /api/v1/watchlists/:id
+Update a watch list's name or description.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X PATCH http://localhost:5000/api/v1/watchlists/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Name",
+    "description": "Updated description"
+  }'
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "Updated Name",
+    "description": "Updated description"
+  }
+}
+```
+
+#### DELETE /api/v1/watchlists/:id
+Delete a watch list.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X DELETE http://localhost:5000/api/v1/watchlists/1
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "deletedId": 1
+  }
+}
+```
+
+#### POST /api/v1/watchlists/:id/products
+Add a product to a watch list.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X POST http://localhost:5000/api/v1/watchlists/1/products \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productId": 10
+  }'
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "watchListId": 1,
+    "productId": 10,
+    "addedAt": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+#### DELETE /api/v1/watchlists/:id/products/:productId
+Remove a product from a watch list.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X DELETE http://localhost:5000/api/v1/watchlists/1/products/10
+```
+
+**Response**:
+```json
+{
+  "success": true
+}
+```
+
 ---
 
 ### Price Alert Operations (Authenticated Users)
@@ -216,6 +330,82 @@ curl -u "username:password" http://localhost:5000/api/v1/price-alerts/1
     "id": 1,
     "targetPrice": "79.99",
     "isActive": true
+  }
+}
+```
+
+#### POST /api/v1/price-alerts
+Create a new price alert.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X POST http://localhost:5000/api/v1/price-alerts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productId": 10,
+    "targetPrice": 79.99,
+    "notifyForum": false
+  }'
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "productId": 10,
+    "targetPrice": "79.99",
+    "isActive": true,
+    "notifyForum": false,
+    "createdAt": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+#### PATCH /api/v1/price-alerts/:id
+Update a price alert.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X PATCH http://localhost:5000/api/v1/price-alerts/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "targetPrice": 69.99,
+    "isActive": true
+  }'
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "targetPrice": "69.99",
+    "isActive": true
+  }
+}
+```
+
+#### DELETE /api/v1/price-alerts/:id
+Delete a price alert.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X DELETE http://localhost:5000/api/v1/price-alerts/1
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": true
   }
 }
 ```
@@ -363,6 +553,41 @@ curl -u "username:password" \
       }
     ],
     "count": 1
+  }
+}
+```
+
+#### POST /api/v1/notifications/:id/read
+Mark a notification as read.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X POST http://localhost:5000/api/v1/notifications/1/read
+```
+
+**Response**:
+```json
+{
+  "success": true
+}
+```
+
+#### POST /api/v1/notifications/read-all
+Mark all notifications as read.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  -X POST http://localhost:5000/api/v1/notifications/read-all
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "count": 5
   }
 }
 ```

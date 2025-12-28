@@ -158,8 +158,10 @@ export async function basicAuth(
 
     next();
   } catch (error) {
+    // SECURITY: Return 401 for authentication errors, not 500
+    // Exceptions during auth validation are client errors (bad credentials), not server errors
     logger.error('Basic auth error', { error });
     res.setHeader('WWW-Authenticate', 'Basic realm="PriceCompare API"');
-    sendError(res, 'Authentication error', 500);
+    sendError(res, 'Authentication failed', 401);
   }
 }
