@@ -4,253 +4,291 @@
 **File(s)**:
 - `server/websocket/__tests__/reconnection.test.ts`
 - `client/src/hooks/__tests__/use-watchlist-updates.test.tsx`
-- Various other test files
+- `.github/workflows/` (new unit test workflow needed)
 
-**Estimated Time**: 3-4 hours
+**Estimated Time**: 2-3 hours
 **Status**: Not Started
 
 ## Problem Statement
 
-CI test suite is failing with 70 failed tests across multiple test files. These are **pre-existing failures** on the `add_scraping` base branch that are blocking all PRs, even though the new code is working correctly.
+CI test suite has 70 failing tests that are **pre-existing failures** on the `add_scraping` base branch, blocking all PRs even when new code is clean.
 
 **Current Status**:
 - Test Files: 9 failed | 66 passed (76)
 - Tests: 70 failed | 1,659 passed (1,742)
-- **Pass Rate**: 95.2% (good, but failures block CI)
+- **Pass Rate**: 95.2%
 
 **Impact**:
-- Blocks PR merges even when new code is clean
+- Blocks PR merges (e.g., PR #183) even when new code is clean
 - Makes it difficult to identify regressions from new changes
 - Reduces confidence in CI system
 
 ## Root Cause
 
-Analysis shows these failures are NOT introduced by recent PRs:
+**Identified Failures (5 tests)**:
 
-1. **WebSocket Reconnection Tests** (4 failures)
+1. **WebSocket Reconnection Tests** (4 failures in `reconnection.test.ts`)
    - `should restore subscriptions after reconnection`
    - `should receive events after reconnection`
    - `should transition through correct connection states`
    - `should not reconnect after intentional disconnect`
-   - **Likely Cause**: Timing issues or WebSocket server state
 
-2. **Client Hook Tests** (1 failure)
+2. **Client Hook Tests** (1 failure in `use-watchlist-updates.test.tsx`)
    - `should invalidate queries on watch list update`
-   - **Error**: Expected `/api/watchlists` but got `/api/watchlists/1`
-   - **Likely Cause**: Query key invalidation logic changed
+   - **Error**: Test expects BOTH `/api/watchlists` AND `/api/watchlists/1` invalidations
 
-3. **Other Failures** (65 failures)
-   - Need detailed investigation
+**Remaining Failures (65 tests)**:
+- Will investigate ONLY if the 5 known fixes don't resolve CI blocking issue
+- May warrant separate TODO if unrelated to immediate PR merge blocker
 
-**Evidence these are pre-existing**:
-- PR #183 (Phase 2 API) doesn't touch WebSocket or client hook files
-- All Phase 2 tests (59/59) passing
-- git diff shows no changes to failing test files
+**Critical Discovery**: These are **unit/integration tests** (Vitest), not E2E tests. The project has `.github/workflows/e2e-tests.yml` but **NO workflow for unit tests**. This explains why 70 tests can fail without blocking PRs—they only run in pre-commit hooks!
 
 ## Solution Approach
 
-### Phase 1: Investigation (1 hour)
-1. Run full test suite locally to reproduce failures
-2. Check git history to identify when tests started failing
-3. Group failures by root cause
-4. Prioritize by impact
+### Hybrid Strategy (2-3 hours)
 
-### Phase 2: Fix High-Priority Failures (2-3 hours)
-1. Fix WebSocket reconnection tests (likely timing issues)
-2. Fix client hook query invalidation test
-3. Verify fixes don't introduce regressions
+1. **Fix Known Failures** (1.5 hours)
+   - Fix 5 identified test failures
+   - Focus on actual errors, not speculative timing issues
 
-### Phase 3: Document & Prevent (30 min)
-1. Document findings in `LEARNINGS_TODO_013.md`
-2. Add CI job to prevent test failures from merging
-3. Update contributing guidelines
+2. **Add Missing CI Workflow** (30 minutes)
+   - Create `.github/workflows/unit-tests.yml`
+   - Configure to block PRs with failing unit/integration tests
+
+3. **Validate & Scope** (30 minutes)
+   - Run full suite to verify PR #183 can merge
+   - If additional failures block merge, create new TODO for them
+   - Document only if systemic patterns discovered
 
 ## Implementation Steps
 
-### Step 1: Reproduce Locally
+### Step 1: Fix WebSocket Reconnection Tests (45 min)
 
 ```bash
-# Run full test suite
-npm test 2>&1 | tee test-output.log
-
-# Check which tests are failing
-grep "FAIL" test-output.log
-
-# Run specific failing tests
-npm test -- server/websocket/__tests__/reconnection.test.ts
-npm test -- client/src/hooks/__tests__/use-watchlist-updates.test.tsx
-```
-
-- [ ] Run full test suite and capture output
-- [ ] Identify all failing test files
-- [ ] Group failures by likely root cause
-- [ ] Document failure patterns
-
-### Step 2: Fix WebSocket Reconnection Tests
-
-```bash
-# Run WebSocket tests with verbose output
+# Run specific test file
 npm test -- server/websocket/__tests__/reconnection.test.ts --reporter=verbose
 ```
 
-**Likely Issues**:
-- Timing assumptions (need `await waitFor()` with longer timeouts)
-- WebSocket server state not cleaned between tests
+**Investigation**:
+- [ ] Read actual test file to understand assertions
+- [ ] Check test output for specific error messages
+- [ ] Identify root cause (likely: server state pollution between tests, not timing)
+
+**Common Issues** (check these first):
+- WebSocket server not fully cleaned between tests
+- `shutdownWebSocket()` call breaks subsequent tests
+- Socket.io client/server state pollution
 - Event listeners not properly cleaned up
 
-- [ ] Identify specific assertion failures
-- [ ] Check for timing issues (increase timeouts if needed)
-- [ ] Verify WebSocket server cleanup in `afterEach`
-- [ ] Add missing `await` statements
-- [ ] Run tests 10x to ensure stability
+**Fix**:
+- [ ] Update `afterEach` cleanup if needed
+- [ ] Fix assertions if test expectations are wrong
+- [ ] Fix implementation if hook behavior is wrong
+- [ ] Verify tests pass locally
 
-### Step 3: Fix Client Hook Query Invalidation
-
-The test expects:
-```typescript
-invalidateQueries({ queryKey: ['/api/watchlists'] })
-```
-
-But gets:
-```typescript
-invalidateQueries({ queryKey: ['/api/watchlists/1'] })
-```
-
-**Fix Options**:
-1. Update test expectation to match actual behavior
-2. Fix hook to invalidate both specific and list queries
-3. Check if this is a regression from recent changes
-
-- [ ] Read `use-watchlist-updates.test.tsx` test code
-- [ ] Read actual hook implementation
-- [ ] Determine correct behavior (specific vs list invalidation)
-- [ ] Update hook or test accordingly
-- [ ] Verify related hooks follow same pattern
-
-### Step 4: Investigate Remaining 65 Failures
-
-- [ ] Group by test file
-- [ ] Identify common patterns
-- [ ] Prioritize by impact (user-facing vs internal)
-- [ ] Create separate TODOs if multiple unrelated issues
-
-### Step 5: Verify Fixes
+### Step 2: Fix Client Hook Query Invalidation (30 min)
 
 ```bash
-# Run full test suite
+# Run specific test file
+npm test -- client/src/hooks/__tests__/use-watchlist-updates.test.tsx
+```
+
+**Investigation**:
+- [ ] Read test file (lines 114-117) - test expects BOTH calls:
+  ```typescript
+  expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists'] });
+  expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists/1'] });
+  ```
+- [ ] Read actual hook implementation
+- [ ] Determine if hook is missing one invalidation call
+
+**Fix**:
+- [ ] Update hook to invalidate both list AND specific item queries
+- [ ] Pattern: `onSuccess` should call `invalidateQueries` twice (once for list, once for item)
+- [ ] Verify test passes locally
+
+### Step 3: Add Unit Test CI Workflow (30 min)
+
+Create `.github/workflows/unit-tests.yml`:
+
+```yaml
+name: Unit & Integration Tests
+
+on:
+  pull_request:
+    branches: [main, develop, add_scraping]
+  push:
+    branches: [main, develop, add_scraping]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: ankane/pgvector:latest
+        env:
+          POSTGRES_DB: pricecompare_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Setup test database
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pricecompare_test
+        run: |
+          npm run db:push
+          npm run migrate
+
+      - name: Run unit & integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pricecompare_test
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+          SESSION_SECRET: test-secret-min-32-chars-long-for-ci
+          CSRF_SECRET: test-csrf-secret-min-32-chars-for-ci
+        run: npm test
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+```
+
+**Why This Is Critical**:
+- Current: Only E2E tests run in CI (and they're informational only per line 412 of e2e-tests.yml)
+- Unit/integration tests: Run in pre-commit hook but NOT in CI
+- Result: Tests can fail on base branch without blocking merges
+
+- [ ] Create `.github/workflows/unit-tests.yml`
+- [ ] Commit and push workflow file
+- [ ] Verify workflow runs on PR
+
+### Step 4: Validate Fix (30 min)
+
+```bash
+# Run full test suite locally
 npm test
 
-# Should see improved pass rate
-# Target: 100% passing (1,742/1,742)
-
-# Run CI checks locally
+# Run all quality checks
 npm run lint
 npm run check
-npm run test:e2e
+
+# Verify no regressions
+npm test -- --reporter=verbose
 ```
 
-- [ ] All unit tests passing
-- [ ] All E2E tests passing
-- [ ] No new failures introduced
+- [ ] Full test suite passes OR only non-blocking failures remain
 - [ ] TypeScript compilation successful
 - [ ] ESLint passing
+- [ ] PR #183 CI checks pass (or will pass after workflow merge)
 
-## Technical Details
+### Step 5: Scope Remaining Work (15 min)
 
-### WebSocket Test Pattern
-```typescript
-// Typical WebSocket test structure
-describe('WebSocket Reconnection', () => {
-  let wsServer: WebSocketServer;
-  let client: WebSocket;
+**Decision Point**: After Steps 1-4, evaluate:
 
-  beforeEach(async () => {
-    wsServer = await startWebSocketServer();
-    client = new WebSocket('ws://localhost:3001');
-    // Wait for connection
-    await waitFor(() => client.readyState === WebSocket.OPEN);
-  });
-
-  afterEach(async () => {
-    // CRITICAL: Clean up properly
-    client.close();
-    await wsServer.close();
-    // Wait for cleanup
-    await waitFor(() => client.readyState === WebSocket.CLOSED);
-  });
-
-  it('should reconnect after disconnect', async () => {
-    // Simulate disconnect
-    client.close();
-
-    // Wait for disconnect
-    await waitFor(() => client.readyState === WebSocket.CLOSED);
-
-    // Attempt reconnect
-    client = new WebSocket('ws://localhost:3001');
-
-    // Wait with longer timeout for flaky tests
-    await waitFor(
-      () => client.readyState === WebSocket.OPEN,
-      { timeout: 5000 } // Increased from default 1000ms
-    );
-
-    expect(client.readyState).toBe(WebSocket.OPEN);
-  });
-});
+```bash
+# Check final test status
+npm test 2>&1 | grep -E "Test Files|Tests"
 ```
 
-### Query Invalidation Pattern
-```typescript
-// In use-watchlist-updates hook
-const updateWatchList = useMutation({
-  mutationFn: updateWatchListApi,
-  onSuccess: (data, variables) => {
-    // Invalidate both specific item AND list
-    queryClient.invalidateQueries({
-      queryKey: ['/api/watchlists', variables.id]
-    });
-    queryClient.invalidateQueries({
-      queryKey: ['/api/watchlists']
-    });
-  },
-});
-```
+**Outcomes**:
 
-## Checklist
+1. **All tests pass** ✅
+   - Mark TODO complete
+   - Document any patterns discovered (optional)
 
-- [ ] Investigation complete - all failures documented
-- [ ] WebSocket tests fixed and stable (10x runs)
-- [ ] Client hook tests fixed
-- [ ] High-impact failures addressed
-- [ ] Full test suite passing (100%)
-- [ ] CI checks passing
-- [ ] Learnings documented
-- [ ] Contributing guidelines updated
+2. **5 tests fixed, remaining failures don't block PR #183** ✅
+   - Mark TODO complete
+   - Create new TODO for remaining 65 failures if they matter
+   - Document findings (optional)
+
+3. **Additional failures block PR merge** ⚠️
+   - Document which specific failures block merge
+   - Create focused TODO for those blockers
+   - Continue fixing until PR unblocked
+
+- [ ] Evaluate if PR #183 can merge
+- [ ] Create follow-up TODO if needed for remaining failures
+- [ ] Document patterns if systemic issues discovered
+
+### Step 6: Pattern Documentation (Optional - Only If Needed)
+
+**Only create LEARNINGS doc if you discover systemic patterns**, such as:
+- All WebSocket tests have state pollution issues
+- All React Query hooks have invalidation bugs
+- Test infrastructure has configuration problems
+
+If patterns found:
+- [ ] Create `docs/LEARNINGS_TODO_013_CI_TEST_FAILURES.md`
+- [ ] Update `docs/08_TESTING_PATTERNS.md` if new patterns discovered
+- [ ] Invoke `pattern-codifier` per CLAUDE.md requirements
+
+If no systemic patterns (just isolated bugs):
+- [ ] Skip documentation - no need to over-document simple fixes
 
 ## Success Criteria
 
-- [ ] **CI Status**: All CI checks passing ✅
-- [ ] **Test Pass Rate**: 100% (1,742/1,742 tests passing)
-- [ ] **Stability**: Tests pass 10 consecutive times locally
-- [ ] **No Regressions**: Existing passing tests still pass
-- [ ] **Documentation**: Learnings captured in `LEARNINGS_TODO_013.md`
-- [ ] **Prevention**: CI configured to block merges with failing tests
+### Primary Goal (Required)
+- [ ] 5 identified test failures fixed and passing
+- [ ] GitHub Actions workflow created for unit/integration tests
+- [ ] PR #183 can merge (CI checks pass or will pass after workflow merge)
+
+### Secondary Goals (If Applicable)
+- [ ] Additional blocking failures resolved (if they exist)
+- [ ] Patterns documented (if systemic issues discovered)
+- [ ] Follow-up TODO created for non-blocking failures (if > 10 remain)
+
+### Exit Criteria
+- ✅ PR #183 unblocked and can merge
+- ✅ CI workflow prevents future base branch pollution
+- ✅ No regressions in passing tests
 
 ## Context
 
 **Related PRs**:
-- PR #183 - Phase 2 Agent API (blocked by these failures despite clean code)
+- PR #183 - Phase 2 Agent API (blocked by these pre-existing failures)
 
-**Related Issues**:
+**Why This Matters**:
 - These failures exist on `add_scraping` base branch
-- Not introduced by recent PRs
-- Affect all contributors
+- Not introduced by PR #183 or recent changes
+- Blocking all contributors until resolved
 
 **Business Impact**:
-- Medium - Blocks feature delivery
-- Low urgency - Workaround exists (review test output manually)
-- High importance - Reduces CI reliability
+- Medium priority - Blocks feature delivery but not production
+- Low urgency - Workaround exists (manual review)
+- High importance - CI reliability is critical
 
 ---
 
@@ -264,16 +302,16 @@ Tests       70 failed | 1,659 passed (1,742)
 Duration    385.91s
 ```
 
-**Breakdown**:
+**Identified Failures**:
 - WebSocket reconnection: 4 failures
 - Client hooks: 1 failure
-- Other: 65 failures (needs investigation)
+- **Other: 65 failures** (investigate only if blocking merge)
 
 ### Investigation Log
 
-_Add notes here as you investigate_
+_Add notes as you investigate_
 
 **2025-12-28**: Created TODO after PR #183 blocked by pre-existing failures
 - Confirmed failures not from PR #183 changes
 - Phase 2 API tests (59/59) all passing
-- Need to fix base branch before additional PRs can merge cleanly
+- Discovered missing unit test CI workflow—this is the real blocker

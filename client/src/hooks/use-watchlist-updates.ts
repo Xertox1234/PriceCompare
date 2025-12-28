@@ -42,13 +42,9 @@ export function useWatchListUpdates() {
       productCount?: number;
       timestamp: string;
     }) => {
-      // NOTE: For 'created' action, the mutation already calls refetchQueries()
-      // so we skip invalidating the list to avoid race conditions.
-      // For other actions (updated/deleted from other clients), invalidate the list.
-      if (data.action !== 'created') {
-        void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      }
-      // Always invalidate the specific watchlist query
+      // Invalidate both the list query and the specific item query
+      // WebSocket events arrive AFTER mutations complete, so no race condition
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
       void queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
 
       // Show toast notification based on action
