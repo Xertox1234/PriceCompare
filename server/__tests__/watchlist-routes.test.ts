@@ -138,6 +138,11 @@ describe('Watchlist Routes - Integration Tests', () => {
     const setCookieHeader = registerRes.headers['set-cookie'];
     authCookie = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
 
+    // Delete the default watchlist created by database trigger
+    // This ensures tests start with a clean slate (no watchlists)
+    // See migration 0008_add_watch_lists.sql - trigger_create_default_watch_list
+    await db.execute(sql`DELETE FROM watch_lists WHERE user_id = ${testUserId} AND is_default = true`);
+
     // Create test data using fixtures
     const retailerData = createTestRetailer({
       name: 'Test Retailer',

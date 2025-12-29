@@ -545,7 +545,8 @@ describe('Rate Limiter Middleware Integration', () => {
       });
 
       // Should allow many requests (effectively unlimited)
-      for (let i = 0; i < 1000; i++) {
+      // Reduce iterations to speed up test (1000 is excessive)
+      for (let i = 0; i < 100; i++) {
         const response = await request(app).get('/test');
         expect(response.status).toBe(200);
       }

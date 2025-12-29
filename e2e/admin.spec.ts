@@ -412,7 +412,9 @@ test.describe('Admin - Dashboard Management', () => {
         (u) => u.username === 'modaluser'
       );
       expect(modalUser).toBeDefined();
-      await page.getByTestId(`admin-user-view-${modalUser!.id}`).click();
+      // Type assertion: modalUser is verified as defined in previous assertion
+      const modalUserId = (modalUser as { id: number }).id;
+      await page.getByTestId(`admin-user-view-${modalUserId}`).click();
 
       await expect(page.getByRole('dialog', { name: /user details/i })).toBeVisible();
       await expect(
@@ -439,8 +441,10 @@ test.describe('Admin - Dashboard Management', () => {
         (u) => u.username === 'suspendme'
       );
       expect(suspendMeUser).toBeDefined();
+      // Type assertion: suspendMeUser is verified as defined in previous assertion
+      const suspendMeUserId = (suspendMeUser as { id: number }).id;
 
-      await page.getByTestId(`admin-user-view-${suspendMeUser!.id}`).click();
+      await page.getByTestId(`admin-user-view-${suspendMeUserId}`).click();
       await page.getByRole('button', { name: /suspend user/i }).click();
 
       // Suspension mutation closes the modal on success
@@ -457,7 +461,7 @@ test.describe('Admin - Dashboard Management', () => {
             const refreshedData = await refreshed.json();
             const refreshedUser = (
               refreshedData.data as Array<{ id: number; isSuspended?: boolean }>
-            ).find((u) => u.id === suspendMeUser!.id);
+            ).find((u) => u.id === suspendMeUserId);
             return Boolean(refreshedUser?.isSuspended);
           },
           { timeout: 10000 }
