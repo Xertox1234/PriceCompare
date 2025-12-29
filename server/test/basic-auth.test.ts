@@ -37,7 +37,7 @@ function createTestApp(): Express {
   app.get(
     '/api/v1/scraping/status',
     basicAuth,
-    withAuth(async (req, res) => {
+    withAuth((req, res) => {
       sendSuccess(res, { status: { isRunning: false } });
     })
   );
@@ -45,7 +45,7 @@ function createTestApp(): Express {
   app.post(
     '/api/v1/scraping/initialize',
     basicAuth,
-    withAdmin(async (req, res) => {
+    withAdmin((req, res) => {
       try {
         sendSuccess(res, { message: 'Initialized' });
       } catch (error) {

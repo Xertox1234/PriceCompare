@@ -127,7 +127,7 @@ describe('CSRF Attack Prevention (Security Tests)', () => {
     app.use(passport.session());
 
     // Login endpoint
-    app.post('/auth/login', async (req: Request, res: Response) => {
+    app.post('/auth/login', (req: Request, res: Response) => {
       const { email, password } = req.body;
 
       if (email === testUser.email && password === testUser.password) {
@@ -160,7 +160,7 @@ describe('CSRF Attack Prevention (Security Tests)', () => {
       '/api/sensitive-action',
       flexibleAuth,
       csrfProtection,
-      withAuth(async (req, res) => {
+      withAuth((req, res) => {
         // This simulates a sensitive operation (e.g., delete account, transfer money)
         sendSuccess(res, {
           message: 'Sensitive action completed',
@@ -175,7 +175,7 @@ describe('CSRF Attack Prevention (Security Tests)', () => {
       '/api/user/account',
       flexibleAuth,
       csrfProtection,
-      withAuth(async (req, res) => {
+      withAuth((req, res) => {
         sendSuccess(res, { message: 'Account deleted', userId: req.user.id });
       })
     );
@@ -397,7 +397,7 @@ describe('CSRF Attack Prevention (Security Tests)', () => {
       app.get(
         '/api/data',
         flexibleAuth,
-        withAuth(async (req, res) => {
+        withAuth((req, res) => {
           sendSuccess(res, { userId: req.user.id });
         })
       );

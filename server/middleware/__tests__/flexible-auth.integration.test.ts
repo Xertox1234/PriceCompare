@@ -86,7 +86,7 @@ describe('Flexible Auth Integration Tests', () => {
     app.use(passport.session());
 
     // Test login endpoint (creates session)
-    app.post('/auth/login', async (req: Request, res: Response) => {
+    app.post('/auth/login', (req: Request, res: Response) => {
       const { email, password } = req.body;
 
       if (email === testUser.email && password === testUser.password) {
@@ -111,7 +111,7 @@ describe('Flexible Auth Integration Tests', () => {
     app.get(
       '/api/data',
       flexibleAuth,
-      withAuth(async (req, res) => {
+      withAuth((req, res) => {
         sendSuccess(res, {
           userId: req.user.id,
           authMethod: req.isBasicAuth ? 'basic' : 'session',
@@ -124,7 +124,7 @@ describe('Flexible Auth Integration Tests', () => {
       '/api/data',
       flexibleAuth,
       csrfProtection,
-      withAuth(async (req, res) => {
+      withAuth((req, res) => {
         sendSuccess(res, {
           userId: req.user.id,
           authMethod: req.isBasicAuth ? 'basic' : 'session',

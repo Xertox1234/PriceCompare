@@ -90,10 +90,12 @@ describe.skip('Coordinator Agent - Transaction Atomicity', () => {
     expect(updatedTrending[0].productId).not.toBeNull();
 
     // Verify product was created
+    // Type assertion: productId is verified non-null in previous assertion
+    const productId = updatedTrending[0].productId as number;
     const createdProduct = await db
       .select()
       .from(products)
-      .where(eq(products.id, updatedTrending[0].productId!));
+      .where(eq(products.id, productId));
 
     expect(createdProduct).toHaveLength(1);
     expect(createdProduct[0].name).toBe('Atomic Test Product');

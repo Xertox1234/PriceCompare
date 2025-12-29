@@ -40,8 +40,10 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAdmin(async (req: Request, res: Response) => {
       try {
+        // Type assertion: withAdmin guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         logger.info('API v1: Discover trends request', {
-          userId: req.user!.id,
+          userId,
           // SECURITY: Don't log request body for authenticated endpoints
         });
 
@@ -131,9 +133,11 @@ export function registerApiV1Routes(app: Express): void {
       try {
         // SAFETY: Body validated by productSearchQuerySchema middleware above
         const { productName } = req.body as { productName: string };
+        // Type assertion: withAdmin guarantees req.user exists
+        const userId = (req.user as Express.User).id;
 
         logger.info('API v1: Search product request', {
-          userId: req.user!.id,
+          userId,
           productName: String(productName),
         });
 
@@ -171,8 +175,11 @@ export function registerApiV1Routes(app: Express): void {
           maxResults: number;
         };
 
+        // Type assertion: withAdmin guarantees req.user exists
+        const userId = (req.user as Express.User).id;
+
         logger.info('API v1: Google search request', {
-          userId: req.user!.id,
+          userId,
           query: String(query),
           retailers,
         });
@@ -232,7 +239,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         logger.info(`API v1: Fetching watch lists for user ${userId}`);
 
         const watchLists = await storage.getUserWatchLists(userId);
@@ -255,7 +263,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
 
         logger.info(`API v1: Fetching watch list ${watchListId} for user ${userId}`);
@@ -285,7 +294,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
 
         logger.info(`API v1: Fetching products for watch list ${watchListId}, user ${userId}`);
@@ -315,7 +325,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         logger.info(`API v1: Fetching price alerts for user ${userId}`);
 
         const alerts = await storage.getUserPriceAlerts(userId);
@@ -338,7 +349,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
 
         logger.info(`API v1: Fetching price alert ${alertId} for user ${userId}`);
@@ -534,7 +546,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         logger.info(`API v1: Fetching notifications for user ${userId}`);
 
         // Import notification service dynamically to avoid circular dependencies
@@ -586,7 +599,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
 
         // Import schema from watchlist-routes
         const { z } = await import('zod');
@@ -623,7 +637,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
 
         // Import schema from watchlist-routes
@@ -666,7 +681,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
 
         logger.info(`API v1: Deleting watch list ${watchListId} for user ${userId}`);
@@ -693,7 +709,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
 
         // Import schema from watchlist-routes
@@ -731,7 +748,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const watchListId = parseIntSafe(req.params.id, 'watchListId', { min: 1 });
         const productId = parseIntSafe(req.params.productId, 'productId', { min: 1 });
 
@@ -759,7 +777,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
 
         // Import schema and constants
         const { z } = await import('zod');
@@ -826,7 +845,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
 
         // Import schema
@@ -879,7 +899,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const alertId = parseIntSafe(req.params.id, 'alertId', { min: 1 });
 
         logger.info(`API v1: Deleting price alert ${alertId} for user ${userId}`);
@@ -908,7 +929,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
         const notificationId = parseIntSafe(req.params.id, 'notificationId', { min: 1 });
 
         logger.info(`API v1: Marking notification ${notificationId} as read for user ${userId}`);
@@ -941,7 +963,8 @@ export function registerApiV1Routes(app: Express): void {
     flexibleAuth,
     withAuth(async (req: Request, res: Response) => {
       try {
-        const userId = req.user!.id;
+        // Type assertion: withAuth guarantees req.user exists
+        const userId = (req.user as Express.User).id;
 
         logger.info(`API v1: Marking all notifications as read for user ${userId}`);
 

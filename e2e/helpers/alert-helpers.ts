@@ -103,7 +103,7 @@ export async function bulkCreateAlerts(
   userId: number,
   productId: number,
   count: number,
-  startingPrice: number = 100
+  startingPrice = 100
 ): Promise<void> {
   const alertsToCreate = Array.from({ length: count }, (_, i) => ({
     userId,
