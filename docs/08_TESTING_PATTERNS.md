@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 2.9
-**Last Updated:** 2025-12-27
+**Version:** 3.0
+**Last Updated:** 2025-12-28
 **Changelog:**
+- 3.0 (2025-12-28): Added React Query Multi-Query Invalidation Pattern, Hook Event Handler Testing Pattern, Test Skipping Documentation examples (from TODO 013)
 - 2.9 (2025-12-27): Added @ts-expect-error pattern for intentional test mocks, inline SECURITY comment pattern for test fixtures
 - 2.8 (2025-12-26): Added vi.mock() Intentional Duplication Pattern (test mock setup should stay local, not extracted - from TODO 002 rejection)
 - 2.7 (2025-12-26): Added Pattern 6 - Concurrent SERIALIZABLE Transaction Test (race condition prevention from TODO 006)
@@ -18,12 +19,13 @@
 - docs/05_FRONTEND_PATTERNS.md (component testing)
 - docs/04_SECURITY_PATTERNS.md (security testing)
 - docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md (real database test migration)
+- docs/LEARNINGS_TODO_013_CI_UNIT_TEST_FAILURES.md (React Query invalidation, hook testing, test skipping - NEW)
 - docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md (environment configuration)
 - docs/LEARNINGS_TODO_176_TIMEZONE_DATE_TESTS.md (frontend date testing)
 - docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md (server-side UTC handling)
 - docs/LEARNINGS_E2E_PHASE_1_1_ADMIN_TESTS.md (modal patterns, tab navigation, explicit waits)
 - docs/LEARNINGS_PHASE_1_2_WATCHLIST_E2E_CSRF_FIX.md (CSRF token patterns, apiRequest() migration)
-- docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md (progressive DOM scoping, selector ambiguity - NEW)
+- docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md (progressive DOM scoping, selector ambiguity)
 
 ---
 
@@ -53,13 +55,17 @@
 6. [Component Testing Patterns](#component-testing-patterns)
    - [Testing Filtered UI Elements](#testing-filtered-ui-elements)
    - [Recharts Testing](#recharts-testing)
-7. [Route Testing Patterns](#route-testing-patterns)
+7. [Frontend React Hook Testing Patterns (NEW)](#frontend-react-hook-testing-patterns-new---2025-12-28)
+   - [React Query Multi-Query Invalidation Pattern](#react-query-multi-query-invalidation-pattern)
+   - [Hook Event Handler Testing Pattern](#hook-event-handler-testing-pattern)
+8. [Route Testing Patterns](#route-testing-patterns)
    - [Testing Missing Route Parameters](#testing-missing-route-parameters)
    - [Express Route Not Found Behavior](#express-route-not-found-behavior)
-8. [Avoiding Skipped Tests](#avoiding-skipped-tests)
-9. [Custom Agent Patterns (NEW)](#custom-agent-patterns-new---2025-12-23)
+9. [Avoiding Skipped Tests](#avoiding-skipped-tests)
+   - [Test Skipping Documentation Pattern (NEW)](#test-skipping-documentation-pattern-new---2025-12-28)
+10. [Custom Agent Patterns (NEW)](#custom-agent-patterns-new---2025-12-23)
    - [Creating Project-Specific Subagents](#creating-project-specific-subagents)
-10. [Checklist](#testing-checklist)
+11. [Checklist](#testing-checklist)
 
 ---
 
@@ -1873,6 +1879,318 @@ Recharts components require DOM dimensions. In test environments, they log warni
 
 ---
 
+## Frontend React Hook Testing Patterns (NEW - 2025-12-28)
+
+**Source:** TODO 013 - CI Unit Test Failures Resolution
+
+Testing React hooks that interact with real-time events and React Query requires specialized patterns to capture internal closure functions and validate cache invalidation behavior.
+
+### React Query Multi-Query Invalidation Pattern
+
+**Context:** When a real-time event (WebSocket, Server-Sent Events) affects both a **list query** and **individual item queries**, you must invalidate BOTH query keys to prevent cache inconsistency.
+
+#### The Bug Pattern
+
+```typescript
+// ❌ WRONG - Only invalidates list, item stays stale
+const handleUpdate = (data: UpdateEvent) => {
+  if (data.action !== 'created') {
+    void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+  }
+  // Item query NOT invalidated → user sees stale data in detail view
+};
+
+// ❌ WRONG - Only invalidates item, list stays stale
+const handleUpdate = (data: UpdateEvent) => {
+  void queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.id}`] });
+  // List query NOT invalidated → count/name stays stale in list view
+};
+
+// ❌ WRONG - Conditional invalidation creates inconsistency
+const handleUpdate = (data: UpdateEvent) => {
+  if (data.action === 'created') {
+    void queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.id}`] });
+  } else {
+    void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+  }
+  // Different actions invalidate different queries = cache inconsistency
+};
+```
+
+#### The Correct Pattern
+
+```typescript
+// ✅ CORRECT - Invalidate BOTH queries for all actions
+const handleUpdate = (data: UpdateEvent) => {
+  // Invalidate both the list query and the specific item query
+  // WebSocket events arrive AFTER mutations complete, so no race condition
+  void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+  void queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.id}`] });
+
+  // Show toast notification...
+};
+```
+
+#### Common Scenarios
+
+**Scenario 1: Create Event**
+```typescript
+// User creates a watchlist
+// WebSocket event: { action: 'created', watchListId: 5 }
+
+// ✅ CORRECT - Invalidate both
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });        // List query
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists/5'] });     // Item query
+
+// Why: User needs fresh list (with new item) AND item details if they navigate to it
+```
+
+**Scenario 2: Update Event**
+```typescript
+// User updates a watchlist name
+// WebSocket event: { action: 'updated', watchListId: 3, name: 'New Name' }
+
+// ✅ CORRECT - Invalidate both
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });        // List (name in list)
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists/3'] });     // Item (full details)
+
+// Why: Name appears in both list view and detail view
+```
+
+**Scenario 3: Delete Event**
+```typescript
+// User deletes a watchlist
+// WebSocket event: { action: 'deleted', watchListId: 2 }
+
+// ✅ CORRECT - Invalidate both
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });        // List (remove item)
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists/2'] });     // Item (mark deleted)
+
+// Why: List needs to remove item, detail view should show 404
+```
+
+**Scenario 4: Nested Resource Event**
+```typescript
+// User adds product to watchlist
+// WebSocket event: { action: 'product_added', watchListId: 1, productId: 99 }
+
+// ✅ CORRECT - Invalidate all affected levels
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });        // List (product count)
+queryClient.invalidateQueries({ queryKey: ['/api/watchlists/1'] });     // Item (product list)
+queryClient.invalidateQueries({ queryKey: ['/api/products/99'] });      // Product (if shown)
+
+// Why: Product count in list, product list in detail, product details if shown
+```
+
+#### Testing Pattern
+
+```typescript
+it('should invalidate queries on watch list update', async () => {
+  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+  let updateHandler: any = null;
+  vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
+    if (event === 'watchlist:update') {
+      updateHandler = handler;
+    }
+  });
+
+  renderHook(() => useWatchListUpdates(), { wrapper });
+
+  // Simulate watch list update event
+  if (updateHandler) {
+    updateHandler({
+      watchListId: 1,
+      name: 'My List',
+      action: 'created',
+      productCount: 0,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  await waitFor(() => {
+    // ✅ BOTH must be called
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists/1'] });
+  });
+});
+```
+
+### Hook Event Handler Testing Pattern
+
+**Context:** Testing React hooks that register event handlers (WebSocket, EventEmitter) is challenging because event handlers are internal closure functions that can't be directly invoked.
+
+#### The Challenge
+
+```typescript
+// Hook implementation
+export function useWatchListUpdates() {
+  useEffect(() => {
+    // ❌ This handler is a closure - not exported, not directly testable
+    const handleUpdate = (data: UpdateEvent) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/watchlists/${data.watchListId}`] });
+    };
+
+    websocketClient.on('watchlist:update', handleUpdate);
+
+    return () => {
+      websocketClient.off('watchlist:update', handleUpdate);
+    };
+  }, []);
+}
+```
+
+**Problem:** How do you test `handleUpdate` when it's a private closure?
+
+#### The Solution: Event Handler Interception
+
+**Step 1: Capture Event Handler Reference**
+
+```typescript
+it('should invalidate queries on watch list update', async () => {
+  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+  // Capture the handler when websocketClient.on() is called
+  let updateHandler: any = null;
+  vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
+    if (event === 'watchlist:update') {
+      updateHandler = handler;  // ← Store reference to handler
+    }
+  });
+
+  renderHook(() => useWatchListUpdates(), { wrapper });
+
+  // ... rest of test
+});
+```
+
+**Step 2: Manually Invoke Captured Handler**
+
+```typescript
+  // Simulate watch list update event by calling captured handler
+  if (updateHandler) {
+    updateHandler({
+      watchListId: 1,
+      name: 'My List',
+      action: 'created',
+      productCount: 0,
+      timestamp: new Date().toISOString(),
+    });
+  }
+```
+
+**Step 3: Assert Side Effects**
+
+```typescript
+  await waitFor(() => {
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists/1'] });
+  });
+```
+
+#### Advanced: Multiple Event Handlers
+
+```typescript
+it('should handle multiple events in sequence', async () => {
+  // Capture ALL handlers in a map
+  const handlers: Record<string, any> = {};
+  vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
+    handlers[event] = handler;  // Store by event name
+  });
+
+  renderHook(() => useWatchListUpdates(), { wrapper });
+
+  // Simulate 'created' event
+  handlers['watchlist:created']?.({ watchListId: 1, name: 'List 1' });
+
+  // Simulate 'updated' event
+  handlers['watchlist:updated']?.({ watchListId: 1, name: 'Updated List' });
+
+  // Simulate 'deleted' event
+  handlers['watchlist:deleted']?.({ watchListId: 1 });
+
+  await waitFor(() => {
+    expect(invalidateQueries).toHaveBeenCalledTimes(6); // 2 calls per event
+  });
+});
+```
+
+#### Full Example
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useWatchListUpdates } from '../use-watchlist-updates';
+import * as websocketClient from '@/lib/websocket-client';
+
+// Mock websocket client
+vi.mock('@/lib/websocket-client', () => ({
+  on: vi.fn(),
+  off: vi.fn(),
+}));
+
+describe('useWatchListUpdates', () => {
+  let queryClient: QueryClient;
+  let wrapper: React.ComponentType<{ children: React.ReactNode }>;
+
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+
+    wrapper = ({ children }) => (
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    );
+  });
+
+  it('should invalidate queries on watch list update', async () => {
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+    // Capture handler
+    let updateHandler: any = null;
+    vi.mocked(websocketClient.on).mockImplementation((event, handler) => {
+      if (event === 'watchlist:update') {
+        updateHandler = handler;
+      }
+    });
+
+    renderHook(() => useWatchListUpdates(), { wrapper });
+
+    // Invoke handler
+    if (updateHandler) {
+      updateHandler({
+        watchListId: 1,
+        name: 'My List',
+        action: 'created',
+        productCount: 0,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Assert side effects
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists'] });
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['/api/watchlists/1'] });
+    });
+  });
+});
+```
+
+**Key Points:**
+- Use `mockImplementation` to intercept event registration
+- Store handler reference in test scope variable
+- Manually invoke handler with test data
+- Use `waitFor` for async side effects
+- Assert on observable side effects (query invalidation, state changes, etc.)
+
+---
+
 ## Route Testing Patterns
 
 ### Testing Missing Route Parameters
@@ -1942,6 +2260,106 @@ it.skip('temporarily skipped while debugging auth flow - fix by EOD', () => {
 ```
 
 **Rule:** If a test is skipped for more than one PR, either fix it or delete it.
+
+### Test Skipping Documentation Pattern (NEW - 2025-12-28)
+
+**Source:** TODO 013 - CI Unit Test Failures Resolution
+
+When skipping tests with `describe.skip()` or `it.skip()`, **always include detailed comments** explaining:
+
+1. **Why the test is being skipped** (root cause)
+2. **What would be required to fix it**
+3. **Whether this is library feature testing** (can skip) or **app logic testing** (should fix)
+
+#### ✅ Good Example: Library Feature Testing
+
+```typescript
+// SKIP: These tests attempt to verify Socket.io client library reconnection behavior,
+// not our application logic. They fail because:
+// 1. Tests don't properly mock Express session authentication (session.passport.user required)
+// 2. They test socket.io-client features (reconnection, backoff), not our WebSocket handlers
+// 3. One test (exponential backoff) calls shutdownWebSocket() causing test pollution
+//
+// Our application doesn't implement reconnection logic - it's built into socket.io-client.
+// We should test our event handlers (watchlist updates, subscriptions), not library internals.
+describe.skip('WebSocket Reconnection Tests', () => {
+  // ...
+});
+```
+
+**Why Good**:
+- Identifies 3 specific issues
+- Explains architectural decision (library handles reconnection)
+- Clarifies what SHOULD be tested (our handlers)
+- Future developer knows these tests can be deleted safely
+
+#### ✅ Good Example: Authentication Mocking Issue
+
+```typescript
+// SKIP: These load tests fail due to authentication mocking issues.
+// createAuthenticatedSocket() sets x-test-user-id header, but WebSocket auth
+// middleware requires session.passport.user from Express sessions (lines 196-203
+// of server/websocket/index.ts). All clients fail auth → no 'connect' event → timeout.
+// These tests should be rewritten with proper Express session mocking or removed entirely.
+describe.skip('WebSocket Load Tests', () => {
+  // ...
+});
+```
+
+**Why Good**:
+- Explains exact mismatch (header vs session)
+- References specific code location (lines 196-203)
+- Describes symptom (timeout) and cause (no connect event)
+- Provides two fix options (rewrite or remove)
+
+#### ✅ Good Example: Concise Reference
+
+```typescript
+// SKIP: Same authentication mocking issue as load.test.ts - all tests timeout
+// waiting for 'connect' event that never fires due to missing session.passport.user
+describe.skip('WebSocket Integration Tests', () => {
+  // ...
+});
+```
+
+**Why Good**:
+- References related skip (DRY principle)
+- Concise but still explains root cause
+- Links to detailed explanation in load.test.ts
+
+#### ❌ Bad Examples
+
+```typescript
+// BAD: No Explanation
+// TODO: Fix this later
+it.skip('should handle reconnection', () => {
+  // ...
+});
+
+// BAD: Vague Comment
+// Flaky test, skipping
+describe.skip('WebSocket Tests', () => {
+  // ...
+});
+
+// BAD: Only References Ticket
+// See ticket #456
+it.skip('should emit events', () => {
+  // ...
+});
+```
+
+#### Pattern Template
+
+```typescript
+// SKIP: <High-level reason>
+// <Detailed root cause>
+// <What would fix it>
+// <Additional context or decision rationale>
+describe.skip('Test Suite Name', () => {
+  // ...
+});
+```
 
 ---
 
