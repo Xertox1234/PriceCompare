@@ -1,22 +1,26 @@
 name: CI
 
+# This workflow runs on pushes to main/develop branches (post-merge).
+# For PRs, use pr-validation.yml (tests) and e2e-tests.yml (Playwright).
 on:
   push:
-    branches: [main, develop, add_scraping]
-  pull_request:
-    branches: [main, develop, add_scraping]
+    branches: [main, develop]
+  workflow_dispatch:  # Allow manual triggering
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Primary job: Run all quality checks and tests
   test:
+    name: Test & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
-        image: postgres:15
+        image: ankane/pgvector:latest
         env:
           POSTGRES_DB: pricecompare_test
           POSTGRES_USER: postgres
@@ -51,55 +55,63 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Run TypeScript type check
+      - name: TypeScript type check
         run: npx tsc --noEmit
 
-      - name: Check code formatting (Prettier)
-        run: npm run format:check
-        continue-on-error: true  # Advisory until codebase is fully formatted
-
-      - name: Run ESLint
+      - name: ESLint
         run: npm run lint --max-warnings 0
-        # Zero-warning policy: All intentional warnings are suppressed at file level
+
+      - name: Setup environment
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricecompare_test" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
+          echo "SESSION_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "CSRF_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+
+      - name: Setup pgvector extension
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d pricecompare_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
       - name: Run database migrations
-        run: npm run db:push
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pricecompare_test
+        run: |
+          npm run db:push
+          npm run migrate
 
-      - name: Run Vitest tests
+      - name: Run tests with coverage
         run: npm run test:ci
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pricecompare_test
-          REDIS_URL: redis://localhost:6379
-          SESSION_SECRET: test-session-secret-minimum-32-characters-long
-          CSRF_SECRET: test-csrf-secret-minimum-32-characters-long
-          NODE_ENV: test
 
-      - name: Upload coverage reports
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         if: always()
         with:
           files: ./coverage/coverage-final.json
           flags: unittests
-          name: codecov-umbrella
-
-      - name: Security audit
-        run: npm audit --production --audit-level=moderate
-        continue-on-error: true
+          fail_ci_if_error: false
 
       - name: Build application
         run: npm run build
         env:
           NODE_ENV: production
 
-  playwright:
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  # E2E tests for main branch only (smoke test after merge)
+  e2e:
+    name: E2E Smoke Test
     runs-on: ubuntu-latest
     needs: test
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 20
 
     services:
       postgres:
-        image: postgres:15
+        image: ankane/pgvector:latest
         env:
           POSTGRES_DB: pricecompare_test
           POSTGRES_USER: postgres
@@ -137,19 +149,27 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run database migrations
-        run: npm run db:push
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pricecompare_test
+      - name: Setup environment
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricecompare_test" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
+          echo "SESSION_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "CSRF_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
 
-      - name: Run Playwright tests
-        run: npx playwright test
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pricecompare_test
-          REDIS_URL: redis://localhost:6379
-          SESSION_SECRET: test-session-secret-minimum-32-characters-long
-          CSRF_SECRET: test-csrf-secret-minimum-32-characters-long
-          NODE_ENV: test
+      - name: Setup database
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d pricecompare_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          npm run db:push
+          npm run migrate
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run E2E smoke tests
+        run: npx playwright test --grep "@smoke" || npx playwright test --project=chromium --workers=1
+        # Try smoke tests first, fall back to all chromium tests if no @smoke tag exists
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -157,4 +177,4 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
-          retention-days: 30
+          retention-days: 7

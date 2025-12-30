@@ -308,8 +308,9 @@ export class NotificationStorage extends BaseStorage {
         this.db.transaction(
           async (tx) => {
             // Check daily limit within transaction
+            // IMPORTANT: Use UTC midnight to properly handle timezone differences
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setUTCHours(0, 0, 0, 0);
 
             const todayCount = await tx
               .select({ count: count() })
@@ -321,9 +322,13 @@ export class NotificationStorage extends BaseStorage {
                 )
               );
 
+            // IMPORTANT: Drizzle count() returns bigint as string from PostgreSQL
+            // Must convert to number for proper comparison
+            const currentCount = Number(todayCount[0].count);
+
             if (
               preferences.maxDailyNotifications &&
-              todayCount[0].count >= preferences.maxDailyNotifications
+              currentCount >= preferences.maxDailyNotifications
             ) {
               throw new Error('Daily notification limit reached');
             }

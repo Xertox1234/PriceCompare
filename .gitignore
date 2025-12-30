@@ -36,6 +36,7 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+server.log
 
 # Test coverage
 coverage
@@ -50,9 +51,31 @@ playwright/.cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# Backup and temp files
 server/routes.ts.backup
-.worktrees
-.claude/settings.local.json
 *.backup*
+package-lock.json.backup*
+
+# Generated reports
+.jscpd-report/
+jscpd-report/
+report/
 e2e-test-results.txt
 e2e-final-results.txt
+VALIDATION_SUMMARY.txt
+
+# Development tools not needed in repo
+.worktrees
+.claude/settings.local.json
+.replit
+
+# Attachments from AI tools (Replit, Copilot)
+attached_assets/
+
+# Old backups (should not be in repo)
+backup-*/
+docs/backup-*/
+
+# Duplicate workflow files (use .github/workflows/)
+workflows/
