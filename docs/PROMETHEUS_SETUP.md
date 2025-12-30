@@ -1,5 +1,7 @@
 # Prometheus Monitoring Setup Guide
 
+> **⚠️ ARCHIVED**: This guide previously described a Docker-based monitoring setup using `docker-compose.monitoring.yml`. The Docker infrastructure has been removed from this project. The monitoring stack configurations are preserved in the `/monitoring/` directory for reference, but are no longer actively maintained. This documentation is kept for historical reference and may be useful if implementing monitoring with alternative deployment methods.
+
 This guide covers the complete setup and operation of the Prometheus monitoring stack for the PriceCompare price aggregation system.
 
 ## Table of Contents

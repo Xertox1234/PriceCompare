@@ -33,9 +33,6 @@ migrations/*.sql
 jscpd-report/
 .jscpd-report/
 
-# Docker
-Dockerfile*
-
 # Git
 .git/
 
