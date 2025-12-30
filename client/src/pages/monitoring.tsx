@@ -167,8 +167,8 @@ export default function MonitoringDashboard() {
       <div className="container mx-auto p-6">
         <div className="flex h-64 items-center justify-center">
           <div className="text-center">
-            <Activity className="mx-auto mb-4 h-12 w-12 animate-spin text-gray-400" />
-            <p className="text-gray-500">Loading dashboard...</p>
+            <Activity className="mx-auto mb-4 h-12 w-12 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground">Loading dashboard...</p>
           </div>
         </div>
       </div>
@@ -178,24 +178,24 @@ export default function MonitoringDashboard() {
   const getHealthColor = (status: string) => {
     switch (status) {
       case 'healthy':
-        return 'text-green-600';
+        return 'text-success';
       case 'degraded':
-        return 'text-yellow-600';
+        return 'text-warning';
       case 'unhealthy':
-        return 'text-red-600';
+        return 'text-destructive';
       default:
-        return 'text-gray-600';
+        return 'text-muted-foreground';
     }
   };
 
   const getHealthBadge = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <Badge className="bg-green-600">Healthy</Badge>;
+        return <Badge className="bg-success">Healthy</Badge>;
       case 'degraded':
-        return <Badge className="bg-yellow-600">Degraded</Badge>;
+        return <Badge className="bg-warning">Degraded</Badge>;
       case 'unhealthy':
-        return <Badge className="bg-red-600">Unhealthy</Badge>;
+        return <Badge className="bg-destructive">Unhealthy</Badge>;
       default:
         return <Badge>Unknown</Badge>;
     }
@@ -207,12 +207,12 @@ export default function MonitoringDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">AI Agent Monitoring</h1>
-          <p className="mt-1 text-gray-500">Real-time system metrics and health status</p>
+          <p className="mt-1 text-muted-foreground">Real-time system metrics and health status</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">Last update: {lastUpdate}</div>
+          <div className="text-sm text-muted-foreground">Last update: {lastUpdate}</div>
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <div className={`h-2 w-2 rounded-full ${connected ? 'bg-success' : 'bg-destructive'}`} />
             <span className="text-sm">{connected ? 'Connected' : 'Disconnected'}</span>
           </div>
         </div>
@@ -231,45 +231,45 @@ export default function MonitoringDashboard() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="flex items-center gap-3">
               <Database
-                className={`h-8 w-8 ${metrics.health.services.database ? 'text-green-600' : 'text-red-600'}`}
+                className={`h-8 w-8 ${metrics.health.services.database ? 'text-success' : 'text-destructive'}`}
               />
               <div>
                 <div className="font-medium">Database</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   {metrics.health.services.database ? 'Connected' : 'Disconnected'}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Server
-                className={`h-8 w-8 ${metrics.health.services.redis ? 'text-green-600' : 'text-red-600'}`}
+                className={`h-8 w-8 ${metrics.health.services.redis ? 'text-success' : 'text-destructive'}`}
               />
               <div>
                 <div className="font-medium">Redis Cache</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   {metrics.health.services.redis ? 'Connected' : 'Disconnected'}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Activity
-                className={`h-8 w-8 ${metrics.health.services.agents ? 'text-green-600' : 'text-red-600'}`}
+                className={`h-8 w-8 ${metrics.health.services.agents ? 'text-success' : 'text-destructive'}`}
               />
               <div>
                 <div className="font-medium">AI Agents</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   {metrics.health.services.agents ? 'Active' : 'Inactive'}
                 </div>
               </div>
             </div>
           </div>
           {metrics.health.issues.length > 0 && (
-            <div className="mt-4 rounded-lg bg-red-50 p-3">
+            <div className="mt-4 rounded-lg bg-destructive/5 p-3">
               <div className="flex items-start gap-2">
-                <AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
+                <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
                 <div>
-                  <div className="font-medium text-red-900">Issues Detected</div>
-                  <ul className="mt-1 space-y-1 text-sm text-red-700">
+                  <div className="font-medium">Issues Detected</div>
+                  <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
                     {metrics.health.issues.map((issue, i) => (
                       <li key={i}>• {issue}</li>
                     ))}
@@ -342,20 +342,20 @@ export default function MonitoringDashboard() {
               <div className="mt-1 text-2xl font-bold">{metrics.jobs.total}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Pending</div>
-              <div className="mt-1 text-2xl font-bold text-yellow-600">{metrics.jobs.pending}</div>
+              <div className="text-sm text-muted-foreground">Pending</div>
+              <div className="mt-1 text-2xl font-bold text-warning">{metrics.jobs.pending}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Running</div>
-              <div className="mt-1 text-2xl font-bold text-blue-600">{metrics.jobs.running}</div>
+              <div className="text-sm text-muted-foreground">Running</div>
+              <div className="mt-1 text-2xl font-bold text-info">{metrics.jobs.running}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Completed</div>
-              <div className="mt-1 text-2xl font-bold text-green-600">{metrics.jobs.completed}</div>
+              <div className="text-sm text-muted-foreground">Completed</div>
+              <div className="mt-1 text-2xl font-bold text-success">{metrics.jobs.completed}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Failed</div>
-              <div className="mt-1 text-2xl font-bold text-red-600">{metrics.jobs.failed}</div>
+              <div className="text-sm text-muted-foreground">Failed</div>
+              <div className="mt-1 text-2xl font-bold text-destructive">{metrics.jobs.failed}</div>
             </div>
           </div>
           {metrics.jobs.avgDuration && (
@@ -382,10 +382,10 @@ export default function MonitoringDashboard() {
                   key={alert.id}
                   className={`rounded-lg border p-3 ${
                     alert.level === 'critical'
-                      ? 'border-red-200 bg-red-50'
+                      ? 'border-destructive bg-destructive/5'
                       : alert.level === 'warning'
-                        ? 'border-yellow-200 bg-yellow-50'
-                        : 'border-blue-200 bg-blue-50'
+                        ? 'border-warning bg-warning/5'
+                        : 'border-info bg-info/5'
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -396,10 +396,10 @@ export default function MonitoringDashboard() {
                     <Badge
                       className={
                         alert.level === 'critical'
-                          ? 'bg-red-600'
+                          ? 'bg-destructive'
                           : alert.level === 'warning'
-                            ? 'bg-yellow-600'
-                            : 'bg-blue-600'
+                            ? 'bg-warning'
+                            : 'bg-info'
                       }
                     >
                       {alert.level}
@@ -438,7 +438,7 @@ export default function MonitoringDashboard() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Status</span>
                 <Badge
-                  className={metrics.cache.queryCache.connected ? 'bg-green-600' : 'bg-red-600'}
+                  className={metrics.cache.queryCache.connected ? 'bg-success' : 'bg-destructive'}
                 >
                   {metrics.cache.queryCache.connected ? 'Connected' : 'Disconnected'}
                 </Badge>
@@ -454,8 +454,8 @@ export default function MonitoringDashboard() {
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Success Rate</span>
-                <span className="font-medium text-green-600">{metrics.locks.successRate}%</span>
+                <span className="text-sm text-muted-foreground">Success Rate</span>
+                <span className="font-medium text-success">{metrics.locks.successRate}%</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Active Locks</span>
@@ -468,7 +468,7 @@ export default function MonitoringDashboard() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Contention</span>
                 <Badge
-                  className={metrics.locks.contentionRate > 0.1 ? 'bg-yellow-600' : 'bg-green-600'}
+                  className={metrics.locks.contentionRate > 0.1 ? 'bg-warning' : 'bg-success'}
                 >
                   {Math.round(metrics.locks.contentionRate * 100)}%
                 </Badge>
@@ -490,14 +490,14 @@ export default function MonitoringDashboard() {
               <div className="mt-1 text-2xl font-bold">{metrics.products.trendingDiscovered}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Processed</div>
-              <div className="mt-1 text-2xl font-bold text-green-600">
+              <div className="text-sm text-muted-foreground">Processed</div>
+              <div className="mt-1 text-2xl font-bold text-success">
                 {metrics.products.trendingProcessed}
               </div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Failed</div>
-              <div className="mt-1 text-2xl font-bold text-red-600">
+              <div className="text-sm text-muted-foreground">Failed</div>
+              <div className="mt-1 text-2xl font-bold text-destructive">
                 {metrics.products.trendingFailed}
               </div>
             </div>

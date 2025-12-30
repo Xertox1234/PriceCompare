@@ -96,7 +96,7 @@ function DualBannerCard({ banner }: { banner: DualBannerItem }) {
         <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-6">
           {/* Price Badge */}
           {banner.priceFrom && (
-            <div className="bg-template-gold self-start rounded-lg px-3 py-1.5 text-black">
+            <div className="bg-secondary self-start rounded-lg px-3 py-1.5 text-black">
               <p className="text-2xs font-medium uppercase">From</p>
               <p className="text-lg font-bold sm:text-xl">${banner.priceFrom.toLocaleString()}</p>
             </div>

@@ -259,6 +259,7 @@
 }
 
 /* Modal and Dialog Overrides */
+/* !important required to override Radix UI inline styles */
 [data-radix-dialog-content] {
   background-color: hsl(var(--color-background)) !important;
   color: hsl(var(--color-foreground)) !important;
@@ -292,6 +293,7 @@
 }
 
 /* Force proper dialog styling */
+/* !important required to override Radix UI inline styles in dark mode */
 .dark [data-radix-dialog-content] {
   background-color: hsl(220 13% 9%) !important;
   color: hsl(210 40% 98%) !important;

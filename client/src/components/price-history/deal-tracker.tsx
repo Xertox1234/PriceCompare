@@ -119,20 +119,20 @@ function BestDealSection({ deal, currentPrice }: { deal: Deal; currentPrice: num
   const percentVsCurrent = (savingsVsCurrent / currentPrice) * 100;
 
   return (
-    <div className="rounded-lg border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4">
+    <div className="rounded-lg border-2 border-warning/20 bg-gradient-to-br from-warning/5 to-warning/10 p-4">
       <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-2">
-          <Award className="h-5 w-5 text-amber-600" />
-          <h3 className="font-semibold text-amber-900">Best Deal Ever</h3>
+          <Award className="h-5 w-5 text-warning" />
+          <h3 className="font-semibold text-foreground">Best Deal Ever</h3>
         </div>
-        <Badge className="bg-amber-600 text-white">{deal.discountPercent.toFixed(0)}% off</Badge>
+        <Badge className="bg-warning text-white">{deal.discountPercent.toFixed(0)}% off</Badge>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-amber-900">${deal.price.toFixed(2)}</span>
+          <span className="text-3xl font-bold text-foreground">${deal.price.toFixed(2)}</span>
           {deal.originalPrice && (
-            <span className="text-lg text-amber-700 line-through">
+            <span className="text-lg text-muted-foreground line-through">
               ${deal.originalPrice.toFixed(2)}
             </span>
           )}
@@ -140,18 +140,18 @@ function BestDealSection({ deal, currentPrice }: { deal: Deal; currentPrice: num
 
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
-            <p className="text-amber-700">Saved</p>
-            <p className="font-semibold text-amber-900">${deal.savingsAmount.toFixed(2)}</p>
+            <p className="text-warning">Saved</p>
+            <p className="font-semibold text-foreground">${deal.savingsAmount.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-amber-700">Date</p>
-            <p className="font-semibold text-amber-900">{deal.daysAgo} days ago</p>
+            <p className="text-warning">Date</p>
+            <p className="font-semibold text-foreground">{deal.daysAgo} days ago</p>
           </div>
         </div>
 
         {savingsVsCurrent > 0 && (
-          <div className="mt-2 border-t border-amber-200 pt-2">
-            <p className="text-xs text-amber-700">
+          <div className="mt-2 border-t border-warning/20 pt-2">
+            <p className="text-xs text-warning">
               ${savingsVsCurrent.toFixed(2)} ({percentVsCurrent.toFixed(1)}%) cheaper than current
               price
             </p>
@@ -192,13 +192,13 @@ function DealFrequencySection({ dealData }: { dealData: DealFrequencyData }) {
           <p className="text-primary/70 text-xs">deals/month</p>
         </div>
 
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+        <div className="rounded-lg border border-success/20 bg-success/5 p-3">
           <div className="mb-1 flex items-center gap-1">
-            <Percent className="h-4 w-4 text-green-600" />
-            <span className="text-xs text-green-700">Avg Discount</span>
+            <Percent className="h-4 w-4 text-success" />
+            <span className="text-xs text-success">Avg Discount</span>
           </div>
-          <p className="text-lg font-semibold text-green-900">{averageDealDiscount.toFixed(0)}%</p>
-          <p className="text-xs text-green-600">when on sale</p>
+          <p className="text-lg font-semibold text-foreground">{averageDealDiscount.toFixed(0)}%</p>
+          <p className="text-xs text-success">when on sale</p>
         </div>
 
         <div className="bg-secondary/10 border-secondary/20 rounded-lg border p-3">
@@ -273,7 +273,7 @@ function SavingsCalculatorSection({
               <p className="text-lg font-semibold">
                 {potentialSavings > 0 ? '+' : ''}${Math.abs(potentialSavings).toFixed(2)}
               </p>
-              <p className={`text-xs ${potentialSavings > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <p className={`text-xs ${potentialSavings > 0 ? 'text-destructive' : 'text-success'}`}>
                 {potentialSavings > 0 ? '+' : ''}
                 {potentialPercent.toFixed(1)}%
               </p>
@@ -284,7 +284,7 @@ function SavingsCalculatorSection({
               <p className="text-lg font-semibold">
                 {vsAverage > 0 ? '+' : ''}${Math.abs(vsAverage).toFixed(2)}
               </p>
-              <p className={`text-xs ${vsAverage > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <p className={`text-xs ${vsAverage > 0 ? 'text-destructive' : 'text-success'}`}>
                 {vsAverage > 0 ? '+' : ''}
                 {vsAveragePercent.toFixed(1)}%
               </p>
@@ -293,8 +293,8 @@ function SavingsCalculatorSection({
         </div>
 
         {potentialSavings > 5 && (
-          <div className="rounded border border-amber-200 bg-amber-50 p-2">
-            <p className="text-xs text-amber-800">
+          <div className="rounded border border-warning/20 bg-warning/5 p-2">
+            <p className="text-xs text-warning">
               💰 You could save ${potentialSavings.toFixed(2)} by waiting for a better price
             </p>
           </div>

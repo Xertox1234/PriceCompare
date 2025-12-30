@@ -193,12 +193,12 @@ describe('InteractiveTooltip', () => {
       />
     );
 
-    // Check for green background on lowest price (first item)
-    const priceRows = container.querySelectorAll('[class*="bg-green-50"]');
+    // Check for success background on lowest price (first item)
+    const priceRows = container.querySelectorAll('[class*="bg-success"]');
     expect(priceRows.length).toBeGreaterThan(0);
 
-    // Check for red background on highest price (last item)
-    const highPriceRows = container.querySelectorAll('[class*="bg-red-50"]');
+    // Check for destructive background on highest price (last item)
+    const highPriceRows = container.querySelectorAll('[class*="bg-destructive"]');
     expect(highPriceRows.length).toBeGreaterThan(0);
   });
 });

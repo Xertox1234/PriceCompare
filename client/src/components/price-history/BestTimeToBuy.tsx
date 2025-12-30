@@ -45,30 +45,30 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
           icon: <ShoppingCart className="h-6 w-6" />,
           title: 'Great Deal!',
           message: 'This is an excellent time to buy. The price is near its historical low.',
-          bgColor: 'bg-green-50 border-green-200',
-          textColor: 'text-green-700',
+          bgColor: 'bg-success/5 border-success/20',
+          textColor: 'text-success',
           badgeVariant: 'default' as const,
-          badgeColor: 'bg-green-600',
+          badgeColor: 'bg-success',
         };
       case 'wait':
         return {
           icon: <Clock className="h-6 w-6" />,
           title: 'Consider Waiting',
           message: 'The price may drop further. Consider monitoring for a better deal.',
-          bgColor: 'bg-amber-50 border-amber-200',
-          textColor: 'text-amber-700',
+          bgColor: 'bg-warning/5 border-warning/20',
+          textColor: 'text-warning',
           badgeVariant: 'secondary' as const,
-          badgeColor: 'bg-amber-600',
+          badgeColor: 'bg-warning',
         };
       default:
         return {
           icon: <AlertCircle className="h-6 w-6" />,
           title: 'Fair Price',
           message: 'The current price is reasonable based on historical data.',
-          bgColor: 'bg-blue-50 border-blue-200',
-          textColor: 'text-blue-700',
+          bgColor: 'bg-info/5 border-info/20',
+          textColor: 'text-info',
           badgeVariant: 'outline' as const,
-          badgeColor: 'bg-blue-600',
+          badgeColor: 'bg-info',
         };
     }
   };
@@ -103,7 +103,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
             <div className="text-2xl font-bold">${data.currentPrice.toFixed(2)}</div>
             {percentBelowAverage !== 0 && (
               <div
-                className={`text-sm font-medium ${percentBelowAverage > 0 ? 'text-green-600' : 'text-red-600'}`}
+                className={`text-sm font-medium ${percentBelowAverage > 0 ? 'text-success' : 'text-destructive'}`}
               >
                 {percentBelowAverage > 0 ? '↓' : '↑'} {Math.abs(percentBelowAverage).toFixed(1)}% vs
                 avg
@@ -112,7 +112,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
           </div>
           <div className="space-y-2">
             <div className="text-muted-foreground text-sm">Lowest (90 days)</div>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-success">
               ${data.lowestPriceLast90Days.toFixed(2)}
             </div>
             <div className="text-muted-foreground text-sm">{data.daysSinceLowest} days ago</div>
@@ -128,7 +128,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Difference from Lowest</span>
             <span
-              className={`font-medium ${percentAboveLowest < 5 ? 'text-green-600' : 'text-gray-700'}`}
+              className={`font-medium ${percentAboveLowest < 5 ? 'text-success' : 'text-foreground'}`}
             >
               +${(data.currentPrice - data.lowestPriceLast90Days).toFixed(2)}(
               {percentAboveLowest.toFixed(1)}%)
@@ -137,9 +137,9 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
           {Math.abs(data.priceChangeVelocity) > 0.1 && (
             <div className="flex items-center gap-2 border-t pt-2 text-sm">
               {data.priceChangeVelocity < 0 ? (
-                <TrendingDown className="h-4 w-4 text-green-600" />
+                <TrendingDown className="h-4 w-4 text-success" />
               ) : (
-                <TrendingDown className="h-4 w-4 rotate-180 text-red-600" />
+                <TrendingDown className="h-4 w-4 rotate-180 text-destructive" />
               )}
               <span className="text-muted-foreground">
                 Price {data.priceChangeVelocity < 0 ? 'decreasing' : 'increasing'} by

@@ -80,12 +80,12 @@ export function InteractiveTooltip({
   };
 
   return (
-    <Card className="max-w-sm border-2 border-gray-200 shadow-xl">
+    <Card className="max-w-sm border-2 border-border shadow-xl">
       {/* Header */}
-      <div className="border-b bg-gray-50 p-3">
+      <div className="border-b bg-muted/5 p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-gray-500" />
+            <Calendar className="h-4 w-4 text-muted-foreground" />
             <p className="text-sm font-semibold">{format(date, 'MMM d, yyyy')}</p>
           </div>
           <Button
@@ -111,10 +111,10 @@ export function InteractiveTooltip({
               key={point.retailerId}
               className={`flex items-center justify-between rounded-md p-2 transition-colors ${
                 isLowest
-                  ? 'border border-green-200 bg-green-50'
+                  ? 'border border-success/20 bg-success/5'
                   : isHighest
-                    ? 'border border-red-200 bg-red-50'
-                    : 'bg-gray-50'
+                    ? 'border border-destructive/20 bg-destructive/5'
+                    : 'bg-muted/5'
               }`}
             >
               <div className="flex flex-1 items-center gap-2">
@@ -132,16 +132,16 @@ export function InteractiveTooltip({
                   )}
                   <span className="truncate text-sm font-medium">{point.retailerName}</span>
                 </div>
-                {isLowest && <TrendingDown className="h-4 w-4 text-green-600" />}
+                {isLowest && <TrendingDown className="h-4 w-4 text-success" />}
                 {isHighest && dataPoints.length > 1 && (
-                  <TrendingUp className="h-4 w-4 text-red-600" />
+                  <TrendingUp className="h-4 w-4 text-destructive" />
                 )}
               </div>
               <div className="text-right">
                 <div className="text-sm font-semibold">${point.price.toFixed(2)}</div>
                 {priceDiff && expanded && (
                   <div
-                    className={`text-xs ${priceDiff.diff < 0 ? 'text-green-600' : 'text-red-600'}`}
+                    className={`text-xs ${priceDiff.diff < 0 ? 'text-success' : 'text-destructive'}`}
                   >
                     {priceDiff.diff < 0 ? '' : '+'}
                     {priceDiff.percentDiff.toFixed(1)}%
@@ -158,24 +158,24 @@ export function InteractiveTooltip({
         <>
           {/* Historical Context */}
           {historicalContext && (
-            <div className="border-t bg-gray-50 px-3 pt-1 pb-3">
-              <p className="mb-2 text-xs font-semibold text-gray-500">Historical Context</p>
+            <div className="border-t bg-muted/5 px-3 pt-1 pb-3">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">Historical Context</p>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded bg-white p-2">
-                  <div className="text-xs text-gray-500">Avg</div>
+                <div className="rounded bg-background p-2">
+                  <div className="text-xs text-muted-foreground">Avg</div>
                   <div className="text-sm font-semibold">
                     ${historicalContext.averagePrice.toFixed(2)}
                   </div>
                 </div>
-                <div className="rounded bg-white p-2">
-                  <div className="text-xs text-green-600">Low</div>
-                  <div className="text-sm font-semibold text-green-600">
+                <div className="rounded bg-background p-2">
+                  <div className="text-xs text-success">Low</div>
+                  <div className="text-sm font-semibold text-success">
                     ${historicalContext.lowestPrice.toFixed(2)}
                   </div>
                 </div>
-                <div className="rounded bg-white p-2">
-                  <div className="text-xs text-red-600">High</div>
-                  <div className="text-sm font-semibold text-red-600">
+                <div className="rounded bg-background p-2">
+                  <div className="text-xs text-destructive">High</div>
+                  <div className="text-sm font-semibold text-destructive">
                     ${historicalContext.highestPrice.toFixed(2)}
                   </div>
                 </div>
@@ -184,8 +184,8 @@ export function InteractiveTooltip({
           )}
 
           {/* Quick Actions */}
-          <div className="space-y-2 border-t bg-white p-3">
-            <p className="mb-2 text-xs font-semibold text-gray-500">Quick Actions</p>
+          <div className="space-y-2 border-t bg-background p-3">
+            <p className="mb-2 text-xs font-semibold text-muted-foreground">Quick Actions</p>
             <div className="flex gap-2">
               {onSetAlert && (
                 <Button
@@ -214,11 +214,11 @@ export function InteractiveTooltip({
 
           {/* Price Difference Insight */}
           {dataPoints.length > 1 && (
-            <div className="border-t border-blue-100 bg-blue-50 px-3 pb-3">
+            <div className="border-t border-info/20 bg-info/5 px-3 pb-3">
               <div className="flex items-start gap-2 text-xs">
                 <div className="flex-1">
-                  <p className="mb-1 font-semibold text-blue-900">💡 Price Insight</p>
-                  <p className="text-blue-800">
+                  <p className="mb-1 font-semibold text-foreground">💡 Price Insight</p>
+                  <p className="text-info">
                     Save ${(highestPrice.price - lowestPrice.price).toFixed(2)} (
                     {(
                       ((highestPrice.price - lowestPrice.price) / highestPrice.price) *

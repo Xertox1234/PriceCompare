@@ -43,7 +43,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         style={{ backgroundColor: 'var(--floating-header-bg, white)' }}
       >
         {/* Header */}
-        <div className="border-border bg-template-primary flex items-center justify-between border-b p-4 text-white">
+        <div className="border-border bg-primary flex items-center justify-between border-b p-4 text-white">
           <span className="text-lg font-bold">Menu</span>
           <Button
             variant="ghost"
@@ -61,7 +61,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <input
               type="text"
               placeholder="Search products..."
-              className="bg-muted focus:ring-template-primary w-full rounded-lg px-4 py-2.5 pl-10 text-sm focus:ring-2 focus:outline-none"
+              className="bg-muted focus:ring-primary w-full rounded-lg px-4 py-2.5 pl-10 text-sm focus:ring-2 focus:outline-none"
             />
             <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           </div>
@@ -81,7 +81,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                       className="hover:bg-muted flex w-full items-center justify-between px-4 py-3 transition-colors"
                     >
                       <span className="flex items-center gap-3">
-                        <item.icon className="text-template-primary h-5 w-5" />
+                        <item.icon className="text-primary h-5 w-5" />
                         <span className="font-medium">{item.label}</span>
                       </span>
                       <ChevronDown
@@ -126,7 +126,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     onClick={onClose}
                     className="hover:bg-muted flex items-center gap-3 px-4 py-3 transition-colors"
                   >
-                    <item.icon className="text-template-primary h-5 w-5" />
+                    <item.icon className="text-primary h-5 w-5" />
                     <span className="font-medium">{item.label}</span>
                   </Link>
                 )}
@@ -146,11 +146,11 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 className="hover:bg-muted flex items-center justify-between px-4 py-3 transition-colors"
               >
                 <span className="flex items-center gap-3">
-                  <Heart className="text-template-primary h-5 w-5" />
+                  <Heart className="text-primary h-5 w-5" />
                   <span className="font-medium">Wishlist</span>
                 </span>
                 {wishlist.length > 0 && (
-                  <span className="bg-template-primary rounded-full px-2 py-0.5 text-xs font-bold text-white">
+                  <span className="bg-primary rounded-full px-2 py-0.5 text-xs font-bold text-white">
                     {wishlist.length}
                   </span>
                 )}
@@ -162,7 +162,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 onClick={onClose}
                 className="hover:bg-muted flex items-center gap-3 px-4 py-3 transition-colors"
               >
-                <User className="text-template-primary h-5 w-5" />
+                <User className="text-primary h-5 w-5" />
                 <span className="font-medium">My Account</span>
               </Link>
             </li>
@@ -178,7 +178,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               </Button>
             </Link>
             <Link href="/register" onClick={onClose}>
-              <Button className="bg-template-primary hover:bg-template-primary-hover w-full">
+              <Button className="bg-primary hover:bg-primary/90 w-full">
                 Create Account
               </Button>
             </Link>

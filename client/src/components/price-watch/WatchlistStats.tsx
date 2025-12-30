@@ -47,8 +47,8 @@ function StatCard({ label, value, icon: Icon, color, trend }: StatCardProps) {
                 className={cn(
                   'mt-2 flex items-center gap-1 text-sm font-medium',
                   trend.isPositive
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
+                    ? 'text-success'
+                    : 'text-destructive'
                 )}
               >
                 {trend.isPositive ? (
@@ -75,7 +75,7 @@ export function WatchlistStats({ stats }: WatchlistStatsProps) {
       label: 'Potential Savings',
       value: `$${stats.totalPotentialSavings.toFixed(2)}`,
       icon: Wallet,
-      color: 'bg-green-500/10 text-green-500',
+      color: 'bg-success/10 text-success',
       trend: undefined,
     },
     {
@@ -89,7 +89,7 @@ export function WatchlistStats({ stats }: WatchlistStatsProps) {
       label: 'Active Alerts',
       value: stats.activeAlerts,
       icon: Bell,
-      color: 'bg-amber-500/10 text-amber-500',
+      color: 'bg-warning/10 text-warning',
       trend:
         stats.weeklyStats.triggeredAlerts > 0
           ? {
@@ -102,7 +102,7 @@ export function WatchlistStats({ stats }: WatchlistStatsProps) {
       label: 'Deals This Week',
       value: stats.weeklyStats.newDeals,
       icon: TrendingUp,
-      color: 'bg-blue-500/10 text-blue-500',
+      color: 'bg-info/10 text-info',
       trend:
         stats.weeklyStats.newDeals > 0
           ? {
@@ -127,7 +127,7 @@ export function WatchlistStats({ stats }: WatchlistStatsProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-bold">
-              <TrendingDown className="h-5 w-5 text-green-500" />
+              <TrendingDown className="h-5 w-5 text-success" />
               Best Deals Right Now
             </CardTitle>
           </CardHeader>
@@ -154,7 +154,7 @@ export function WatchlistStats({ stats }: WatchlistStatsProps) {
                     </div>
                   </div>
                   <div className="ml-4 flex-shrink-0">
-                    <div className="rounded-full bg-green-500/10 px-3 py-1 text-sm font-bold text-green-600 dark:text-green-400">
+                    <div className="rounded-full bg-success/10 px-3 py-1 text-sm font-bold text-success">
                       -{deal.discountPercent.toFixed(0)}%
                     </div>
                   </div>

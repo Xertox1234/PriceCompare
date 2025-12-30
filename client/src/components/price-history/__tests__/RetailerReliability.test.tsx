@@ -163,25 +163,25 @@ describe('RetailerReliability', () => {
   describe('Rating Colors', () => {
     it('should use green color scheme for excellent rating', () => {
       const { container } = render(<RetailerReliability data={[mockExcellentRetailer]} />);
-      const card = container.querySelector('.bg-green-50');
+      const card = container.querySelector('[class*="bg-success"]');
       expect(card).toBeInTheDocument();
     });
 
     it('should use blue color scheme for good rating', () => {
       const { container } = render(<RetailerReliability data={[mockGoodRetailer]} />);
-      const card = container.querySelector('.bg-blue-50');
+      const card = container.querySelector('[class*="bg-info"]');
       expect(card).toBeInTheDocument();
     });
 
     it('should use yellow color scheme for fair rating', () => {
       const { container } = render(<RetailerReliability data={[mockFairRetailer]} />);
-      const card = container.querySelector('.bg-yellow-50');
+      const card = container.querySelector('[class*="bg-warning"]');
       expect(card).toBeInTheDocument();
     });
 
     it('should use red color scheme for poor rating', () => {
       const { container } = render(<RetailerReliability data={[mockPoorRetailer]} />);
-      const card = container.querySelector('.bg-red-50');
+      const card = container.querySelector('[class*="bg-destructive"]');
       expect(card).toBeInTheDocument();
     });
   });

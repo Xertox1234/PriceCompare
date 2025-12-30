@@ -243,7 +243,7 @@ export default function PriceHistoryPage() {
                   <div
                     className={cn(
                       'text-2xl font-bold',
-                      Number(insights?.currentVsAvg) < 0 ? 'text-green-600' : 'text-red-600'
+                      Number(insights?.currentVsAvg) < 0 ? 'text-success' : 'text-destructive'
                     )}
                   >
                     {Number(insights?.currentVsAvg) > 0 ? '+' : ''}
@@ -304,9 +304,9 @@ export default function PriceHistoryPage() {
                 <CardContent className="space-y-4">
                   <div className="flex items-start gap-3">
                     {chartData.currentPrice <= chartData.lowestPrice * 1.05 ? (
-                      <TrendingDown className="mt-0.5 h-5 w-5 text-green-600" />
+                      <TrendingDown className="mt-0.5 h-5 w-5 text-success" />
                     ) : (
-                      <TrendingUp className="mt-0.5 h-5 w-5 text-amber-600" />
+                      <TrendingUp className="mt-0.5 h-5 w-5 text-secondary" />
                     )}
                     <div>
                       <p className="font-medium">
@@ -339,7 +339,7 @@ export default function PriceHistoryPage() {
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <Info className="mt-0.5 h-5 w-5 text-blue-600" />
+                    <Info className="mt-0.5 h-5 w-5 text-info" />
                     <div>
                       <p className="font-medium">Potential savings</p>
                       <p className="text-muted-foreground text-sm">
@@ -360,31 +360,31 @@ export default function PriceHistoryPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {chartData.currentPrice <= chartData.lowestPrice * 1.05 ? (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
-                      <p className="mb-2 font-semibold text-green-900 dark:text-green-100">
+                    <div className="rounded-lg border border-success bg-success/5 p-4">
+                      <p className="mb-2 font-semibold">
                         ✓ Excellent time to buy!
                       </p>
-                      <p className="text-sm text-green-800 dark:text-green-200">
+                      <p className="text-sm text-muted-foreground">
                         The current price is at or very close to the lowest recorded price. This is
                         a great opportunity to purchase.
                       </p>
                     </div>
                   ) : chartData.currentPrice <= chartData.averagePrice ? (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
-                      <p className="mb-2 font-semibold text-blue-900 dark:text-blue-100">
+                    <div className="rounded-lg border border-info bg-info/5 p-4">
+                      <p className="mb-2 font-semibold">
                         Good time to buy
                       </p>
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <p className="text-sm text-muted-foreground">
                         The price is below average. While not the absolute lowest, this is still a
                         good deal.
                       </p>
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
-                      <p className="mb-2 font-semibold text-amber-900 dark:text-amber-100">
+                    <div className="rounded-lg border border-secondary bg-secondary/5 p-4">
+                      <p className="mb-2 font-semibold">
                         Consider waiting
                       </p>
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                      <p className="text-sm text-muted-foreground">
                         The current price is above average. You might want to wait for a price drop
                         or set up a price alert.
                       </p>
@@ -396,13 +396,13 @@ export default function PriceHistoryPage() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <span className="text-muted-foreground">Best Price:</span>
-                        <p className="font-medium text-green-600">
+                        <p className="font-medium text-success">
                           ${chartData.lowestPrice.toFixed(2)}
                         </p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Worst Price:</span>
-                        <p className="font-medium text-red-600">
+                        <p className="font-medium text-destructive">
                           ${chartData.highestPrice.toFixed(2)}
                         </p>
                       </div>

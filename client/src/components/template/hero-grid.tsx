@@ -249,7 +249,7 @@ function DealCard({ title, subtitle, discount, image, link, category }: DealCard
         </div>
 
         {/* Sale Badge - Top Right */}
-        <div className="bg-template-gold absolute top-6 right-6 min-w-[60px] rounded-lg px-3 py-2 text-center text-black">
+        <div className="bg-secondary absolute top-6 right-6 min-w-[60px] rounded-lg px-3 py-2 text-center text-black">
           <p className="text-2xs font-medium uppercase">Sale</p>
           <p className="text-xl leading-tight font-bold">{discount}%</p>
         </div>

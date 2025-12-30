@@ -151,10 +151,10 @@ export function AggregatesChart({ data, type, title, description }: AggregatesCh
                 <div
                   className={`text-lg font-bold ${
                     (lastEntry.change || 0) > 0
-                      ? 'text-red-600'
+                      ? 'text-destructive'
                       : (lastEntry.change || 0) < 0
-                        ? 'text-green-600'
-                        : 'text-gray-600'
+                        ? 'text-success'
+                        : 'text-muted-foreground'
                   }`}
                 >
                   {lastEntry.change !== null && lastEntry.change !== undefined
@@ -206,23 +206,23 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
       <div className="bg-background border-border rounded-lg border p-3 shadow-lg">
         <p className="mb-2 font-semibold">{label}</p>
         <div className="space-y-1 text-sm">
-          <p className="text-blue-600">Average: ${data.avg.toFixed(2)}</p>
-          <p className="text-green-600">Minimum: ${data.min.toFixed(2)}</p>
-          <p className="text-red-600">Maximum: ${data.max.toFixed(2)}</p>
+          <p className="text-info">Average: ${data.avg.toFixed(2)}</p>
+          <p className="text-success">Minimum: ${data.min.toFixed(2)}</p>
+          <p className="text-destructive">Maximum: ${data.max.toFixed(2)}</p>
           {data.median !== null && (
-            <p className="text-yellow-600">Median: ${data.median.toFixed(2)}</p>
+            <p className="text-warning">Median: ${data.median.toFixed(2)}</p>
           )}
           {data.volatility !== null && (
-            <p className="text-gray-600">Volatility: {data.volatility.toFixed(2)}%</p>
+            <p className="text-muted-foreground">Volatility: {data.volatility.toFixed(2)}%</p>
           )}
           {data.change !== null && (
             <p
               className={
                 data.change > 0
-                  ? 'text-red-600'
+                  ? 'text-destructive'
                   : data.change < 0
-                    ? 'text-green-600'
-                    : 'text-gray-600'
+                    ? 'text-success'
+                    : 'text-muted-foreground'
               }
             >
               Change: {data.change > 0 ? '+' : ''}

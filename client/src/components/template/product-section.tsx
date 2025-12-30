@@ -248,7 +248,7 @@ function CountdownTimer({ endDate }: { endDate: Date }) {
 
   return (
     <div className="flex items-center gap-2">
-      <Clock className="text-template-primary h-4 w-4" />
+      <Clock className="text-primary h-4 w-4" />
       <div className="flex items-center gap-1 font-mono text-sm">
         <TimeUnit value={hours} label="h" />
         <span className="text-muted-foreground">:</span>
@@ -262,7 +262,7 @@ function CountdownTimer({ endDate }: { endDate: Date }) {
 
 function TimeUnit({ value, label }: { value: number; label: string }) {
   return (
-    <span className="bg-muted text-template-primary rounded px-2 py-1 font-bold">
+    <span className="bg-muted text-primary rounded px-2 py-1 font-bold">
       {value.toString().padStart(2, '0')}
       {label}
     </span>

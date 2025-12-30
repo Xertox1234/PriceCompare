@@ -19,10 +19,10 @@ export interface SmartAlertCardProps {
 
 // Urgency-based styling using design system colors
 const urgencyColors = {
-  critical: 'border-red-500 bg-red-50 dark:bg-red-950',
-  high: 'border-amber-500 bg-amber-50 dark:bg-amber-950',
-  medium: 'border-blue-500 bg-blue-50 dark:bg-blue-950',
-  low: 'border-gray-500 bg-gray-50 dark:bg-gray-950',
+  critical: 'border-destructive bg-destructive/10',
+  high: 'border-warning bg-warning/10',
+  medium: 'border-info bg-info/10',
+  low: 'border-muted bg-muted/10',
 };
 
 // Badge variants for urgency levels
@@ -134,7 +134,7 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
           {reasoning.map((reason, i) => (
             <li key={i} className="flex items-start gap-2 text-sm">
               <CheckCircle2
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500"
+                className="mt-0.5 h-4 w-4 flex-shrink-0 text-success"
                 aria-hidden="true"
               />
               <span>{reason}</span>
@@ -145,8 +145,8 @@ export function SmartAlertCard({ notification, onDismiss, onSnooze }: SmartAlert
 
       {/* Savings Display */}
       {savings > 0 && (
-        <div className="mb-3 rounded bg-green-100 p-2 dark:bg-green-900">
-          <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+        <div className="mb-3 rounded bg-success/10 p-2">
+          <span className="text-sm font-semibold text-success">
             💰 Save ${savings.toFixed(2)}
           </span>
         </div>

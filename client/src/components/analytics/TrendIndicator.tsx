@@ -13,13 +13,13 @@ export function TrendIndicator({ trend, showDetails = false, className }: TrendI
   const getTrendColor = (direction: string) => {
     switch (direction) {
       case 'uptrend':
-        return 'text-red-600 dark:text-red-400';
+        return 'text-destructive';
       case 'downtrend':
-        return 'text-green-600 dark:text-green-400';
+        return 'text-success';
       case 'stable':
-        return 'text-gray-600 dark:text-gray-400';
+        return 'text-muted-foreground';
       default:
-        return 'text-gray-600';
+        return 'text-muted-foreground';
     }
   };
 
@@ -52,13 +52,13 @@ export function TrendIndicator({ trend, showDetails = false, className }: TrendI
   const getConfidenceColor = (level: string | null) => {
     switch (level) {
       case 'high':
-        return 'text-green-600 dark:text-green-400';
+        return 'text-success';
       case 'medium':
-        return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-warning';
       case 'low':
-        return 'text-orange-600 dark:text-orange-400';
+        return 'text-secondary';
       default:
-        return 'text-gray-600';
+        return 'text-muted-foreground';
     }
   };
 

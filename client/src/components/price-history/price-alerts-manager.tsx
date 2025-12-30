@@ -221,7 +221,7 @@ function AlertItem({
 
   return (
     <div
-      className={`rounded-lg border-2 p-3 ${isTriggered ? 'border-green-500 bg-green-50' : 'border-border bg-card'}`}
+      className={`rounded-lg border-2 p-3 ${isTriggered ? 'border-success bg-success/10' : 'border-border bg-card'}`}
     >
       <div className="mb-2 flex items-start justify-between">
         <div className="flex-1">
@@ -238,7 +238,7 @@ function AlertItem({
             )}
           </div>
           {isTriggered && (
-            <div className="flex items-center gap-1 text-sm font-medium text-green-700">
+            <div className="flex items-center gap-1 text-sm font-medium text-success">
               <CheckCircle2 className="h-4 w-4" />
               Target price reached!
             </div>

@@ -93,11 +93,11 @@ function LeaderboardEntry({
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
-        return <Trophy className="h-5 w-5 text-amber-500" />;
+        return <Trophy className="h-5 w-5 text-secondary" />;
       case 2:
-        return <Medal className="h-5 w-5 text-gray-400" />;
+        return <Medal className="h-5 w-5 text-muted-foreground" />;
       case 3:
-        return <Medal className="h-5 w-5 text-amber-700" />;
+        return <Medal className="h-5 w-5 text-secondary" />;
       default:
         return (
           <div className="text-muted-foreground flex h-5 w-5 items-center justify-center text-sm font-semibold">

@@ -143,7 +143,7 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
               </p>
               <Button
                 onClick={onClose}
-                className="bg-template-primary hover:bg-template-primary-hover"
+                className="bg-primary hover:bg-primary/90"
               >
                 Browse Products
               </Button>
@@ -181,7 +181,7 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
 
                           {/* Product Name */}
                           <Link href={`/product/${product.id}`} onClick={onClose}>
-                            <h3 className="text-foreground hover:text-template-primary line-clamp-2 text-sm font-medium transition-colors">
+                            <h3 className="text-foreground hover:text-primary line-clamp-2 text-sm font-medium transition-colors">
                               {product.name}
                             </h3>
                           </Link>
@@ -205,7 +205,7 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                     {compareProducts.map((product) => (
                       <td key={product.id} className="p-3 text-center">
                         <div className="flex flex-col items-center">
-                          <span className="text-template-primary text-lg font-bold">
+                          <span className="text-primary text-lg font-bold">
                             ${product.price.toFixed(2)}
                           </span>
                           {product.originalPrice && (
@@ -239,7 +239,7 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                                 className={cn(
                                   'h-3 w-3',
                                   i < Math.floor(product.rating)
-                                    ? 'fill-template-gold text-template-gold'
+                                    ? 'fill-chart-amber text-chart-amber'
                                     : 'text-muted'
                                 )}
                               />
@@ -266,7 +266,7 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                     <td className="bg-muted sticky left-0 p-3 text-sm font-medium">Retailer</td>
                     {compareProducts.map((product) => (
                       <td key={product.id} className="p-3 text-center">
-                        <span className="text-template-secondary text-sm">{product.retailer}</span>
+                        <span className="text-secondary text-sm">{product.retailer}</span>
                       </td>
                     ))}
                     {Array.from({ length: 4 - compare.length }).map((_, i) => (
@@ -307,7 +307,7 @@ export function CompareModal({ isOpen, onClose }: CompareModalProps) {
                         <Link href={`/product/${product.id}`} onClick={onClose}>
                           <Button
                             size="sm"
-                            className="bg-template-primary hover:bg-template-primary-hover"
+                            className="bg-primary hover:bg-primary/90"
                           >
                             View Details
                           </Button>

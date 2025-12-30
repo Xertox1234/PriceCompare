@@ -65,9 +65,9 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
 
   const getConfidenceBadge = (confidence: string) => {
     const variants = {
-      high: 'bg-green-100 text-green-800 border-green-200',
-      medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      low: 'bg-gray-100 text-gray-800 border-gray-200',
+      high: 'bg-success/10 text-success border-success',
+      medium: 'bg-warning/10 text-warning border-warning',
+      low: 'bg-muted/10 text-muted-foreground border-border',
     };
     return variants[confidence as keyof typeof variants] || variants.low;
   };
@@ -111,16 +111,16 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
 
         {/* Pattern Detection Status */}
         {data.hasSeasonalPattern ? (
-          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-            <Sparkles className="h-5 w-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">
+          <div className="flex items-center gap-2 rounded-lg border border-info bg-info/5 p-3">
+            <Sparkles className="h-5 w-5 text-info" />
+            <span className="text-sm font-medium">
               Seasonal pattern detected! Timing your purchase can save you money.
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <Info className="h-5 w-5 text-gray-600" />
-            <span className="text-sm text-gray-700">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/5 p-3">
+            <Info className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
               No significant seasonal pattern detected. Prices are relatively stable year-round.
             </span>
           </div>
@@ -128,17 +128,17 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
 
         {/* Recommendation */}
         {data.recommendation && data.recommendation.expectedSavings > 0 && (
-          <div className="rounded-lg border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4">
+          <div className="rounded-lg border-2 border-success bg-success/5 p-4">
             <div className="flex items-start gap-3">
-              <TrendingDown className="mt-0.5 h-6 w-6 text-green-600" />
+              <TrendingDown className="mt-0.5 h-6 w-6 text-success" />
               <div className="flex-1">
-                <div className="mb-1 font-semibold text-green-900">
+                <div className="mb-1 font-semibold">
                   Best Time to Buy: {data.recommendation.timeframe}
                 </div>
-                <p className="mb-2 text-sm text-green-800">{data.recommendation.reason}</p>
-                <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-white px-3 py-1">
-                  <span className="text-xs font-medium text-green-700">Potential Savings:</span>
-                  <span className="text-sm font-bold text-green-900">
+                <p className="mb-2 text-sm text-muted-foreground">{data.recommendation.reason}</p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-success bg-background px-3 py-1">
+                  <span className="text-xs font-medium text-success">Potential Savings:</span>
+                  <span className="text-sm font-bold">
                     {data.recommendation.expectedSavings.toFixed(1)}%
                   </span>
                 </div>
@@ -150,26 +150,26 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
         {/* Best and Worst Months */}
         {data.bestMonthToBuy && data.worstMonthToBuy && (
           <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="rounded-lg border border-success bg-success/5 p-4">
               <div className="mb-2 flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-green-600" />
-                <span className="text-xs font-medium text-green-700">BEST MONTH</span>
+                <TrendingDown className="h-4 w-4 text-success" />
+                <span className="text-xs font-medium text-success">BEST MONTH</span>
               </div>
-              <div className="text-lg font-bold text-green-900">
+              <div className="text-lg font-bold">
                 {data.bestMonthToBuy.monthName}
               </div>
-              <div className="mt-1 text-sm text-green-700">
+              <div className="mt-1 text-sm text-muted-foreground">
                 Avg: ${data.bestMonthToBuy.averagePrice.toFixed(2)}
               </div>
             </div>
 
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <div className="rounded-lg border border-destructive bg-destructive/5 p-4">
               <div className="mb-2 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-red-600" />
-                <span className="text-xs font-medium text-red-700">WORST MONTH</span>
+                <TrendingUp className="h-4 w-4 text-destructive" />
+                <span className="text-xs font-medium text-destructive">WORST MONTH</span>
               </div>
-              <div className="text-lg font-bold text-red-900">{data.worstMonthToBuy.monthName}</div>
-              <div className="mt-1 text-sm text-red-700">
+              <div className="text-lg font-bold">{data.worstMonthToBuy.monthName}</div>
+              <div className="mt-1 text-sm text-muted-foreground">
                 Avg: ${data.worstMonthToBuy.averagePrice.toFixed(2)}
               </div>
             </div>
@@ -189,7 +189,7 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
                     <div
                       key={pattern.season}
                       className={`rounded-lg border p-3 ${
-                        isBest ? 'border-green-300 bg-green-50' : 'bg-muted/50 border-border'
+                        isBest ? 'border-success bg-success/5' : 'bg-muted/50 border-border'
                       }`}
                     >
                       <div className="text-center">
@@ -197,7 +197,7 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
                         <div className="mb-1 text-xs font-medium capitalize">{pattern.season}</div>
                         <div
                           className={`text-sm font-semibold ${
-                            isBest ? 'text-green-700' : 'text-foreground'
+                            isBest ? 'text-success' : 'text-foreground'
                           }`}
                         >
                           ${pattern.averagePrice.toFixed(2)}
@@ -205,7 +205,7 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
                         {isBest && (
                           <Badge
                             variant="outline"
-                            className="mt-1 border-green-200 bg-green-100 text-xs text-green-800"
+                            className="mt-1 border-success bg-success/10 text-xs text-success"
                           >
                             Best
                           </Badge>
@@ -238,7 +238,7 @@ export function SeasonalPatterns({ data, isLoading }: SeasonalPatternsProps) {
                       <div className="bg-muted h-6 overflow-hidden rounded-full">
                         <div
                           className={`h-full ${
-                            isLowest ? 'bg-green-500' : isHighest ? 'bg-red-400' : 'bg-blue-400'
+                            isLowest ? 'bg-success' : isHighest ? 'bg-destructive' : 'bg-info'
                           } transition-all`}
                           style={{ width: `${barWidth}%` }}
                         />

@@ -136,12 +136,12 @@ export function PriceHistoryModal({
                   <li className="flex items-center gap-2">
                     {chartData.currentPrice <= chartData.averagePrice ? (
                       <>
-                        <TrendingDown className="h-4 w-4 text-green-600" />
+                        <TrendingDown className="h-4 w-4 text-success" />
                         <span>Current price is below average</span>
                       </>
                     ) : (
                       <>
-                        <TrendingUp className="h-4 w-4 text-red-600" />
+                        <TrendingUp className="h-4 w-4 text-destructive" />
                         <span>Current price is above average</span>
                       </>
                     )}
@@ -161,15 +161,15 @@ export function PriceHistoryModal({
                 <h4 className="mb-2 font-semibold">Recommendation</h4>
                 <p className="text-sm">
                   {chartData.currentPrice <= chartData.lowestPrice * 1.05 ? (
-                    <span className="font-medium text-green-600">
+                    <span className="font-medium text-success">
                       ✓ Great time to buy! Price is near the lowest recorded.
                     </span>
                   ) : chartData.currentPrice <= chartData.averagePrice ? (
-                    <span className="font-medium text-blue-600">
+                    <span className="font-medium text-info">
                       Good deal. Price is below average.
                     </span>
                   ) : (
-                    <span className="font-medium text-amber-600">
+                    <span className="font-medium text-warning">
                       Consider waiting. Price is above average.
                     </span>
                   )}

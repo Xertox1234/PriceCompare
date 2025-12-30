@@ -47,7 +47,7 @@ export function MostWatchedWidget({ limit = 10, compact = false }: MostWatchedWi
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-blue-600" />
+          <TrendingUp className="h-5 w-5 text-info" />
           Trending Products
         </CardTitle>
         {!compact && <CardDescription>Most watched products by the community</CardDescription>}

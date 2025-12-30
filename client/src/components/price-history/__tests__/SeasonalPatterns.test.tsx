@@ -270,13 +270,13 @@ describe('SeasonalPatterns', () => {
 
     it('should use appropriate colors for best month', () => {
       const { container } = render(<SeasonalPatterns data={mockDataWithPattern} />);
-      const bestMonth = container.querySelector('.bg-green-50');
+      const bestMonth = container.querySelector('[class*="bg-success"]');
       expect(bestMonth).toBeInTheDocument();
     });
 
     it('should use appropriate colors for worst month', () => {
       const { container } = render(<SeasonalPatterns data={mockDataWithPattern} />);
-      const worstMonth = container.querySelector('.bg-red-50');
+      const worstMonth = container.querySelector('[class*="bg-destructive"]');
       expect(worstMonth).toBeInTheDocument();
     });
   });

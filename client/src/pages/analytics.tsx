@@ -108,12 +108,12 @@ export default function AnalyticsPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-muted-foreground flex items-center gap-1 text-sm font-medium">
-                  <TrendingUp className="h-4 w-4 text-red-600" />
+                  <TrendingUp className="h-4 w-4 text-destructive" />
                   Uptrends
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-2xl font-bold text-destructive">
                   {overview.trendBreakdown.uptrend}
                 </div>
               </CardContent>
@@ -121,12 +121,12 @@ export default function AnalyticsPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-muted-foreground flex items-center gap-1 text-sm font-medium">
-                  <TrendingDown className="h-4 w-4 text-green-600" />
+                  <TrendingDown className="h-4 w-4 text-success" />
                   Downtrends
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-success">
                   {overview.trendBreakdown.downtrend}
                 </div>
               </CardContent>
@@ -134,12 +134,12 @@ export default function AnalyticsPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-muted-foreground flex items-center gap-1 text-sm font-medium">
-                  <Minus className="h-4 w-4 text-gray-600" />
+                  <Minus className="h-4 w-4 text-muted-foreground" />
                   Stable
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-600">
+                <div className="text-2xl font-bold text-muted-foreground">
                   {overview.trendBreakdown.stable}
                 </div>
               </CardContent>

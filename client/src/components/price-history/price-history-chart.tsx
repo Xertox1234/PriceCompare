@@ -191,11 +191,11 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
             </div>
             <div className="space-y-1">
               <p className="text-muted-foreground text-sm">Lowest</p>
-              <p className="text-2xl font-bold text-green-600">${data.lowestPrice.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-success">${data.lowestPrice.toFixed(2)}</p>
             </div>
             <div className="space-y-1">
               <p className="text-muted-foreground text-sm">Highest</p>
-              <p className="text-2xl font-bold text-red-600">${data.highestPrice.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-destructive">${data.highestPrice.toFixed(2)}</p>
             </div>
             <div className="space-y-1">
               <p className="text-muted-foreground text-sm">Average</p>
@@ -211,9 +211,9 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
                 className={cn(
                   'font-medium',
                   data.priceChange7d < 0
-                    ? 'text-green-600'
+                    ? 'text-success'
                     : data.priceChange7d > 0
-                      ? 'text-red-600'
+                      ? 'text-destructive'
                       : ''
                 )}
               >

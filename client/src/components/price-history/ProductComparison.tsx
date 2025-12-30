@@ -262,8 +262,8 @@ export function ProductComparison({
                   key={insight.product.id}
                   className={`rounded-lg border-2 p-3 ${
                     insight.isGoodDeal
-                      ? 'border-green-200 bg-green-50'
-                      : 'border-gray-200 bg-gray-50'
+                      ? 'border-success bg-success/10'
+                      : 'border-muted bg-muted/10'
                   }`}
                 >
                   <div className="mb-2 flex items-center justify-between">
@@ -289,14 +289,14 @@ export function ProductComparison({
                       <span>${insight.averagePrice.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-green-600">Best:</span>
-                      <span className="font-semibold text-green-600">
+                      <span className="text-success">Best:</span>
+                      <span className="font-semibold text-success">
                         ${insight.lowestPrice.toFixed(2)}
                       </span>
                     </div>
                     {insight.isGoodDeal && (
-                      <div className="mt-1 border-t border-green-200 pt-1">
-                        <span className="font-semibold text-green-700">🎉 Great Deal!</span>
+                      <div className="mt-1 border-t border-success/20 pt-1">
+                        <span className="font-semibold text-success">🎉 Great Deal!</span>
                       </div>
                     )}
                   </div>

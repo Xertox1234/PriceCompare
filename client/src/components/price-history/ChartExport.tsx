@@ -118,7 +118,7 @@ export function ChartExport({
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void handleCopyImage()} disabled={isExporting}>
           {copied ? (
-            <Check className="mr-2 h-4 w-4 text-green-600" />
+            <Check className="mr-2 h-4 w-4 text-success" />
           ) : (
             <Copy className="mr-2 h-4 w-4" />
           )}
@@ -126,7 +126,7 @@ export function ChartExport({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleCopyLink}>
           {copied ? (
-            <Check className="mr-2 h-4 w-4 text-green-600" />
+            <Check className="mr-2 h-4 w-4 text-success" />
           ) : (
             <Share2 className="mr-2 h-4 w-4" />
           )}

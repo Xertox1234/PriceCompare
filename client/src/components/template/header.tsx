@@ -114,11 +114,11 @@ export function TemplateHeader({
             <div className="flex h-16 items-center justify-between lg:h-20">
               {/* Logo */}
               <Link href="/" className="flex shrink-0 items-center gap-2">
-                <div className="bg-template-primary flex h-10 w-10 items-center justify-center rounded-lg">
+                <div className="bg-primary flex h-10 w-10 items-center justify-center rounded-lg">
                   <span className="text-xl font-bold text-white">P</span>
                 </div>
                 <span className="text-foreground hidden text-xl font-bold sm:block">
-                  Price<span className="text-template-primary">Compare</span>
+                  Price<span className="text-primary">Compare</span>
                 </span>
               </Link>
 
@@ -130,10 +130,10 @@ export function TemplateHeader({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search for products, brands and more..."
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-template-primary h-12 w-full rounded-lg border pr-12 pl-5 text-sm transition-all focus:border-transparent focus:ring-2 focus:outline-none"
+                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-primary h-12 w-full rounded-lg border pr-12 pl-5 text-sm transition-all focus:border-transparent focus:ring-2 focus:outline-none"
                   />
                   <button
-                    className="bg-template-primary hover:bg-template-primary-hover absolute top-1 right-1 h-10 rounded-md px-4 text-white transition-colors"
+                    className="bg-primary hover:bg-primary/90 absolute top-1 right-1 h-10 rounded-md px-4 text-white transition-colors"
                     onClick={() => {
                       if (searchQuery) {
                         window.location.href = `/shop?search=${encodeURIComponent(searchQuery)}`;
@@ -235,7 +235,7 @@ export function TemplateHeader({
                 >
                   <GitCompareArrows className="h-6 w-6" />
                   {compareCount > 0 && (
-                    <span className="bg-template-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white">
+                    <span className="bg-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white">
                       {compareCount}
                     </span>
                   )}
@@ -248,7 +248,7 @@ export function TemplateHeader({
                 >
                   <Heart className="h-6 w-6" />
                   {wishlistCount > 0 && (
-                    <span className="bg-template-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white">
+                    <span className="bg-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white">
                       {wishlistCount}
                     </span>
                   )}
@@ -261,7 +261,7 @@ export function TemplateHeader({
                 >
                   <ShoppingCart className="h-6 w-6" />
                   {cartCount > 0 && (
-                    <span className="bg-template-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white">
+                    <span className="bg-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white">
                       {cartCount}
                     </span>
                   )}
@@ -290,7 +290,7 @@ export function TemplateHeader({
                     <Link
                       href={item.link}
                       className={cn(
-                        'text-muted-foreground hover:text-template-primary flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors',
+                        'text-muted-foreground hover:text-primary flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors',
                         item.megaMenu && 'cursor-pointer'
                       )}
                     >
@@ -315,7 +315,7 @@ export function TemplateHeader({
                                   <li key={subIdx}>
                                     <Link
                                       href={subItem.link}
-                                      className="text-muted-foreground hover:text-template-primary text-sm transition-colors"
+                                      className="text-muted-foreground hover:text-primary text-sm transition-colors"
                                     >
                                       {subItem.label}
                                     </Link>
@@ -339,10 +339,10 @@ export function TemplateHeader({
                                 className="h-20 w-20 rounded-lg object-cover"
                               />
                               <div>
-                                <span className="text-template-primary text-xs font-medium tracking-wider uppercase">
+                                <span className="text-primary text-xs font-medium tracking-wider uppercase">
                                   Featured
                                 </span>
-                                <h5 className="text-foreground group-hover/featured:text-template-primary font-medium transition-colors">
+                                <h5 className="text-foreground group-hover/featured:text-primary font-medium transition-colors">
                                   {item.megaMenu.featured.title}
                                 </h5>
                               </div>
@@ -358,10 +358,10 @@ export function TemplateHeader({
               {/* Right Side - View All Deals */}
               <Link
                 href="/shop?deals=true"
-                className="text-template-primary flex items-center gap-2 text-sm font-medium hover:underline"
+                className="text-primary flex items-center gap-2 text-sm font-medium hover:underline"
               >
                 <span>View All Deals</span>
-                <span className="bg-template-primary rounded px-2 py-0.5 text-xs font-bold text-white">
+                <span className="bg-primary rounded px-2 py-0.5 text-xs font-bold text-white">
                   HOT
                 </span>
               </Link>
@@ -382,11 +382,11 @@ export function TemplateHeader({
           <div className="flex h-14 items-center justify-between gap-4">
             {/* Logo */}
             <Link href="/" className="flex shrink-0 items-center gap-2">
-              <div className="bg-template-primary flex h-8 w-8 items-center justify-center rounded-lg">
+              <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
                 <span className="text-lg font-bold text-white">P</span>
               </div>
               <span className="text-foreground hidden text-lg font-bold sm:block">
-                Price<span className="text-template-primary">Compare</span>
+                Price<span className="text-primary">Compare</span>
               </span>
             </Link>
 
@@ -398,10 +398,10 @@ export function TemplateHeader({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for products, brands and more..."
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-template-primary h-10 w-full rounded-lg border pr-12 pl-4 text-sm transition-all focus:border-transparent focus:ring-2 focus:outline-none"
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-primary h-10 w-full rounded-lg border pr-12 pl-4 text-sm transition-all focus:border-transparent focus:ring-2 focus:outline-none"
                 />
                 <button
-                  className="bg-template-primary hover:bg-template-primary-hover absolute top-1 right-1 h-8 rounded-md px-3 text-white transition-colors"
+                  className="bg-primary hover:bg-primary/90 absolute top-1 right-1 h-8 rounded-md px-3 text-white transition-colors"
                   onClick={() => {
                     if (searchQuery) {
                       window.location.href = `/shop?search=${encodeURIComponent(searchQuery)}`;
@@ -422,7 +422,7 @@ export function TemplateHeader({
               >
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
-                  <span className="bg-template-primary text-2xs absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-medium text-white">
+                  <span className="bg-primary text-2xs absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-medium text-white">
                     {cartCount}
                   </span>
                 )}
@@ -435,7 +435,7 @@ export function TemplateHeader({
               >
                 <Heart className="h-5 w-5" />
                 {wishlistCount > 0 && (
-                  <span className="bg-template-primary text-2xs absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-medium text-white">
+                  <span className="bg-primary text-2xs absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-medium text-white">
                     {wishlistCount}
                   </span>
                 )}
@@ -469,11 +469,11 @@ export function CompactHeader() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="bg-template-primary flex h-8 w-8 items-center justify-center rounded-lg">
+            <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
               <span className="text-lg font-bold text-white">P</span>
             </div>
             <span className="text-foreground text-lg font-bold">
-              Price<span className="text-template-primary">Compare</span>
+              Price<span className="text-primary">Compare</span>
             </span>
           </Link>
 
@@ -485,7 +485,7 @@ export function CompactHeader() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search products..."
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-template-primary h-10 w-full rounded-lg border pr-10 pl-4 text-sm focus:ring-2 focus:outline-none"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-primary h-10 w-full rounded-lg border pr-10 pl-4 text-sm focus:ring-2 focus:outline-none"
               />
               <Search className="text-muted-foreground absolute top-1/2 right-3 h-5 w-5 -translate-y-1/2" />
             </div>
@@ -499,7 +499,7 @@ export function CompactHeader() {
             >
               <Heart className="h-5 w-5" />
               {wishlistCount > 0 && (
-                <span className="bg-template-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-white">
+                <span className="bg-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-white">
                   {wishlistCount}
                 </span>
               )}
@@ -507,7 +507,7 @@ export function CompactHeader() {
             <button className="text-muted-foreground hover:text-foreground relative p-2 transition-colors">
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
-                <span className="bg-template-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-white">
+                <span className="bg-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-white">
                   {cartCount}
                 </span>
               )}

@@ -44,34 +44,34 @@ const retailerBrandConfigs: Record<string, RetailerBrandConfig> = {
   '2': {
     // Target
     name: 'Target',
-    gradient: 'from-red-600 via-red-500 to-rose-600',
+    gradient: 'from-destructive via-destructive/80 to-destructive',
     textColor: 'text-white',
     buttonVariant: 'secondary',
-    buttonClass: 'bg-white/90 text-red-900 hover:bg-white',
+    buttonClass: 'bg-white/90 text-destructive hover:bg-white',
   },
   '3': {
     // Best Buy
     name: 'Best Buy',
-    gradient: 'from-blue-700 via-blue-600 to-yellow-500',
+    gradient: 'from-info via-info/80 to-warning',
     textColor: 'text-white',
     buttonVariant: 'secondary',
-    buttonClass: 'bg-yellow-400 text-blue-900 hover:bg-yellow-300',
+    buttonClass: 'bg-warning text-info hover:bg-warning/80',
   },
   '4': {
     // Walmart
     name: 'Walmart',
-    gradient: 'from-blue-600 via-blue-500 to-blue-700',
+    gradient: 'from-info via-info/80 to-info',
     textColor: 'text-white',
     buttonVariant: 'secondary',
-    buttonClass: 'bg-yellow-400 text-blue-900 hover:bg-yellow-300',
+    buttonClass: 'bg-warning text-info hover:bg-warning/80',
   },
   '5': {
     // Costco
     name: 'Costco',
-    gradient: 'from-red-700 via-red-600 to-blue-800',
+    gradient: 'from-destructive via-destructive/80 to-info',
     textColor: 'text-white',
     buttonVariant: 'secondary',
-    buttonClass: 'bg-white/90 text-red-900 hover:bg-white',
+    buttonClass: 'bg-white/90 text-destructive hover:bg-white',
   },
 };
 

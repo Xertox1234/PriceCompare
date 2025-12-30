@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.5
-**Last Updated:** 2025-12-26
+**Version:** 2.6
+**Last Updated:** 2025-12-30
 **Changelog:**
+- 2.6 (2025-12-30): Added CSS Architecture Consolidation patterns: Large-Scale Design Token Migration Strategy, Component-First Configuration-Last Migration Order, Semantic Design Token Mapping Strategy, Phase-Gated Refactoring with Verification Checkpoints (from TODO 008 - 442 violations, 60+ files, zero regressions)
 - 2.5 (2025-12-26): Enhanced Lazy Loading verification checklist with production testing requirements
 - 2.4 (2025-12-26): Added Lazy Loading for Bundle Size Optimization pattern to Performance section
 - 2.3 (2025-12-23): Added "When to Use" context to Component Reuse pattern
@@ -48,6 +49,10 @@
   - [Theme Configuration](#theme-configuration)
   - [Custom Utility Classes](#custom-utility-classes)
   - [Avoiding Arbitrary Values](#avoiding-arbitrary-values)
+  - [Large-Scale Design Token Migration Strategy](#large-scale-design-token-migration-strategy)
+  - [Component-First Configuration-Last Migration Order](#component-first-configuration-last-migration-order)
+  - [Semantic Design Token Mapping Strategy](#semantic-design-token-mapping-strategy)
+  - [Phase-Gated Refactoring with Verification Checkpoints](#phase-gated-refactoring-with-verification-checkpoints)
 10. [Testing Patterns](#testing-patterns)
 11. [Checklist](#frontend-checklist)
 
@@ -2395,6 +2400,59 @@ test('below-the-fold sections lazy load correctly', async ({ page }) => {
 
 ## Common Anti-Patterns
 
+### Hardcoded Colors (CRITICAL)
+
+**NEVER use hardcoded hex colors in Tailwind classes.** Use design tokens from `@theme` in `index.css`.
+
+#### ❌ WRONG - Hardcoded Hex Colors
+```tsx
+// THIS WILL FAIL PRE-COMMIT HOOKS!
+<div className="bg-[#3B82F6] text-[#FFFFFF]">
+  Price Alert
+</div>
+
+<div className="border-[#E5E7EB] hover:bg-[#F3F4F6]">
+  Product Card
+</div>
+
+<Button className="bg-gradient-to-r from-[#3B82F6] to-[#8B5CF6]">
+  Get Deal
+</Button>
+```
+
+**Problems:**
+- Violates design system architecture (single source of truth)
+- Breaks dark mode (hardcoded colors don't adapt)
+- Fails pre-commit hooks (automated enforcement)
+- Creates maintenance burden (color changes require manual updates)
+- Inconsistent UX across components
+
+#### ✅ CORRECT - Use Design Tokens
+```tsx
+// Use semantic design tokens
+<div className="bg-primary text-primary-foreground">
+  Price Alert
+</div>
+
+<div className="border-border hover:bg-muted">
+  Product Card
+</div>
+
+// Use gradient utilities
+<Button className="gradient-brand text-white">
+  Get Deal
+</Button>
+```
+
+**Acceptable Exceptions:**
+1. **Chart colors** - Data visualization (e.g., `<Line stroke="#3b82f6" />`)
+2. **User-selected colors** - Custom preferences (e.g., label colors)
+3. **Third-party integrations** - External library requirements
+
+**See:** `docs/DESIGN_SYSTEM.md` for complete design token reference.
+
+---
+
 ### Hardcoded Values
 
 #### ❌ WRONG - Hardcoded IDs and Constants
@@ -2665,6 +2723,493 @@ If migrating from Tailwind v3:
 - Uses `@tailwindcss/vite` plugin (not PostCSS)
 - Configuration in `index.css` via `@theme`
 - Legacy `tailwind.config.ts` exists for `tailwindcss-animate` plugin
+
+---
+
+### Large-Scale Design Token Migration Strategy
+
+**Context:** When consolidating multiple conflicting color systems or migrating from hardcoded colors to design tokens across 100+ instances in 50+ files.
+
+**Problem:** Bulk find/replace can break builds, miss edge cases, or cause visual regressions. Direct configuration changes before component migration can cause Tailwind to not recognize classes during the migration phase.
+
+**✅ Preferred Approach (Phased Migration):**
+
+```
+PHASE 1: Color System Consolidation
+  1. Audit current usage
+     - grep -r "template\." client/src --include="*.tsx"
+     - Count violations by file and pattern
+
+  2. Choose winning system (document decision in DESIGN_SYSTEM.md)
+     - Example: @theme system wins over template.* colors
+
+  3. ⚠️ CRITICAL ORDER: Migrate component usage FIRST
+     - Update all component files to use new classes
+     - Old classes MUST still exist in config during this step
+     - Use Edit tool for file-by-file changes (NOT sed)
+
+  4. Remove from config AFTER components migrated
+     - Only after grep confirms zero usage
+     - Update tailwind.config.ts or index.css @theme
+
+  5. VERIFICATION CHECKPOINT (MANDATORY):
+     - npm run build (zero warnings required)
+     - grep -r "old-pattern" client/src (zero matches)
+     - Manual UI spot check (3-5 key pages in light + dark mode)
+
+PHASE 2: Design Token Enforcement
+  1. Create semantic token mapping
+     - green-600 → text-success
+     - red-100 → bg-destructive/10
+     - Document mapping in DESIGN_SYSTEM.md
+
+  2. Prioritize files (high-traffic pages first)
+     - Landing page, product detail, search results
+
+  3. File-by-file migration (use Edit tool)
+     - Read file with Read tool
+     - Edit with exact string replacement
+     - NEVER use sed or bulk replace
+
+  4. Document acceptable exceptions
+     - Chart colors (data visualization)
+     - User-selected colors (preferences)
+     - Third-party library constraints
+
+  5. VERIFICATION CHECKPOINT (MANDATORY):
+     - npm run build
+     - Count remaining violations (should decrease)
+     - Spot check updated pages
+
+PHASE 3: Cleanup & Documentation
+  1. Remove orphaned CSS files
+  2. Document necessary !important usage
+  3. Update DESIGN_SYSTEM.md with final architecture
+  4. Codify learnings to pattern docs
+
+  5. FINAL VERIFICATION:
+     - npm run build (zero warnings)
+     - npm test (all tests pass)
+     - Dark mode visual check
+     - Light mode visual check
+```
+
+**❌ Anti-Pattern (What NOT to Do):**
+
+```bash
+# ❌ WRONG - Remove from config BEFORE migrating components
+# This causes Tailwind to not recognize classes during migration!
+# Step 1: Update tailwind.config.ts (removes template colors)
+# Step 2: Update components (classes not recognized - build fails!)
+
+# ❌ WRONG - Global sed replacement without verification
+sed -i 's/bg-green-600/bg-success/g' client/src/**/*.tsx
+# Missing: opacity patterns, context-specific usage, edge cases
+
+# ❌ WRONG - Skipping verification checkpoints
+# Phase 1 complete, immediately start Phase 2
+# (If Phase 1 broke something, Phase 2 compounds the error)
+```
+
+**Rationale:**
+- **Component-first order** prevents Tailwind from losing class definitions mid-migration
+- **File-by-file approach** catches context-specific edge cases that sed misses
+- **Verification checkpoints** prevent cascading failures
+- **Phased approach** makes rollback easier if issues found
+- **Systematic documentation** ensures team alignment and prevents rework
+
+**Success Metrics from TODO 008:**
+- 442 violations eliminated (47 template.* + 395 hardcoded colors)
+- 60+ files updated without breaking builds
+- 93.2% reduction in hardcoded colors
+- Zero visual regressions
+- Completed in 6-8 hours (aligned with 1-day estimate)
+
+*Source: TODO 008 CSS Architecture Consolidation*
+*Added: 2025-12-30*
+
+---
+
+### Component-First Configuration-Last Migration Order
+
+**Context:** Migrating from one Tailwind color system to another (e.g., template.* colors to @theme tokens).
+
+**Problem:** Removing colors from configuration before updating components causes Tailwind to not recognize the classes, resulting in build failures and broken styles.
+
+**✅ Preferred Approach:**
+
+```
+CORRECT ORDER:
+1. Migrate component files
+   - Change template.primary-600 → bg-primary in all .tsx files
+   - Old classes still work (defined in config)
+
+2. VERIFY all components migrated
+   - grep -r "template\." client/src (zero matches)
+   - npm run build (verify build succeeds)
+
+3. Remove from configuration
+   - Update tailwind.config.ts or index.css @theme
+   - Remove old template.* color definitions
+
+4. VERIFY build still works
+   - npm run build (should still succeed)
+   - No missing class warnings
+```
+
+**❌ Anti-Pattern:**
+
+```
+WRONG ORDER (causes migration failures):
+1. ❌ Remove template.* from tailwind.config.ts
+   - Tailwind no longer generates template.* classes
+
+2. ❌ Attempt to migrate components
+   - Components still use template.primary-600
+   - Tailwind doesn't recognize the class (not in config!)
+   - Build fails or styles missing
+   - Developer confusion about what went wrong
+```
+
+**Why This Matters:**
+
+Tailwind CSS generates utility classes **only for tokens defined in configuration**. During migration:
+
+- **Old classes still used in components** → Need old config entries to generate classes
+- **Remove config too early** → Tailwind stops generating those classes
+- **Components fail to compile** → Missing class definitions
+- **Migration blocked** → Can't proceed until config restored
+
+**Correct Flow:**
+```
+Config has OLD classes → Components use OLD classes ✅ (works)
+Config has OLD classes → Components use NEW classes ✅ (works, old unused)
+Config has NEW classes → Components use NEW classes ✅ (works)
+Config has NEW classes → Components use OLD classes ❌ (FAILS - class undefined)
+```
+
+**Verification Commands:**
+
+```bash
+# Before removing from config, ensure zero usage:
+grep -r "template\." client/src --include="*.tsx"
+# Expected: No matches found
+
+# After migration, verify build:
+npm run build
+# Expected: Build succeeds, no class warnings
+```
+
+*Source: TODO 008 CSS Architecture Consolidation (Phase 1)*
+*Added: 2025-12-30*
+
+---
+
+### Semantic Design Token Mapping Strategy
+
+**Context:** Replacing Tailwind utility colors (green-600, red-100, blue-50) with semantic design tokens during large-scale design system migration.
+
+**Problem:** Need consistent, maintainable mapping from utility colors to semantic tokens that preserves visual intent and supports dark mode.
+
+**✅ Preferred Approach (Semantic Mapping):**
+
+```tsx
+// SUCCESS STATES (green → success)
+// Solid backgrounds
+bg-green-600 → bg-success
+bg-green-500 → bg-success
+text-green-600 → text-success
+border-green-500 → border-success
+
+// Transparent backgrounds (opacity pattern)
+bg-green-100 → bg-success/10  // 10% opacity
+bg-green-50 → bg-success/5     // 5% opacity
+bg-green-200 → bg-success/20   // 20% opacity
+
+// ERROR/DESTRUCTIVE STATES (red → destructive)
+bg-red-600 → bg-destructive
+bg-red-100 → bg-destructive/10
+text-red-600 → text-destructive
+border-red-500 → border-destructive
+
+// INFO STATES (blue → info)
+bg-blue-600 → bg-info
+bg-blue-50 → bg-info/5
+text-blue-600 → text-info
+
+// WARNING STATES (yellow/amber → warning)
+bg-yellow-600 → bg-warning
+bg-amber-100 → bg-warning/10
+text-yellow-600 → text-warning
+
+// MUTED/NEUTRAL (gray → muted)
+text-gray-400 → text-muted-foreground
+bg-gray-100 → bg-muted/10
+bg-gray-50 → bg-muted/5
+border-gray-200 → border-border
+```
+
+**Opacity Pattern Convention:**
+
+```tsx
+// Use /N for N% opacity backgrounds
+bg-success/10  // 10% success color
+bg-success/5   // 5% success color
+bg-destructive/20  // 20% destructive color
+
+// Benefits:
+// - Consistent with Tailwind 4 opacity syntax
+// - Works with HSL color format in @theme
+// - Supports dark mode automatically
+```
+
+**Context-Specific Mapping:**
+
+```tsx
+// Price drops / savings (positive financial outcome)
+text-green-600 → text-success ✅
+
+// Stock availability
+"In Stock" bg-green-100 → bg-success/10 ✅
+"Out of Stock" bg-red-100 → bg-destructive/10 ✅
+"Limited Stock" bg-yellow-100 → bg-warning/10 ✅
+
+// Buttons
+bg-green-600 hover:bg-green-700 → bg-success hover:bg-success/90 ✅
+
+// Badges
+bg-blue-100 text-blue-800 → bg-info/10 text-info ✅
+```
+
+**❌ Anti-Pattern:**
+
+```tsx
+// ❌ WRONG - Inconsistent mapping
+bg-green-600 → bg-green-600  // Still hardcoded!
+bg-green-100 → bg-green-50   // Wrong direction
+
+// ❌ WRONG - Lost semantic meaning
+text-success → text-green-600  // Backward migration!
+
+// ❌ WRONG - Manual opacity calculation
+bg-green-100 → bg-[hsl(142,71%,45%,0.1)]  // Use bg-success/10 instead
+
+// ❌ WRONG - Mixing systems
+bg-success text-green-600  // Inconsistent - use text-success
+```
+
+**Acceptable Exceptions:**
+
+1. **Data Visualization (Charts):**
+   ```tsx
+   // ✅ ACCEPTABLE - Chart-specific colors
+   <Line stroke="#3b82f6" dataKey="price" />
+   <Bar fill="#10b981" dataKey="sales" />
+   // Reason: Chart libraries need specific hex colors for data clarity
+   ```
+
+2. **User-Selected Colors:**
+   ```tsx
+   // ✅ ACCEPTABLE - User preference data
+   <div style={{ backgroundColor: userPreferences.labelColor }} />
+   // Reason: User's personal choice, not design system color
+   ```
+
+3. **Third-Party Library Constraints:**
+   ```tsx
+   // ✅ ACCEPTABLE - Library requirement
+   <ExternalComponent color={entry.color || '#000000'} />
+   // Reason: External library API requires hex color string
+   ```
+
+**Rationale:**
+- **Semantic tokens** enable theme-wide color changes without touching components
+- **Opacity pattern** provides consistent transparency levels
+- **Dark mode support** automatic when using HSL-based tokens
+- **Maintainability** improved - change token value once vs 100 components
+- **Accessibility** easier to enforce WCAG contrast requirements centrally
+
+**Migration Verification:**
+
+```bash
+# Find remaining hardcoded colors (should decrease with each file)
+grep -r "bg-green-" client/src --include="*.tsx" | wc -l
+grep -r "bg-red-" client/src --include="*.tsx" | wc -l
+grep -r "text-blue-" client/src --include="*.tsx" | wc -l
+
+# Target: 0 matches (except documented exceptions)
+```
+
+*Source: TODO 008 CSS Architecture Consolidation (Phase 2 - 395 colors migrated)*
+*Added: 2025-12-30*
+
+---
+
+### Phase-Gated Refactoring with Verification Checkpoints
+
+**Context:** Large refactorings that touch 50+ files and could cascade failures if errors occur (e.g., design system migrations, API refactors, dependency upgrades).
+
+**Problem:** Without verification checkpoints, a single error in Phase 1 can compound with Phase 2 changes, making root cause diagnosis difficult and rollback complex.
+
+**✅ Preferred Approach (Phase-Gated with Mandatory Verification):**
+
+**Checkpoint Requirements (ALL must pass before next phase):**
+
+```bash
+# 1. Build Verification (zero warnings tolerance)
+npm run build
+# Expected: Build succeeded, 0 warnings
+
+# 2. Automated Verification (pattern-specific)
+# Example for CSS migration:
+grep -r "old-pattern" client/src --include="*.tsx"
+# Expected: 0 matches found
+
+# Example for API migration:
+grep -r "deprecated-api-call" server/routes --include="*.ts"
+# Expected: 0 matches found
+
+# 3. Manual Spot Check (prevent visual regressions)
+# - Load 3-5 key pages in browser
+# - Test light mode (all pages)
+# - Test dark mode (all pages)
+# - Verify no broken styles
+# - Verify no console errors
+# - Check mobile responsive (if applicable)
+
+# 4. Test Suite (if tests exist for changed area)
+npm test
+# Expected: All tests pass
+```
+
+**Phase Progression Rules:**
+
+```
+Phase 1 Complete
+  ↓
+All Verification Checks Pass?
+  ├─ NO → Fix issues, re-verify, DO NOT proceed
+  └─ YES → Proceed to Phase 2
+
+Phase 2 Complete
+  ↓
+All Verification Checks Pass?
+  ├─ NO → Fix issues, re-verify, DO NOT proceed
+  └─ YES → Proceed to Phase 3
+
+Phase 3 Complete
+  ↓
+FINAL Verification (all checks + additional)
+  - npm run build && npm test
+  - Full manual regression test
+  - Dark + light mode
+  - Performance check (if applicable)
+```
+
+**Example: CSS Architecture Consolidation (TODO 008):**
+
+```
+PHASE 1: Template Color Removal (47 violations)
+  - Migrate components from template.* to @theme
+  - Update tailwind.config.ts
+
+  ✅ CHECKPOINT 1:
+    - npm run build ✓
+    - grep -r "template\." client/src (0 matches) ✓
+    - Spot check: Landing page, Product detail, Search (light+dark) ✓
+
+  Result: PASS → Proceed to Phase 2
+
+PHASE 2: Hardcoded Color Token Replacement (395 violations)
+  - Replace green-600 → text-success (60+ files)
+  - Replace red-100 → bg-destructive/10
+
+  ✅ CHECKPOINT 2:
+    - npm run build ✓
+    - grep -r "bg-green-|text-green-" count: 395 → 24 (94% reduction) ✓
+    - Spot check: Updated pages (light+dark) ✓
+
+  Result: PASS → Proceed to Phase 3
+
+PHASE 3: Cleanup & Documentation
+  - Remove orphaned CSS files
+  - Document !important usage
+  - Update DESIGN_SYSTEM.md
+
+  ✅ FINAL CHECKPOINT:
+    - npm run build && npm test ✓
+    - Full UI regression test ✓
+    - Dark mode check (all pages) ✓
+    - Documentation review ✓
+
+  Result: PASS → Mark TODO complete
+```
+
+**❌ Anti-Pattern (Checkpoint Skipping):**
+
+```
+❌ WRONG - Skip verification, compound errors:
+
+Phase 1: Remove template colors from config
+  (Config change breaks 10 components)
+
+Phase 2: Start hardcoded color migration
+  (Now have 2 sources of errors mixed together)
+
+Phase 3: Try to fix everything at once
+  (Can't tell which errors from Phase 1 vs Phase 2)
+  (Rollback unclear - revert Phase 2? Phase 1? Both?)
+
+Result:
+  - Diagnosis time: 2+ hours
+  - Rollback complexity: High
+  - Developer frustration: High
+  - Risk of introducing new bugs: High
+```
+
+**❌ Anti-Pattern (Insufficient Verification):**
+
+```
+❌ WRONG - Build check only:
+
+Phase 1 Complete
+  ✓ npm run build (passes)
+  ✗ Skipped: grep verification
+  ✗ Skipped: manual UI check
+
+Issue: Build passes but visual regressions introduced
+  - Button colors wrong in dark mode
+  - Missing hover states on links
+  - Discovered in Phase 3 (too late, mixed with other changes)
+```
+
+**Rationale:**
+- **Prevents cascading errors** - Catch issues before they compound
+- **Clear rollback points** - Know exactly which phase introduced issue
+- **Faster debugging** - Smaller changesets to investigate
+- **Higher confidence** - Each phase validated before proceeding
+- **Better documentation** - Checkpoint results provide audit trail
+- **Reduced risk** - Incremental validation vs big-bang testing
+
+**Time Investment:**
+- Verification overhead: ~10-15 minutes per phase
+- Time saved on debugging: 1-3 hours (prevents compound errors)
+- Net benefit: Positive (especially for 50+ file changes)
+
+**When to Use:**
+- ✅ 50+ files affected
+- ✅ Multiple logical phases
+- ✅ Critical systems (auth, payments, design system)
+- ✅ API contract changes
+- ✅ Dependency major version upgrades
+
+**When NOT Necessary:**
+- Single file changes
+- Isolated component updates
+- Non-critical experimental features
+
+*Source: TODO 008 CSS Architecture Consolidation (3-phase migration, 60+ files, zero regressions)*
+*Added: 2025-12-30*
 
 ---
 

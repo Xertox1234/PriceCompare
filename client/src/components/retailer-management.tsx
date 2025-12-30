@@ -251,13 +251,13 @@ export function RetailerManagement() {
   const getHealthIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case 'degraded':
-        return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+        return <AlertTriangle className="h-4 w-4 text-warning" />;
       case 'down':
-        return <XCircle className="h-4 w-4 text-red-600" />;
+        return <XCircle className="h-4 w-4 text-destructive" />;
       default:
-        return <AlertTriangle className="h-4 w-4 text-gray-400" />;
+        return <AlertTriangle className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -621,7 +621,7 @@ export function RetailerManagement() {
                   <Card>
                     <CardContent className="p-4">
                       <div className="mb-2 flex items-center gap-2">
-                        <Store className="h-5 w-5 text-blue-600" />
+                        <Store className="h-5 w-5 text-info" />
                         <span className="text-sm font-medium">Total Retailers</span>
                       </div>
                       <p className="text-2xl font-bold">{hybridStatus.totalRetailers}</p>
@@ -631,7 +631,7 @@ export function RetailerManagement() {
                   <Card>
                     <CardContent className="p-4">
                       <div className="mb-2 flex items-center gap-2">
-                        <Key className="h-5 w-5 text-green-600" />
+                        <Key className="h-5 w-5 text-success" />
                         <span className="text-sm font-medium">API Enabled</span>
                       </div>
                       <p className="text-2xl font-bold">{hybridStatus.apiRetailers}</p>
@@ -641,7 +641,7 @@ export function RetailerManagement() {
                   <Card>
                     <CardContent className="p-4">
                       <div className="mb-2 flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-emerald-600" />
+                        <CheckCircle className="h-5 w-5 text-success" />
                         <span className="text-sm font-medium">Healthy APIs</span>
                       </div>
                       <p className="text-2xl font-bold">{hybridStatus.healthyAPIs}</p>
@@ -651,7 +651,7 @@ export function RetailerManagement() {
                   <Card>
                     <CardContent className="p-4">
                       <div className="mb-2 flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-orange-600" />
+                        <DollarSign className="h-5 w-5 text-warning" />
                         <span className="text-sm font-medium">Daily Cost</span>
                       </div>
                       <p className="text-2xl font-bold">${hybridStatus.totalCost}</p>

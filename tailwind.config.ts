@@ -6,39 +6,9 @@ export default {
   darkMode: ['class'],
   theme: {
     extend: {
-      // Onsus Template Color Palette
+      // Color System: Uses @theme tokens from index.css for primary/secondary/etc
+      // Chart colors remain for data visualization (semantic, non-conflicting)
       colors: {
-        // Primary colors from template
-        template: {
-          // Primary Red - CTAs, sale tags, prices
-          primary: '#ff3d3d',
-          'primary-hover': '#e63535',
-          // Secondary Blue - links, accents
-          secondary: '#004ec3',
-          'secondary-hover': '#003d99',
-          // Gold/Yellow - highlights, ratings
-          gold: '#FCB500',
-          'gold-hover': '#e5a400',
-          // Grays from template
-          gray: {
-            50: '#fafafa',
-            100: '#f5f5f5',
-            200: '#ebebeb',
-            300: '#e1e1e1',
-            400: '#a8a8a8',
-            500: '#757575',
-            600: '#666666',
-            700: '#4a4a4a',
-            800: '#333e48',
-            900: '#222222',
-          },
-          // Status colors
-          success: '#28a745',
-          warning: '#ffc107',
-          danger: '#dc3545',
-          info: '#17a2b8',
-        },
-        // Chart colors - used for data visualization
         chart: {
           // Primary chart colors
           blue: '#3b82f6',
@@ -61,7 +31,7 @@ export default {
       },
       // Font family
       fontFamily: {
-        template: ['Inter', 'Poppins', 'Helvetica Neue', 'sans-serif'],
+        template: ['Inter', 'Helvetica Neue', 'sans-serif'],
       },
       // Custom container widths
       maxWidth: {

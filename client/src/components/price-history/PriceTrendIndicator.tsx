@@ -36,9 +36,9 @@ export function PriceTrendIndicator({ data, isLoading }: PriceTrendIndicatorProp
   }
 
   const getTrendColor = () => {
-    if (data.trend === 'falling') return 'text-green-600';
-    if (data.trend === 'rising') return 'text-red-600';
-    return 'text-gray-600';
+    if (data.trend === 'falling') return 'text-success';
+    if (data.trend === 'rising') return 'text-destructive';
+    return 'text-muted-foreground';
   };
 
   const getTrendIcon = () => {
@@ -54,9 +54,9 @@ export function PriceTrendIndicator({ data, isLoading }: PriceTrendIndicatorProp
   };
 
   const getTrendBgColor = () => {
-    if (data.trend === 'falling') return 'bg-green-50 border-green-200';
-    if (data.trend === 'rising') return 'bg-red-50 border-red-200';
-    return 'bg-gray-50 border-gray-200';
+    if (data.trend === 'falling') return 'bg-success/5 border-success/20';
+    if (data.trend === 'rising') return 'bg-destructive/5 border-destructive/20';
+    return 'bg-muted/5 border-border';
   };
 
   return (
@@ -86,11 +86,11 @@ export function PriceTrendIndicator({ data, isLoading }: PriceTrendIndicatorProp
           </div>
           <div className="space-y-1">
             <div className="text-muted-foreground">Lowest</div>
-            <div className="font-semibold text-green-600">${data.lowestPrice.toFixed(2)}</div>
+            <div className="font-semibold text-success">${data.lowestPrice.toFixed(2)}</div>
           </div>
           <div className="space-y-1">
             <div className="text-muted-foreground">Highest</div>
-            <div className="font-semibold text-red-600">${data.highestPrice.toFixed(2)}</div>
+            <div className="font-semibold text-destructive">${data.highestPrice.toFixed(2)}</div>
           </div>
         </div>
 

@@ -120,8 +120,8 @@ function SuggestionCard({
     historical_low: {
       icon: TrendingDown,
       label: 'Historical Low',
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
+      color: 'text-success',
+      bgColor: 'bg-success/10',
     },
     seasonal_pattern: {
       icon: Calendar,
@@ -138,8 +138,8 @@ function SuggestionCard({
     below_average: {
       icon: DollarSign,
       label: 'Below Average',
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50',
+      color: 'text-warning',
+      bgColor: 'bg-warning/10',
     },
   } as const;
 
@@ -169,7 +169,7 @@ function SuggestionCard({
       <div className="mb-3 grid grid-cols-2 gap-3">
         <div className="rounded bg-white/50 p-2">
           <p className="text-muted-foreground text-xs">Potential Savings</p>
-          <p className="text-sm font-semibold text-green-600">
+          <p className="text-sm font-semibold text-success">
             ${suggestion.savingsAmount.toFixed(2)} ({suggestion.savingsPercent.toFixed(1)}%)
           </p>
         </div>

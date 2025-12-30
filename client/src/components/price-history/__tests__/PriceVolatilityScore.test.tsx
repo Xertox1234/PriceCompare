@@ -144,25 +144,25 @@ describe('PriceVolatilityScore', () => {
   describe('Visual Indicators', () => {
     it('should show appropriate color scheme for low volatility', () => {
       const { container } = render(<PriceVolatilityScore data={mockLowVolatility} />);
-      const scoreCard = container.querySelector('.bg-green-50');
+      const scoreCard = container.querySelector('[class*="bg-success"]');
       expect(scoreCard).toBeInTheDocument();
     });
 
     it('should show appropriate color scheme for moderate volatility', () => {
       const { container } = render(<PriceVolatilityScore data={mockModerateVolatility} />);
-      const scoreCard = container.querySelector('.bg-blue-50');
+      const scoreCard = container.querySelector('[class*="bg-info"]');
       expect(scoreCard).toBeInTheDocument();
     });
 
     it('should show appropriate color scheme for high volatility', () => {
       const { container } = render(<PriceVolatilityScore data={mockHighVolatility} />);
-      const scoreCard = container.querySelector('.bg-orange-50');
+      const scoreCard = container.querySelector('[class*="bg-warning"]');
       expect(scoreCard).toBeInTheDocument();
     });
 
     it('should show appropriate color scheme for very high volatility', () => {
       const { container } = render(<PriceVolatilityScore data={mockVeryHighVolatility} />);
-      const scoreCard = container.querySelector('.bg-red-50');
+      const scoreCard = container.querySelector('[class*="bg-destructive"]');
       expect(scoreCard).toBeInTheDocument();
     });
   });

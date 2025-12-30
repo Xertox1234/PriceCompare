@@ -52,43 +52,43 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
     switch (rating) {
       case 'excellent':
         return {
-          bg: 'bg-green-50',
-          border: 'border-green-200',
-          text: 'text-green-700',
-          badge: 'bg-green-100 text-green-800 border-green-300',
-          progress: 'bg-green-500',
+          bg: 'bg-success/5',
+          border: 'border-success/20',
+          text: 'text-success',
+          badge: 'bg-success/10 text-success border-success/30',
+          progress: 'bg-success',
         };
       case 'good':
         return {
-          bg: 'bg-blue-50',
-          border: 'border-blue-200',
-          text: 'text-blue-700',
-          badge: 'bg-blue-100 text-blue-800 border-blue-300',
-          progress: 'bg-blue-500',
+          bg: 'bg-info/5',
+          border: 'border-info/20',
+          text: 'text-info',
+          badge: 'bg-info/10 text-info border-info/30',
+          progress: 'bg-info',
         };
       case 'fair':
         return {
-          bg: 'bg-yellow-50',
-          border: 'border-yellow-200',
-          text: 'text-yellow-700',
-          badge: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-          progress: 'bg-yellow-500',
+          bg: 'bg-warning/5',
+          border: 'border-warning/20',
+          text: 'text-warning',
+          badge: 'bg-warning/10 text-warning border-warning/30',
+          progress: 'bg-warning',
         };
       case 'poor':
         return {
-          bg: 'bg-red-50',
-          border: 'border-red-200',
-          text: 'text-red-700',
-          badge: 'bg-red-100 text-red-800 border-red-300',
-          progress: 'bg-red-500',
+          bg: 'bg-destructive/5',
+          border: 'border-destructive/20',
+          text: 'text-destructive',
+          badge: 'bg-destructive/10 text-destructive border-destructive/30',
+          progress: 'bg-destructive',
         };
       default:
         return {
-          bg: 'bg-gray-50',
-          border: 'border-gray-200',
-          text: 'text-gray-700',
-          badge: 'bg-gray-100 text-gray-800 border-gray-300',
-          progress: 'bg-gray-500',
+          bg: 'bg-muted/5',
+          border: 'border-border',
+          text: 'text-muted-foreground',
+          badge: 'bg-muted/10 text-muted-foreground border-border',
+          progress: 'bg-muted-foreground',
         };
     }
   };
@@ -133,7 +133,7 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                 <div className="mb-3 flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     {index === 0 && retailer.rating === 'excellent' && (
-                      <Star className="h-5 w-5 fill-yellow-500 text-yellow-500" />
+                      <Star className="h-5 w-5 fill-warning text-warning" />
                     )}
                     <div>
                       <h4 className="text-lg font-semibold">{retailer.retailerName}</h4>
@@ -183,7 +183,7 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                   <div className="mb-3 space-y-2">
                     {retailer.strengths.length > 0 && (
                       <div className="flex items-start gap-2">
-                        <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                        <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-success" />
                         <div className="flex-1">
                           <div className="text-muted-foreground mb-1 text-xs font-medium">
                             Strengths
@@ -193,7 +193,7 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                               <Badge
                                 key={i}
                                 variant="outline"
-                                className="border-green-200 bg-green-50 text-xs text-green-700"
+                                className="border-success/20 bg-success/5 text-xs text-success"
                               >
                                 {strength}
                               </Badge>
@@ -205,7 +205,7 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
 
                     {retailer.weaknesses.length > 0 && (
                       <div className="flex items-start gap-2">
-                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-orange-600" />
+                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning" />
                         <div className="flex-1">
                           <div className="text-muted-foreground mb-1 text-xs font-medium">
                             Weaknesses
@@ -215,7 +215,7 @@ export function RetailerReliability({ data, isLoading }: RetailerReliabilityProp
                               <Badge
                                 key={i}
                                 variant="outline"
-                                className="border-orange-200 bg-orange-50 text-xs text-orange-700"
+                                className="border-warning/20 bg-warning/5 text-xs text-warning"
                               >
                                 {weakness}
                               </Badge>

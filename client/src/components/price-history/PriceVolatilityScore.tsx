@@ -45,42 +45,42 @@ export function PriceVolatilityScore({ data, isLoading }: PriceVolatilityScorePr
     switch (level) {
       case 'low':
         return {
-          bg: 'bg-green-50',
-          border: 'border-green-200',
-          text: 'text-green-700',
-          badge: 'bg-green-100 text-green-800 border-green-200',
+          bg: 'bg-success/5',
+          border: 'border-success/20',
+          text: 'text-success',
+          badge: 'bg-success/10 text-success border-success/20',
           icon: <Minus className="h-5 w-5" />,
         };
       case 'moderate':
         return {
-          bg: 'bg-blue-50',
-          border: 'border-blue-200',
-          text: 'text-blue-700',
-          badge: 'bg-blue-100 text-blue-800 border-blue-200',
+          bg: 'bg-info/5',
+          border: 'border-info/20',
+          text: 'text-info',
+          badge: 'bg-info/10 text-info border-info/20',
           icon: <TrendingUp className="h-5 w-5" />,
         };
       case 'high':
         return {
-          bg: 'bg-orange-50',
-          border: 'border-orange-200',
-          text: 'text-orange-700',
-          badge: 'bg-orange-100 text-orange-800 border-orange-200',
+          bg: 'bg-warning/5',
+          border: 'border-warning/20',
+          text: 'text-warning',
+          badge: 'bg-warning/10 text-warning border-warning/20',
           icon: <TrendingUp className="h-5 w-5" />,
         };
       case 'very-high':
         return {
-          bg: 'bg-red-50',
-          border: 'border-red-200',
-          text: 'text-red-700',
-          badge: 'bg-red-100 text-red-800 border-red-200',
+          bg: 'bg-destructive/5',
+          border: 'border-destructive/20',
+          text: 'text-destructive',
+          badge: 'bg-destructive/10 text-destructive border-destructive/20',
           icon: <TrendingDown className="h-5 w-5" />,
         };
       default:
         return {
-          bg: 'bg-gray-50',
-          border: 'border-gray-200',
-          text: 'text-gray-700',
-          badge: 'bg-gray-100 text-gray-800 border-gray-200',
+          bg: 'bg-muted/5',
+          border: 'border-border',
+          text: 'text-muted-foreground',
+          badge: 'bg-muted/10 text-muted-foreground border-border',
           icon: <Minus className="h-5 w-5" />,
         };
     }

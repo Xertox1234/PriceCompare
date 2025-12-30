@@ -136,26 +136,26 @@ function BuyRecommendationSection({
   const statusConfig = {
     excellent: {
       icon: TrendingDown,
-      color: 'bg-green-50 border-green-200 text-green-800',
-      badgeColor: 'bg-green-100 text-green-800',
+      color: 'bg-success/5 border-success/20 text-success',
+      badgeColor: 'bg-success/10 text-success',
       title: '🎯 Excellent Time to Buy!',
     },
     good: {
       icon: ShoppingCart,
-      color: 'bg-blue-50 border-blue-200 text-blue-800',
-      badgeColor: 'bg-blue-100 text-blue-800',
+      color: 'bg-info/5 border-info/20 text-info',
+      badgeColor: 'bg-info/10 text-info',
       title: '👍 Good Time to Buy',
     },
     fair: {
       icon: Activity,
-      color: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-      badgeColor: 'bg-yellow-100 text-yellow-800',
+      color: 'bg-warning/5 border-warning/20 text-warning',
+      badgeColor: 'bg-warning/10 text-warning',
       title: '⚖️ Fair Price',
     },
     wait: {
       icon: AlertTriangle,
-      color: 'bg-amber-50 border-amber-200 text-amber-800',
-      badgeColor: 'bg-amber-100 text-amber-800',
+      color: 'bg-warning/5 border-warning/20 text-warning',
+      badgeColor: 'bg-warning/10 text-warning',
       title: '⏳ Consider Waiting',
     },
   };
@@ -192,11 +192,11 @@ function PriceVolatilitySection({
   volatility: { level: string; percentage: number; description: string };
 }) {
   const colorMap: Record<string, string> = {
-    'Very Stable': 'text-green-600',
-    Stable: 'text-blue-600',
-    Moderate: 'text-yellow-600',
-    Volatile: 'text-orange-600',
-    'Very Volatile': 'text-red-600',
+    'Very Stable': 'text-success',
+    Stable: 'text-info',
+    Moderate: 'text-warning',
+    Volatile: 'text-warning',
+    'Very Volatile': 'text-destructive',
   };
 
   const normalizedLevel: 'low' | 'moderate' | 'high' | 'very-high' = (() => {
@@ -270,22 +270,22 @@ function SeasonalPatternsSection({ patterns }: { patterns: SeasonalPattern[] }) 
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+        <div className="rounded-lg border border-success/20 bg-success/5 p-3">
           <div className="mb-1 flex items-center gap-1">
-            <TrendingDown className="h-4 w-4 text-green-600" />
-            <span className="text-xs font-medium text-green-800">Best Month</span>
+            <TrendingDown className="h-4 w-4 text-success" />
+            <span className="text-xs font-medium text-success">Best Month</span>
           </div>
-          <p className="text-sm font-semibold text-green-900">{bestMonth.month}</p>
-          <p className="text-xs text-green-700">${bestMonth.averagePrice.toFixed(2)} avg</p>
+          <p className="text-sm font-semibold text-foreground">{bestMonth.month}</p>
+          <p className="text-xs text-success">${bestMonth.averagePrice.toFixed(2)} avg</p>
         </div>
 
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
           <div className="mb-1 flex items-center gap-1">
-            <TrendingUp className="h-4 w-4 text-red-600" />
-            <span className="text-xs font-medium text-red-800">Worst Month</span>
+            <TrendingUp className="h-4 w-4 text-destructive" />
+            <span className="text-xs font-medium text-destructive">Worst Month</span>
           </div>
-          <p className="text-sm font-semibold text-red-900">{worstMonth.month}</p>
-          <p className="text-xs text-red-700">${worstMonth.averagePrice.toFixed(2)} avg</p>
+          <p className="text-sm font-semibold text-foreground">{worstMonth.month}</p>
+          <p className="text-xs text-destructive">${worstMonth.averagePrice.toFixed(2)} avg</p>
         </div>
       </div>
 

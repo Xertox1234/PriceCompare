@@ -36,9 +36,9 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
         {/* Header */}
         <div className="border-border flex items-center justify-between border-b p-4">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="text-template-primary h-5 w-5" />
+            <ShoppingBag className="text-primary h-5 w-5" />
             <h2 className="text-lg font-semibold">Shopping Cart</h2>
-            <span className="bg-template-primary rounded-full px-2 py-0.5 text-xs font-bold text-white">
+            <span className="bg-primary rounded-full px-2 py-0.5 text-xs font-bold text-white">
               {cartItemCount}
             </span>
           </div>
@@ -58,7 +58,7 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
               </p>
               <Button
                 onClick={onClose}
-                className="bg-template-primary hover:bg-template-primary-hover"
+                className="bg-primary hover:bg-primary/90"
               >
                 Continue Shopping
               </Button>
@@ -99,7 +99,7 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
                 </Button>
               </Link>
               <Link href="/checkout" onClick={onClose}>
-                <Button className="bg-template-primary hover:bg-template-primary-hover w-full">
+                <Button className="bg-primary hover:bg-primary/90 w-full">
                   Checkout
                 </Button>
               </Link>
@@ -132,11 +132,11 @@ function CartItemCard({ item, onRemove, onUpdateQuantity }: CartItemCardProps) {
       {/* Product Info */}
       <div className="min-w-0 flex-1">
         <Link href={`/product/${product.id}`}>
-          <h3 className="text-foreground hover:text-template-primary line-clamp-2 text-sm font-medium transition-colors">
+          <h3 className="text-foreground hover:text-primary line-clamp-2 text-sm font-medium transition-colors">
             {product.title}
           </h3>
         </Link>
-        <p className="text-template-primary mt-1 text-sm font-bold">${product.price.toFixed(2)}</p>
+        <p className="text-primary mt-1 text-sm font-bold">${product.price.toFixed(2)}</p>
 
         {/* Quantity Controls */}
         <div className="mt-2 flex items-center gap-2">

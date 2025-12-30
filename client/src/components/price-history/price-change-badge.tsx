@@ -60,8 +60,8 @@ export function PriceChangeBadge({
                   <span
                     className={cn(
                       'font-medium',
-                      isDecrease && 'text-green-600',
-                      isIncrease && 'text-red-600'
+                      isDecrease && 'text-success',
+                      isIncrease && 'text-destructive'
                     )}
                   >
                     {change < 0 ? '' : '+'}
@@ -74,8 +74,8 @@ export function PriceChangeBadge({
                     <span
                       className={cn(
                         'font-medium',
-                        stats.priceChange7d < 0 && 'text-green-600',
-                        stats.priceChange7d > 0 && 'text-red-600'
+                        stats.priceChange7d < 0 && 'text-success',
+                        stats.priceChange7d > 0 && 'text-destructive'
                       )}
                     >
                       {stats.priceChange7d < 0 ? '' : '+'}
@@ -89,8 +89,8 @@ export function PriceChangeBadge({
                     <span
                       className={cn(
                         'font-medium',
-                        stats.priceChange30d < 0 && 'text-green-600',
-                        stats.priceChange30d > 0 && 'text-red-600'
+                        stats.priceChange30d < 0 && 'text-success',
+                        stats.priceChange30d > 0 && 'text-destructive'
                       )}
                     >
                       {stats.priceChange30d < 0 ? '' : '+'}
@@ -102,13 +102,13 @@ export function PriceChangeBadge({
               <div className="space-y-1 border-t pt-2 text-sm">
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Lowest:</span>
-                  <span className="font-medium text-green-600">
+                  <span className="font-medium text-success">
                     ${stats.lowestPrice.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Highest:</span>
-                  <span className="font-medium text-red-600">${stats.highestPrice.toFixed(2)}</span>
+                  <span className="font-medium text-destructive">${stats.highestPrice.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Average:</span>
@@ -153,7 +153,7 @@ export function LowestPriceBadge({
   }
 
   return (
-    <Badge variant="default" className={cn('bg-green-600 text-xs', className)}>
+    <Badge variant="default" className={cn('bg-success text-xs', className)}>
       <TrendingDown className="mr-1 h-3 w-3" />
       Lowest Price!
     </Badge>
@@ -177,7 +177,7 @@ export function PriceTrendIcon({
   const change = stats.priceChange24h;
   const TrendIcon = change < 0 ? TrendingDown : change > 0 ? TrendingUp : Minus;
   const colorClass =
-    change < 0 ? 'text-green-600' : change > 0 ? 'text-red-600' : 'text-muted-foreground';
+    change < 0 ? 'text-success' : change > 0 ? 'text-destructive' : 'text-muted-foreground';
 
   return <TrendIcon className={cn('h-4 w-4', colorClass, className)} />;
 }

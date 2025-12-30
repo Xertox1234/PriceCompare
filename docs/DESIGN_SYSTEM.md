@@ -309,11 +309,13 @@ Our design system supports dark mode via the `.dark` class. All design tokens au
 
 Our design system has proper specificity. If you need `!important`, there's likely a better solution.
 
+**Exception:** Radix UI dialog overrides in `index.css` require `!important` to override inline styles. These are documented and necessary.
+
 ```tsx
-// ❌ BAD
+// ❌ BAD - In component code
 <div className="bg-primary !text-white">
 
-// ✅ GOOD
+// ✅ GOOD - In component code
 <div className="bg-primary text-primary-foreground">
 ```
 
@@ -326,6 +328,43 @@ Our design system has proper specificity. If you need `!important`, there's like
 // ✅ GOOD - Consistent token usage
 <div className="bg-primary text-primary-foreground">
 ```
+
+### Acceptable Exceptions to Hardcoded Colors
+
+The following use cases are **acceptable** for hardcoded hex colors:
+
+1. **Data Visualization** - Chart colors (e.g., Recharts `stroke` or `fill` props)
+   ```tsx
+   // ✅ ACCEPTABLE - Chart-specific colors
+   <Line stroke="#3b82f6" dataKey="price" />
+   <Bar fill={colors.chart.blue} />
+   ```
+   **Reason:** Chart libraries often require specific hex colors for data clarity and visual distinction between data series.
+
+2. **User-Selected Colors** - Colors chosen by users (e.g., label colors, custom themes)
+   ```tsx
+   // ✅ ACCEPTABLE - User preference
+   <div style={{ backgroundColor: userPreferences.labelColor }} />
+   ```
+   **Reason:** User's personal choice stored in database, not a design system color.
+
+3. **Third-Party Integration** - External library requirements
+   ```tsx
+   // ✅ ACCEPTABLE - Library constraint
+   <ExternalComponent color={entry.color || '#000000'} />
+   ```
+   **Reason:** External library API requires hex color string format.
+
+**All other cases** must use design tokens from `@theme` in `index.css`.
+
+**Detection:** Use grep to find potential violations:
+```bash
+# Find hardcoded colors (should only be in documented exceptions)
+grep -r "bg-\[#" client/src --include="*.tsx"
+grep -r "#[0-9a-fA-F]{6}" client/src --include="*.tsx"
+```
+
+**Note:** During TODO 008 CSS Architecture Consolidation (2025-12-30), we eliminated 442 color violations across 60+ files with zero regressions. See `docs/05_FRONTEND_PATTERNS.md` (CSS Architecture section) for migration patterns.
 
 ---
 
@@ -378,6 +417,50 @@ Already configured in `.prettierrc.json`. Classes will be automatically sorted o
 | `card` | Card backgrounds | `bg-card text-card-foreground` |
 | `border` | Border colors | `border-border` |
 | `input` | Input borders | `border-input` |
+
+---
+
+## Large-Scale Design System Migrations
+
+**When migrating 50+ files** (e.g., consolidating color systems, updating design tokens):
+
+### Migration Strategy
+
+Follow the **phased approach with verification checkpoints** documented in `docs/05_FRONTEND_PATTERNS.md`:
+
+1. **Phase 1: System Consolidation**
+   - Audit violations with grep
+   - Choose winning system (document decision)
+   - **CRITICAL:** Migrate components BEFORE removing from config
+   - Verify: Build succeeds, zero pattern violations
+
+2. **Phase 2: Token Enforcement**
+   - Create semantic mapping (e.g., `green-600 → text-success`)
+   - File-by-file migration (NOT bulk sed)
+   - Document exceptions (charts, user data)
+   - Verify: Build succeeds, violation count decreases
+
+3. **Phase 3: Cleanup**
+   - Remove orphaned CSS
+   - Update documentation
+   - Final verification: Build + tests + UI regression check
+
+### Key Principles
+
+- ✅ **Component-first order:** Update components before config changes
+- ✅ **File-by-file:** Catch edge cases sed would miss
+- ✅ **Verification checkpoints:** Prevent cascading failures
+- ✅ **Document exceptions:** Chart colors, user preferences, library constraints
+
+### Success Metrics (TODO 008 Reference)
+
+- 442 violations eliminated (47 template.* + 395 hardcoded colors)
+- 60+ files updated without breaking builds
+- 93.2% reduction in hardcoded colors
+- Zero visual regressions
+- Completed in 6-8 hours
+
+**See:** `docs/05_FRONTEND_PATTERNS.md` → CSS Architecture section for complete patterns.
 
 ---
 

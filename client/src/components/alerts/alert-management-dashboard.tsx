@@ -70,8 +70,8 @@ export function AlertManagementDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-green-600" />
-              <span className="text-3xl font-bold text-green-600">
+              <Award className="h-5 w-5 text-success" />
+              <span className="text-3xl font-bold text-success">
                 {stats?.triggeredAlerts || 0}
               </span>
             </div>
@@ -86,8 +86,8 @@ export function AlertManagementDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-emerald-600" />
-              <span className="text-3xl font-bold text-emerald-600">
+              <DollarSign className="h-5 w-5 text-success" />
+              <span className="text-3xl font-bold text-success">
                 ${(stats?.totalSavings || 0).toFixed(2)}
               </span>
             </div>
@@ -156,7 +156,7 @@ export function AlertManagementDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-amber-600" />
+              <Award className="h-5 w-5 text-warning" />
               Most Effective Alerts
             </CardTitle>
             <CardDescription>Your best-performing price alerts</CardDescription>
@@ -195,8 +195,8 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
     },
     best_deal_soon: {
       icon: Award,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50 border-amber-200',
+      color: 'text-warning',
+      bgColor: 'bg-warning/10 border-warning/20',
       title: 'Best Deal Coming Soon',
     },
     seasonal_opportunity: {
@@ -239,7 +239,7 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
       {alert.predictedPrice && (
         <div className="mt-2 border-t pt-2">
           <span className="text-muted-foreground text-xs">Predicted Price: </span>
-          <span className="text-sm font-semibold text-green-600">
+          <span className="text-sm font-semibold text-success">
             ${alert.predictedPrice.toFixed(2)}
           </span>
         </div>
@@ -251,9 +251,9 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
 // Effectiveness Card Component
 function EffectivenessCard({ alert }: { alert: AlertEffectiveness }) {
   const effectivenessColor = {
-    high: 'text-green-600 bg-green-50',
-    medium: 'text-yellow-600 bg-yellow-50',
-    low: 'text-gray-600 bg-gray-50',
+    high: 'text-success bg-success/10',
+    medium: 'text-warning bg-warning/10',
+    low: 'text-muted-foreground bg-muted/10',
   } as const;
 
   return (
@@ -273,7 +273,7 @@ function EffectivenessCard({ alert }: { alert: AlertEffectiveness }) {
         </div>
         <div>
           <p className="text-muted-foreground">Savings</p>
-          <p className="font-semibold text-green-600">${alert.savingsRealized.toFixed(2)}</p>
+          <p className="font-semibold text-success">${alert.savingsRealized.toFixed(2)}</p>
         </div>
         <div>
           <p className="text-muted-foreground">Age</p>

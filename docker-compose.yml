@@ -23,8 +23,6 @@ services:
       - redis
     networks:
       - app-network
-    volumes:
-      - ./shared-styles.css:/app/shared-styles.css
 
   # Discourse forum
   discourse:

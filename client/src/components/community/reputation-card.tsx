@@ -88,7 +88,7 @@ export function ReputationCard({ compact = false, showBadges = true }: Reputatio
 
             <div className="text-center">
               <div className="mb-1 flex items-center justify-center">
-                <Target className="h-4 w-4 text-green-600" />
+                <Target className="h-4 w-4 text-success" />
               </div>
               <div className="text-2xl font-bold">{reputation.accuratePredictions}</div>
               <div className="text-muted-foreground text-xs">Accurate</div>

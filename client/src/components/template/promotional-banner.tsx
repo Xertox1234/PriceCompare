@@ -130,14 +130,14 @@ export function BannerGrid({ className }: BannerProps) {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-6">
           {/* Price Alert Banner */}
-          <div className="relative min-h-[200px] overflow-hidden rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 p-6 lg:p-8">
+          <div className="relative min-h-[200px] overflow-hidden rounded-xl bg-gradient-to-br from-info to-info/80 p-6 lg:p-8">
             <div className="relative z-10">
-              <div className="mb-2 flex items-center gap-2 text-blue-200">
+              <div className="mb-2 flex items-center gap-2 text-info-foreground/80">
                 <Bell className="h-5 w-5" />
                 <span className="text-sm font-medium tracking-wider uppercase">Price Alerts</span>
               </div>
               <h3 className="mb-2 text-2xl font-bold text-white lg:text-3xl">Never Miss a Deal</h3>
-              <p className="mb-4 text-blue-100">
+              <p className="mb-4 text-info-foreground/90">
                 Set price alerts and get notified instantly when prices drop.
               </p>
               <Link href="/price-watch">
@@ -148,20 +148,20 @@ export function BannerGrid({ className }: BannerProps) {
               </Link>
             </div>
             {/* Decorative element */}
-            <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-blue-500 blur-3xl" />
+            <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-info/50 blur-3xl" />
           </div>
 
           {/* Comparison Banner */}
-          <div className="relative min-h-[200px] overflow-hidden rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 p-6 lg:p-8">
+          <div className="relative min-h-[200px] overflow-hidden rounded-xl bg-gradient-to-br from-warning to-warning/80 p-6 lg:p-8">
             <div className="relative z-10">
-              <div className="mb-2 flex items-center gap-2 text-amber-100">
+              <div className="mb-2 flex items-center gap-2 text-warning-foreground/80">
                 <Percent className="h-5 w-5" />
                 <span className="text-sm font-medium tracking-wider uppercase">Compare & Save</span>
               </div>
               <h3 className="mb-2 text-2xl font-bold text-white lg:text-3xl">
                 Find the Best Price
               </h3>
-              <p className="mb-4 text-amber-50">Compare prices across 100+ retailers instantly.</p>
+              <p className="mb-4 text-warning-foreground/90">Compare prices across 100+ retailers instantly.</p>
               <Link href="/comparison">
                 <Button variant="secondary" size="sm">
                   Compare Now
@@ -170,7 +170,7 @@ export function BannerGrid({ className }: BannerProps) {
               </Link>
             </div>
             {/* Decorative element */}
-            <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-amber-400 blur-3xl" />
+            <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-warning/50 blur-3xl" />
           </div>
         </div>
       </div>
