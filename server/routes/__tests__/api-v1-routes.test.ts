@@ -1024,4 +1024,212 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       });
     });
   });
+
+  // =============================================================================
+  // PHASE 3: Advanced Features & Admin Endpoints
+  // =============================================================================
+
+  describe('API v1 Routes - Phase 3 Advanced Features', () => {
+    let _adminUser: { id: number; username: string };
+    let adminAuthHeader: string;
+
+    beforeEach(async () => {
+      // Create an admin user for admin endpoints
+      const hashedPassword = await bcrypt.hash('adminpass123', PASSWORD.BCRYPT_ROUNDS);
+      const adminEmail = 'admin@example.com';
+      const [admin] = await db
+        .insert(users)
+        .values({
+          username: 'adminuser',
+          email: adminEmail,
+          emailHash: hashEmail(adminEmail),
+          passwordHash: hashedPassword,
+          role: 'admin',
+        })
+        .returning({ id: users.id, username: users.username });
+      _adminUser = admin;
+
+      adminAuthHeader = 'Basic ' + Buffer.from('adminuser:adminpass123').toString('base64');
+    });
+
+    describe('GET /api/v1 (API Discovery)', () => {
+      it('should return API capabilities with Basic Auth', async () => {
+        const res = await request(app).get('/api/v1').set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.version).toBe('1.0.0');
+        expect(res.body.data.authentication).toBe('HTTP Basic Auth');
+        expect(res.body.data.endpoints).toBeDefined();
+        expect(res.body.data.endpoints.watchlists).toBeDefined();
+        expect(res.body.data.endpoints.priceAlerts).toBeDefined();
+        expect(res.body.data.endpoints.products).toBeDefined();
+      });
+
+      it('should reject without authentication', async () => {
+        const res = await request(app).get('/api/v1');
+
+        expect(res.status).toBe(401);
+        expect(res.body.success).toBe(false);
+      });
+    });
+
+    describe('GET /api/v1/openapi.json (OpenAPI Spec)', () => {
+      it('should return OpenAPI specification', async () => {
+        const res = await request(app).get('/api/v1/openapi.json').set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.openapi).toBe('3.0.3');
+        expect(res.body.info.title).toBe('PriceCompare API');
+        expect(res.body.components.securitySchemes.basicAuth).toBeDefined();
+        expect(res.body.paths).toBeDefined();
+      });
+
+      it('should reject without authentication', async () => {
+        const res = await request(app).get('/api/v1/openapi.json');
+
+        expect(res.status).toBe(401);
+      });
+    });
+
+    describe('GET /api/v1/search/advanced', () => {
+      it('should perform advanced search with Basic Auth', async () => {
+        const res = await request(app)
+          .get('/api/v1/search/advanced?query=test')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.results).toBeInstanceOf(Array);
+        expect(res.body.data.metadata).toBeDefined();
+        expect(res.body.data.metadata.features).toContain('fuzzy_search');
+      });
+
+      it('should support price filters', async () => {
+        const res = await request(app)
+          .get('/api/v1/search/advanced?query=laptop&minPrice=100&maxPrice=1000')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+      });
+
+      it('should reject without authentication', async () => {
+        const res = await request(app).get('/api/v1/search/advanced?query=test');
+
+        expect(res.status).toBe(401);
+      });
+    });
+
+    describe('GET /api/v1/search/suggestions', () => {
+      it('should return search suggestions', async () => {
+        const res = await request(app)
+          .get('/api/v1/search/suggestions?q=iph')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.suggestions).toBeInstanceOf(Array);
+      });
+
+      it('should return empty for short queries', async () => {
+        const res = await request(app)
+          .get('/api/v1/search/suggestions?q=a')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.suggestions).toEqual([]);
+      });
+
+      it('should respect limit parameter', async () => {
+        const res = await request(app)
+          .get('/api/v1/search/suggestions?q=test&limit=3')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+      });
+    });
+
+    describe('GET /api/v1/analytics/user', () => {
+      it('should return user analytics', async () => {
+        const res = await request(app)
+          .get('/api/v1/analytics/user')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.watchlists).toBeDefined();
+        expect(res.body.data.alerts).toBeDefined();
+        expect(res.body.data.generatedAt).toBeDefined();
+      });
+
+      it('should reject without authentication', async () => {
+        const res = await request(app).get('/api/v1/analytics/user');
+
+        expect(res.status).toBe(401);
+      });
+    });
+
+    describe('GET /api/v1/admin/system-health (Admin Only)', () => {
+      it('should return system health for admin users', async () => {
+        const res = await request(app)
+          .get('/api/v1/admin/system-health')
+          .set('Authorization', adminAuthHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.status).toBeDefined();
+        expect(res.body.data.timestamp).toBeDefined();
+        expect(res.body.data.components).toBeDefined();
+        expect(res.body.data.components.database).toBeDefined();
+        expect(res.body.data.uptime).toBeDefined();
+        expect(res.body.data.memory).toBeDefined();
+      });
+
+      it('should reject non-admin users', async () => {
+        const res = await request(app)
+          .get('/api/v1/admin/system-health')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(403);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should reject without authentication', async () => {
+        const res = await request(app).get('/api/v1/admin/system-health');
+
+        expect(res.status).toBe(401);
+      });
+    });
+
+    describe('GET /api/v1/admin/stats (Admin Only)', () => {
+      it('should return platform stats for admin users', async () => {
+        const res = await request(app)
+          .get('/api/v1/admin/stats')
+          .set('Authorization', adminAuthHeader);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.overview).toBeDefined();
+        expect(res.body.data.generatedAt).toBeDefined();
+      });
+
+      it('should reject non-admin users', async () => {
+        const res = await request(app)
+          .get('/api/v1/admin/stats')
+          .set('Authorization', authHeader);
+
+        expect(res.status).toBe(403);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should reject without authentication', async () => {
+        const res = await request(app).get('/api/v1/admin/stats');
+
+        expect(res.status).toBe(401);
+      });
+    });
+  });
 });

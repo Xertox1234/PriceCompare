@@ -980,5 +980,537 @@ export function registerApiV1Routes(app: Express): void {
     })
   );
 
-  logger.info('API v1 routes registered (HTTP Basic Auth) - Phase 1 + Phase 2: 24 endpoints');
+  // =============================================================================
+  // PHASE 3: Advanced Features & Admin Endpoints
+  // =============================================================================
+
+  /**
+   * GET /api/v1
+   * API discovery endpoint - lists all available API v1 capabilities
+   * Agent-native API catalog for self-discovery
+   */
+  app.get('/api/v1', flexibleAuth, withAuth(async (_req: Request, res: Response) => {
+    try {
+      logger.info('API v1: Discovery endpoint accessed');
+
+      const capabilities = {
+        version: '1.0.0',
+        authentication: 'HTTP Basic Auth',
+        documentation: '/api/v1/openapi.json',
+        endpoints: {
+          scraping: {
+            description: 'AI-powered web scraping operations (admin only)',
+            endpoints: [
+              'POST /api/v1/scraping/discover-trends',
+              'POST /api/v1/scraping/initialize',
+              'POST /api/v1/scraping/start-agents',
+              'POST /api/v1/scraping/search-product',
+              'POST /api/v1/scraping/google-search',
+              'GET /api/v1/scraping/status',
+            ],
+          },
+          watchlists: {
+            description: 'User watchlist management',
+            endpoints: [
+              'GET /api/v1/watchlists',
+              'GET /api/v1/watchlists/:id',
+              'GET /api/v1/watchlists/:id/products',
+              'POST /api/v1/watchlists',
+              'PATCH /api/v1/watchlists/:id',
+              'DELETE /api/v1/watchlists/:id',
+              'POST /api/v1/watchlists/:id/products',
+              'DELETE /api/v1/watchlists/:id/products/:productId',
+            ],
+          },
+          priceAlerts: {
+            description: 'Price alert management',
+            endpoints: [
+              'GET /api/v1/price-alerts',
+              'GET /api/v1/price-alerts/:id',
+              'POST /api/v1/price-alerts',
+              'PATCH /api/v1/price-alerts/:id',
+              'DELETE /api/v1/price-alerts/:id',
+            ],
+          },
+          products: {
+            description: 'Product search and details',
+            endpoints: [
+              'GET /api/v1/products/search',
+              'GET /api/v1/products/:id',
+              'GET /api/v1/products/:id/price-history',
+            ],
+          },
+          notifications: {
+            description: 'User notification management',
+            endpoints: [
+              'GET /api/v1/notifications',
+              'POST /api/v1/notifications/:id/read',
+              'POST /api/v1/notifications/read-all',
+            ],
+          },
+          search: {
+            description: 'Advanced search capabilities',
+            endpoints: [
+              'GET /api/v1/search/advanced',
+              'GET /api/v1/search/suggestions',
+            ],
+          },
+          analytics: {
+            description: 'User analytics and statistics',
+            endpoints: ['GET /api/v1/analytics/user'],
+          },
+          admin: {
+            description: 'Admin monitoring endpoints (admin only)',
+            endpoints: [
+              'GET /api/v1/admin/system-health',
+              'GET /api/v1/admin/stats',
+            ],
+          },
+        },
+        rateLimit: {
+          note: 'Rate limits are enforced per-user. See response headers for current limits.',
+          headers: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+        },
+      };
+
+      sendSuccess(res, capabilities);
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'APIDiscovery');
+    }
+  }));
+
+  /**
+   * GET /api/v1/openapi.json
+   * OpenAPI 3.0 specification for API v1 endpoints
+   * Enables automatic client SDK generation and documentation
+   */
+  app.get('/api/v1/openapi.json', flexibleAuth, withAuth(async (_req: Request, res: Response) => {
+    try {
+      logger.info('API v1: OpenAPI spec requested');
+
+      const openApiSpec = {
+        openapi: '3.0.3',
+        info: {
+          title: 'PriceCompare API',
+          description: 'Agent-native API for price comparison and tracking',
+          version: '1.0.0',
+          contact: {
+            name: 'PriceCompare Support',
+          },
+        },
+        servers: [
+          {
+            url: '/api/v1',
+            description: 'API v1 (HTTP Basic Auth)',
+          },
+        ],
+        security: [
+          {
+            basicAuth: [],
+          },
+        ],
+        components: {
+          securitySchemes: {
+            basicAuth: {
+              type: 'http',
+              scheme: 'basic',
+              description: 'HTTP Basic Authentication using username:password',
+            },
+          },
+          schemas: {
+            Error: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean', example: false },
+                error: { type: 'string' },
+              },
+            },
+            Success: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean', example: true },
+                data: { type: 'object' },
+              },
+            },
+            Watchlist: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                userId: { type: 'integer' },
+                name: { type: 'string' },
+                description: { type: 'string' },
+                createdAt: { type: 'string', format: 'date-time' },
+              },
+            },
+            PriceAlert: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                userId: { type: 'integer' },
+                productId: { type: 'integer' },
+                targetPrice: { type: 'string' },
+                isActive: { type: 'boolean' },
+                createdAt: { type: 'string', format: 'date-time' },
+              },
+            },
+            Product: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                name: { type: 'string' },
+                description: { type: 'string' },
+                category: { type: 'string' },
+                image: { type: 'string' },
+              },
+            },
+          },
+        },
+        paths: {
+          '/watchlists': {
+            get: {
+              summary: 'List user watchlists',
+              tags: ['Watchlists'],
+              responses: {
+                200: { description: 'List of watchlists' },
+                401: { description: 'Authentication required' },
+              },
+            },
+            post: {
+              summary: 'Create a watchlist',
+              tags: ['Watchlists'],
+              requestBody: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      required: ['name'],
+                      properties: {
+                        name: { type: 'string' },
+                        description: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+              responses: {
+                201: { description: 'Watchlist created' },
+                400: { description: 'Invalid input' },
+                401: { description: 'Authentication required' },
+              },
+            },
+          },
+          '/price-alerts': {
+            get: {
+              summary: 'List user price alerts',
+              tags: ['Price Alerts'],
+              responses: {
+                200: { description: 'List of price alerts' },
+                401: { description: 'Authentication required' },
+              },
+            },
+            post: {
+              summary: 'Create a price alert',
+              tags: ['Price Alerts'],
+              requestBody: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      required: ['productId', 'targetPrice'],
+                      properties: {
+                        productId: { type: 'integer' },
+                        targetPrice: { type: 'number' },
+                        notifyForum: { type: 'boolean' },
+                      },
+                    },
+                  },
+                },
+              },
+              responses: {
+                201: { description: 'Alert created' },
+                400: { description: 'Invalid input' },
+                401: { description: 'Authentication required' },
+              },
+            },
+          },
+          '/products/search': {
+            get: {
+              summary: 'Search products',
+              tags: ['Products'],
+              parameters: [
+                { name: 'query', in: 'query', schema: { type: 'string' } },
+                { name: 'category', in: 'query', schema: { type: 'string' } },
+                { name: 'minPrice', in: 'query', schema: { type: 'number' } },
+                { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
+                { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+                { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+              ],
+              responses: {
+                200: { description: 'Search results' },
+                401: { description: 'Authentication required' },
+              },
+            },
+          },
+          '/analytics/user': {
+            get: {
+              summary: 'Get user analytics',
+              tags: ['Analytics'],
+              responses: {
+                200: { description: 'User statistics' },
+                401: { description: 'Authentication required' },
+              },
+            },
+          },
+          '/admin/system-health': {
+            get: {
+              summary: 'Get system health status',
+              tags: ['Admin'],
+              responses: {
+                200: { description: 'System health data' },
+                401: { description: 'Authentication required' },
+                403: { description: 'Admin role required' },
+              },
+            },
+          },
+        },
+      };
+
+      // Set content type for OpenAPI spec
+      res.setHeader('Content-Type', 'application/json');
+      res.json(openApiSpec);
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'OpenAPISpec');
+    }
+  }));
+
+  /**
+   * GET /api/v1/search/advanced
+   * Advanced product search with AI-powered features
+   * Agent-native equivalent of GET /api/search/advanced
+   */
+  app.get(
+    '/api/v1/search/advanced',
+    flexibleAuth,
+    withAuth(async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        logger.info('API v1: Advanced search request');
+
+        // Import advanced search service dynamically
+        const { advancedSearchService } = await import('../services/advanced-search');
+
+        const filters: SearchFilters = {
+          query: req.query.query as string,
+          category: req.query.category as string,
+          minPrice: req.query.minPrice
+            ? parseFloatSafe(req.query.minPrice as string, 'minPrice', { min: 0 })
+            : undefined,
+          maxPrice: req.query.maxPrice
+            ? parseFloatSafe(req.query.maxPrice as string, 'maxPrice', { min: 0 })
+            : undefined,
+          retailers: req.query.retailers
+            ? Array.isArray(req.query.retailers)
+              ? req.query.retailers.map((id) => parseIntSafe(id as string, 'retailerId', { min: 1 }))
+              : [parseIntSafe(req.query.retailers as string, 'retailerId', { min: 1 })]
+            : undefined,
+          minRating: req.query.minRating
+            ? parseFloatSafe(req.query.minRating as string, 'minRating', { min: 0, max: 5 })
+            : undefined,
+          availability: req.query.availability
+            ? Array.isArray(req.query.availability)
+              ? (req.query.availability as string[])
+              : [req.query.availability as string]
+            : undefined,
+          sortBy: req.query.sortBy as 'price_low' | 'price_high' | 'rating' | 'popularity',
+        };
+
+        const userId = req.user?.id;
+        const results = await advancedSearchService.searchProducts(filters, userId);
+
+        sendSuccess(res, {
+          results: results.map((result) => ({
+            product: result.product,
+            relevanceScore: result.relevanceScore,
+            matchType: result.matchType,
+          })),
+          metadata: {
+            totalResults: results.length,
+            searchTime: Date.now(),
+            features: ['fuzzy_search', 'semantic_search', 'synonym_matching', 'relevance_scoring'],
+          },
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'AdvancedSearch');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/search/suggestions
+   * Get search suggestions and auto-completions
+   * Agent-native equivalent of GET /api/search/suggestions
+   */
+  app.get(
+    '/api/v1/search/suggestions',
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const query = req.query.q as string;
+        const limit = req.query.limit
+          ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 50 })
+          : 5;
+
+        logger.info('API v1: Search suggestions request', { query, limit });
+
+        if (!query || query.length < 2) {
+          sendSuccess(res, { suggestions: [] });
+          return;
+        }
+
+        // Import advanced search service dynamically
+        const { advancedSearchService } = await import('../services/advanced-search');
+        const suggestions = await advancedSearchService.getSearchSuggestions(query, limit);
+
+        sendSuccess(res, { suggestions });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetSearchSuggestions');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/analytics/user
+   * Get user's price tracking analytics and statistics
+   * Agent-native endpoint for watchlist stats and tracking summary
+   */
+  app.get(
+    '/api/v1/analytics/user',
+    flexibleAuth,
+    withAuth(async (req: Request, res: Response) => {
+      try {
+        const userId = (req.user as Express.User).id;
+        logger.info(`API v1: Fetching analytics for user ${userId}`);
+
+        // Get watchlist stats (primary user analytics)
+        const watchlistStats = await storage.getWatchListStats(userId);
+
+        // Get alert count
+        const alertCount = await storage.countUserAlerts(userId);
+
+        // Get notification count
+        const { getUserNotifications } = await import('../services/notification-service');
+        const notifications = await getUserNotifications(userId, { limit: 1 });
+
+        sendSuccess(res, {
+          watchlists: watchlistStats,
+          alerts: {
+            total: alertCount,
+          },
+          notifications: {
+            unreadEstimate: notifications.length,
+          },
+          generatedAt: new Date().toISOString(),
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetUserAnalytics');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/admin/system-health
+   * Get system health and status information
+   * Agent-native equivalent of admin monitoring endpoints (read-only)
+   */
+  app.get(
+    '/api/v1/admin/system-health',
+    flexibleAuth,
+    withAdmin(async (_req: Request, res: Response) => {
+      try {
+        logger.info('API v1: System health check');
+
+        // Get performance stats
+        const { getPerformanceStats } = await import('../middleware/performance');
+        const performanceStats = getPerformanceStats();
+
+        // Check database connectivity
+        let dbStatus = 'healthy';
+        try {
+          await storage.getAllRetailers();
+        } catch {
+          dbStatus = 'unhealthy';
+        }
+
+        // Check Redis connectivity (if available)
+        let redisStatus = 'not_configured';
+        try {
+          const { getRedisClient } = await import('../config/redis');
+          const redis = getRedisClient();
+          if (redis) {
+            await redis.ping();
+            redisStatus = 'healthy';
+          }
+        } catch {
+          redisStatus = 'unhealthy';
+        }
+
+        sendSuccess(res, {
+          status: dbStatus === 'healthy' ? 'healthy' : 'degraded',
+          timestamp: new Date().toISOString(),
+          components: {
+            database: { status: dbStatus },
+            redis: { status: redisStatus },
+            api: { status: 'healthy' },
+          },
+          performance: performanceStats,
+          uptime: process.uptime(),
+          memory: {
+            heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+            heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+            rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+          },
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'SystemHealth');
+      }
+    })
+  );
+
+  /**
+   * GET /api/v1/admin/stats
+   * Get platform-wide statistics and analytics
+   * Agent-native equivalent of GET /api/admin/analytics/overview
+   */
+  app.get(
+    '/api/v1/admin/stats',
+    flexibleAuth,
+    withAdmin(async (_req: Request, res: Response) => {
+      try {
+        logger.info('API v1: Platform stats request');
+
+        // Get admin analytics overview
+        const overview = await storage.getAdminAnalyticsOverview();
+
+        // Get user growth data
+        const userGrowth = await storage.getUserGrowthData();
+
+        // Get product activity
+        const productActivity = await storage.getProductActivityData();
+
+        // Get top categories
+        const topCategories = await storage.getTopProductCategories(10);
+
+        sendSuccess(res, {
+          overview,
+          userGrowth,
+          productActivity,
+          topCategories,
+          generatedAt: new Date().toISOString(),
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetPlatformStats');
+      }
+    })
+  );
+
+  logger.info('API v1 routes registered (HTTP Basic Auth) - Phase 1 + Phase 2 + Phase 3: 31 endpoints');
 }

@@ -8,7 +8,7 @@ AI agents can now authenticate to core platform endpoints using HTTP Basic Authe
 
 **Authentication Method**: `Authorization: Basic base64(username:password)`
 
-**Agent Coverage**: 24 endpoints (12% of total API surface)
+**Agent Coverage**: 31 endpoints (15% of total API surface)
 
 ## Endpoints
 
@@ -588,6 +588,233 @@ curl -u "username:password" \
   "success": true,
   "data": {
     "count": 5
+  }
+}
+```
+
+---
+
+### API Discovery & OpenAPI (Phase 3)
+
+#### GET /api/v1
+API discovery endpoint - lists all available API v1 capabilities.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "version": "1.0.0",
+    "authentication": "HTTP Basic Auth",
+    "documentation": "/api/v1/openapi.json",
+    "endpoints": {
+      "watchlists": {
+        "description": "User watchlist management",
+        "endpoints": ["GET /api/v1/watchlists", "..."]
+      },
+      "priceAlerts": { "..." },
+      "products": { "..." },
+      "search": { "..." },
+      "analytics": { "..." },
+      "admin": { "..." }
+    }
+  }
+}
+```
+
+#### GET /api/v1/openapi.json
+OpenAPI 3.0 specification for API v1 endpoints.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/openapi.json
+```
+
+**Response**:
+```json
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PriceCompare API",
+    "version": "1.0.0"
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": { "type": "http", "scheme": "basic" }
+    }
+  },
+  "paths": { "..." }
+}
+```
+
+---
+
+### Advanced Search Operations (Phase 3)
+
+#### GET /api/v1/search/advanced
+Advanced product search with AI-powered features.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  "http://localhost:5000/api/v1/search/advanced?query=laptop&minPrice=500&maxPrice=1500"
+```
+
+**Query Parameters**:
+- `query` - Search query string
+- `category` - Product category filter
+- `minPrice` - Minimum price filter
+- `maxPrice` - Maximum price filter
+- `retailers` - Retailer ID filter (array)
+- `minRating` - Minimum rating (0-5)
+- `availability` - Availability filter (array)
+- `sortBy` - Sort order: `price_low`, `price_high`, `rating`, `popularity`
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "product": { "id": 1, "name": "Gaming Laptop", "..." },
+        "relevanceScore": 0.95,
+        "matchType": "exact"
+      }
+    ],
+    "metadata": {
+      "totalResults": 15,
+      "searchTime": 1735550400000,
+      "features": ["fuzzy_search", "semantic_search", "synonym_matching", "relevance_scoring"]
+    }
+  }
+}
+```
+
+#### GET /api/v1/search/suggestions
+Get search suggestions and auto-completions.
+
+**Request**:
+```bash
+curl -u "username:password" \
+  "http://localhost:5000/api/v1/search/suggestions?q=iph&limit=5"
+```
+
+**Query Parameters**:
+- `q` - Search query (minimum 2 characters)
+- `limit` - Maximum suggestions (default: 5, max: 50)
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "suggestions": ["iPhone 15", "iPhone 15 Pro", "iPhone 14"]
+  }
+}
+```
+
+---
+
+### User Analytics (Phase 3)
+
+#### GET /api/v1/analytics/user
+Get user's price tracking analytics and statistics.
+
+**Request**:
+```bash
+curl -u "username:password" http://localhost:5000/api/v1/analytics/user
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "watchlists": {
+      "totalWatchLists": 3,
+      "totalProducts": 15,
+      "potentialSavings": "245.00",
+      "activeAlerts": 5,
+      "triggeredAlerts": 2
+    },
+    "alerts": {
+      "total": 5
+    },
+    "notifications": {
+      "unreadEstimate": 3
+    },
+    "generatedAt": "2025-12-30T12:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Admin Monitoring (Phase 3 - Admin Only)
+
+#### GET /api/v1/admin/system-health
+Get system health and status information.
+
+**Request**:
+```bash
+curl -u "admin:password" http://localhost:5000/api/v1/admin/system-health
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "timestamp": "2025-12-30T12:00:00.000Z",
+    "components": {
+      "database": { "status": "healthy" },
+      "redis": { "status": "healthy" },
+      "api": { "status": "healthy" }
+    },
+    "performance": {
+      "totalRequests": 15420,
+      "averageResponseTime": 45.2
+    },
+    "uptime": 86400,
+    "memory": {
+      "heapUsed": 128,
+      "heapTotal": 256,
+      "rss": 312
+    }
+  }
+}
+```
+
+#### GET /api/v1/admin/stats
+Get platform-wide statistics and analytics.
+
+**Request**:
+```bash
+curl -u "admin:password" http://localhost:5000/api/v1/admin/stats
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "overview": {
+      "totalUsers": 1250,
+      "totalProducts": 8500,
+      "totalRetailers": 45,
+      "totalAlerts": 3200
+    },
+    "userGrowth": [...],
+    "productActivity": [...],
+    "topCategories": [...],
+    "generatedAt": "2025-12-30T12:00:00.000Z"
   }
 }
 ```
