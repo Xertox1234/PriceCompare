@@ -1,122 +1,166 @@
-# Documentation Index
-**AI-Powered Price Comparison Platform**  
-**Last Updated**: June 26, 2025
+# PriceCompare Documentation
 
-## Quick Start Guides
+**Modern price comparison platform with AI-powered product discovery**
+**Tech Stack:** Express.js + React 19 + PostgreSQL + Redis + Playwright
 
-### For Business Users
-📋 **[Affiliate Management Guide](./AFFILIATE_MANAGEMENT_GUIDE.md)**  
-Complete guide for setting up affiliate partnerships and generating revenue. Includes step-by-step instructions for Amazon Associates, Walmart Connect, and other affiliate programs.
+---
 
-### For Developers
-🚀 **[Deployment Guide](./DEPLOYMENT_GUIDE.md)**  
-Production deployment instructions for Replit Deployments with security configuration, monitoring setup, and troubleshooting procedures.
+## 🚀 Quick Start
 
-🔧 **[API Endpoints Reference](./API_ENDPOINTS_REFERENCE.md)**  
-Complete API documentation with request/response examples, authentication requirements, and error handling.
+**New to the project?** Start here:
+1. Read [ARCHITECTURE.md](./ARCHITECTURE.md) - System overview
+2. Review [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) - UI patterns
+3. Explore [Core Patterns](#core-patterns) - Essential development patterns
+4. Check [guides/](./guides/) - Quick reference guides
 
-### For System Administrators
-🏗️ **[System Architecture Overview](./SYSTEM_ARCHITECTURE_OVERVIEW.md)**  
-Comprehensive technical architecture including AI agent system, database design, and integration patterns.
+**Working on a feature?**
+- Consult relevant [Core Patterns](#core-patterns) first
+- Check [learnings/](./learnings/) for real-world examples
+- Follow [PATTERN_CODIFICATION_GUIDE.md](./PATTERN_CODIFICATION_GUIDE.md) to extract new patterns
 
-📊 **[Agent System Review](./AGENT_SYSTEM_REVIEW.md)**  
-Current status and performance metrics of the AI scraping infrastructure with recommendations for optimization.
+---
 
-## Technical Documentation
+## 📚 Core Patterns (Essential Reading)
 
-### Implementation Guides
-🔗 **[Link Generation System](./LINK_GENERATION.md)**
-Technical specifications for affiliate link generation, URL transformation logic, and revenue optimization features.
+These 8 files define the project's development standards. **Read before coding!**
 
-🛠️ **[Component Guide](./COMPONENT_GUIDE.md)**
-Frontend component documentation with props, usage patterns, and implementation details.
+| Pattern | Purpose | Key Topics |
+|---------|---------|------------|
+| [01_TYPESCRIPT_PATTERNS.md](./01_TYPESCRIPT_PATTERNS.md) | Type safety | Zod, async/await, floating promises |
+| [02_DATABASE_PATTERNS.md](./02_DATABASE_PATTERNS.md) | Database operations | N+1 prevention, transactions, storage layer |
+| [03_API_PATTERNS.md](./03_API_PATTERNS.md) | API development | Routes, middleware, services |
+| [04_SECURITY_PATTERNS.md](./04_SECURITY_PATTERNS.md) | Security standards | Auth, CSRF, input validation |
+| [05_FRONTEND_PATTERNS.md](./05_FRONTEND_PATTERNS.md) | React patterns | Components, React Query, forms |
+| [06_ERROR_HANDLING_PATTERNS.md](./06_ERROR_HANDLING_PATTERNS.md) | Error handling | Responses, sanitization |
+| [07_BACKGROUND_JOBS_PATTERNS.md](./07_BACKGROUND_JOBS_PATTERNS.md) | Background jobs | Bull queues, distributed locking |
+| [08_TESTING_PATTERNS.md](./08_TESTING_PATTERNS.md) | Testing strategies | Vitest, integration tests, E2E |
 
-📋 **[Pattern Documentation Index](./PATTERNS_INDEX.md)**
-Comprehensive index of all coding patterns, best practices, and anti-patterns organized by domain. Essential reading for developers and code reviewers.
+---
 
-### Architecture Documentation
-📐 **[System Architecture](./ARCHITECTURE.md)**
-High-level system design patterns, technology decisions, and architectural governance process.
+## 📂 Documentation Categories
 
-🧪 **[Code Review Report](./CODE_REVIEW_REPORT.md)**
-Documentation alignment verification with implementation status and quality assessment.
+### 🏗️ Architecture & System Design
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - System overview, ADRs, caching
+- [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) - Design system and UI tokens
+- [COMPONENT_GUIDE.md](./COMPONENT_GUIDE.md) - React component architecture
+- [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - API reference
 
-## Project Management
+### 🔒 Security
+[security/](./security/) - Auth, encryption, HTTP Basic Auth, security audits
 
-### Planning Documents
-📈 **[Feature Roadmap](./FEATURE_ROADMAP.md)**  
-Development phases, feature priorities, and implementation timeline for platform evolution.
+### 🗄️ Database
+[database/](./database/) - Schema migrations, storage layer architecture, solutions
 
-📝 **[Build Plan](./BUILD_PLAN.md)**  
-MVP specifications, approval processes, and quality gates for development workflow.
+### 🧪 Testing
+[testing/](./testing/) - E2E test plans, test coverage, database setup
 
-### Process Documentation
-🔍 **[Scraping Plan](./scraping_plan.md)**  
-AI agent implementation strategy, database schema extensions, and automation workflow design.
+### 🚀 Deployment & Operations
+[deployment/](./deployment/) - Deployment guides, monitoring, backup/recovery
 
-## Platform Features
+### 🔧 Tooling & CI/CD
+[tooling/](./tooling/) - ESLint, pre-commit hooks, CI/CD automation, npm overrides
 
-### Core Functionality
-- **AI-Powered Product Discovery**: Automated trending product identification using OpenAI GPT-4
-- **Multi-Retailer Price Comparison**: Real-time pricing from Amazon, Walmart, Target, Best Buy, and more
-- **Intelligent Affiliate Revenue**: Automatic link generation with performance optimization
-- **Community Forum**: Discourse-like discussion platform with trust levels and badges
-- **Admin Analytics Dashboard**: Interactive charts and performance monitoring
+### 📖 Guides & Quick References
+[guides/](./guides/) - Quick starts, checklists, how-to guides
 
-### Revenue Generation
-- **Affiliate Link Automation**: Support for Amazon Associates, Walmart Connect, Target Partners
-- **Performance Analytics**: Click tracking, conversion rates, and revenue attribution
-- **Link Health Monitoring**: Automatic validation and repair of broken affiliate links
-- **Commission Optimization**: Smart retailer prioritization based on performance metrics
+### 💡 Features
+[features/](./features/) - Browser extension, smart notifications, feature specs
 
-### AI Agent System
-- **Coordination Agent**: Orchestrates all scraping operations and workflow management
-- **Discovery Agent**: AI-powered trend analysis and product categorization
-- **Search Agent**: Google Custom Search API integration for product discovery
-- **Extraction Agent**: Retailer-specific data collection with anti-detection measures
-- **Monitoring Agent**: Automated price tracking and change detection
-- **Affiliate Agent**: Revenue optimization through intelligent link generation
+### 📊 Audits & Reports
+[audits/](./audits/) - Code audits, security audits, verification reports
 
-## Current System Status
+### 🧠 Learnings (Real-World Examples)
+[learnings/](./learnings/) - 49 documented lessons learned, organized by topic:
+- E2E Testing (7 docs)
+- Code Review (6 docs)
+- Database & Schema (5 docs)
+- Security (2 docs)
+- Pre-commit Hooks (5 docs)
+- TODO Resolutions (18 docs)
+- Performance (1 doc)
+- Tooling (6 docs)
 
-### Live Data
-- **Products**: 6 active products with real pricing data
-- **Price Offers**: 17 offers across multiple retailers
-- **Affiliate Links**: Active Amazon Associates and Walmart Connect configurations
-- **AI Jobs**: 23+ scraping jobs processed with trending product discovery
+### 📅 Development Phases
+[phases/](./phases/) - Phase completion summaries and timeline
 
-### Performance Metrics
-- **Agent Success Rate**: 100% for completed jobs
-- **Database Coverage**: Full schema with 15+ tables supporting AI operations
-- **API Integration**: Google Custom Search and OpenAI GPT-4 operational
-- **Affiliate Revenue**: Ready for commission generation with proper configurations
+### 📦 API Documentation
+[api/](./api/) - Endpoint references, testing plans, unified auth design
 
-## Getting Help
+### 🗃️ Archive
+[archive/](./archive/) - Completed migrations and obsolete documentation
 
-### Support Resources
-- **System Logs**: Monitor application performance and errors
-- **Admin Dashboard**: Real-time metrics and system health monitoring
-- **API Testing**: Built-in tools for testing affiliate link generation
-- **Agent Status**: Multi-agent system health and performance tracking
+### 🔬 Research & Planning
+- [research/](./research/) - Design and UI research
+- [planning/](./planning/) - Future planning documents
+- [agents/](./agents/) - Code review specialist documentation
 
-### Contact Information
-- **Technical Issues**: Check system logs and agent status first
-- **Affiliate Setup**: Reference Affiliate Management Guide for step-by-step instructions
-- **Deployment**: Follow Deployment Guide for production setup procedures
-- **API Integration**: Use API Endpoints Reference for implementation details
+---
 
-## Next Steps
+## 🛠️ Common Tasks
 
-### Immediate Actions
-1. **Set Up Affiliate Accounts**: Apply for Amazon Associates and Walmart Connect programs
-2. **Configure Real Affiliate IDs**: Replace sample configurations with actual credentials
-3. **Test Link Generation**: Verify affiliate link creation and validation
-4. **Monitor Performance**: Track clicks, conversions, and revenue generation
+### Starting a New Feature
+1. Review relevant [Core Patterns](#core-patterns)
+2. Check [learnings/](./learnings/) for similar past work
+3. Read [PATTERN_CODIFICATION_GUIDE.md](./PATTERN_CODIFICATION_GUIDE.md)
+4. Follow pre-commit hook guidance in [tooling/](./tooling/)
 
-### Platform Expansion
-1. **Additional Retailers**: Expand coverage to more affiliate programs
-2. **Enhanced AI**: Improve trend analysis and product categorization
-3. **Mobile Optimization**: Develop native mobile application
-4. **Advanced Analytics**: Implement predictive pricing and demand forecasting
+### Database Changes
+1. Read [SCHEMA_MIGRATION_QUICK_REFERENCE.md](./SCHEMA_MIGRATION_QUICK_REFERENCE.md)
+2. Check [database/](./database/) for migration patterns
+3. Validate with `npm run validate:schema` before commit
 
-This documentation provides comprehensive guidance for operating and maintaining your AI-powered price comparison platform with automated revenue generation capabilities.
+### Security Review
+1. Consult [04_SECURITY_PATTERNS.md](./04_SECURITY_PATTERNS.md)
+2. Review [security/](./security/) for specific scenarios
+3. Run security checks: `npm run security:full`
+
+### Debugging Issues
+1. Check [learnings/](./learnings/) for similar problems
+2. Review [LINT_ERROR_PATTERNS.md](./tooling/LINT_ERROR_PATTERNS.md)
+3. See [testing/](./testing/) for test debugging
+
+---
+
+## 📝 Pattern Codification
+
+When you solve a significant problem:
+1. Document the solution in code
+2. Extract learnings to [learnings/](./learnings/)
+3. Update relevant [Core Patterns](#core-patterns)
+4. Follow [PATTERN_CODIFICATION_GUIDE.md](./PATTERN_CODIFICATION_GUIDE.md)
+
+**When to codify:**
+- ✅ Security vulnerabilities fixed
+- ✅ Performance optimizations
+- ✅ Pre-commit blocks resolved
+- ✅ Recurring issues (2+ times)
+- ✅ New architectural patterns
+
+---
+
+## 🎯 Quick Reference
+
+| Need | Documentation |
+|------|---------------|
+| **API routes** | [03_API_PATTERNS.md](./03_API_PATTERNS.md) + [api/](./api/) |
+| **Database queries** | [02_DATABASE_PATTERNS.md](./02_DATABASE_PATTERNS.md) + [database/](./database/) |
+| **React components** | [05_FRONTEND_PATTERNS.md](./05_FRONTEND_PATTERNS.md) + [COMPONENT_GUIDE.md](./COMPONENT_GUIDE.md) |
+| **Security** | [04_SECURITY_PATTERNS.md](./04_SECURITY_PATTERNS.md) + [security/](./security/) |
+| **Testing** | [08_TESTING_PATTERNS.md](./08_TESTING_PATTERNS.md) + [testing/](./testing/) |
+| **Pre-commit issues** | [tooling/PRE_COMMIT_HOOK_GUIDE.md](./tooling/PRE_COMMIT_HOOK_GUIDE.md) |
+| **Deployment** | [deployment/](./deployment/) |
+| **Past problems** | [learnings/](./learnings/) |
+
+---
+
+## 📊 Project Statistics
+
+- **Core Patterns:** 8 files (794 KB)
+- **Learnings Documented:** 49 sessions
+- **Development Phases:** 5+ completed phases
+- **Total Documentation:** 248 files
+
+---
+
+**Last Updated:** January 2, 2026
+**Maintained by:** Development team via pattern codification

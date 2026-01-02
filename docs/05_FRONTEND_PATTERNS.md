@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.6
-**Last Updated:** 2025-12-30
+**Version:** 2.7
+**Last Updated:** 2026-01-02
 **Changelog:**
+- 2.7 (2026-01-02): Added Mega Menu: React State Over CSS-Only Hover pattern to Accessibility section - documents pointer-events control, keyboard navigation, ARIA attributes, and delayed close pattern for hover menus (from header navigation click failure fix)
 - 2.6 (2025-12-30): Added CSS Architecture Consolidation patterns: Large-Scale Design Token Migration Strategy, Component-First Configuration-Last Migration Order, Semantic Design Token Mapping Strategy, Phase-Gated Refactoring with Verification Checkpoints (from TODO 008 - 442 violations, 60+ files, zero regressions)
 - 2.5 (2025-12-26): Enhanced Lazy Loading verification checklist with production testing requirements
 - 2.4 (2025-12-26): Added Lazy Loading for Bundle Size Optimization pattern to Performance section
@@ -23,6 +24,7 @@
   - [Design System Compliance](#design-system-compliance)
   - [Conditional UI Rendering](#conditional-ui-rendering)
   - [Accessibility: Icon-Only Buttons Must Have Names](#accessibility-icon-only-buttons-must-have-names-new---2025-12-15)
+  - [Mega Menu: React State Over CSS-Only Hover](#mega-menu-react-state-over-css-only-hover-new---2026-01-02)
 3. [React Query Patterns](#react-query-patterns)
   - [Mutation Best Practices](#mutation-best-practices)
   - [Query Invalidation Strategy](#query-invalidation-strategy)
@@ -358,6 +360,176 @@ Truly dynamic colors calculated at runtime are acceptable:
 **Reference fixes:**
 - `client/src/pages/product-detail-new.tsx` (gallery arrows, thumbnails, icon buttons)
 - `client/src/components/auth/login-form.tsx` (password visibility toggle)
+
+---
+
+### Mega Menu: React State Over CSS-Only Hover (NEW - 2026-01-02)
+
+**Problem:** CSS-only hover states (`group-hover:`) for mega menus create timing issues that cause intermittent click failures during transitions. When mega menus fade out (200ms transition), they still intercept pointer events and block clicks on adjacent menu items.
+
+**Root Cause:** Pure CSS cannot control `pointer-events` based on transition state, leading to race conditions where hidden/hiding elements block user interactions.
+
+**Solution:** Replace CSS-only hover with React state management + explicit `pointer-events` control.
+
+#### Anti-Pattern
+
+```tsx
+// ❌ WRONG - CSS-only hover creates click interception issues
+<li className="group relative">
+  <Link href={item.link}>
+    {item.label}
+    {item.megaMenu && <ChevronDown />}
+  </Link>
+
+  {/* Mega menu controlled purely by CSS */}
+  {item.megaMenu && (
+    <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200">
+      {/* Menu content - still intercepts clicks during fade-out! */}
+    </div>
+  )}
+</li>
+```
+
+**Problems:**
+- During 200ms fade-out, mega menu intercepts pointer events
+- Adjacent menu items become unclickable during transitions
+- Rapid hover movements cause race conditions
+- No keyboard navigation support
+- Missing ARIA attributes for screen readers
+
+#### Correct Pattern
+
+```tsx
+// ✅ CORRECT - React state + pointer-events control
+function TemplateHeader() {
+  const MEGA_MENU_CLOSE_DELAY_MS = 150; // Prevents flicker when moving between items
+  const [openMegaMenuId, setOpenMegaMenuId] = useState<number | null>(null);
+  const megaMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (megaMenuTimeoutRef.current) {
+        clearTimeout(megaMenuTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleMegaMenuEnter = (menuId: number) => {
+    // Clear any pending hide timeout
+    if (megaMenuTimeoutRef.current) {
+      clearTimeout(megaMenuTimeoutRef.current);
+      megaMenuTimeoutRef.current = null;
+    }
+    setOpenMegaMenuId(menuId);
+  };
+
+  const handleMegaMenuLeave = () => {
+    // Delayed close prevents accidental dismissal
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setOpenMegaMenuId(null);
+    }, MEGA_MENU_CLOSE_DELAY_MS);
+  };
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape' && openMegaMenuId !== null) {
+      setOpenMegaMenuId(null);
+      event.preventDefault();
+    }
+  };
+
+  return (
+    <ul>
+      {menuItems.map((item) => (
+        <li
+          key={item.id}
+          className="relative"
+          onMouseEnter={() => item.megaMenu && handleMegaMenuEnter(item.id)}
+          onMouseLeave={() => item.megaMenu && handleMegaMenuLeave()}
+          onKeyDown={handleMenuKeyDown}
+        >
+          <Link
+            href={item.link}
+            aria-haspopup={item.megaMenu ? 'true' : undefined}
+            aria-expanded={item.megaMenu ? openMegaMenuId === item.id : undefined}
+            className={cn(
+              'hover:text-primary',
+              openMegaMenuId === item.id && 'text-primary' // Active state
+            )}
+          >
+            {item.label}
+            {item.megaMenu && (
+              <ChevronDown aria-hidden="true" focusable="false" />
+            )}
+          </Link>
+
+          {/* CRITICAL: pointer-events-none when hidden prevents click interception */}
+          {item.megaMenu && (
+            <div
+              className={cn(
+                'absolute top-full left-0 transition-all duration-200',
+                'will-change-opacity will-change-transform', // GPU acceleration
+                openMegaMenuId === item.id
+                  ? 'visible opacity-100 pointer-events-auto'
+                  : 'invisible opacity-0 pointer-events-none' // Key fix!
+              )}
+            >
+              {/* Menu content */}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+**Key Elements:**
+
+1. **State Management**
+   - `openMegaMenuId` tracks which mega menu is open (only one at a time)
+   - `megaMenuTimeoutRef` manages delayed close timing
+
+2. **Pointer Events Control** (CRITICAL)
+   - `pointer-events-auto` when visible → menu is interactive
+   - `pointer-events-none` when hidden → prevents click interception during transitions
+   - This is the key fix that CSS-only approaches cannot achieve
+
+3. **Delayed Close**
+   - 150ms delay before hiding prevents accidental dismissal when moving mouse between items
+   - Timeout is cleared if user hovers another menu (prevents flicker)
+   - Cleanup in `useEffect` prevents memory leaks
+
+4. **Keyboard Navigation**
+   - `Escape` key closes open mega menu
+   - Maintains keyboard accessibility
+
+5. **ARIA Attributes**
+   - `aria-haspopup="true"` → announces menu trigger to screen readers
+   - `aria-expanded="true/false"` → announces current menu state
+   - `aria-hidden="true"` on decorative icons
+   - `focusable="false"` prevents icon focus
+
+6. **Performance**
+   - `will-change-opacity` and `will-change-transform` hint GPU acceleration
+   - Minimizes layout thrashing during transitions
+
+**When to Use:**
+- Any dropdown, mega menu, or tooltip with hover interactions
+- Components where CSS-only hover causes timing issues
+- Navigation menus with complex nested content
+- Situations requiring precise control over interaction timing
+
+**Accessibility Requirements:**
+- ✅ Keyboard navigation (Escape closes menu)
+- ✅ ARIA attributes for screen readers
+- ✅ Visual active state feedback
+- ✅ Decorative icons hidden from assistive tech
+
+**Reference Implementation:**
+- `client/src/components/template/header.tsx:76-360` (TemplateHeader mega menu)
+
+**Learned From:** TODO #[number] - Header navigation click failures (2026-01-02)
 
 ---
 

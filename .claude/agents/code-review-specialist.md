@@ -821,7 +821,7 @@ const amount = page.locator('text=/$99.99/');
 5. Verify fix with test run
 
 **Reference**:
-- `docs/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md` - Complete debugging walkthrough
+- `docs/learnings/code-review/LEARNINGS_CODE_REVIEW_ASYNC_ONCLICK_DEBUGGING.md` - Complete debugging walkthrough
 - `e2e/price-analytics.spec.ts` (lines 175-211) - Implementation example
 - `docs/08_TESTING_PATTERNS.md` - E2E testing patterns
 
@@ -928,7 +928,7 @@ grep -rn "await.*Timeout.*[0-9][0-9][0-9]" e2e/ --include="*.ts"
 
 **Reference**:
 - `e2e/helpers/price-analytics-helpers.ts` - Production example
-- `docs/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full pattern documentation
+- `docs/learnings/code-review/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full pattern documentation
 
 ---
 
@@ -1063,7 +1063,7 @@ if (bestOffer?.price) {
 - [ ] Suggested utilities would genuinely improve readability
 
 **Reference**:
-- `docs/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full decision rationale
+- `docs/learnings/code-review/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full decision rationale
 - `client/src/pages/product-detail-new.tsx` - Example of acceptable inline patterns
 
 ---
@@ -2651,7 +2651,7 @@ When reviewing test files, apply these critical patterns from TODO_004 learnings
 1. **Mock-Based Database Tests (>50 lines of mocks)**
    - Flag: Mocking Drizzle/Prisma/TypeORM operations
    - Recommendation: Use real database with TRUNCATE CASCADE
-   - Reference: `docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
+   - Reference: `docs/learnings/database/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
 
 2. **Timezone-Unsafe Date Construction**
    - Flag: `new Date('2024-01-01')` without time component
@@ -2829,7 +2829,7 @@ Redis Already Provides:
 
 Recommendation: Refactor to use Redis-native TTL
 Expected Reduction: 450 LOC -> ~100 LOC (78% reduction)
-Reference: docs/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md
+Reference: docs/learnings/todos/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md
 ```
 
 ---
@@ -2921,7 +2921,7 @@ The hook (`.git/hooks/pre-commit` v3.4) uses **diff-based detection**:
 
 Current hook version: **3.4** (Phase 5 Complete - 2025-12-04)
 Location: `.git/hooks/pre-commit`
-Documentation: `docs/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md`
+Documentation: `docs/learnings/pre-commit/LEARNINGS_PRE_COMMIT_HOOK_PATTERNS.md`
 
 ---
 

@@ -92,7 +92,7 @@ beforeEach(async () => {
 
 **Rule of Thumb**: If you need >50 lines of mock setup, use real database instead.
 
-**Reference**: `docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
+**Reference**: `docs/learnings/database/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
 
 ---
 

@@ -1578,7 +1578,7 @@ beforeEach(async () => {
 - Real database tests: 0 lines of mocks, 19 tests passing, zero maintenance
 - Performance: <900ms for 16 integration tests (TRUNCATE CASCADE is fast)
 
-**Reference**: `docs/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
+**Reference**: `docs/learnings/database/LEARNINGS_TODO_004_PRICE_AGGREGATION_REAL_DB_TESTS.md`
 
 ---
 
@@ -2416,7 +2416,7 @@ Flag for potential simplification when you see:
 - Sync/async function pairs for same operation
 - "Fallback" storage that isn't used in production
 
-**Reference:** `docs/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md`
+**Reference:** `docs/learnings/todos/LEARNINGS_TODO_001_REDIS_SIMPLIFICATION.md`
 
 ---
 
@@ -2599,7 +2599,7 @@ A good environment configuration pattern achieves:
 - Backward compatible with existing explicit configurations
 - Template file documents all options with troubleshooting
 
-**Reference:** `docs/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md`
+**Reference:** `docs/learnings/database/LEARNINGS_TODO_175_DATABASE_CONNECTION_TESTS.md`
 
 ---
 
@@ -2706,7 +2706,7 @@ Playwright's browser automation has stricter enforcement of `this` binding than 
 
 **Reference:**
 - `docs/01_TYPESCRIPT_PATTERNS.md` - Native Browser API Binding section
-- `docs/LEARNINGS_PHASE_1_1_USERATEFIMIT_FETCH_BINDING.md` - Complete investigation
+- `docs/learnings/tooling/LEARNINGS_PHASE_1_1_USERATEFIMIT_FETCH_BINDING.md` - Complete investigation
 - `client/src/hooks/useRateLimit.ts:90` - Production example
 
 ---
@@ -3205,7 +3205,7 @@ grep -rn "'pending'\|'active'\|'completed'" --include="*.ts"
 
 **Reference**:
 - `e2e/helpers/price-analytics-helpers.ts` - Production example with union type
-- `docs/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full pattern documentation
+- `docs/learnings/code-review/LEARNINGS_CODE_REVIEW_PRICE_ANALYTICS_IMPROVEMENTS.md` - Full pattern documentation
 
 ---
 
