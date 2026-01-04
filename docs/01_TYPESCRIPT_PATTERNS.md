@@ -3882,6 +3882,120 @@ async function resetPassword(token: string) {
 
 ---
 
+## Type Organization Patterns
+
+### Single Source of Truth for Storage Types
+
+**Context:** When defining types that represent storage layer return values.
+
+**Problem:** Duplicate type definitions across multiple files cause type drift, merge conflicts, and IDE confusion.
+
+**✅ Preferred Approach:**
+```typescript
+// server/storage/types.ts - CANONICAL LOCATION
+export interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;
+}
+
+export interface ProductWithOffers extends Product {
+  offers: ProductOffer[];
+  lowestPrice: number;
+}
+
+// server/storage/domains/watchlist-storage.ts
+import type { WatchListWithStats } from '../types';
+
+class WatchListStorage {
+  async getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]> {
+    // Uses imported type
+  }
+}
+
+// server/services/community-service.ts
+import type { WatchListWithStats } from '../storage/types';
+
+export async function getUserWatchLists(userId: number): Promise<WatchListWithStats[]> {
+  // Uses same imported type
+}
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+// ❌ BAD - Duplicate in community-service.ts
+interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;
+}
+
+// ❌ BAD - Another duplicate in storage.ts
+export interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;
+}
+
+// ❌ BAD - Yet another in watchlist-storage.ts
+interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;  // Now three definitions exist!
+}
+```
+
+**Rationale:**
+- **Type Safety:** Prevents divergence where one file adds a field others don't have
+- **Maintainability:** Update type once, all consumers automatically updated
+- **Discoverability:** Clear convention: storage types live in `storage/types.ts`
+- **IDE Support:** Auto-import suggestions from single canonical source
+- **Refactoring:** TypeScript compiler catches ALL usages during refactors
+
+**File Organization:**
+```
+server/
+├── storage/
+│   ├── types.ts              ← ALL storage return types
+│   ├── domains/
+│   │   ├── watchlist-storage.ts   ← Import from ../types
+│   │   ├── product-storage.ts     ← Import from ../types
+│   │   └── user-storage.ts        ← Import from ../types
+│   └── storage.ts             ← Import from ./types
+└── services/
+    ├── community-service.ts   ← Import from ../storage/types
+    └── product-service.ts     ← Import from ../storage/types
+```
+
+**Migration Checklist:**
+1. Search for duplicates: `grep -r "interface WatchListWithStats" server/`
+2. Move canonical definition to `server/storage/types.ts`
+3. Replace all duplicates with: `import type { WatchListWithStats } from '../storage/types'`
+4. Run `npm run check` to verify no type errors
+5. Commit with message referencing this pattern
+
+**When This Pattern Applies:**
+- ANY type returned by a storage method
+- Types extending database schema types (WatchList, Product, User)
+- Composite types combining multiple entities
+- Response shapes used by multiple services
+
+**Exception:**
+```typescript
+// Local-only types can stay in the file that uses them
+interface LocalAggregation {
+  sum: number;
+  count: number;
+  // Only used in this file's implementation
+}
+```
+
+**Related Patterns:**
+- [Utility Type Patterns](#utility-type-patterns) - When to use Pick, Omit, etc.
+- [Type Inference Patterns](#type-inference-patterns) - When to let TypeScript infer
+- [02_DATABASE_PATTERNS.md: Storage Layer Architecture](#) - Storage layer design
+
+*Source: TODO 003 - Found WatchListWithStats duplicated in 3 files (storage.ts, community-service.ts, watchlist-storage.ts)*
+*Added: 2026-01-04*
+
+---
+
 ## Related Documentation
 
 - [CLAUDE.md](../CLAUDE.md) - Main project guidelines

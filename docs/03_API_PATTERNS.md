@@ -1,10 +1,11 @@
 # API & Route Patterns
 
-**Version:** 2.3
-**Last Updated:** 2025-12-27
+**Version:** 2.4
+**Last Updated:** 2026-01-04
 **Migrated From:** 6 source documents (see References)
 **Status:** Active - Mandatory for all API/route code
 **Changelog:**
+- 2.4 (2026-01-04): Added Backward Compatibility with Parallel Methods pattern and Avoid Client-Side Data Transformation pattern (from TODO 003 - highPriorityCount calculation)
 - 2.3 (2025-12-27): Added Unified Authentication Middleware Pattern (flexibleAuth + withAuth mandatory wrapper)
 - 2.2 (2025-12-26): Added Agent-Native Authentication Design pattern (HTTP Basic Auth)
 - 2.1 (2025-12-23): Added business rule validation pattern (Feature 3.3 - alert limits)
@@ -2388,6 +2389,258 @@ if (queue.length > MAX_QUEUE) {
 4. **Remaining**: Display remaining quota if applicable
 5. **Alternatives**: Suggest alternative approaches or workarounds
 6. **Context**: Include relevant operation or resource name
+
+---
+
+### Backward Compatibility with Parallel Methods (NEW - 2026-01-04)
+
+**Context:** When enhancing storage methods to return richer data, avoid breaking existing API clients.
+
+**Problem:** Modifying existing storage methods to return new fields can break clients expecting the old response shape, especially v1 API endpoints.
+
+**✅ Preferred Approach:**
+```typescript
+// server/storage/domains/watchlist-storage.ts
+
+// KEEP existing method for backward compatibility (v1 API)
+async getUserWatchLists(userId: number): Promise<WatchListWithCount[]> {
+  const result = await this.db.select({
+    ...watchLists,
+    productCount: sql<number>`COUNT(${productWatches.id})::int`,
+  })
+  .from(watchLists)
+  .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
+  .where(eq(watchLists.userId, userId))
+  .groupBy(watchLists.id)
+  .orderBy(asc(watchLists.sortOrder));
+
+  return result;
+}
+
+// ADD new method with richer stats (v2+ API)
+async getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]> {
+  const result = await this.db.select({
+    ...watchLists,
+    watchCount: sql<number>`COUNT(${productWatches.id})::int`,
+    highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
+  })
+  .from(watchLists)
+  .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
+  .where(eq(watchLists.userId, userId))
+  .groupBy(watchLists.id)
+  .orderBy(asc(watchLists.sortOrder), asc(watchLists.createdAt));
+
+  return result;
+}
+```
+
+**Route Layer:**
+```typescript
+// server/routes/watchlist-routes.ts
+
+// v1 API - uses old method (backward compatible)
+app.get('/api/v1/watchlists',
+  withAuth(async (req, res) => {
+    const watchLists = await storage.getUserWatchLists(req.user.id);
+    // Returns: { productCount }
+    sendSuccess(res, { watchLists });
+  })
+);
+
+// v2 API - uses new method with richer data
+app.get('/api/watchlists',
+  withAuth(async (req, res) => {
+    const watchLists = await storage.getWatchListsWithStats(req.user.id);
+    // Returns: { watchCount, highPriorityCount }
+    sendSuccess(res, { watchLists });
+  })
+);
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+// ❌ BAD - Modifying existing method breaks v1 API clients
+async getUserWatchLists(userId: number): Promise<WatchListWithStats[]> {
+  // Changed from WatchListWithCount to WatchListWithStats
+  // v1 API clients expecting { productCount } now get { watchCount, highPriorityCount }
+  // BREAKING CHANGE for existing clients!
+}
+```
+
+**Rationale:**
+- **Zero Downtime:** Old clients continue working while new clients adopt enhanced endpoint
+- **Gradual Migration:** Teams can migrate at their own pace
+- **Testing:** Both methods can be tested independently
+- **Documentation:** Clear distinction between v1 and v2+ capabilities
+
+**Deprecation Path:**
+```typescript
+/**
+ * Get watch lists for a user with product count
+ * @deprecated Use getWatchListsWithStats() for richer data (watchCount + highPriorityCount)
+ * @removal-version 3.0.0
+ */
+async getUserWatchLists(userId: number): Promise<WatchListWithCount[]> {
+  // Mark deprecated but keep functional
+}
+```
+
+**When to Use:**
+- Adding new calculated fields to existing queries (e.g., stats, aggregations)
+- Changing response shape (renaming fields, different data structure)
+- Performance optimizations that change query complexity
+- Any change that could break existing API contracts
+
+**Related Patterns:**
+- [02_DATABASE_PATTERNS.md: Storage Layer Method Selection](#) - Prefer WithStats methods
+- [Request/Response Patterns](#requestresponse-patterns) - API versioning strategies
+
+*Source: TODO 003 - Created getWatchListsWithStats() alongside getUserWatchLists()*
+*Added: 2026-01-04*
+
+---
+
+### Avoid Client-Side Data Transformation (NEW - 2026-01-04)
+
+**Context:** When API responses don't match frontend needs, where should transformation occur?
+
+**Problem:** Client-side transformation of server data increases bundle size, creates maintenance burden, and hardcodes business logic in multiple places.
+
+**✅ Preferred Approach:**
+```typescript
+// server/routes/watchlist-routes.ts
+app.get('/api/watchlists',
+  withAuth(async (req, res) => {
+    // Server returns CORRECT shape - no transformation needed
+    const watchLists = await storage.getWatchListsWithStats(req.user.id);
+    // Returns: [{ watchCount: 10, highPriorityCount: 3, ... }]
+
+    sendSuccess(res, { watchLists });
+  })
+);
+
+// client/src/hooks/use-community.ts
+export function useCommunityWatchLists() {
+  return useQuery({
+    queryKey: ['community', 'watchlists'],
+    queryFn: async () => {
+      const result = await apiRequest('/api/watchlists');
+      // ✅ GOOD - Use data directly, no transformation
+      return result.watchLists;
+    },
+  });
+}
+
+// client/src/components/WatchListCard.tsx
+function WatchListCard({ watchList }: { watchList: WatchListWithStats }) {
+  return (
+    <div>
+      <p>{watchList.watchCount} items</p>
+      <p>{watchList.highPriorityCount} high priority</p>
+      {/* Data matches component needs exactly */}
+    </div>
+  );
+}
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+// server/routes/watchlist-routes.ts
+app.get('/api/watchlists',
+  withAuth(async (req, res) => {
+    // ❌ BAD - Server returns WRONG shape
+    const watchLists = await storage.getUserWatchLists(req.user.id);
+    // Returns: [{ productCount: 10, ... }] (missing highPriorityCount)
+
+    sendSuccess(res, { watchLists });
+  })
+);
+
+// client/src/hooks/use-community.ts
+export function useCommunityWatchLists() {
+  return useQuery({
+    queryKey: ['community', 'watchlists'],
+    queryFn: async () => {
+      const result = await apiRequest('/api/watchlists');
+
+      // ❌ BAD - Client-side transformation required
+      return result.watchLists.map(list => ({
+        ...list,
+        watchCount: list.productCount,  // Rename field
+        highPriorityCount: 0,           // HARDCODED placeholder!
+      }));
+    },
+  });
+}
+```
+
+**Rationale:**
+- **Single Source of Truth:** Business logic lives in ONE place (server)
+- **Correctness:** Hardcoded values (like `highPriorityCount: 0`) are almost always wrong
+- **Performance:** Database aggregations more efficient than client-side filtering
+- **Type Safety:** Server types propagate to client without transformation layer
+- **Bundle Size:** Less transformation code in frontend bundle
+
+**Data Transformation Responsibility:**
+
+| Layer | Responsibility | Examples |
+|-------|----------------|----------|
+| **Database** | Aggregations, filtering, joins | COUNT(), SUM(), CASE WHEN |
+| **Storage** | Data shaping, denormalization | Combine related entities, calculate stats |
+| **Service** | Business logic, enrichment | Apply discounts, check permissions |
+| **Route** | Serialization, pagination | Add metadata, slice pages |
+| **Client** | **Presentation only** | Format dates for display, sort UI elements |
+
+**When Client-Side Transformation is Acceptable:**
+```typescript
+// ✅ OK - Pure presentation logic (no business logic)
+const displayDate = new Date(watchList.createdAt).toLocaleDateString();
+const sortedLists = [...watchLists].sort((a, b) =>
+  a.name.localeCompare(b.name)
+); // UI-only sorting
+
+// ❌ NOT OK - Business logic belongs on server
+const highPriorityCount = watchList.items.filter(item =>
+  item.priority === 5
+).length; // Should be calculated in SQL
+```
+
+**Migration Path:**
+```typescript
+// Step 1: Add new storage method with correct data
+async getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]> {
+  // Returns watchCount + highPriorityCount
+}
+
+// Step 2: Update route to use new method
+const watchLists = await storage.getWatchListsWithStats(req.user.id);
+
+// Step 3: Remove client-side transformation
+// BEFORE:
+return result.watchLists.map(list => ({ ...list, watchCount: list.productCount }));
+// AFTER:
+return result.watchLists; // Use directly
+
+// Step 4: Update TypeScript types
+interface WatchListWithStats {
+  watchCount: number;        // Now matches server
+  highPriorityCount: number; // No longer hardcoded to 0
+}
+```
+
+**Detection During Code Review:**
+- Flag: `.map()` transformations in React Query hooks
+- Flag: Hardcoded default values in client code (e.g., `highPriorityCount: 0`)
+- Flag: Field renaming in client (e.g., `productCount` → `watchCount`)
+- Suggest: Move transformation to storage layer
+
+**Related Patterns:**
+- [02_DATABASE_PATTERNS.md: SQL Conditional Aggregation](#) - Calculate stats in SQL
+- [02_DATABASE_PATTERNS.md: Storage Layer Method Selection](#) - Use WithStats methods
+- [05_FRONTEND_PATTERNS.md: Client-Side Data Aggregation Anti-Pattern](#) - Frontend implications
+
+*Source: TODO 003 - Removed client-side transformation from use-community.ts (lines 575-604)*
+*Added: 2026-01-04*
 
 ---
 

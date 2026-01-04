@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.12
+**Version:** 2.13
 **Last Updated:** 2026-01-04
 **Changelog:**
+- 2.13 (2026-01-04): Added SQL conditional aggregation pattern (COUNT CASE WHEN), deterministic ordering pattern, and WithStats method preference pattern (from TODO 003 - highPriorityCount calculation)
 - 2.12 (2026-01-04): Added comprehensive JSDoc pattern for storage methods and validation helper extraction pattern (from TODO 002 code review)
 - 2.11 (2025-12-26): Added notification daily limit SERIALIZABLE transaction production example from TODO 006 (with retry logic)
 - 2.10 (2025-12-26): Added 4 transaction boundary patterns from TODO 004 (transaction-aware error handling, row count validation, interface passthrough, inline vs abstraction trade-off)
@@ -1473,7 +1474,63 @@ const [result] = await db.select({
 const count = result.count;
 ```
 
-### 3.2 Database Grouping
+#### SQL Conditional Aggregation (COUNT CASE WHEN)
+
+**Context:** When you need to count records that meet specific criteria within a GROUP BY query.
+
+**Problem:** Prevents client-side filtering of aggregated data, which requires fetching all records and filtering in memory.
+
+**✅ Preferred Approach:**
+```typescript
+// Calculate both total count and conditional count in single query
+const result = await db.select({
+  watchListId: productWatches.watchListId,
+  watchCount: sql<number>`COUNT(${productWatches.id})::int`,
+  highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
+})
+.from(productWatches)
+.groupBy(productWatches.watchListId);
+
+// Returns: [{ watchListId: 1, watchCount: 10, highPriorityCount: 3 }, ...]
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+// Client-side filtering - fetches ALL records, filters in memory
+const allWatches = await db.select().from(productWatches);
+const grouped = allWatches.reduce((acc, watch) => {
+  if (!acc[watch.watchListId]) {
+    acc[watch.watchListId] = { watchCount: 0, highPriorityCount: 0 };
+  }
+  acc[watch.watchListId].watchCount++;
+  if (watch.priority === 5) {
+    acc[watch.watchListId].highPriorityCount++;
+  }
+  return acc;
+}, {});
+```
+
+**Rationale:**
+- **Performance:** Single-pass aggregation at database layer (O(n) SQL vs O(n) fetch + O(n) filter in JS)
+- **Memory:** Database processes data in streams; client-side requires loading all records into memory
+- **Scalability:** Database aggregation scales with server resources; client-side limited by Node.js heap
+- **Type Safety:** `sql<number>` wrapper ensures correct return type
+
+**When to Use:**
+- Counting records that match complex conditions within groups
+- Statistics requiring filtering (e.g., "active users", "high priority items")
+- Dashboard metrics with multiple conditional counts
+
+**Related Patterns:**
+- [3.3 Batch Operations](#33-batch-operations) - Process aggregated results efficiently
+- [5.7 Deterministic Ordering](#57-deterministic-ordering-new---2026-01-04) - Order aggregated results consistently
+
+*Source: TODO 003 - highPriorityCount calculation*
+*Added: 2026-01-04*
+
+---
+
+### 3.4 Database Grouping
 
 #### ❌ WRONG - Group in Application
 ```typescript
@@ -1505,7 +1562,7 @@ const pricesByProduct = await db.select({
   .groupBy(priceHistory.productId);
 ```
 
-### 3.3 Batch Operations
+### 3.5 Batch Operations
 
 #### ✅ CORRECT - Batch Inserts
 ```typescript
@@ -1527,7 +1584,7 @@ for (let i = 0; i < items.length; i += BATCH_SIZE) {
 }
 ```
 
-### 3.4 Parallel Independent Queries
+### 3.6 Parallel Independent Queries
 
 #### ❌ WRONG - Sequential Independent Queries
 ```typescript
@@ -2879,6 +2936,273 @@ describe('PriceAggregationService', () => {
 ```
 
 **Reference:** `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md` for complete debugging timeline and implementation details.
+
+---
+
+### 5.5 Storage Layer Method Selection: Prefer WithStats Variants (NEW - 2026-01-04)
+
+**Context:** When multiple storage methods exist for the same entity (basic vs enriched), routes should prefer the richer variant to avoid client-side transformation.
+
+**Problem:** Routes using limited methods (e.g., `getUserWatchLists()` returning `productCount`) force client-side transformation, hardcoded placeholders, and duplicate logic.
+
+**✅ Preferred Approach:**
+```typescript
+// server/routes/watchlist-routes.ts
+import { storage } from '../storage';
+
+app.get('/api/watchlists',
+  withAuth(async (req, res) => {
+    // ✅ GOOD - Use WithStats method that returns rich data
+    const watchLists = await storage.getWatchListsWithStats(req.user.id);
+    // Returns: { watchCount, highPriorityCount, ...other fields }
+
+    sendSuccess(res, { watchLists });
+  })
+);
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+// server/routes/watchlist-routes.ts
+app.get('/api/watchlists',
+  withAuth(async (req, res) => {
+    // ❌ BAD - Using limited method
+    const watchLists = await storage.getUserWatchLists(req.user.id);
+    // Returns: { productCount } - missing highPriorityCount
+
+    // Forces client to either:
+    // 1. Hardcode missing data (highPriorityCount: 0)
+    // 2. Make additional API calls to get stats
+    // 3. Transform data shape (productCount → watchCount)
+
+    sendSuccess(res, { watchLists });
+  })
+);
+```
+
+**Rationale:**
+- **Single Source of Truth:** Database calculates stats once, not per-client
+- **Type Safety:** Server returns correct shape; client doesn't need to transform
+- **Performance:** Avoids client-side filtering or additional API calls
+- **Correctness:** No hardcoded placeholder values (e.g., `highPriorityCount: 0`)
+
+**Implementation Pattern:**
+```typescript
+// server/storage/domains/watchlist-storage.ts
+
+// Keep both methods for backward compatibility
+async getUserWatchLists(userId: number): Promise<WatchListWithCount[]> {
+  // v1 API - returns productCount
+}
+
+async getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]> {
+  // v2 API - returns watchCount + highPriorityCount
+  // NEW ROUTES SHOULD USE THIS
+}
+```
+
+**When to Use:**
+- Check storage layer for `*WithStats()`, `*WithDetails()`, `*WithMetadata()` variants
+- Prefer richer method unless you have a specific performance reason (e.g., mobile API needs minimal payload)
+- Add new `WithStats` method if existing method returns insufficient data
+
+**Related Patterns:**
+- [3.2 SQL Conditional Aggregation](#sql-conditional-aggregation-count-case-when) - How to calculate stats in SQL
+- [1. Storage Layer Architecture](#1-storage-layer-architecture) - Storage layer design principles
+- [API_PATTERNS.md: Backward Compatibility](#) - Parallel methods pattern
+
+*Source: TODO 003 - highPriorityCount calculation (watchlist-routes.ts line 164)*
+*Added: 2026-01-04*
+
+---
+
+### 5.6 Type Consolidation: Single Source of Truth in storage/types.ts (NEW - 2026-01-04)
+
+**Context:** Storage layer types (return types for storage methods) should be defined in ONE place only.
+
+**Problem:** Duplicate type definitions across files (storage.ts, services, domain storage) cause type drift, inconsistencies, and merge conflicts.
+
+**✅ Preferred Approach:**
+```typescript
+// server/storage/types.ts - SINGLE SOURCE OF TRUTH
+export interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;
+}
+
+// server/storage/domains/watchlist-storage.ts - IMPORT
+import type { WatchListWithStats } from '../types';
+
+class WatchListStorage {
+  async getWatchListsWithStats(userId: number): Promise<WatchListWithStats[]> {
+    // Implementation
+  }
+}
+
+// server/services/community-service.ts - IMPORT
+import type { WatchListWithStats } from '../storage/types';
+
+export async function getUserWatchLists(userId: number): Promise<WatchListWithStats[]> {
+  return storage.getWatchListsWithStats(userId);
+}
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+// ❌ BAD - Duplicate definition in community-service.ts
+export interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;  // Defined here
+}
+
+// ❌ BAD - Another duplicate in storage.ts
+export interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;  // Defined here too
+}
+
+// ❌ BAD - And another in watchlist-storage.ts
+interface WatchListWithStats extends WatchList {
+  watchCount: number;
+  highPriorityCount: number;  // And here again
+}
+```
+
+**Rationale:**
+- **Type Safety:** Single definition prevents divergence (e.g., one file adds field, others don't)
+- **Maintainability:** Update type in ONE place, all consumers get updated type
+- **Discoverability:** Developers know where to look for storage types
+- **IDE Support:** Auto-import suggests correct type from single location
+
+**File Organization:**
+```
+server/
+├── storage/
+│   ├── types.ts           ← ALL storage return types (WatchListWithStats, etc.)
+│   ├── domains/
+│   │   └── watchlist-storage.ts  ← IMPORT types
+│   └── storage.ts          ← IMPORT types
+└── services/
+    └── community-service.ts  ← IMPORT types
+```
+
+**Migration Checklist:**
+1. Search codebase for duplicate type definitions: `grep -r "interface WatchListWithStats"`
+2. Move canonical definition to `storage/types.ts`
+3. Replace all duplicates with imports: `import type { WatchListWithStats } from '../storage/types'`
+4. Run `npm run check` to ensure no type errors
+
+**When This Pattern Applies:**
+- ANY type that represents a storage method return value
+- Types extending database schema types (e.g., `WatchList`, `Product`)
+- Composite types combining multiple entities (e.g., `ProductWithOffers`)
+
+**Related Patterns:**
+- [TYPESCRIPT_PATTERNS.md: Type Inference](#) - Use inference for local types
+- [TYPESCRIPT_PATTERNS.md: Utility Types](#) - When to create custom types
+
+*Source: TODO 003 - type consolidation (found WatchListWithStats in 3 files)*
+*Added: 2026-01-04*
+
+---
+
+### 5.7 Deterministic Ordering: Secondary Sort for Consistency (NEW - 2026-01-04)
+
+**Context:** When querying data with user-defined sort orders that may have duplicate values.
+
+**Problem:** Non-deterministic ordering when primary sort column has equal values. Pagination and testing become unreliable.
+
+**✅ Preferred Approach:**
+```typescript
+// Always include secondary sort for tie-breaking
+const watchLists = await db.select()
+  .from(watchLists)
+  .where(eq(watchLists.userId, userId))
+  .orderBy(
+    asc(watchLists.sortOrder),    // Primary: user-defined order
+    asc(watchLists.createdAt)     // Secondary: tie-breaker
+  );
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+// Non-deterministic when sortOrder values are equal
+const watchLists = await db.select()
+  .from(watchLists)
+  .where(eq(watchLists.userId, userId))
+  .orderBy(asc(watchLists.sortOrder));  // What if 2+ lists have sortOrder = 1?
+```
+
+**Rationale:**
+- **Predictability:** Same query always returns same order
+- **Testability:** Tests can assert exact order without flakiness
+- **Pagination:** Cursor-based pagination requires stable ordering
+- **UX Consistency:** Users see same order on repeated page loads
+
+**Common Secondary Sort Columns:**
+
+| Primary Sort | Secondary Sort | Use Case |
+|--------------|----------------|----------|
+| `sortOrder` | `createdAt` | User-ordered lists (watchlists, categories) |
+| `priority` | `createdAt` | Prioritized queues (tasks, alerts) |
+| `name` | `id` | Alphabetical lists (search results) |
+| `score` | `updatedAt DESC` | Ranked content (leaderboards, trending) |
+| `timestamp` | `id` | Time-series data with same-second events |
+
+**PostgreSQL Behavior:**
+```sql
+-- Without secondary sort - ORDER UNDEFINED when sortOrder is equal
+SELECT * FROM watch_lists WHERE user_id = 1 ORDER BY sort_order;
+-- Returns: [{ id: 10, sortOrder: 1 }, { id: 5, sortOrder: 1 }] OR
+--          [{ id: 5, sortOrder: 1 }, { id: 10, sortOrder: 1 }] (non-deterministic)
+
+-- With secondary sort - ORDER GUARANTEED
+SELECT * FROM watch_lists WHERE user_id = 1 ORDER BY sort_order, created_at;
+-- Always returns: [{ id: 5, sortOrder: 1, createdAt: 2024-01-01 },
+--                  { id: 10, sortOrder: 1, createdAt: 2024-01-02 }]
+```
+
+**Testing Pattern:**
+```typescript
+describe('getWatchListsWithStats', () => {
+  it('should return lists in deterministic order', async () => {
+    // Create lists with SAME sortOrder
+    await db.insert(watchLists).values([
+      { userId, sortOrder: 1, createdAt: new Date('2024-01-01') },
+      { userId, sortOrder: 1, createdAt: new Date('2024-01-02') },
+    ]);
+
+    const result = await storage.getWatchListsWithStats(userId);
+
+    // Test relies on deterministic ordering
+    expect(result[0].createdAt).toEqual(new Date('2024-01-01'));
+    expect(result[1].createdAt).toEqual(new Date('2024-01-02'));
+  });
+});
+```
+
+**When This Pattern Applies:**
+- ANY query with ORDER BY
+- Especially user-defined ordering (sortOrder, displayOrder)
+- Pagination queries (CRITICAL)
+- Test data where order matters
+
+**Exception:**
+```typescript
+// LIMIT 1 queries don't need secondary sort (but it doesn't hurt)
+const newest = await db.select()
+  .from(notifications)
+  .where(eq(notifications.userId, userId))
+  .orderBy(desc(notifications.createdAt))
+  .limit(1);  // Only returning 1 row, order doesn't matter beyond primary sort
+```
+
+**Related Patterns:**
+- [05_FRONTEND_PATTERNS.md: Deterministic Sorting for Pagination](#) - Client-side implications
+- [3.2 SQL Conditional Aggregation](#sql-conditional-aggregation-count-case-when) - Often combined with GROUP BY
+
+*Source: TODO 003 - getWatchListsWithStats implementation (line 1683: orderBy with two columns)*
+*Added: 2026-01-04*
 
 ---
 

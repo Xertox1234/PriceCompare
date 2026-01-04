@@ -1,6 +1,7 @@
 import { storage } from '../storage';
 import { createLogger } from '../utils/logger';
 import type { ProductWatch, WatchList, UserReputation, DealSpotting } from '@shared/schema';
+import type { WatchListWithStats } from '../storage/types';
 
 const log = createLogger('Community');
 
@@ -228,11 +229,6 @@ export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
 /**
  * WATCH LIST MANAGEMENT FUNCTIONS
  */
-
-export interface WatchListWithStats extends WatchList {
-  watchCount: number;
-  highPriorityCount: number;
-}
 
 /**
  * Create a new watch list for a user

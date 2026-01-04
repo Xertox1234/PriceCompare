@@ -161,7 +161,7 @@ export function registerWatchListRoutes(app: Express): void {
         const userId = req.user.id;
         logger.info(`Fetching watch lists for user ${userId}`);
 
-        const watchLists = await storage.getUserWatchLists(userId);
+        const watchLists = await storage.getWatchListsWithStats(userId);
 
         // Standardize response shape for clients and tests.
         // Tests expect: { data: { watchLists: [...] } }

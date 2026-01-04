@@ -576,22 +576,12 @@ export function useWatchLists() {
   return useQuery<WatchListWithStats[]>({
     queryKey: ['/api/watchlists'],
     queryFn: async () => {
-      // API returns WatchListWithCount (productCount field)
-      // Transform to WatchListWithStats (watchCount + highPriorityCount fields)
+      // API returns WatchListWithStats with watchCount and highPriorityCount already calculated
       const result = await apiRequest<{
-        watchLists: Array<
-          Omit<WatchListWithStats, 'watchCount' | 'highPriorityCount'> & { productCount: number }
-        >;
+        watchLists: WatchListWithStats[];
       }>('/api/watchlists');
 
-      const data = result.watchLists;
-
-      // Transform productCount -> watchCount, set highPriorityCount to 0
-      return data.map((list) => ({
-        ...list,
-        watchCount: list.productCount,
-        highPriorityCount: 0, // TODO: Calculate from product watches
-      })) as WatchListWithStats[];
+      return result.watchLists;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
@@ -602,19 +592,12 @@ export function useSharedWatchLists() {
   return useQuery<SharedWatchListWithStats[]>({
     queryKey: ['/api/watchlists/shared'],
     queryFn: async () => {
+      // API returns SharedWatchListWithStats with watchCount and highPriorityCount already calculated
       const result = await apiRequest<{
-        watchLists: Array<
-          Omit<SharedWatchListWithStats, 'watchCount' | 'highPriorityCount'> & {
-            productCount: number;
-          }
-        >;
+        watchLists: SharedWatchListWithStats[];
       }>('/api/watchlists/shared');
 
-      return result.watchLists.map((list) => ({
-        ...list,
-        watchCount: list.productCount,
-        highPriorityCount: 0,
-      })) as SharedWatchListWithStats[];
+      return result.watchLists;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,

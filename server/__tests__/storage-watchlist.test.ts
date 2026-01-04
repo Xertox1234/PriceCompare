@@ -302,6 +302,77 @@ describe('Watchlist Storage Layer', () => {
     });
   });
 
+  describe('getWatchListsWithStats', () => {
+    it('should return watch lists with watchCount and highPriorityCount', async () => {
+      // Create watch lists
+      const [list1] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'My First List',
+          description: 'Test description',
+        })
+        .returning();
+
+      const [list2] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'My Second List',
+        })
+        .returning();
+
+      // Add products with different priorities to first list
+      await db.insert(productWatches).values([
+        { userId: testUserId, watchListId: list1.id, productId: testProductId, priority: 5 }, // High priority
+        { userId: testUserId, watchListId: list1.id, productId: testProductId2, priority: 3 }, // Medium priority
+      ]);
+
+      // Add one high priority product to second list
+      await db.insert(productWatches).values([
+        { userId: testUserId, watchListId: list2.id, productId: testProductId, priority: 5 }, // High priority
+      ]);
+
+      // Get watch lists with stats
+      const watchListsResult = await storage.getWatchListsWithStats(testUserId);
+
+      expect(watchListsResult).toHaveLength(2);
+      expect(watchListsResult[0].name).toBe('My First List');
+      expect(watchListsResult[0].watchCount).toBe(2);
+      expect(watchListsResult[0].highPriorityCount).toBe(1); // Only 1 item with priority 5
+      expect(watchListsResult[1].name).toBe('My Second List');
+      expect(watchListsResult[1].watchCount).toBe(1);
+      expect(watchListsResult[1].highPriorityCount).toBe(1); // 1 item with priority 5
+    });
+
+    it('should return 0 highPriorityCount when no products have priority 5', async () => {
+      const [list1] = await db
+        .insert(watchLists)
+        .values({
+          userId: testUserId,
+          name: 'My List',
+        })
+        .returning();
+
+      // Add products with non-high priorities
+      await db.insert(productWatches).values([
+        { userId: testUserId, watchListId: list1.id, productId: testProductId, priority: 3 },
+        { userId: testUserId, watchListId: list1.id, productId: testProductId2, priority: 4 },
+      ]);
+
+      const watchListsResult = await storage.getWatchListsWithStats(testUserId);
+
+      expect(watchListsResult).toHaveLength(1);
+      expect(watchListsResult[0].watchCount).toBe(2);
+      expect(watchListsResult[0].highPriorityCount).toBe(0); // No priority 5 items
+    });
+
+    it('should return empty array for user with no lists', async () => {
+      const watchListsResult = await storage.getWatchListsWithStats(testUserId);
+      expect(watchListsResult).toEqual([]);
+    });
+  });
+
   describe('createWatchList', () => {
     it('should create watch list successfully', async () => {
       const watchList = await storage.createWatchList(testUserId, {

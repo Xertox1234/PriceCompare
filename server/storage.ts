@@ -67,8 +67,9 @@ import type {
   WatchedProductsOptions,
   WatchedProductsResult,
   WatchListStats,
+  WatchListWithStats,
   NormalizedPricePoint,
-  SharedWatchListWithCount,
+  SharedWatchListWithStats,
   WatchListSharePermission,
   WatchListShareWithUser,
 } from './storage/types';
@@ -139,6 +140,7 @@ export interface IStorage {
     }>
   >;
   getAffiliateLinkStats(retailerId?: number): Promise<AffiliateLinkStats>;
+  getAffiliateLinkStatsByRetailer(): Promise<Record<string, number>>;
 
   // Product URL Search (for browser extension)
   getProductByUrl(productUrl: string): Promise<{
@@ -185,7 +187,7 @@ export interface IStorage {
   getWatchListStats(userId: number): Promise<WatchListStats>;
 
   // Watch List Sharing
-  getSharedWatchLists(userId: number): Promise<SharedWatchListWithCount[]>;
+  getSharedWatchLists(userId: number): Promise<SharedWatchListWithStats[]>;
   shareWatchListByEmail(
     ownerUserId: number,
     watchListId: number,
@@ -1535,6 +1537,36 @@ export class MemStorage implements IStorage {
     };
   }
 
+  /**
+   * Get affiliate link counts grouped by retailer.
+   *
+   * Returns a mapping of retailer names to their affiliate link counts.
+   * Only includes retailers that have at least one affiliate URL.
+   * Uses in-memory grouping to avoid N+1 pattern.
+   *
+   * @returns Record where keys are retailer names and values are affiliate link counts
+   *
+   * @example
+   * const stats = await storage.getAffiliateLinkStatsByRetailer();
+   * // Returns: { "Amazon": 150, "Best Buy": 73, "Walmart": 92 }
+   */
+  async getAffiliateLinkStatsByRetailer(): Promise<Record<string, number>> {
+    const byRetailer: Record<string, number> = {};
+
+    // Group offers by retailer
+    for (const offer of Array.from(this.productOffers.values())) {
+      if (offer.affiliateUrl) {
+        const retailer = this.retailers.get(offer.retailerId);
+        if (retailer) {
+          // Type assertion: Always ensure count is a number
+          byRetailer[retailer.name] = Number(byRetailer[retailer.name] || 0) + 1;
+        }
+      }
+    }
+
+    return byRetailer;
+  }
+
   async getProductByUrl(productUrl: string): Promise<{
     product: Product;
     offer: ProductOffer;
@@ -1668,7 +1700,7 @@ export class MemStorage implements IStorage {
   }
 
   // Watch List Sharing (stub implementations for in-memory storage)
-  async getSharedWatchLists(_userId: number): Promise<SharedWatchListWithCount[]> {
+  async getSharedWatchLists(_userId: number): Promise<SharedWatchListWithStats[]> {
     return [];
   }
 
@@ -3166,6 +3198,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
+   * Get affiliate link counts grouped by retailer.
+   *
+   * Returns a mapping of retailer names to their affiliate link counts.
+   * Only includes retailers that have at least one affiliate URL.
+   * Uses a single GROUP BY query to avoid N+1 pattern.
+   *
+   * @returns Record where keys are retailer names and values are affiliate link counts
+   *
+   * @example
+   * const stats = await storage.getAffiliateLinkStatsByRetailer();
+   * // Returns: { "Amazon": 150, "Best Buy": 73, "Walmart": 92 }
+   */
+  async getAffiliateLinkStatsByRetailer(): Promise<Record<string, number>> {
+    // Single GROUP BY query with JOIN to get retailer names
+    const results = await db
+      .select({
+        retailerName: retailers.name,
+        affiliateCount: sql<number>`count(${productOffers.affiliateUrl})`,
+      })
+      .from(productOffers)
+      .innerJoin(retailers, eq(productOffers.retailerId, retailers.id))
+      .where(isNotNull(productOffers.affiliateUrl))
+      .groupBy(retailers.id, retailers.name);
+
+    // Convert to Record<string, number>
+    const byRetailer: Record<string, number> = {};
+    for (const row of results) {
+      // Type assertion: Drizzle's sql<number> returns count() as number at runtime
+      byRetailer[row.retailerName] = Number(row.affiliateCount);
+    }
+
+    return byRetailer;
+  }
+
+  /**
    * Search for a product by URL (used by browser extension)
    * Searches product offers for matching URLs using LIKE pattern
    */
@@ -3303,7 +3370,7 @@ export class DatabaseStorage implements IStorage {
     return this.watchListStorage.getWatchListStats(userId);
   }
 
-  async getSharedWatchLists(userId: number): Promise<SharedWatchListWithCount[]> {
+  async getSharedWatchLists(userId: number): Promise<SharedWatchListWithStats[]> {
     return this.watchListStorage.getSharedWatchLists(userId);
   }
 
@@ -6210,11 +6277,6 @@ export interface CreateDealSpottingData {
   priceDropAmount: number;
   forumPostId?: number;
   reputationAwarded: number;
-}
-
-export interface WatchListWithStats extends WatchList {
-  watchCount: number;
-  highPriorityCount: number;
 }
 
 export interface CreateWatchListData {

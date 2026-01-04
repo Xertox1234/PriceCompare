@@ -643,6 +643,12 @@ export interface SharedWatchListWithCount extends WatchListWithCount {
   sharedPermission: WatchListSharePermission;
 }
 
+export interface SharedWatchListWithStats extends WatchListWithStats {
+  ownerUserId: number;
+  ownerUsername: string;
+  sharedPermission: WatchListSharePermission;
+}
+
 export interface WatcherNotificationData {
   type: string;
   title: string;

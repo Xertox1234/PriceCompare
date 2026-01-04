@@ -410,6 +410,140 @@ describe('performance', () => {
 
 ---
 
+### Test Coverage for New Storage Methods (NEW - 2026-01-04)
+
+**Context:** When adding new storage methods alongside existing ones (e.g., `getWatchListsWithStats()` beside `getUserWatchLists()`), both need dedicated test coverage.
+
+**Problem:** Developers assume existing tests cover new methods because queries are similar, leading to untested code paths and missed bugs.
+
+**✅ Preferred Approach:**
+```typescript
+// server/__tests__/storage-watchlist.test.ts
+
+describe('getWatchListsWithStats', () => {
+  it('should return watch lists with watchCount and highPriorityCount', async () => {
+    // Create watch list
+    const [list1] = await db.insert(watchLists).values({
+      userId: testUserId,
+      name: 'My List',
+      sortOrder: 1,
+    }).returning();
+
+    // Create watches with DIFFERENT priorities
+    await db.insert(productWatches).values([
+      { userId: testUserId, watchListId: list1.id, productId: testProductId, priority: 5 },  // High priority
+      { userId: testUserId, watchListId: list1.id, productId: testProductId2, priority: 3 }, // Medium priority
+    ]);
+
+    // Test NEW method
+    const result = await storage.getWatchListsWithStats(testUserId);
+
+    // Verify SPECIFIC behavior of new method
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('My List');
+    expect(result[0].watchCount).toBe(2);           // Total count
+    expect(result[0].highPriorityCount).toBe(1);    // Only priority 5 items
+  });
+
+  it('should return 0 for highPriorityCount when no priority 5 items exist', async () => {
+    const [list1] = await db.insert(watchLists).values({
+      userId: testUserId,
+      name: 'Low Priority List',
+      sortOrder: 1,
+    }).returning();
+
+    // All medium/low priority items
+    await db.insert(productWatches).values([
+      { userId: testUserId, watchListId: list1.id, productId: testProductId, priority: 3 },
+      { userId: testUserId, watchListId: list1.id, productId: testProductId2, priority: 4 },
+    ]);
+
+    const result = await storage.getWatchListsWithStats(testUserId);
+
+    expect(result[0].watchCount).toBe(2);
+    expect(result[0].highPriorityCount).toBe(0);  // Edge case: no high priority items
+  });
+
+  it('should return empty array for user with no lists', async () => {
+    const result = await storage.getWatchListsWithStats(testUserId);
+    expect(result).toEqual([]);  // Edge case: no data
+  });
+});
+```
+
+**❌ Anti-Pattern (Avoid):**
+```typescript
+describe('watchlist storage', () => {
+  it('should get watch lists for user', async () => {
+    // ... test setup ...
+
+    // ❌ BAD - Only tests OLD method
+    const result = await storage.getUserWatchLists(testUserId);
+
+    // Assumes getWatchListsWithStats() works the same way
+    // But never actually tests:
+    // - watchCount vs productCount field name
+    // - highPriorityCount calculation logic
+    // - COUNT CASE WHEN SQL correctness
+  });
+
+  // ❌ MISSING - No dedicated tests for getWatchListsWithStats()
+});
+```
+
+**Rationale:**
+- **Different SQL:** New methods often use different queries (e.g., `COUNT CASE WHEN` for conditional aggregation)
+- **Different Types:** Return type differs (`WatchListWithStats` vs `WatchListWithCount`)
+- **Different Edge Cases:** New fields may have unique edge cases (e.g., `highPriorityCount = 0` when no priority 5 items)
+- **Regression Prevention:** If new method has bug, old method's tests won't catch it
+- **Documentation:** Tests serve as usage examples for new method
+
+**Test Coverage Checklist for New Methods:**
+
+1. **Basic Functionality**
+   - [ ] Returns correct data shape (all new fields present)
+   - [ ] Filters by correct criteria (userId, permissions, etc.)
+   - [ ] Orders results correctly (deterministic ordering)
+
+2. **Calculated Fields**
+   - [ ] New aggregations calculate correctly (`watchCount`, `highPriorityCount`)
+   - [ ] Conditional counts work as expected (`COUNT CASE WHEN`)
+   - [ ] Edge case: Zero/null values handled
+
+3. **Edge Cases**
+   - [ ] Empty result set (no data)
+   - [ ] Single item
+   - [ ] Multiple items with same values (tests deterministic ordering)
+
+4. **Type Safety**
+   - [ ] TypeScript types match actual data
+   - [ ] No type assertions (`as`) in test
+
+**When Both Methods Coexist:**
+```typescript
+describe('getUserWatchLists (v1 API - deprecated)', () => {
+  it('should return productCount field', async () => {
+    // Tests for OLD method
+  });
+});
+
+describe('getWatchListsWithStats (v2+ API - preferred)', () => {
+  it('should return watchCount and highPriorityCount fields', async () => {
+    // Tests for NEW method
+  });
+});
+```
+
+**Related Patterns:**
+- [02_DATABASE_PATTERNS.md: SQL Conditional Aggregation](#) - Testing COUNT CASE WHEN queries
+- [02_DATABASE_PATTERNS.md: Deterministic Ordering](#) - Testing ORDER BY with secondary sort
+- [Strong vs Weak Assertions](#strong-vs-weak-assertions) - Use exact assertions in tests
+
+*Source: TODO 003 - Added dedicated test suite for getWatchListsWithStats() (lines 305-374 in storage-watchlist.test.ts)*
+*Added: 2026-01-04*
+
+---
+
 ### Transaction Atomicity Testing Patterns (NEW - 2025-12-26)
 
 **Context:** Multi-step database operations wrapped in transactions need comprehensive tests to verify atomicity guarantees.

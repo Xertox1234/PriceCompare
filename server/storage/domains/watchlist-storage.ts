@@ -51,7 +51,7 @@ import type {
   WatchListProductWithDetails,
   WatchListExportData,
   WatchListImportData,
-  SharedWatchListWithCount,
+  SharedWatchListWithStats,
   WatchListSharePermission,
   WatchListShareWithUser,
   CommunityWatchStats,
@@ -1298,7 +1298,7 @@ export class WatchListStorage extends BaseStorage {
   // Watch List Sharing (Invite-by-email)
   // ============================================================================
 
-  async getSharedWatchLists(userId: number): Promise<SharedWatchListWithCount[]> {
+  async getSharedWatchLists(userId: number): Promise<SharedWatchListWithStats[]> {
     try {
       this.validateUserId(userId);
 
@@ -1316,7 +1316,8 @@ export class WatchListStorage extends BaseStorage {
           sortOrder: watchLists.sortOrder,
           createdAt: watchLists.createdAt,
           updatedAt: watchLists.updatedAt,
-          productCount: sql<number>`COUNT(${productWatches.id})::int`.as('product_count'),
+          watchCount: sql<number>`COUNT(${productWatches.id})::int`,
+          highPriorityCount: sql<number>`COUNT(CASE WHEN ${productWatches.priority} = 5 THEN 1 END)::int`,
           ownerUserId: watchLists.userId,
           ownerUsername: users.username,
           sharedPermission: watchListShares.permission,
@@ -1678,7 +1679,7 @@ export class WatchListStorage extends BaseStorage {
         .leftJoin(productWatches, eq(productWatches.watchListId, watchLists.id))
         .where(eq(watchLists.userId, userId))
         .groupBy(watchLists.id)
-        .orderBy(watchLists.sortOrder);
+        .orderBy(asc(watchLists.sortOrder), asc(watchLists.createdAt));
 
       return result;
     } catch (error) {
