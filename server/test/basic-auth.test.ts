@@ -323,22 +323,18 @@ describe('HTTP Basic Auth - Integration Tests', () => {
       const inactivePassword = 'InactiveTest123!';
       const hashedPassword = await hashPassword(inactivePassword);
 
-      const _inactiveUser = await storage.registerUser({
+      const inactiveUser = await storage.registerUser({
         username: 'inactive_test_user',
         email: 'inactive@test.com',
         passwordHash: hashedPassword,
       });
 
-      // TODO: Implement setUserActive() method in storage layer
-      // await storage.setUserActive(_inactiveUser.id, false);
-      // const response = await request(app)
-      //   .get('/api/v1/scraping/status')
-      //   .auth('inactive_test_user', inactivePassword)
-      //   .expect(403);
-      // expect(response.body.error).toContain('Account access denied');
-
-      // For now, document expected behavior
-      // When implemented, inactive users should get 403
+      await storage.setUserActive(inactiveUser.id, false);
+      const response = await request(app)
+        .get('/api/v1/scraping/status')
+        .auth('inactive_test_user', inactivePassword)
+        .expect(403);
+      expect(response.body.error).toContain('Account access denied');
     });
   });
 

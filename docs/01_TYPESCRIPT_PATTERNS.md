@@ -1,7 +1,7 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.6
-**Last Updated:** 2025-12-27
+**Version:** 2.7
+**Last Updated:** 2026-01-04
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -9,6 +9,7 @@
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 **Changelog:**
+- 2.7 (2026-01-04): Added TypeScript Assertion Signatures for Validation Helpers pattern (from TODO 002 code review)
 - 2.6 (2025-12-27): Added Empty Collection Edge Cases pattern (Math.min/max, reduce, semantic null)
 - 2.5 (2025-12-26): Added Module-Level Environment Variable Access pattern (ESM/dotenv timing), Type Assertion with SAFETY Comment pattern
 - 2.4 (2025-12-23): Added Type-Safe API Error Details Extraction pattern (Feature 3.3)
@@ -2218,6 +2219,195 @@ if (propSchema.type === 'object' && typeof value === 'object' && value !== null 
   // Validate object properties
 }
 ```
+
+*Source: Validation code type guards pattern*
+*Added: [Original date]*
+
+### TypeScript Assertion Signatures for Validation Helpers (NEW - 2026-01-04)
+
+**Context:** Storage layer validation helpers, utility functions, and parameter guards that narrow `unknown` types to specific types.
+
+**Problem:** Validation functions that throw on invalid input should communicate to TypeScript that the value is narrowed after the call. Without assertion signatures, callers must duplicate type guards even after validation passes.
+
+**✅ Preferred Approach - Assertion Signature (`asserts param is Type`):**
+
+```typescript
+/**
+ * Validate active status is boolean type
+ * @private
+ */
+private validateActiveStatus(active: unknown): asserts active is boolean {
+  if (typeof active !== 'boolean') {
+    throw new Error(`Invalid active parameter: ${active}. Must be boolean.`);
+  }
+  // After this function returns (doesn't throw), TypeScript knows active is boolean
+}
+
+// Usage - no type guard needed after validation
+async setUserActive(userId: number, active: unknown): Promise<void> {
+  this.validateActiveStatus(active);
+  // TypeScript now knows active is boolean - can use without further checks
+  await this.db.update(users).set({ isActive: active });
+}
+```
+
+**✅ Correct - Multiple Assertion Signatures:**
+
+```typescript
+export class UserStorage extends BaseStorage {
+  /**
+   * Validate user ID is positive integer
+   * @private
+   */
+  private validateUserId(userId: unknown): asserts userId is number {
+    if (typeof userId !== 'number' || !Number.isInteger(userId) || userId < 1) {
+      throw new Error(`Invalid userId: ${userId}. Must be a positive integer.`);
+    }
+  }
+
+  /**
+   * Validate email format
+   * @private
+   */
+  private validateEmail(email: unknown): asserts email is string {
+    if (typeof email !== 'string' || !email.includes('@')) {
+      throw new Error(`Invalid email: ${email}`);
+    }
+  }
+
+  /**
+   * Validate role is allowed value
+   * @private
+   */
+  private validateRole(role: unknown): asserts role is 'user' | 'admin' | 'moderator' {
+    const allowedRoles = ['user', 'admin', 'moderator'];
+    if (typeof role !== 'string' || !allowedRoles.includes(role)) {
+      throw new Error(`Invalid role: ${role}. Must be one of: ${allowedRoles.join(', ')}`);
+    }
+  }
+}
+```
+
+**❌ Anti-Pattern - No Assertion Signature:**
+
+```typescript
+// ❌ WRONG - Validation doesn't narrow type
+private validateActiveStatus(active: unknown): void {
+  if (typeof active !== 'boolean') {
+    throw new Error(`Invalid active parameter: ${active}. Must be boolean.`);
+  }
+  // TypeScript doesn't know active is boolean after this returns
+}
+
+// Caller must duplicate type guard
+async setUserActive(userId: number, active: unknown): Promise<void> {
+  this.validateActiveStatus(active);
+
+  // ❌ TypeScript error: active is still 'unknown'
+  await this.db.update(users).set({ isActive: active });  // ERROR!
+
+  // ❌ Must add redundant type guard
+  if (typeof active === 'boolean') {
+    await this.db.update(users).set({ isActive: active });  // Duplicate validation!
+  }
+}
+```
+
+**❌ Anti-Pattern - Type Predicate Instead of Assertion:**
+
+```typescript
+// ❌ WRONG - Type predicate returns boolean, doesn't throw
+private validateActiveStatus(active: unknown): active is boolean {
+  return typeof active === 'boolean';
+}
+
+// Caller must handle false case
+async setUserActive(userId: number, active: unknown): Promise<void> {
+  if (!this.validateActiveStatus(active)) {
+    throw new Error('Invalid active status');  // ❌ Error handling duplicated
+  }
+  // Now active is boolean, but we had to handle the error case
+}
+```
+
+**Rationale:**
+
+1. **Type Narrowing**: TypeScript knows the type after validation without duplicate checks
+2. **Error Throwing**: Assertion signatures match the pattern of validators that throw (not return false)
+3. **Single Responsibility**: Validator handles both runtime check and type narrowing
+4. **Consistency**: All validators follow the same pattern (throw on invalid, narrow on valid)
+5. **Developer Experience**: IDE autocomplete shows narrowed type after validator call
+6. **Reduced Duplication**: No need for redundant `typeof` checks after validation
+
+**When to Use Assertion Signatures:**
+
+- ✅ Validation functions that THROW on invalid input
+- ✅ Narrowing `unknown` → specific type (boolean, string, number, union type)
+- ✅ Storage layer validators (validateUserId, validateEmail, validateRole)
+- ✅ Utility validators in shared/validation modules
+- ❌ Functions that RETURN boolean (use type predicates: `value is Type`)
+- ❌ Functions that don't validate (just log, transform, etc.)
+
+**Comparison: Assertion Signature vs Type Predicate:**
+
+| Feature | Assertion Signature | Type Predicate |
+|---------|---------------------|----------------|
+| Signature | `asserts x is T` | `x is T` |
+| Returns | `void` (throws on invalid) | `boolean` (true/false) |
+| Error Handling | Throws exception | Returns false |
+| Use Case | Validators that throw | Conditional type checks |
+| Example | `validateUserId(id: unknown): asserts id is number` | `isProduct(x: unknown): x is Product` |
+
+**Example: Full Storage Layer Pattern:**
+
+```typescript
+export class UserStorage extends BaseStorage {
+  // ✅ Assertion signatures for validators
+  private validateUserId(userId: unknown): asserts userId is number {
+    if (typeof userId !== 'number' || userId < 1) {
+      throw new Error(`Invalid userId: ${userId}`);
+    }
+  }
+
+  private validateActiveStatus(active: unknown): asserts active is boolean {
+    if (typeof active !== 'boolean') {
+      throw new Error(`Invalid active parameter: ${active}`);
+    }
+  }
+
+  // ✅ Type predicate for conditional checks
+  private isAdminUser(user: SafeUser): user is SafeUser & { role: 'admin' } {
+    return user.role === 'admin';
+  }
+
+  // Usage in public method
+  async setUserActive(userId: unknown, active: unknown): Promise<void> {
+    try {
+      // Validate and narrow types
+      this.validateUserId(userId);       // userId is now number
+      this.validateActiveStatus(active); // active is now boolean
+
+      // TypeScript knows types, no further checks needed
+      await this.db
+        .update(users)
+        .set({ isActive: active })
+        .where(eq(users.id, userId));
+
+      await storageCache.invalidateUserCache(userId);
+    } catch (error) {
+      this.handleError(error, 'setUserActive');
+    }
+  }
+}
+```
+
+**Related:**
+- See "Validation Helper Extraction" pattern in `DATABASE_PATTERNS.md` (Section 1)
+- See "Type Predicates" section above for conditional type checks
+- See `server/storage/domains/user-storage.ts` for real-world examples
+
+**Source:** TODO 002 code review (setUserActive implementation), 2026-01-04
+*Added: 2026-01-04*
 
 ### Type Assertions for Schema Properties
 

@@ -68,6 +68,16 @@ export class UserStorage extends BaseStorage {
   }
 
   /**
+   * Validate active status is boolean type
+   * @private
+   */
+  private validateActiveStatus(active: unknown): asserts active is boolean {
+    if (typeof active !== 'boolean') {
+      throw new Error(`Invalid active parameter: ${active}. Must be boolean.`);
+    }
+  }
+
+  /**
    * Validate profile field length
    * @private
    */
@@ -609,6 +619,50 @@ export class UserStorage extends BaseStorage {
       await storageCache.invalidateUserCache(userId);
     } catch (error) {
       this.handleError(error, 'updateUserRole');
+    }
+  }
+
+  /**
+   * Set user account active status
+   *
+   * Toggles whether a user account is active. Inactive accounts are rejected
+   * during authentication (isActive === false check in basicAuth middleware).
+   *
+   * **Difference between isActive and isSuspended:**
+   * - `isActive`: Administrative account management (user requests, support actions)
+   * - `isSuspended`: Disciplinary moderation action (policy violations)
+   *
+   * Both prevent authentication, but serve different purposes:
+   * - Inactive: "Account deactivated" (reversible by admin or user request)
+   * - Suspended: "Account suspended" (requires moderation review)
+   *
+   * **Related methods:**
+   * - `suspendUser()` - For disciplinary suspension (creates moderation notification)
+   * - `setUserActive()` - For administrative activation/deactivation (no notification)
+   *
+   * **Used by:** HTTP Basic Auth testing, account management, admin tools
+   *
+   * @param userId - User ID (validated as positive integer)
+   * @param active - Boolean flag: true = account active, false = account deactivated
+   */
+  async setUserActive(userId: number, active: boolean): Promise<void> {
+    try {
+      // Validate inputs
+      this.validateUserId(userId);
+      this.validateActiveStatus(active);
+
+      await this.db
+        .update(users)
+        .set({
+          isActive: active,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      // Invalidate user cache after successful update
+      await storageCache.invalidateUserCache(userId);
+    } catch (error) {
+      this.handleError(error, 'setUserActive');
     }
   }
 

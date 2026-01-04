@@ -333,6 +333,7 @@ export interface IStorage {
   updateUserTrustLevel(userId: number, trustLevel: number): Promise<void>;
   suspendUser(userId: number, reason: string, moderatorId: number): Promise<void>;
   unsuspendUser(userId: number, moderatorId: number): Promise<void>;
+  setUserActive(userId: number, active: boolean): Promise<void>;
   updateUserRole(userId: number, role: 'user' | 'moderator' | 'admin'): Promise<void>;
 
   // Admin Analytics
@@ -1773,6 +1774,10 @@ export class MemStorage implements IStorage {
   }
 
   async unsuspendUser(_userId: number, _moderatorId: number): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async setUserActive(_userId: number, _active: boolean): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -3492,6 +3497,10 @@ export class DatabaseStorage implements IStorage {
 
   async unsuspendUser(userId: number, moderatorId: number): Promise<void> {
     return this.userStorage.unsuspendUser(userId, moderatorId);
+  }
+
+  async setUserActive(userId: number, active: boolean): Promise<void> {
+    return this.userStorage.setUserActive(userId, active);
   }
 
   async updateUserRole(userId: number, role: 'user' | 'moderator' | 'admin'): Promise<void> {

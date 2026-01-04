@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.11
-**Last Updated:** 2025-12-26
+**Version:** 2.12
+**Last Updated:** 2026-01-04
 **Changelog:**
+- 2.12 (2026-01-04): Added comprehensive JSDoc pattern for storage methods and validation helper extraction pattern (from TODO 002 code review)
 - 2.11 (2025-12-26): Added notification daily limit SERIALIZABLE transaction production example from TODO 006 (with retry logic)
 - 2.10 (2025-12-26): Added 4 transaction boundary patterns from TODO 004 (transaction-aware error handling, row count validation, interface passthrough, inline vs abstraction trade-off)
 - 2.9 (2025-12-24): Added agent storage layer patterns (find-or-create with metadata, upsert, bulk operations, historical optimization)
@@ -463,6 +464,324 @@ async countUserAlerts(userId: number): Promise<number> {
 - See `SECURITY_PATTERNS.md` for input validation at API boundaries
 
 **Source:** Commits ce38f21 and e0cfe72, 2025-12-23
+
+#### Pattern: Validation Helper Extraction for Consistency (NEW - 2026-01-04)
+
+**Context:** Storage layer methods that validate the same parameter types across multiple methods (userId, boolean flags, enum values, etc.)
+
+**Problem:** Inline validation leads to inconsistency, code duplication, and missed type safety opportunities. Without extracted helpers, each method may validate the same concept differently.
+
+**✅ Preferred Approach - Extract Private Validation Helpers:**
+
+```typescript
+export class UserStorage extends BaseStorage {
+  /**
+   * Validate user ID is positive integer
+   * Used by: getUserByIdSafe, updateUserProfile, updateUserTrustLevel, suspendUser, setUserActive
+   * @private
+   */
+  private validateUserId(userId: number): void {
+    if (!userId || userId < 1 || !Number.isInteger(userId)) {
+      throw new Error(`Invalid userId: ${userId}. Must be a positive integer.`);
+    }
+  }
+
+  /**
+   * Validate trust level is within allowed range
+   * @private
+   */
+  private validateTrustLevel(level: number): void {
+    if (level < USER_CONSTANTS.TRUST_LEVEL.MIN || level > USER_CONSTANTS.TRUST_LEVEL.MAX) {
+      throw new Error(
+        `Trust level must be between ${USER_CONSTANTS.TRUST_LEVEL.MIN} and ${USER_CONSTANTS.TRUST_LEVEL.MAX}`
+      );
+    }
+  }
+
+  /**
+   * Validate active status is boolean type
+   * @private
+   */
+  private validateActiveStatus(active: unknown): asserts active is boolean {
+    if (typeof active !== 'boolean') {
+      throw new Error(`Invalid active parameter: ${active}. Must be boolean.`);
+    }
+  }
+
+  // Then use consistently across methods
+  async setUserActive(userId: number, active: boolean): Promise<void> {
+    try {
+      this.validateUserId(userId);          // ✅ Consistent pattern
+      this.validateActiveStatus(active);    // ✅ Reusable validator
+
+      await this.db
+        .update(users)
+        .set({ isActive: active, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      await storageCache.invalidateUserCache(userId);
+    } catch (error) {
+      this.handleError(error, 'setUserActive');
+    }
+  }
+
+  async updateUserTrustLevel(userId: number, level: number): Promise<void> {
+    try {
+      this.validateUserId(userId);        // ✅ Same validator reused
+      this.validateTrustLevel(level);     // ✅ Type-specific validation
+
+      // ... implementation
+    } catch (error) {
+      this.handleError(error, 'updateUserTrustLevel');
+    }
+  }
+}
+```
+
+**❌ Anti-Pattern - Inline Validation:**
+
+```typescript
+async setUserActive(userId: number, active: boolean): Promise<void> {
+  try {
+    // ❌ Inline validation - inconsistent with other methods
+    if (typeof active !== 'boolean') {
+      throw new Error(`Invalid active parameter: ${active}. Must be boolean.`);
+    }
+
+    // ❌ Different validation style than other methods
+    if (!userId || userId < 1) {
+      throw new Error(`Invalid userId: ${userId}`);
+    }
+
+    // ... implementation
+  } catch (error) {
+    this.handleError(error, 'setUserActive');
+  }
+}
+
+async updateUserTrustLevel(userId: number, level: number): Promise<void> {
+  try {
+    // ❌ Same validation logic duplicated differently
+    if (!Number.isFinite(userId) || userId <= 0) {  // Different check!
+      throw new Error(`Invalid userId: ${userId}`);
+    }
+
+    // ❌ Range check duplicated inline
+    if (level < 0 || level > 100) {  // Magic numbers!
+      throw new Error('Invalid trust level');
+    }
+
+    // ... implementation
+  } catch (error) {
+    this.handleError(error, 'updateUserTrustLevel');
+  }
+}
+```
+
+**Rationale:**
+
+1. **Consistency**: All methods validate the same parameter type identically
+2. **Reusability**: Validation logic written once, used everywhere
+3. **Type Safety**: TypeScript assertion signatures (`asserts x is T`) provide compile-time guarantees
+4. **Maintainability**: Update validation logic in one place
+5. **Discoverability**: JSDoc "Used by:" comments show validator usage
+6. **DRY Principle**: Eliminates duplicate validation code
+
+**When to Extract:**
+
+- ✅ Parameter validated in 2+ methods (userId, trustLevel, etc.)
+- ✅ Complex validation logic (range checks, regex, multi-step)
+- ✅ Type narrowing needed (unknown → specific type)
+- ❌ One-off validation unique to single method
+- ❌ Trivial checks (nullish coalescing, optional chaining suffices)
+
+**TypeScript Assertion Signatures:**
+
+Use `asserts paramName is Type` for validators that narrow `unknown` types:
+
+```typescript
+private validateActiveStatus(active: unknown): asserts active is boolean {
+  if (typeof active !== 'boolean') {
+    throw new Error(`Invalid active parameter: ${active}. Must be boolean.`);
+  }
+  // After this call, TypeScript knows 'active' is boolean
+}
+```
+
+**Naming Convention:**
+
+- `validateUserId()` - Validates user ID parameter
+- `validateTrustLevel()` - Validates trust level range
+- `validateActiveStatus()` - Validates boolean flag
+- `validateProfileField()` - Validates string length constraints
+
+**Related:**
+- See "Comprehensive JSDoc for Storage Methods" pattern below
+- See Section 1 "Type Guards & Narrowing" in `TYPESCRIPT_PATTERNS.md`
+- See `parseIntSafe()` in `server/utils/validation-helpers.ts` for route-level validation
+
+**Source:** TODO 002 code review (setUserActive implementation), 2026-01-04
+*Added: 2026-01-04*
+
+### Comprehensive JSDoc for Storage Methods (NEW - 2026-01-04)
+
+**Context:** All public storage layer methods need documentation for maintainability, onboarding, and preventing misuse.
+
+**Problem:** Generic JSDoc like "Set user active status" doesn't clarify:
+- What "active" means in business terms
+- When to use this vs other related methods (e.g., `suspendUser()`)
+- What side effects occur (notifications, cache invalidation, etc.)
+- Semantic differences between overlapping fields (isActive vs isSuspended)
+
+**✅ Preferred Approach - Comprehensive JSDoc Structure:**
+
+```typescript
+/**
+ * Set user account active status
+ *
+ * Toggles whether a user account is active. Inactive accounts are rejected
+ * during authentication (isActive === false check in basicAuth middleware).
+ *
+ * **Difference between isActive and isSuspended:**
+ * - `isActive`: Administrative account management (user requests, support actions)
+ * - `isSuspended`: Disciplinary moderation action (policy violations)
+ *
+ * Both prevent authentication, but serve different purposes:
+ * - Inactive: "Account deactivated" (reversible by admin or user request)
+ * - Suspended: "Account suspended" (requires moderation review)
+ *
+ * **Related methods:**
+ * - `suspendUser()` - For disciplinary suspension (creates moderation notification)
+ * - `setUserActive()` - For administrative activation/deactivation (no notification)
+ *
+ * **Used by:** HTTP Basic Auth testing, account management, admin tools
+ *
+ * @param userId - User ID (validated as positive integer)
+ * @param active - Boolean flag: true = account active, false = account deactivated
+ */
+async setUserActive(userId: number, active: boolean): Promise<void> {
+  try {
+    this.validateUserId(userId);
+    this.validateActiveStatus(active);
+
+    await this.db
+      .update(users)
+      .set({ isActive: active, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    // Invalidate user cache after successful update
+    await storageCache.invalidateUserCache(userId);
+  } catch (error) {
+    this.handleError(error, 'setUserActive');
+  }
+}
+```
+
+**❌ Anti-Pattern - Generic/Incomplete JSDoc:**
+
+```typescript
+/**
+ * Set user active status
+ * @param userId - User ID
+ * @param active - Active status flag
+ */
+async setUserActive(userId: number, active: boolean): Promise<void> {
+  // ❌ Missing: What does "active" mean?
+  // ❌ Missing: Difference from suspendUser()?
+  // ❌ Missing: Where is this used?
+  // ❌ Missing: Side effects (cache invalidation)?
+  // ❌ Missing: Parameter validation details
+}
+
+/**
+ * Update user trust level
+ */
+async updateUserTrustLevel(userId: number, level: number): Promise<void> {
+  // ❌ Missing: What is trust level used for?
+  // ❌ Missing: Valid range?
+  // ❌ Missing: Effects on user capabilities?
+}
+```
+
+**Rationale:**
+
+1. **Onboarding**: New developers understand method purpose without reading implementation
+2. **Business Context**: Explains WHEN/WHY to use this method vs alternatives
+3. **Semantic Clarity**: Disambiguates overlapping fields (isActive vs isSuspended)
+4. **Side Effects**: Documents cache invalidation, notifications, logging
+5. **Parameter Details**: Explains parameter meaning beyond type signature
+6. **Discoverability**: "Used by:" helps find all consumers
+7. **Prevention**: Clarifies what NOT to do (related anti-patterns)
+
+**JSDoc Structure Template:**
+
+```typescript
+/**
+ * [One-line purpose statement]
+ *
+ * [2-3 sentence explanation of what this method does and when it runs]
+ *
+ * **[Semantic clarification section if needed]:**
+ * - Explain overlapping/confusing fields
+ * - Clarify business context
+ *
+ * **Related methods:**
+ * - `methodA()` - [When to use instead]
+ * - `methodB()` - [How it differs]
+ *
+ * **Used by:** [Callers: tests, routes, services, admin tools, etc.]
+ *
+ * @param paramName - [Explicit meaning beyond type, validation details]
+ * @returns [What the result contains, including edge cases like empty arrays]
+ * @throws [Error conditions if not using handleError()]
+ */
+```
+
+**Required Sections by Method Type:**
+
+**CRUD Operations:**
+- Purpose statement
+- Business context (when to use)
+- Related methods (alternatives)
+- Parameter details
+- Return value details (empty array? null? undefined?)
+
+**Account Management (active, suspend, ban):**
+- ALL above, plus:
+- Semantic clarification (isActive vs isSuspended vs isBanned)
+- Side effects (notifications, logging, cache)
+- Authentication implications
+
+**Search/Query Methods:**
+- Purpose statement
+- Query behavior (LIKE vs exact match, case sensitivity)
+- Pagination (default limit, ordering)
+- Performance notes (indexes used)
+- Empty result handling
+
+**Validation/Helper Methods (private):**
+- Purpose statement
+- "Used by:" list of public methods
+- Validation rules
+- Error message format
+
+**When to Add Extra Detail:**
+
+- ✅ Overlapping fields need disambiguation (isActive vs isSuspended)
+- ✅ Method has side effects (cache, notifications, logging)
+- ✅ Similar methods exist with subtle differences
+- ✅ Business rules affect behavior (admin-only, rate limits)
+- ✅ Complex query logic (joins, aggregations, transactions)
+- ❌ Self-explanatory CRUD with no edge cases
+- ❌ Private helpers with obvious purpose
+
+**Related:**
+- See "Validation Helper Extraction" pattern above
+- See `TYPESCRIPT_PATTERNS.md` for JSDoc type annotations
+- See existing comprehensive JSDoc in `server/storage/domains/user-storage.ts`
+
+**Source:** TODO 002 code review (setUserActive implementation), 2026-01-04
+*Added: 2026-01-04*
 
 ### Storage Layer Constants
 
