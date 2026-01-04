@@ -312,6 +312,142 @@ Before applying to affiliate programs:
 
 ---
 
+## Pre-Launch Affiliate Validation
+
+Before launching with affiliate links in production, validate your affiliate setup to ensure proper tracking and commission attribution.
+
+### 1. Verify Affiliate Account Status
+
+Check that all retailer accounts are approved and active:
+
+```sql
+SELECT
+  name,
+  affiliate_program,
+  affiliate_status,
+  affiliate_config
+FROM retailers
+WHERE affiliate_status = 'active'
+ORDER BY name;
+```
+
+**Expected results:**
+- Amazon: `affiliate_program = 'amazon_associates'`, `affiliate_status = 'active'`
+- Walmart: `affiliate_program = 'walmart_connect'`, `affiliate_status = 'active'`
+- Target: `affiliate_program = 'target_partners'`, `affiliate_status = 'active'`
+- Best Buy: `affiliate_program = 'bestbuy_affiliate'`, `affiliate_status = 'active'`
+- B&H Photo: `affiliate_program = 'generic_utm'`, `affiliate_status = 'active'`
+- Newegg: `affiliate_program = 'generic_utm'`, `affiliate_status = 'active'`
+
+### 2. Test Affiliate Link Generation
+
+Validate that links are generating correctly with proper tracking parameters:
+
+**Test Amazon Links:**
+```bash
+curl -X GET "https://your-domain.com/api/products/1/offers" | jq '.offers[] | select(.retailer == "Amazon") | .affiliateUrl'
+```
+
+Expected format: `https://www.amazon.com/dp/PRODUCTID?tag=your-tag-20&linkCode=as2`
+
+**Test Walmart Links:**
+```bash
+curl -X GET "https://your-domain.com/api/products/1/offers" | jq '.offers[] | select(.retailer == "Walmart") | .affiliateUrl'
+```
+
+Expected format: URL contains `publisherId=YOUR_PUBLISHER_ID`
+
+**Test Target Links:**
+Expected format: URL contains `campaignId=YOUR_CAMPAIGN_ID`
+
+**Test Best Buy Links:**
+Expected format: URL contains `offerId=YOUR_OFFER_ID`
+
+**Test B&H Photo Links:**
+Expected format: URL contains `utm_source=pricecompare&utm_medium=affiliate`
+
+**Test Newegg Links:**
+Expected format: URL contains `utm_source=pricecompare&utm_medium=affiliate`
+
+### 3. Run Affiliate Link Health Check
+
+Use the health check endpoint to verify all affiliate links are accessible:
+
+```bash
+curl -X POST "https://your-domain.com/api/affiliate/health-check" \
+  -H "Content-Type: application/json"
+```
+
+**Expected response:**
+```json
+{
+  "status": "healthy",
+  "retailers": [
+    { "name": "Amazon", "status": "ok", "responseTime": "120ms" },
+    { "name": "Walmart", "status": "ok", "responseTime": "95ms" },
+    { "name": "Target", "status": "ok", "responseTime": "110ms" },
+    { "name": "Best Buy", "status": "ok", "responseTime": "105ms" },
+    { "name": "B&H Photo", "status": "ok", "responseTime": "130ms" },
+    { "name": "Newegg", "status": "ok", "responseTime": "98ms" }
+  ]
+}
+```
+
+If any retailer returns `"status": "error"`, investigate:
+- Check affiliate credentials in database
+- Verify retailer site is accessible
+- Check for IP blocking or rate limiting
+
+### 4. Verify Retailer Dashboard Access
+
+Before launch, ensure you can access all affiliate dashboards:
+
+- [ ] Amazon Associates: Login to [affiliate-program.amazon.com](https://affiliate-program.amazon.com)
+- [ ] Walmart (Impact): Login to Impact Radius dashboard
+- [ ] Target (Impact): Login to Impact Radius dashboard
+- [ ] Best Buy: Login to affiliate network portal
+- [ ] B&H Photo: Verify tracking via email reports or dashboard
+- [ ] Newegg: Login to affiliate dashboard
+
+### 5. Test Click Tracking
+
+Perform manual click-through test for each retailer:
+
+1. Generate test affiliate link from your application
+2. Click the link in an incognito browser window
+3. Complete simulated purchase (add to cart, don't actually purchase)
+4. Wait 24-48 hours
+5. Check affiliate dashboard for tracked click
+
+**Note:** Some retailers take 24-72 hours to report clicks in their dashboards.
+
+### 6. Validate Environment Variables
+
+Ensure all affiliate environment variables are set in production:
+
+```bash
+# Amazon
+echo $AMAZON_ASSOCIATE_TAG  # Should output: your-tag-20
+
+# Walmart
+echo $WALMART_PUBLISHER_ID  # Should output: your-publisher-id
+
+# Target
+echo $TARGET_CAMPAIGN_ID    # Should output: your-campaign-id
+
+# Best Buy
+echo $BESTBUY_OFFER_ID      # Should output: your-offer-id
+
+# Generic tracking
+echo $AFFILIATE_SOURCE      # Should output: pricecompare
+```
+
+### Cross-Reference
+
+For complete production launch preparation (beyond affiliate setup), see [Launch Preparation Guide](../guides/LAUNCH_PREPARATION_GUIDE.md).
+
+---
+
 ## Monitoring & Optimization
 
 Use these endpoints to monitor affiliate performance:
@@ -327,6 +463,112 @@ Track key metrics:
 - Conversion rate
 - Earnings per click (EPC)
 - Link health status
+
+---
+
+## Post-Launch Affiliate Monitoring
+
+Monitor affiliate performance during the critical first week to ensure proper tracking and optimize for conversions.
+
+### First 24 Hours - Critical Checks
+
+**Immediate Verification (Hour 1-4):**
+- [ ] Affiliate links generating correctly in production
+- [ ] Health check endpoint returning 200 for all retailers
+- [ ] Click tracking operational (monitor application logs)
+- [ ] No affiliate-related errors in error monitoring (Sentry)
+
+**Day 1 Checks:**
+- [ ] Monitor `GET /api/affiliate/stats` for click counts
+- [ ] Verify clicks appear in application analytics
+- [ ] Check for any broken affiliate links (404s)
+- [ ] Review retailer dashboard for click registration (may take 24-48 hours)
+
+### First Week - Performance Validation
+
+**Days 2-3: Click Tracking Validation**
+- [ ] Verify clicks appearing in retailer dashboards
+  - Amazon: Should see clicks within 24 hours
+  - Walmart/Target (Impact): Within 24-48 hours
+  - Best Buy: Within 24 hours
+  - B&H Photo: Check email reports or dashboard
+  - Newegg: Within 24-48 hours
+- [ ] Monitor click-through rate (CTR)
+  - Target: 5-10% CTR from product pages
+  - Below 2%: Review link placement and user experience
+- [ ] Check for affiliate link errors in application logs
+
+**Days 4-7: Conversion Tracking**
+- [ ] Monitor for first conversions (timing depends on cookie duration)
+  - Amazon: 24-hour cookie (90 days if added to cart)
+  - Walmart: 3-day cookie
+  - Target: 7-day cookie
+  - Best Buy: 1-day cookie
+  - B&H Photo: 60-day cookie
+  - Newegg: 7-day cookie
+- [ ] Validate commission amounts match expected rates
+- [ ] Identify top-performing retailers and products
+- [ ] Review any declined commissions (reasons vary by retailer)
+
+**Week 1 Metrics Review:**
+
+Use affiliate stats API:
+```bash
+curl -X GET "https://your-domain.com/api/affiliate/stats"
+```
+
+Track key metrics:
+- **Click-through Rate (CTR):** Clicks ÷ Product Page Views × 100
+- **Conversion Rate:** Conversions ÷ Clicks × 100
+- **Earnings Per Click (EPC):** Total Earnings ÷ Total Clicks
+- **Average Order Value (AOV):** Total Sales ÷ Conversions
+
+**Benchmark targets:**
+- CTR: 5-10% (good), 10%+ (excellent)
+- Conversion Rate: 2-5% (typical for cold traffic)
+- EPC: Varies widely by retailer and category
+
+### Troubleshooting Launch Issues
+
+**Issue: Clicks not appearing in retailer dashboards**
+- **Wait Period:** Some retailers take 24-72 hours to report clicks
+- **Check:** Verify affiliate config in database matches retailer requirements
+- **Check:** Ensure affiliate IDs are correct in environment variables
+- **Check:** Test click manually in incognito browser
+- **Contact:** Retailer affiliate support if clicks not appearing after 72 hours
+
+**Issue: Links generating without tracking parameters**
+- **Check:** Affiliate service initialization in application startup logs
+- **Check:** Database `affiliate_config` JSON format is correct
+- **Fix:** Restart application to reinitialize affiliate services
+
+**Issue: Low conversion rates**
+- **Review:** Cookie duration vs. typical purchase timeline
+- **Review:** Product price competitiveness
+- **Review:** Link placement and call-to-action clarity
+- **Optimize:** Test different link placements and messaging
+
+**Issue: Commissions declined**
+- **Amazon:** Verify customer didn't use coupon codes from other affiliates
+- **Walmart/Target:** Check for prohibited traffic sources
+- **General:** Review retailer program terms for compliance issues
+- **Contact:** Retailer support for specific decline reasons
+
+**Issue: Affiliate account suspended**
+- **Common causes:** FTC disclosure missing, prohibited content, click fraud
+- **Review:** Ensure compliance with all program requirements
+- **Contact:** Retailer affiliate support immediately
+- **Document:** Keep records of traffic sources and compliance measures
+
+### Optimization Opportunities (After First Week)
+
+Once baseline performance is established:
+- Identify highest-converting products and retailers
+- Optimize link placement based on heat mapping and analytics
+- Test different call-to-action messaging
+- Review low-performing retailers (consider removing if consistently <1% conversion)
+- Analyze user journey from product view to affiliate click
+- A/B test affiliate link presentation styles
 
 ---
 

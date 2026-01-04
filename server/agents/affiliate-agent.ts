@@ -341,15 +341,19 @@ export class AffiliateLinkAgent extends BaseAgent {
       const dbStats = await affiliateLinkService.getAffiliateLinkStats();
       const baseStatus = this.getStatus();
 
+      // Get retailer breakdown: count of affiliate links per retailer
+      // Uses single GROUP BY query instead of N+1 queries
+      const byRetailer = await storage.getAffiliateLinkStatsByRetailer();
+
       // Transform AffiliateLinkStats from storage to AffiliateStats.links format
       const links = dbStats
         ? {
             total: dbStats.total_offers,
             active: dbStats.affiliate_offers,
             broken: dbStats.broken_links,
-            byRetailer: {} as Record<string, number>, // TODO: Add retailer breakdown
+            byRetailer,
           }
-        : { total: 0, active: 0, broken: 0, byRetailer: {} as Record<string, number> };
+        : { total: 0, active: 0, broken: 0, byRetailer: {} };
 
       return {
         agent: {

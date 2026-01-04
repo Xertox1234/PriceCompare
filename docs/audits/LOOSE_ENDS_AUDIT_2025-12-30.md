@@ -31,45 +31,31 @@ This audit identifies unfinished work, pending TODOs, and incomplete plan files 
 
 ---
 
-## 🟡 Outdated Plan Files (2 items)
+## 🟡 Outdated Plan Files (0 items)
 
-### 1. NEXT_SESSION_PROMPT.md (Root)
+> **Updated 2025-01-02**: All items below have already been archived.
 
-**File**: [NEXT_SESSION_PROMPT.md](../../NEXT_SESSION_PROMPT.md)
+### ~~1. NEXT_SESSION_PROMPT.md (Root)~~ ✅ ALREADY CLEANED UP
 
-**Issue**: Outdated - references API testing migration from November 2025
+**Status**: File no longer exists in root - already removed
 
-**Status in file**: Shows 6/15+ test suites migrated
+### ~~2. NEXT_SESSION_PROMPT_2025-12-19.md (docs/)~~ ✅ ALREADY ARCHIVED
 
-**Recommendation**: Archive or update with current priorities
-
-### 2. NEXT_SESSION_PROMPT_2025-12-19.md (docs/)
-
-**File**: [docs/NEXT_SESSION_PROMPT_2025-12-19.md](../docs/NEXT_SESSION_PROMPT_2025-12-19.md)
-
-**Issue**: Historical file from 12/19 - E2E enablement is complete
-
-**Recommendation**: Move to docs/archive/
+**Location**: `docs/archive/NEXT_SESSION_PROMPT_2025-12-19.md`
 
 ---
 
-## 🟢 Completed Plans Still in Root (2 items)
+## 🟢 Completed Plans Still in Root (0 items)
 
-### 1. CONTINUATION_PROMPT.md (todos/)
+> **Updated 2025-01-02**: All items below have already been archived.
 
-**File**: [todos/CONTINUATION_PROMPT.md](../todos/CONTINUATION_PROMPT.md)
+### ~~1. CONTINUATION_PROMPT.md (todos/)~~ ✅ ALREADY ARCHIVED
 
-**Status**: Shows **PROJECT 100% COMPLETE** - All 13 features across 4 phases
+**Location**: `todos/archive/CONTINUATION_PROMPT.md`
 
-**Recommendation**: Archive to todos/archive/ (mission accomplished!)
+### ~~2. MIGRATION_AFFILIATE_AGENT.md (Root)~~ ✅ ALREADY ARCHIVED
 
-### 2. MIGRATION_AFFILIATE_AGENT.md (Root)
-
-**File**: [MIGRATION_AFFILIATE_AGENT.md](../../MIGRATION_AFFILIATE_AGENT.md)
-
-**Status**: ✅ Complete (marked in file)
-
-**Recommendation**: Move to docs/archive/
+**Location**: `docs/archive/MIGRATION_AFFILIATE_AGENT.md`
 
 ---
 
@@ -123,27 +109,38 @@ These are intentionally skipped and documented:
 
 ## Recommended Actions
 
-### Immediate (Today)
+### ~~Immediate (Today)~~ ✅ ALREADY DONE
 
-1. **Archive completed plans**:
-   - Move `MIGRATION_AFFILIATE_AGENT.md` to `docs/archive/`
-   - Move `todos/CONTINUATION_PROMPT.md` to `todos/archive/`
-   - Move `docs/NEXT_SESSION_PROMPT_2025-12-19.md` to `docs/archive/`
+> **Updated 2025-01-02**: Archive tasks were already completed.
 
-2. **Update or archive root NEXT_SESSION_PROMPT.md**
+1. ~~Archive completed plans~~ - All already in archive folders
+2. ~~Update or archive root NEXT_SESSION_PROMPT.md~~ - Already removed
 
 ### Short-term (This Week)
 
 3. **Decision on API testing migration**: Close TODO or continue?
 4. **Create GitHub issues** for:
-   - `setUserActive()` storage method
-   - `highPriorityCount` calculation
+   - `setUserActive()` storage method - See `todos/TODO_002_STORAGE_SET_USER_ACTIVE.md`
+   - `highPriorityCount` calculation - See `todos/TODO_003_HIGH_PRIORITY_COUNT_CALCULATION.md`
 
 ### Backlog
 
-5. **Retailer breakdown** in affiliate-agent.ts
-6. **WebSocket real-time tests** (Phase 2.2)
-7. **Price analytics features** (time range selector, volatility, etc.)
+5. **Retailer breakdown** in affiliate-agent.ts - See `todos/TODO_001_AFFILIATE_RETAILER_BREAKDOWN.md`
+6. **WebSocket real-time tests** (Phase 2.2) - See `todos/TODO_004_WEBSOCKET_REALTIME_NOTIFICATIONS.md`
+7. **Chart enhancement tests** - See `todos/TODO_005_CHART_ENHANCEMENTS_TESTS.md`
+8. **Price analytics features** (time range selector, volatility, etc.) - See `todos/TODO_007_PRICE_ANALYTICS_FEATURES.md`
+
+### TODO Files Created (2025-01-02)
+
+| TODO File | Priority | Description |
+|-----------|----------|-------------|
+| `todos/TODO_001_AFFILIATE_RETAILER_BREAKDOWN.md` | P3 | Add retailer breakdown to affiliate agent |
+| `todos/TODO_002_STORAGE_SET_USER_ACTIVE.md` | P3 | Implement setUserActive() storage method |
+| `todos/TODO_003_HIGH_PRIORITY_COUNT_CALCULATION.md` | P2 | Calculate highPriorityCount from watches |
+| `todos/TODO_004_WEBSOCKET_REALTIME_NOTIFICATIONS.md` | P3 | WebSocket real-time notification E2E tests |
+| `todos/TODO_005_CHART_ENHANCEMENTS_TESTS.md` | P3 | Fix skipped chart tests |
+| `todos/TODO_006_API_TESTING_MIGRATION_COMPLETION.md` | P4 | Complete API test migration (optional) |
+| `todos/TODO_007_PRICE_ANALYTICS_FEATURES.md` | P3-P4 | Price analytics features backlog |
 
 ---
 

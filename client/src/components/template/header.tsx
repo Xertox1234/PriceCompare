@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'wouter';
 import {
   Search,
@@ -79,6 +79,9 @@ export function TemplateHeader({
   onOpenSearch,
   onOpenCompare,
 }: TemplateHeaderProps) {
+  // Delay before closing mega menu to prevent flicker when moving between items
+  const MEGA_MENU_CLOSE_DELAY_MS = 150;
+
   const [searchQuery, setSearchQuery] = useState('');
   const { getCartItemCount, wishlist, compare } = useShop();
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
@@ -87,6 +90,17 @@ export function TemplateHeader({
   const logoutMutation = useLogout();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [openMegaMenuId, setOpenMegaMenuId] = useState<number | null>(null);
+  const megaMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (megaMenuTimeoutRef.current) {
+        clearTimeout(megaMenuTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const cartCount = getCartItemCount();
   const wishlistCount = wishlist.length;
@@ -102,6 +116,29 @@ export function TemplateHeader({
 
   const handleLogout = () => {
     logoutMutation.mutate();
+  };
+
+  const handleMegaMenuEnter = (menuId: number) => {
+    // Clear any pending hide timeout
+    if (megaMenuTimeoutRef.current) {
+      clearTimeout(megaMenuTimeoutRef.current);
+      megaMenuTimeoutRef.current = null;
+    }
+    setOpenMegaMenuId(menuId);
+  };
+
+  const handleMegaMenuLeave = () => {
+    // Add small delay before hiding to prevent accidental dismissal
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setOpenMegaMenuId(null);
+    }, MEGA_MENU_CLOSE_DELAY_MS);
+  };
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape' && openMegaMenuId !== null) {
+      setOpenMegaMenuId(null);
+      event.preventDefault();
+    }
   };
 
   return (
@@ -284,24 +321,41 @@ export function TemplateHeader({
           <div className="container mx-auto px-4">
             <div className="flex h-12 items-center justify-between">
               {/* Main Navigation */}
-              <ul className="flex items-center gap-1">
+              <ul className="flex items-center gap-2">
                 {menuItems.map((item) => (
-                  <li key={item.id} className="group relative">
+                  <li
+                    key={item.id}
+                    className="relative"
+                    onMouseEnter={() => item.megaMenu && handleMegaMenuEnter(item.id)}
+                    onMouseLeave={() => item.megaMenu && handleMegaMenuLeave()}
+                    onKeyDown={handleMenuKeyDown}
+                  >
                     <Link
                       href={item.link}
+                      aria-haspopup={item.megaMenu ? 'true' : undefined}
+                      aria-expanded={item.megaMenu ? openMegaMenuId === item.id : undefined}
                       className={cn(
                         'text-muted-foreground hover:text-primary flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors',
-                        item.megaMenu && 'cursor-pointer'
+                        item.megaMenu && 'cursor-pointer',
+                        openMegaMenuId === item.id && 'text-primary'
                       )}
                     >
                       {item.label}
-                      {item.megaMenu && <ChevronDown className="h-4 w-4" />}
+                      {item.megaMenu && (
+                        <ChevronDown className="h-4 w-4" aria-hidden="true" focusable="false" />
+                      )}
                     </Link>
 
                     {/* Mega Menu */}
                     {item.megaMenu && (
                       <div
-                        className="border-border invisible absolute top-full left-0 z-[999] w-[600px] translate-y-0 transform rounded-[10px] border p-[30px] opacity-0 shadow-lg transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100"
+                        className={cn(
+                          'border-border absolute top-full left-0 z-[999] w-[600px] transform rounded-[10px] border p-[30px] shadow-lg transition-all duration-200',
+                          'will-change-opacity will-change-transform',
+                          openMegaMenuId === item.id
+                            ? 'visible translate-y-0 opacity-100 pointer-events-auto'
+                            : 'invisible translate-y-0 opacity-0 pointer-events-none'
+                        )}
                         style={{ backgroundColor: 'var(--floating-header-bg, white)' }}
                       >
                         <div className="grid grid-cols-3 gap-6">
