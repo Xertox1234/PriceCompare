@@ -20,6 +20,7 @@ import { ChartExport } from './ChartExport';
 import { TrendingDown } from 'lucide-react';
 import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
+import { calculatePriceDropAnnotations, calculateHistoricalContext } from './price-drop-calculator';
 
 interface PriceHistoryData {
   id: number;
@@ -84,78 +85,10 @@ export function PriceHistoryChart({
   };
 
   // Calculate historical context for tooltips
-  const historicalContext = useMemo(() => {
-    if (!data || data.length === 0) return undefined;
-
-    const prices = data.map((item) => parseFloat(item.price));
-    const averagePrice = prices.reduce((sum, price) => sum + price, 0) / prices.length;
-    const lowestPrice = Math.min(...prices);
-    const highestPrice = Math.max(...prices);
-
-    return {
-      averagePrice,
-      lowestPrice,
-      highestPrice,
-    };
-  }, [data]);
+  const historicalContext = useMemo(() => calculateHistoricalContext(data), [data]);
 
   // Detect significant price drops (>15%) for annotations
-  const priceDropAnnotations = useMemo(() => {
-    if (!data || data.length === 0) return [];
-
-    const annotations: Array<{
-      date: string;
-      retailerId: number;
-      drop: number;
-      retailerName: string;
-    }> = [];
-
-    // Group data by retailer
-    const dataByRetailer = new Map<number, typeof data>();
-    data.forEach((item) => {
-      if (!dataByRetailer.has(item.retailerId)) {
-        dataByRetailer.set(item.retailerId, []);
-      }
-      const retailerData = dataByRetailer.get(item.retailerId);
-      if (retailerData) {
-        retailerData.push(item);
-      } else {
-        // Defensive: Initialize if missing (shouldn't happen in normal flow)
-        logger.warn(`Missing retailer data for ID: ${item.retailerId}, initializing`);
-        dataByRetailer.set(item.retailerId, [item]);
-      }
-    });
-
-    // Check each retailer's price history for significant drops
-    dataByRetailer.forEach((retailerData, retailerId) => {
-      const sorted = [...retailerData].sort((a, b) => {
-        const dateA = typeof a.recordedAt === 'string' ? new Date(a.recordedAt) : a.recordedAt;
-        const dateB = typeof b.recordedAt === 'string' ? new Date(b.recordedAt) : b.recordedAt;
-        return dateA.getTime() - dateB.getTime();
-      });
-
-      for (let i = 1; i < sorted.length; i++) {
-        const prevPrice = parseFloat(sorted[i - 1].price);
-        const currPrice = parseFloat(sorted[i].price);
-        const drop = ((prevPrice - currPrice) / prevPrice) * 100;
-
-        if (drop > 15) {
-          const date =
-            typeof sorted[i].recordedAt === 'string'
-              ? new Date(sorted[i].recordedAt)
-              : sorted[i].recordedAt;
-          annotations.push({
-            date: format(date, 'yyyy-MM-dd'),
-            retailerId,
-            drop,
-            retailerName: sorted[i].retailerName,
-          });
-        }
-      }
-    });
-
-    return annotations;
-  }, [data]);
+  const priceDropAnnotations = useMemo(() => calculatePriceDropAnnotations(data), [data]);
 
   if (isLoading) {
     return (
