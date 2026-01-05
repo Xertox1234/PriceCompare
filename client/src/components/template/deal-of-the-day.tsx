@@ -5,7 +5,7 @@ import { Link } from 'wouter';
 import type { Swiper as SwiperType } from 'swiper';
 import { Flame, Heart, Eye, GitCompare, ShoppingCart } from 'lucide-react';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
-import { type ProductData } from './product-card';
+import { type ProductData } from './TemplateProductCard';
 
 // Import Swiper styles
 import 'swiper/css';

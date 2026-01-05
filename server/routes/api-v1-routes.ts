@@ -1275,9 +1275,8 @@ export function registerApiV1Routes(app: Express): void {
         },
       };
 
-      // Set content type for OpenAPI spec
-      res.setHeader('Content-Type', 'application/json');
-      res.json(openApiSpec);
+      // Return OpenAPI spec using standardized response format
+      sendSuccess(res, openApiSpec);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'OpenAPISpec');
     }

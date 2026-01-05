@@ -17,7 +17,7 @@ import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/context/shop-context';
 import { cn } from '@/lib/utils';
-import type { ProductData } from '../product-card';
+import type { ProductData } from '../TemplateProductCard';
 
 interface QuickviewModalProps {
   isOpen: boolean;

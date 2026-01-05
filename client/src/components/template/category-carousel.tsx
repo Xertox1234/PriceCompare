@@ -3,7 +3,7 @@ import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination } from 'swiper/modules';
-import { ProductCard, type ProductData } from './product-card';
+import { ProductCard, type ProductData } from './TemplateProductCard';
 import { cn } from '@/lib/utils';
 
 // Import Swiper styles

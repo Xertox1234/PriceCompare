@@ -4,7 +4,7 @@ import { Link } from 'wouter';
 import { ChevronLeft, ChevronRight, ShoppingCart, Heart, Eye, GitCompare } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination } from 'swiper/modules';
-import { type ProductData } from './product-card';
+import { type ProductData } from './TemplateProductCard';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 
 // Import Swiper styles

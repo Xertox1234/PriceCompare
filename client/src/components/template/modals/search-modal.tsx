@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Search, TrendingUp, Clock, ArrowRight } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
-import { ProductCard, type ProductData } from '../product-card';
+import { ProductCard, type ProductData } from '../TemplateProductCard';
 import { trendingProducts } from '@/data/template-data';
 
 interface SearchModalProps {

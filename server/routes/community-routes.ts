@@ -161,7 +161,7 @@ export function registerCommunityRoutes(app: Express) {
           return;
         }
 
-        res.status(204).send();
+        sendSuccess(res, {}, 204);
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'RemoveProductWatch');
       }
@@ -412,7 +412,7 @@ export function registerCommunityRoutes(app: Express) {
           return;
         }
 
-        res.status(204).send();
+        sendSuccess(res, {}, 204);
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'DeleteWatchList');
       }

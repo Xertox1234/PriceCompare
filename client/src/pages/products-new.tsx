@@ -14,7 +14,7 @@ import {
 import { Link } from 'wouter';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
-import { ProductCard, type ProductData } from '@/components/template/product-card';
+import { ProductCard, type ProductData } from '@/components/template/TemplateProductCard';
 import {
   MobileMenu,
   CompareModal,

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
-import { ProductCard } from '@/components/template/product-card';
+import { ProductCard } from '@/components/template/TemplateProductCard';
 import { CartSidebar } from '@/components/template/cart-sidebar';
 import { ShopProvider } from '@/context/shop-context';
 import { useShop } from '@/hooks/use-shop';

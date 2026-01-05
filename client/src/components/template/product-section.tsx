@@ -9,7 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { ProductCard, ProductData } from './product-card';
+import { ProductCard, ProductData } from './TemplateProductCard';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 
 interface ProductSectionProps {

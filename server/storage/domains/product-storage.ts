@@ -27,6 +27,7 @@ import {
 import { BaseStorage } from '../base-storage';
 import { storageCache } from '../../services/storage-cache';
 import { db } from '../../db';
+import { PAGINATION } from '../../utils/constants';
 
 /**
  * ProductStorage - Domain repository for product operations
@@ -98,12 +99,23 @@ export class ProductStorage extends BaseStorage {
   // ============================================================================
 
   /**
-   * Get all products
+   * Get all products with pagination
    * Used for: Admin product listing, bulk operations
+   * PERFORMANCE: Enforces pagination to prevent unbounded queries
+   *
+   * @param options - Pagination options (limit, offset)
+   * @returns Paginated array of products
    */
-  async getProducts(): Promise<Product[]> {
+  async getProducts(options?: { limit?: number; offset?: number }): Promise<Product[]> {
     try {
-      const result = await this.db.select().from(products);
+      const limit = Math.min(options?.limit ?? PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
+      const offset = options?.offset ?? 0;
+
+      const result = await this.db
+        .select()
+        .from(products)
+        .limit(limit)
+        .offset(offset);
       return result;
     } catch (error) {
       this.handleError(error, 'getProducts');

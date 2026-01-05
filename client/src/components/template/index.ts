@@ -4,7 +4,7 @@
 export { TemplateHeader, CompactHeader } from './header';
 export { HeroGrid, HeroCompact } from './hero-grid';
 export { FeaturesBar, StatsBar } from './features-bar';
-export { ProductCard, type ProductData } from './product-card';
+export { ProductCard, type ProductData } from './TemplateProductCard';
 export {
   ProductSection,
   DealOfTheDay,

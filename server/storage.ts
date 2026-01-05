@@ -77,7 +77,7 @@ import { db } from './db';
 import { eq, and, gte, inArray, sql, desc, isNotNull, or, like, count } from 'drizzle-orm';
 import { retryWithBackoff, isTransientDatabaseError } from './utils/retry-with-backoff';
 import { logger } from './utils/logger';
-import { USER_CONSTANTS, PRODUCT_CONSTANTS } from './utils/constants';
+import { USER_CONSTANTS, PRODUCT_CONSTANTS, PAGINATION } from './utils/constants';
 import { UserStorage } from './storage/domains/user-storage';
 import { ProductStorage } from './storage/domains/product-storage';
 import { PriceStorage } from './storage/domains/price-storage';
@@ -98,7 +98,7 @@ export interface IStorage {
   deleteRetailer(id: number): Promise<Retailer | null>;
 
   // Products
-  getProducts(): Promise<Product[]>;
+  getProducts(options?: { limit?: number; offset?: number }): Promise<Product[]>;
   createProduct(product: InsertProduct, tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<Product>;
   updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product | null>;
   deleteProduct(id: number): Promise<Product | null>;
@@ -1205,7 +1205,9 @@ export class MemStorage implements IStorage {
     return newRetailer;
   }
 
-  async getProducts(): Promise<Product[]> {
+  async getProducts(options?: { limit?: number; offset?: number }): Promise<Product[]> {
+    // In-memory implementation: Return all products (pagination not needed for test data)
+    const _ = options; // Unused in-memory implementation
     return Array.from(this.products.values());
   }
 
@@ -3033,8 +3035,8 @@ export class DatabaseStorage implements IStorage {
   // Product Methods (delegated to ProductStorage)
   // ============================================================================
 
-  async getProducts(): Promise<Product[]> {
-    return this.productStorage.getProducts();
+  async getProducts(options?: { limit?: number; offset?: number }): Promise<Product[]> {
+    return this.productStorage.getProducts(options);
   }
 
   async createProduct(product: InsertProduct, tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<Product> {
@@ -4844,13 +4846,14 @@ export class DatabaseStorage implements IStorage {
 
   /**
    * Batch query for badges by names (N+1 prevention)
+   * PERFORMANCE: Limits to MAX_LIMIT to prevent unbounded queries
    */
   async getBadgesByNames(names: string[]): Promise<Badge[]> {
     if (!names || names.length === 0) {
       return [];
     }
 
-    return db.select().from(badges).where(inArray(badges.name, names));
+    return db.select().from(badges).where(inArray(badges.name, names)).limit(PAGINATION.MAX_LIMIT);
   }
 
   /**
