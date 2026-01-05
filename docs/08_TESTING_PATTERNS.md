@@ -2728,6 +2728,223 @@ describe.skip('Test Suite Name', () => {
 
 ---
 
+### E2E Graceful Degradation Pattern (NEW - 2026-01-05)
+
+**Source:** TODO 007/008 - Price Analytics E2E Investigation
+
+E2E tests for **optional/conditional features** should use **graceful degradation** (conditional skip) instead of failing when UI elements aren't found. This pattern prevents test failures for features that:
+
+- Are implemented differently than expected
+- Use different selectors or component structures
+- Require specific data patterns to render
+- Are hidden behind authentication or feature flags
+- May not be needed at all (simpler UX is better)
+
+#### When to Use Graceful Degradation
+
+✅ **USE conditional skips for:**
+
+- **Optional analytics features** (charts, badges, trend indicators)
+- **Conditional UI elements** (features that only appear with specific data)
+- **Enhancement features** (nice-to-have, not core workflows)
+- **Cross-cutting concerns** (features used across multiple pages)
+
+#### When NOT to Use Graceful Degradation
+
+❌ **NEVER use conditional skips for:**
+
+- **Core user workflows** (auth, product search, watchlist)
+- **Critical business logic** (price tracking, notifications)
+- **Required features** (features users explicitly requested)
+- **Data integrity** (CRUD operations, form submissions)
+
+**Rule**: If the feature breaking would require immediate hotfix → test should FAIL, not skip.
+
+#### Pattern: Conditional Skip Helper
+
+**From `e2e/price-analytics.spec.ts` (lines 128-546)**:
+
+```typescript
+/**
+ * Helper to conditionally skip E2E test if UI element is missing
+ * Use for optional/conditional features (analytics, badges, etc.)
+ * NEVER use for core workflows (auth, search, watchlist)
+ */
+async function skipIfMissing(
+  test: any,
+  locator: Locator | null,
+  reason: string
+): Promise<boolean> {
+  if (!locator || (await locator.count()) === 0) {
+    test.skip(true, reason);
+    return true; // Test will be skipped
+  }
+  return false; // Continue test execution
+}
+
+// Usage in E2E test
+test('should display price trend indicator', async ({ page }) => {
+  await page.goto('/product/123');
+
+  const trendIndicator = page.locator('[data-testid="price-trend"]');
+
+  // Gracefully skip if feature doesn't exist (may not be implemented yet)
+  if (await skipIfMissing(test, trendIndicator, 'Price trend indicator not implemented')) {
+    return;
+  }
+
+  // If we get here, feature exists - now test it properly
+  await expect(trendIndicator).toBeVisible();
+  await expect(trendIndicator).toContainText(/rising|falling|stable/i);
+});
+```
+
+#### ✅ Good Example: Optional Analytics Feature
+
+```typescript
+test('should compare prices across retailers', async ({ page }) => {
+  await page.goto('/product/456');
+
+  const comparison = page.locator('[data-testid="retailer-comparison"]');
+
+  // OPTIONAL: Retailer comparison may not exist or may use different UI pattern
+  if (await skipIfMissing(test, comparison, 'Retailer comparison not found')) {
+    return;
+  }
+
+  // Feature exists - verify it works
+  await expect(comparison).toBeVisible();
+  const retailers = await comparison.locator('.retailer-card').count();
+  expect(retailers).toBeGreaterThan(1);
+});
+```
+
+**Why Good**:
+- Clear reason for skip (feature may not exist)
+- Tests properly when feature IS present
+- Doesn't block CI for optional analytics
+- Future developer can investigate skipped tests separately
+
+#### ❌ Bad Example: Core Workflow with Graceful Skip
+
+```typescript
+// BAD: Auth is CORE - test should FAIL if broken
+test('should login user', async ({ page }) => {
+  await page.goto('/login');
+
+  const loginForm = page.locator('form[action="/api/auth/login"]');
+
+  // WRONG: Login is critical - this should FAIL, not skip
+  if (await skipIfMissing(test, loginForm, 'Login form not found')) {
+    return;
+  }
+
+  // ... rest of test
+});
+```
+
+**Why Bad**:
+- Login is critical functionality
+- If login breaks, we need immediate alert (test failure)
+- Graceful skip would hide production-breaking bugs
+- CI would pass even though app is broken
+
+#### ✅ Good Example: Feature With Data Dependency
+
+```typescript
+test('should display historical price data', async ({ page }) => {
+  await page.goto('/product/789');
+
+  const chart = page.locator('[data-testid="price-history-chart"]');
+
+  // Chart may not render if product has no price history data
+  if (await skipIfMissing(test, chart, 'Chart not found (may need price history data)')) {
+    return;
+  }
+
+  // Chart exists - verify data accuracy
+  const dataPoints = await chart.locator('.recharts-line-dot').count();
+  expect(dataPoints).toBeGreaterThan(0);
+});
+```
+
+**Why Good**:
+- Acknowledges data dependency in skip reason
+- Hints at fix (seed price history data)
+- Doesn't fail if database is empty
+- Still validates chart when data exists
+
+#### Maintenance Requirements
+
+**Quarterly Audit (Every 3 months)**:
+
+```bash
+# Find all conditional skips in E2E tests
+grep -r "skipIfMissing\|test.skip(true" e2e/
+
+# For each skipped test, determine:
+# 1. Does the feature exist now? → Update test selectors
+# 2. Is the feature still needed? → Keep skip or remove test
+# 3. Should it be implemented? → Create implementation ticket
+```
+
+**Pattern for TODO Creation**:
+
+When E2E tests skip gracefully (5+ skipped tests), create investigation TODO:
+
+```markdown
+# TODO XXX: Investigate Skipped E2E Tests
+
+**Priority**: P3 (Low - Investigation only)
+**Estimated Time**: 4-8 hours
+
+## Skipped Tests
+
+1. Feature X - Skip reason: UI element not found
+   - Investigation: Check if feature exists under different selector
+
+2. Feature Y - Skip reason: Data dependency
+   - Investigation: Verify test data seeding
+
+## Success Criteria
+
+- [ ] All skipped tests investigated
+- [ ] Test selectors updated OR tests removed
+- [ ] Implementation tickets created for missing features
+```
+
+#### Decision Framework
+
+**Use this flowchart when writing E2E tests:**
+
+```
+Is this feature CRITICAL for users to complete their primary task?
+├─ YES → Test should FAIL if broken (standard E2E test)
+└─ NO  → Is feature nice-to-have / conditional?
+    ├─ YES → Use graceful degradation (skipIfMissing)
+    └─ NO  → Consider if test is needed at all
+```
+
+**Examples by Category**:
+
+| Category | Pattern | Example Features |
+|----------|---------|------------------|
+| **Core Workflows** | FAIL on missing | Auth, Search, Watchlist CRUD |
+| **Optional Features** | Graceful skip | Analytics charts, trend indicators |
+| **Conditional UI** | Graceful skip | Badges, tooltips, comparison tables |
+| **Data-Dependent** | Graceful skip | Historical charts, aggregated stats |
+| **Enhancement** | Graceful skip | PDF export, social sharing |
+
+#### Related Patterns
+
+- **Test Skipping Documentation Pattern** (above) - How to document `test.skip()` calls
+- **Schema Synchronization Pattern** (`CLAUDE.md:374-417`) - Keep test DB schema in sync
+- **Test Data Seeding** (`e2e/helpers.ts`) - Ensure realistic test data for conditional features
+
+---
+
+---
+
 ## Custom Agent Patterns (NEW - 2025-12-23)
 
 **Source:** Pattern-codifier agent creation session, 2025-12-23

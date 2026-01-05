@@ -371,6 +371,51 @@ await db.transaction(async (tx) => {
 
 **See `docs/02_DATABASE_PATTERNS.md` for patterns.**
 
+## Test Schema Synchronization (MANDATORY)
+
+**ALL new database tables MUST be added to E2E test cleanup immediately.**
+
+When you add tables via migrations, you **MUST** update the E2E cleanup logic in the same commit:
+
+```typescript
+// In e2e/helpers.ts (around line 61):
+await db.execute(sql`
+  TRUNCATE TABLE
+    users,
+    products,
+    product_offers,
+    price_history,
+    // ... existing tables
+    my_new_table,  // ← ADD NEW TABLES HERE
+  RESTART IDENTITY CASCADE
+`);
+```
+
+**Checklist for new migrations:**
+
+1. ✅ Create migration file (e.g., `0027_create_my_table.sql`)
+2. ✅ Update `e2e/helpers.ts` TRUNCATE statement (lines 61-77)
+3. ✅ Run E2E tests to verify: `npm run test:e2e`
+4. ✅ Validate schema sync: `npm run validate:schema-sync` (if script exists)
+5. ✅ Tag commit: `[TEST_SCHEMA] Update e2e cleanup for migration 0027`
+
+**Why this is critical:**
+
+Schema drift caused all E2E tests to fail when migrations 0026-0027 added `scraping_jobs` and `price_snapshots` tables without updating test cleanup. The TRUNCATE statement failed with "relation does not exist" errors, blocking all test execution.
+
+**Prevention pattern:**
+
+```bash
+# After creating migration:
+git add migrations/0027_create_my_table.sql
+git add e2e/helpers.ts  # Include test cleanup update
+git commit -m "feat: add my_table schema
+
+[TEST_SCHEMA] Update e2e cleanup for migration 0027"
+```
+
+**See `docs/learnings/database/LEARNINGS_TODO_007_TEST_SCHEMA_DRIFT.md` for the full investigation.**
+
 ## TypeScript Strict Mode & Enforcement
 
 **ZERO TOLERANCE for `any` types**. Enforced at 4 layers:

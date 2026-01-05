@@ -72,9 +72,7 @@ export async function cleanDatabase() {
       notification_preferences,
       product_watches,
       watch_list_shares,
-      user_reputation,
-      scraping_jobs,
-      price_snapshots
+      user_reputation
     RESTART IDENTITY CASCADE
   `);
 

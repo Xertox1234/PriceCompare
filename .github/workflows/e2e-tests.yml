@@ -114,6 +114,11 @@ jobs:
           echo "Running migrations..."
           npm run migrate
 
+      - name: Validate schema synchronization
+        run: npm run validate:schema-sync
+        # CRITICAL: Validates E2E cleanup logic (e2e/helpers.ts TRUNCATE) matches schema
+        # Prevents test failures from missing tables (see TODO_007 investigation)
+
       - name: Build application
         run: npm run build
 
@@ -308,6 +313,11 @@ jobs:
           npm run db:push
           echo "Running migrations..."
           npm run migrate
+
+      - name: Validate schema synchronization
+        run: npm run validate:schema-sync
+        # CRITICAL: Validates E2E cleanup logic (e2e/helpers.ts TRUNCATE) matches schema
+        # Prevents test failures from missing tables (see TODO_007 investigation)
 
       - name: Build application
         run: npm run build

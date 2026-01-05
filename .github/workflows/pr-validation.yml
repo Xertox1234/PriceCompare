@@ -175,6 +175,10 @@ jobs:
       - name: Run database migrations
         run: npm run migrate
 
+      - name: Validate schema synchronization
+        run: npm run validate:schema-sync
+        # Ensures E2E test cleanup logic matches database schema
+
       - name: Run test suite with coverage
         run: npm run test:coverage
         env:

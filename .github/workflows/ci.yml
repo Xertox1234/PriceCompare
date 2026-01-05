@@ -78,6 +78,11 @@ jobs:
           npm run db:push
           npm run migrate
 
+      - name: Validate schema synchronization
+        run: npm run validate:schema-sync
+        # Ensures E2E test cleanup logic (e2e/helpers.ts) matches schema (shared/schema.ts)
+        # Prevents test failures from missing tables in TRUNCATE statement
+
       - name: Run tests with coverage
         run: npm run test:ci
 
@@ -163,6 +168,10 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -U postgres -d pricecompare_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
           npm run db:push
           npm run migrate
+
+      - name: Validate schema synchronization
+        run: npm run validate:schema-sync
+        # Ensures E2E test cleanup logic matches database schema
 
       - name: Build application
         run: npm run build
