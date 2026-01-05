@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { hashEmail } from '../../utils/encryption';
+import {
+  expectSuccessResponse,
+  expectCreatedResponse,
+  expectForbiddenError,
+} from '../../__tests__/helpers/response-validators';
 
 // Mock dependencies before imports
 vi.mock('../../services/price-aggregation-service', () => ({
@@ -156,14 +161,14 @@ describe('CSRF Protection', () => {
     await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create admin user
-    // SECURITY: NEVER expose passwordHash in queries - this is test setup only
+    // SECURITY BYPASS: Test fixture creation only - passwordHash not exposed in .returning()
     const [_admin] = await db
       .insert(users)
       .values({
         username: 'admin',
         email: 'admin@test.com',
-        emailHash: hashEmail('admin@test.com'), // SHA-256 hash for indexed lookups
-        passwordHash: 'hashed', // SECURITY: NEVER expose - test data only
+        emailHash: hashEmail('admin@test.com'),
+        passwordHash: 'hashed', // SECURITY: Test fixture only - excluded from .returning()
         role: 'admin',
       })
       .returning({
@@ -171,7 +176,7 @@ describe('CSRF Protection', () => {
         username: users.username,
         email: users.email,
         role: users.role,
-        // SECURITY: passwordHash explicitly excluded from return
+        // passwordHash intentionally omitted
       });
 
     // Create test session cookie
@@ -207,11 +212,9 @@ describe('CSRF Protection', () => {
         const response = await request(app)
           .post(endpoint)
           .set('Cookie', adminCookie)
-          .send(validBody)
-          .expect(403);
+          .send(validBody);
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.error).toMatch(/CSRF/i);
+        expectForbiddenError(response, /CSRF/i);
         expect(logSecurityEvent).toHaveBeenCalled();
       });
 
@@ -220,11 +223,9 @@ describe('CSRF Protection', () => {
           .post(endpoint)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', 'invalid-token-12345')
-          .send(validBody)
-          .expect(403);
+          .send(validBody);
 
-        expect(response.body.success).toBe(false);
-        expect(response.body.error).toMatch(/CSRF/i);
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should accept request with valid CSRF token', async () => {
@@ -232,11 +233,10 @@ describe('CSRF Protection', () => {
           .post(endpoint)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send(validBody)
-          .expect(200);
+          .send(validBody);
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.daysAggregated).toBe(5);
+        const result = expectSuccessResponse<{ daysAggregated: number }>(response, 200);
+        expect(result.daysAggregated).toBe(5);
         expect(priceAggregationService.aggregateToDaily).toHaveBeenCalledWith(
           expect.any(Date),
           expect.any(Date),
@@ -251,10 +251,9 @@ describe('CSRF Protection', () => {
           .send({
             ...validBody,
             _csrf: validCsrfToken,
-          })
-          .expect(200);
+          });
 
-        expect(response.body.success).toBe(true);
+        expectSuccessResponse(response, 200);
       });
     });
 
@@ -262,12 +261,12 @@ describe('CSRF Protection', () => {
       const endpoint = '/api/admin/aggregation/detect-gaps';
 
       it('should require CSRF token', async () => {
-        await request(app)
+        const response = await request(app)
           .post(endpoint)
           .set('Cookie', adminCookie)
-          .send({ startDate: '2025-01-01', endDate: '2025-01-31' })
-          .expect(403);
+          .send({ startDate: '2025-01-01', endDate: '2025-01-31' });
 
+        expectForbiddenError(response, /CSRF/i);
         expect(logSecurityEvent).toHaveBeenCalled();
       });
 
@@ -276,11 +275,10 @@ describe('CSRF Protection', () => {
           .post(endpoint)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send({ startDate: '2025-01-01', endDate: '2025-01-31' })
-          .expect(200);
+          .send({ startDate: '2025-01-01', endDate: '2025-01-31' });
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.gaps).toEqual(['2025-01-01', '2025-01-02']);
+        const result = expectSuccessResponse<{ gaps: string[] }>(response, 200);
+        expect(result.gaps).toEqual(['2025-01-01', '2025-01-02']);
       });
     });
 
@@ -288,11 +286,12 @@ describe('CSRF Protection', () => {
       const endpoint = '/api/admin/aggregation/fill-gaps';
 
       it('should require CSRF token', async () => {
-        await request(app)
+        const response = await request(app)
           .post(endpoint)
           .set('Cookie', adminCookie)
-          .send({ startDate: '2025-01-01', endDate: '2025-01-31' })
-          .expect(403);
+          .send({ startDate: '2025-01-01', endDate: '2025-01-31' });
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should work with valid CSRF token', async () => {
@@ -300,11 +299,10 @@ describe('CSRF Protection', () => {
           .post(endpoint)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send({ startDate: '2025-01-01', endDate: '2025-01-31' })
-          .expect(200);
+          .send({ startDate: '2025-01-01', endDate: '2025-01-31' });
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.daysFilled).toBe(2);
+        const result = expectSuccessResponse<{ daysFilled: number }>(response, 200);
+        expect(result.daysFilled).toBe(2);
       });
     });
 
@@ -312,11 +310,12 @@ describe('CSRF Protection', () => {
       const endpoint = '/api/admin/aggregation/single-product';
 
       it('should require CSRF token', async () => {
-        await request(app)
+        const response = await request(app)
           .post(endpoint)
           .set('Cookie', adminCookie)
-          .send({ productId: 123 })
-          .expect(403);
+          .send({ productId: 123 });
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should work with valid CSRF token', async () => {
@@ -324,11 +323,10 @@ describe('CSRF Protection', () => {
           .post(endpoint)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send({ productId: 123 })
-          .expect(200);
+          .send({ productId: 123 });
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.productId).toBe(123);
+        const result = expectSuccessResponse<{ productId: number }>(response, 200);
+        expect(result.productId).toBe(123);
       });
     });
   });
@@ -365,8 +363,12 @@ describe('CSRF Protection', () => {
       };
 
       it('should require CSRF token', async () => {
-        await request(app).post(endpoint).set('Cookie', adminCookie).send(validBody).expect(403);
+        const response = await request(app)
+          .post(endpoint)
+          .set('Cookie', adminCookie)
+          .send(validBody);
 
+        expectForbiddenError(response, /CSRF/i);
         expect(logSecurityEvent).toHaveBeenCalled();
       });
 
@@ -375,21 +377,21 @@ describe('CSRF Protection', () => {
           .post(endpoint)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send(validBody)
-          .expect(201);
+          .send(validBody);
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.name).toBe('New Product');
+        const result = expectCreatedResponse<{ name: string }>(response);
+        expect(result.name).toBe('New Product');
       });
     });
 
     describe('PUT /api/admin/products/:id', () => {
       it('should require CSRF token', async () => {
-        await request(app)
+        const response = await request(app)
           .put(`/api/admin/products/${testProduct.id}`)
           .set('Cookie', adminCookie)
-          .send({ name: 'Updated Name' })
-          .expect(403);
+          .send({ name: 'Updated Name' });
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should update product with valid CSRF token', async () => {
@@ -397,31 +399,30 @@ describe('CSRF Protection', () => {
           .put(`/api/admin/products/${testProduct.id}`)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send({ name: 'Updated Name' })
-          .expect(200);
+          .send({ name: 'Updated Name' });
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.name).toBe('Updated Name');
+        const result = expectSuccessResponse<{ name: string }>(response, 200);
+        expect(result.name).toBe('Updated Name');
       });
     });
 
     describe('DELETE /api/admin/products/:id', () => {
       it('should require CSRF token', async () => {
-        await request(app)
+        const response = await request(app)
           .delete(`/api/admin/products/${testProduct.id}`)
-          .set('Cookie', adminCookie)
-          .expect(403);
+          .set('Cookie', adminCookie);
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should delete product with valid CSRF token', async () => {
         const response = await request(app)
           .delete(`/api/admin/products/${testProduct.id}`)
           .set('Cookie', adminCookie)
-          .set('X-CSRF-Token', validCsrfToken)
-          .expect(200);
+          .set('X-CSRF-Token', validCsrfToken);
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.message).toMatch(/deleted/i);
+        const result = expectSuccessResponse<{ message: string }>(response, 200);
+        expect(result.message).toMatch(/deleted/i);
       });
     });
 
@@ -433,7 +434,12 @@ describe('CSRF Protection', () => {
       };
 
       it('should require CSRF token', async () => {
-        await request(app).post(endpoint).set('Cookie', adminCookie).send(validBody).expect(403);
+        const response = await request(app)
+          .post(endpoint)
+          .set('Cookie', adminCookie)
+          .send(validBody);
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should create retailer with valid CSRF token', async () => {
@@ -441,21 +447,21 @@ describe('CSRF Protection', () => {
           .post(endpoint)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send(validBody)
-          .expect(201);
+          .send(validBody);
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.name).toBe('New Retailer');
+        const result = expectCreatedResponse<{ name: string }>(response);
+        expect(result.name).toBe('New Retailer');
       });
     });
 
     describe('PUT /api/admin/retailers/:id', () => {
       it('should require CSRF token', async () => {
-        await request(app)
+        const response = await request(app)
           .put(`/api/admin/retailers/${testRetailer.id}`)
           .set('Cookie', adminCookie)
-          .send({ name: 'Updated Retailer' })
-          .expect(403);
+          .send({ name: 'Updated Retailer' });
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should update retailer with valid CSRF token', async () => {
@@ -463,31 +469,30 @@ describe('CSRF Protection', () => {
           .put(`/api/admin/retailers/${testRetailer.id}`)
           .set('Cookie', adminCookie)
           .set('X-CSRF-Token', validCsrfToken)
-          .send({ name: 'Updated Retailer' })
-          .expect(200);
+          .send({ name: 'Updated Retailer' });
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.name).toBe('Updated Retailer');
+        const result = expectSuccessResponse<{ name: string }>(response, 200);
+        expect(result.name).toBe('Updated Retailer');
       });
     });
 
     describe('DELETE /api/admin/retailers/:id', () => {
       it('should require CSRF token', async () => {
-        await request(app)
+        const response = await request(app)
           .delete(`/api/admin/retailers/${testRetailer.id}`)
-          .set('Cookie', adminCookie)
-          .expect(403);
+          .set('Cookie', adminCookie);
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should delete retailer with valid CSRF token', async () => {
         const response = await request(app)
           .delete(`/api/admin/retailers/${testRetailer.id}`)
           .set('Cookie', adminCookie)
-          .set('X-CSRF-Token', validCsrfToken)
-          .expect(200);
+          .set('X-CSRF-Token', validCsrfToken);
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.message).toMatch(/deleted/i);
+        const result = expectSuccessResponse<{ message: string }>(response, 200);
+        expect(result.message).toMatch(/deleted/i);
       });
     });
   });
@@ -502,8 +507,11 @@ describe('CSRF Protection', () => {
       const endpoint = '/api/monitoring/errors/clear';
 
       it('should require CSRF token', async () => {
-        await request(app).post(endpoint).set('Cookie', adminCookie).expect(403);
+        const response = await request(app)
+          .post(endpoint)
+          .set('Cookie', adminCookie);
 
+        expectForbiddenError(response, /CSRF/i);
         expect(logSecurityEvent).toHaveBeenCalled();
       });
 
@@ -511,11 +519,10 @@ describe('CSRF Protection', () => {
         const response = await request(app)
           .post(endpoint)
           .set('Cookie', adminCookie)
-          .set('X-CSRF-Token', validCsrfToken)
-          .expect(200);
+          .set('X-CSRF-Token', validCsrfToken);
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.message).toMatch(/cleared/i);
+        const result = expectSuccessResponse<{ message: string }>(response, 200);
+        expect(result.message).toMatch(/cleared/i);
         expect(monitoringService.clearErrors).toHaveBeenCalled();
       });
     });
@@ -524,18 +531,21 @@ describe('CSRF Protection', () => {
       const endpoint = '/api/monitoring/alerts/test';
 
       it('should require CSRF token', async () => {
-        await request(app).post(endpoint).set('Cookie', adminCookie).expect(403);
+        const response = await request(app)
+          .post(endpoint)
+          .set('Cookie', adminCookie);
+
+        expectForbiddenError(response, /CSRF/i);
       });
 
       it('should send test alert with valid CSRF token', async () => {
         const response = await request(app)
           .post(endpoint)
           .set('Cookie', adminCookie)
-          .set('X-CSRF-Token', validCsrfToken)
-          .expect(200);
+          .set('X-CSRF-Token', validCsrfToken);
 
-        expect(response.body.success).toBe(true);
-        expect(response.body.data.message).toMatch(/sent/i);
+        const result = expectSuccessResponse<{ message: string }>(response, 200);
+        expect(result.message).toMatch(/sent/i);
         expect(alertService.sendCustomAlert).toHaveBeenCalledWith(
           'info',
           'Test Alert',
@@ -555,25 +565,24 @@ describe('CSRF Protection', () => {
         .post('/api/admin/aggregation/force-daily')
         .set('Cookie', adminCookie)
         .set('X-CSRF-Token', otherToken) // Token from different session
-        .send({ startDate: '2025-01-01', endDate: '2025-01-31' })
-        .expect(403);
+        .send({ startDate: '2025-01-01', endDate: '2025-01-31' });
 
-      expect(response.body.success).toBe(false);
+      expectForbiddenError(response, /CSRF/i);
     });
 
-    it('should not accept tokens after they expire', () => {
-      // This would require session expiry simulation
-      // Placeholder for future implementation
-      expect(true).toBe(true);
+    it.skip('should not accept tokens after they expire', () => {
+      // TODO: Implement session expiry simulation
+      // Requires time-travel mocking for session middleware
+      // See: https://github.com/expressjs/session#cookie-options
     });
 
     it('should log all CSRF violations', async () => {
-      await request(app)
+      const response = await request(app)
         .post('/api/admin/products')
         .set('Cookie', adminCookie)
-        .send({ name: 'Test' })
-        .expect(403);
+        .send({ name: 'Test' });
 
+      expectForbiddenError(response, /CSRF/i);
       expect(logSecurityEvent).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
@@ -586,19 +595,19 @@ describe('CSRF Protection', () => {
     it('should not require CSRF for GET requests', async () => {
       const response = await request(app)
         .get('/api/admin/products')
-        .set('Cookie', adminCookie)
-        // No CSRF token
-        .expect(200);
+        .set('Cookie', adminCookie);
+      // No CSRF token
 
-      expect(response.body.success).toBe(true);
+      expectSuccessResponse(response, 200);
     });
 
     it('should not require CSRF for HEAD requests', async () => {
-      await request(app)
+      const response = await request(app)
         .head('/api/admin/products')
-        .set('Cookie', adminCookie)
-        // No CSRF token
-        .expect(200);
+        .set('Cookie', adminCookie);
+      // No CSRF token
+
+      expect(response.status).toBe(200);
     });
   });
 });

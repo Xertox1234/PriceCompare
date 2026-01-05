@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.0
-**Last Updated:** 2025-12-28
+**Version:** 3.1
+**Last Updated:** 2026-01-04
 **Changelog:**
+- 3.1 (2026-01-04): Added Type-Safe Response Validation Pattern, Anti-Pattern: Placeholder Tests (from TODO_006 migration)
 - 3.0 (2025-12-28): Added React Query Multi-Query Invalidation Pattern, Hook Event Handler Testing Pattern, Test Skipping Documentation examples (from TODO 013)
 - 2.9 (2025-12-27): Added @ts-expect-error pattern for intentional test mocks, inline SECURITY comment pattern for test fixtures
 - 2.8 (2025-12-26): Added vi.mock() Intentional Duplication Pattern (test mock setup should stay local, not extracted - from TODO 002 rejection)
@@ -61,7 +62,9 @@
 8. [Route Testing Patterns](#route-testing-patterns)
    - [Testing Missing Route Parameters](#testing-missing-route-parameters)
    - [Express Route Not Found Behavior](#express-route-not-found-behavior)
+   - [Type-Safe Response Validation Pattern (NEW)](#type-safe-response-validation-pattern-new---2026-01-04)
 9. [Avoiding Skipped Tests](#avoiding-skipped-tests)
+   - [Anti-Pattern: Placeholder Tests (NEW)](#anti-pattern-placeholder-tests-new---2026-01-04)
    - [Test Skipping Documentation Pattern (NEW)](#test-skipping-documentation-pattern-new---2025-12-28)
 10. [Custom Agent Patterns (NEW)](#custom-agent-patterns-new---2025-12-23)
    - [Creating Project-Specific Subagents](#creating-project-specific-subagents)
@@ -2363,6 +2366,134 @@ Understanding Express routing:
 
 **Note:** The 404 response may not follow your API's standard error envelope format since it's returned before any route handler runs.
 
+### Type-Safe Response Validation Pattern (NEW - 2026-01-04)
+
+**Source**: TODO_006 API Testing Migration
+
+Use typed validation helpers instead of manual `response.body` access for API route tests.
+
+#### ❌ OLD PATTERN - Weak Typing, Verbose
+
+```typescript
+const response = await request(app)
+  .post('/api/endpoint')
+  .send(data)
+  .expect(200);
+
+expect(response.body.success).toBe(true);
+expect(response.body.data.name).toBe('Test Product');
+expect(response.body.data.price).toBe(99.99);
+```
+
+**Problems**:
+- No type safety on `response.body.data` (TypeScript treats it as `any`)
+- Verbose: 4 lines of boilerplate per test
+- No IDE autocomplete
+- Easy to access wrong properties without compiler errors
+
+#### ✅ NEW PATTERN - Type-Safe Validation Helpers
+
+```typescript
+import {
+  expectSuccessResponse,
+  expectCreatedResponse,
+  expectErrorResponse,
+} from '../../__tests__/helpers/response-validators';
+
+// Success response (200)
+const response = await request(app).post('/api/endpoint').send(data);
+const result = expectSuccessResponse<{ name: string; price: number }>(response, 200);
+expect(result.name).toBe('Test Product'); // ✅ Type-safe!
+expect(result.price).toBe(99.99);
+
+// Created response (201)
+const created = expectCreatedResponse<{ id: number; name: string }>(response);
+expect(created.id).toBeGreaterThan(0);
+expect(created.name).toBe('New Product');
+
+// Error responses
+expectUnauthorizedError(response); // 401
+expectForbiddenError(response, /CSRF/i); // 403 with error message pattern
+expectNotFoundError(response); // 404
+expectBadRequestError(response); // 400
+expectConflictError(response); // 409
+```
+
+**Benefits**:
+- **Type safety**: TypeScript generics provide compile-time checking
+- **IDE autocomplete**: Full IntelliSense on response data
+- **Concise**: 1-2 lines vs 3-4 lines per assertion
+- **Centralized validation**: Response envelope structure validated once
+- **Consistent**: All tests use the same validation logic
+
+#### Available Validation Helpers
+
+**File**: `server/__tests__/helpers/response-validators.ts`
+
+```typescript
+// Success responses
+expectSuccessResponse<T>(response, expectedStatus = 200): T
+expectCreatedResponse<T>(response): T  // 201
+
+// Error responses
+expectUnauthorizedError(response, errorPattern?): ErrorResponse  // 401
+expectForbiddenError(response, errorPattern?): ErrorResponse  // 403
+expectNotFoundError(response, errorPattern?): ErrorResponse  // 404
+expectBadRequestError(response, errorPattern?): ErrorResponse  // 400
+expectConflictError(response, errorPattern?): ErrorResponse  // 409
+
+// Paginated responses
+expectPaginatedResponse<T>(response, expectedStatus = 200): {
+  data: T[],
+  meta: { total: number, page: number, limit: number }
+}
+```
+
+#### Migration Pattern
+
+**Before**:
+```typescript
+const res = await request(app).post('/api/products').send(validBody).expect(201);
+expect(res.body.success).toBe(true);
+expect(res.body.data.name).toBe('New Product');
+```
+
+**After**:
+```typescript
+const res = await request(app).post('/api/products').send(validBody);
+const result = expectCreatedResponse<{ name: string }>(res);
+expect(result.name).toBe('New Product');
+```
+
+#### When to Use Typed Schemas
+
+For complex response types, use Zod schemas from `response-validators.ts`:
+
+```typescript
+import { productSchema } from '../../__tests__/helpers/response-validators';
+
+// Instead of unknown[]
+const result = expectSuccessResponse<{ products: unknown[] }>(res, 200);
+
+// Use typed schema
+const result = expectValidatedResponse(res, z.object({
+  products: z.array(productSchema)
+}), 200);
+// Now result.products[0].id and .name are fully typed
+```
+
+#### Real-World Impact
+
+**TODO_006 Migration Results**:
+- **Files migrated**: 2 (api-v1-routes.test.ts, csrf-protection.test.ts)
+- **Tests migrated**: 108 (77 + 31)
+- **Assertions migrated**: ~140
+- **Bugs found**: 0 (validation caught no regressions)
+- **Boilerplate reduced**: ~50% (2-3 lines → 1 line per assertion)
+- **Test runtime**: No change (helpers have zero overhead)
+
+**Key Learning**: Type-safe validation helps during test writing (autocomplete, compiler errors) but found no bugs in already-working tests. Maximum value comes from using helpers from the start.
+
 ---
 
 ## Avoiding Skipped Tests
@@ -2394,6 +2525,106 @@ it.skip('temporarily skipped while debugging auth flow - fix by EOD', () => {
 ```
 
 **Rule:** If a test is skipped for more than one PR, either fix it or delete it.
+
+### Anti-Pattern: Placeholder Tests (NEW - 2026-01-04)
+
+**Source**: TODO_006 Code Review - kieran-typescript-reviewer
+
+**NEVER** use placeholder tests that always pass. They inflate test counts and hide missing coverage.
+
+#### ❌ WRONG - Fake-Passing Placeholder
+
+```typescript
+it('should not accept tokens after they expire', () => {
+  // This would require session expiry simulation
+  // Placeholder for future implementation
+  expect(true).toBe(true); // ❌ Always passes!
+});
+```
+
+**Problems**:
+- Test suite reports "108 tests passing" but one is meaningless
+- No test coverage for token expiry (false confidence)
+- CI metrics become inaccurate
+- Future developers don't know this needs implementation
+- Pre-commit hooks pass without testing actual behavior
+
+**Why Developers Do This**:
+- Want to show progress ("look, I added tests!")
+- Don't want red test output
+- Think "I'll implement it later" (never happens)
+- Copied pattern from other codebases
+
+#### ✅ CORRECT - Honest Skipped Test
+
+```typescript
+it.skip('should not accept tokens after they expire', () => {
+  // TODO: Implement session expiry simulation
+  // Requires time-travel mocking for session middleware
+  // See: https://github.com/expressjs/session#cookie-options
+});
+```
+
+**Benefits**:
+- Test suite reports "107 passing, 1 skipped" (honest metrics)
+- CI shows skipped tests in logs (visible to team)
+- Clearly communicates missing coverage
+- TODO comment explains what's needed
+- Can track skipped test count over time
+
+#### Detecting Placeholder Tests
+
+**Search for common patterns**:
+```bash
+# Find fake-passing tests
+grep -rn "expect(true).toBe(true)" --include="*.test.ts"
+grep -rn "expect(1).toBe(1)" --include="*.test.ts"
+grep -rn "placeholder.*test" --include="*.test.ts" -i
+
+# Find tests with no assertions
+grep -rn "it('.*', () => {$" --include="*.test.ts"
+```
+
+#### Real-World Example from TODO_006
+
+**Before** (csrf-protection.test.ts):
+```typescript
+it('should not accept tokens after they expire', () => {
+  // This would require session expiry simulation
+  // Placeholder for future implementation
+  expect(true).toBe(true);
+});
+
+// Test output: ✓ 31 tests passing
+```
+
+**After**:
+```typescript
+it.skip('should not accept tokens after they expire', () => {
+  // TODO: Implement session expiry simulation
+  // Requires time-travel mocking for session middleware
+  // See: https://github.com/expressjs/session#cookie-options
+});
+
+// Test output: ✓ 30 passing, 1 skipped
+```
+
+**Impact**:
+- Honest metrics: Changed from "31 passing" to "30 passing, 1 skipped"
+- Clear TODO for future work
+- Pre-commit hook still passes (skipped tests allowed)
+- CI metrics now accurate
+
+#### When Placeholder Tests Are Acceptable
+
+**NEVER.** There is no valid use case for `expect(true).toBe(true)`.
+
+If you can't implement the test yet:
+- Use `it.skip()` with a TODO comment
+- Use `it.todo()` for planned tests
+- Delete the test until you're ready to implement it
+
+**Rule**: Tests should either validate real behavior or be explicitly skipped/todo. No middle ground.
 
 ### Test Skipping Documentation Pattern (NEW - 2025-12-28)
 

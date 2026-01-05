@@ -8,6 +8,16 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { hashEmail } from '../../utils/encryption';
 import { PASSWORD } from '../../utils/constants';
+import {
+  expectSuccessResponse,
+  expectCreatedResponse,
+  expectUnauthorizedError,
+  expectNotFoundError,
+  expectBadRequestError,
+  expectForbiddenError,
+  expectConflictError,
+  expectPaginatedResponse,
+} from '../../__tests__/helpers/response-validators';
 
 /**
  * API v1 Routes Integration Test Suite (Phase 1: Read-Only Endpoints)
@@ -114,7 +124,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         username: 'testuser',
         email,
         emailHash: hashEmail(email),
-        passwordHash: hashedPassword,
+        passwordHash: hashedPassword, // SECURITY: Test fixture only - excluded from .returning()
         role: 'user',
       })
       .returning({ id: users.id, username: users.username, email: users.email });
@@ -196,23 +206,20 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
     it('should reject requests without Basic Auth header', async () => {
       const res = await request(app).get('/api/v1/watchlists');
 
-      expect(res.status).toBe(401);
-      expect(res.body.success).toBe(false);
+      expectUnauthorizedError(res);
     });
 
     it('should reject requests with invalid credentials', async () => {
       const invalidAuth = 'Basic ' + Buffer.from('testuser:wrongpassword').toString('base64');
       const res = await request(app).get('/api/v1/watchlists').set('Authorization', invalidAuth);
 
-      expect(res.status).toBe(401);
-      expect(res.body.success).toBe(false);
+      expectUnauthorizedError(res);
     });
 
     it('should accept requests with valid Basic Auth', async () => {
       const res = await request(app).get('/api/v1/watchlists').set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      expectSuccessResponse(res, 200);
     });
   });
 
@@ -220,11 +227,10 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
     it('should return user watchlists with Basic Auth', async () => {
       const res = await request(app).get('/api/v1/watchlists').set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.watchLists).toBeInstanceOf(Array);
-      expect(res.body.data.watchLists.length).toBeGreaterThan(0);
-      expect(res.body.data.watchLists[0].name).toBe('Test Watchlist');
+      const result = expectSuccessResponse<{ watchLists: Array<{ name: string }> }>(res, 200);
+      expect(result.watchLists).toBeInstanceOf(Array);
+      expect(result.watchLists.length).toBeGreaterThan(0);
+      expect(result.watchLists[0].name).toBe('Test Watchlist');
     });
 
     it('should return empty array for user with no watchlists', async () => {
@@ -233,9 +239,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
 
       const res = await request(app).get('/api/v1/watchlists').set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.watchLists).toEqual([]);
+      const result = expectSuccessResponse<{ watchLists: unknown[] }>(res, 200);
+      expect(result.watchLists).toEqual([]);
     });
   });
 
@@ -245,17 +250,15 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/watchlists/${testWatchList.id}`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.id).toBe(testWatchList.id);
-      expect(res.body.data.name).toBe('Test Watchlist');
+      const result = expectSuccessResponse<{ id: number; name: string }>(res, 200);
+      expect(result.id).toBe(testWatchList.id);
+      expect(result.name).toBe('Test Watchlist');
     });
 
     it('should return 404 for non-existent watchlist', async () => {
       const res = await request(app).get('/api/v1/watchlists/99999').set('Authorization', authHeader);
 
-      expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
+      expectNotFoundError(res);
     });
 
     it('should return 400 for invalid watchlist ID', async () => {
@@ -263,8 +266,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/watchlists/invalid')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
+      expectBadRequestError(res);
     });
   });
 
@@ -274,9 +276,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/watchlists/${testWatchList.id}/products`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.products).toBeInstanceOf(Array);
+      const result = expectSuccessResponse<{ products: unknown[] }>(res, 200);
+      expect(result.products).toBeInstanceOf(Array);
     });
 
     it('should return 404 for non-existent watchlist', async () => {
@@ -284,8 +285,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/watchlists/99999/products')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
+      expectNotFoundError(res);
     });
   });
 
@@ -293,11 +293,10 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
     it('should return user price alerts with Basic Auth', async () => {
       const res = await request(app).get('/api/v1/price-alerts').set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data).toBeInstanceOf(Array);
-      expect(res.body.data.length).toBeGreaterThan(0);
-      expect(res.body.data[0].targetPrice).toBe('79.99');
+      const result = expectSuccessResponse<Array<{ targetPrice: string }>>(res, 200);
+      expect(result).toBeInstanceOf(Array);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].targetPrice).toBe('79.99');
     });
 
     it('should return empty array for user with no alerts', async () => {
@@ -305,9 +304,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
 
       const res = await request(app).get('/api/v1/price-alerts').set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data).toEqual([]);
+      const result = expectSuccessResponse<unknown[]>(res, 200);
+      expect(result).toEqual([]);
     });
   });
 
@@ -317,10 +315,9 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/price-alerts/${testAlert.id}`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.id).toBe(testAlert.id);
-      expect(res.body.data.targetPrice).toBe('79.99');
+      const result = expectSuccessResponse<{ id: number; targetPrice: string }>(res, 200);
+      expect(result.id).toBe(testAlert.id);
+      expect(result.targetPrice).toBe('79.99');
     });
 
     it('should return 404 for non-existent alert', async () => {
@@ -328,8 +325,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/price-alerts/99999')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
+      expectNotFoundError(res);
     });
 
     it('should return 400 for invalid alert ID', async () => {
@@ -337,8 +333,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/price-alerts/invalid')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
+      expectBadRequestError(res);
     });
   });
 
@@ -348,10 +343,9 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/products/search?query=test')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data).toBeInstanceOf(Array);
-      expect(res.body.meta).toBeDefined();
+      const result = expectPaginatedResponse(res, 200);
+      expect(result.data).toBeInstanceOf(Array);
+      expect(result.meta).toBeDefined();
     });
 
     it('should support pagination parameters', async () => {
@@ -359,9 +353,9 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/products/search?page=1&limit=10')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.meta.page).toBe(1);
-      expect(res.body.meta.limit).toBe(10);
+      const result = expectPaginatedResponse(res, 200);
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBe(10);
     });
 
     it('should support price filters', async () => {
@@ -369,8 +363,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/products/search?minPrice=50&maxPrice=150')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      expectPaginatedResponse(res, 200);
     });
   });
 
@@ -380,17 +373,15 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/products/${testProduct.id}`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.id).toBe(testProduct.id);
-      expect(res.body.data.name).toBe('Test Product');
+      const result = expectSuccessResponse<{ id: number; name: string }>(res, 200);
+      expect(result.id).toBe(testProduct.id);
+      expect(result.name).toBe('Test Product');
     });
 
     it('should return 404 for non-existent product', async () => {
       const res = await request(app).get('/api/v1/products/99999').set('Authorization', authHeader);
 
-      expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
+      expectNotFoundError(res);
     });
 
     it('should return 400 for invalid product ID', async () => {
@@ -398,8 +389,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/products/invalid')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
+      expectBadRequestError(res);
     });
   });
 
@@ -409,9 +399,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/products/${testProduct.id}/price-history`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.history).toBeInstanceOf(Array);
+      const result = expectSuccessResponse<{ history: unknown[] }>(res, 200);
+      expect(result.history).toBeInstanceOf(Array);
     });
 
     it('should support days parameter', async () => {
@@ -419,8 +408,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/products/${testProduct.id}/price-history?days=90`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      expectSuccessResponse(res, 200);
     });
 
     it('should support retailerId parameter', async () => {
@@ -428,8 +416,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/products/${testProduct.id}/price-history?retailerId=1`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      expectSuccessResponse(res, 200);
     });
 
     it('should return empty history for non-existent product', async () => {
@@ -437,9 +424,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/products/99999/price-history')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.history).toEqual([]);
+      const result = expectSuccessResponse<{ history: unknown[] }>(res, 200);
+      expect(result.history).toEqual([]);
     });
   });
 
@@ -447,10 +433,9 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
     it('should return user notifications with Basic Auth', async () => {
       const res = await request(app).get('/api/v1/notifications').set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.notifications).toBeInstanceOf(Array);
-      expect(res.body.data.count).toBeDefined();
+      const result = expectSuccessResponse<{ notifications: unknown[]; count: number }>(res, 200);
+      expect(result.notifications).toBeInstanceOf(Array);
+      expect(result.count).toBeDefined();
     });
 
     it('should support filter parameters', async () => {
@@ -458,15 +443,13 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get('/api/v1/notifications?isRead=false&limit=20')
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      expectSuccessResponse(res, 200);
     });
 
     it('should reject without authentication', async () => {
       const res = await request(app).get('/api/v1/notifications');
 
-      expect(res.status).toBe(401);
-      expect(res.body.success).toBe(false);
+      expectUnauthorizedError(res);
     });
   });
 
@@ -485,7 +468,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           username: 'otheruser',
           email,
           emailHash: hashEmail(email),
-          passwordHash: hashedPassword,
+          passwordHash: hashedPassword, // SECURITY: Test fixture only - excluded from .returning()
           role: 'user',
         })
         .returning({ id: users.id, username: users.username });
@@ -507,11 +490,9 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
     it('should not return other user watchlists', async () => {
       const res = await request(app).get('/api/v1/watchlists').set('Authorization', authHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.watchLists).toBeInstanceOf(Array);
-      const hasOtherUserWatchlist = res.body.data.watchLists.some(
-        (w: { id: number }) => w.id === otherWatchList.id
-      );
+      const result = expectSuccessResponse<{ watchLists: Array<{ id: number }> }>(res, 200);
+      expect(result.watchLists).toBeInstanceOf(Array);
+      const hasOtherUserWatchlist = result.watchLists.some((w) => w.id === otherWatchList.id);
       expect(hasOtherUserWatchlist).toBe(false);
     });
 
@@ -520,8 +501,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/watchlists/${otherWatchList.id}`)
         .set('Authorization', authHeader);
 
-      expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
+      expectNotFoundError(res);
     });
 
     it('should allow other user to access their own watchlist', async () => {
@@ -529,9 +509,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         .get(`/api/v1/watchlists/${otherWatchList.id}`)
         .set('Authorization', otherAuthHeader);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.id).toBe(otherWatchList.id);
+      const result = expectSuccessResponse<{ id: number }>(res, 200);
+      expect(result.id).toBe(otherWatchList.id);
     });
   });
 
@@ -547,11 +526,14 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ name: 'My New Watchlist', description: 'Test description' });
 
-        expect(res.status).toBe(201);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.name).toBe('My New Watchlist');
-        expect(res.body.data.description).toBe('Test description');
-        expect(res.body.data.userId).toBe(testUser.id);
+        const result = expectCreatedResponse<{
+          name: string;
+          description: string;
+          userId: number;
+        }>(res);
+        expect(result.name).toBe('My New Watchlist');
+        expect(result.description).toBe('Test description');
+        expect(result.userId).toBe(testUser.id);
       });
 
       it('should reject watchlist creation without name', async () => {
@@ -560,8 +542,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ description: 'No name' });
 
-        expect(res.status).toBe(400);
-        expect(res.body.success).toBe(false);
+        expectBadRequestError(res);
       });
 
       it('should reject watchlist creation without auth', async () => {
@@ -569,8 +550,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .post('/api/v1/watchlists')
           .send({ name: 'Unauthorized Watchlist' });
 
-        expect(res.status).toBe(401);
-        expect(res.body.success).toBe(false);
+        expectUnauthorizedError(res);
       });
     });
 
@@ -581,9 +561,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ name: 'Updated Name' });
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.name).toBe('Updated Name');
+        const result = expectSuccessResponse<{ name: string }>(res, 200);
+        expect(result.name).toBe('Updated Name');
       });
 
       it('should update watchlist description', async () => {
@@ -592,9 +571,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ description: 'Updated description' });
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.description).toBe('Updated description');
+        const result = expectSuccessResponse<{ description: string }>(res, 200);
+        expect(result.description).toBe('Updated description');
       });
 
       it('should reject update without any fields', async () => {
@@ -603,8 +581,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({});
 
-        expect(res.status).toBe(400);
-        expect(res.body.success).toBe(false);
+        expectBadRequestError(res);
       });
 
       it('should prevent updating other user watchlist', async () => {
@@ -617,7 +594,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             username: 'otheruser',
             email: otherEmail,
             emailHash: hashEmail(otherEmail),
-            passwordHash: otherPassword,
+            passwordHash: otherPassword, // SECURITY: Test fixture only
             role: 'user',
           })
           .returning();
@@ -635,8 +612,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ name: 'Hacked Name' });
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
     });
 
@@ -646,16 +622,15 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .delete(`/api/v1/watchlists/${testWatchList.id}`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.deletedId).toBe(testWatchList.id);
+        const result = expectSuccessResponse<{ deletedId: number }>(res, 200);
+        expect(result.deletedId).toBe(testWatchList.id);
 
         // Verify deletion
         const checkRes = await request(app)
           .get(`/api/v1/watchlists/${testWatchList.id}`)
           .set('Authorization', authHeader);
 
-        expect(checkRes.status).toBe(404);
+        expectNotFoundError(checkRes);
       });
 
       it('should prevent deleting other user watchlist', async () => {
@@ -667,7 +642,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             username: 'otheruser',
             email: otherEmail,
             emailHash: hashEmail(otherEmail),
-            passwordHash: otherPassword,
+            passwordHash: otherPassword, // SECURITY: Test fixture only
             role: 'user',
           })
           .returning();
@@ -684,8 +659,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .delete(`/api/v1/watchlists/${otherWatchList.id}`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
     });
 
@@ -696,10 +670,9 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ productId: testProduct.id });
 
-        expect(res.status).toBe(201);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.watchListId).toBe(testWatchList.id);
-        expect(res.body.data.productId).toBe(testProduct.id);
+        const result = expectCreatedResponse<{ watchListId: number; productId: number }>(res);
+        expect(result.watchListId).toBe(testWatchList.id);
+        expect(result.productId).toBe(testProduct.id);
       });
 
       it('should prevent adding duplicate product', async () => {
@@ -715,8 +688,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ productId: testProduct.id });
 
-        expect(res.status).toBe(409);
-        expect(res.body.success).toBe(false);
+        expectConflictError(res);
       });
 
       it('should reject invalid product ID', async () => {
@@ -725,8 +697,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ productId: 99999 });
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
     });
 
@@ -744,8 +715,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .delete(`/api/v1/watchlists/${testWatchList.id}/products/${testProduct.id}`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
+        expectSuccessResponse(res, 200);
       });
 
       it('should return 404 for non-existent product in watchlist', async () => {
@@ -753,8 +723,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .delete(`/api/v1/watchlists/${testWatchList.id}/products/99999`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
     });
   });
@@ -771,11 +740,14 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             notifyForum: false,
           });
 
-        expect(res.status).toBe(201);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.productId).toBe(testProduct.id);
-        expect(res.body.data.targetPrice).toBe('69.99');
-        expect(res.body.data.userId).toBe(testUser.id);
+        const result = expectCreatedResponse<{
+          productId: number;
+          targetPrice: string;
+          userId: number;
+        }>(res);
+        expect(result.productId).toBe(testProduct.id);
+        expect(result.targetPrice).toBe('69.99');
+        expect(result.userId).toBe(testUser.id);
       });
 
       it('should reject alert for non-existent product', async () => {
@@ -787,9 +759,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             targetPrice: 69.99,
           });
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
-        expect(res.body.error).toContain('not found');
+        expectNotFoundError(res, 'not found');
       });
 
       it('should reject alert with negative price', async () => {
@@ -801,8 +771,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             targetPrice: -10.00,
           });
 
-        expect(res.status).toBe(400);
-        expect(res.body.success).toBe(false);
+        expectBadRequestError(res);
       });
     });
 
@@ -813,9 +782,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ targetPrice: 59.99 });
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.targetPrice).toBe('59.99');
+        const result = expectSuccessResponse<{ targetPrice: string }>(res, 200);
+        expect(result.targetPrice).toBe('59.99');
       });
 
       it('should update alert active status', async () => {
@@ -824,9 +792,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ isActive: false });
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.isActive).toBe(false);
+        const result = expectSuccessResponse<{ isActive: boolean }>(res, 200);
+        expect(result.isActive).toBe(false);
       });
 
       it('should reject update without fields', async () => {
@@ -835,8 +802,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({});
 
-        expect(res.status).toBe(400);
-        expect(res.body.success).toBe(false);
+        expectBadRequestError(res);
       });
 
       it('should prevent updating other user alert', async () => {
@@ -848,7 +814,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             username: 'otheruser',
             email: otherEmail,
             emailHash: hashEmail(otherEmail),
-            passwordHash: otherPassword,
+            passwordHash: otherPassword, // SECURITY: Test fixture only
             role: 'user',
           })
           .returning();
@@ -868,8 +834,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .set('Authorization', authHeader)
           .send({ targetPrice: 10.00 });
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
     });
 
@@ -879,16 +844,15 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .delete(`/api/v1/price-alerts/${testAlert.id}`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.deleted).toBe(true);
+        const result = expectSuccessResponse<{ deleted: boolean }>(res, 200);
+        expect(result.deleted).toBe(true);
 
         // Verify deletion
         const checkRes = await request(app)
           .get(`/api/v1/price-alerts/${testAlert.id}`)
           .set('Authorization', authHeader);
 
-        expect(checkRes.status).toBe(404);
+        expectNotFoundError(checkRes);
       });
 
       it('should prevent deleting other user alert', async () => {
@@ -900,7 +864,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             username: 'otheruser',
             email: otherEmail,
             emailHash: hashEmail(otherEmail),
-            passwordHash: otherPassword,
+            passwordHash: otherPassword, // SECURITY: Test fixture only
             role: 'user',
           })
           .returning();
@@ -919,8 +883,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .delete(`/api/v1/price-alerts/${otherAlert.id}`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
     });
   });
@@ -946,8 +909,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .post(`/api/v1/notifications/${testNotificationId}/read`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
+        expectSuccessResponse(res, 200);
       });
 
       it('should return 404 for non-existent notification', async () => {
@@ -955,8 +917,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .post('/api/v1/notifications/99999/read')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
 
       it('should prevent marking other user notification as read', async () => {
@@ -968,7 +929,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
             username: 'otheruser',
             email: otherEmail,
             emailHash: hashEmail(otherEmail),
-            passwordHash: otherPassword,
+            passwordHash: otherPassword, // SECURITY: Test fixture only
             role: 'user',
           })
           .returning();
@@ -985,8 +946,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .post(`/api/v1/notifications/${otherNotification.id}/read`)
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(404);
-        expect(res.body.success).toBe(false);
+        expectNotFoundError(res);
       });
     });
 
@@ -1011,16 +971,14 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .post('/api/v1/notifications/read-all')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.count).toBeGreaterThanOrEqual(3);
+        const result = expectSuccessResponse<{ count: number }>(res, 200);
+        expect(result.count).toBeGreaterThanOrEqual(3);
       });
 
       it('should require authentication', async () => {
         const res = await request(app).post('/api/v1/notifications/read-all');
 
-        expect(res.status).toBe(401);
-        expect(res.body.success).toBe(false);
+        expectUnauthorizedError(res);
       });
     });
   });
@@ -1043,7 +1001,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           username: 'adminuser',
           email: adminEmail,
           emailHash: hashEmail(adminEmail),
-          passwordHash: hashedPassword,
+          passwordHash: hashedPassword, // SECURITY: Test fixture only - excluded from .returning()
           role: 'admin',
         })
         .returning({ id: users.id, username: users.username });
@@ -1056,21 +1014,27 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       it('should return API capabilities with Basic Auth', async () => {
         const res = await request(app).get('/api/v1').set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.version).toBe('1.0.0');
-        expect(res.body.data.authentication).toBe('HTTP Basic Auth');
-        expect(res.body.data.endpoints).toBeDefined();
-        expect(res.body.data.endpoints.watchlists).toBeDefined();
-        expect(res.body.data.endpoints.priceAlerts).toBeDefined();
-        expect(res.body.data.endpoints.products).toBeDefined();
+        const result = expectSuccessResponse<{
+          version: string;
+          authentication: string;
+          endpoints: {
+            watchlists: unknown;
+            priceAlerts: unknown;
+            products: unknown;
+          };
+        }>(res, 200);
+        expect(result.version).toBe('1.0.0');
+        expect(result.authentication).toBe('HTTP Basic Auth');
+        expect(result.endpoints).toBeDefined();
+        expect(result.endpoints.watchlists).toBeDefined();
+        expect(result.endpoints.priceAlerts).toBeDefined();
+        expect(result.endpoints.products).toBeDefined();
       });
 
       it('should reject without authentication', async () => {
         const res = await request(app).get('/api/v1');
 
-        expect(res.status).toBe(401);
-        expect(res.body.success).toBe(false);
+        expectUnauthorizedError(res);
       });
     });
 
@@ -1088,7 +1052,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
       it('should reject without authentication', async () => {
         const res = await request(app).get('/api/v1/openapi.json');
 
-        expect(res.status).toBe(401);
+        expectUnauthorizedError(res);
       });
     });
 
@@ -1098,11 +1062,13 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/search/advanced?query=test')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.results).toBeInstanceOf(Array);
-        expect(res.body.data.metadata).toBeDefined();
-        expect(res.body.data.metadata.features).toContain('fuzzy_search');
+        const result = expectSuccessResponse<{
+          results: unknown[];
+          metadata: { features: string[] };
+        }>(res, 200);
+        expect(result.results).toBeInstanceOf(Array);
+        expect(result.metadata).toBeDefined();
+        expect(result.metadata.features).toContain('fuzzy_search');
       });
 
       it('should support price filters', async () => {
@@ -1110,14 +1076,13 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/search/advanced?query=laptop&minPrice=100&maxPrice=1000')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
+        expectSuccessResponse(res, 200);
       });
 
       it('should reject without authentication', async () => {
         const res = await request(app).get('/api/v1/search/advanced?query=test');
 
-        expect(res.status).toBe(401);
+        expectUnauthorizedError(res);
       });
     });
 
@@ -1127,9 +1092,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/search/suggestions?q=iph')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.suggestions).toBeInstanceOf(Array);
+        const result = expectSuccessResponse<{ suggestions: unknown[] }>(res, 200);
+        expect(result.suggestions).toBeInstanceOf(Array);
       });
 
       it('should return empty for short queries', async () => {
@@ -1137,9 +1101,8 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/search/suggestions?q=a')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.suggestions).toEqual([]);
+        const result = expectSuccessResponse<{ suggestions: unknown[] }>(res, 200);
+        expect(result.suggestions).toEqual([]);
       });
 
       it('should respect limit parameter', async () => {
@@ -1147,8 +1110,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/search/suggestions?q=test&limit=3')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
+        expectSuccessResponse(res, 200);
       });
     });
 
@@ -1158,17 +1120,20 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/analytics/user')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.watchlists).toBeDefined();
-        expect(res.body.data.alerts).toBeDefined();
-        expect(res.body.data.generatedAt).toBeDefined();
+        const result = expectSuccessResponse<{
+          watchlists: unknown;
+          alerts: unknown;
+          generatedAt: unknown;
+        }>(res, 200);
+        expect(result.watchlists).toBeDefined();
+        expect(result.alerts).toBeDefined();
+        expect(result.generatedAt).toBeDefined();
       });
 
       it('should reject without authentication', async () => {
         const res = await request(app).get('/api/v1/analytics/user');
 
-        expect(res.status).toBe(401);
+        expectUnauthorizedError(res);
       });
     });
 
@@ -1178,14 +1143,19 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/admin/system-health')
           .set('Authorization', adminAuthHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.status).toBeDefined();
-        expect(res.body.data.timestamp).toBeDefined();
-        expect(res.body.data.components).toBeDefined();
-        expect(res.body.data.components.database).toBeDefined();
-        expect(res.body.data.uptime).toBeDefined();
-        expect(res.body.data.memory).toBeDefined();
+        const result = expectSuccessResponse<{
+          status: unknown;
+          timestamp: unknown;
+          components: { database: unknown };
+          uptime: unknown;
+          memory: unknown;
+        }>(res, 200);
+        expect(result.status).toBeDefined();
+        expect(result.timestamp).toBeDefined();
+        expect(result.components).toBeDefined();
+        expect(result.components.database).toBeDefined();
+        expect(result.uptime).toBeDefined();
+        expect(result.memory).toBeDefined();
       });
 
       it('should reject non-admin users', async () => {
@@ -1193,14 +1163,13 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/admin/system-health')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(403);
-        expect(res.body.success).toBe(false);
+        expectForbiddenError(res);
       });
 
       it('should reject without authentication', async () => {
         const res = await request(app).get('/api/v1/admin/system-health');
 
-        expect(res.status).toBe(401);
+        expectUnauthorizedError(res);
       });
     });
 
@@ -1210,10 +1179,12 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/admin/stats')
           .set('Authorization', adminAuthHeader);
 
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(res.body.data.overview).toBeDefined();
-        expect(res.body.data.generatedAt).toBeDefined();
+        const result = expectSuccessResponse<{
+          overview: unknown;
+          generatedAt: unknown;
+        }>(res, 200);
+        expect(result.overview).toBeDefined();
+        expect(result.generatedAt).toBeDefined();
       });
 
       it('should reject non-admin users', async () => {
@@ -1221,14 +1192,13 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/admin/stats')
           .set('Authorization', authHeader);
 
-        expect(res.status).toBe(403);
-        expect(res.body.success).toBe(false);
+        expectForbiddenError(res);
       });
 
       it('should reject without authentication', async () => {
         const res = await request(app).get('/api/v1/admin/stats');
 
-        expect(res.status).toBe(401);
+        expectUnauthorizedError(res);
       });
     });
   });

@@ -293,6 +293,151 @@ Patterns evolve over time:
 5. **Update Timestamps**: Always update "Last updated" in modified files
 6. **Attribute Sources**: Include PR numbers, dates, commit hashes for traceability
 7. **Quality Over Quantity**: One excellent pattern beats five rushed ones
+8. **Validate TODO Estimates Before Starting**: Audit assumptions before committing to large work efforts (see Work Estimation Validation below)
+
+### Work Estimation Validation Pattern (NEW - 2026-01-04)
+
+**Source**: TODO_006 API Testing Migration
+
+**ALWAYS validate TODO assumptions before starting work**. Stale TODOs often overestimate remaining work.
+
+#### The Problem
+
+TODOs and work estimates become outdated as code evolves:
+- Previous sessions complete partial work without updating TODOs
+- Assumptions about scope change as architecture evolves
+- Estimated hours based on old codebase state
+- Team doesn't track which files already migrated/fixed
+
+**Real Example from TODO_006**:
+```markdown
+# TODO_006: Complete API Testing Migration
+Estimated Time: 15-20 hours
+Files to migrate: 15+ test files
+Status: In Progress (6/15+ complete)
+```
+
+#### ❌ WRONG - Start Work Without Validation
+
+```bash
+# Developer sees TODO, starts working immediately
+git checkout -b feature/complete-api-testing
+# Spends hours migrating files that were already done
+# Discovers only 2 files actually need work (13% of estimate)
+# Wasted time: 90% of estimated effort
+```
+
+**Cost**: 15-20 hours estimated → 2 hours actual = **13.5-18 hours wasted**
+
+#### ✅ CORRECT - Validate First, Then Execute
+
+```bash
+# Step 1: Audit current state (5 minutes)
+grep -rn "expectSuccessResponse\|expect(response.body" server/routes/__tests__/ --include="*.test.ts"
+
+# Step 2: Count files with old patterns vs new patterns
+# Discovery: Only 2 files have old patterns!
+
+# Step 3: Update TODO with reality
+# Estimated: 15-20 hours, 15+ files
+# Actual: 2 hours, 2 files
+
+# Step 4: Execute focused work
+git checkout -b feature/complete-remaining-2-files
+# Complete work in 2 hours vs 15-20 hours
+```
+
+**Savings**: 15-20 hours → 2 hours = **87-90% time saved**
+
+#### Validation Checklist
+
+Before starting any TODO marked as "large effort":
+
+1. **Grep for patterns** - How many files actually match the old pattern?
+   ```bash
+   # Find files with old response.body access
+   grep -rn "response.body" server/ --include="*.test.ts" | wc -l
+
+   # Find files already using new helpers
+   grep -rn "expectSuccessResponse" server/ --include="*.test.ts" | wc -l
+   ```
+
+2. **Check git history** - What was done since TODO was created?
+   ```bash
+   git log --since="2025-12-01" --grep="test\|migration" --oneline
+   ```
+
+3. **Review related PRs** - Were partial migrations completed?
+   ```bash
+   gh pr list --search "test migration" --state merged
+   ```
+
+4. **Update estimate** - Revise TODO with actual scope before committing
+   ```markdown
+   - ~~Estimated: 15-20 hours, 15+ files~~
+   - **Actual after validation: 2 hours, 2 files**
+   ```
+
+#### When to Validate
+
+Validate estimates when:
+- TODO is > 1 week old
+- Estimated time is > 4 hours
+- Multiple files/components affected
+- Other team members may have worked in same area
+- Codebase has undergone refactoring since TODO created
+
+#### Real-World Impact
+
+**TODO_006 Validation Results**:
+- **Original estimate**: 15-20 hours, 15+ files
+- **Validation time**: 5 minutes (grep + file review)
+- **Actual scope**: 2 hours, 2 files
+- **Time saved**: 13-18 hours (87-90% reduction)
+- **Effort ratio**: 5 min validation saved 15+ hours of wasted work
+
+#### Pattern Summary
+
+```typescript
+// Validation Pattern
+function shouldValidateTODO(todo: TODO): boolean {
+  return (
+    todo.estimatedHours > 4 ||
+    todo.fileCount > 5 ||
+    todo.ageInDays > 7 ||
+    todo.affectsMultipleAreas
+  );
+}
+
+async function validateTODO(todo: TODO): Promise<ActualScope> {
+  // 1. Grep for actual occurrences
+  const oldPatternMatches = await countOldPattern();
+  const newPatternMatches = await countNewPattern();
+
+  // 2. Check git history
+  const recentWork = await getRecentRelatedCommits();
+
+  // 3. Calculate actual scope
+  const actualFiles = oldPatternMatches.length;
+  const estimatedHours = actualFiles * HOURS_PER_FILE;
+
+  return {
+    actualFileCount: actualFiles,
+    estimatedHours,
+    validationTime: "5 minutes",
+    potentialSavings: todo.estimatedHours - estimatedHours
+  };
+}
+```
+
+#### Related Patterns
+
+- **Incremental Migration**: Break large TODOs into smaller validated chunks
+- **Git Archaeology**: Use git history to understand what was already completed
+- **Pattern Search**: Use grep/ripgrep to audit current codebase state
+- **TODO Lifecycle**: Archive completed TODOs to prevent double-work
+
+**Key Takeaway**: **5 minutes of validation can save days of wasted work**. Always audit before executing large TODOs.
 
 ## Example Sessions
 
