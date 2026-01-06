@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ProductWatch, WatchList, UserReputation, DealSpotting } from '@shared/schema';
+import { useAuth } from './use-auth';
 
 // API response types
 
@@ -204,11 +205,14 @@ export function useRemoveProductWatch() {
  * ```
  */
 export function useWatchedProducts() {
+  const { data: user } = useAuth();
+
   return useQuery<WatchedProductsResponse>({
     queryKey: ['/api/community/watches'],
     queryFn: async () => {
       return apiRequest<WatchedProductsResponse>('/api/community/watches');
     },
+    enabled: !!user, // Only fetch if user is authenticated
   });
 }
 
@@ -319,11 +323,14 @@ export function useWatchCount(productId: number) {
  * ```
  */
 export function useIsWatching(productId: number) {
+  const { data: user } = useAuth();
+
   return useQuery<IsWatchingResponse>({
     queryKey: [`/api/community/is-watching/${productId}`],
     queryFn: async () => {
       return apiRequest<IsWatchingResponse>(`/api/community/is-watching/${productId}`);
     },
+    enabled: !!productId && !!user, // Only fetch if product ID exists and user is authenticated
   });
 }
 
@@ -405,9 +412,12 @@ export function useMostWatchedProducts(limit = 10) {
  * ```
  */
 export function useUserReputation() {
+  const { data: user } = useAuth();
+
   return useQuery<UserReputationResponse>({
     queryKey: ['/api/community/reputation'],
     queryFn: async () => apiRequest<UserReputationResponse>('/api/community/reputation'),
+    enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 60000, // Refresh every minute
   });
 }
@@ -573,6 +583,8 @@ export function useCreateWatchList() {
 
 // Get all user's watch lists
 export function useWatchLists() {
+  const { data: user } = useAuth();
+
   return useQuery<WatchListWithStats[]>({
     queryKey: ['/api/watchlists'],
     queryFn: async () => {
@@ -583,12 +595,15 @@ export function useWatchLists() {
 
       return result.watchLists;
     },
+    enabled: !!user, // Only fetch if user is authenticated
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
   });
 }
 
 export function useSharedWatchLists() {
+  const { data: user } = useAuth();
+
   return useQuery<SharedWatchListWithStats[]>({
     queryKey: ['/api/watchlists/shared'],
     queryFn: async () => {
@@ -599,6 +614,7 @@ export function useSharedWatchLists() {
 
       return result.watchLists;
     },
+    enabled: !!user, // Only fetch if user is authenticated
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });
@@ -651,12 +667,14 @@ export function useRemoveProductFromWatchList() {
 
 // Get a specific watch list with details
 export function useWatchList(listId: number) {
+  const { data: user } = useAuth();
+
   return useQuery<WatchListWithStats>({
     queryKey: ['/api/watchlists', listId],
     queryFn: async () => {
       return apiRequest<WatchListWithStats>(`/api/watchlists/${listId}`);
     },
-    enabled: !!listId,
+    enabled: !!listId && !!user, // Only fetch if list ID exists and user is authenticated
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
   });

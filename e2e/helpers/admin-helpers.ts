@@ -100,7 +100,7 @@ export async function seedTestProduct(
     .values({
       name: 'Test Product',
       description: 'Test Description',
-      image: 'https://via.placeholder.com/300',
+      image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=300&fit=crop',
       category: 'Electronics',
       ...overrides,
     })

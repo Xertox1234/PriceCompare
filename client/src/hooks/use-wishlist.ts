@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Wishlist, WishlistItem, Product, ProductWithOffers } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from './use-auth';
 
 // Type-safe error extraction from unknown JSON response
 interface ApiErrorResponse {
@@ -42,40 +43,50 @@ export interface WishlistItemWithProduct extends WishlistItem {
 
 // Fetch all user wishlists
 export function useWishlists() {
+  const { data: user } = useAuth();
+
   return useQuery<{ wishlists: WishlistWithItems[]; count: number }>({
     queryKey: ['/api/wishlists'],
     queryFn: () => apiRequest<{ wishlists: WishlistWithItems[]; count: number }>('/api/wishlists'),
+    enabled: !!user, // Only fetch if user is authenticated
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
 // Fetch single wishlist with items
 export function useWishlist(wishlistId: number | null) {
+  const { data: user } = useAuth();
+
   return useQuery<WishlistWithItems>({
     queryKey: ['/api/wishlists', wishlistId],
     queryFn: () => apiRequest<WishlistWithItems>(`/api/wishlists/${wishlistId}`),
     staleTime: 2 * 60 * 1000,
-    enabled: !!wishlistId,
+    enabled: !!wishlistId && !!user, // Only fetch if wishlist ID exists and user is authenticated
   });
 }
 
 // Fetch all wishlist items for user (flat list)
 export function useWishlistItems() {
+  const { data: user } = useAuth();
+
   return useQuery<{ items: WishlistItemWithProduct[]; count: number }>({
     queryKey: ['/api/wishlists/items'],
     queryFn: () =>
       apiRequest<{ items: WishlistItemWithProduct[]; count: number }>('/api/wishlists/items'),
+    enabled: !!user, // Only fetch if user is authenticated
     staleTime: 2 * 60 * 1000,
   });
 }
 
 // Check if product is in any wishlist
 export function useIsInWishlist(productId: number | null) {
+  const { data: user } = useAuth();
+
   return useQuery<{ isInWishlist: boolean }>({
     queryKey: ['/api/wishlists/check', productId],
     queryFn: () => apiRequest<{ isInWishlist: boolean }>(`/api/wishlists/check/${productId}`),
     staleTime: 30 * 1000, // 30 seconds
-    enabled: !!productId,
+    enabled: !!productId && !!user, // Only fetch if product ID exists and user is authenticated
   });
 }
 

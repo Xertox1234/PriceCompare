@@ -42,6 +42,7 @@ import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 import { ApiError } from '@/lib/queryClient';
 import { useProductFull, useProductsByCategory, transformProduct } from '@/hooks/use-home-data';
 import { useWatchLists, useAddProductToWatchList } from '@/hooks/use-community';
+import { useAuth } from '@/hooks/use-auth';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { ChevronDown, BarChart3 } from 'lucide-react';
 import { PriceHistoryChart } from '@/components/price-history/PriceHistoryChart';
@@ -69,9 +70,12 @@ function ProductDetailContent() {
   const [prefilledAlertPrice, setPrefilledAlertPrice] = useState<number | undefined>(undefined);
   const [timeRangeDays, setTimeRangeDays] = useState<number>(30);
 
-  // Fetch user's watchlists
+  // Check if user is authenticated
+  const { data: user } = useAuth();
+
+  // Fetch user's watchlists (only if authenticated)
   const { data: watchlistsData } = useWatchLists();
-  const watchlists = watchlistsData || [];
+  const watchlists = (user && watchlistsData) || [];
 
   // Modern watchlist mutation
   const addToWatchList = useAddProductToWatchList();
@@ -264,11 +268,12 @@ function ProductDetailContent() {
           {/* Left - Image Gallery */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div className="bg-muted relative aspect-square overflow-hidden rounded-2xl">
+            <div className="bg-gray-100 dark:bg-gray-800 relative aspect-square overflow-hidden rounded-2xl">
               <img
                 src={images[selectedImageIndex]}
                 alt={product.name}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
+                loading="eager"
                 onError={handleImageError}
               />
               {discount && discount > 0 && (
@@ -309,13 +314,13 @@ function ProductDetailContent() {
                   onClick={() => setSelectedImageIndex(idx)}
                   aria-label={`View product image ${idx + 1}`}
                   className={cn(
-                    'h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-colors',
+                    'h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-colors bg-gray-100 dark:bg-gray-800',
                     selectedImageIndex === idx
                       ? 'border-primary'
                       : 'border-border hover:border-muted-foreground'
                   )}
                 >
-                  <img src={img} alt={`${product.name} image ${idx + 1}`} className="h-full w-full object-cover" />
+                  <img src={img} alt={`${product.name} image ${idx + 1}`} className="h-full w-full object-contain" />
                 </button>
               ))}
             </div>

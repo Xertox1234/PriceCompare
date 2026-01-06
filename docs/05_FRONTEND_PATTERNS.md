@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.8
+**Version:** 2.9
 **Last Updated:** 2026-01-06
 **Changelog:**
+- 2.9 (2026-01-06): Added Authentication Guards for React Query Hooks pattern - documents `enabled: !!user` requirement for authenticated endpoints, HTTP Basic Auth popup prevention, middleware-based classification, compound conditions, and audit methodology (15 hooks fixed across 4 files from TODO_014 follow-up)
 - 2.8 (2026-01-06): Added Optimistic Updates with Rollback pattern to React Query Patterns section - documents instant UI feedback with automatic rollback, race condition prevention via query cancellation, minimal invalidation strategy, and performance optimization (6→1 API calls, 200-500ms→0ms latency) from TODO_013 watchlist integration
 - 2.7 (2026-01-02): Added Mega Menu: React State Over CSS-Only Hover pattern to Accessibility section - documents pointer-events control, keyboard navigation, ARIA attributes, and delayed close pattern for hover menus (from header navigation click failure fix)
 - 2.6 (2025-12-30): Added CSS Architecture Consolidation patterns: Large-Scale Design Token Migration Strategy, Component-First Configuration-Last Migration Order, Semantic Design Token Mapping Strategy, Phase-Gated Refactoring with Verification Checkpoints (from TODO 008 - 442 violations, 60+ files, zero regressions)
@@ -27,6 +28,7 @@
   - [Accessibility: Icon-Only Buttons Must Have Names](#accessibility-icon-only-buttons-must-have-names-new---2025-12-15)
   - [Mega Menu: React State Over CSS-Only Hover](#mega-menu-react-state-over-css-only-hover-new---2026-01-02)
 3. [React Query Patterns](#react-query-patterns)
+  - [Authentication Guards for React Query Hooks](#authentication-guards-for-react-query-hooks-new---2026-01-06)
   - [Mutation Best Practices](#mutation-best-practices)
   - [Query Invalidation Strategy](#query-invalidation-strategy)
   - [Async Handler ESLint Compliance](#async-handler-eslint-compliance)
@@ -758,6 +760,223 @@ grep -rn "AuthModal" client/src --include="*.tsx" -A5 | grep "onOpenChange="
 ---
 
 ## React Query Patterns
+
+### Authentication Guards for React Query Hooks (NEW - 2026-01-06)
+
+**When:** Creating React Query hooks that call authenticated API endpoints
+
+**Added:** 2026-01-06 (TODO_014 follow-up - authentication guard audit)
+
+**Problem:** React Query hooks without authentication guards (`enabled: !!user`) make API calls immediately on mount, even when users are unauthenticated. When these hooks call authenticated endpoints, the server returns `401 Unauthorized` with a `WWW-Authenticate: Basic` header, which triggers the browser's native HTTP Basic Auth dialog. This modal dialog blocks the entire page, preventing users from interacting with ANY content - even public product images that should be visible.
+
+**Root Cause:** The `enabled` option in React Query defaults to `true`, meaning queries execute immediately unless explicitly disabled. Without checking authentication state first, hooks make requests before knowing if the user is logged in.
+
+**Impact:**
+- ❌ Browser shows modal authentication popup blocking entire UI
+- ❌ Unnecessary API calls that always return 401
+- ❌ Poor user experience on public pages
+- ❌ Race conditions where queries execute before auth state loads
+
+#### Anti-Pattern: Missing Authentication Guard
+
+```typescript
+// ❌ WRONG - No authentication check
+export function useNotifications() {
+  return useQuery<NotificationData>({
+    queryKey: ['/api/notifications'],
+    queryFn: () => apiRequest('/api/notifications'),
+    // Missing: enabled: !!user
+  });
+}
+```
+
+**What happens:**
+1. Component mounts on page load (e.g., product detail page)
+2. Hook executes query immediately
+3. `/api/notifications` requires authentication (`withAuth` middleware)
+4. Server returns `401` with `WWW-Authenticate: Basic realm="PriceCompare API"`
+5. Browser shows HTTP Basic Auth popup dialog
+6. Popup is modal - blocks entire page including product images
+7. User thinks images aren't loading, but they're just hidden behind auth dialog
+
+#### Correct Pattern: Always Guard Authenticated Endpoints
+
+```typescript
+// ✅ CORRECT - Check authentication before querying
+import { useAuth } from './use-auth';
+
+export function useNotifications() {
+  const { data: user } = useAuth();
+
+  return useQuery<NotificationData>({
+    queryKey: ['/api/notifications'],
+    queryFn: () => apiRequest('/api/notifications'),
+    enabled: !!user, // Only fetch if user is authenticated
+  });
+}
+```
+
+**Why this works:**
+- Query only runs when `user` exists (authenticated state)
+- Prevents 401 responses that trigger browser auth dialog
+- No unnecessary API calls for unauthenticated users
+- React Query automatically runs query when `enabled` transitions from `false` → `true` (user logs in)
+
+#### Compound Conditions: Multiple Requirements
+
+**When a hook needs BOTH authentication AND other data:**
+
+```typescript
+// ✅ CORRECT - Combine all required conditions with &&
+export function useIsWatching(productId: number | null) {
+  const { data: user } = useAuth();
+
+  return useQuery<IsWatchingResponse>({
+    queryKey: [`/api/community/is-watching/${productId}`],
+    queryFn: () => apiRequest(`/api/community/is-watching/${productId}`),
+    enabled: !!productId && !!user, // Both productId AND user required
+  });
+}
+```
+
+**Rules for compound conditions:**
+- Use `&&` when ALL conditions must be true
+- Check data requirements first, auth state last: `!!productId && !!currentPrice && !!user`
+- Never use `||` (OR) - that defeats the guard purpose
+
+#### How to Identify Which Hooks Need Guards
+
+**Method 1: Check Server Route Middleware**
+
+```typescript
+// In server/routes/notifications.ts
+app.get('/api/notifications', withAuth(async (req, res) => {
+  // ← Uses withAuth middleware
+  const notifications = await getNotifications(req.user.id);
+  sendSuccess(res, notifications);
+}));
+```
+
+**Rule:** If route uses `withAuth` or `flexibleAuth + withAuth`, the corresponding React Query hook MUST have `enabled: !!user`.
+
+**Method 2: Look for User-Specific Data**
+
+Endpoints returning user-specific data always require authentication:
+- ✅ `/api/notifications` - user's notifications
+- ✅ `/api/watchlists` - user's watchlists
+- ✅ `/api/smart-alerts/analytics` - user's alert analytics
+- ✅ `/api/wishlists` - user's wishlists
+- ❌ `/api/products/:id` - public product data
+- ❌ `/api/community/leaderboard` - public community data
+
+**Method 3: Test in Browser DevTools**
+
+1. Open page while logged out
+2. Check Network tab for 401 responses
+3. If you see `WWW-Authenticate: Basic` header → hook needs guard
+
+#### Checklist for New Authenticated Hooks
+
+When creating a new React Query hook for an authenticated endpoint:
+
+- [ ] Import `useAuth` from './use-auth'
+- [ ] Call `const { data: user } = useAuth()` at top of hook
+- [ ] Add `enabled: !!user` to query config (or `enabled: !!requiredData && !!user` for compound conditions)
+- [ ] Add comment explaining authentication requirement
+- [ ] Verify server route uses `withAuth` middleware
+- [ ] Test: Page doesn't show auth popup when logged out
+- [ ] Test: Hook fetches data correctly when logged in
+
+#### Audit Methodology (How We Found 15 Vulnerable Hooks)
+
+**Step 1: List all React Query hook files**
+```bash
+find client/src/hooks -name "*.ts" -type f
+```
+
+**Step 2: Filter to files using React Query**
+```bash
+grep -l "useQuery\|useMutation\|useInfiniteQuery" client/src/hooks/*.ts
+```
+
+**Step 3: For each file, check for authenticated endpoints**
+```bash
+# Look for hooks calling authenticated endpoints
+grep -n "apiRequest.*('/api/" client/src/hooks/use-notifications.ts
+
+# Check if server route requires auth
+grep -A 5 "'/api/notifications'" server/routes/*.ts | grep "withAuth"
+```
+
+**Step 4: Verify authentication guard**
+```bash
+# Search for enabled: !!user pattern
+grep -n "enabled.*!!user" client/src/hooks/use-notifications.ts
+```
+
+**Step 5: Code review after fixes**
+- Run automated code review to catch hooks missed in audit
+- Check for similar naming patterns (`useWatchList` vs `useWatchLists`)
+- Verify all hooks in modified files, not just targeted ones
+
+**Results from our audit:**
+- 15 React Query hook files examined
+- 15 vulnerable hooks found (13 in initial audit + 2 in code review)
+- 4 files modified: use-community.ts, use-notifications.ts, use-smart-alerts.ts, use-wishlist.ts
+- 100% fixed with zero regressions
+
+#### Real-World Example: TODO_014 Bug
+
+**Original issue:**
+- Product detail page called `useWatchLists()` unconditionally
+- Hook queried `/api/watchlists` (authenticated endpoint)
+- When unauthenticated, server returned 401 with `WWW-Authenticate: Basic`
+- Browser showed HTTP Basic Auth popup
+- Popup blocked entire page including product images
+- Users reported "images not loading" but images were rendering correctly under the popup
+
+**Fix:**
+```typescript
+// Before
+export function useWatchLists() {
+  return useQuery<WatchList[]>({
+    queryKey: ['/api/watchlists'],
+    queryFn: () => apiRequest('/api/watchlists'),
+  });
+}
+
+// After
+export function useWatchLists() {
+  const { data: user } = useAuth();
+
+  return useQuery<WatchList[]>({
+    queryKey: ['/api/watchlists'],
+    queryFn: () => apiRequest('/api/watchlists'),
+    enabled: !!user, // Only fetch if user is authenticated
+  });
+}
+```
+
+**Result:**
+- ✅ No more auth popups on public pages
+- ✅ Product images visible immediately
+- ✅ Hooks fetch data correctly after login
+
+#### Related Documentation
+
+- **Audit Report:** `docs/AUTHENTICATION_GUARD_AUDIT_2026-01-06.md` - Complete list of 15 fixed hooks
+- **Original Bug:** `todos/archive/2026-01-06-TODO_014_COMPLETE.md` - Product image visibility issue
+- **Security Patterns:** `docs/04_SECURITY_PATTERNS.md` - Server-side authentication middleware
+
+#### Key Takeaways
+
+1. **ALWAYS use `enabled: !!user`** for hooks calling authenticated endpoints
+2. **Check server middleware** to identify which endpoints require authentication
+3. **Combine conditions with `&&`** when multiple requirements exist
+4. **Audit systematically** using grep + server route verification
+5. **Code review catches what audits miss** - run review after bulk fixes
+
+---
 
 ### Mutation Best Practices
 

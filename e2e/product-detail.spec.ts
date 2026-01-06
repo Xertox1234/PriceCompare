@@ -152,25 +152,27 @@ test.describe('Product Detail - Information Display', () => {
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
 
-    // Look for product images (main image or gallery)
-    // Images might be in different structures, check for common patterns
-    const productImages = page.locator('img[alt*="product"], img[src*="unsplash"]').first();
+    // Look for product images - try multiple selectors
+    // 1. Try alt containing "Test Product" (the actual product name)
+    // 2. Try src containing "unsplash" (our image CDN)
+    // 3. Try generic img inside main content area
+    const productImage = page.locator('main img').first();
 
-    // If no images found, skip this test (feature may not be implemented)
-    if ((await productImages.count()) === 0) {
-      test.skip();
-      return;
-    }
+    // Wait for image element to exist
+    await expect(productImage).toBeAttached({ timeout: 10000 });
 
-    // Check if image is visible (may be hidden due to lazy loading or CSS)
-    const isVisible = await productImages.isVisible().catch(() => false);
-    if (!isVisible) {
-      test.skip();
-      return;
-    }
+    // Wait for image to load (check naturalWidth > 0)
+    await productImage.evaluate((img: HTMLImageElement) => {
+      if (img.complete && img.naturalWidth > 0) return true;
+      return new Promise((resolve, reject) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => reject(new Error(`Image failed to load: ${img.src}`));
+        setTimeout(() => reject(new Error('Image load timeout')), 10000);
+      });
+    });
 
-    // Verify main image is displayed
-    await expect(productImages).toBeVisible();
+    // Verify main image is displayed and visible
+    await expect(productImage).toBeVisible();
 
     // Look for thumbnail gallery (optional feature)
     const thumbnails = page.locator(
@@ -185,7 +187,7 @@ test.describe('Product Detail - Information Display', () => {
 
       // Verify image changed (this is a basic check, implementation-dependent)
       // In a real implementation, we'd verify the src changed
-      await expect(productImages).toBeVisible();
+      await expect(productImage).toBeVisible();
     }
   });
 });

@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from './use-auth';
 
 // Types
 interface WatchList {
@@ -72,12 +73,15 @@ interface AddProductInput {
 
 // Query hooks
 export function useWatchLists() {
+  const { data: user } = useAuth();
+
   return useQuery<WatchList[]>({
     queryKey: ['/api/watchlists'],
     queryFn: async () => {
       const result = await apiRequest<{ watchLists: WatchList[] }>('/api/watchlists');
       return result.watchLists;
     },
+    enabled: !!user, // Only fetch if user is authenticated
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
   });

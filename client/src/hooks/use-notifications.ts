@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from './use-auth';
 
 export interface Notification {
   id: number;
@@ -39,6 +40,7 @@ export interface NotificationStats {
 
 // Fetch user's notifications
 export function useNotifications(filters?: { isRead?: boolean; type?: string; limit?: number }) {
+  const { data: user } = useAuth();
   const params = new URLSearchParams();
   if (filters?.isRead !== undefined) params.append('isRead', filters.isRead.toString());
   if (filters?.type) params.append('type', filters.type);
@@ -48,23 +50,30 @@ export function useNotifications(filters?: { isRead?: boolean; type?: string; li
     queryKey: ['/api/notifications', filters],
     queryFn: () =>
       apiRequest<{ data: Notification[]; count: number }>(`/api/notifications?${params}`),
+    enabled: !!user, // Only fetch if user is authenticated
   });
 }
 
 // Fetch notification stats
 export function useNotificationStats() {
+  const { data: user } = useAuth();
+
   return useQuery<NotificationStats>({
     queryKey: ['/api/notifications/stats'],
     queryFn: () => apiRequest<NotificationStats>('/api/notifications/stats'),
+    enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 }
 
 // Fetch notification preferences
 export function useNotificationPreferences() {
+  const { data: user } = useAuth();
+
   return useQuery<NotificationPreferences>({
     queryKey: ['/api/notifications/preferences'],
     queryFn: () => apiRequest<NotificationPreferences>('/api/notifications/preferences'),
+    enabled: !!user, // Only fetch if user is authenticated
   });
 }
 

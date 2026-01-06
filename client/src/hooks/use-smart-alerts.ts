@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ListResponse, DataResponse } from '@shared/api-types';
+import { useAuth } from './use-auth';
 
 export interface SmartThresholdSuggestion {
   targetPrice: number;
@@ -76,6 +77,8 @@ export interface AlertAnalytics {
  * ```
  */
 export function useSmartThresholdSuggestions(productId?: number, currentPrice?: number) {
+  const { data: user } = useAuth();
+
   return useQuery<ListResponse<SmartThresholdSuggestion>>({
     queryKey: ['/api/smart-alerts/suggestions', productId, currentPrice],
     queryFn: async () => {
@@ -86,7 +89,7 @@ export function useSmartThresholdSuggestions(productId?: number, currentPrice?: 
         `/api/smart-alerts/suggestions/${productId}?currentPrice=${currentPrice}`
       );
     },
-    enabled: !!productId && !!currentPrice,
+    enabled: !!productId && !!currentPrice && !!user, // Only fetch if product data exists and user is authenticated
   });
 }
 
@@ -122,11 +125,14 @@ export function useSmartThresholdSuggestions(productId?: number, currentPrice?: 
  * ```
  */
 export function usePredictiveAlerts() {
+  const { data: user } = useAuth();
+
   return useQuery<ListResponse<PredictiveAlert>>({
     queryKey: ['/api/smart-alerts/predictive'],
     queryFn: async () => {
       return apiRequest<ListResponse<PredictiveAlert>>('/api/smart-alerts/predictive');
     },
+    enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 300000, // Refresh every 5 minutes
   });
 }
@@ -170,11 +176,14 @@ export function usePredictiveAlerts() {
  * ```
  */
 export function useAlertEffectiveness() {
+  const { data: user } = useAuth();
+
   return useQuery<ListResponse<AlertEffectiveness>>({
     queryKey: ['/api/smart-alerts/effectiveness'],
     queryFn: async () => {
       return apiRequest<ListResponse<AlertEffectiveness>>('/api/smart-alerts/effectiveness');
     },
+    enabled: !!user, // Only fetch if user is authenticated
   });
 }
 
@@ -207,11 +216,14 @@ export function useAlertEffectiveness() {
  * ```
  */
 export function useAlertAnalytics() {
+  const { data: user } = useAuth();
+
   return useQuery<DataResponse<AlertAnalytics>>({
     queryKey: ['/api/smart-alerts/analytics'],
     queryFn: async () => {
       return apiRequest<DataResponse<AlertAnalytics>>('/api/smart-alerts/analytics');
     },
+    enabled: !!user, // Only fetch if user is authenticated
   });
 }
 
