@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.1
-**Last Updated:** 2026-01-04
+**Version:** 3.2
+**Last Updated:** 2026-01-05
 **Changelog:**
+- 3.2 (2026-01-05): Added Defensive Cleanup for Test Isolation Pattern (from TODO_010 FK violations investigation)
 - 3.1 (2026-01-04): Added Type-Safe Response Validation Pattern, Anti-Pattern: Placeholder Tests (from TODO_006 migration)
 - 3.0 (2025-12-28): Added React Query Multi-Query Invalidation Pattern, Hook Event Handler Testing Pattern, Test Skipping Documentation examples (from TODO 013)
 - 2.9 (2025-12-27): Added @ts-expect-error pattern for intentional test mocks, inline SECURITY comment pattern for test fixtures
@@ -40,6 +41,7 @@
 3. [Integration Test Patterns](#integration-test-patterns-new)
    - [Mock-Based Test Anti-Pattern](#mock-based-test-anti-pattern)
    - [TRUNCATE CASCADE Pattern](#truncate-cascade-pattern)
+   - [Defensive Cleanup for Test Isolation (NEW)](#defensive-cleanup-for-test-isolation-new---2026-01-05)
    - [Strong vs Weak Assertions](#strong-vs-weak-assertions)
    - [Performance Benchmarks](#performance-benchmarks)
    - [Transaction Atomicity Testing Patterns (NEW)](#transaction-atomicity-testing-patterns-new---2025-12-26)
@@ -327,6 +329,125 @@ beforeEach(async () => {
 **Order**: Parent tables last, child tables first (reverse dependency order).
 
 **See**: `docs/02_DATABASE_PATTERNS.md` (Section 8.1: TRUNCATE CASCADE)
+
+---
+
+### Defensive Cleanup for Test Isolation (NEW - 2026-01-05)
+
+**Context:** E2E test helpers that seed data with complex foreign key relationships (e.g., price_snapshots → retailers). Tests can fail mid-execution, leaving orphaned child records in the database. Subsequent test runs will create new parent records with different IDs (due to TRUNCATE RESTART IDENTITY), causing FK violations when orphaned children reference old parent IDs.
+
+**Problem:** Global cleanup (beforeEach/afterEach with TRUNCATE CASCADE) doesn't always run if tests fail mid-execution. Orphaned data from failed test runs can cause cascading FK violations in subsequent tests.
+
+**Real-World Example (TODO_010):**
+- Test run 1 creates retailers with IDs 10, 11, 12 and price_snapshots referencing them
+- Test fails mid-execution (before cleanup runs)
+- Orphaned price_snapshots still reference retailer_id=12
+- Test run 2: TRUNCATE RESTART IDENTITY creates retailers with IDs 1, 2, 3
+- Seed function tries to insert more snapshots: FK violation (retailer_id=12 doesn't exist)
+- Result: 78+ tests failing with FK constraint errors
+
+**Investigation First (CRITICAL):**
+
+Before implementing defensive cleanup, verify this is actually the issue. Three specialist reviewers saved 1-2 hours by identifying the root cause before refactoring:
+
+```bash
+# Check for orphaned data
+psql pricecompare_test -c "
+  SELECT DISTINCT ps.retailer_id, COUNT(*) as orphaned_count
+  FROM price_snapshots ps
+  LEFT JOIN retailers r ON ps.retailer_id = r.id
+  WHERE r.id IS NULL
+  GROUP BY ps.retailer_id;
+"
+
+# If orphaned data exists → defensive cleanup needed
+# If no orphaned data → investigate other causes (test cleanup order, race conditions)
+```
+
+**✅ Preferred Approach (Defensive Cleanup):**
+
+```typescript
+// e2e/helpers/price-analytics-helpers.ts
+export async function seedPriceHistoryData(
+  productId: number,
+  days = 30,
+  priceRange: { min: number; max: number } = { min: 50, max: 200 }
+): Promise<void> {
+  // ... create product offers, price history records ...
+
+  // Generate snapshot records
+  const snapshotRecords = generateSnapshots(productId, retailerId, days);
+
+  // DEFENSIVE: Delete existing snapshots for this product to prevent FK violations
+  // This ensures test isolation even if previous test failed mid-execution
+  await db.delete(priceSnapshots).where(eq(priceSnapshots.productId, product.id));
+
+  // Now safe to insert - no orphaned data conflicts
+  await db.insert(priceSnapshots).values(snapshotRecords);
+}
+```
+
+**❌ Anti-Pattern (Assume Global Cleanup Is Sufficient):**
+
+```typescript
+// FRAGILE - Assumes global cleanup always runs successfully
+export async function seedPriceHistoryData(productId: number): Promise<void> {
+  // ... create dependencies ...
+
+  const snapshotRecords = generateSnapshots(productId, retailerId);
+
+  // No defensive cleanup - fails if orphaned data exists
+  await db.insert(priceSnapshots).values(snapshotRecords);
+  // Error: FK constraint "price_snapshots_retailer_id_fkey" violated
+}
+```
+
+**Rationale:**
+
+- **Test isolation**: Each test run starts with clean state, even after failures
+- **Idempotent**: Helper can be called multiple times safely
+- **Prevents cascading failures**: One failed test doesn't break 78+ subsequent tests
+- **Surgical cleanup**: Deletes only related records, not entire table
+- **Complements global cleanup**: Works alongside TRUNCATE CASCADE (doesn't replace it)
+- **Critical for FK chains**: Essential when child records reference auto-increment parent IDs
+
+**When to Use:**
+
+1. **Test helpers** that create records with FK relationships
+2. **E2E test seeding** with complex data dependencies
+3. **Integration tests** where tests might fail mid-execution (timeouts, assertions)
+4. **Any scenario** where orphaned data could cause FK violations
+
+**When NOT to Use:**
+
+- ❌ Single-table inserts without FK dependencies
+- ❌ Unit tests with mocked databases
+- ❌ As replacement for global cleanup (use both together)
+
+**Performance Impact:**
+
+Negligible - DELETE with WHERE clause on indexed FK column:
+- Before fix: 78+ tests failing
+- After fix: 0 FK violations
+- Overhead: ~5ms per helper call (DELETE query)
+- Total: <30ms across typical E2E suite
+
+**Related Patterns:**
+
+- **TRUNCATE CASCADE** (above) - Global cleanup for test isolation
+- **Bulk Database Helpers** (below) - Fast test data seeding
+- `docs/02_DATABASE_PATTERNS.md` (Foreign Key Cascade Strategies)
+
+**Quality Checklist:**
+
+- ✅ Delete child records BEFORE inserting new ones
+- ✅ Use specific WHERE clause (e.g., `productId`), not DELETE entire table
+- ✅ Place defensive cleanup immediately before INSERT
+- ✅ Test fails if helper called before dependencies exist (fail-fast)
+- ✅ Document why defensive cleanup is needed (FK relationship)
+
+*Source: TODO_010 - FK violations investigation (parallel review by @kieran-typescript-reviewer, @performance-oracle, @code-simplicity-reviewer)*
+*Added: 2026-01-05*
 
 ---
 
