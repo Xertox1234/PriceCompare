@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.7
-**Last Updated:** 2026-01-02
+**Version:** 2.8
+**Last Updated:** 2026-01-06
 **Changelog:**
+- 2.8 (2026-01-06): Added Optimistic Updates with Rollback pattern to React Query Patterns section - documents instant UI feedback with automatic rollback, race condition prevention via query cancellation, minimal invalidation strategy, and performance optimization (6→1 API calls, 200-500ms→0ms latency) from TODO_013 watchlist integration
 - 2.7 (2026-01-02): Added Mega Menu: React State Over CSS-Only Hover pattern to Accessibility section - documents pointer-events control, keyboard navigation, ARIA attributes, and delayed close pattern for hover menus (from header navigation click failure fix)
 - 2.6 (2025-12-30): Added CSS Architecture Consolidation patterns: Large-Scale Design Token Migration Strategy, Component-First Configuration-Last Migration Order, Semantic Design Token Mapping Strategy, Phase-Gated Refactoring with Verification Checkpoints (from TODO 008 - 442 violations, 60+ files, zero regressions)
 - 2.5 (2025-12-26): Enhanced Lazy Loading verification checklist with production testing requirements
@@ -848,6 +849,185 @@ const createMutation = useMutation({
 onSuccess: () => setIsEditing(false)
 ```
 **Fix:** Invalidate all affected queries
+
+---
+
+### Optimistic Updates with Rollback (NEW - 2026-01-06)
+
+**When:** Mutations where instant UI feedback significantly improves perceived performance (e.g., adding to cart, liking, bookmarking, incrementing counters).
+
+**Source:** TODO_013 watchlist integration - Reduced perceived latency from 200-500ms to 0ms with optimistic updates.
+
+**Benefits:**
+- **0ms perceived latency** - UI updates instantly before API call completes
+- **Better UX** - Users see immediate feedback instead of loading spinners
+- **Reduced API calls** - Combined with minimal invalidation strategy (6 → 1 API calls)
+- **Resilient** - Automatic rollback on error maintains data consistency
+
+#### Anti-Pattern: Wait for API Response
+
+```typescript
+// ❌ WRONG - User sees loading spinner for 200-500ms
+const addToWatchList = useMutation({
+  mutationFn: async ({ listId, productId }) => {
+    return apiRequest(`/api/watchlists/${listId}/products`, {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    });
+  },
+  onSuccess: () => {
+    // Triggers 6 API refetches - slow!
+    void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+    void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId] });
+    void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId, 'products'] });
+    void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
+    void queryClient.invalidateQueries({ queryKey: [`/api/community/watch-count/${productId}`] });
+    void queryClient.invalidateQueries({ queryKey: [`/api/community/is-watching/${productId}`] });
+  }
+});
+```
+
+**Problems:**
+- User waits 200-500ms for network round-trip
+- Loading spinner interrupts interaction flow
+- 6 API refetches after success (over-invalidation)
+- Poor UX on slow connections
+
+#### Correct Pattern: Optimistic Update with Rollback
+
+```typescript
+// ✅ CORRECT - Instant UI update with automatic rollback on error
+export function useAddProductToWatchList() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ listId, productId }: { listId: number; productId: number }) => {
+      return apiRequest<ProductWatch>(`/api/watchlists/${listId}/products`, {
+        method: 'POST',
+        body: JSON.stringify({ productId }),
+      });
+    },
+
+    // PERFORMANCE: Optimistic update for instant feedback
+    onMutate: async ({ listId }) => {
+      // 1. Cancel outgoing refetches to avoid race conditions
+      await queryClient.cancelQueries({ queryKey: ['/api/watchlists'] });
+
+      // 2. Snapshot previous value for rollback
+      const previousWatchlists = queryClient.getQueryData(['/api/watchlists']);
+
+      // 3. Optimistically update cache (instant UI feedback)
+      queryClient.setQueryData(['/api/watchlists'], (old: unknown) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((wl: { id: number; watchCount?: number }) =>
+          wl.id === listId
+            ? { ...wl, watchCount: (wl.watchCount || 0) + 1 }
+            : wl
+        );
+      });
+
+      // 4. Return context for rollback
+      return { previousWatchlists };
+    },
+
+    onError: (_err, _variables, context) => {
+      // Rollback on error - restore previous cache state
+      if (context?.previousWatchlists !== undefined) {
+        queryClient.setQueryData(['/api/watchlists'], context.previousWatchlists);
+      }
+    },
+
+    onSuccess: () => {
+      // PERFORMANCE: Only invalidate what's displayed on current page
+      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+
+      // REMOVED: These 5 invalidations are unnecessary for current view
+      // Only invalidate queries that are actually being displayed
+    }
+  });
+}
+```
+
+**Key Elements:**
+
+1. **`onMutate`** - Runs immediately before mutation
+   - Cancel outgoing queries to prevent race conditions
+   - Snapshot current cache for rollback
+   - Update cache optimistically (user sees instant change)
+   - Return context object for error handler
+
+2. **`onError`** - Automatic rollback on failure
+   - Restore previous cache state from context
+   - Maintains data consistency even when API fails
+   - User sees instant revert to previous state
+
+3. **`onSuccess`** - Minimal invalidation
+   - Only invalidate queries displayed on current page
+   - Remove unnecessary invalidations (performance optimization)
+   - Combine with optimistic update for best UX
+
+4. **Type Safety** - Properly type the cache data
+   - Use `unknown` and type guards for cache operations
+   - Define interfaces for optimistic update structures
+
+**When to Use Optimistic Updates:**
+
+✅ **Good candidates:**
+- Adding to cart, watchlist, favorites (increment counters)
+- Liking/unliking posts (toggle boolean)
+- Simple mutations with predictable outcomes
+- High-frequency user interactions
+
+❌ **Bad candidates:**
+- Mutations with complex server-side logic (calculated fields)
+- Operations that might fail validation
+- Mutations returning unpredictable data from server
+- Multi-step workflows with dependencies
+
+**Performance Impact (Measured from TODO_013):**
+- **Perceived latency:** 200-500ms → 0ms (instant)
+- **API calls per mutation:** 6 → 1 (83% reduction)
+- **User experience:** Loading spinner → Instant feedback
+- **Cache efficiency:** Reduced invalidations prevent unnecessary refetches
+
+**Common Mistakes:**
+
+#### ❌ Mistake 1: Not Canceling Queries
+```typescript
+onMutate: async ({ listId }) => {
+  // Missing query cancellation - race condition!
+  const previous = queryClient.getQueryData(['/api/watchlists']);
+  queryClient.setQueryData(['/api/watchlists'], (old) => /* update */);
+  return { previous };
+}
+```
+**Fix:** Always cancel queries first: `await queryClient.cancelQueries({ queryKey: [...] })`
+
+#### ❌ Mistake 2: Not Handling Rollback
+```typescript
+onMutate: async ({ listId }) => {
+  // No context returned - can't rollback!
+  queryClient.setQueryData(['/api/watchlists'], (old) => /* update */);
+}
+```
+**Fix:** Return context object with snapshot: `return { previousWatchlists }`
+
+#### ❌ Mistake 3: Over-Invalidation After Optimistic Update
+```typescript
+onSuccess: () => {
+  // Invalidating 6 queries defeats the purpose of optimistic update!
+  void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+  void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId] });
+  // ... 4 more invalidations
+}
+```
+**Fix:** Only invalidate queries displayed on current page (1-2 queries max)
+
+**References:**
+- Implementation: `client/src/hooks/use-community.ts` (useAddProductToWatchList)
+- Usage: `client/src/pages/product-detail-new.tsx` (watchlist integration)
+- TODO: `todos/TODO_013_watchlist_integration_product_detail.md`
+- React Query docs: https://tanstack.com/query/latest/docs/react/guides/optimistic-updates
 
 ---
 
