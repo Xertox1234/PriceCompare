@@ -439,6 +439,24 @@ else
   echo -e "${GREEN}   ✅ Middleware order is correct${NC}"
 fi
 
+# Check for rollback files in migrations/ directory (alphabetical execution hazard)
+echo "   📂 Checking for misplaced rollback files..."
+MISPLACED_ROLLBACKS=$(ls migrations/*rollback*.sql 2>/dev/null || true)
+
+if [ -n "$MISPLACED_ROLLBACKS" ]; then
+  echo -e "${RED}   ❌ BLOCKER: Rollback files found in migrations/ directory:${NC}"
+  echo "      $MISPLACED_ROLLBACKS"
+  echo ""
+  echo -e "${YELLOW}   FIX: Move rollback files to migrations/rollbacks/${NC}"
+  echo "   mv migrations/*rollback*.sql migrations/rollbacks/"
+  echo "   DOCS: migrations/README.md"
+  echo "   INCIDENT: docs/learnings/database/LEARNINGS_TODO_009_MIGRATION_ROLLBACK_INCIDENT.md"
+  SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ No misplaced rollback files${NC}"
+fi
+
 echo ""
 
 # =============================================================================

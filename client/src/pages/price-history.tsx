@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useRoute, Link } from 'wouter';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,9 @@ import {
   PriceAlertsManager,
   DealTracker,
 } from '@/components/price-history';
+import { RetailerComparisonTable } from '@/components/price-analytics/retailer-comparison-table';
+import { PriceTrendIndicator } from '@/components/price-analytics/price-trend-indicator';
+import { PriceAlertModal } from '@/components/price-analytics/price-alert-modal';
 import { usePriceHistory, usePriceStats, usePriceSnapshots } from '@/hooks/use-price-history';
 import { useProductFull } from '@/hooks/use-home-data';
 import {
@@ -31,6 +35,10 @@ import { cn } from '@/lib/utils';
 export default function PriceHistoryPage() {
   const [, params] = useRoute('/products/:id/price-history');
   const productId = params?.id ? parseInt(params.id) : undefined;
+
+  // State for price alert modal
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [prefilledPrice, setPrefilledPrice] = useState<number | undefined>();
 
   // Fetch product to get offers
   const { data: product, isLoading: productLoading, error: productError } = useProductFull(productId || null);
@@ -429,6 +437,34 @@ export default function PriceHistoryPage() {
 
             <Separator className="my-8" />
 
+            {/* Price Analytics Components */}
+            <div className="space-y-6">
+              {/* Price Trend Indicator */}
+              {history?.data && history.data.length > 0 && (
+                <PriceTrendIndicator priceHistory={history.data} showPercentage={true} />
+              )}
+
+              {/* Cross-Retailer Comparison */}
+              {product?.offers && product.offers.length > 0 && (
+                <RetailerComparisonTable
+                  offers={product.offers.map((offer) => ({
+                    id: offer.id,
+                    retailerId: offer.retailerId,
+                    retailerName: offer.retailer?.name || 'Unknown',
+                    retailerLogo: offer.retailer?.logo,
+                    price: offer.price,
+                    originalPrice: offer.originalPrice,
+                    availability: offer.availability,
+                    productUrl: offer.productUrl,
+                    affiliateUrl: offer.affiliateUrl,
+                    lastUpdated: offer.lastUpdated,
+                  }))}
+                />
+              )}
+            </div>
+
+            <Separator className="my-8" />
+
             {/* Phase 2.3: Advanced Insights Dashboard */}
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Price Insights Widget */}
@@ -443,6 +479,20 @@ export default function PriceHistoryPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Price Alert Modal - Available globally when data is loaded */}
+        {!isLoading && productId && (
+          <PriceAlertModal
+            productId={productId}
+            productName={product?.name || `Product #${productId}`}
+            prefilledPrice={prefilledPrice}
+            isOpen={alertModalOpen}
+            onClose={() => {
+              setAlertModalOpen(false);
+              setPrefilledPrice(undefined);
+            }}
+          />
         )}
       </div>
     </>

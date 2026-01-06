@@ -58,22 +58,29 @@ export async function cleanDatabase() {
   // Use TRUNCATE CASCADE to reset all tables
   // This is faster and safer than deleting individual records
   // CASCADE handles foreign key dependencies automatically (order doesn't matter)
+  //
+  // E2E TESTING: Truncate tables conditionally to handle schema evolution
+  // Some tables may not exist yet if migrations haven't been fully applied
+  // Use DO block to check table existence before truncating
   await db.execute(sql`
-    TRUNCATE TABLE
-      users,
-      products,
-      product_offers,
-      price_history,
-      price_alerts,
-      watch_lists,
-      notifications,
-      retailers,
-      password_reset_tokens,
-      notification_preferences,
-      product_watches,
-      watch_list_shares,
-      user_reputation
-    RESTART IDENTITY CASCADE
+    DO $$
+    DECLARE
+      tbl TEXT;
+      table_list TEXT[] := ARRAY[
+        'users', 'products', 'product_offers', 'price_history', 'price_alerts',
+        'watch_lists', 'notifications', 'retailers', 'password_reset_tokens',
+        'notification_preferences', 'product_watches', 'watch_list_shares',
+        'user_reputation', 'trending_products', 'search_queries', 'agent_sessions',
+        'scraping_jobs', 'price_predictions', 'scraping_sources', 'price_snapshots'
+      ];
+    BEGIN
+      FOREACH tbl IN ARRAY table_list
+      LOOP
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+          EXECUTE 'TRUNCATE TABLE ' || quote_ident(tbl) || ' RESTART IDENTITY CASCADE';
+        END IF;
+      END LOOP;
+    END $$;
   `);
 
   // CRITICAL: Clear Redis sessions to prevent session leakage between tests

@@ -358,6 +358,21 @@ export function createRateLimiter(options: RateLimitOptions) {
   const message = options.message || 'Too many requests, please try again later';
 
   return async (req: Request, res: Response, next: NextFunction) => {
+    // TESTING: Disable rate limiting in test environment
+    // This allows E2E tests to run without hitting rate limits
+    // Still sets headers for test assertions but with unlimited values
+    // Dedicated rate limiting tests can be added in e2e/rate-limiting.spec.ts
+    // Mirrors pattern in server/middleware/security.ts and redis-cache.ts
+    // See: docs/learnings/e2e-testing/LEARNINGS_RATE_LIMITER_E2E_BYPASS.md
+    if (process.env.NODE_ENV === 'test') {
+      // Set headers for test assertions but with unlimited values
+      res.setHeader('X-RateLimit-Limit', 999999);
+      res.setHeader('X-RateLimit-Remaining', 999999);
+      res.setHeader('X-RateLimit-Reset', Math.ceil((Date.now() + 3600000) / 1000));
+      res.setHeader('X-RateLimit-Tier', 'test');
+      return next();
+    }
+
     try {
       const key = keyGen(req);
 

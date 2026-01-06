@@ -4320,6 +4320,52 @@ When working with database triggers in tests:
 
 **Reference Issue**: TODO_003 - Storage watchlist test fixes (2025-12-02)
 
+### 8.3 Migration File Organization (MANDATORY)
+
+**Status**: CRITICAL - Enforced by pre-commit hook
+**Last Incident**: 2026-01-05 (TODO_009) - Tables dropped due to misplaced rollback files
+
+#### Problem
+
+Migration scripts execute files alphabetically. Rollback files in the same directory as create migrations will execute AFTER their create migrations, causing immediate table drops.
+
+**Incident Timeline (2026-01-05)**:
+1. `0026_create_scraping_tables.sql` ✅ Created 6 tables
+2. `0026_rollback.sql` ❌ Dropped all 6 tables (alphabetically after "create")
+3. E2E tests failed: `relation 'scraping_jobs' does not exist`
+4. Production deployment blocked
+
+#### ✅ CORRECT Pattern: Separate Rollback Directory
+
+```
+migrations/
+  0026_create_scraping_tables.sql     # Auto-executed
+  0027_create_price_snapshots.sql     # Auto-executed
+  rollbacks/                          # Manual rollbacks only
+    0026_rollback.sql                 # NOT auto-executed
+    0027_rollback.sql                 # NOT auto-executed
+```
+
+#### ❌ ANTI-PATTERN: Rollback Files in Migrations Directory
+
+```
+migrations/
+  0026_create_scraping_tables.sql
+  0026_rollback.sql        # ❌ Executes alphabetically after create!
+  0027_create_price_snapshots.sql
+  0027_rollback.sql        # ❌ Drops table immediately!
+```
+
+#### Prevention
+
+1. **Pre-commit hook** blocks commits with rollback files in `migrations/`
+2. **Manual rollback process** documented in `migrations/README.md`
+3. **Schema drift validation** in E2E test setup
+
+**References**:
+- `migrations/README.md` - Migration management guide
+- `docs/learnings/database/LEARNINGS_TODO_009_MIGRATION_ROLLBACK_INCIDENT.md` - Full incident report
+
 ---
 
 ## 9. Redis-Native Patterns (NEW - 2025-12-05)

@@ -1,205 +1,42 @@
-# Database Migrations
+# Migration Management
 
-This directory contains SQL migration files for the PriceCompare database.
+## Directory Structure
 
-## Migration Files
+- `migrations/` - Active migration files (run automatically)
+- `migrations/rollbacks/` - Rollback scripts (manual use only)
 
-Migrations are numbered sequentially and executed in order:
+## Critical Rule
 
-- `0001_add_pgvector_embeddings.sql` - Vector embeddings support
-- `0002_add_performance_indexes.sql` - Performance optimization indexes
-- `0003_add_password_reset_tokens.sql` - Password reset functionality
-- `0004_add_price_history.sql` - Price tracking tables
-- `0005_add_notifications_enhancements.sql` - Notification system
-- `0006_enhance_price_alerts.sql` - Price alert improvements
-- `0007_add_community_features.sql` - Forum and community features
-- `0008_add_watch_lists.sql` - Product watch lists
-- `0009_add_price_aggregation.sql` - **Price analytics tables** (weekly/monthly aggregates, trends)
-- `0010_add_job_locks.sql` - **Distributed job locking** (Nov 16, 2025)
-- `0011_add_cascade_rules.sql` - **Foreign key cascade rules** (referential integrity)
-- `0012_encrypt_pii_data_at_rest.sql` - **PII encryption at rest** (security enhancement)
-- `0013_add_daily_price_aggregates.sql` - **Daily price aggregates** (aggregatedAt tracking, daily aggregation table)
-- `0014_add_aggregation_indexes.sql` - **Aggregation performance indexes** (optimizes time-range queries, 10-100x faster)
-- `0015_fix_set_null_constraints.sql` - **Fix SET NULL constraints** (allows user deletion with forum content)
-- `0016_fix_data_integrity_issues.sql` - **Fix data integrity issues** (unique constraints, nullable sender_id)
-- `0017_add_wishlists_and_specifications.sql` - **Wishlists and specifications** (product wishlists, specifications tables)
-- `0018_change_forum_topic_title_to_text.sql` - **Forum topic title** (change VARCHAR to TEXT)
-- `0019_fix_product_watches_unique_constraint.sql` - **Product watches constraint** (dual constraint for NULL handling)
-- `0020_add_price_check_constraints.sql` - **Price CHECK constraints** (Dec 1, 2025) - Adds database-level validation to prevent negative prices, invalid price ranges, and illogical sale prices
+**NEVER place rollback files in the migrations/ directory.**
 
-## How to Apply Migrations
+Rollback files (e.g., `0026_rollback.sql`, `0027_rollback.sql`) will execute alphabetically AFTER their create migrations, causing tables to be dropped immediately after creation.
 
-### Option 1: Using npm script (Recommended)
+## Running Migrations
 
 ```bash
-# Ensure DATABASE_URL environment variable is set
-export DATABASE_URL="postgresql://user:password@host:5432/database"
-
-# Run all migrations
+# Development database
 npm run migrate
+
+# Test database
+NODE_ENV=test npm run migrate
 ```
 
-The migration script (`scripts/run-migrations.ts`) will:
+## Rollback Process (Manual)
 
-- ✅ Automatically run all `.sql` files in order
-- ✅ Skip already-applied migrations (using `CREATE TABLE IF NOT EXISTS`)
-- ✅ Provide clear success/error messages
-- ✅ Connect via Neon serverless PostgreSQL
+If you need to rollback a migration:
 
-### Option 2: Using psql directly
+1. Find the rollback script in `migrations/rollbacks/`
+2. Manually run against the database
+3. Remove the migration from `schema_migrations` table
 
-```bash
-# For local PostgreSQL
-psql -d pricecompare -f migrations/0010_add_job_locks.sql
+**DO NOT** place rollback files in `migrations/` directory.
 
-# For remote database with connection string
-psql "postgresql://user:password@host:5432/database" -f migrations/0010_add_job_locks.sql
-```
+## Recent Fix (2026-01-05)
 
-### Option 3: Using Neon Console (for Neon databases)
+Migration 0026 and 0027 were rolled back unintentionally because rollback files were placed in migrations/ directory. Fixed by:
 
-1. Go to your Neon project dashboard
-2. Navigate to **SQL Editor**
-3. Copy and paste the contents of `migrations/0010_add_job_locks.sql`
-4. Click **Run** to execute
+1. Moving `0026_rollback.sql` and `0027_rollback.sql` to `migrations/rollbacks/`
+2. Re-running create migrations manually
+3. Verifying E2E tests can access new tables
 
-## Latest Migration: 0010_add_job_locks.sql
-
-**Purpose**: Adds distributed locking mechanism for scheduled jobs
-
-**What it creates**:
-
-- `job_locks` table with unique job names
-- Indexes on `job_name` and `expires_at`
-- Comments for documentation
-
-**Why it's needed**:
-
-- Prevents duplicate job execution in multi-server deployments
-- Ensures only one server runs a scheduled job at a time
-- Automatic lock expiration handles server crashes gracefully
-
-**Used by**:
-
-- Price analytics jobs (weekly/monthly aggregation, trend analysis)
-- Price history jobs (daily snapshots, weekly cleanup)
-
-## Verifying Migration Success
-
-After applying the migration, verify with:
-
-```sql
--- Check if job_locks table exists
-\dt job_locks
-
--- Or using SQL
-SELECT tablename FROM pg_tables WHERE tablename = 'job_locks';
-
--- Check table structure
-\d job_locks
-
--- View indexes
-\di job_locks*
-```
-
-Expected output:
-
-```
-Table "public.job_locks"
-   Column   |            Type             | Nullable | Default
-------------+-----------------------------+----------+---------
- id         | integer                     | not null | nextval(...)
- job_name   | character varying(100)      | not null |
- locked_by  | character varying(200)      | not null |
- locked_at  | timestamp without time zone | not null | now()
- expires_at | timestamp without time zone | not null |
- metadata   | text                        |          |
-
-Indexes:
-    "job_locks_pkey" PRIMARY KEY, btree (id)
-    "job_locks_job_name_key" UNIQUE CONSTRAINT, btree (job_name)
-    "idx_job_locks_expires" btree (expires_at)
-    "idx_job_locks_name" btree (job_name)
-```
-
-## Rolling Back Migrations
-
-**See [ROLLBACK_GUIDE.md](./ROLLBACK_GUIDE.md)** for comprehensive rollback procedures for all migrations.
-
-### Quick Reference
-
-Each migration has a specific rollback procedure with risk levels:
-
-| Migration                   | Risk Level   | Data Loss                 |
-| --------------------------- | ------------ | ------------------------- |
-| 0001 - pgvector             | MEDIUM       | Yes (embeddings)          |
-| 0002 - Performance indexes  | LOW          | No                        |
-| 0003 - Password reset       | HIGH         | Yes (tokens)              |
-| 0004 - Price history        | HIGH         | Yes (all history)         |
-| 0005 - Notifications        | MEDIUM       | Yes (preferences)         |
-| 0006 - Price alerts         | MEDIUM       | Yes (tracking data)       |
-| 0007 - Community            | HIGH         | Yes (reputation, watches) |
-| 0008 - Watch lists          | HIGH         | Yes (list organization)   |
-| 0009 - Price aggregation    | HIGH         | Yes (analytics)           |
-| 0010 - Job locks            | LOW          | Minimal                   |
-| 0011 - Cascade rules        | MEDIUM       | No                        |
-| 0012 - PII encryption       | **CRITICAL** | Requires key              |
-| 0013 - Daily aggregates     | MEDIUM       | Yes                       |
-| 0014 - Aggregation indexes  | LOW          | No                        |
-| 0015 - SET NULL constraints | MEDIUM       | No                        |
-| 0016 - Data integrity       | MEDIUM       | No                        |
-
-### Simple Rollback Example (Job Locks)
-
-```sql
-DROP TABLE IF EXISTS job_locks CASCADE;
-```
-
-**Warning**: Always backup before rolling back. See ROLLBACK_GUIDE.md for complete procedures.
-
-## Troubleshooting
-
-### "DATABASE_URL must be set"
-
-Set the environment variable:
-
-```bash
-export DATABASE_URL="your-connection-string"
-```
-
-Or create a `.env` file:
-
-```
-DATABASE_URL=postgresql://user:password@host:5432/database
-```
-
-### "relation already exists"
-
-This is normal - migrations use `IF NOT EXISTS` to be idempotent. The migration is already applied.
-
-### "permission denied"
-
-Ensure your database user has CREATE TABLE and CREATE INDEX permissions:
-
-```sql
-GRANT CREATE ON SCHEMA public TO your_user;
-```
-
-## Migration Development
-
-When creating new migrations:
-
-1. **Naming**: Use format `XXXX_description.sql` (e.g., `0011_add_feature.sql`)
-2. **Idempotency**: Use `IF NOT EXISTS` to allow safe re-runs
-3. **Comments**: Add COMMENT statements for documentation
-4. **Indexes**: Create indexes for commonly queried columns
-5. **Constraints**: Add appropriate constraints (UNIQUE, NOT NULL, CHECK)
-6. **Testing**: Test migration on development database first
-
-## Related Documentation
-
-- **Rollback Guide**: `migrations/ROLLBACK_GUIDE.md` - **Complete rollback procedures for all migrations**
-- **Audit Report**: `docs/AUDIT_2025-11-16.md` - Comprehensive audit of job locking system
-- **Patterns Guide**: `docs/PATTERNS.md` - Best practices for database queries and job locking
-- **Database Patterns**: `docs/DATABASE_PATTERNS.md` - N+1 prevention, transactions, query optimization
-- **Job Lock Service**: `server/services/job-lock-service.ts` - Implementation details
+See `docs/learnings/database/LEARNINGS_TODO_009_MIGRATION_ROLLBACK_INCIDENT.md` for full details.
