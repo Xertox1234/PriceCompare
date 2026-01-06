@@ -1,7 +1,7 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.7
-**Last Updated:** 2026-01-04
+**Version:** 2.8
+**Last Updated:** 2026-01-06
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -9,6 +9,7 @@
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 **Changelog:**
+- 2.8 (2026-01-06): Added Maintenance Documentation for Synchronized Lists Pattern (from TODO_012 code review)
 - 2.7 (2026-01-04): Added TypeScript Assertion Signatures for Validation Helpers pattern (from TODO 002 code review)
 - 2.6 (2025-12-27): Added Empty Collection Edge Cases pattern (Math.min/max, reduce, semantic null)
 - 2.5 (2025-12-26): Added Module-Level Environment Variable Access pattern (ESM/dotenv timing), Type Assertion with SAFETY Comment pattern
@@ -35,6 +36,7 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
 - [Type Guards & Narrowing](#type-guards--narrowing)
 - [Non-Null Assertion Patterns](#non-null-assertion-patterns-new---2025-12-04)
 - [Generic Patterns](#generic-patterns)
+- [Maintenance Documentation for Synchronized Lists](#maintenance-documentation-for-synchronized-lists-new---2026-01-06) ⭐ **NEW**
 
 ---
 
@@ -3993,6 +3995,287 @@ interface LocalAggregation {
 
 *Source: TODO 003 - Found WatchListWithStats duplicated in 3 files (storage.ts, community-service.ts, watchlist-storage.ts)*
 *Added: 2026-01-04*
+
+---
+
+## Maintenance Documentation for Synchronized Lists (NEW - 2026-01-06)
+
+**Context:** Lists that must stay synchronized with external sources (schema definitions, API specs, configuration files, enums) need clear maintenance instructions so developers know WHEN and HOW to update them.
+
+**Problem:**
+Without structured maintenance documentation, synchronized lists drift out of sync with their source of truth, leading to incomplete validation, missing features, or silent failures. Tests may pass while coverage degrades.
+
+**Real-World Example (TODO_012):**
+
+In E2E test helpers, `EXPECTED_TABLES` must stay synchronized with `shared/schema.ts`. Initial implementation had 27 tables, but schema defined 41 - a 34% coverage gap that tests didn't catch.
+
+**✅ Preferred Approach - Structured Maintenance Documentation:**
+
+```typescript
+/**
+ * Expected tables in test database schema
+ *
+ * CRITICAL MAINTENANCE RULE:
+ * When adding new migrations that create tables:
+ * 1. Add the table name to this list (keep alphabetically sorted)
+ * 2. Commit the list update in the SAME commit as the migration
+ * 3. Table names must match pgTable definitions in shared/schema.ts
+ *
+ * Currently tracking 41 tables (as of schema.ts audit 2026-01-06)
+ *
+ * Verification:
+ * grep "pgTable" shared/schema.ts | wc -l  → Should equal 41
+ *
+ * See: CLAUDE.md "Test Schema Synchronization"
+ */
+const EXPECTED_TABLES = [
+  'agent_sessions',
+  'badges',
+  'comments',
+  // ... (keep alphabetically sorted for easy diffing)
+] as const satisfies readonly string[];
+```
+
+**Documentation Template:**
+
+```typescript
+/**
+ * [Description of what this list represents]
+ *
+ * CRITICAL MAINTENANCE RULE:
+ * When [triggering event]:
+ * 1. [Step 1 - what to do]
+ * 2. [Step 2 - when to commit]
+ * 3. [Step 3 - how to verify]
+ *
+ * Currently tracking [COUNT] [items] (as of [AUDIT_DATE])
+ *
+ * Verification:
+ * [command to verify completeness]
+ *
+ * See: [link to relevant documentation]
+ */
+const SYNCHRONIZED_LIST = [
+  // Keep alphabetically sorted for easy diffing
+] as const satisfies readonly TYPE[];
+```
+
+**❌ Anti-Pattern (Avoid):**
+
+```typescript
+// ❌ WRONG - No maintenance documentation
+const EXPECTED_TABLES = ['users', 'products', 'retailers'];
+// Questions this raises:
+// - When should this list be updated?
+// - What's the source of truth?
+// - How do I verify it's complete?
+// - What happens if I forget to update it?
+
+// ❌ WRONG - Incomplete documentation
+/**
+ * List of expected tables
+ */
+const EXPECTED_TABLES = ['users', 'products']; // Missing: count, date, verification
+
+// ❌ WRONG - Documentation without actionable steps
+/**
+ * Keep this list in sync with schema.ts
+ */
+const EXPECTED_TABLES = ['users', 'products'];
+// "Keep in sync" is vague - WHEN do I update? HOW do I verify?
+```
+
+**Key Documentation Elements:**
+
+1. **"CRITICAL MAINTENANCE RULE"** Header
+   - Searchable with `grep "CRITICAL MAINTENANCE" server/`
+   - Signals importance to developers
+   - Makes maintenance process discoverable
+
+2. **"When [event]"** Trigger Condition
+   - Explicitly states when updates are needed
+   - Examples: "When adding migrations", "When adding API endpoints", "When adding feature flags"
+   - Prevents forgotten updates
+
+3. **Numbered Action Steps**
+   - Clear, actionable instructions
+   - Order matters (e.g., "commit in SAME commit as migration")
+   - No ambiguity about what to do
+
+4. **Count and Audit Date**
+   - "Currently tracking 41 tables (as of 2026-01-06)"
+   - Enables quick completeness checks
+   - Shows when list was last verified
+   - Helps identify stale documentation
+
+5. **Verification Command**
+   - Concrete shell command to verify completeness
+   - Example: `grep "pgTable" shared/schema.ts | wc -l`
+   - Enables self-service validation
+   - Can be automated in CI/pre-commit hooks
+
+6. **Cross-Reference to Detailed Docs**
+   - Link to CLAUDE.md section or ADR
+   - Provides context and rationale
+   - Points to related patterns
+
+7. **Alphabetical Sorting**
+   - Makes diffs clear (additions/removals obvious)
+   - Easier to spot duplicates
+   - Simplifies manual verification
+   - Standard practice for maintainability
+
+**When to Use This Pattern:**
+
+Apply structured maintenance documentation to:
+
+- ✅ **Schema-synchronized lists** (tables, columns, constraints)
+- ✅ **Enum mappings** (status → string, role → permissions)
+- ✅ **Feature flag registries**
+- ✅ **API endpoint lists** (route registrations, OpenAPI specs)
+- ✅ **Integration configurations** (supported providers, API versions)
+- ✅ **Permission/role definitions**
+- ✅ **Validation rules** (password strength, input constraints)
+- ✅ **Test fixtures** (expected values, mock data)
+
+**When NOT to Use:**
+
+- ❌ **Derived data** (calculated from other sources at runtime)
+- ❌ **Single-use constants** (not referenced elsewhere)
+- ❌ **Self-documenting code** (obvious from context)
+- ❌ **Framework internals** (not under our control)
+
+**Example: Enum Mapping with Maintenance Documentation:**
+
+```typescript
+/**
+ * User role to permission mapping
+ *
+ * CRITICAL MAINTENANCE RULE:
+ * When adding new roles to UserRole enum (shared/schema.ts):
+ * 1. Add role to this mapping with appropriate permissions
+ * 2. Update getRolePermissions() in auth-service.ts
+ * 3. Add test case in auth-service.test.ts
+ *
+ * Currently tracking 4 roles (as of 2026-01-06)
+ *
+ * Verification:
+ * Check shared/schema.ts UserRole enum matches keys below
+ *
+ * See: docs/04_SECURITY_PATTERNS.md "Role-Based Access Control"
+ */
+const ROLE_PERMISSIONS = {
+  admin: ['read', 'write', 'delete', 'manage_users'],
+  moderator: ['read', 'write', 'delete'],
+  user: ['read', 'write'],
+  guest: ['read'],
+} as const satisfies Record<UserRole, readonly Permission[]>;
+```
+
+**Example: API Endpoint Registry with Maintenance Documentation:**
+
+```typescript
+/**
+ * All API endpoints for OpenAPI documentation generation
+ *
+ * CRITICAL MAINTENANCE RULE:
+ * When adding new routes to server/routes/:
+ * 1. Add endpoint definition to this registry
+ * 2. Include method, path, auth requirement, description
+ * 3. Keep grouped by domain (auth, products, users, etc.)
+ *
+ * Currently tracking 217 endpoints (as of 2026-01-06)
+ *
+ * Verification:
+ * grep -r "app\.(get|post|put|patch|delete)" server/routes/ | wc -l
+ *
+ * See: docs/API_DOCUMENTATION.md
+ */
+const API_ENDPOINTS = [
+  // Auth endpoints
+  { method: 'POST', path: '/api/auth/register', auth: false, description: 'Register new user' },
+  { method: 'POST', path: '/api/auth/login', auth: false, description: 'User login' },
+  // ... grouped by domain
+] as const;
+```
+
+**Rationale:**
+
+**Why This Pattern Matters:**
+
+1. **Prevents Silent Drift**
+   - Without documentation: Lists drift, tests pass, coverage degrades
+   - With documentation: Clear process for updates, verification command available
+
+2. **Self-Service Verification**
+   - Developers can verify completeness without code review
+   - Verification command enables automation (CI checks)
+
+3. **Onboarding Tool**
+   - New developers know when/how to update synchronized lists
+   - Reduces "tribal knowledge" dependency
+
+4. **Audit Trail**
+   - Count and date show last verification
+   - Easy to identify stale documentation
+
+5. **Prevents Forgotten Updates**
+   - Explicit trigger condition ("When adding migrations")
+   - Step 2 often includes "commit in SAME commit" to enforce atomicity
+
+**Consequences of Missing Maintenance Documentation:**
+
+- ❌ **Silent coverage degradation** (TODO_012: 27/41 tables = 66% coverage)
+- ❌ **Forgotten updates** (new feature added, list not updated)
+- ❌ **False positives** (tests pass, validation incomplete)
+- ❌ **Hard to maintain** (no clear owner or process)
+- ❌ **Difficult debugging** (why is feature X not validated?)
+
+**Integration with Other Patterns:**
+
+This pattern works with:
+
+- **[Data Completeness Validation Pattern](#)** (08_TESTING_PATTERNS.md) - What to document
+- **[Two-Phase Code Review Pattern](#)** (09_CODE_REVIEW_PATTERNS.md) - When to verify
+- **[Storage Layer Types Pattern](#centralize-storage-return-types-in-storagetypests-new---2026-01-04)** - Type definitions
+- **Pre-commit hooks** - Can automate verification commands
+
+**Automation Opportunity:**
+
+```bash
+# Pre-commit hook can verify list completeness
+echo "Verifying EXPECTED_TABLES completeness..."
+SCHEMA_COUNT=$(grep "pgTable" shared/schema.ts | wc -l | tr -d ' ')
+CODE_COUNT=$(grep "EXPECTED_TABLES\.length" e2e/helpers.ts | grep -o "[0-9]\+")
+
+if [ "$SCHEMA_COUNT" != "$CODE_COUNT" ]; then
+  echo "❌ EXPECTED_TABLES count ($CODE_COUNT) doesn't match schema.ts ($SCHEMA_COUNT)"
+  echo "Run: grep 'export const.*= pgTable' shared/schema.ts"
+  exit 1
+fi
+```
+
+**Checklist for Adding Maintenance Documentation:**
+
+When creating/updating a synchronized list:
+
+- [ ] Add "CRITICAL MAINTENANCE RULE" header
+- [ ] Document triggering condition ("When...")
+- [ ] Provide numbered action steps (what to do)
+- [ ] Include current count with audit date
+- [ ] Provide verification command
+- [ ] Link to detailed documentation
+- [ ] Keep list alphabetically sorted
+- [ ] Consider automating verification in pre-commit hook
+
+**Related Patterns:**
+
+- [08_TESTING_PATTERNS.md: Data Completeness Validation](#) - Testing synchronized lists
+- [09_CODE_REVIEW_PATTERNS.md: Two-Phase Code Review](#) - Verifying completeness via review
+- [02_DATABASE_PATTERNS.md: Schema Synchronization](#) - Database-specific sync patterns
+
+*Source: TODO_012 - EXPECTED_TABLES had 27/41 tables due to missing maintenance documentation*
+*Added: 2026-01-06*
 
 ---
 
