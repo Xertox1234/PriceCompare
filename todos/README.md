@@ -4,7 +4,66 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there are **0 active TODOs** - all completed! 🎉
+Currently, there are **2 active TODOs** (created 2026-01-06 from Phase 2.4 E2E test analysis, revised after parallel agent reviews):
+
+### 🟡 Medium Priority (2)
+- **TODO_014 (Product Image Visibility Fix)** - P2, 15 minutes ⚡ (revised after agent review)
+  - **Problem**: Product images exist but hidden (CSS visibility issue)
+  - **Discovery**: Single image fix, NOT multi-image gallery build
+  - **Impact**: Poor UX - images critical for product evaluation
+  - **File**: `client/src/pages/product-detail-new.tsx`
+  - **E2E Tests**: 1 skipped test waiting for fix
+  - **Original estimate**: 2-3 hours → **Actual**: 15 minutes (93% time savings)
+
+- **TODO_015 (Add Price Alert Button)** - P2, 10 minutes ⚡ (revised after agent review)
+  - **Problem**: No button to trigger existing price alert modal
+  - **Discovery**: Modal already exists and imported, just needs 7-line button
+  - **Impact**: Missed user engagement opportunity
+  - **File**: `client/src/pages/product-detail-new.tsx`
+  - **E2E Tests**: 1 skipped test waiting for button
+  - **Original estimate**: 1-2 hours → **Actual**: 10 minutes (92% time savings)
+
+### ⏸️ Deferred (1)
+- **TODO_018 (Price Alert Email Notifications)** - P5 (Deferred - YAGNI)
+  - **Problem**: No email notifications for price alerts
+  - **Discovery**: Smart notification system already exists (in-app), alert limits already enforced (50/user)
+  - **Decision**: Defer until users request email notifications
+  - **Files**: `server/services/smart-notification-service.ts`
+  - **Status**: DEFERRED - Awaiting user demand
+  - **If implemented**: 30-60 minutes (not 4-6 hours)
+
+### ✅ Archived (3)
+- **TODO_013 (Watchlist Integration on Product Detail)** → Completed 2026-01-06
+  - **Implementation**: Wired up existing mutation hook with optimistic updates
+  - **Performance**: 83% fewer API calls (6→1), 0ms perceived latency (200-500ms→0ms)
+  - **Code Review**: Zero critical issues, 12 strengths identified, production-ready
+  - **Tests**: All 3 E2E tests passing (product-detail, product-discovery, watchlist)
+  - **Commits**: f485c14 (implementation), ab4b9f3 (documentation)
+  - **Patterns**: Optimistic updates with rollback codified in docs/05_FRONTEND_PATTERNS.md v2.8
+  - **Archived to**: `archive/2026-01-06-TODO_013_WATCHLIST_INTEGRATION.md`
+
+- **TODO_016 (Price Analytics Integration)** → Archived 2026-01-06
+  - **Discovery**: Feature 100% complete, just needs `defaultOpen={true}` (15 seconds)
+  - **Archived to**: `archive/2026-01-06-TODO_016_FEATURE_COMPLETE.md`
+
+- **TODO_017 (Related Products Display)** → Archived 2026-01-06
+  - **Discovery**: Feature 100% complete and working (lines 82-88, 580-594)
+  - **Archived to**: `archive/2026-01-06-TODO_017_FEATURE_COMPLETE.md`
+
+**Total Estimated Effort**: 25 minutes (NOT 10.5-19.5 hours)
+- **Original total**: 13-23 hours
+- **Revised total**: 55 minutes
+- **Completed**: 30 minutes (TODO_013)
+- **Remaining**: 25 minutes (TODO_014 + TODO_015)
+- **Time savings**: 95% reduction (prevented 12-22 hours of wasted work)
+
+**Revision History**:
+- 2026-01-06: Created 6 TODOs from E2E test analysis (13-23 hours estimated)
+- 2026-01-06: Parallel agent reviews (@kieran-typescript-reviewer, @performance-oracle, @code-simplicity-reviewer)
+- 2026-01-06: Rewrote TODO_013, TODO_014, TODO_015 based on findings (30 + 15 + 10 = 55 minutes)
+- 2026-01-06: Archived TODO_016, TODO_017 (features already complete)
+- 2026-01-06: Deferred TODO_018 to P5 (YAGNI - awaiting user demand)
+- 2026-01-06: Completed TODO_013 (watchlist integration - 30 minutes, optimistic updates pattern codified)
 
 ## Recently Completed
 
