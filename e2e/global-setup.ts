@@ -233,6 +233,80 @@ async function globalSetup() {
     }
 
     console.log(`✨ E2E migrations complete! (${appliedCount} applied, ${skippedCount} skipped)\n`);
+
+    // SCHEMA VALIDATION: Verify all expected tables exist
+    // See: TODO_012, docs/08_TESTING_PATTERNS.md
+    console.log('🔍 Validating test database schema...');
+
+    const EXPECTED_TABLES = [
+      'agent_sessions',
+      'forum_categories',
+      'forum_posts',
+      'forum_topics',
+      'job_locks',
+      'notification_preferences',
+      'notifications',
+      'password_reset_tokens',
+      'post_likes',
+      'price_aggregates_daily',
+      'price_aggregates_monthly',
+      'price_aggregates_weekly',
+      'price_alerts',
+      'price_history',
+      'price_snapshots',
+      'product_offers',
+      'product_specifications',
+      'product_watches',
+      'products',
+      'retailers',
+      'scraping_jobs',
+      'scraping_sources',
+      'users',
+      'watch_list_shares',
+      'watch_lists',
+      'wishlist_items',
+      'wishlists',
+    ] as const satisfies readonly string[];
+
+    type TableRow = {
+      table_name: string;
+    };
+
+    const result = (await pool.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_type = 'BASE TABLE'
+    `)) as { rows: TableRow[] };
+
+    // Use Set for O(1) lookup instead of O(n) includes
+    const existingSet = new Set(
+      result.rows.map((row) => row.table_name)
+    );
+
+    const missingTables = EXPECTED_TABLES.filter(
+      (table) => !existingSet.has(table)
+    );
+
+    if (missingTables.length > 0) {
+      console.error('❌ Schema drift detected - missing tables:');
+      missingTables.forEach((table) => {
+        console.error(`   - ${table}`);
+      });
+      console.error('');
+      console.error('💡 This should not happen after migrations.');
+      console.error('   Check migrations/ directory for missing or failed migrations.');
+      console.error('');
+      console.error('📚 See: CLAUDE.md "Test Schema Synchronization"');
+
+      throw new Error(
+        `Schema validation failed: ${missingTables.length} table(s) missing: ${missingTables.join(', ')}`
+      );
+    }
+
+    console.log(
+      `✅ Schema validated - all ${EXPECTED_TABLES.length} tables present\n`
+    );
   } catch (error) {
     console.error('❌ E2E migration failed:', error);
     throw error;
