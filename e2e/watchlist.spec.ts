@@ -158,8 +158,9 @@ test.describe('Watchlist - Product Organization', () => {
 
       await page.getByRole('button', { name: /^add$/i }).click();
 
-      // Verify success (use .first() to avoid duplicate toast + aria-live region)
-      await expect(page.getByText(/added to watchlist/i).first()).toBeVisible();
+      // Verify success toast appears (message: "Added to <watchlist name>")
+      // Use .first() to avoid duplicate toast + aria-live region
+      await expect(page.getByText(/added to/i).first()).toBeVisible({ timeout: 5000 });
 
       // Wait for dialog to close (indicates API call completed)
       await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 5000 });

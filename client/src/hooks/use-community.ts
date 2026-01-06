@@ -880,14 +880,42 @@ export function useAddProductToWatchList() {
         body: JSON.stringify({ productId }),
       });
     },
-    onSuccess: (_, { listId, productId }) => {
-      // Invalidate relevant queries
+
+    // PERFORMANCE: Optimistic update for instant feedback
+    onMutate: async ({ listId }) => {
+      // Cancel outgoing refetches to avoid race conditions
+      await queryClient.cancelQueries({ queryKey: ['/api/watchlists'] });
+
+      // Snapshot previous value for rollback
+      const previousWatchlists = queryClient.getQueryData(['/api/watchlists']);
+
+      // Optimistically update cache (instant UI feedback)
+      queryClient.setQueryData(['/api/watchlists'], (old: unknown) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((wl: { id: number; watchCount?: number }) =>
+          wl.id === listId
+            ? { ...wl, watchCount: (wl.watchCount || 0) + 1 }
+            : wl
+        );
+      });
+
+      // Return context for rollback
+      return { previousWatchlists };
+    },
+
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousWatchlists !== undefined) {
+        queryClient.setQueryData(['/api/watchlists'], context.previousWatchlists);
+      }
+    },
+
+    onSuccess: () => {
+      // PERFORMANCE: Only invalidate what's displayed on product detail page
       void queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
-      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId] });
-      void queryClient.invalidateQueries({ queryKey: ['/api/watchlists', listId, 'products'] });
-      void queryClient.invalidateQueries({ queryKey: ['/api/community/watches'] });
-      void queryClient.invalidateQueries({ queryKey: [`/api/community/watch-count/${productId}`] });
-      void queryClient.invalidateQueries({ queryKey: [`/api/community/is-watching/${productId}`] });
+
+      // REMOVED: These 5 invalidations are unnecessary on product detail page
+      // Product detail doesn't show: individual list products, community watches, watch counts
     },
   });
 }

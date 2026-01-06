@@ -39,6 +39,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
+import { ApiError } from '@/lib/queryClient';
 import { useProductFull, useProductsByCategory, transformProduct } from '@/hooks/use-home-data';
 import { useWatchLists, useAddProductToWatchList } from '@/hooks/use-community';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
@@ -182,35 +183,38 @@ function ProductDetailContent() {
   };
 
   // Handle adding product to watchlist (modern watchlist manager API)
-  const handleAddToWatchlist = async () => {
-    if (!selectedWatchlistId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a watchlist',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const handleAddToWatchlist = async (watchlistId: string) => {
     try {
       // Use modern watchlist manager API
       await addToWatchList.mutateAsync({
-        listId: parseInt(selectedWatchlistId, 10),
+        listId: parseInt(watchlistId, 10),
         productId,
       });
 
+      // Show watchlist name in toast (better UX)
+      const watchlist = watchlists.find(w => w.id === parseInt(watchlistId, 10));
       toast({
         title: 'Success',
-        description: 'Added to watchlist',
+        description: `Added to ${watchlist?.name ?? 'watchlist'}`,
       });
+
       setWatchlistDialogOpen(false);
       setSelectedWatchlistId('');
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add to watchlist',
-        variant: 'destructive',
-      });
+    } catch (error: unknown) {
+      // Type-safe error handling
+      if (error instanceof ApiError) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to add to watchlist',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -620,8 +624,11 @@ function ProductDetailContent() {
                 </SelectTrigger>
                 <SelectContent>
                   {watchlists.map((watchlist) => (
-                    <SelectItem key={watchlist.id} value={watchlist.id.toString()}>
-                      {watchlist.name}
+                    <SelectItem
+                      key={watchlist.id}
+                      value={watchlist.id.toString()}
+                    >
+                      {watchlist.name} ({watchlist.watchCount || 0} items)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -633,7 +640,12 @@ function ProductDetailContent() {
             <Button variant="outline" onClick={() => setWatchlistDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => void handleAddToWatchlist()}>Add</Button>
+            <Button
+              onClick={() => void handleAddToWatchlist(selectedWatchlistId)}
+              disabled={!selectedWatchlistId || addToWatchList.isPending}
+            >
+              {addToWatchList.isPending ? 'Adding...' : 'Add'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
