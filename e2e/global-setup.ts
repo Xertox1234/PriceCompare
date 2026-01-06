@@ -238,8 +238,23 @@ async function globalSetup() {
     // See: TODO_012, docs/08_TESTING_PATTERNS.md
     console.log('🔍 Validating test database schema...');
 
+    /**
+     * Expected tables in test database schema
+     *
+     * CRITICAL MAINTENANCE RULE:
+     * When adding new migrations that create tables:
+     * 1. Add the table name to this list (keep alphabetically sorted)
+     * 2. Commit the list update in the SAME commit as the migration
+     * 3. Table names must match pgTable definitions in shared/schema.ts
+     *
+     * Currently tracking 41 tables (as of schema.ts audit 2026-01-06)
+     *
+     * See: CLAUDE.md "Test Schema Synchronization"
+     */
     const EXPECTED_TABLES = [
       'agent_sessions',
+      'badges',
+      'deal_spottings',
       'forum_categories',
       'forum_posts',
       'forum_topics',
@@ -248,19 +263,31 @@ async function globalSetup() {
       'notifications',
       'password_reset_tokens',
       'post_likes',
+      'post_mentions',
+      'post_revisions',
       'price_aggregates_daily',
       'price_aggregates_monthly',
       'price_aggregates_weekly',
       'price_alerts',
       'price_history',
+      'price_predictions',
       'price_snapshots',
+      'price_trends',
+      'private_messages',
       'product_offers',
       'product_specifications',
+      'product_urls',
       'product_watches',
       'products',
       'retailers',
       'scraping_jobs',
       'scraping_sources',
+      'search_queries',
+      'topic_tag_relations',
+      'topic_tags',
+      'trending_products',
+      'user_badges',
+      'user_reputation',
       'users',
       'watch_list_shares',
       'watch_lists',
