@@ -83,42 +83,52 @@ export async function cleanDatabase() {
     END $$;
   `);
 
-  // CRITICAL: Clear Redis sessions to prevent session leakage between tests
-  // Sessions persist in Redis even after database truncation and browser cookie clearing
+  // CRITICAL: Clear Redis keys to prevent data leakage between tests
+  // Both sessions AND rate limits persist in Redis even after database truncation
+  // Rate limit accumulation across tests causes "Too many requests" errors
   const redisClient = getRedisSessionClient();
   if (redisClient) {
     // SAFETY: Validate Redis URL doesn't contain "production"
     const redisUrl = process.env.REDIS_URL || '';
     if (redisUrl.includes('production') || redisUrl.includes('prod-')) {
       throw new Error(
-        `Refusing to clear sessions - Redis URL contains "production" or "prod-". ` +
+        `Refusing to clear Redis keys - Redis URL contains "production" or "prod-". ` +
         `Redis URL: ${redisUrl.substring(0, 30)}...`
       );
     }
 
     // PERFORMANCE: Use SCAN instead of KEYS (non-blocking, O(N) but doesn't block Redis)
     // KEYS is O(N) and blocks all Redis operations during execution
-    const sessionKeys: string[] = [];
-    let cursor = '0';
 
-    do {
-      // SCAN iterates in chunks of 100 keys at a time
-      // Returns object: {cursor: string, keys: string[]}
-      const result = await redisClient.scan(cursor, {
-        MATCH: 'sess:*',
-        COUNT: 100,
-      });
-      cursor = result.cursor;
-      const keys = result.keys;
+    // Clear session keys, rate limit keys, and account lockout keys
+    // Session keys: sess:* (express-session - note different prefix from REDIS_KEYS.SESSION)
+    // Rate limit keys: ratelimit:* (see server/config/redis.ts REDIS_KEYS.RATE_LIMIT)
+    // Account lockout keys: lockout:* (see server/config/redis.ts REDIS_KEYS.ACCOUNT_LOCKOUT)
+    // Cache keys intentionally NOT cleared - tests may rely on cache behavior
+    const patternsToClean = ['sess:*', 'ratelimit:*', 'lockout:*'];
 
+    for (const pattern of patternsToClean) {
+      const keys: string[] = [];
+      let cursor = '0';
+
+      do {
+        // SCAN iterates in chunks of 100 keys at a time
+        // Returns object: {cursor: string, keys: string[]}
+        const result = await redisClient.scan(cursor, {
+          MATCH: pattern,
+          COUNT: 100,
+        });
+        cursor = result.cursor;
+
+        if (result.keys.length > 0) {
+          keys.push(...result.keys);
+        }
+      } while (cursor !== '0');
+
+      // Delete all matching keys in a single operation
       if (keys.length > 0) {
-        sessionKeys.push(...keys);
+        await redisClient.del(keys);
       }
-    } while (cursor !== '0');
-
-    // Delete all session keys in a single operation
-    if (sessionKeys.length > 0) {
-      await redisClient.del(sessionKeys);
     }
   }
 }

@@ -14,6 +14,7 @@ import {
   Loader2,
   ExternalLink,
   ListPlus,
+  Bell,
 } from 'lucide-react';
 import { TemplateHeader, TemplateFooter, ProductSection } from '@/components/template';
 import { CartSidebar } from '@/components/template/cart-sidebar';
@@ -426,14 +427,29 @@ function ProductDetailContent() {
               </div>
 
               {/* Add to Watchlist Button */}
-              <Button
-                variant="outline"
-                onClick={() => setWatchlistDialogOpen(true)}
-                className="w-full py-6 text-base"
-              >
-                <ListPlus className="mr-2 h-5 w-5" />
-                Add to Watchlist
-              </Button>
+              {user && (
+                <Button
+                  variant="outline"
+                  onClick={() => setWatchlistDialogOpen(true)}
+                  className="w-full py-6 text-base"
+                >
+                  <ListPlus className="mr-2 h-5 w-5" />
+                  Add to Watchlist
+                </Button>
+              )}
+
+              {/* Set Price Alert Button */}
+              {user && (
+                <Button
+                  variant="outline"
+                  onClick={() => setPriceAlertModalOpen(true)}
+                  className="w-full py-6 text-base"
+                  data-testid="set-price-alert-button"
+                >
+                  <Bell className="mr-2 h-5 w-5" />
+                  Set Price Alert
+                </Button>
+              )}
             </div>
 
             {/* Features */}
