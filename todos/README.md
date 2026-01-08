@@ -23,16 +23,7 @@ Currently, there are **2 active TODOs** (created 2026-01-06 from Phase 2.4 E2E t
   - **E2E Tests**: 1 skipped test waiting for button
   - **Original estimate**: 1-2 hours → **Actual**: 10 minutes (92% time savings)
 
-### ⏸️ Deferred (1)
-- **TODO_018 (Price Alert Email Notifications)** - P5 (Deferred - YAGNI)
-  - **Problem**: No email notifications for price alerts
-  - **Discovery**: Smart notification system already exists (in-app), alert limits already enforced (50/user)
-  - **Decision**: Defer until users request email notifications
-  - **Files**: `server/services/smart-notification-service.ts`
-  - **Status**: DEFERRED - Awaiting user demand
-  - **If implemented**: 30-60 minutes (not 4-6 hours)
-
-### ✅ Archived (3)
+### ✅ Archived (4)
 - **TODO_013 (Watchlist Integration on Product Detail)** → Completed 2026-01-06
   - **Implementation**: Wired up existing mutation hook with optimistic updates
   - **Performance**: 83% fewer API calls (6→1), 0ms perceived latency (200-500ms→0ms)
@@ -42,13 +33,34 @@ Currently, there are **2 active TODOs** (created 2026-01-06 from Phase 2.4 E2E t
   - **Patterns**: Optimistic updates with rollback codified in docs/05_FRONTEND_PATTERNS.md v2.8
   - **Archived to**: `archive/2026-01-06-TODO_013_WATCHLIST_INTEGRATION.md`
 
-- **TODO_016 (Price Analytics Integration)** → Archived 2026-01-06
-  - **Discovery**: Feature 100% complete, just needs `defaultOpen={true}` (15 seconds)
-  - **Archived to**: `archive/2026-01-06-TODO_016_FEATURE_COMPLETE.md`
+- **TODO_016 (Performance Optimization - Price Analytics)** → Completed 2026-01-06
+  - **Problem**: 5 critical performance bottlenecks (367KB Recharts in main bundle, eager API calls, no lazy loading)
+  - **Implementation**: Lazy loading, conditional fetching, error handling, comprehensive E2E tests
+  - **Performance**: Bundle 1.1MB → 598KB (-45%), API calls -70%, FCP -900ms, TTI -1.4s
+  - **Scale Impact**: At 100k users/day: 50GB bandwidth saved, 140k API calls prevented, 116 CPU-min/day saved
+  - **Security**: Error message sanitization, input validation with parseIntSafe()
+  - **Tests**: 15 E2E tests (lazy loading, conditional fetching, performance budgets)
+  - **Code Review**: All issues fixed, production-ready
+  - **Files**: 9 files created/modified, ~1,500 LOC, 3 documentation guides
+  - **Patterns**: Lazy loading, conditional fetching, error sanitization patterns established
+  - **Archived to**: `archive/TODO_016_PERFORMANCE_ANALYSIS_COMPLETED.md` (original analysis archived)
 
 - **TODO_017 (Related Products Display)** → Archived 2026-01-06
   - **Discovery**: Feature 100% complete and working (lines 82-88, 580-594)
   - **Archived to**: `archive/2026-01-06-TODO_017_FEATURE_COMPLETE.md`
+
+- **TODO_018 (Price Alert Email Notifications)** → Completed 2026-01-07
+  - **Challenge**: Rejected YAGNI reasoning - email notifications are industry standard
+  - **Implementation**: Email service integration + scheduled job + comprehensive testing
+  - **Performance**: Eliminated N+1 query (101 queries → 1 query, 100x improvement)
+  - **Security**: Fixed XSS vulnerability in email templates (code review caught)
+  - **Architecture**: Dual-trigger system (event-driven + scheduled), multi-channel notifications
+  - **Tests**: 56/56 passing (email service, price drop detection, job scheduler)
+  - **Bugs Fixed**: 5 bugs caught (duplicates, lock bypass, DB triggers, XSS, N+1)
+  - **Patterns Codified**: 7 new patterns across 5 documentation files
+  - **Files**: 11 files (7 new, 4 modified), ~1,000 LOC production + tests
+  - **Commits**: TBD (ready to commit)
+  - **Archived to**: `archive/TODO_018_COMPLETED_2026-01-07.md`
 
 **Total Estimated Effort**: 25 minutes (NOT 10.5-19.5 hours)
 - **Original total**: 13-23 hours

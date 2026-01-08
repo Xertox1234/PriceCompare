@@ -43,6 +43,7 @@ import { initializePriceSnapshotScheduler } from './jobs/price-snapshot-queue';
 import { startPriceHistoryJobs } from './jobs/price-history-jobs';
 import { startPriceAnalyticsJobs } from './jobs/price-analytics-jobs';
 import { startPriceAggregationJobs } from './jobs/price-aggregation-job';
+import { startPriceAlertCheckerJob } from './jobs/price-alert-checker';
 import { initializeNotificationProcessor } from './jobs/notification-processor';
 import { errorHandler, setupGlobalErrorHandlers } from './middleware/error-handler';
 import { RATE_LIMIT, SESSION } from './utils/constants';
@@ -331,6 +332,9 @@ app.use(sanitizeInput);
 
   // Start price aggregation scheduled jobs (daily/weekly/monthly aggregates and cleanup)
   startPriceAggregationJobs();
+
+  // Start price alert checker scheduled job (checks all active alerts every 30 minutes)
+  startPriceAlertCheckerJob();
 
   // Password reset token cleanup - run every hour
   const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour

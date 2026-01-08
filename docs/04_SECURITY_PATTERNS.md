@@ -1,7 +1,7 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 2.6
-Last Updated: 2025-12-27
+Version: 2.7
+Last Updated: 2026-01-07
 Maintainer: Claude Code / Development Team
 Status: Active - SINGLE SOURCE OF TRUTH
 Migrated From:
@@ -11,6 +11,7 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (validation layer separation section)
 Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.7 (2026-01-07): Added Consistent XSS Escaping Across Template Types pattern (from TODO_018 email service code review)
   - 2.6 (2025-12-27): Added Unified Authentication Middleware Order pattern (flexibleAuth → csrfProtection → withAuth), inline SECURITY comment requirements for pre-commit hooks
   - 2.5 (2025-12-26): Added HTTP Basic Auth CSRF exemption pattern, intentional passwordHash exposure documentation pattern
   - 2.4 (2025-12-09): Added XSS input sanitization middleware pattern using Object.defineProperty for read-only req.query
@@ -2448,6 +2449,186 @@ function RichContent({ html }) {
   );
 }
 ```
+
+### Consistent XSS Escaping Across Template Types (NEW - 2026-01-07)
+
+**Context:** Email services that send both HTML and plain text templates need consistent XSS protection across both formats.
+
+**Problem:** HTML templates had escaping but plain text templates didn't, creating inconsistent security patterns and potential data integrity issues.
+
+**Source:** `server/services/email-service.ts` from TODO_018 - Code review caught unescaped usernames in plain text templates.
+
+#### ❌ WRONG - Inconsistent Escaping
+
+```typescript
+function sendEmail(data: EmailData) {
+  // Escape for HTML template
+  const safeUsername = escapeHtml(data.username);
+  const safeProductName = escapeHtml(data.productName);
+
+  const html = `<p>Hi ${safeUsername}, ${safeProductName} is on sale!</p>`;
+
+  // BUG: Plain text uses raw data (no escaping)
+  const text = `Hi ${data.username}, ${data.productName} is on sale!`;
+  //           ^^^^^^^^^^^^^^^ Unescaped!
+
+  return this.sendEmail({ html, text });
+}
+```
+
+**Security issues:**
+- XSS attack vector if plain text rendered as HTML (e.g., HTML fallback, email client rendering)
+- Data integrity issues (special characters not escaped)
+- Inconsistent behavior between templates
+
+#### ✅ CORRECT - Escape Once, Use Everywhere
+
+```typescript
+function sendEmail(data: EmailData) {
+  // Escape ALL user inputs ONCE at the top
+  const safeUsername = escapeHtml(data.username);
+  const safeProductName = escapeHtml(data.productName);
+  const safeRetailerName = escapeHtml(data.retailerName);
+
+  // Use safe versions in BOTH templates
+  const html = `
+    <div>
+      <p>Hi ${safeUsername},</p>
+      <p>${safeProductName} at ${safeRetailerName} is on sale!</p>
+    </div>
+  `;
+
+  const text = `
+Hi ${safeUsername},
+
+${safeProductName} at ${safeRetailerName} is on sale!
+  `.trim();
+
+  return this.sendEmail({ html, text });
+}
+
+/**
+ * Escape HTML special characters to prevent XSS attacks
+ * @param unsafe - Unsafe string that may contain HTML
+ * @returns HTML-safe string
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+```
+
+#### Why Escape Plain Text?
+
+**Defense-in-depth:**
+- Email clients may render plain text as HTML (auto-linking, formatting)
+- HTML fallback scenarios where plain text gets rendered as HTML
+- Copy-paste into web forms that don't sanitize
+- Prevents data integrity issues with special characters
+
+**Consistency:**
+- Same security guarantees across all output formats
+- Easier to audit (one pattern, not two)
+- Prevents developer confusion ("do I need to escape this?")
+
+**Example attack prevented:**
+```typescript
+// User registers with username: <script>alert('XSS')</script>
+// Without escaping in plain text:
+const text = `Hi <script>alert('XSS')</script>, welcome!`;
+
+// With escaping:
+const text = `Hi &lt;script&gt;alert(&#039;XSS&#039;)&lt;/script&gt;, welcome!`;
+```
+
+#### Rationale
+
+- **Single source of truth**: Escape once at the top, use everywhere
+- **Consistent security**: All templates have same protection
+- **Defense-in-depth**: Protects even if rendering context changes
+- **Data integrity**: Handles special characters correctly
+- **Code clarity**: Obvious which variables are safe
+
+#### When to Use
+
+✅ **ALWAYS escape when:**
+- User-generated content in emails (usernames, product names, descriptions)
+- Any untrusted data in templates (both HTML and plain text)
+- Data that might contain special characters
+- Multi-format output (HTML + plain text, JSON + HTML, etc.)
+
+❌ **DON'T escape when:**
+- Data is already escaped (double-escaping breaks display)
+- Using templating library with auto-escaping (React, Handlebars with escaping on)
+- Data is from trusted source and sanitized (e.g., admin-only content)
+
+#### Pattern Template
+
+```typescript
+async sendCustomEmail(data: {
+  to: string;
+  username: string;
+  customField1: string;
+  customField2: string;
+}): Promise<boolean> {
+  // SECURITY: Escape ALL user inputs at the top
+  const safeUsername = escapeHtml(data.username);
+  const safeField1 = escapeHtml(data.customField1);
+  const safeField2 = escapeHtml(data.customField2);
+
+  const subject = `Important notification for ${safeUsername}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <p>Hi ${safeUsername},</p>
+      <p>Field1: ${safeField1}</p>
+      <p>Field2: ${safeField2}</p>
+    </body>
+    </html>
+  `;
+
+  const text = `
+Hi ${safeUsername},
+
+Field1: ${safeField1}
+Field2: ${safeField2}
+  `.trim();
+
+  return this.sendEmail({ to: data.to, subject, html, text });
+}
+```
+
+#### Detection Rule
+
+```bash
+# Find email templates with unescaped variables
+grep -A 20 "const text = \`" server/services/email-service.ts | \
+  grep '\${data\.' | \
+  grep -v 'escapeHtml'
+```
+
+#### Quality Checklist
+
+- [ ] All user inputs escaped at top of function
+- [ ] Same escaped variables used in HTML AND plain text templates
+- [ ] No raw `data.field` usage in templates (only `safeField`)
+- [ ] escapeHtml function exists and escapes all special chars (&, <, >, ", ')
+- [ ] Subject line also uses escaped variables
+- [ ] URLs are NOT escaped (use URL validation instead)
+- [ ] Code review verifies consistency
+
+**Bug prevented:** Unescaped usernames in plain text templates (lines 246, 380 in email-service.ts)
+
+*Source: TODO_018 email service code review*
+*Added: 2026-01-07*
+
+---
 
 ### Content Security Policy
 

@@ -244,6 +244,45 @@ export async function checkPriceAlertsForDrop(
         // Don't fail the operation if WebSocket emit fails
         logger.error('Failed to emit price alert event', { error: String(error) });
       }
+
+      // Send email notification if user has email notifications enabled
+      try {
+        // Get user preferences and email
+        const userPreferences = await storage.getUserPreferences(alert.userId);
+        const userEmail = await storage.getUserEmailById(alert.userId);
+
+        // Only send email if:
+        // 1. User has preferences set
+        // 2. Price alert notifications are enabled
+        // 3. Email notifications are enabled
+        // 4. User email is available
+        if (
+          userPreferences &&
+          userPreferences.priceAlertEnabled &&
+          userPreferences.emailEnabled &&
+          userEmail
+        ) {
+          const { emailService } = await import('./email-service');
+
+          // Fire and forget - email failures should not break in-app notifications
+          void emailService.sendPriceAlertEmail({
+            to: userEmail.email,
+            username: userEmail.username,
+            productName: offer.productName || 'Product',
+            targetPrice: alert.targetPrice,
+            currentPrice: newPrice,
+            retailerName: offer.retailerName || 'Retailer',
+            productUrl: offer.productUrl || undefined,
+          });
+        }
+      } catch (error) {
+        // Don't fail the operation if email fails - log and continue
+        logger.error('Failed to send price alert email', {
+          error: String(error),
+          userId: alert.userId,
+          productId: offer.productId,
+        });
+      }
     }
 
     // Optionally deactivate the alert after triggering

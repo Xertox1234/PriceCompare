@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.3
-**Last Updated:** 2026-01-06
+**Version:** 3.4
+**Last Updated:** 2026-01-07
 **Changelog:**
+- 3.4 (2026-01-07): Added Database Trigger Conflict Handling in Tests Pattern (from TODO_018 email notifications)
 - 3.3 (2026-01-06): Added Data Completeness Validation for Reference Lists Pattern (from TODO_012 code review)
 - 3.2 (2026-01-05): Added Defensive Cleanup for Test Isolation Pattern (from TODO_010 FK violations investigation)
 - 3.1 (2026-01-04): Added Type-Safe Response Validation Pattern, Anti-Pattern: Placeholder Tests (from TODO_006 migration)
@@ -450,6 +451,159 @@ Negligible - DELETE with WHERE clause on indexed FK column:
 
 *Source: TODO_010 - FK violations investigation (parallel review by @kieran-typescript-reviewer, @performance-oracle, @code-simplicity-reviewer)*
 *Added: 2026-01-05*
+
+---
+
+### Database Trigger Conflict Handling in Tests (NEW - 2026-01-07)
+
+**Context:** Database triggers can auto-create records when parent entities are inserted (e.g., `notification_preferences` when users are created). In tests that need to control this auto-created data, inserting test data directly causes duplicate key errors.
+
+**Problem:** Tests that rely on specific values for trigger-created data (e.g., emailEnabled=false) fail with constraint violations when attempting to insert test preferences.
+
+**Source:** `server/services/__tests__/price-drop-detection.test.ts` and `server/jobs/__tests__/price-alert-checker.test.ts` from TODO_018 email notification implementation.
+
+#### ❌ WRONG - Direct Insert Without Cleanup
+
+```typescript
+// Trigger auto-creates notification_preferences when user is created
+const [user] = await db.insert(users).values({
+  email: 'test@example.com',
+  username: 'testuser',
+  emailHash: hashEmail('test@example.com'),
+  passwordHash: 'hashed',
+  role: 'user',
+}).returning();
+
+// This FAILS with duplicate key error - trigger already created preferences
+await db.insert(notificationPreferences).values({
+  userId: user.id,
+  priceAlertEnabled: true,
+  emailEnabled: false, // Need to control this for test
+  inAppEnabled: true,
+});
+// Error: duplicate key value violates unique constraint "notification_preferences_pkey"
+```
+
+#### ✅ CORRECT - Delete Trigger-Created Data First
+
+```typescript
+// Helper function that clears trigger-created data before inserting test data
+async function setUserPreferences(
+  userId: number,
+  prefs: { priceAlertEnabled: boolean; emailEnabled: boolean; inAppEnabled: boolean }
+): Promise<void> {
+  const { eq } = await import('drizzle-orm');
+
+  // Delete trigger-created preferences first
+  await db.delete(notificationPreferences)
+    .where(eq(notificationPreferences.userId, userId));
+
+  // Then insert test preferences with controlled values
+  await db.insert(notificationPreferences).values({
+    userId,
+    ...prefs,
+  });
+}
+
+// Usage in test
+const [user] = await db.insert(users).values({
+  email: 'test@example.com',
+  username: 'testuser',
+  emailHash: hashEmail('test@example.com'),
+  passwordHash: 'hashed',
+  role: 'user',
+}).returning();
+
+// Now we can control the preferences
+await setUserPreferences(user.id, {
+  priceAlertEnabled: true,
+  emailEnabled: false, // Test requires email disabled
+  inAppEnabled: true,
+});
+```
+
+**Alternative Pattern - Delete Multiple Users**
+
+```typescript
+// When testing multiple users with different preferences
+const { eq, or } = await import('drizzle-orm');
+
+// Delete all trigger-created preferences in batch
+await db.delete(notificationPreferences).where(
+  or(
+    eq(notificationPreferences.userId, testUser1Id),
+    eq(notificationPreferences.userId, testUser2Id),
+    eq(notificationPreferences.userId, testUser3Id)
+  )
+);
+
+// Insert test-specific preferences
+await db.insert(notificationPreferences).values([
+  {
+    userId: testUser1Id,
+    priceAlertEnabled: true,
+    emailEnabled: true,
+    inAppEnabled: true,
+  },
+  {
+    userId: testUser2Id,
+    priceAlertEnabled: true,
+    emailEnabled: false, // Different value for test scenario
+    inAppEnabled: true,
+  },
+  {
+    userId: testUser3Id,
+    priceAlertEnabled: false,
+    emailEnabled: true,
+    inAppEnabled: true,
+  },
+]);
+```
+
+**Rationale:**
+
+- **Test control**: Allows tests to set exact values for trigger-created data
+- **Idempotent**: Helper can be called multiple times safely
+- **Clear intent**: Helper name explicitly states it's setting preferences (not just inserting)
+- **Prevents errors**: Eliminates duplicate key violations
+- **Surgical cleanup**: Only deletes specific user's preferences, not entire table
+
+**When to Use:**
+
+✅ **Use when:**
+- Database triggers auto-create records on parent entity creation
+- Tests need to control specific values in trigger-created data
+- Testing different user preference scenarios (enabled/disabled states)
+- Integration tests with real database triggers active
+
+❌ **NOT needed when:**
+- No database triggers exist for the entity
+- Test doesn't care about trigger-created data values
+- Using mocked database (triggers don't run)
+- Unit tests that stub database calls
+
+**Common Trigger Scenarios:**
+
+1. **notification_preferences** - Auto-created when users are inserted
+2. **user_settings** - Default settings on user registration
+3. **audit_logs** - Automatic logging triggers
+4. **timestamps** - Updated_at triggers
+
+**Quality Checklist:**
+
+- [ ] Helper function clearly named (e.g., `setUserPreferences`, not `insertPreferences`)
+- [ ] DELETE before INSERT (not UPSERT - trigger already created the row)
+- [ ] WHERE clause targets specific entity (userId, productId, etc.)
+- [ ] Helper placed in test file or shared test helpers module
+- [ ] Documented WHY delete is needed (trigger-created data)
+- [ ] Used consistently across all tests needing controlled preferences
+
+**Files Affected:**
+- `server/services/__tests__/price-drop-detection.test.ts` (9 tests)
+- `server/jobs/__tests__/price-alert-checker.test.ts` (11 tests)
+
+*Source: TODO_018 price alert email notification implementation*
+*Added: 2026-01-07*
 
 ---
 

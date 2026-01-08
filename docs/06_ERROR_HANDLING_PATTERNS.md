@@ -1,7 +1,7 @@
 ---
 Pattern: Error Handling Patterns & Anti-Patterns
-Version: 2.1
-Last Updated: 2025-12-09
+Version: 2.2
+Last Updated: 2026-01-07
 Maintainer: Claude Code / Development Team
 Status: Active
 Migrated From:
@@ -9,6 +9,7 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (PostgreSQL error code classification)
 Related Patterns: [API_PATTERNS.md, SECURITY_PATTERNS.md, TYPESCRIPT_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, DATABASE_PATTERNS.md]
 Changelog:
+  - 2.2 (2026-01-07): Added Fire-and-Forget Pattern and Graceful Degradation patterns (from TODO_018 email notification implementation)
   - 2.1 (2025-12-09): Added "unique", "constraint", "duplicate" keywords to 409 status code inference
   - 2.0 (2025-11-29): Initial consolidated error handling patterns
 ---
@@ -966,6 +967,371 @@ export function showErrorToast(error: ApiError) {
 ---
 
 ## Error Recovery Strategies
+
+### Fire-and-Forget Pattern for Non-Critical Operations (NEW - 2026-01-07)
+
+**Context:** When optional enhancements (like email notifications) should not block or break core functionality (like in-app notifications).
+
+**Problem:** If optional operations throw errors, they can cause the entire operation to fail, breaking critical features that should succeed independently.
+
+**Source:** `server/services/price-drop-detection.ts` from TODO_018 email notification implementation.
+
+#### ❌ WRONG - Blocking on Optional Operation
+
+```typescript
+async function createNotification(data: NotificationData) {
+  // Create critical in-app notification
+  const notification = await db.insert(notifications).values(data);
+
+  // Send optional email - BLOCKS if it fails!
+  if (userPreferences.emailEnabled) {
+    await emailService.sendPriceAlertEmail({ ... }); // Throws on SMTP error
+  }
+
+  // PROBLEM: If email fails, notification creation appears to fail
+  // User doesn't receive in-app notification either!
+  return notification;
+}
+```
+
+**Bug scenario:**
+- SMTP server down
+- Email send throws error
+- In-app notification creation rolls back (transaction)
+- User receives nothing (both notification types lost)
+
+#### ✅ CORRECT - Fire-and-Forget with Void Operator
+
+```typescript
+async function createNotification(data: NotificationData) {
+  // ALWAYS create critical notification first (must succeed)
+  const notification = await db.insert(notifications).values(data).returning();
+
+  // Send optional email (fire-and-forget, non-blocking)
+  void (async () => {
+    try {
+      if (userPreferences.emailEnabled) {
+        await emailService.sendPriceAlertEmail({ ... });
+      }
+    } catch (error) {
+      // Log error but don't fail the operation
+      logger.error('Email failed, but notification created', {
+        error,
+        notificationId: notification[0].id,
+        userId: data.userId,
+      });
+    }
+  })();
+
+  // Continue immediately - don't wait for email
+  return notification;
+}
+```
+
+**Key Pattern Elements:**
+
+1. **void operator**: Satisfies ESLint no-floating-promises rule
+2. **IIFE async function**: Separate error boundary
+3. **try/catch inside**: Errors don't propagate to caller
+4. **Core operation first**: Critical functionality completes before optional
+5. **Comprehensive logging**: Track failures without breaking flow
+
+#### Rationale
+
+- **Resilience**: Core functionality works even if enhancement fails
+- **User experience**: Users get critical notification even if email fails
+- **Fail gracefully**: Degrade to in-app only, not complete failure
+- **ESLint compliance**: `void` operator prevents floating promise warnings
+- **Debugging**: Errors still logged for investigation
+
+#### When to Use
+
+✅ **Use for:**
+- Email notifications (in-app notification is primary)
+- Analytics tracking (app functionality is primary)
+- Audit logging (business operation is primary)
+- Cache updates (source of truth is database)
+- Optional third-party integrations
+
+❌ **NEVER use for:**
+- Payment processing (must confirm success)
+- Database writes (data integrity critical)
+- Authentication (security critical)
+- Data validation (correctness critical)
+
+#### Alternative Pattern - Promise.allSettled
+
+```typescript
+async function createNotificationWithEmail(data: NotificationData) {
+  // Run both operations concurrently
+  const [notificationResult, emailResult] = await Promise.allSettled([
+    db.insert(notifications).values(data).returning(),
+    userPreferences.emailEnabled
+      ? emailService.sendPriceAlertEmail({ ... })
+      : Promise.resolve(null),
+  ]);
+
+  // Check critical operation
+  if (notificationResult.status === 'rejected') {
+    throw new Error('Notification creation failed');
+  }
+
+  // Log optional operation failure
+  if (emailResult.status === 'rejected') {
+    logger.error('Email failed, but notification created', {
+      error: emailResult.reason,
+    });
+  }
+
+  return notificationResult.value;
+}
+```
+
+**When to use allSettled:**
+- Need both operations to run concurrently (performance)
+- Want to log failures after all operations complete
+- Multiple optional operations (analytics + email + webhook)
+
+#### Detection Rule
+
+```bash
+# Find critical operations followed by await on optional operations
+grep -A 10 "await db\.insert.*notifications" server/ | \
+  grep -A 5 "await emailService\|await analytics"
+```
+
+#### Quality Checklist
+
+- [ ] Core functionality completes first (before optional operations)
+- [ ] void operator used for fire-and-forget (ESLint compliant)
+- [ ] try/catch inside IIFE (errors don't propagate)
+- [ ] Error logging includes context (userId, notificationId, etc.)
+- [ ] Tests verify core succeeds even when optional fails
+- [ ] Documentation explains which operations are optional
+
+**Bug prevented:** Email SMTP failures breaking in-app notification delivery
+
+*Source: TODO_018 price drop detection service*
+*Added: 2026-01-07*
+
+---
+
+### Graceful Degradation for Optional Infrastructure (NEW - 2026-01-07)
+
+**Context:** Services that enhance functionality (like email) should work when configured, but degrade gracefully when unavailable.
+
+**Problem:** Throwing errors when optional infrastructure is missing breaks core app functionality that doesn't require it.
+
+**Source:** `server/services/email-service.ts` from TODO_018 - Email notification implementation.
+
+#### ❌ WRONG - Throw Error When Unavailable
+
+```typescript
+class EmailService {
+  private transporter: Transporter;
+
+  constructor() {
+    // Throws if SMTP not configured - breaks app startup!
+    if (!process.env.SMTP_HOST) {
+      throw new Error('SMTP_HOST required');
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      // ...
+    });
+  }
+
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    // Assumes transporter exists
+    await this.transporter.sendMail(options);
+    return true;
+  }
+}
+```
+
+**Problems:**
+- App won't start without SMTP configuration
+- All features break, not just email
+- Forces production credentials in development
+- No way to test non-email features locally
+
+#### ✅ CORRECT - Check Config, Log Info, Degrade Gracefully
+
+```typescript
+class EmailService {
+  private transporter: Transporter | null = null;
+  private isConfigured = false;
+
+  constructor() {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = process.env.SMTP_PORT;
+    const smtpUser = process.env.SMTP_USERNAME;
+    const smtpPass = process.env.SMTP_PASSWORD;
+
+    // Check configuration (don't throw!)
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      // INFO level - not an error if optional
+      logger.info(
+        'Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_PASSWORD environment variables.'
+      );
+      this.isConfigured = false;
+      return; // Early return, app continues
+    }
+
+    // Initialize if configured
+    try {
+      this.transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort, 10),
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+      this.isConfigured = true;
+      logger.info('Email service initialized successfully');
+    } catch (error) {
+      logger.error(`Failed to initialize email service: ${error}`);
+      this.isConfigured = false;
+    }
+  }
+
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    // Check if configured (don't throw - return false)
+    if (!this.isConfigured || !this.transporter) {
+      logger.error('Email service is not configured. Cannot send email.');
+      return false; // Caller decides how to handle
+    }
+
+    try {
+      await this.transporter.sendMail(options);
+      logger.info(`Email sent successfully to ${options.to}`);
+      return true;
+    } catch (error) {
+      logger.error(`Failed to send email to ${options.to}: ${error}`);
+      return false; // Fail gracefully
+    }
+  }
+
+  isReady(): boolean {
+    return this.isConfigured;
+  }
+}
+```
+
+#### Key Patterns
+
+**1. Check config once at initialization:**
+```typescript
+constructor() {
+  if (!requiredEnvVars) {
+    logger.info('Service not configured');  // Not ERROR
+    this.isConfigured = false;
+    return;  // Early return, don't throw
+  }
+}
+```
+
+**2. Return boolean success (don't throw):**
+```typescript
+async sendEmail(): Promise<boolean> {
+  if (!this.isConfigured) {
+    return false;  // Let caller decide
+  }
+  // Send...
+}
+```
+
+**3. Provide ready check:**
+```typescript
+isReady(): boolean {
+  return this.isConfigured;
+}
+```
+
+#### Rationale
+
+- **App starts**: Core features work without optional services
+- **Development-friendly**: No SMTP needed for local development
+- **Production flexibility**: Can deploy without email, add later
+- **Graceful failure**: Log errors but don't break
+- **Caller control**: Return false, let caller decide how to handle
+
+#### Logging Levels
+
+**INFO** (not ERROR) when optional service not configured:
+```typescript
+logger.info('Email service not configured. Emails will be skipped.');
+```
+
+**ERROR** when trying to send without configuration:
+```typescript
+logger.error('Email service not configured. Cannot send email.');
+```
+
+**Why?** Missing configuration is expected (not an error), but attempting to send is unexpected (error).
+
+#### When to Use
+
+✅ **Use for:**
+- Email services (app works without email)
+- Analytics services (app works without tracking)
+- Optional third-party integrations (Stripe, Twilio, etc.)
+- Enhancement services (search, recommendations)
+
+❌ **NEVER use for:**
+- Database connection (app can't work without DB)
+- Authentication secret keys (security critical)
+- Required business logic services
+
+#### Alternative Pattern - Lazy Initialization
+
+```typescript
+class EmailService {
+  private transporter: Transporter | null = null;
+
+  private async ensureInitialized(): Promise<boolean> {
+    if (this.transporter) return true;
+
+    // Try to initialize on first use
+    if (!process.env.SMTP_HOST) {
+      logger.warn('Email service not configured');
+      return false;
+    }
+
+    try {
+      this.transporter = nodemailer.createTransport({ ... });
+      return true;
+    } catch (error) {
+      logger.error('Email initialization failed', error);
+      return false;
+    }
+  }
+
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    if (!(await this.ensureInitialized())) {
+      return false;
+    }
+
+    // Send email...
+  }
+}
+```
+
+#### Quality Checklist
+
+- [ ] Check config at initialization (don't throw)
+- [ ] Log INFO (not ERROR) for missing config
+- [ ] Return boolean success (don't throw on send failure)
+- [ ] Provide `isReady()` or `isConfigured()` check
+- [ ] Handle both missing config and runtime failures gracefully
+- [ ] Document which env vars are required
+- [ ] Tests verify app works without optional service
+
+**Experience improvement:** App works locally without SMTP configuration
+
+*Source: TODO_018 email service implementation*
+*Added: 2026-01-07*
+
+---
 
 ### Retry Logic
 

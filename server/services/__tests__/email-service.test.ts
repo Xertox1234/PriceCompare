@@ -13,7 +13,9 @@ const VALID_TEST_TOKEN_3 = 'token-xyz-1234567890abcdefghijkl';
  * - Email sending with SMTP transport
  * - Password reset email generation
  * - Confirmation email generation
+ * - Price alert email generation (NEW)
  * - Template rendering
+ * - XSS prevention (HTML escaping)
  * - Error handling and graceful degradation
  */
 
@@ -486,6 +488,246 @@ describe('Email Service', () => {
 
         expect(result).toBe(false);
       }
+    });
+  });
+
+  describe('sendPriceAlertEmail', () => {
+    beforeEach(() => {
+      process.env.SMTP_HOST = 'smtp.example.com';
+      process.env.SMTP_PORT = '587';
+      process.env.SMTP_USERNAME = 'user@example.com';
+      process.env.SMTP_PASSWORD = 'password123';
+      process.env.APP_URL = 'https://pricecompare.com';
+
+      mockSendMail.mockResolvedValue({ messageId: 'test-123' });
+    });
+
+    it('should send price alert email with correct template', async () => {
+      const { emailService } = await import('../email-service');
+
+      const result = await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'iPhone 15 Pro',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Amazon',
+        productUrl: 'https://pricecompare.com/products/123',
+      });
+
+      expect(result).toBe(true);
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+      expect(mockSendMail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'user@example.com',
+          subject: 'Price Alert: iPhone 15 Pro - Target Price Reached!',
+        })
+      );
+    });
+
+    it('should generate HTML with escaped user input (XSS prevention)', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: '<script>alert("xss")</script>',
+        productName: '<img src=x onerror=alert(1)>',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: '<b>Evil Retailer</b>',
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      // Verify HTML is escaped
+      expect(emailCall.html).not.toContain('<script>');
+      expect(emailCall.html).toContain('&lt;script&gt;');
+      expect(emailCall.html).not.toContain('<img src=x');
+      expect(emailCall.html).toContain('&lt;img');
+      expect(emailCall.html).not.toContain('<b>Evil');
+      expect(emailCall.html).toContain('&lt;b&gt;Evil');
+    });
+
+    it('should generate plain text version', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Test Retailer',
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      expect(emailCall.text).toBeTruthy();
+      expect(emailCall.text).toContain('PRICE ALERT TRIGGERED!');
+      expect(emailCall.text).toContain('Test Product');
+      expect(emailCall.text).toContain('Test Retailer');
+      expect(emailCall.text).toContain('$95.00');
+      expect(emailCall.text).toContain('$100.00');
+    });
+
+    it('should format savings correctly', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '50.00',
+        currentPrice: 40.0,
+        retailerName: 'Test Retailer',
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      // Check HTML shows savings
+      expect(emailCall.html).toContain('You saved $10.00');
+      // Check plain text shows savings
+      expect(emailCall.text).toContain('You saved $10.00');
+    });
+
+    it('should not show savings when current price equals target price', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '50.00',
+        currentPrice: 50.0,
+        retailerName: 'Test Retailer',
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      // Should not show savings when prices are equal
+      expect(emailCall.html).not.toContain('You saved');
+    });
+
+    it('should include product URL when provided', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Test Retailer',
+        productUrl: 'https://pricecompare.com/products/123',
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      expect(emailCall.html).toContain('View Product');
+      expect(emailCall.html).toContain('https://pricecompare.com/products/123');
+      expect(emailCall.text).toContain('https://pricecompare.com/products/123');
+    });
+
+    it('should handle missing product URL gracefully', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Test Retailer',
+        // No productUrl provided
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      // Should not include View Product button or link text
+      expect(emailCall.html).not.toContain('View Product');
+    });
+
+    it('should gracefully handle missing SMTP config', async () => {
+      // Clear SMTP config
+      process.env.SMTP_HOST = '';
+
+      const { emailService } = await import('../email-service');
+
+      const result = await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Test Retailer',
+      });
+
+      // Should return false, not throw
+      expect(result).toBe(false);
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
+    it('should handle email sending failure gracefully', async () => {
+      mockSendMail.mockRejectedValueOnce(new Error('SMTP connection failed'));
+
+      const { emailService } = await import('../email-service');
+
+      const result = await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Test Retailer',
+      });
+
+      // Should return false, not throw
+      expect(result).toBe(false);
+      expect(mockSendMail).toHaveBeenCalled();
+    });
+
+    it('should include both HTML and plain text versions', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Test Retailer',
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      expect(emailCall.html).toBeTruthy();
+      expect(emailCall.text).toBeTruthy();
+      expect(emailCall.html.length).toBeGreaterThan(100);
+      expect(emailCall.text.length).toBeGreaterThan(50);
+    });
+
+    it('should include price comparison in template', async () => {
+      const { emailService } = await import('../email-service');
+
+      await emailService.sendPriceAlertEmail({
+        to: 'user@example.com',
+        username: 'JohnDoe',
+        productName: 'Test Product',
+        targetPrice: '100.00',
+        currentPrice: 95.0,
+        retailerName: 'Test Retailer',
+      });
+
+      const emailCall = mockSendMail.mock.calls[0][0];
+
+      // Check HTML contains both prices
+      expect(emailCall.html).toContain('$95.00'); // Current price
+      expect(emailCall.html).toContain('$100.00'); // Target price
+      expect(emailCall.html).toContain('Your target:');
+
+      // Check text contains both prices
+      expect(emailCall.text).toContain('$95.00');
+      expect(emailCall.text).toContain('$100.00');
     });
   });
 });

@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.13
-**Last Updated:** 2026-01-04
+**Version:** 2.14
+**Last Updated:** 2026-01-07
 **Changelog:**
+- 2.14 (2026-01-07): Added Correlated Subqueries for N+1 Prevention pattern (from TODO_018 price alert checker - 100x performance improvement)
 - 2.13 (2026-01-04): Added SQL conditional aggregation pattern (COUNT CASE WHEN), deterministic ordering pattern, and WithStats method preference pattern (from TODO 003 - highPriorityCount calculation)
 - 2.12 (2026-01-04): Added comprehensive JSDoc pattern for storage methods and validation helper extraction pattern (from TODO 002 code review)
 - 2.11 (2025-12-26): Added notification daily limit SERIALIZABLE transaction production example from TODO 006 (with retry logic)
@@ -1452,7 +1453,223 @@ await storage.insertPriceHistoryBatch(records);
 
 ---
 
-### 3.2 Database Aggregations
+### 3.2 Correlated Subqueries for N+1 Prevention (NEW - 2026-01-07)
+
+**Context:** When fetching aggregated data (e.g., MIN price) along with the specific entity ID that has that value (e.g., which offer has min price), you need both the aggregate AND the related record ID.
+
+**Problem:** Fetching aggregated data first, then looping to fetch related IDs creates an N+1 query pattern (1 initial query + N secondary queries).
+
+**Source:** `server/jobs/price-alert-checker.ts` from TODO_018 - Performance bug caught during code review (101 queries → 1 query for 100 alerts).
+
+#### ❌ ANTI-PATTERN - N+1 Query with Secondary Loop
+
+```typescript
+// Get aggregated data (MIN price per product)
+const alerts = await db.select({
+  alertId: priceAlerts.id,
+  productId: priceAlerts.productId,
+  targetPrice: priceAlerts.targetPrice,
+  currentPrice: sql<string>`MIN(${productOffers.price})`, // Aggregated data
+}).from(priceAlerts)
+  .innerJoin(products, eq(priceAlerts.productId, products.id))
+  .leftJoin(productOffers, and(
+    eq(products.id, productOffers.productId),
+    eq(productOffers.availability, 'in_stock')
+  ))
+  .groupBy(priceAlerts.id, products.id);
+
+// Then loop to get offer IDs (N queries! N+1 PROBLEM!)
+for (const alert of alerts) {
+  // Secondary query for each alert - SLOW!
+  const [offer] = await db.select({ id: productOffers.id })
+    .from(productOffers)
+    .where(and(
+      eq(productOffers.productId, alert.productId),
+      eq(productOffers.availability, 'in_stock')
+    ))
+    .orderBy(asc(productOffers.price))
+    .limit(1);
+
+  const offerId = offer?.id; // Get the ID with MIN price
+  // ... process
+}
+```
+
+**Performance impact:**
+- 100 alerts = 101 queries (1 initial + 100 in loop)
+- Total time: ~1 second
+- Database load: 100x higher than necessary
+
+#### ✅ CORRECT - Correlated Subquery in Initial SELECT
+
+```typescript
+// Get BOTH aggregated data AND related ID in single query
+const alerts = await db.select({
+  alertId: priceAlerts.id,
+  productId: priceAlerts.productId,
+  targetPrice: priceAlerts.targetPrice,
+  // Aggregated data
+  currentPrice: sql<string>`MIN(${productOffers.price})`,
+  // Correlated subquery for related ID
+  minOfferId: sql<number>`(
+    SELECT id
+    FROM product_offers
+    WHERE product_id = ${priceAlerts.productId}
+      AND availability = 'in_stock'
+    ORDER BY price ASC
+    LIMIT 1
+  )`,
+}).from(priceAlerts)
+  .innerJoin(products, eq(priceAlerts.productId, products.id))
+  .leftJoin(productOffers, and(
+    eq(products.id, productOffers.productId),
+    eq(productOffers.availability, 'in_stock')
+  ))
+  .groupBy(priceAlerts.id, products.id);
+
+// No loop needed! All data in one query
+for (const alert of alerts) {
+  const offerId = alert.minOfferId; // Already fetched!
+  if (!offerId) continue;
+
+  // Process with available data
+  await processPriceAlert(offerId, parseFloat(alert.currentPrice));
+}
+```
+
+**Performance impact:**
+- 100 alerts = 1 query
+- Total time: ~10ms
+- Database load: 100x lower
+- **100x improvement!**
+
+#### Key Insights
+
+**Correlated subquery pattern:**
+```sql
+SELECT
+  main_table.id,
+  aggregated_data,
+  (
+    SELECT specific_field
+    FROM related_table
+    WHERE related_table.fk = main_table.id
+    ORDER BY some_column
+    LIMIT 1
+  ) AS related_id
+FROM main_table
+```
+
+**When the subquery correlates:**
+- Subquery references outer query: `WHERE product_id = ${priceAlerts.productId}`
+- Executes once per outer row (but optimized by database)
+- Still dramatically faster than N sequential queries from application
+
+**Type safety with Drizzle:**
+```typescript
+minOfferId: sql<number>`(...)`,  // Explicit type for subquery result
+```
+
+#### Rationale
+
+- **Single query**: Database handles all lookups in one execution
+- **Query planner optimization**: Database can optimize correlated subqueries (indexes, caching)
+- **Network overhead**: 1 round-trip vs 101 round-trips
+- **Connection pooling**: 1 connection vs 101 connections
+- **Type safe**: `sql<number>` ensures correct TypeScript type
+
+#### When to Use
+
+✅ **Use when:**
+- Fetching aggregated data (MIN, MAX, AVG) + the specific record with that value
+- Need both summary statistics AND detail records
+- Batch query where loop would cause N+1
+- Related data is deterministic (e.g., "product offer with lowest price")
+
+❌ **NOT needed when:**
+- Only aggregated data needed (no specific record ID)
+- Related data is 1:1 (use JOIN instead)
+- Related data is optional and rarely used (lazy load)
+- Subquery would be too complex (consider view or materialized view)
+
+#### Alternative Patterns
+
+**Pattern 1: Window Functions (More complex but flexible)**
+
+```typescript
+const alerts = await db.execute(sql`
+  SELECT DISTINCT ON (pa.id)
+    pa.id AS alert_id,
+    pa.product_id,
+    pa.target_price,
+    first_value(po.id) OVER (
+      PARTITION BY pa.product_id
+      ORDER BY po.price ASC
+    ) AS min_offer_id,
+    first_value(po.price) OVER (
+      PARTITION BY pa.product_id
+      ORDER BY po.price ASC
+    ) AS current_price
+  FROM price_alerts pa
+  JOIN products p ON pa.product_id = p.id
+  LEFT JOIN product_offers po ON p.id = po.product_id
+    AND po.availability = 'in_stock'
+  WHERE pa.is_active = true
+`);
+```
+
+**Pattern 2: Common Table Expression (CTE) for Readability**
+
+```typescript
+const alerts = await db.execute(sql`
+  WITH min_offers AS (
+    SELECT DISTINCT ON (product_id)
+      product_id,
+      id AS min_offer_id,
+      price AS min_price
+    FROM product_offers
+    WHERE availability = 'in_stock'
+    ORDER BY product_id, price ASC
+  )
+  SELECT
+    pa.id AS alert_id,
+    pa.product_id,
+    pa.target_price,
+    mo.min_offer_id,
+    mo.min_price AS current_price
+  FROM price_alerts pa
+  JOIN products p ON pa.product_id = p.id
+  LEFT JOIN min_offers mo ON p.id = mo.product_id
+  WHERE pa.is_active = true
+`);
+```
+
+#### Detection Rule
+
+```bash
+# Find potential N+1 patterns: initial query + loop with await
+grep -A 20 "await db\.select" server/ | \
+  grep -B 5 "for (const" | \
+  grep -A 15 "await db\."
+```
+
+#### Quality Checklist
+
+- [ ] Correlated subquery included in initial SELECT (not in loop)
+- [ ] Subquery uses proper WHERE correlation (`WHERE fk = ${outer.id}`)
+- [ ] Subquery has LIMIT 1 (returns single value)
+- [ ] Type assertion with `sql<Type>` for subquery result
+- [ ] No loop with `await db.select()` after initial query
+- [ ] Tests verify single query execution (check query count)
+
+**Performance saved:** 100 queries eliminated (101 → 1) for 100 alerts
+
+*Source: TODO_018 price alert checker N+1 query optimization*
+*Added: 2026-01-07*
+
+---
+
+### 3.3 Database Aggregations
 
 #### ❌ WRONG - Count in Application
 ```typescript

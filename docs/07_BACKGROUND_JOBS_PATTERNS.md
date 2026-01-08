@@ -1,10 +1,13 @@
 ---
 Pattern: Background Jobs Patterns
-Version: 2.0
-Last Updated: 2025-11-29
+Version: 2.1
+Last Updated: 2026-01-07
 Maintainer: Claude Code / Development Team
 Status: Active
 Related Patterns: [02_DATABASE_PATTERNS.md, 04_SECURITY_PATTERNS.md, 03_API_PATTERNS.md]
+Changelog:
+  - 2.1 (2026-01-07): Added Product Deduplication in Batch Jobs and Consistent Distributed Locking patterns (from TODO_018 price alert checker)
+  - 2.0 (2025-11-29): Initial consolidated background jobs patterns
 ---
 
 # Background Jobs Patterns
@@ -597,6 +600,357 @@ async function checkJobHealth(queueName: string) {
   };
 }
 ```
+
+---
+
+## Product Deduplication in Batch Jobs (NEW - 2026-01-07)
+
+**Context:** When processing multiple alerts/jobs that reference the same product, calling a service function that operates on "all alerts for product" causes duplicate processing.
+
+**Problem:** If you iterate over individual alerts and call `checkPriceAlertsForDrop(productId)` for each one, you process the same product N times, creating N × M notifications where M = alerts per product.
+
+**Source:** `server/jobs/price-alert-checker.ts` from TODO_018 price alert email notification implementation. Bug caught during code review before production.
+
+### ❌ WRONG - Process Same Product Multiple Times
+
+```typescript
+// Fetch all alerts with current prices
+const alertsWithPrices = await db.select({
+  alertId: priceAlerts.id,
+  productId: priceAlerts.productId,
+  userId: priceAlerts.userId,
+  targetPrice: priceAlerts.targetPrice,
+  currentPrice: sql<string>`MIN(${productOffers.price})`,
+}).from(priceAlerts)
+  .innerJoin(products, eq(priceAlerts.productId, products.id))
+  .leftJoin(productOffers, and(
+    eq(products.id, productOffers.productId),
+    eq(productOffers.availability, 'in_stock')
+  ))
+  .where(eq(priceAlerts.isActive, true))
+  .groupBy(priceAlerts.id, products.id);
+
+// Process each alert
+for (const alert of alertsWithPrices) {
+  const currentPrice = parseFloat(alert.currentPrice);
+  const targetPrice = parseFloat(alert.targetPrice);
+
+  if (currentPrice <= targetPrice) {
+    // BUG: checkPriceAlertsForDrop finds ALL alerts for this product
+    // If 2 users have alerts for same product, this creates 2 + 2 = 4 notifications
+    // Instead of 2 notifications (1 per user)
+    await checkPriceAlertsForDrop(alert.productId, currentPrice);
+  }
+}
+```
+
+**Example scenario:**
+- Product A has 2 alerts: user1 (target $95), user2 (target $95)
+- Current price: $90 (triggers both)
+- Without deduplication: Loop runs twice, each calls `checkPriceAlertsForDrop(productA, 90)`
+- Each call finds both alerts and creates 2 notifications
+- Result: 4 notifications (2 duplicates!)
+
+### ✅ CORRECT - Track Processed Products
+
+```typescript
+const alertsWithPrices = await db.select({
+  alertId: priceAlerts.id,
+  productId: priceAlerts.productId,
+  userId: priceAlerts.userId,
+  targetPrice: priceAlerts.targetPrice,
+  currentPrice: sql<string>`MIN(${productOffers.price})`,
+}).from(priceAlerts)
+  .innerJoin(products, eq(priceAlerts.productId, products.id))
+  .leftJoin(productOffers, and(
+    eq(products.id, productOffers.productId),
+    eq(productOffers.availability, 'in_stock')
+  ))
+  .where(eq(priceAlerts.isActive, true))
+  .groupBy(priceAlerts.id, products.id);
+
+// Track which products have been processed
+const processedProducts = new Set<number>();
+let triggered = 0;
+
+for (const alert of alertsWithPrices) {
+  const currentPrice = parseFloat(alert.currentPrice);
+  const targetPrice = parseFloat(alert.targetPrice);
+
+  if (currentPrice <= targetPrice) {
+    // Skip if we already processed this product
+    if (processedProducts.has(alert.productId)) {
+      logger.debug('Product already processed, skipping', {
+        productId: alert.productId
+      });
+      continue;
+    }
+
+    // Process ALL alerts for this product once
+    const alertsTriggered = await checkPriceAlertsForDrop(
+      alert.offerId,
+      currentPrice
+    );
+
+    if (alertsTriggered > 0) {
+      triggered += alertsTriggered;
+      // Mark product as processed
+      processedProducts.add(alert.productId);
+    }
+  }
+}
+```
+
+### Rationale
+
+- **Correct count**: Each alert triggers exactly once (not N times)
+- **Performance**: Fewer database queries (N products vs N alerts)
+- **User experience**: No duplicate notifications
+- **Debugging**: Logs show when deduplication occurs
+
+### When to Use
+
+✅ **Use when:**
+- Batch job iterates over individual entities (alerts, orders, items)
+- Service function operates on ALL entities matching a condition (e.g., "all alerts for product X")
+- Multiple entities can reference the same parent (e.g., multiple alerts for same product)
+- Processing cost is high (notifications, emails, external API calls)
+
+❌ **NOT needed when:**
+- Service function operates on single entity only (1:1 relationship)
+- Each iteration processes completely independent data
+- Duplicate processing is idempotent (safe to repeat)
+- Using database `DISTINCT` or `GROUP BY` to handle deduplication
+
+### Alternative Patterns
+
+**Pattern 1: Deduplicate Before Loop**
+
+```typescript
+// Get unique product IDs first
+const uniqueProductIds = [...new Set(alertsWithPrices.map(a => a.productId))];
+
+for (const productId of uniqueProductIds) {
+  await checkPriceAlertsForDrop(productId);
+}
+```
+
+**Pattern 2: Batch by Product**
+
+```typescript
+// Group alerts by product
+const alertsByProduct = new Map<number, Alert[]>();
+for (const alert of alertsWithPrices) {
+  if (!alertsByProduct.has(alert.productId)) {
+    alertsByProduct.set(alert.productId, []);
+  }
+  alertsByProduct.get(alert.productId)!.push(alert);
+}
+
+// Process each product once
+for (const [productId, alerts] of alertsByProduct) {
+  await processProductAlerts(productId, alerts);
+}
+```
+
+### Detection Rule
+
+```bash
+# Find batch jobs that might have deduplication issues
+grep -r "for.*of.*alerts\|for.*of.*items" server/jobs/ | \
+  xargs grep -L "processedProducts\|processedIds\|Set<number>"
+```
+
+### Quality Checklist
+
+- [ ] Set/Map used to track processed entities
+- [ ] Deduplication check before expensive operations
+- [ ] Logging shows when duplicates are skipped
+- [ ] Tests verify no duplicate processing (check notification counts)
+- [ ] Deduplication handles entity IDs (not objects - use ID comparison)
+
+**Bug prevented:** 4 notifications instead of 2 for same product with 2 user alerts
+
+*Source: TODO_018 price alert checker job code review*
+*Added: 2026-01-07*
+
+---
+
+## Consistent Distributed Locking Across Entry Points (NEW - 2026-01-07)
+
+**Context:** Background jobs often have multiple entry points: scheduled execution (cron) and manual triggers (admin actions, testing). Both access the same shared resources.
+
+**Problem:** If only the scheduled job uses distributed locking, manual triggers can create race conditions in multi-server deployments.
+
+**Source:** `server/jobs/price-alert-checker.ts` from TODO_018 - Code review caught missing lock on manual trigger.
+
+### ❌ WRONG - Inconsistent Locking
+
+```typescript
+// Scheduled job - HAS distributed lock
+export function startPriceAlertCheckerJob(): void {
+  cron.schedule('*/30 * * * *', async () => {
+    await jobLockService.withLock(
+      'price-alert-checker:periodic',
+      async () => {
+        return await checkAllActivePriceAlerts();
+      },
+      2700 // 45 minute lock
+    );
+  });
+}
+
+// Manual trigger - NO distributed lock (BUG!)
+export async function triggerPriceAlertCheck() {
+  logger.info('Manually triggering price alert check...');
+
+  // BUG: No lock! Can run simultaneously with scheduled job
+  const stats = await checkAllActivePriceAlerts();
+
+  logger.info('Manual price alert check completed', stats);
+  return stats;
+}
+```
+
+**Race condition scenario:**
+- Server A: Scheduled job starts at 12:00 (acquires lock)
+- Server B: Admin triggers manual check at 12:01 (bypasses lock!)
+- Result: Both servers process same alerts, duplicate notifications sent
+
+### ✅ CORRECT - Lock All Entry Points
+
+```typescript
+// Shared implementation (no lock)
+async function checkAllActivePriceAlerts() {
+  // Core business logic
+  const alerts = await getActiveAlerts();
+  // ... process alerts
+  return { checked, triggered, skipped };
+}
+
+// Scheduled entry point - WITH lock
+export function startPriceAlertCheckerJob(): void {
+  cron.schedule('*/30 * * * *', async () => {
+    const result = await jobLockService.withLock(
+      'price-alert-checker:periodic',
+      async () => {
+        return await checkAllActivePriceAlerts();
+      },
+      2700 // 45 minute lock (longer than 30 min interval)
+    );
+
+    if (result === null) {
+      logger.info('Alert check skipped - already running on another server');
+    }
+  });
+}
+
+// Manual trigger entry point - WITH lock (different key)
+export async function triggerPriceAlertCheck() {
+  logger.info('Manually triggering price alert check...');
+
+  const stats = await jobLockService.withLock(
+    'price-alert-checker:manual', // Different lock key
+    async () => {
+      return await checkAllActivePriceAlerts();
+    },
+    300 // 5 minute lock for manual execution
+  );
+
+  if (stats === null) {
+    logger.info('Manual price alert check skipped - job already running');
+    return null;
+  }
+
+  logger.info('Manual price alert check completed', stats);
+  return stats;
+}
+```
+
+### Key Insights
+
+**Different lock keys for different contexts:**
+- `price-alert-checker:periodic` - Long TTL (45 min) for scheduled job
+- `price-alert-checker:manual` - Short TTL (5 min) for manual trigger
+
+**Why different keys?**
+- Manual trigger should be allowed while scheduled job runs (admin override)
+- But manual triggers should block each other (prevent admin spam)
+- Scheduled jobs should block each other (prevent overlap)
+
+**Alternative: Same lock key (stricter)**
+
+```typescript
+// Use same lock key - manual trigger waits for scheduled job
+export async function triggerPriceAlertCheck() {
+  const stats = await jobLockService.withLock(
+    'price-alert-checker', // Same key as periodic
+    async () => {
+      return await checkAllActivePriceAlerts();
+    },
+    300
+  );
+
+  if (stats === null) {
+    // Could be periodic job OR another manual trigger holding lock
+    logger.info('Price alert check already running');
+    return null;
+  }
+
+  return stats;
+}
+```
+
+**Choose based on use case:**
+- **Different keys**: Manual trigger can override/run alongside scheduled job
+- **Same key**: Manual trigger waits for scheduled job to complete
+
+### Rationale
+
+- **No race conditions**: All access paths protected by locks
+- **Multi-server safe**: Works in load-balanced deployments
+- **Explicit locking**: Lock key names clarify purpose (periodic vs manual)
+- **Appropriate TTLs**: Lock duration matches execution context
+- **Graceful handling**: Returns null when lock held (not error)
+
+### When to Use
+
+✅ **Use when:**
+- Job has multiple entry points (cron + API trigger + testing)
+- Job modifies shared state (database, cache, external API)
+- Running same job twice causes issues (duplicate notifications, double charges)
+- Multi-server deployment possible (now or future)
+
+❌ **NOT needed when:**
+- Job is read-only (no side effects)
+- Job is naturally idempotent (safe to run multiple times)
+- Single-server deployment guaranteed (still good practice!)
+- User-specific jobs (each user gets own execution context)
+
+### Lock Key Naming Convention
+
+```typescript
+// Format: <resource>:<context>
+'price-alert-checker:periodic'  // Scheduled execution
+'price-alert-checker:manual'    // Manual trigger
+'price-snapshot:daily'          // Daily scheduled snapshot
+'scraper:manual'                // Manual scrape trigger
+'notification-digest:hourly'    // Hourly digest job
+```
+
+### Quality Checklist
+
+- [ ] All entry points use distributed locking
+- [ ] Lock keys are descriptive (include context)
+- [ ] TTL appropriate for execution duration (not too short, not too long)
+- [ ] Returns null when lock held (doesn't throw error)
+- [ ] Logs when execution skipped due to lock
+- [ ] Tests verify locking prevents concurrent execution
+
+**Bug prevented:** Race conditions causing duplicate notifications in multi-server deployments
+
+*Source: TODO_018 price alert checker job implementation*
+*Added: 2026-01-07*
 
 ---
 

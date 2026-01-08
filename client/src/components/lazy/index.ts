@@ -75,6 +75,40 @@ export const LazyNotificationSettingsPage = lazy(() => import('@/pages/settings-
  */
 export const LazyAlertsPage = lazy(() => import('@/pages/alerts'));
 
+// ============================================
+// Chart Components - Lazy Loaded
+// ============================================
+
+/**
+ * Price history chart - Heavy Recharts component (367KB)
+ * CRITICAL: Only load when analytics section is opened
+ */
+export const LazyPriceHistoryChart = lazy(() =>
+  import('@/components/price-history/PriceHistoryChart').then((m) => ({
+    default: m.PriceHistoryChart,
+  }))
+);
+
+/**
+ * Price insights widget - Uses Recharts indirectly
+ * CRITICAL: Only load when analytics section is opened
+ */
+export const LazyPriceInsightsWidget = lazy(() =>
+  import('@/components/price-history/price-insights-widget').then((m) => ({
+    default: m.PriceInsightsWidget,
+  }))
+);
+
+/**
+ * Retailer comparison table - Not chart-heavy but part of analytics bundle
+ * Load with analytics section for consistency
+ */
+export const LazyRetailerComparisonTable = lazy(() =>
+  import('@/components/price-analytics/retailer-comparison-table').then((m) => ({
+    default: m.RetailerComparisonTable,
+  }))
+);
+
 /**
  * Products page (legacy) - Product listing
  */

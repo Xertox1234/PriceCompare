@@ -243,7 +243,7 @@ class EmailService {
     `;
 
     const text = `
-Hi ${username},
+Hi ${safeUsername},
 
 We received a request to reset your password for your PriceCompare account.
 
@@ -377,7 +377,7 @@ This is an automated email, please do not reply.
     `;
 
     const text = `
-Hi ${validated.username},
+Hi ${safeUsername},
 
 ✓ Your password has been successfully reset.
 
@@ -404,6 +404,188 @@ This is an automated email, please do not reply.
 
     return this.sendEmail({
       to: validated.email,
+      subject,
+      html,
+      text,
+    });
+  }
+
+  async sendPriceAlertEmail(params: {
+    to: string;
+    username: string;
+    productName: string;
+    targetPrice: string;
+    currentPrice: number;
+    retailerName: string;
+    productUrl?: string;
+  }): Promise<boolean> {
+    const { to, username, productName, targetPrice, currentPrice, retailerName, productUrl } =
+      params;
+
+    const safeUsername = escapeHtml(username);
+    const safeProductName = escapeHtml(productName);
+    const safeRetailerName = escapeHtml(retailerName);
+    const targetPriceNum = parseFloat(targetPrice);
+
+    const subject = `Price Alert: ${productName} - Target Price Reached!`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .header {
+            background-color: #10b981;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+          }
+          .content {
+            background-color: #f9fafb;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+          }
+          .price-info {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 4px;
+          }
+          .price-display {
+            font-size: 32px;
+            font-weight: bold;
+            color: #059669;
+            margin: 10px 0;
+          }
+          .price-comparison {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 8px;
+          }
+          .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #10b981;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 20px 0;
+          }
+          .button:hover {
+            background-color: #059669;
+          }
+          .footer {
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+          }
+          .product-details {
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 20px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>🎯 Price Alert Triggered!</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${safeUsername},</p>
+
+          <p>Great news! The price for <strong>${safeProductName}</strong> has dropped to meet your target price.</p>
+
+          <div class="price-info">
+            <div style="text-align: center;">
+              <div style="color: #6b7280; font-size: 14px;">Current Price</div>
+              <div class="price-display">$${currentPrice.toFixed(2)}</div>
+              <div class="price-comparison">
+                Your target: $${targetPriceNum.toFixed(2)}
+                ${currentPrice < targetPriceNum ? `<br><strong style="color: #059669;">You saved $${(targetPriceNum - currentPrice).toFixed(2)}!</strong>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="product-details">
+            <p style="margin: 0 0 8px 0;"><strong>Product:</strong> ${safeProductName}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Retailer:</strong> ${safeRetailerName}</p>
+            <p style="margin: 0;"><strong>Your Target Price:</strong> $${targetPriceNum.toFixed(2)}</p>
+          </div>
+
+          ${
+            productUrl
+              ? `
+          <div style="text-align: center;">
+            <a href="${productUrl}" class="button">View Product</a>
+          </div>
+          <p style="font-size: 14px; color: #6b7280;">Or copy and paste this link into your browser:<br>
+          <a href="${productUrl}" style="word-break: break-all;">${productUrl}</a></p>
+          `
+              : ''
+          }
+
+          <p><strong>💡 Pro tip:</strong> Prices can change quickly. Consider purchasing soon to lock in this price!</p>
+
+          <p>Happy shopping!<br>
+          The PriceCompare Team</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated price alert. You're receiving this because you set up a price alert for this product.</p>
+          <p>To manage your notification preferences, visit your account settings.</p>
+          <p>&copy; ${new Date().getFullYear()} PriceCompare. All rights reserved.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+Hi ${safeUsername},
+
+🎯 PRICE ALERT TRIGGERED!
+
+Great news! The price for ${safeProductName} has dropped to meet your target price.
+
+Current Price: $${currentPrice.toFixed(2)}
+Your Target: $${targetPriceNum.toFixed(2)}
+${currentPrice < targetPriceNum ? `You saved $${(targetPriceNum - currentPrice).toFixed(2)}!` : ''}
+
+Product: ${safeProductName}
+Retailer: ${safeRetailerName}
+
+${productUrl ? `View Product: ${productUrl}` : ''}
+
+💡 Pro tip: Prices can change quickly. Consider purchasing soon to lock in this price!
+
+Happy shopping!
+The PriceCompare Team
+
+---
+This is an automated price alert. You're receiving this because you set up a price alert for this product.
+To manage your notification preferences, visit your account settings.
+© ${new Date().getFullYear()} PriceCompare. All rights reserved.
+    `.trim();
+
+    return this.sendEmail({
+      to,
       subject,
       html,
       text,
