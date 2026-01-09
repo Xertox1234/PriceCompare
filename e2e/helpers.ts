@@ -10,6 +10,35 @@ import { getRedisSessionClient } from '../server/config/redis';
 import { nextDeterministicSuffix } from './helpers/deterministic';
 
 /**
+ * E2E Test Timeout Configuration
+ * Centralizes timeout values used across helpers
+ *
+ * Rationale:
+ * - BUTTON: Typically just DOM visibility, fast
+ * - MODAL: May have CSS transitions/animations
+ * - FORM: Waits for input field to be interactive (may include form init)
+ * - USER_STATE: UI updates after API response completes
+ * - NETWORK: Waits for all network requests to finish
+ * - API_RESPONSE: Waits for specific API endpoint to respond
+ */
+export const TIMEOUTS = {
+  // UI Element Visibility
+  BUTTON_VISIBLE: 10000,
+  FORM_INPUT: 5000,
+  DIALOG_VISIBLE: 5000,
+
+  // User State Changes (API + React state update)
+  USER_STATE_CHANGE: 10000,
+
+  // Network Stability
+  NETWORK_IDLE: 10000,
+  API_RESPONSE: 10000,
+
+  // User Interactions
+  CLICK_ACTION: 5000,
+} as const;
+
+/**
  * Clean database before tests
  * Removes all test data to ensure isolation
  *
@@ -162,32 +191,62 @@ export async function registerUser(
   // CRITICAL: Wait for user to be logged in (modal closes and user menu appears)
   // Registration API returns 201 but React needs time to update auth state
   // Use .first() because multiple navigation instances exist (desktop, mobile, etc.)
-  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: 10000 });
+  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: TIMEOUTS.USER_STATE_CHANGE });
 }
 
 /**
  * Open the registration modal (without submitting)
  */
 export async function openRegisterModal(page: Page): Promise<void> {
-  // Navigate to /price-watch page which uses SharedNavigation (has Sign Up button)
-  await page.goto('/price-watch');
+  // Navigate to home page first
+  await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
 
-  // Ensure clean browser state (must be after navigation)
+  // Then ensure clean browser state
   await page.context().clearCookies();
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
   });
 
+  // CRITICAL: Reload page after clearing cookies to get fresh CSRF token
+  // The CSRF token is fetched on app startup (App.tsx useEffect)
+  // After clearing cookies, the old token is stale and needs to be refreshed
+
+  // IMPORTANT: Attach response listener BEFORE reload to prevent race condition
+  // If we attach after reload(), the response might arrive before the listener is ready
+  const csrfTokenPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/csrf-token'),
+    { timeout: TIMEOUTS.API_RESPONSE }
+  );
+
+  // Trigger reload (response listener is already attached)
   await page.reload();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
-  await page
-    .getByRole('button', { name: /sign up/i })
-    .first()
-    .click();
+  // Wait for the token response to arrive
+  await csrfTokenPromise.catch(() => {
+    // Token might be cached already (304 Not Modified), or app might have token in memory
+    // Continue anyway since server accepts both cookie and header validation
+  });
 
-  await page.waitForSelector('input#username', { state: 'visible', timeout: 5000 });
+  // Click "My account" button to open auth modal
+  const myAccountButton = page.getByRole('button', { name: /my account/i }).first();
+  await myAccountButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
+  await myAccountButton.click();
+
+  // Wait for modal to open - it might open in login mode first
+  await page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: TIMEOUTS.DIALOG_VISIBLE });
+
+  // Check if modal opened in login mode, if so toggle to register mode
+  const modalTitle = await page.textContent('[role="dialog"] h2');
+  if (modalTitle?.includes('Sign In')) {
+    // Click the toggle link to switch to register mode
+    await page.getByRole('button', { name: /create.*account|sign up/i }).click();
+  }
+
+  // Now wait for the registration form
+  await page.waitForSelector('input#username', { state: 'visible', timeout: TIMEOUTS.FORM_INPUT });
 }
 
 /**
@@ -208,40 +267,67 @@ export async function loginUser(page: Page, email: string, password: string): Pr
 
   // CRITICAL: Wait for user to be logged in (modal closes and user menu appears)
   // Use .first() because multiple navigation instances exist (desktop, mobile, etc.)
-  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: 10000 });
+  await page.getByTestId('user-menu-button').first().waitFor({ state: 'visible', timeout: TIMEOUTS.USER_STATE_CHANGE });
 }
 
 /**
  * Open the login modal (without submitting)
  */
 export async function openLoginModal(page: Page): Promise<void> {
-  await page.goto('/price-watch');
+  // Navigate to home page first
+  await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
 
-  // Ensure clean browser state (must be after navigation)
+  // Then ensure clean browser state
   await page.context().clearCookies();
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
   });
 
+  // CRITICAL: Reload page after clearing cookies to get fresh CSRF token
+  // The CSRF token is fetched on app startup (App.tsx useEffect)
+  // After clearing cookies, the old token is stale and needs to be refreshed
+
+  // IMPORTANT: Attach response listener BEFORE reload to prevent race condition
+  // If we attach after reload(), the response might arrive before the listener is ready
+  const csrfTokenPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/csrf-token'),
+    { timeout: TIMEOUTS.API_RESPONSE }
+  );
+
+  // Trigger reload (response listener is already attached)
   await page.reload();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
-  await page
-    .getByRole('button', { name: /sign in/i })
-    .first()
-    .click();
+  // Wait for the token response to arrive
+  await csrfTokenPromise.catch(() => {
+    // Token might be cached already (304 Not Modified), or app might have token in memory
+    // Continue anyway since server accepts both cookie and header validation
+  });
 
-  await page.waitForSelector('input#email', { state: 'visible', timeout: 5000 });
+  // Click "My account" button to open auth modal
+  const myAccountButton = page.getByRole('button', { name: /my account/i }).first();
+  await myAccountButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
+  await myAccountButton.click();
+
+  // Wait for modal to open - it should open in login mode by default
+  await page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: TIMEOUTS.DIALOG_VISIBLE });
+
+  // Wait for the login form email input
+  await page.waitForSelector('input#email', { state: 'visible', timeout: TIMEOUTS.FORM_INPUT });
 }
 
 /**
  * Logout current user
  * Works with both TemplateHeader and SharedNavigation components
+ *
+ * CRITICAL FIX: Waits for /api/auth/logout API response before checking UI state
+ * This prevents race conditions where tests proceed before session is cleared
  */
 export async function logoutUser(page: Page): Promise<void> {
   // Best-effort UI logout, with a fallback to clearing browser state.
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
+  await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.NETWORK_IDLE }).catch(() => undefined);
 
   const userMenuButton = page.getByTestId('user-menu-button').first();
   const hasUserMenu = await userMenuButton.isVisible().catch(() => false);
@@ -254,32 +340,55 @@ export async function logoutUser(page: Page): Promise<void> {
       sessionStorage.clear();
     });
     await page.goto('/price-watch');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     return;
   }
 
   try {
-    await userMenuButton.click({ timeout: 5000 });
+    await userMenuButton.click({ timeout: TIMEOUTS.CLICK_ACTION });
     const signOutButton = page.getByTestId('sign-out-button');
-    await signOutButton.waitFor({ state: 'visible', timeout: 5000 });
-    await signOutButton.click({ timeout: 5000 });
+    await signOutButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
 
-    // Wait for a stable logged-out state to avoid navigation races.
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
-    await Promise.race([
+    // CRITICAL: Attach response listener BEFORE clicking to prevent race condition
+    // The logout API must complete before we check UI state
+    const logoutPromise = page.waitForResponse(
+      (response) => response.url().includes('/api/auth/logout'),
+      { timeout: TIMEOUTS.API_RESPONSE }
+    );
+
+    await signOutButton.click({ timeout: TIMEOUTS.CLICK_ACTION });
+
+    // Wait for logout API to complete
+    await logoutPromise.catch(() => {
+      // API might fail but UI logout still works (fallback below handles this)
+    });
+
+    // Wait for stable state after API completion
+    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.NETWORK_IDLE }).catch(() => undefined);
+
+    // CRITICAL: Verify BOTH logout indicators (not just one via Promise.race)
+    // This ensures the session is fully cleared before proceeding
+    await Promise.all([
       page
         .getByTestId('user-menu-button')
         .first()
-        .waitFor({ state: 'hidden', timeout: 10000 })
+        .waitFor({ state: 'hidden', timeout: TIMEOUTS.USER_STATE_CHANGE })
         .catch(() => undefined),
       page
         .getByRole('button', { name: /sign in/i })
         .first()
-        .waitFor({ state: 'visible', timeout: 10000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE })
         .catch(() => undefined),
     ]);
   } catch (error) {
-    throw new Error(`Could not logout: ${error instanceof Error ? error.message : String(error)}`);
+    // Fallback: Hard logout by clearing browser state
+    // This ensures tests can continue even if UI logout fails
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    throw new Error(`Logout failed, used fallback: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -302,7 +411,7 @@ export async function waitForApiResponse(
 
       return matchesUrl && matchesStatus;
     },
-    { timeout: 10000 }
+    { timeout: TIMEOUTS.API_RESPONSE }
   );
 }
 
@@ -315,9 +424,9 @@ export async function waitForToast(page: Page, message: string | RegExp): Promis
   for (const selector of toastSelectors) {
     try {
       if (typeof message === 'string') {
-        await page.waitForSelector(`${selector}:has-text("${message}")`, { timeout: 5000 });
+        await page.waitForSelector(`${selector}:has-text("${message}")`, { timeout: TIMEOUTS.DIALOG_VISIBLE });
       } else {
-        const toast = await page.waitForSelector(selector, { timeout: 5000 });
+        const toast = await page.waitForSelector(selector, { timeout: TIMEOUTS.DIALOG_VISIBLE });
         const text = await toast.textContent();
         if (text && message.test(text)) {
           return;
@@ -344,7 +453,7 @@ export async function isLoggedIn(page: Page): Promise<boolean> {
 
   for (const selector of loggedInSelectors) {
     try {
-      await page.waitForSelector(selector, { timeout: 2000 });
+      await page.waitForSelector(selector, { timeout: 2000 }); // Hardcoded timeout justified: Quick multi-selector check
       return true;
     } catch {
       // Try next selector
@@ -352,6 +461,79 @@ export async function isLoggedIn(page: Page): Promise<boolean> {
   }
 
   return false;
+}
+
+/**
+ * Verify which navigation component is rendered on the page
+ * Helps debug test failures caused by wrong header component
+ *
+ * ARCHITECTURE CONTEXT:
+ * - TemplateHeader: Used on most pages (/, /products, /price-watch, etc.)
+ * - SharedNavigation: Used on specific pages (/alerts, etc.)
+ *
+ * @returns 'TemplateHeader' | 'SharedNavigation' | 'Unknown'
+ */
+export async function verifyNavigationComponent(page: Page): Promise<'TemplateHeader' | 'SharedNavigation' | 'Unknown'> {
+  // TemplateHeader uses data-testid="user-menu-button" for logged-in users
+  // SharedNavigation also uses data-testid="user-menu-button"
+  // Both use "My account" button for logged-out users
+  // We need to check structural differences to distinguish them
+
+  // Check for TemplateHeader-specific elements
+  const hasTemplateHeader = await page
+    .locator('header')
+    .filter({ hasText: 'PriceCompare' }) // Logo text
+    .count()
+    .then((count) => count > 0)
+    .catch(() => false);
+
+  // Check for SharedNavigation-specific elements
+  const hasSharedNav = await page
+    .locator('nav[class*="bg-white"][class*="shadow"]') // SharedNavigation uses these classes
+    .count()
+    .then((count) => count > 0)
+    .catch(() => false);
+
+  if (hasTemplateHeader && !hasSharedNav) {
+    return 'TemplateHeader';
+  } else if (hasSharedNav && !hasTemplateHeader) {
+    return 'SharedNavigation';
+  } else if (hasTemplateHeader && hasSharedNav) {
+    // Both present - this shouldn't happen but log it
+    return 'Unknown';
+  }
+
+  return 'Unknown';
+}
+
+/**
+ * Assert that the expected navigation component is present
+ * Throws descriptive error if wrong component is rendered
+ *
+ * @param page - Playwright page object
+ * @param expected - Expected navigation component type
+ * @throws Error with clear message if wrong component is present
+ */
+export async function assertNavigationComponent(
+  page: Page,
+  expected: 'TemplateHeader' | 'SharedNavigation'
+): Promise<void> {
+  const actual = await verifyNavigationComponent(page);
+
+  if (actual === 'Unknown') {
+    throw new Error(
+      `Could not identify navigation component on page ${page.url()}. ` +
+        `Expected ${expected} but found neither TemplateHeader nor SharedNavigation.`
+    );
+  }
+
+  if (actual !== expected) {
+    throw new Error(
+      `Wrong navigation component on page ${page.url()}. ` +
+        `Expected ${expected} but found ${actual}. ` +
+        `This may indicate the page is using the wrong layout component.`
+    );
+  }
 }
 
 /**

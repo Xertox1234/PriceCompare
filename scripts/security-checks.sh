@@ -1,5 +1,5 @@
 #!/bin/bash
-# Security checks script - Enhanced Version 2.0
+# Security checks script - Enhanced Version 2.1
 # Run this before committing code
 #
 # Phase 1 (P0) Checks - BLOCKERS:
@@ -9,7 +9,16 @@
 #   - Console.log in server code
 #   - Global CSRF middleware anti-pattern
 #
+# E2E Testing Pattern Checks - BLOCKERS:
+#   - Attach-Before-Trigger pattern (race condition prevention)
+#   - Promise.race() in auth helpers (incomplete state verification)
+#
+# E2E Testing Pattern Checks - WARNINGS:
+#   - Hardcoded timeout values (should use TIMEOUTS constant)
+#   - UI state checks without API wait (race condition risk)
+#
 # See: docs/planning/PRE_COMMIT_ENHANCEMENT_PLAN.md
+# See: docs/08_TESTING_PATTERNS.md#e2e-race-condition-prevention
 
 set -e
 
@@ -460,9 +469,132 @@ fi
 echo ""
 
 # =============================================================================
-# SECTION 7: SUMMARY
+# SECTION 7: E2E TESTING PATTERN CHECKS
 # =============================================================================
-echo -e "${BLUE}📊 [7/7] Security Check Summary${NC}"
+echo -e "${BLUE}🧪 [7/8] Running E2E Testing Pattern Checks...${NC}"
+echo ""
+
+# -----------------------------------------------------------------------------
+# E2E CHECK 1: Attach-Before-Trigger Pattern
+# Pattern: docs/08_TESTING_PATTERNS.md#attach-before-trigger-pattern
+# -----------------------------------------------------------------------------
+echo "   ⏱️  Checking for Attach-Before-Trigger violations..."
+
+# Look for waitForResponse() calls that come AFTER triggering actions
+# This is a race condition where fast responses arrive before the listener is attached
+ATTACH_AFTER_TRIGGER=$(grep -rn -B5 "waitForResponse" e2e/ --include="*.ts" 2>/dev/null | \
+  grep -E "(await page\.(reload|goto|click)|await.*\.click\(\))" | \
+  grep -v "const.*Promise = page.waitForResponse" | \
+  grep -v "// Race condition safe" | \
+  grep -v "__tests__" || true)
+
+if [ -n "$ATTACH_AFTER_TRIGGER" ]; then
+  echo -e "${RED}   ❌ BLOCKER: waitForResponse() called AFTER triggering action (race condition):${NC}"
+  echo "$ATTACH_AFTER_TRIGGER" | head -5 | while read -r line; do
+    echo "      $line"
+  done
+  echo ""
+  echo -e "${YELLOW}   FIX: Attach listener BEFORE triggering action${NC}"
+  echo "   WRONG:  await page.reload(); await page.waitForResponse(...);"
+  echo "   RIGHT:  const promise = page.waitForResponse(...); await page.reload(); await promise;"
+  echo "   DOCS: docs/08_TESTING_PATTERNS.md#attach-before-trigger-pattern"
+  echo "   BYPASS: Add '// Race condition safe: <reason>' comment if intentional"
+  SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ All waitForResponse() calls use attach-before-trigger pattern${NC}"
+fi
+
+# -----------------------------------------------------------------------------
+# E2E CHECK 2: Promise.race() in Auth/Logout Helpers
+# Pattern: docs/08_TESTING_PATTERNS.md#comprehensive-state-verification-pattern
+# -----------------------------------------------------------------------------
+echo "   🏁 Checking for Promise.race() in auth/logout helpers..."
+
+# Promise.race() passes when EITHER condition is met, masking incomplete state
+# Use Promise.all() to verify ALL expected state changes
+PROMISE_RACE_AUTH=$(grep -rn "Promise\.race" e2e/helpers.ts 2>/dev/null | \
+  grep -v "// Promise.race justified" | \
+  grep -v "//.*Promise\.race" | \
+  grep -v "\* Promise\.race" || true)
+
+if [ -n "$PROMISE_RACE_AUTH" ]; then
+  echo -e "${RED}   ❌ BLOCKER: Promise.race() found in auth helpers (incomplete verification):${NC}"
+  echo "$PROMISE_RACE_AUTH" | head -3 | while read -r line; do
+    echo "      $line"
+  done
+  echo ""
+  echo -e "${YELLOW}   FIX: Use Promise.all() to verify ALL state changes${NC}"
+  echo "   WRONG:  Promise.race([userMenuHidden, signInVisible])"
+  echo "   RIGHT:  Promise.all([userMenuHidden, signInVisible])"
+  echo "   DOCS: docs/08_TESTING_PATTERNS.md#comprehensive-state-verification-pattern"
+  echo "   BYPASS: Add '// Promise.race justified: <reason>' comment if mutually exclusive"
+  SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ No Promise.race() in auth helpers${NC}"
+fi
+
+# -----------------------------------------------------------------------------
+# E2E CHECK 3: Hardcoded Timeout Values
+# Pattern: docs/08_TESTING_PATTERNS.md#centralized-timeout-constants-pattern
+# -----------------------------------------------------------------------------
+echo "   🕐 Checking for hardcoded timeout values..."
+
+# Look for hardcoded timeouts instead of TIMEOUTS constant
+HARDCODED_TIMEOUTS=$(grep -rn "timeout:\s*[0-9]" e2e/helpers.ts 2>/dev/null | \
+  grep -v "TIMEOUTS\." | \
+  grep -v "// Hardcoded timeout justified" || true)
+
+if [ -n "$HARDCODED_TIMEOUTS" ]; then
+  echo -e "${YELLOW}   ⚠️  WARNING: Hardcoded timeout values found (should use TIMEOUTS constant):${NC}"
+  echo "$HARDCODED_TIMEOUTS" | head -5 | while read -r line; do
+    echo "      $line"
+  done
+  echo ""
+  echo "   FIX: Use TIMEOUTS.BUTTON_VISIBLE, TIMEOUTS.API_RESPONSE, etc."
+  echo "   DOCS: docs/08_TESTING_PATTERNS.md#centralized-timeout-constants-pattern"
+  WARNINGS=$((WARNINGS + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ All timeouts use TIMEOUTS constant${NC}"
+fi
+
+# -----------------------------------------------------------------------------
+# E2E CHECK 4: UI State Checks Without API Wait
+# Pattern: docs/08_TESTING_PATTERNS.md#api-first-verification-pattern
+# -----------------------------------------------------------------------------
+echo "   🔄 Checking for UI state checks without API wait..."
+
+# Look for UI state checks (waitFor) that come before API completion waits
+# This creates race conditions where UI might not be updated yet
+UI_BEFORE_API=$(grep -rn -A3 "\.click\(" e2e/helpers.ts 2>/dev/null | \
+  grep -B1 "waitFor.*state.*visible\|waitFor.*state.*hidden" | \
+  grep -v "waitForResponse\|logoutPromise\|csrfTokenPromise" | \
+  grep -v "// UI check before API justified" | \
+  head -10 || true)
+
+if [ -n "$UI_BEFORE_API" ]; then
+  echo -e "${YELLOW}   ⚠️  WARNING: UI state checks without preceding API wait:${NC}"
+  echo "$UI_BEFORE_API" | head -5 | while read -r line; do
+    [ -n "$line" ] && echo "      $line"
+  done
+  echo ""
+  echo "   REVIEW: Ensure API response is awaited before checking UI state"
+  echo "   PATTERN: await apiPromise; await page.waitFor({ state: ... })"
+  echo "   DOCS: docs/08_TESTING_PATTERNS.md#api-first-verification-pattern"
+  WARNINGS=$((WARNINGS + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ UI state checks follow API-first pattern${NC}"
+fi
+
+echo ""
+
+# =============================================================================
+# SECTION 8: SUMMARY
+# =============================================================================
+echo -e "${BLUE}📊 [8/8] Security Check Summary${NC}"
 echo "╔════════════════════════════════════════════════════════════════╗"
 
 if [ $SECURITY_ISSUES -gt 0 ]; then

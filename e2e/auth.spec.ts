@@ -26,10 +26,9 @@ test.describe('Authentication Flow', () => {
       // Should be logged in (user menu appears)
       await expect(page.getByTestId('user-menu-button').first()).toBeVisible();
 
-      // Username/email should be visible in the user menu
+      // Username should be visible in the user menu (email is not shown in TemplateHeader)
       await page.getByTestId('user-menu-button').first().click();
       await expect(page.getByText(username, { exact: true })).toBeVisible();
-      await expect(page.getByText(email, { exact: true })).toBeVisible();
     });
 
     test('should keep submit disabled until valid inputs', async ({ page }) => {
@@ -173,9 +172,9 @@ test.describe('Authentication Flow', () => {
 
       // Try to access protected route
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
-      // Alerts currently does not redirect; it should show unauthenticated UI
+      // Alerts uses SharedNavigation which shows "Sign In" button when logged out
       await expect(page.getByRole('button', { name: /sign in/i }).first()).toBeVisible();
       await expect(page.getByTestId('user-menu-button')).toHaveCount(0);
     });
@@ -187,11 +186,11 @@ test.describe('Authentication Flow', () => {
 
       // Navigate to different pages
       await authenticatedPage.goto('/products');
-      await authenticatedPage.waitForLoadState('networkidle');
+      await authenticatedPage.waitForLoadState('domcontentloaded');
       await expect(authenticatedPage.getByTestId('user-menu-button').first()).toBeVisible();
 
       await authenticatedPage.goto('/price-watch');
-      await authenticatedPage.waitForLoadState('networkidle');
+      await authenticatedPage.waitForLoadState('domcontentloaded');
       await expect(authenticatedPage.getByTestId('user-menu-button').first()).toBeVisible();
     });
 
@@ -200,7 +199,7 @@ test.describe('Authentication Flow', () => {
 
       // Reload page
       await authenticatedPage.reload();
-      await authenticatedPage.waitForLoadState('networkidle');
+      await authenticatedPage.waitForLoadState('domcontentloaded');
       await expect(authenticatedPage.getByTestId('user-menu-button').first()).toBeVisible();
     });
   });
@@ -209,16 +208,16 @@ test.describe('Authentication Flow', () => {
     test('should redirect unauthenticated users from protected routes', async ({ page }) => {
       // Try to access protected route without authentication
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
-      // Alerts currently does not redirect; it should show unauthenticated UI
+      // Alerts uses SharedNavigation which shows "Sign In" button when logged out
       await expect(page.getByRole('button', { name: /sign in/i }).first()).toBeVisible();
       await expect(page.getByTestId('user-menu-button')).toHaveCount(0);
     });
 
     test('should allow authenticated users to access protected routes', async ({ authenticatedPage }) => {
       await authenticatedPage.goto('/alerts');
-      await authenticatedPage.waitForLoadState('networkidle');
+      await authenticatedPage.waitForLoadState('domcontentloaded');
 
       await expect(authenticatedPage).toHaveURL(/.*\/alerts.*/);
       await expect(authenticatedPage.getByTestId('user-menu-button').first()).toBeVisible();

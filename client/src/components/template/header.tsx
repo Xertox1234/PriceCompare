@@ -216,7 +216,10 @@ export function TemplateHeader({
                 {user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2 whitespace-nowrap transition-colors">
+                      <button
+                        data-testid="user-menu-button"
+                        className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2 whitespace-nowrap transition-colors"
+                      >
                         <Avatar className="h-6 w-6">
                           <AvatarFallback className="text-xs">
                             {user.username.charAt(0).toUpperCase()}
@@ -238,7 +241,11 @@ export function TemplateHeader({
                           <DropdownMenuSeparator />
                         </>
                       )}
-                      <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending}>
+                      <DropdownMenuItem
+                        data-testid="sign-out-button"
+                        onClick={handleLogout}
+                        disabled={logoutMutation.isPending}
+                      >
                         <LogOut className="mr-2 h-4 w-4" />
                         {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
                       </DropdownMenuItem>

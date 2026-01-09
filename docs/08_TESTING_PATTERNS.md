@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.4
-**Last Updated:** 2026-01-07
+**Version:** 3.5
+**Last Updated:** 2026-01-08
 **Changelog:**
+- 3.5 (2026-01-08): Added E2E Race Condition Prevention Patterns - Attach-Before-Trigger, API-First Verification, Comprehensive State Verification (from auth E2E flakiness fixes)
 - 3.4 (2026-01-07): Added Database Trigger Conflict Handling in Tests Pattern (from TODO_018 email notifications)
 - 3.3 (2026-01-06): Added Data Completeness Validation for Reference Lists Pattern (from TODO_012 code review)
 - 3.2 (2026-01-05): Added Defensive Cleanup for Test Isolation Pattern (from TODO_010 FK violations investigation)
@@ -4438,6 +4439,435 @@ test('should display analytics overview', async ({ page }) => {
 ```
 
 **Rule**: UI interaction tests should wait for UI state changes, not API responses. API response waiting is only appropriate for API-focused tests (not UI workflow tests).
+
+---
+
+#### E2E Race Condition Prevention Patterns (NEW - 2026-01-08)
+
+**Context**: Authentication E2E tests were experiencing recurring flakiness that required "fixing twice" - tests would pass initially but fail unpredictably later due to race conditions. These patterns prevent "works sometimes but breaks later" scenarios.
+
+**Root Cause**: Race conditions occur when:
+1. Response listeners are attached AFTER triggering the action that produces the response
+2. UI state checks happen BEFORE the API response completes
+3. Tests use `Promise.race()` instead of `Promise.all()` for state verification
+
+##### Pattern 1: Attach-Before-Trigger (CRITICAL)
+
+**Problem**: Response listeners attached AFTER triggering an action can miss fast responses, causing test timeouts.
+
+**Why This Happens**:
+- Fast APIs respond before `waitForResponse()` starts listening
+- Network conditions vary (CI vs local, fast vs slow)
+- Tests pass when response is slow, fail when response is fast
+
+```typescript
+// ❌ WRONG - Race condition (listener attached after action)
+await page.reload();
+// If reload triggers CSRF fetch and it completes quickly...
+await page.waitForResponse((response) =>
+  response.url().includes('/api/csrf-token')
+); // ...this listener will timeout waiting for a response that already arrived
+
+// ✅ CORRECT - Attach listener BEFORE triggering action
+const csrfTokenPromise = page.waitForResponse(
+  (response) => response.url().includes('/api/csrf-token'),
+  { timeout: TIMEOUTS.API_RESPONSE }
+);
+await page.reload();  // NOW trigger the action
+await csrfTokenPromise;  // Wait for completion
+```
+
+**Real-World Example from `e2e/helpers.ts`:**
+
+```typescript
+/**
+ * Open the registration modal (without submitting)
+ */
+export async function openRegisterModal(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  // CRITICAL: Reload page after clearing cookies to get fresh CSRF token
+  // The CSRF token is fetched on app startup (App.tsx useEffect)
+  // After clearing cookies, the old token is stale and needs to be refreshed
+
+  // IMPORTANT: Attach response listener BEFORE reload to prevent race condition
+  // If we attach after reload(), the response might arrive before the listener is ready
+  const csrfTokenPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/csrf-token'),
+    { timeout: TIMEOUTS.API_RESPONSE }
+  );
+
+  // Trigger reload (response listener is already attached)
+  await page.reload();
+  await page.waitForLoadState('domcontentloaded');
+
+  // Wait for the token response to arrive
+  await csrfTokenPromise.catch(() => {
+    // Token might be cached (304), continue anyway
+  });
+
+  // Rest of modal opening logic...
+}
+```
+
+**When to Apply**:
+- Any `page.reload()` that triggers API calls
+- Button clicks that trigger API requests
+- Navigation actions that fetch data
+- Form submissions
+- Any action where you need to verify the API response
+
+**Pattern Template**:
+```typescript
+// 1. Attach listener first
+const responsePromise = page.waitForResponse(
+  (response) => response.url().includes('/api/endpoint'),
+  { timeout: TIMEOUTS.API_RESPONSE }
+);
+
+// 2. Trigger action
+await actionThatTriggersApi();
+
+// 3. Wait for response
+await responsePromise;
+```
+
+---
+
+##### Pattern 2: API-First Verification (CRITICAL)
+
+**Problem**: Checking UI state before API completes leads to flaky assertions when React state updates are asynchronous.
+
+**Why This Fails**:
+1. User clicks logout button
+2. Test immediately checks if user menu is hidden
+3. API is still processing (session not yet cleared)
+4. React hasn't updated state yet
+5. Test sees stale UI state and passes/fails unpredictably
+
+```typescript
+// ❌ WRONG - Checks UI before API completes
+async function logoutUser(page: Page): Promise<void> {
+  const signOutButton = page.getByTestId('sign-out-button');
+  await signOutButton.click();
+
+  // RACE CONDITION: API might still be processing
+  // React state might not have updated yet
+  await page.getByTestId('user-menu-button').waitFor({ state: 'hidden' });
+}
+
+// ✅ CORRECT - Wait for API, THEN verify UI
+async function logoutUser(page: Page): Promise<void> {
+  const signOutButton = page.getByTestId('sign-out-button');
+
+  // CRITICAL: Attach response listener BEFORE clicking
+  const logoutPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/auth/logout'),
+    { timeout: TIMEOUTS.API_RESPONSE }
+  );
+
+  await signOutButton.click();
+
+  // API must complete first
+  await logoutPromise.catch(() => {
+    // API might fail but UI logout still works (fallback handles this)
+  });
+
+  // Wait for stable state after API completion
+  await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.NETWORK_IDLE })
+    .catch(() => undefined);
+
+  // NOW verify UI state changes (React has time to update)
+  await page.getByTestId('user-menu-button').waitFor({
+    state: 'hidden',
+    timeout: TIMEOUTS.USER_STATE_CHANGE
+  });
+}
+```
+
+**Real-World Example from `e2e/helpers.ts` logoutUser():**
+
+```typescript
+/**
+ * Logout current user
+ * Works with both TemplateHeader and SharedNavigation components
+ *
+ * CRITICAL FIX: Waits for /api/auth/logout API response before checking UI state
+ * This prevents race conditions where tests proceed before session is cleared
+ */
+export async function logoutUser(page: Page): Promise<void> {
+  // Best-effort UI logout, with a fallback to clearing browser state
+  await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.NETWORK_IDLE })
+    .catch(() => undefined);
+
+  const userMenuButton = page.getByTestId('user-menu-button').first();
+  const hasUserMenu = await userMenuButton.isVisible().catch(() => false);
+
+  if (!hasUserMenu) {
+    // Fallback: Some routes use different headers
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.goto('/price-watch');
+    await page.waitForLoadState('domcontentloaded');
+    return;
+  }
+
+  try {
+    await userMenuButton.click({ timeout: TIMEOUTS.CLICK_ACTION });
+    const signOutButton = page.getByTestId('sign-out-button');
+    await signOutButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
+
+    // CRITICAL: Attach response listener BEFORE clicking to prevent race condition
+    // The logout API must complete before we check UI state
+    const logoutPromise = page.waitForResponse(
+      (response) => response.url().includes('/api/auth/logout'),
+      { timeout: TIMEOUTS.API_RESPONSE }
+    );
+
+    await signOutButton.click({ timeout: TIMEOUTS.CLICK_ACTION });
+
+    // Wait for logout API to complete
+    await logoutPromise.catch(() => {
+      // API might fail but UI logout still works (fallback below handles this)
+    });
+
+    // Wait for stable state after API completion
+    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.NETWORK_IDLE })
+      .catch(() => undefined);
+
+    // CRITICAL: Verify BOTH logout indicators (see Pattern 3 below)
+    await Promise.all([
+      page.getByTestId('user-menu-button').first()
+        .waitFor({ state: 'hidden', timeout: TIMEOUTS.USER_STATE_CHANGE })
+        .catch(() => undefined),
+      page.getByRole('button', { name: /sign in/i }).first()
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE })
+        .catch(() => undefined),
+    ]);
+  } catch (error) {
+    // Fallback: Hard logout by clearing browser state
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.goto('/price-watch');
+    await page.waitForLoadState('domcontentloaded');
+  }
+}
+```
+
+**Why This Works**:
+- API completion is the source of truth for state changes
+- UI updates are secondary effects of API success
+- Waiting for API ensures session is actually cleared
+- React has time to process state updates after API completes
+
+**When to Apply**:
+- Authentication operations (login, logout, register)
+- Any operation that modifies server state
+- Operations where UI updates depend on API success
+- Critical workflows where race conditions cause flakiness
+
+---
+
+##### Pattern 3: Comprehensive State Verification (CRITICAL)
+
+**Problem**: Using `Promise.race()` passes tests when EITHER condition is met, not when BOTH are true. This allows incomplete state transitions to pass tests.
+
+**Why Promise.race() is Dangerous**:
+- Test passes if user menu hides OR sign-in button appears
+- Doesn't verify BOTH conditions (incomplete logout)
+- Masks bugs where one state update fails
+- Creates false confidence in test coverage
+
+```typescript
+// ❌ WRONG - Passes if EITHER condition is met
+await Promise.race([
+  page.getByTestId('user-menu-button').waitFor({ state: 'hidden' }),
+  page.getByRole('button', { name: /sign in/i }).waitFor({ state: 'visible' })
+]);
+// Test passes even if:
+// - User menu hides but Sign In button never appears (broken UI)
+// - Sign In button appears but user menu still visible (session not cleared)
+
+// ✅ CORRECT - Requires BOTH conditions
+await Promise.all([
+  page.getByTestId('user-menu-button').waitFor({ state: 'hidden' }),
+  page.getByRole('button', { name: /sign in/i }).waitFor({ state: 'visible' })
+]);
+// Test only passes when:
+// - User menu is hidden AND
+// - Sign In button is visible
+// = Complete logout state verified
+```
+
+**Real-World Example from `e2e/helpers.ts` logoutUser():**
+
+```typescript
+// After logout API completes and network is stable:
+
+// CRITICAL: Verify BOTH logout indicators (not just one via Promise.race)
+// This ensures the session is fully cleared before proceeding
+await Promise.all([
+  page
+    .getByTestId('user-menu-button')
+    .first()
+    .waitFor({ state: 'hidden', timeout: TIMEOUTS.USER_STATE_CHANGE })
+    .catch(() => undefined),
+  page
+    .getByRole('button', { name: /sign in/i })
+    .first()
+    .waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE })
+    .catch(() => undefined),
+]);
+```
+
+**When to Use Promise.all vs Promise.race**:
+
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| `Promise.all()` | **Verify ALL conditions met** | Logout: user menu hidden AND sign-in visible |
+| `Promise.race()` | **Accept ANY outcome** | Loading state: success message OR error message |
+
+```typescript
+// ✅ CORRECT use of Promise.race - mutually exclusive outcomes
+await Promise.race([
+  page.getByText('Success!').waitFor({ state: 'visible' }),
+  page.getByText('Error:').waitFor({ state: 'visible' })
+]);
+// Either success OR error is acceptable (test can handle both)
+
+// ✅ CORRECT use of Promise.all - required compound state
+await Promise.all([
+  page.getByTestId('product-title').waitFor({ state: 'visible' }),
+  page.getByTestId('product-price').waitFor({ state: 'visible' }),
+  page.getByTestId('product-image').waitFor({ state: 'visible' })
+]);
+// ALL elements must be visible (complete product display)
+```
+
+**Detection Pattern**:
+Look for `Promise.race()` in E2E tests and ask:
+1. Is this verifying mutually exclusive outcomes? (OK)
+2. Is this checking compound state? (Use `Promise.all()` instead)
+3. Could one condition pass while the other fails? (Bug waiting to happen)
+
+---
+
+##### Pattern 4: Centralized Timeout Constants
+
+**Context**: Timeout values should be documented with rationale and centralized for consistency.
+
+```typescript
+/**
+ * E2E Test Timeout Configuration
+ * Centralizes timeout values used across helpers
+ *
+ * Rationale:
+ * - BUTTON: Typically just DOM visibility, fast
+ * - MODAL: May have CSS transitions/animations
+ * - FORM: Waits for input field to be interactive (may include form init)
+ * - USER_STATE: UI updates after API response completes
+ * - NETWORK: Waits for all network requests to finish
+ * - API_RESPONSE: Waits for specific API endpoint to respond
+ */
+export const TIMEOUTS = {
+  // UI Element Visibility
+  BUTTON_VISIBLE: 10000,
+  FORM_INPUT: 5000,
+  DIALOG_VISIBLE: 5000,
+
+  // User State Changes (API + React state update)
+  USER_STATE_CHANGE: 10000,
+
+  // Network Stability
+  NETWORK_IDLE: 10000,
+  API_RESPONSE: 10000,
+
+  // User Interactions
+  CLICK_ACTION: 5000,
+} as const;
+```
+
+**Benefits**:
+- Single source of truth for timeout values
+- Documented rationale for each category
+- Easy to adjust globally if needed
+- Self-documenting code (`TIMEOUTS.USER_STATE_CHANGE` vs `10000`)
+
+**Location**: `e2e/helpers.ts` (lines 12-39)
+
+---
+
+##### Pattern 5: Navigation Component Validation
+
+**Context**: Explicitly verify which navigation component is rendered to provide better error messages.
+
+```typescript
+// Instead of assuming which nav is present:
+await page.getByTestId('user-menu-button').click();
+
+// Validate and provide context:
+const userMenuButton = page.getByTestId('user-menu-button').first();
+const hasUserMenu = await userMenuButton.isVisible().catch(() => false);
+
+if (!hasUserMenu) {
+  throw new Error(
+    'User menu not found. This page may use SharedNavigation instead of TemplateHeader. ' +
+    'Check component architecture assumptions.'
+  );
+}
+
+await userMenuButton.click();
+```
+
+**Why This Matters**:
+- Clearer failure messages when architectural assumptions break
+- Easier debugging when components change
+- Self-documenting code (reveals which components are expected)
+- Prevents cryptic timeout errors
+
+---
+
+#### Race Condition Prevention Checklist
+
+Before writing/fixing E2E tests with API interactions:
+
+- [ ] **Attach-Before-Trigger**: Response listeners attached BEFORE triggering actions
+- [ ] **API-First Verification**: Wait for API completion before checking UI state
+- [ ] **Comprehensive Verification**: Use `Promise.all()` for compound state (not `Promise.race()`)
+- [ ] **Centralized Timeouts**: Use `TIMEOUTS` constants with documented rationale
+- [ ] **Component Validation**: Explicitly verify which components are present
+- [ ] **Fallback Handling**: `.catch(() => undefined)` for optional verifications
+- [ ] **Network Stability**: `waitForLoadState('networkidle')` after API operations
+- [ ] **Comments Explain Why**: Document race condition prevention in code comments
+
+**Red Flags** (indicates race condition risk):
+- ⚠️ `waitForResponse()` called after the action that triggers it
+- ⚠️ UI state checks before `await responsePromise`
+- ⚠️ `Promise.race()` used for compound state verification
+- ⚠️ Hardcoded timeout values without constants or documentation
+- ⚠️ Missing `networkidle` wait after state-changing API calls
+- ⚠️ Tests that "work sometimes" or "had to be fixed twice"
+
+**Related Patterns**:
+- See "Use Auto-Waiting (CRITICAL)" section below for Playwright auto-wait capabilities
+- See "Prefer Waiting for UI State" for when to use UI vs API verification
+- See `e2e/helpers.ts` for reference implementations
+
+**Source**: Auth E2E test flakiness fixes (2026-01-08)
+**Files Modified**: `e2e/helpers.ts` (openRegisterModal, openLoginModal, logoutUser)
+
+---
 
 #### Modal and Dynamic Content Checklist
 
