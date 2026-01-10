@@ -256,7 +256,11 @@ function SavingsCalculatorSection({
             <span className="text-muted-foreground text-sm">Deal Quality Score</span>
             <span className="text-sm font-semibold">{dealQualityScore.toFixed(0)}/100</span>
           </div>
-          <Progress value={dealQualityScore} className="h-2" />
+          <Progress
+            value={dealQualityScore}
+            className="h-2"
+            aria-label={`Deal Quality Score: ${dealQualityScore.toFixed(0)}%`}
+          />
           <p className="text-muted-foreground mt-1 text-xs">
             {dealQualityScore >= 90 && '🌟 Excellent deal!'}
             {dealQualityScore >= 70 && dealQualityScore < 90 && '👍 Good deal'}

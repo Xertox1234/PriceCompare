@@ -161,7 +161,14 @@ export function registerWatchListRoutes(app: Express): void {
         const userId = req.user.id;
         logger.info(`Fetching watch lists for user ${userId}`);
 
-        const watchLists = await storage.getWatchListsWithStats(userId);
+        const rawLists = await storage.getWatchListsWithStats(userId);
+
+        // Alias watchCount as productCount for API clarity
+        // Frontend and tests expect "productCount" as the property name
+        const watchLists = rawLists.map((list) => ({
+          ...list,
+          productCount: list.watchCount,
+        }));
 
         // Standardize response shape for clients and tests.
         // Tests expect: { data: { watchLists: [...] } }

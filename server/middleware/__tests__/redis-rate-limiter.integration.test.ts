@@ -5,14 +5,20 @@
  * header setting, rate limiting enforcement, and 429 responses.
  *
  * NOTE: Each test uses a unique key to avoid shared state in the in-memory store.
+ * NOTE: Sets TEST_RATE_LIMITER=true to actually test rate limiting (bypassed in E2E by default)
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Express Request.user type requires casting for test mocks */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import { createRateLimiter } from '../redis-rate-limiter';
+
+// Enable rate limiting for these integration tests
+beforeAll(() => {
+  process.env.TEST_RATE_LIMITER = 'true';
+});
 
 // Mock Redis client to avoid actual Redis dependency
 vi.mock('../../config/redis', () => ({

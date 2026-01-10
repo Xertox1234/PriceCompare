@@ -268,7 +268,12 @@ function MetricItem({
         </div>
         <span className="text-xs font-semibold">{value}%</span>
       </div>
-      <Progress value={value} className="h-2" indicatorClassName={color} />
+      <Progress
+        value={value}
+        className="h-2"
+        indicatorClassName={color}
+        aria-label={`${label}: ${value}%`}
+      />
     </div>
   );
 }

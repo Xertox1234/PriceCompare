@@ -1275,8 +1275,9 @@ export function registerApiV1Routes(app: Express): void {
         },
       };
 
-      // Return OpenAPI spec using standardized response format
-      sendSuccess(res, openApiSpec);
+      // Return OpenAPI spec directly (not wrapped in { success, data })
+      // OpenAPI specs have their own standard format and should not be wrapped
+      res.json(openApiSpec);
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'OpenAPISpec');
     }
