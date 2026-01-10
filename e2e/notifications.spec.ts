@@ -48,7 +48,7 @@
  */
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { registerUser, generateTestEmail, generateTestUsername } from './helpers';
+import { registerUser, generateTestEmail, generateTestUsername, waitForPageReady } from './helpers';
 import { createTestNotification, navigateToNotifications } from './helpers/notification-helpers';
 import { getUserIdByEmail } from './helpers/user-helpers';
 
@@ -319,7 +319,7 @@ test.describe('Notifications - Real-Time System', () => {
 
         // Wait for operation to complete (look for success indication)
         // Note: Adjust selector based on actual UI feedback (toast, badge update, etc.)
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         // Verify success (may show toast or update badge count)
         // Badge count should decrease to 0
@@ -464,7 +464,7 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Navigate to preferences (may be settings page or notifications page)
       await page.goto('/notifications');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Look for preferences/settings link or section
       // Common patterns: settings icon, preferences tab, gear icon
@@ -478,7 +478,7 @@ test.describe('Notifications - Real-Time System', () => {
       } else {
         // Try direct navigation
         await page.goto('/settings/notifications');
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
       }
 
       // Wait for preferences form to load
@@ -502,7 +502,7 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Navigate to notification preferences
       await page.goto('/settings/notifications');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Look for price drop notification toggle
       const priceDropToggle = page.getByLabel(/enable price drop notifications/i);
@@ -515,7 +515,7 @@ test.describe('Notifications - Real-Time System', () => {
         await priceDropToggle.first().click();
 
         // Wait for state change to propagate
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         // Verify state changed
         const newState = await priceDropToggle.first().isChecked();
@@ -534,7 +534,7 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Navigate to notification preferences
       await page.goto('/settings/notifications');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Look for preference controls
       const emailToggle = page.getByLabel(/email notification/i);
@@ -548,7 +548,7 @@ test.describe('Notifications - Real-Time System', () => {
         await saveButton.first().click();
 
         // Wait for save operation to complete
-        await page.waitForLoadState('networkidle');
+        await waitForPageReady(page);
 
         // Look for success toast
         const successToast = page.getByText(/preference.*updated|saved/i);
@@ -569,7 +569,7 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Navigate to notification preferences
       await page.goto('/settings/notifications');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Look for max daily notifications input
       const maxDailyInput = page.getByLabel(/maximum.*per day|max.*daily/i);
@@ -585,7 +585,7 @@ test.describe('Notifications - Real-Time System', () => {
           await saveButton.first().click();
 
           // Wait for save operation
-          await page.waitForLoadState('networkidle');
+          await waitForPageReady(page);
 
           // Verify save succeeded (look for toast)
           const successToast = page.getByText(/preference.*updated|saved/i);

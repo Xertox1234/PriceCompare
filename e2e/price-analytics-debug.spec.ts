@@ -3,6 +3,7 @@
  * Captures page state and screenshots to diagnose why elements aren't found
  */
 import { test, expect } from './fixtures';
+import { waitForPageReady } from './helpers';
 import { seedTestProduct } from './helpers/admin-helpers';
 import { navigateToPriceHistory, seedPriceHistoryData } from './helpers/price-analytics-helpers';
 import { db } from '../server/db';
@@ -65,7 +66,7 @@ test('DEBUG: test API endpoint directly', async ({ page }) => {
 
   // Navigate to a page first to establish session
   await page.goto('/');
-  await page.waitForLoadState('networkidle');
+  await waitForPageReady(page);
 
   // Test API endpoint
   const apiUrl = `/api/products/${testProductId}/offers/${testOfferId}/price-history?limit=100`;

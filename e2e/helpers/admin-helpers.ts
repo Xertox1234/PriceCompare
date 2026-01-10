@@ -4,6 +4,7 @@
  * Utilities for testing admin-specific functionality
  */
 import { type Page } from '@playwright/test';
+import { waitForPageReady } from '../helpers';
 import { db } from '../../server/db';
 import { products, retailers, productOffers, priceHistory } from '@shared/schema';
 import type { Product, Retailer } from '@shared/schema';
@@ -42,7 +43,7 @@ export async function createAdminUser(
 
   // Reload page to apply cleared state
   await page.reload();
-  await page.waitForLoadState('networkidle');
+  await waitForPageReady(page);
 
   // Click Sign Up button in navigation to open auth modal
   // Use .first() because there are multiple Sign Up buttons (nav, main, footer)

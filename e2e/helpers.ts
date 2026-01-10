@@ -39,6 +39,53 @@ export const TIMEOUTS = {
 } as const;
 
 /**
+ * Wait for page to be ready for interaction
+ *
+ * CRITICAL: Use this instead of page.waitForLoadState('networkidle') in E2E tests.
+ *
+ * Problem: 'networkidle' waits for ALL network activity to stop, but WebSocket
+ * connections never idle - they maintain persistent connections for real-time updates.
+ * Tests using 'networkidle' will timeout (45s) waiting for a state that never occurs.
+ *
+ * Solution: Wait for DOM content to load, then wait for critical elements to be visible.
+ *
+ * @param page - Playwright page object
+ * @param options - Configuration options
+ * @param options.waitFor - Optional selector to wait for specific element visibility
+ * @param options.timeout - Timeout for element wait (default: 10000ms)
+ *
+ * @example
+ * // Basic usage (replaces networkidle)
+ * await waitForPageReady(page);
+ *
+ * @example
+ * // Wait for specific element
+ * await waitForPageReady(page, { waitFor: 'main' });
+ *
+ * @example
+ * // Wait with custom timeout
+ * await waitForPageReady(page, { waitFor: '[data-testid="dashboard"]', timeout: 15000 });
+ */
+export async function waitForPageReady(
+  page: Page,
+  options?: { waitFor?: string; timeout?: number }
+): Promise<void> {
+  // Wait for DOM content to load (fast, reliable)
+  await page.waitForLoadState('domcontentloaded');
+
+  // If specific element requested, wait for it
+  if (options?.waitFor) {
+    await page.locator(options.waitFor).waitFor({
+      state: 'visible',
+      timeout: options.timeout ?? 10000,
+    });
+  }
+
+  // Small stability buffer for React hydration and initial renders
+  await page.waitForTimeout(500);
+}
+
+/**
  * Clean database before tests
  * Removes all test data to ensure isolation
  *

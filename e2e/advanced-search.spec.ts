@@ -45,6 +45,7 @@
  *    - Comments indicate flexible patterns
  */
 import { test, expect } from './fixtures';
+import { waitForPageReady } from './helpers';
 import { seedMultipleProducts } from './helpers/admin-helpers';
 import { seedProductsWithCategories, seedProductsWithPrices } from './helpers/search-seed-helpers';
 import { skipIfMissing } from './helpers/skip-helpers';
@@ -67,7 +68,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Use the stable browse/search UI on /shop (avoids SmartSearch coupling)
       await page.goto('/shop');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
       await waitForSearchResults(page);
 
       // Verify initial results show multiple categories
@@ -104,7 +105,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to search
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Check if category filter exists
       const categoryFilter = page.getByLabel(/category/i);
@@ -181,7 +182,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to search/products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Check if price filters exist
       const minPriceInput = page.getByLabel(/min.*price/i);
@@ -226,7 +227,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Check if sort control exists
       const sortControl = page.getByLabel(/sort.*by/i);
@@ -258,7 +259,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Check if sort control exists
       const sortControl = page.getByLabel(/sort.*by/i);
@@ -293,7 +294,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Check if filters exist
       const categoryFilter = page.getByLabel(/category/i);
@@ -341,7 +342,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Check if all controls exist
       const categoryFilter = page.getByLabel(/category/i);
@@ -395,7 +396,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Wait for initial results to load (ensures pagination state is settled)
       await waitForSearchResults(page);
@@ -444,7 +445,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Wait for initial results to load (ensures pagination/filter state is settled)
       await waitForSearchResults(page);
@@ -515,7 +516,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
 
       // Navigate to products page
       await page.goto('/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Check if price filters exist
       const minPriceInput = page.getByLabel(/min.*price/i);
@@ -528,7 +529,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       await applyPriceRangeFilter(page, 10000, 20000);
 
       // Wait for results or empty state
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should show empty state message
       const emptyMessage = page.locator('text=/no.*results|no.*products.*found|nothing.*found/i');
@@ -550,7 +551,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       await performSearch(page, 'NonExistentProductXYZ12345');
 
       // Wait for results or empty state
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should show empty state or "no results" message
       const emptyMessage = page.locator('text=/no.*results|no.*products.*found|nothing.*found/i');

@@ -4,7 +4,7 @@
  * Tests creating, viewing, editing, and deleting price alerts
  */
 import { test, expect } from './fixtures';
-import { waitForApiResponse } from './helpers';
+import { waitForApiResponse, waitForPageReady } from './helpers';
 import { createAlertViaModal, openAlertModalViaChart, bulkCreateAlerts } from './helpers/alert-helpers';
 import { seedPriceAlertTestData } from './helpers/price-alerts-seed-helpers';
 import { db } from '../server/db';
@@ -85,7 +85,7 @@ test.describe('Price Alert Management', () => {
 
       // View alerts page
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should show alerts for the seeded product
       await expect(page.locator('text=/Gaming Laptop/i').first()).toBeVisible();
@@ -97,7 +97,7 @@ test.describe('Price Alert Management', () => {
 
     test('should show empty state when no alerts', async ({ authenticatedPage: page }) => {
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should show empty state
       await expect(
@@ -109,7 +109,7 @@ test.describe('Price Alert Management', () => {
       await createAlertViaModal(page, testProduct.productId, 999.99);
 
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should show alert status
       await expect(page.locator('text=/active|watching|monitoring|triggered/i')).toBeVisible();
@@ -124,7 +124,7 @@ test.describe('Price Alert Management', () => {
       await createAlertViaModal(page, testProduct.productId, 999.99);
 
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Click edit button
       await page.click('button:has-text("Edit"), [data-testid="edit-alert"], a:has-text("Edit")');
@@ -148,7 +148,7 @@ test.describe('Price Alert Management', () => {
       await createAlertViaModal(page, testProduct.productId, 999.99);
 
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await page.click('button:has-text("Edit")');
 
@@ -169,7 +169,7 @@ test.describe('Price Alert Management', () => {
       await createAlertViaModal(page, testProduct.productId, 999.99);
 
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Verify alert exists
       await expect(page.locator('text=/Gaming Laptop/i')).toBeVisible();
@@ -204,7 +204,7 @@ test.describe('Price Alert Management', () => {
       await createAlertViaModal(page, testProduct.productId, 999.99);
 
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Click delete
       await page.click('button:has-text("Delete")');
@@ -233,7 +233,7 @@ test.describe('Price Alert Management', () => {
       await createAlertViaModal(page, testProduct.productId, 2000.0);
 
       await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should show that alert was triggered or notification exists
       await expect(

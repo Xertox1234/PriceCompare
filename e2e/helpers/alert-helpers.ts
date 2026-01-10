@@ -5,14 +5,14 @@
  * Tier 2 helpers (feature-specific) - extends core helpers from e2e/helpers.ts
  */
 import type { Page } from '@playwright/test';
-import { waitForApiResponse } from '../helpers';
+import { waitForApiResponse, waitForPageReady } from '../helpers';
 import { db } from '../../server/db';
 import { priceAlerts } from '../../shared/schema';
 
 export async function openAlertModalViaChart(page: Page, productId: number): Promise<void> {
   // Navigate to product detail page
   await page.goto(`/product/${productId}`);
-  await page.waitForLoadState('networkidle');
+  await waitForPageReady(page);
 
   // Expand Price Analytics & History section (collapsible, closed by default)
   const analyticsSection = page.locator('text=/Price Analytics.*History/i').first();

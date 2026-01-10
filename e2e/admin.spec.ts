@@ -18,6 +18,7 @@ import {
   loginUser,
   logoutUser,
   waitForApiResponse as _waitForApiResponse,
+  waitForPageReady,
 } from './helpers';
 import {
   createAdminUser,
@@ -33,7 +34,7 @@ test.describe('Admin - Dashboard Management', () => {
 
       // Navigate to admin area
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Verify dashboard loads (may vary based on actual implementation)
       // Use flexible selectors that work with different UI variations
@@ -50,7 +51,7 @@ test.describe('Admin - Dashboard Management', () => {
 
       // Try to access admin area
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should redirect to home or show access denied
       // Check for either redirect or error message
@@ -65,7 +66,7 @@ test.describe('Admin - Dashboard Management', () => {
 
     test('should redirect unauthenticated users from admin dashboard', async ({ page }) => {
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Should redirect to home page (route protection in admin.tsx:lines 38-42)
       await expect(page).toHaveURL('http://localhost:5001/');
@@ -80,7 +81,7 @@ test.describe('Admin - Dashboard Management', () => {
       await seedAnalyticsData({ productCount: 5, priceHistoryCount: 20 });
 
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Verify dashboard displays with statistics
       // The dashboard should show metrics for users, products, retailers, and alerts
@@ -96,7 +97,7 @@ test.describe('Admin - Dashboard Management', () => {
       await createAdminUser(page);
 
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await expect(page.getByText(/User Growth/i)).toBeVisible();
     });
@@ -108,7 +109,7 @@ test.describe('Admin - Dashboard Management', () => {
 
       // Navigate to admin retailers section
       await page.goto('/admin/retailers');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Get CSRF token first
       const csrfResponse = await page.request.get('/api/csrf-token');
@@ -140,7 +141,7 @@ test.describe('Admin - Dashboard Management', () => {
       await createAdminUser(page);
 
       await page.goto('/admin/retailers');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await page.getByRole('button', { name: /add retailer/i }).click();
 
@@ -161,7 +162,7 @@ test.describe('Admin - Dashboard Management', () => {
 
       // Navigate to admin page
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Click on Retailers tab to view retailers
       await page.getByRole('tab', { name: /retailers/i }).click();
@@ -220,7 +221,7 @@ test.describe('Admin - Dashboard Management', () => {
       const { product } = await seedTestProduct({ name: 'UI Edit Product' });
 
       await page.goto('/admin/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await page.getByRole('tab', { name: /^products$/i }).click();
 
@@ -277,7 +278,7 @@ test.describe('Admin - Dashboard Management', () => {
       const { product } = await seedTestProduct({ name: 'UI Delete Product' });
 
       await page.goto('/admin/products');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await page.getByRole('tab', { name: /^products$/i }).click();
 
@@ -301,7 +302,7 @@ test.describe('Admin - Dashboard Management', () => {
 
       // Navigate to admin page
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       // Click on Products tab to view products
       await page.getByRole('tab', { name: /^products$/i }).click();
@@ -357,7 +358,7 @@ test.describe('Admin - Dashboard Management', () => {
       await createAdminUser(page);
 
       await page.goto('/monitoring');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await expect(page.getByRole('heading', { name: /AI Agent Monitoring/i })).toBeVisible({
         timeout: 10000,
@@ -401,7 +402,7 @@ test.describe('Admin - Dashboard Management', () => {
       await loginUser(page, 'admin@pricecompare.com', 'AdminPass123!');
 
       await page.goto('/admin/users');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
 
       await page.getByRole('tab', { name: /users/i }).click();
 
@@ -431,7 +432,7 @@ test.describe('Admin - Dashboard Management', () => {
       await loginUser(page, 'admin@pricecompare.com', 'AdminPass123!');
 
       await page.goto('/admin/users');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
       await page.getByRole('tab', { name: /users/i }).click();
 
       const usersResponse = await page.request.get('/api/admin/users');
@@ -473,7 +474,7 @@ test.describe('Admin - Dashboard Management', () => {
 
       // Attempt login and assert we see the error (don't use loginUser helper; it expects success)
       await page.goto('/price-watch');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
       await page
         .getByRole('button', { name: /sign in/i })
         .first()

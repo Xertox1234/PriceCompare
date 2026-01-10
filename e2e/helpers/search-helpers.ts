@@ -4,6 +4,7 @@
  * Helper functions for advanced search E2E tests
  */
 import { type Page } from '@playwright/test';
+import { waitForPageReady } from '../helpers';
 
 function getResultCardLocator(page: Page) {
   // Current UI renders product results as expandable cards.
@@ -56,7 +57,7 @@ function normalizeSortValue(sortBy: string): string {
 export async function performSearch(page: Page, query: string): Promise<void> {
   // Navigate to products page (current search UI lives here)
   await page.goto('/products');
-  await page.waitForLoadState('networkidle');
+  await waitForPageReady(page);
 
   // Tests should prefer basic mode to avoid SmartSearch flakiness/errors.
   const switchToBasic = page.getByRole('button', { name: /switch to basic search mode/i }).first();
@@ -78,7 +79,7 @@ export async function performSearch(page: Page, query: string): Promise<void> {
     .catch(() => null);
 
   // Wait for results to load
-  await page.waitForLoadState('networkidle');
+  await waitForPageReady(page);
 }
 
 /**
@@ -91,7 +92,7 @@ export async function applyCategoryFilter(page: Page, category: string): Promise
 
   if ((await categorySelect.count()) > 0) {
     await categorySelect.selectOption(category);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
     return;
   }
 
@@ -100,7 +101,7 @@ export async function applyCategoryFilter(page: Page, category: string): Promise
 
   if ((await categoryButton.count()) > 0) {
     await categoryButton.click();
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
     return;
   }
 
@@ -109,7 +110,7 @@ export async function applyCategoryFilter(page: Page, category: string): Promise
 
   if ((await categoryCheckbox.count()) > 0) {
     await categoryCheckbox.check();
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
   }
 }
 
@@ -136,7 +137,7 @@ export async function applyPriceRangeFilter(
   if ((await applyButton.count()) > 0) await applyButton.first().click();
 
   // Wait for filtered results
-  await page.waitForLoadState('networkidle');
+  await waitForPageReady(page);
 }
 
 /**
@@ -149,7 +150,7 @@ export async function applyRetailerFilter(page: Page, retailer: string): Promise
 
   if ((await retailerSelect.count()) > 0) {
     await retailerSelect.selectOption(retailer);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
     return;
   }
 
@@ -158,7 +159,7 @@ export async function applyRetailerFilter(page: Page, retailer: string): Promise
 
   if ((await retailerCheckbox.count()) > 0) {
     await retailerCheckbox.check();
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
   }
 }
 
@@ -202,7 +203,7 @@ export async function sortSearchResults(page: Page, sortBy: string): Promise<voi
         await sortSelect.selectOption(normalizedValue);
       }
     }
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
     return;
   }
 
@@ -218,7 +219,7 @@ export async function sortSearchResults(page: Page, sortBy: string): Promise<voi
       .first();
     await sortMenuItem.waitFor({ state: 'visible', timeout: 3000 });
     await sortMenuItem.click();
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
   }
 }
 
@@ -253,7 +254,7 @@ export async function navigateToPage(page: Page, pageNumber: number): Promise<vo
 
   if ((await pageButton.count()) > 0) {
     await pageButton.click();
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
     return;
   }
 
@@ -264,7 +265,7 @@ export async function navigateToPage(page: Page, pageNumber: number): Promise<vo
     for (let i = currentPage; i < pageNumber; i++) {
       const nextButton = page.getByRole('button', { name: /next/i });
       await nextButton.click();
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
     }
   }
 }

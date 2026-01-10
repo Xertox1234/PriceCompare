@@ -26,7 +26,7 @@
  *    - Public product viewing doesn't require auth
  *
  * 3. Explicit Waits
- *    - waitForLoadState('networkidle') after navigation
+ *    - waitForPageReady(page) after navigation
  *    - waitFor() for product data rendering
  *    - Intentional timeouts for chart/image loading
  *
@@ -55,6 +55,7 @@ import {
   registerUser,
   generateTestUsername,
   generateTestEmail,
+  waitForPageReady,
 } from './helpers';
 import { seedTestProduct } from './helpers/admin-helpers';
 import { ensureUserHasWatchlist } from './helpers/watchlist-helpers';
@@ -69,7 +70,7 @@ test.describe('Product Detail - Page Loading', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Verify page loads and product information is displayed
     // Product title should be visible (h1 or heading with product name)
@@ -83,7 +84,7 @@ test.describe('Product Detail - Page Loading', () => {
   test('should handle invalid product ID gracefully', async ({ page }) => {
     // Navigate to product page with non-existent ID
     await page.goto('/product/999999');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Should show error message, redirect to 404, OR load with placeholder/default content
     // Check for error indicators (error message, 404 page, or empty state)
@@ -117,7 +118,7 @@ test.describe('Product Detail - Information Display', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for product content to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
@@ -147,7 +148,7 @@ test.describe('Product Detail - Information Display', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
@@ -208,7 +209,7 @@ test.describe('Product Detail - Watchlist Integration', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
@@ -277,7 +278,7 @@ test.describe('Product Detail - Watchlist Integration', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
@@ -325,7 +326,7 @@ test.describe('Product Detail - Price Analytics Integration', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
@@ -364,7 +365,7 @@ test.describe('Product Detail - Price Analytics Integration', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
@@ -404,7 +405,7 @@ test.describe('Product Detail - Related Products', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
@@ -443,7 +444,7 @@ test.describe('Product Detail - Price Alert Integration', () => {
 
     // Navigate to product detail page
     await page.goto(`/product/${product.id}`);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     // Wait for page to load
     await page.waitForSelector('h1, [role="heading"]', { state: 'visible', timeout: 10000 });
