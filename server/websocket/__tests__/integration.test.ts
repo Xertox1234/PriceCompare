@@ -7,6 +7,12 @@
  * - Room isolation
  * - Notification flow
  * - Price alert flow
+ *
+ * NOTE: These tests call WebSocket handler functions directly rather than
+ * testing event bus integration at the unit level. Event bus → WebSocket
+ * integration is verified by E2E tests (e2e/websocket.test.ts) which test
+ * the full production flow. This approach avoids module isolation issues
+ * in Vitest while maintaining coverage of WebSocket functionality.
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
