@@ -40,11 +40,11 @@ export function registerWatchListHandlers(socket: AuthenticatedSocket): void {
 
       // Join user-specific room (already done in connection handler, but ensure)
       const userRoom = `user:${socket.userId}`;
-      void socket.join(userRoom);
+      await socket.join(userRoom);
 
       // Join watch list room for targeted updates
       const watchListRoom = `watchlist:${socket.userId}`;
-      void socket.join(watchListRoom);
+      await socket.join(watchListRoom);
 
       log.info('Client subscribed to watch list updates', {
         userId: socket.userId,
@@ -52,9 +52,8 @@ export function registerWatchListHandlers(socket: AuthenticatedSocket): void {
         rooms: [userRoom, watchListRoom],
       });
 
-      // Send subscription confirmation with current watch list count
-      // Note: We don't fetch full data here to avoid performance hit
-      // Client should request data via REST API after subscription
+      // Send subscription confirmation AFTER room joins complete
+      // This ensures emissions to these rooms will reach the socket
       socket.emit('watchlist:subscribed', {
         timestamp: new Date().toISOString(),
         message: 'Successfully subscribed to watch list updates',

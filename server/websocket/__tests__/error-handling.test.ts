@@ -59,7 +59,7 @@ vi.mock('../../services/notification-service', () => ({
 }));
 
 // SKIP: Same authentication mocking issue as load.test.ts and integration.test.ts
-describe.skip('WebSocket Error Handling Tests', () => {
+describe('WebSocket Error Handling Tests', () => {
   let testContext: WebSocketTestContext;
   let port: number;
 

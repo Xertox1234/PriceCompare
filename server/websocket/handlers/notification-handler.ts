@@ -49,7 +49,7 @@ export function registerNotificationHandlers(socket: AuthenticatedSocket): void 
 
       // Join notification room
       const notificationRoom = `notifications:${socket.userId}`;
-      void socket.join(notificationRoom);
+      await socket.join(notificationRoom);
 
       log.info('Client subscribed to notifications', {
         userId: socket.userId,
@@ -58,6 +58,7 @@ export function registerNotificationHandlers(socket: AuthenticatedSocket): void 
       });
 
       // Get current unread count and send with subscription confirmation
+      // Send AFTER room join completes to ensure emissions will reach socket
       try {
         // Use storage directly to avoid circular dependency with notification-service
         const stats = await storage.getNotificationStats(socket.userId);

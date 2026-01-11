@@ -48,7 +48,7 @@ vi.mock('../../utils/logger', () => ({
 //
 // Our application doesn't implement reconnection logic - it's built into socket.io-client.
 // We should test our event handlers (watchlist updates, subscriptions), not library internals.
-describe.skip('WebSocket Reconnection Tests', () => {
+describe('WebSocket Reconnection Tests', () => {
   let testContext: WebSocketTestContext;
   let port: number;
 
@@ -146,7 +146,7 @@ describe.skip('WebSocket Reconnection Tests', () => {
   // not our application code. The first test shuts down the WebSocket server entirely
   // via shutdownWebSocket(), which breaks all subsequent tests (test pollution).
   // Socket.io's exponential backoff is well-tested by the library maintainers.
-  describe.skip('Exponential Backoff', () => {
+  describe('Exponential Backoff', () => {
     it('should use exponential backoff for reconnection attempts', async () => {
       // Create client with manual reconnection tracking
       const client = ioClient(`http://localhost:${port}`, {

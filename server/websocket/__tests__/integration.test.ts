@@ -59,9 +59,19 @@ vi.mock('../../services/notification-service', () => ({
   })),
 }));
 
-// SKIP: Same authentication mocking issue as load.test.ts - all tests timeout
-// waiting for 'connect' event that never fires due to missing session.passport.user
-describe.skip('WebSocket Integration Tests', () => {
+// Mock storage layer (used directly by WebSocket handlers)
+vi.mock('../../storage', () => ({
+  storage: {
+    getNotificationStats: vi.fn(async () => ({
+      total: 10,
+      unread: 3,
+      byType: {},
+    })),
+    markAsRead: vi.fn(async () => 1),
+  },
+}));
+
+describe('WebSocket Integration Tests', () => {
   let testContext: WebSocketTestContext;
   let port: number;
 
@@ -294,6 +304,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
+        await Promise.all([waitForEvent(clientA, 'authenticated'), waitForEvent(clientB, 'authenticated')]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -338,6 +349,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
+        await Promise.all([waitForEvent(clientA, 'authenticated'), waitForEvent(clientB, 'authenticated')]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -378,6 +390,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
+        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('notification:subscribe');
         await waitForEvent(client, 'notification:subscribed');
@@ -421,6 +434,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
+        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('notification:subscribe');
         await waitForEvent(client, 'notification:subscribed');
@@ -452,6 +466,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
+        await waitForEvent(client, 'authenticated'); // Wait for room join to complete
 
         const alertSpy = spyOnSocketEvent(client, 'price:alert');
 
@@ -495,6 +510,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
+        await Promise.all([waitForEvent(clientA, 'authenticated'), waitForEvent(clientB, 'authenticated')]);
 
         const spyA = spyOnSocketEvent(clientA, 'price:alert');
         const spyB = spyOnSocketEvent(clientB, 'price:alert');
@@ -532,6 +548,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
+        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');
@@ -571,6 +588,7 @@ describe.skip('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
+        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');

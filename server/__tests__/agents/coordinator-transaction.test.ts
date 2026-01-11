@@ -4,16 +4,15 @@
  * Tests the atomic product creation + trending product linking operation
  * to ensure both operations succeed together or roll back together.
  *
+ * These tests verify critical transaction scenarios:
+ * - Atomic operations (product creation + trending product update)
+ * - Rollback on failure (product not created if trending update fails)
+ * - Constraint handling (null values properly rejected)
+ * - Transaction isolation (independent transactions don't interfere)
+ * - Multi-update atomicity (multiple updates commit together or not at all)
+ *
  * Related: TODO 004 - Add Transaction Boundaries to Multi-Step Database Operations
- *
- * SKIPPED: These tests require the trending_products table from migration 0026_create_scraping_tables.sql
- * The test database does not have this migration applied.
- *
- * To enable these tests:
- * 1. Run migration 0026 on test database
- * 2. Remove describe.skip() wrapper
- *
- * See: migrations/0026_create_scraping_tables.sql
+ * Status: ✅ Re-enabled on 2026-01-10 after applying migration 0026 to test database
  */
 
 import { describe, test, expect, beforeEach, afterAll } from 'vitest';
@@ -23,7 +22,7 @@ import { eq } from 'drizzle-orm';
 import { storage } from '../../storage';
 import type { InsertProduct, InsertTrendingProduct } from '@shared/schema';
 
-describe.skip('Coordinator Agent - Transaction Atomicity', () => {
+describe('Coordinator Agent - Transaction Atomicity', () => {
   // Clean up test data before each test
   beforeEach(async () => {
     // Delete test products and trending products

@@ -193,6 +193,27 @@ function authenticationMiddleware(socket: Socket, next: (err?: Error) => void): 
     // Extract session from request (now populated by session middleware)
     const session = req.session;
 
+    // TEST MODE: Support authentication via x-test-user-id header
+    // This allows tests to bypass session cookie requirement
+    if (process.env.NODE_ENV === 'test') {
+      const testUserId = handshake.headers['x-test-user-id'];
+      if (testUserId) {
+        const userId = parseInt(String(testUserId), 10);
+        if (!isNaN(userId)) {
+          // Populate session with test user
+          if (!session.passport) {
+            session.passport = {};
+          }
+          session.passport.user = userId;
+
+          log.debug('Test mode: authenticated via x-test-user-id header', {
+            userId,
+            socketId: socket.id,
+          });
+        }
+      }
+    }
+
     if (!session || !session.passport || !session.passport.user) {
       log.warn('WebSocket connection rejected - no valid session', {
         ip,
@@ -304,29 +325,49 @@ function handleConnection(socket: Socket): void {
 
   // Join user to their personal room for targeted messaging
   const userRoom = `user:${userId}`;
-  void socket.join(userRoom);
 
-  log.info('WebSocket client connected', {
-    userId,
-    socketId: socket.id,
-    room: userRoom,
-    ip: socket.handshake.address,
-  });
+  // Join room and setup handlers before emitting authenticated event
+  // CRITICAL: socket.join() is synchronous without adapter, async with adapter
+  // We use setImmediate to ensure join completes in both cases
+  void Promise.resolve()
+    .then(() => {
+      // Join user room (synchronous in test environment, async in production)
+      return socket.join(userRoom);
+    })
+    .then(() => {
+      // Use setImmediate to ensure join has completed even if synchronous
+      return new Promise<void>((resolve) => setImmediate(resolve));
+    })
+    .then(() => {
+      // Verify socket actually joined the room (critical for tests)
+      const rooms = Array.from(socket.rooms);
+      if (!rooms.includes(userRoom)) {
+        throw new Error(`Socket failed to join room ${userRoom}`);
+      }
+      log.debug('Socket joined user room', { userId, socketId: socket.id, rooms });
+      return setupEventHandlers(authSocket);
+    })
+    .then(() => {
+      log.info('WebSocket client connected', {
+        userId,
+        socketId: socket.id,
+        room: userRoom,
+        ip: socket.handshake.address,
+      });
 
-  // Send authentication confirmation
-  socket.emit('authenticated', {
-    userId,
-    timestamp: new Date().toISOString(),
-  });
-
-  // Handle client events (async handler registration)
-  void setupEventHandlers(authSocket).catch((err: unknown) => {
-    log.error('Failed to setup event handlers', {
-      userId,
-      socketId: socket.id,
-      error: err instanceof Error ? err.message : String(err),
+      // Send authentication confirmation AFTER room join AND handlers are ready
+      socket.emit('authenticated', {
+        userId,
+        timestamp: new Date().toISOString(),
+      });
+    })
+    .catch((err: unknown) => {
+      log.error('Failed to setup connection', {
+        userId,
+        socketId: socket.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
-  });
 
   // Handle disconnection
   socket.on('disconnect', (reason) => {
@@ -468,6 +509,10 @@ export function shutdownWebSocket(): void {
   });
 
   io = null;
+
+  // Reset event subscriptions flag to allow re-initialization
+  // Critical for test environments where server is recreated
+  eventSubscriptionsInitialized = false;
 }
 
 /**
