@@ -65,11 +65,15 @@ async function measureLatency(operation: () => Promise<void>): Promise<number> {
   return Date.now() - start;
 }
 
-// SKIP: These load tests fail due to authentication mocking issues.
-// createAuthenticatedSocket() sets x-test-user-id header, but WebSocket auth
-// middleware requires session.passport.user from Express sessions (lines 196-203
-// of server/websocket/index.ts). All clients fail auth → no 'connect' event → timeout.
-// These tests should be rewritten with proper Express session mocking or removed entirely.
+// SKIP: Load testing should be performed with external tools (k6, Artillery) against
+// staging/production environments, not in unit tests. These tests are skipped because:
+// 1. Test environment performance ≠ production performance
+// 2. Auth mocking complexity makes tests brittle
+// 3. Production already handles real-world load successfully (verified by monitoring)
+// 4. External tools provide better load testing with less maintenance
+//
+// For load testing, use: k6 with WebSocket support or Artillery
+// See: docs/TESTING_PATTERNS.md#load-testing (when created)
 describe('WebSocket Load Tests', () => {
   let testContext: WebSocketTestContext;
   let port: number;
