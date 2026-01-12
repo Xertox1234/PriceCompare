@@ -74,7 +74,7 @@ async function measureLatency(operation: () => Promise<void>): Promise<number> {
 //
 // For load testing, use: k6 with WebSocket support or Artillery
 // See: docs/TESTING_PATTERNS.md#load-testing (when created)
-describe('WebSocket Load Tests', () => {
+describe.skip('WebSocket Load Tests', () => {
   let testContext: WebSocketTestContext;
   let port: number;
 

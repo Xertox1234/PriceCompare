@@ -157,6 +157,26 @@ function authenticationMiddleware(socket: Socket, next: (err?: Error) => void): 
   const ip = handshake.address;
   const userAgent = handshake.headers['user-agent'] || 'unknown';
 
+  // TEST MODE: Support authentication via x-test-user-id header
+  // This bypasses session middleware entirely for test connections
+  if (process.env.NODE_ENV === 'test') {
+    const testUserId = handshake.headers['x-test-user-id'];
+    if (testUserId) {
+      const userId = parseInt(String(testUserId), 10);
+      if (!isNaN(userId)) {
+        // Directly attach userId to socket (bypass session)
+        (socket as AuthenticatedSocket).userId = userId;
+
+        log.debug('Test mode: authenticated via x-test-user-id header', {
+          userId,
+          socketId: socket.id,
+        });
+
+        return next();
+      }
+    }
+  }
+
   // Wrap Socket.io request in Express session middleware
   if (!sessionMiddleware) {
     log.error('Session middleware not initialized');
@@ -192,27 +212,6 @@ function authenticationMiddleware(socket: Socket, next: (err?: Error) => void): 
 
     // Extract session from request (now populated by session middleware)
     const session = req.session;
-
-    // TEST MODE: Support authentication via x-test-user-id header
-    // This allows tests to bypass session cookie requirement
-    if (process.env.NODE_ENV === 'test') {
-      const testUserId = handshake.headers['x-test-user-id'];
-      if (testUserId) {
-        const userId = parseInt(String(testUserId), 10);
-        if (!isNaN(userId)) {
-          // Populate session with test user
-          if (!session.passport) {
-            session.passport = {};
-          }
-          session.passport.user = userId;
-
-          log.debug('Test mode: authenticated via x-test-user-id header', {
-            userId,
-            socketId: socket.id,
-          });
-        }
-      }
-    }
 
     if (!session || !session.passport || !session.passport.user) {
       log.warn('WebSocket connection rejected - no valid session', {
