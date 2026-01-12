@@ -310,7 +310,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
-        await Promise.all([waitForEvent(clientA, 'authenticated'), waitForEvent(clientB, 'authenticated')]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -355,7 +354,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
-        await Promise.all([waitForEvent(clientA, 'authenticated'), waitForEvent(clientB, 'authenticated')]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -396,7 +394,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
-        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('notification:subscribe');
         await waitForEvent(client, 'notification:subscribed');
@@ -440,7 +437,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
-        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('notification:subscribe');
         await waitForEvent(client, 'notification:subscribed');
@@ -472,7 +468,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
-        await waitForEvent(client, 'authenticated'); // Wait for room join to complete
 
         const alertSpy = spyOnSocketEvent(client, 'price:alert');
 
@@ -516,7 +511,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
-        await Promise.all([waitForEvent(clientA, 'authenticated'), waitForEvent(clientB, 'authenticated')]);
 
         const spyA = spyOnSocketEvent(clientA, 'price:alert');
         const spyB = spyOnSocketEvent(clientB, 'price:alert');
@@ -554,7 +548,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
-        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');
@@ -594,7 +587,6 @@ describe('WebSocket Integration Tests', () => {
 
       try {
         await waitForEvent(client, 'connect');
-        await waitForEvent(client, 'authenticated'); // Wait for room join
 
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');

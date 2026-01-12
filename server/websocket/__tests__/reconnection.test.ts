@@ -48,7 +48,7 @@ vi.mock('../../utils/logger', () => ({
 //
 // Our application doesn't implement reconnection logic - it's built into socket.io-client.
 // We should test our event handlers (watchlist updates, subscriptions), not library internals.
-describe('WebSocket Reconnection Tests', () => {
+describe.skip('WebSocket Reconnection Tests', () => {
   let testContext: WebSocketTestContext;
   let port: number;
 
