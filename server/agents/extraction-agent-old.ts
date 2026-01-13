@@ -1,9 +1,11 @@
 import { BaseAgent } from './base-agent';
-import { chromium, type Browser, type Page } from 'playwright';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import { ScraperUtils } from '../utils/scraper-utils';
+import { storage } from '../storage';
 import type { ExtractedProductData, ExtractionTask } from './types';
 import { logger } from '../utils/logger';
-import { storage } from '../storage';
-import { ExtractionMonitoring } from './extraction-monitoring';
+import type { AxiosResponse } from 'axios';
 
 /** Result of a successful extraction task */
 interface ExtractionTaskResult {
@@ -29,46 +31,31 @@ interface ExtractionStrategy {
 }
 
 /**
- * Data Extraction Agent - Playwright Version
- *
- * Uses headless Chromium to extract product information from JavaScript-rendered pages.
- * Solves axios+cheerio limitations:
- * - Executes JavaScript (React/Vue/Angular apps)
- * - Waits for dynamic content (AJAX price loading)
- * - Handles modern e-commerce sites with client-side rendering
- *
- * Design Philosophy: SIMPLE
- * - Launch/close browser per request (no custom pooling)
- * - Use Playwright native stealth mode (no custom plugins)
- * - Reuse existing selector strategies from axios+cheerio version
- * - Always cleanup browser resources in finally block
- *
- * Pattern Alignment:
- * - 01_TYPESCRIPT_PATTERNS.md: Strict typing, async/await, proper error handling
- * - 06_ERROR_HANDLING_PATTERNS.md: Browser cleanup in finally blocks
- * - CLAUDE.md: Playwright EXCLUSIVELY for browser automation
+ * Data Extraction Agent - Extracts product information and pricing from retailer websites
  */
 export class DataExtractionAgent extends BaseAgent {
-  private browser: Browser | null = null;
+  private userAgents: string[];
   private extractionStrategies: Map<string, ExtractionStrategy> = new Map();
 
   constructor() {
     super({
-      name: 'Data Extraction Agent (Playwright)',
+      name: 'Data Extraction Agent',
       type: 'extraction',
       maxConcurrentTasks: 3,
       retryAttempts: 3,
       retryDelay: 2000,
     });
 
+    this.userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ];
+
     this.setupExtractionStrategies();
   }
 
-  /**
-   * Setup retailer-specific extraction strategies
-   * Reuses selectors from axios+cheerio version for compatibility
-   */
-  private setupExtractionStrategies(): void {
+  private setupExtractionStrategies() {
     this.extractionStrategies = new Map([
       [
         'amazon.com',
@@ -115,26 +102,8 @@ export class DataExtractionAgent extends BaseAgent {
         {
           titleSelectors: ['h1[data-test="product-title"]', 'h1', '.pdp-product-name'],
           priceSelectors: ['[data-test="product-price"]', '.Price-characteristic', '.sr-only'],
-          // OPTIMIZED: Validated in Step 2.4 live testing (2026-01-13)
-          // Original '[data-test="shipping-eligibility"]' not found
-          // Using wildcard selector '[data-test*="fulfillment"]' found "PickupNot available"
-          availabilitySelectors: [
-            '[data-test*="fulfillment"]',
-            '[data-test="shipping-eligibility"]',
-            '.fulfillment-add-to-cart',
-          ],
-          // OPTIMIZED: Validated in Step 2.4 live testing (2026-01-13)
-          // Original '[data-test="@web/ProductImages/PrimaryImage"]' not found
-          // Using 'img[src*="scene7"]' found Target CDN images successfully
-          imageSelectors: [
-            'img[src*="scene7"]',
-            'img[alt*="AirPods"]',
-            'img[alt*="Apple"]',
-            '[data-test="@web/ProductImages/PrimaryImage"]',
-            '.ProductImages img',
-            'picture img',
-            'main img[src*="target"]',
-          ],
+          availabilitySelectors: ['[data-test="shipping-eligibility"]', '.fulfillment-add-to-cart'],
+          imageSelectors: ['[data-test="@web/ProductImages/PrimaryImage"]', '.ProductImages img'],
           ratingSelectors: ['[data-test="ratings-and-reviews"]', '.ugc-ratings'],
           descriptionSelectors: ['[data-test="item-details-description"]', '.product-details'],
           brandSelectors: ['[data-test="product-brand"]', '.brand-name'],
@@ -144,10 +113,7 @@ export class DataExtractionAgent extends BaseAgent {
   }
 
   async processTask(task: ExtractionTask): Promise<ExtractionTaskResult | ExtractionTaskFailure> {
-    logger.info(`Starting Playwright extraction for ${task.url}`);
-
-    const startTime = Date.now();
-    let errorMessage: string | undefined;
+    logger.info(`Starting extraction for ${task.url}`);
 
     try {
       const extractedData = await this.extractProductData(task.url, task.retailer);
@@ -155,173 +121,112 @@ export class DataExtractionAgent extends BaseAgent {
       if (extractedData.price) {
         await this.storeProductData(extractedData, task.url, task.retailer, task.searchQuery);
         logger.info(`Successfully extracted and stored product: ${extractedData.title}`);
-
-        const duration = Date.now() - startTime;
-
-        // Record successful extraction (non-blocking)
-        void ExtractionMonitoring.recordAttempt(task.retailer, true, duration);
-
         return { success: true, data: extractedData };
       } else {
         logger.warn(`No price found for ${task.url}`);
-
-        errorMessage = 'No price data found';
-        const duration = Date.now() - startTime;
-
-        // Record failed extraction (non-blocking)
-        void ExtractionMonitoring.recordAttempt(task.retailer, false, duration, errorMessage);
-
-        return { success: false, reason: errorMessage };
+        return { success: false, reason: 'No price data found' };
       }
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : String(error);
-      const duration = Date.now() - startTime;
-
-      logger.error(`Playwright extraction failed for ${task.url}`, {
-        error: errorMessage,
+      logger.error(`Extraction failed for ${task.url}`, {
+        error: error instanceof Error ? error.message : String(error),
         url: task.url,
       });
-
-      // Record failed extraction (non-blocking)
-      void ExtractionMonitoring.recordAttempt(task.retailer, false, duration, errorMessage);
-
       throw error;
     }
   }
 
-  /**
-   * Extract product data using Playwright (headless browser with JavaScript execution)
-   * Handles modern JavaScript-rendered e-commerce sites
-   */
   private async extractProductData(
     url: string,
     retailerDomain: string
   ): Promise<ExtractedProductData> {
-    // SIMPLE: Launch new browser per request (optimize later if needed)
-    this.browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
-    });
+    const response = await this.fetchPage(url);
+    const $ = cheerio.load(response.data);
 
-    const context = await this.browser.newContext({
-      // Playwright native stealth mode
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      viewport: { width: 1920, height: 1080 },
-      locale: 'en-US',
-      timezoneId: 'America/New_York',
-      // Additional headers for realism
-      extraHTTPHeaders: {
-        'Accept-Language': 'en-US,en;q=0.9',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      },
-    });
+    const strategy = this.extractionStrategies.get(retailerDomain) || this.getGenericStrategy();
 
-    const page = await context.newPage();
+    const extractedData: ExtractedProductData = {
+      title: this.extractText($, strategy.titleSelectors) || '',
+      price: this.extractPrice($, strategy.priceSelectors),
+      currency: 'USD', // Default to USD, could be enhanced to detect currency
+      availability: this.extractAvailability($, strategy.availabilitySelectors),
+      description: strategy.descriptionSelectors
+        ? this.extractText($, strategy.descriptionSelectors)
+        : undefined,
+      imageUrl: this.extractImageUrl($, strategy.imageSelectors) || undefined,
+      rating: strategy.ratingSelectors
+        ? this.extractRating($, strategy.ratingSelectors)
+        : undefined,
+      brand: strategy.brandSelectors ? this.extractText($, strategy.brandSelectors) : undefined,
+    };
+
+    // Clean and validate data
+    extractedData.title = this.cleanText(extractedData.title) || '';
+    extractedData.description = this.cleanText(extractedData.description);
+
+    return extractedData;
+  }
+
+  private async fetchPage(url: string): Promise<AxiosResponse<string>> {
+    const userAgent = this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
+
+    // Add random delay to avoid detection
+    await ScraperUtils.delay(1500, true);
 
     try {
-      // Navigate and wait for content
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000,
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': userAgent,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          Connection: 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Cache-Control': 'max-age=0',
+        },
+        timeout: 15000,
+        maxRedirects: 5,
       });
 
-      // Get extraction strategy for retailer
-      const strategy = this.extractionStrategies.get(retailerDomain) || this.getGenericStrategy();
-
-      // Wait for price element (indicates page loaded)
-      // This is KEY DIFFERENCE from axios+cheerio: we wait for JavaScript to render
-      try {
-        await page.waitForSelector(strategy.priceSelectors[0], {
-          timeout: 10000,
-          state: 'visible',
-        });
-      } catch {
-        logger.warn(
-          `Price selector not found immediately for ${retailerDomain}, attempting extraction anyway`
-        );
-        // Give page a bit more time for dynamic content
-        await page.waitForTimeout(2000);
+      return response;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          throw new Error('Access denied - anti-bot protection detected');
+        } else if (error.response?.status === 404) {
+          throw new Error('Product page not found');
+        }
+        throw new Error(`Failed to fetch page: ${error.message}`);
       }
-
-      // Extract data AFTER JavaScript execution
-      const title = await this.extractText(page, strategy.titleSelectors);
-      const price = await this.extractPrice(page, strategy.priceSelectors);
-      const availability = await this.extractAvailability(page, strategy.availabilitySelectors);
-      const imageUrl = await this.extractImageUrl(page, strategy.imageSelectors);
-      const rating = strategy.ratingSelectors
-        ? await this.extractRating(page, strategy.ratingSelectors)
-        : undefined;
-      const description = strategy.descriptionSelectors
-        ? await this.extractText(page, strategy.descriptionSelectors)
-        : undefined;
-      const brand = strategy.brandSelectors
-        ? await this.extractText(page, strategy.brandSelectors)
-        : undefined;
-
-      const extractedData: ExtractedProductData = {
-        title: this.cleanText(title) || '',
-        price,
-        currency: 'USD', // Default to USD, could be enhanced to detect currency
-        availability,
-        description: this.cleanText(description),
-        imageUrl: imageUrl || undefined,
-        rating,
-        brand: brand || '',
-      };
-
-      return extractedData;
-    } finally {
-      // ALWAYS cleanup (prevent memory leaks)
-      await context.close();
-      await this.browser.close();
-      this.browser = null;
+      throw new Error(
+        `Failed to fetch page: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
-  /**
-   * Extract text from page using selector array (first match wins)
-   */
-  private async extractText(page: Page, selectors: string[]): Promise<string> {
+  private extractText($: cheerio.CheerioAPI, selectors: string[]): string {
     for (const selector of selectors) {
-      try {
-        const element = page.locator(selector).first();
-        const text = await element.textContent({ timeout: 2000 });
-        if (text && text.trim()) {
-          return text.trim();
-        }
-      } catch {
-        continue; // Try next selector
+      const element = $(selector).first();
+      if (element.length > 0) {
+        return element.text().trim();
       }
     }
     return '';
   }
 
-  /**
-   * Extract price from page
-   */
-  private async extractPrice(page: Page, selectors: string[]): Promise<number | null> {
+  private extractPrice($: cheerio.CheerioAPI, selectors: string[]): number | null {
     for (const selector of selectors) {
-      try {
-        const element = page.locator(selector).first();
-        const priceText = await element.textContent({ timeout: 2000 });
-        if (priceText && priceText.trim()) {
-          const price = this.parsePrice(priceText);
-          if (price !== null && price > 0) {
-            return price;
-          }
+      const element = $(selector).first();
+      if (element.length > 0) {
+        const priceText = element.text().trim();
+        const price = this.parsePrice(priceText);
+        if (price !== null && price > 0) {
+          return price;
         }
-      } catch {
-        continue;
       }
     }
     return null;
   }
 
-  /**
-   * Parse price from text string
-   */
   private parsePrice(priceText: string): number | null {
     // Remove common currency symbols and extract numeric value
     const cleanPrice = priceText.replace(/[$£€¥,\s]/g, '');
@@ -335,11 +240,8 @@ export class DataExtractionAgent extends BaseAgent {
     return null;
   }
 
-  /**
-   * Extract availability status from page
-   */
-  private async extractAvailability(page: Page, selectors: string[]): Promise<string> {
-    const availabilityText = (await this.extractText(page, selectors)).toLowerCase();
+  private extractAvailability($: cheerio.CheerioAPI, selectors: string[]): string {
+    const availabilityText = this.extractText($, selectors).toLowerCase();
 
     if (availabilityText.includes('in stock') || availabilityText.includes('available')) {
       return 'in_stock';
@@ -355,33 +257,21 @@ export class DataExtractionAgent extends BaseAgent {
     return 'unknown';
   }
 
-  /**
-   * Extract image URL from page
-   */
-  private async extractImageUrl(page: Page, selectors: string[]): Promise<string | null> {
+  private extractImageUrl($: cheerio.CheerioAPI, selectors: string[]): string | undefined {
     for (const selector of selectors) {
-      try {
-        const element = page.locator(selector).first();
-        // Try src first, then data-src for lazy-loaded images
-        let src = await element.getAttribute('src', { timeout: 2000 });
-        if (!src || !src.startsWith('http')) {
-          src = await element.getAttribute('data-src', { timeout: 2000 });
-        }
+      const element = $(selector).first();
+      if (element.length > 0) {
+        const src = element.attr('src') || element.attr('data-src');
         if (src && src.startsWith('http')) {
           return src;
         }
-      } catch {
-        continue;
       }
     }
-    return null;
+    return undefined;
   }
 
-  /**
-   * Extract rating from page
-   */
-  private async extractRating(page: Page, selectors: string[]): Promise<number | undefined> {
-    const ratingText = await this.extractText(page, selectors);
+  private extractRating($: cheerio.CheerioAPI, selectors: string[]): number | undefined {
+    const ratingText = this.extractText($, selectors);
     const match = ratingText.match(/(\d+\.?\d*)/);
 
     if (match) {
@@ -392,9 +282,6 @@ export class DataExtractionAgent extends BaseAgent {
     return undefined;
   }
 
-  /**
-   * Clean and normalize extracted text
-   */
   private cleanText(text: string | undefined): string | undefined {
     if (!text) return undefined;
 
@@ -405,9 +292,6 @@ export class DataExtractionAgent extends BaseAgent {
       .substring(0, 1000); // Limit length
   }
 
-  /**
-   * Get generic extraction strategy for unknown retailers
-   */
   private getGenericStrategy(): ExtractionStrategy {
     return {
       titleSelectors: ['h1', '.product-title', '.title', '[data-testid*="title"]'],
@@ -420,9 +304,6 @@ export class DataExtractionAgent extends BaseAgent {
     };
   }
 
-  /**
-   * Store extracted product data in database
-   */
   private async storeProductData(
     data: ExtractedProductData,
     url: string,
@@ -458,9 +339,7 @@ export class DataExtractionAgent extends BaseAgent {
         lastLinkCheck: new Date(),
       });
 
-      logger.info(
-        `Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`
-      );
+      logger.info(`Stored product offer: ${data.title} - $${data.price} from ${retailerDomain}`);
     } catch (error) {
       logger.error('Failed to store product data', {
         error: error instanceof Error ? error.message : String(error),

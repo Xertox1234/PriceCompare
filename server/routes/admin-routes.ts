@@ -7,6 +7,7 @@ import { getPerformanceStats, getSlowestEndpoints } from '../middleware/performa
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { csrfProtection } from '../middleware/security';
 import { z } from 'zod';
+import { ExtractionMonitoring } from '../agents/extraction-monitoring';
 
 /**
  * Admin Routes
@@ -314,6 +315,61 @@ export function registerAdminRoutes(app: Express): void {
         sendSuccess(res, slowest);
       } catch (error: unknown) {
         sendErrorFromException(res, error, 'GetSlowestEndpoints');
+      }
+    })
+  );
+
+  // Extraction metrics monitoring endpoints (admin only)
+  app.get(
+    '/api/admin/extraction-metrics',
+    withAdmin(async (req, res) => {
+      try {
+        const retailers = ['amazon.com', 'walmart.com', 'target.com'];
+
+        const metrics = await Promise.all(
+          retailers.map(async (retailer) => {
+            const detailed = await ExtractionMonitoring.getDetailedMetrics(retailer);
+            return {
+              retailer,
+              ...detailed,
+            };
+          })
+        );
+
+        sendSuccess(res, {
+          metrics,
+          lastUpdated: new Date().toISOString(),
+          period: 'last_24_hours',
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetExtractionMetrics');
+      }
+    })
+  );
+
+  app.get(
+    '/api/admin/extraction-metrics/:retailer',
+    withAdmin(async (req, res) => {
+      try {
+        const retailer = req.params.retailer;
+
+        // Basic validation - only allow known retailers
+        const validRetailers = ['amazon.com', 'walmart.com', 'target.com'];
+        if (!validRetailers.includes(retailer)) {
+          sendError(res, 'Invalid retailer', 400);
+          return;
+        }
+
+        const detailed = await ExtractionMonitoring.getDetailedMetrics(retailer);
+
+        sendSuccess(res, {
+          retailer,
+          ...detailed,
+          lastUpdated: new Date().toISOString(),
+          period: 'last_24_hours',
+        });
+      } catch (error: unknown) {
+        sendErrorFromException(res, error, 'GetRetailerExtractionMetrics');
       }
     })
   );
