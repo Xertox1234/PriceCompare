@@ -455,6 +455,115 @@ else
   echo -e "${GREEN}   ✅ All scraping code uses Playwright${NC}"
 fi
 
+# Check for dependency freeze violations (Architecture Freeze Policy)
+echo "   🔒 Checking Architecture Freeze Policy (dependency/architecture changes)..."
+
+# Check 1: package.json modifications (dependencies or devDependencies)
+PACKAGE_JSON_CHANGES=$(git diff --cached package.json 2>/dev/null | grep -E '^\+.*"(dependencies|devDependencies)"' -A 50 | grep -E '^\+\s+"' || true)
+
+if [ -n "$PACKAGE_JSON_CHANGES" ]; then
+  # Check if there's an approval bypass comment in the staged diff
+  APPROVAL_BYPASS=$(git diff --cached package.json 2>/dev/null | grep "// DEPENDENCY APPROVED:" || true)
+
+  if [ -z "$APPROVAL_BYPASS" ]; then
+    echo -e "${RED}   ❌ BLOCKER: package.json dependencies modified (Architecture Freeze active):${NC}"
+    echo "      Modified dependencies detected in package.json"
+    echo ""
+    echo -e "${YELLOW}   FIX: Obtain approval before adding/changing dependencies${NC}"
+    echo "   REQUIRED:"
+    echo "   1. Document justification in docs/architecture/DEPENDENCY_PROPOSALS.md"
+    echo "   2. Get written approval from project owner"
+    echo "   3. Add approval reference to package.json as comment"
+    echo ""
+    echo "   DOCS: CLAUDE.md#architecture-freeze--dependency-policy"
+    echo "   POLICY EFFECTIVE: 2026-01-13 (After axios+cheerio violation)"
+    echo ""
+    echo "   ALLOWED WITHOUT APPROVAL:"
+    echo "   - Security patches: npm audit fix"
+    echo "   - Patch version updates: 1.2.3 → 1.2.4"
+    echo "   - Removing dependencies"
+    SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+    echo ""
+  else
+    echo -e "${GREEN}   ✅ package.json changes have approval bypass${NC}"
+  fi
+else
+  # Check for package.json deletion/addition of dependencies (not just modifications)
+  PACKAGE_DEPENDENCY_CHANGES=$(git diff --cached --unified=0 package.json 2>/dev/null | grep -E '^\+\s+"[^"]+": ' | grep -v '^\+\+\+' || true)
+
+  if [ -n "$PACKAGE_DEPENDENCY_CHANGES" ]; then
+    APPROVAL_BYPASS=$(git diff --cached package.json 2>/dev/null | grep "// DEPENDENCY APPROVED:" || true)
+
+    if [ -z "$APPROVAL_BYPASS" ]; then
+      echo -e "${RED}   ❌ BLOCKER: New dependencies added to package.json:${NC}"
+      echo "$PACKAGE_DEPENDENCY_CHANGES" | head -5 | while read -r line; do
+        echo "      $line"
+      done
+      echo ""
+      echo -e "${YELLOW}   FIX: Follow Architecture Freeze approval process${NC}"
+      echo "   DOCS: CLAUDE.md#architecture-freeze--dependency-policy"
+      SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+      echo ""
+    else
+      echo -e "${GREEN}   ✅ Dependency changes have approval${NC}"
+    fi
+  else
+    echo -e "${GREEN}   ✅ No dependency changes detected${NC}"
+  fi
+fi
+
+# Check 2: Protected architecture file modifications
+echo "   🏗️  Checking for protected architecture file modifications..."
+
+PROTECTED_FILES=(
+  "server/index.ts"
+  "server/storage.ts"
+  "server/utils/api-response.ts"
+  "server/middleware/security.ts"
+  "server/middleware/flexible-auth.ts"
+  "shared/schema.ts"
+)
+
+PROTECTED_VIOLATIONS=""
+for file in "${PROTECTED_FILES[@]}"; do
+  # Check if file has meaningful changes (not just whitespace/comments)
+  FILE_CHANGES=$(git diff --cached "$file" 2>/dev/null | grep -E '^[+-]' | grep -v '^[+-]{3}' | grep -v '^\+\s*$' | grep -v '^\+\s*//' || true)
+
+  if [ -n "$FILE_CHANGES" ]; then
+    # Check for architecture change approval bypass
+    ARCH_BYPASS=$(git diff --cached "$file" 2>/dev/null | grep "// ARCHITECTURE CHANGE APPROVED:" || true)
+
+    if [ -z "$ARCH_BYPASS" ]; then
+      PROTECTED_VIOLATIONS="${PROTECTED_VIOLATIONS}      ${file}\n"
+    fi
+  fi
+done
+
+if [ -n "$PROTECTED_VIOLATIONS" ]; then
+  echo -e "${RED}   ❌ BLOCKER: Protected architecture files modified without approval:${NC}"
+  echo -e "$PROTECTED_VIOLATIONS"
+  echo ""
+  echo -e "${YELLOW}   FIX: Protected architecture files require explicit approval${NC}"
+  echo "   PROTECTED FILES:"
+  echo "   - server/index.ts (middleware pipeline order)"
+  echo "   - server/storage.ts (storage layer pattern)"
+  echo "   - server/utils/api-response.ts (API response standardization)"
+  echo "   - server/middleware/security.ts (CSRF protection)"
+  echo "   - server/middleware/flexible-auth.ts (authentication)"
+  echo "   - shared/schema.ts (database schema)"
+  echo ""
+  echo "   ALLOWED WITHOUT APPROVAL:"
+  echo "   - Bug fixes preserving existing patterns"
+  echo "   - Adding routes/queries following existing patterns"
+  echo ""
+  echo "   DOCS: CLAUDE.md#architectural-changes---strictly-forbidden"
+  echo "   POLICY: No architectural changes without explicit approval"
+  SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ No protected architecture file modifications${NC}"
+fi
+
 # Check for auth before CSRF (wrong order)
 echo "   🔧 Checking middleware order patterns..."
 AUTH_BEFORE_CSRF=$(grep -rn "requireAuth.*csrfProtection\|withAuth.*csrfProtection" server/ --include="*.ts" 2>/dev/null | \
