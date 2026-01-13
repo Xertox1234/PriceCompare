@@ -12,17 +12,72 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 
 **⚠️ CRITICAL: This project uses Playwright EXCLUSIVELY for all browser automation and testing.**
 
-**NEVER use Puppeteer.** All browser automation, web scraping, and E2E testing MUST use Playwright.
+**NEVER use Puppeteer, axios+cheerio, or any other scraping library.** All browser automation, web scraping, and E2E testing MUST use Playwright.
+
+### ❌ FORBIDDEN (Will be rejected in code review)
 
 ```typescript
-import { chromium } from '@playwright/test';
+// ❌ WRONG - axios + cheerio CANNOT handle JavaScript-rendered content
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
-const browser = await chromium.launch();
-const page = await browser.newPage();
-await page.goto('https://example.com');
-await page.locator('button').click();
-await browser.close();
+const response = await axios.get(url);  // Gets static HTML only
+const $ = cheerio.load(response.data);  // Cannot execute JavaScript
+const price = $('.price').text();       // Empty if JS-rendered ❌
+
+// ❌ WRONG - Puppeteer is NOT supported
+import puppeteer from 'puppeteer';      // Use Playwright instead
 ```
+
+### ✅ REQUIRED (Playwright pattern)
+
+```typescript
+// ✅ CORRECT - Playwright executes JavaScript and waits for dynamic content
+import { chromium } from 'playwright';
+
+const browser = await chromium.launch({ headless: true });
+const context = await browser.newContext({
+  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)...',
+  viewport: { width: 1920, height: 1080 },
+});
+const page = await context.newPage();
+
+try {
+  await page.goto('https://example.com', { waitUntil: 'domcontentloaded' });
+
+  // Wait for JavaScript to render content
+  await page.waitForSelector('.price', { timeout: 10000 });
+
+  // Extract data AFTER JavaScript execution
+  const price = await page.locator('.price').textContent();
+
+} finally {
+  // ALWAYS cleanup to prevent memory leaks
+  await context.close();
+  await browser.close();
+}
+```
+
+### Why Playwright is Mandatory
+
+**Modern websites use JavaScript frameworks** (React, Vue, Angular):
+- **axios+cheerio**: Gets raw HTML before JS executes → empty selectors ❌
+- **Playwright**: Launches real browser, executes JavaScript → full content ✅
+
+**Evidence**: See `docs/SCRAPING_AXIOS_CHEERIO_FAILURES.md` for proof that axios+cheerio fails on 100% of modern e-commerce sites (Amazon, Walmart, Target).
+
+### Pre-Commit Enforcement
+
+The pre-commit hook blocks commits with forbidden imports:
+
+```bash
+# Blocked patterns
+grep -r "from 'axios'" server/agents/     # ❌ Will fail commit
+grep -r "import.*cheerio" server/agents/  # ❌ Will fail commit
+grep -r "puppeteer" server/               # ❌ Will fail commit
+```
+
+**If you need to scrape a website, ALWAYS use Playwright.** See `server/agents/extraction-agent.ts` for the reference implementation.
 
 ## Development Commands
 
@@ -465,16 +520,17 @@ const config: Record<string, unknown> = {};
 
 ## Common Pitfalls
 
-1. **N+1 QUERIES**: Use JOINs or `inArray()` batch queries
-2. **Direct DB access**: Use `storage` layer (exception: `price-aggregation-service.ts`)
-3. **Redis in production**: **MANDATORY** - app exits without `REDIS_URL`
-4. **CSRF Protection**: Per-route, NOT global. CSRF before auth.
-5. **Type safety**: Zero `any` tolerance
-6. **Pagination**: Use `PAGINATION.DEFAULT_LIMIT`
-7. **Input validation**: Zod schemas first
-8. **Dual Redis clients**: `ioredis` for cache, `redis` for sessions
-9. **NPM Overrides**: Track in `docs/tooling/NPM_OVERRIDES_TRACKING.md`
-10. **Schema-Migration Mismatch**: ALWAYS validate `npm run validate:schema` before commit (See `docs/learnings/database/LEARNINGS_SCHEMA_MIGRATION_MISMATCH_PREVENTION.md`)
+1. **❌ NEVER USE axios+cheerio FOR SCRAPING**: **CRITICAL** - Playwright ONLY. axios+cheerio cannot execute JavaScript and fails on 100% of modern sites. See TODO_205 migration for evidence. Pre-commit hook blocks axios/cheerio in `server/agents/`.
+2. **N+1 QUERIES**: Use JOINs or `inArray()` batch queries
+3. **Direct DB access**: Use `storage` layer (exception: `price-aggregation-service.ts`)
+4. **Redis in production**: **MANDATORY** - app exits without `REDIS_URL`
+5. **CSRF Protection**: Per-route, NOT global. CSRF before auth.
+6. **Type safety**: Zero `any` tolerance
+7. **Pagination**: Use `PAGINATION.DEFAULT_LIMIT`
+8. **Input validation**: Zod schemas first
+9. **Dual Redis clients**: `ioredis` for cache, `redis` for sessions
+10. **NPM Overrides**: Track in `docs/tooling/NPM_OVERRIDES_TRACKING.md`
+11. **Schema-Migration Mismatch**: ALWAYS validate `npm run validate:schema` before commit (See `docs/learnings/database/LEARNINGS_SCHEMA_MIGRATION_MISMATCH_PREVENTION.md`)
 
 ## Pattern Documentation (CRITICAL)
 

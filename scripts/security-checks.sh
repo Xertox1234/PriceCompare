@@ -430,6 +430,31 @@ else
   echo -e "${GREEN}   ✅ Services properly use storage layer${NC}"
 fi
 
+# Check for forbidden scraping libraries (axios, cheerio, puppeteer)
+echo "   🌐 Checking for forbidden scraping libraries (PLAYWRIGHT ONLY)..."
+FORBIDDEN_SCRAPING=$(grep -rn "from ['\"]axios['\"]\|import.*cheerio\|from ['\"]puppeteer['\"]\|import.*puppeteer" server/agents/ --include="*.ts" 2>/dev/null | \
+  grep -v "__tests__" | \
+  grep -v "\.test\." | \
+  grep -v "backup\|old" | \
+  grep -v "// Playwright migration exception" || true)
+
+if [ -n "$FORBIDDEN_SCRAPING" ]; then
+  echo -e "${RED}   ❌ BLOCKER: Forbidden scraping libraries detected (use Playwright):${NC}"
+  echo "$FORBIDDEN_SCRAPING" | head -5 | while read -r line; do
+    echo "      $line"
+  done
+  echo ""
+  echo -e "${YELLOW}   FIX: Use Playwright for all browser automation and scraping${NC}"
+  echo "   FORBIDDEN: axios, cheerio, puppeteer (cannot handle JavaScript-rendered sites)"
+  echo "   REQUIRED: import { chromium } from 'playwright'"
+  echo "   DOCS: CLAUDE.md#browser-automation---mandatory-requirement"
+  echo "   EVIDENCE: docs/SCRAPING_AXIOS_CHEERIO_FAILURES.md (0% success rate on modern sites)"
+  SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ All scraping code uses Playwright${NC}"
+fi
+
 # Check for auth before CSRF (wrong order)
 echo "   🔧 Checking middleware order patterns..."
 AUTH_BEFORE_CSRF=$(grep -rn "requireAuth.*csrfProtection\|withAuth.*csrfProtection" server/ --include="*.ts" 2>/dev/null | \
