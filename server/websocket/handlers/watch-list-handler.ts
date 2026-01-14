@@ -46,6 +46,10 @@ export function registerWatchListHandlers(socket: AuthenticatedSocket): void {
       const watchListRoom = `watchlist:${socket.userId}`;
       await socket.join(watchListRoom);
 
+      // CRITICAL: Use setImmediate to ensure join completes even if synchronous
+      // This matches the pattern in handleConnection for reliable room membership
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
       log.info('Client subscribed to watch list updates', {
         userId: socket.userId,
         socketId: socket.id,

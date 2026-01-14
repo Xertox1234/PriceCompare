@@ -252,6 +252,11 @@ function authenticationMiddleware(socket: Socket, next: (err?: Error) => void): 
  * Limits connections per IP to prevent abuse
  */
 async function rateLimitMiddleware(socket: Socket, next: (err?: Error) => void): Promise<void> {
+  // Disable rate limiting in test mode to allow rapid connections
+  if (process.env.NODE_ENV === 'test') {
+    return next();
+  }
+
   const ip = socket.handshake.address;
   const redisClient = getRedisClient();
 

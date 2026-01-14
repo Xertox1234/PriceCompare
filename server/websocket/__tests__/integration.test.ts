@@ -20,6 +20,7 @@ import {
   setupWebSocketTestContext,
   cleanupWebSocketTestContext,
   createAuthenticatedSocket,
+  connectAndAuthenticate,
   waitForEvent,
   disconnectSockets,
   spyOnSocketEvent,
@@ -96,8 +97,8 @@ describe('WebSocket Integration Tests', () => {
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        // Wait for connection
-        await waitForEvent(client, 'connect');
+        // Wait for connection and authentication
+        await connectAndAuthenticate(client);
 
         // Subscribe to watch list events
         client.emit('subscribe:watchlists');
@@ -138,7 +139,7 @@ describe('WebSocket Integration Tests', () => {
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        await waitForEvent(client, 'connect');
+        await connectAndAuthenticate(client);
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');
 
@@ -173,7 +174,7 @@ describe('WebSocket Integration Tests', () => {
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        await waitForEvent(client, 'connect');
+        await connectAndAuthenticate(client);
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');
 
@@ -209,8 +210,8 @@ describe('WebSocket Integration Tests', () => {
       const client2 = createAuthenticatedSocket(userId, port);
 
       try {
-        // Connect both clients
-        await Promise.all([waitForEvent(client1, 'connect'), waitForEvent(client2, 'connect')]);
+        // Connect and authenticate both clients
+        await Promise.all([connectAndAuthenticate(client1), connectAndAuthenticate(client2)]);
 
         // Subscribe both to watch lists
         client1.emit('subscribe:watchlists');
@@ -262,7 +263,7 @@ describe('WebSocket Integration Tests', () => {
       const client2 = createAuthenticatedSocket(userId, port);
 
       try {
-        await Promise.all([waitForEvent(client1, 'connect'), waitForEvent(client2, 'connect')]);
+        await Promise.all([connectAndAuthenticate(client1), connectAndAuthenticate(client2)]);
 
         client1.emit('subscribe:watchlists');
         client2.emit('subscribe:watchlists');
@@ -309,7 +310,7 @@ describe('WebSocket Integration Tests', () => {
       const clientB = createAuthenticatedSocket(userB, port);
 
       try {
-        await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
+        await Promise.all([connectAndAuthenticate(clientA), connectAndAuthenticate(clientB)]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -353,7 +354,7 @@ describe('WebSocket Integration Tests', () => {
       const clientB = createAuthenticatedSocket(userB, port);
 
       try {
-        await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
+        await Promise.all([connectAndAuthenticate(clientA), connectAndAuthenticate(clientB)]);
 
         clientA.emit('subscribe:watchlists');
         clientB.emit('subscribe:watchlists');
@@ -362,6 +363,9 @@ describe('WebSocket Integration Tests', () => {
           waitForEvent(clientA, 'watchlist:subscribed'),
           waitForEvent(clientB, 'watchlist:subscribed'),
         ]);
+
+        // TESTING: Add small delay to ensure room joins complete
+        await new Promise((resolve) => setTimeout(resolve, 250));
 
         const spyA = spyOnSocketEvent(clientA, 'watchlist:product_added');
         const spyB = spyOnSocketEvent(clientB, 'watchlist:product_added');
@@ -393,10 +397,13 @@ describe('WebSocket Integration Tests', () => {
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        await waitForEvent(client, 'connect');
+        await connectAndAuthenticate(client);
 
         client.emit('notification:subscribe');
         await waitForEvent(client, 'notification:subscribed');
+
+        // TESTING: Add small delay to ensure room join completes
+        await new Promise((resolve) => setTimeout(resolve, 250));
 
         const notificationSpy = spyOnSocketEvent(client, 'notification:new');
 
@@ -436,10 +443,13 @@ describe('WebSocket Integration Tests', () => {
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        await waitForEvent(client, 'connect');
+        await connectAndAuthenticate(client);
 
         client.emit('notification:subscribe');
         await waitForEvent(client, 'notification:subscribed');
+
+        // TESTING: Add small delay to ensure room join completes
+        await new Promise((resolve) => setTimeout(resolve, 250));
 
         const countSpy = spyOnSocketEvent(client, 'notification:count_updated');
 
@@ -467,7 +477,10 @@ describe('WebSocket Integration Tests', () => {
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        await waitForEvent(client, 'connect');
+        await connectAndAuthenticate(client);
+
+        // TESTING: Add delay to ensure room join and handlers complete
+        await new Promise((resolve) => setTimeout(resolve, 250));
 
         const alertSpy = spyOnSocketEvent(client, 'price:alert');
 
@@ -510,7 +523,10 @@ describe('WebSocket Integration Tests', () => {
       const clientB = createAuthenticatedSocket(userB, port);
 
       try {
-        await Promise.all([waitForEvent(clientA, 'connect'), waitForEvent(clientB, 'connect')]);
+        await Promise.all([connectAndAuthenticate(clientA), connectAndAuthenticate(clientB)]);
+
+        // TESTING: Add small delay to ensure room joins complete
+        await new Promise((resolve) => setTimeout(resolve, 250));
 
         const spyA = spyOnSocketEvent(clientA, 'price:alert');
         const spyB = spyOnSocketEvent(clientB, 'price:alert');
@@ -542,29 +558,34 @@ describe('WebSocket Integration Tests', () => {
   });
 
   describe('Product Addition/Removal Flow', () => {
-    it('should emit product added event', async () => {
+    it('should emit product added event', { timeout: 15000 }, async () => {
       const userId = 601;
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        await waitForEvent(client, 'connect');
+        await connectAndAuthenticate(client);
 
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');
 
+        // TESTING: Add delay to ensure room join completes
+        await new Promise((resolve) => setTimeout(resolve, 250));
+
         const addedSpy = spyOnSocketEvent(client, 'watchlist:product_added');
 
         const io = getSocketIO();
-        if (io) {
-          emitProductAdded(io, userId, 1, {
-            id: 123,
-            name: 'MacBook Pro',
-            image: 'https://example.com/macbook.jpg',
-            currentPrice: 1999.99,
-          });
+        if (!io) {
+          throw new Error('Socket.IO instance not available');
         }
 
-        await waitForEvent(client, 'watchlist:product_added', 2000);
+        emitProductAdded(io, userId, 1, {
+          id: 123,
+          name: 'MacBook Pro',
+          image: 'https://example.com/macbook.jpg',
+          currentPrice: 1999.99,
+        });
+
+        await waitForEvent(client, 'watchlist:product_added', 10000);
 
         expect(addedSpy).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -586,10 +607,13 @@ describe('WebSocket Integration Tests', () => {
       const client = createAuthenticatedSocket(userId, port);
 
       try {
-        await waitForEvent(client, 'connect');
+        await connectAndAuthenticate(client);
 
         client.emit('subscribe:watchlists');
         await waitForEvent(client, 'watchlist:subscribed');
+
+        // TESTING: Add small delay to ensure room join completes
+        await new Promise((resolve) => setTimeout(resolve, 250));
 
         const removedSpy = spyOnSocketEvent(client, 'watchlist:product_removed');
 

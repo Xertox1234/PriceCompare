@@ -16,6 +16,35 @@ import { initializeWebSocket, shutdownWebSocket, getSocketIO } from '../index';
 import type { ServerToClientEvents, ClientToServerEvents } from '../types';
 import { vi } from 'vitest';
 
+/**
+ * SOCKET.IO TEST BEHAVIOR NOTES
+ *
+ * CRITICAL: Understanding these behaviors prevents race conditions in tests.
+ *
+ * 1. Socket.IO Client Auto-Connect:
+ *    - By default, ioClient() starts connecting IMMEDIATELY upon creation
+ *    - This causes race conditions: server emits events before test sets up listeners
+ *    - Solution: Use autoConnect: false and manually call socket.connect() when ready
+ *
+ * 2. Event Listener Timing (CRITICAL):
+ *    - Server emits 'authenticated' synchronously during connection phase
+ *    - Test MUST attach listeners BEFORE calling socket.connect()
+ *    - socket.once() only catches FUTURE events (not already-emitted events)
+ *    - Use connectAndAuthenticate() helper to avoid this race condition
+ *
+ * 3. Room Operations:
+ *    - socket.join() is async with Redis adapter, synchronous without
+ *    - Use setImmediate() after join() to ensure completion in both cases
+ *    - Wait for room join before expecting room-targeted emissions
+ *
+ * 4. Event Bus Subscriptions:
+ *    - Event bus listeners accumulate if not cleaned up between test servers
+ *    - Always call eventBus.removeAllListeners() in closeTestServer()
+ *
+ * HISTORY: These patterns emerged from fixing TODO_207 (7 failing WebSocket tests).
+ * See TODO_207_RESOLUTION_SUMMARY.md for complete root cause analysis.
+ */
+
 // Test server configuration
 export const TEST_PORT = 5556;
 export const TEST_URL = `http://localhost:${TEST_PORT}`;
@@ -49,7 +78,21 @@ export async function createTestServer(): Promise<{
   const httpServer = createServer(app);
 
   // Initialize WebSocket server
-  initializeWebSocket(httpServer, sessionMiddleware);
+  const io = initializeWebSocket(httpServer, sessionMiddleware);
+
+  // CRITICAL: Set up event bus subscriptions for tests
+  // These must be called after WebSocket initialization to ensure event bus
+  // listeners are registered BEFORE tests emit events through the event bus
+  const [
+    { setupWatchListEventSubscriptions },
+    { setupNotificationEventSubscriptions },
+  ] = await Promise.all([
+    import('../handlers/watch-list-handler'),
+    import('../handlers/notification-handler'),
+  ]);
+
+  setupWatchListEventSubscriptions(io);
+  setupNotificationEventSubscriptions(io);
 
   // Start listening
   await new Promise<void>((resolve) => {
@@ -63,8 +106,16 @@ export async function createTestServer(): Promise<{
 
 /**
  * Close test server and cleanup
+ *
+ * CRITICAL: Cleans up event bus listeners to prevent accumulation across test runs.
+ * Without this, multiple test server instances would accumulate duplicate listeners.
  */
 export async function closeTestServer(httpServer: HTTPServer): Promise<void> {
+  // Clean up event listeners to prevent accumulation across test runs
+  // This is critical for tests that create multiple servers in sequence
+  const { eventBus } = await import('../../utils/event-bus');
+  eventBus.removeAllListeners();
+
   shutdownWebSocket();
   await new Promise<void>((resolve) => {
     httpServer.close(() => resolve());
@@ -83,10 +134,14 @@ export function createAuthenticatedSocket(
   port: number = TEST_PORT
 ): ClientSocket<ServerToClientEvents, ClientToServerEvents> {
   // Create client with session cookie
+  // CRITICAL: Use autoConnect: false to prevent immediate connection
+  // This allows tests to set up event listeners BEFORE the connection completes
+  // and the server emits the 'authenticated' event
   const client = ioClient(`http://localhost:${port}`, {
     path: '/ws',
     transports: ['websocket'],
     reconnection: false,
+    autoConnect: false, // Don't connect immediately - let test control when to connect
     extraHeaders: {
       // Mock authentication by setting session data in headers
       // In real tests, this would be handled by cookie-based session
@@ -171,6 +226,80 @@ export function waitForConnection(socket: ClientSocket, timeout = 5000): Promise
 }
 
 /**
+ * Connect socket and wait for authentication to complete
+ *
+ * CRITICAL: This function prevents a race condition where:
+ * 1. Server emits 'authenticated' event synchronously during connection phase
+ * 2. Test sets up listener AFTER event has already fired
+ * 3. Test times out waiting for event that will never come (already missed)
+ *
+ * ROOT CAUSE:
+ * - Socket.IO server emits 'authenticated' in handleConnection() immediately after auth
+ * - socket.once() only catches FUTURE events, not already-emitted events
+ * - If listener is attached AFTER connection completes, event is missed
+ *
+ * SOLUTION:
+ * By setting up BOTH 'connect' and 'authenticated' listeners BEFORE calling
+ * socket.connect(), we guarantee they're in place to catch synchronous emissions.
+ *
+ * USAGE PATTERN:
+ * ```typescript
+ * const client = createAuthenticatedSocket(userId, port); // autoConnect: false
+ * await connectAndAuthenticate(client); // Listeners ready BEFORE connecting
+ * // Now safe to use client - both events have fired
+ * ```
+ *
+ * HISTORY:
+ * This pattern was added to fix 7 failing integration tests in TODO_207.
+ * See TODO_207_RESOLUTION_SUMMARY.md for complete root cause analysis.
+ *
+ * @param socket Socket instance (MUST have autoConnect: false)
+ * @param timeout Timeout in milliseconds (default: 5000)
+ * @returns Promise resolving with { userId } when both connect and authenticated events fire
+ */
+export async function connectAndAuthenticate(
+  socket: ClientSocket,
+  timeout = 5000
+): Promise<{ userId: number }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Connection/authentication timeout'));
+    }, timeout);
+
+    let connected = false;
+    let authenticated = false;
+    let authData: { userId: number } | null = null;
+
+    const checkComplete = () => {
+      if (connected && authenticated && authData) {
+        clearTimeout(timer);
+        resolve(authData);
+      }
+    };
+
+    // Set up listeners BEFORE connecting
+    socket.once('connect', () => {
+      connected = true;
+      checkComplete();
+    });
+
+    socket.once('authenticated', (data: { userId: number }) => {
+      authenticated = true;
+      authData = data;
+      checkComplete();
+    });
+
+    socket.once('connect_error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+
+    // Now connect - both listeners are already in place
+    socket.connect();
+  });
+}
+
+/**
  * Create a mock session for testing
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express session mock with variable shape
@@ -251,6 +380,9 @@ export function createMockRedis() {
 /**
  * Create multiple authenticated sockets
  *
+ * CRITICAL: Uses connectAndAuthenticate to avoid race condition where
+ * server emits 'authenticated' before test sets up listener
+ *
  * @param userIds Array of user IDs
  * @param port Server port
  * @returns Array of socket instances
@@ -261,8 +393,8 @@ export async function createMultipleSockets(
 ): Promise<ClientSocket[]> {
   const sockets = userIds.map((userId) => createAuthenticatedSocket(userId, port));
 
-  // Wait for all to connect
-  await Promise.all(sockets.map((socket) => waitForConnection(socket)));
+  // Wait for all to connect AND authenticate
+  await Promise.all(sockets.map((socket) => connectAndAuthenticate(socket)));
 
   return sockets;
 }
@@ -441,3 +573,4 @@ export async function cleanupWebSocketTestContext(
 ): Promise<void> {
   await closeTestServer(context.httpServer);
 }
+

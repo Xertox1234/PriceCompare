@@ -51,6 +51,10 @@ export function registerNotificationHandlers(socket: AuthenticatedSocket): void 
       const notificationRoom = `notifications:${socket.userId}`;
       await socket.join(notificationRoom);
 
+      // CRITICAL: Use setImmediate to ensure join completes even if synchronous
+      // This matches the pattern in handleConnection for reliable room membership
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
       log.info('Client subscribed to notifications', {
         userId: socket.userId,
         socketId: socket.id,
