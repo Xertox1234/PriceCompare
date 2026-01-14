@@ -79,3 +79,9 @@ docs/backup-*/
 
 # Duplicate workflow files (use .github/workflows/)
 workflows/
+
+# Debug artifacts
+docs/html-dump-*.html
+
+# Manual test scripts (not part of automated test suite)
+server/agents/test-*.ts
