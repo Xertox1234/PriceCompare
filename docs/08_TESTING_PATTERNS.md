@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.5
-**Last Updated:** 2026-01-08
+**Version:** 3.6
+**Last Updated:** 2026-01-14
 **Changelog:**
+- 3.6 (2026-01-14): Added WebSocket Testing Patterns - Socket.IO Race Condition Prevention, Concurrent Event Waiting, Event Bus Cleanup, setImmediate Room Join Pattern, Test Mode Rate Limit Bypass (from TODO_207 WebSocket integration test fixes)
 - 3.5 (2026-01-08): Added E2E Race Condition Prevention Patterns - Attach-Before-Trigger, API-First Verification, Comprehensive State Verification (from auth E2E flakiness fixes)
 - 3.4 (2026-01-07): Added Database Trigger Conflict Handling in Tests Pattern (from TODO_018 email notifications)
 - 3.3 (2026-01-06): Added Data Completeness Validation for Reference Lists Pattern (from TODO_012 code review)
@@ -69,12 +70,18 @@
    - [Testing Missing Route Parameters](#testing-missing-route-parameters)
    - [Express Route Not Found Behavior](#express-route-not-found-behavior)
    - [Type-Safe Response Validation Pattern (NEW)](#type-safe-response-validation-pattern-new---2026-01-04)
-9. [Avoiding Skipped Tests](#avoiding-skipped-tests)
+9. [WebSocket Testing Patterns (NEW)](#websocket-testing-patterns-new---2026-01-14) ⭐ **NEW**
+   - [Socket.IO Race Condition Prevention](#socketio-race-condition-prevention)
+   - [Concurrent Event Waiting Pattern](#concurrent-event-waiting-pattern)
+   - [Event Bus Cleanup Pattern](#event-bus-cleanup-pattern)
+   - [setImmediate Pattern for Async Room Joins](#setimmediate-pattern-for-async-room-joins)
+   - [Test Mode Rate Limit Bypass](#test-mode-rate-limit-bypass)
+10. [Avoiding Skipped Tests](#avoiding-skipped-tests)
    - [Anti-Pattern: Placeholder Tests (NEW)](#anti-pattern-placeholder-tests-new---2026-01-04)
    - [Test Skipping Documentation Pattern (NEW)](#test-skipping-documentation-pattern-new---2025-12-28)
-10. [Custom Agent Patterns (NEW)](#custom-agent-patterns-new---2025-12-23)
+11. [Custom Agent Patterns (NEW)](#custom-agent-patterns-new---2025-12-23)
    - [Creating Project-Specific Subagents](#creating-project-specific-subagents)
-11. [Checklist](#testing-checklist)
+12. [Checklist](#testing-checklist)
 
 ---
 
@@ -3460,6 +3467,450 @@ Is this feature CRITICAL for users to complete their primary task?
 - **Test Skipping Documentation Pattern** (above) - How to document `test.skip()` calls
 - **Schema Synchronization Pattern** (`CLAUDE.md:374-417`) - Keep test DB schema in sync
 - **Test Data Seeding** (`e2e/helpers.ts`) - Ensure realistic test data for conditional features
+
+---
+
+---
+
+## WebSocket Testing Patterns (NEW - 2026-01-14)
+
+**Source:** TODO_207 - WebSocket Integration Test Race Conditions Resolution
+
+**Context:** Socket.IO integration tests were timing out because the server emitted events before test clients could attach event listeners. These patterns prevent race conditions in WebSocket testing.
+
+**Key Learning:** When servers emit events synchronously during connection setup, client-side listeners MUST be attached BEFORE calling `socket.connect()`. The `socket.once()` API only catches future events, not already-emitted events.
+
+**Related Documentation:**
+- `todos/TODO_207_RESOLUTION_SUMMARY.md` - Complete technical analysis
+- `server/websocket/__tests__/test-utils.ts` - Comprehensive implementation notes
+
+---
+
+### Socket.IO Race Condition Prevention
+
+**Problem:** Socket.IO auto-connects by default (`autoConnect: true`), causing the server to emit the `authenticated` event before test clients can attach event listeners.
+
+**Symptom:** Tests timeout at 5000ms waiting for events that have already fired and been missed.
+
+#### ❌ Anti-Pattern: Default Auto-Connect
+
+```typescript
+// WRONG - Race condition (event fires before listener attached)
+const client = ioClient('http://localhost:5000', {
+  path: '/ws',
+  transports: ['websocket'],
+  // autoConnect: true (default) - STARTS CONNECTING IMMEDIATELY!
+});
+
+// Server emits 'authenticated' event during connection handshake
+// Test sets up listener AFTER event already fired
+await waitForEvent(client, 'authenticated'); // ❌ Timeout! Event already missed
+```
+
+**Why This Fails:**
+1. `ioClient()` starts connecting immediately upon creation (default behavior)
+2. Server completes authentication and emits `authenticated` event synchronously
+3. Test calls `waitForEvent()` which uses `socket.once()` to attach listener
+4. `socket.once()` only catches FUTURE events, not past events
+5. Test times out waiting for an event that will never come again
+
+#### ✅ Correct Pattern: Disable Auto-Connect
+
+```typescript
+// CORRECT - Disable auto-connect to control timing
+export function createAuthenticatedSocket(
+  userId: number,
+  port: number = TEST_PORT
+): ClientSocket {
+  const client = ioClient(`http://localhost:${port}`, {
+    path: '/ws',
+    transports: ['websocket'],
+    reconnection: false,
+    autoConnect: false, // ✅ CRITICAL: Don't connect immediately
+    extraHeaders: {
+      'x-test-user-id': String(userId),
+    },
+  });
+
+  return client; // Returns without connecting
+}
+
+// Usage in tests
+const client = createAuthenticatedSocket(userId, port);
+// Client created but NOT connected yet
+// Now safe to set up listeners before connecting
+```
+
+**Key Points:**
+- Set `autoConnect: false` in socket creation options
+- Return the socket without connecting
+- Let calling code attach listeners first, then manually call `socket.connect()`
+
+---
+
+### Concurrent Event Waiting Pattern
+
+**Problem:** When multiple events fire synchronously during connection (e.g., `connect` and `authenticated`), setting up listeners sequentially causes race conditions.
+
+**Solution:** Set up ALL expected event listeners BEFORE calling `socket.connect()`, then wait for all events concurrently.
+
+#### ✅ Helper Function: connectAndAuthenticate()
+
+```typescript
+/**
+ * Connect socket and wait for authentication to complete
+ *
+ * CRITICAL: This function prevents a race condition where:
+ * 1. Server emits 'authenticated' event synchronously during connection phase
+ * 2. Test sets up listener AFTER event has already fired
+ * 3. Test times out waiting for event that will never come (already missed)
+ *
+ * ROOT CAUSE:
+ * - Socket.IO server emits 'authenticated' in handleConnection() immediately after auth
+ * - socket.once() only catches FUTURE events, not already-emitted events
+ * - If listener is attached AFTER connection completes, event is missed
+ *
+ * SOLUTION:
+ * By setting up BOTH 'connect' and 'authenticated' listeners BEFORE calling
+ * socket.connect(), we guarantee they're in place to catch synchronous emissions.
+ */
+export async function connectAndAuthenticate(
+  socket: ClientSocket,
+  timeout = 5000
+): Promise<{ userId: number }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Connection/authentication timeout'));
+    }, timeout);
+
+    let connected = false;
+    let authenticated = false;
+    let authData: { userId: number } | null = null;
+
+    const checkComplete = () => {
+      if (connected && authenticated && authData) {
+        clearTimeout(timer);
+        resolve(authData);
+      }
+    };
+
+    // ✅ CRITICAL: Set up BOTH listeners BEFORE connecting
+    socket.once('connect', () => {
+      connected = true;
+      checkComplete();
+    });
+
+    socket.once('authenticated', (data: { userId: number }) => {
+      authenticated = true;
+      authData = data;
+      checkComplete();
+    });
+
+    socket.once('connect_error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+
+    // ✅ Now connect - both listeners are already in place
+    socket.connect();
+  });
+}
+```
+
+#### Usage in Tests
+
+```typescript
+// ❌ WRONG - Sequential listener setup (race condition)
+const client = createAuthenticatedSocket(userId, port);
+await waitForEvent(client, 'connect');      // Listener set up AFTER connection
+await waitForEvent(client, 'authenticated'); // Listener set up AFTER event fires
+
+// ✅ CORRECT - All listeners ready before connecting
+const client = createAuthenticatedSocket(userId, port);
+await connectAndAuthenticate(client); // Listeners set up BEFORE connecting
+// Now safe to use client - both events have fired
+```
+
+**Benefits:**
+- Eliminates race conditions for synchronously-emitted events
+- Works reliably regardless of server timing
+- Single helper function for consistent test patterns
+- Clear error messages with timeout handling
+
+---
+
+### Event Bus Cleanup Pattern
+
+**Problem:** Event bus listeners accumulate across test runs if not cleaned up, causing:
+- Memory leaks in test suites
+- Cross-test pollution (events from one test affecting another)
+- Duplicate event handlers firing multiple times
+
+**Solution:** Clean up event bus listeners in test server teardown.
+
+#### ✅ Correct Pattern: Remove All Listeners
+
+```typescript
+/**
+ * Close test server and cleanup
+ *
+ * CRITICAL: Cleans up event bus listeners to prevent accumulation across test runs.
+ * Without this, multiple test server instances would accumulate duplicate listeners.
+ */
+export async function closeTestServer(httpServer: HTTPServer): Promise<void> {
+  // Clean up event listeners to prevent accumulation across test runs
+  // This is critical for tests that create multiple servers in sequence
+  const { eventBus } = await import('../../utils/event-bus');
+  eventBus.removeAllListeners(); // ✅ Cleanup event bus
+
+  shutdownWebSocket();
+  await new Promise<void>((resolve) => {
+    httpServer.close(() => resolve());
+  });
+}
+```
+
+#### Usage in Tests
+
+```typescript
+describe('WebSocket Integration Tests', () => {
+  let testContext: WebSocketTestContext;
+
+  beforeAll(async () => {
+    testContext = await setupWebSocketTestContext();
+  });
+
+  afterAll(async () => {
+    await closeTestServer(testContext.httpServer); // ✅ Cleanup includes event bus
+  });
+
+  // Tests...
+});
+```
+
+**Why This Matters:**
+- Event bus is typically a singleton shared across tests
+- Each test server registers event handlers on the shared event bus
+- Without cleanup, handlers accumulate: 1 test = 2 handlers, 2 tests = 4 handlers, etc.
+- Tests become flaky as duplicate handlers fire multiple times
+
+**Related Pattern:**
+- See "Defensive Cleanup for Test Isolation" in Integration Test Patterns section
+
+---
+
+### setImmediate Pattern for Async Room Joins
+
+**Problem:** `socket.join()` is synchronous without Redis adapter but asynchronous with Redis adapter. Emitting to a room immediately after `join()` may fail if the join hasn't completed yet.
+
+**Solution:** Use `setImmediate()` after `socket.join()` to ensure the join completes in both synchronous and asynchronous cases.
+
+#### ✅ Correct Pattern: Wait After Join
+
+```typescript
+// Subscribe to notifications
+socket.on('notification:subscribe', async () => {
+  const notificationRoom = `notifications:${socket.userId}`;
+
+  // Join room (sync without Redis, async with Redis)
+  await socket.join(notificationRoom);
+
+  // ✅ CRITICAL: Use setImmediate to ensure join completes
+  // This works in both sync and async cases
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  // NOW safe to emit to the room - join is guaranteed complete
+  socket.emit('notification:subscribed', {
+    timestamp: new Date().toISOString(),
+    unreadCount: stats.unread,
+  });
+});
+```
+
+#### Why setImmediate Works
+
+```typescript
+// Without Redis adapter (synchronous)
+socket.join(room);        // Completes immediately
+setImmediate(() => { }); // Defers to next tick - join is done
+
+// With Redis adapter (asynchronous)
+await socket.join(room);  // Returns promise, but may not be complete
+setImmediate(() => { }); // Defers to next tick - join is done
+```
+
+**Pattern Application:**
+- Use after ANY `socket.join()` operation before emitting to that room
+- Use in both test and production code for consistency
+- Prevents "empty room" bugs where emit happens before join completes
+
+**Real-World Context:**
+```typescript
+// In server/websocket/handlers/notification-handler.ts:54-56
+await socket.join(notificationRoom);
+// CRITICAL: Use setImmediate to ensure join completes even if synchronous
+// This matches the pattern in handleConnection for reliable room membership
+await new Promise<void>((resolve) => setImmediate(resolve));
+```
+
+---
+
+### Test Mode Rate Limit Bypass
+
+**Problem:** Integration tests create many rapid connections from localhost (same IP), hitting rate limits (e.g., 10 connections/minute per IP).
+
+**Solution:** Disable rate limiting in test mode while keeping it active in production.
+
+#### ✅ Correct Pattern: Environment-Based Bypass
+
+```typescript
+/**
+ * Rate limiting middleware - prevent connection spam
+ *
+ * Limits connections per IP to prevent abuse
+ */
+async function rateLimitMiddleware(
+  socket: Socket,
+  next: (err?: Error) => void
+): Promise<void> {
+  // ✅ Disable rate limiting in test mode to allow rapid connections
+  if (process.env.NODE_ENV === 'test') {
+    return next();
+  }
+
+  const ip = socket.handshake.address;
+  const redisClient = getRedisClient();
+
+  try {
+    if (redisClient) {
+      // Redis-based rate limiting (distributed)
+      const key = `ws:ratelimit:${ip}`;
+      const current = await redisClient.incr(key);
+
+      if (current === 1) {
+        await redisClient.expire(key, Math.ceil(RATE_LIMIT.WINDOW_MS / 1000));
+      }
+
+      if (current > RATE_LIMIT.MAX_CONNECTIONS_PER_MINUTE) {
+        return next(new Error('Too many connection attempts. Please try again later.'));
+      }
+    } else {
+      // In-memory rate limiting (single server)
+      // ... fallback logic
+    }
+
+    next();
+  } catch (error) {
+    // Allow connection on error (fail open for availability)
+    next();
+  }
+}
+```
+
+**Why This Matters:**
+- Tests create 13+ sockets in rapid succession from 127.0.0.1
+- Rate limit is 10 connections/minute per IP
+- Without bypass, tests fail with "Too many connection attempts" errors
+- Production rate limiting remains fully functional
+
+**Alternative Approaches:**
+1. **Bypass for localhost**: `if (ip === '127.0.0.1' || ip === '::1') return next();`
+2. **Higher limit for tests**: `const limit = process.env.NODE_ENV === 'test' ? 100 : 10;`
+3. **Disable entirely for tests**: Current approach (simplest, most reliable)
+
+---
+
+### Complete Test Example
+
+Putting all patterns together:
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import {
+  setupWebSocketTestContext,
+  cleanupWebSocketTestContext,
+  createAuthenticatedSocket,
+  connectAndAuthenticate, // ✅ Race condition prevention
+  waitForEvent,
+  disconnectSockets,
+  type WebSocketTestContext,
+} from './test-utils';
+
+describe('WebSocket Integration Tests', () => {
+  let testContext: WebSocketTestContext;
+  let port: number;
+
+  beforeAll(async () => {
+    testContext = await setupWebSocketTestContext();
+    port = testContext.port;
+  });
+
+  afterAll(async () => {
+    // ✅ Event bus cleanup
+    await cleanupWebSocketTestContext(testContext);
+  });
+
+  it('should emit notification with unread count', async () => {
+    const userId = 1;
+
+    // ✅ autoConnect: false in createAuthenticatedSocket
+    const client = createAuthenticatedSocket(userId, port);
+
+    try {
+      // ✅ Listeners ready BEFORE connecting
+      await connectAndAuthenticate(client);
+
+      // Subscribe to notifications
+      client.emit('notification:subscribe');
+
+      // ✅ setImmediate used in handler (server-side)
+      await waitForEvent(client, 'notification:subscribed');
+
+      // Trigger notification via event bus
+      eventBus.emit('notification:created', {
+        userId,
+        notificationId: 1,
+        type: 'price_alert',
+        message: 'Test notification',
+      });
+
+      // Wait for notification event
+      const notification = await waitForEvent(client, 'notification:new');
+
+      expect(notification).toMatchObject({
+        id: 1,
+        type: 'price_alert',
+        message: 'Test notification',
+      });
+    } finally {
+      disconnectSockets([client]);
+    }
+  });
+});
+```
+
+---
+
+### Pattern Summary
+
+| Pattern | Purpose | Key Technique |
+|---------|---------|---------------|
+| **Race Condition Prevention** | Prevent missing synchronous events | `autoConnect: false` |
+| **Concurrent Event Waiting** | Handle multiple sync events | Set up all listeners before `connect()` |
+| **Event Bus Cleanup** | Prevent listener accumulation | `eventBus.removeAllListeners()` in teardown |
+| **setImmediate Room Join** | Ensure room join completes | `setImmediate()` after `socket.join()` |
+| **Test Mode Bypass** | Allow rapid test connections | `if (process.env.NODE_ENV === 'test')` |
+
+---
+
+### Related Patterns
+
+- **E2E Race Condition Prevention Patterns** (Section 2) - Attach-Before-Trigger pattern
+- **Transaction Atomicity Testing** (Section 3) - Concurrent operation testing
+- **Test Infrastructure** (Section 4) - Mock patterns for external dependencies
+
+*Source: TODO_207 - WebSocket Integration Test Race Conditions*
+*Added: 2026-01-14*
 
 ---
 

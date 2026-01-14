@@ -1,6 +1,12 @@
 {
   "include": ["client/src/**/*", "shared/**/*", "server/**/*", "e2e/**/*", "playwright*.config.ts"],
-  "exclude": ["node_modules", "build", "dist"],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "server/agents/test-*.ts",
+    "server/agents/test-html-inspection.ts"
+  ],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",

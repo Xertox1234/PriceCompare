@@ -23,7 +23,7 @@ import { DataExtractionAgent } from '../extraction-agent';
 import axios from 'axios';
 import fs from 'fs/promises';
 import path from 'path';
-import type { ExtractionTask, ExtractedProductData } from '../types';
+import type { ExtractionTask } from '../types';
 
 // Mock axios to return fixture HTML instead of making real requests
 vi.mock('axios');
@@ -75,6 +75,9 @@ vi.mock('../../config/redis', () => ({
   getRedisSessionClient: vi.fn(),
 }));
 
+// Module-level agent instance for all tests
+let playwrightAgent: DataExtractionAgent;
+
 // DEPRECATED: Baseline tests for axios+cheerio implementation (replaced by Playwright)
 // These tests are preserved for reference but skipped since they test the old implementation
 // The axios+cheerio version is backed up in extraction-agent-axios-backup.ts
@@ -82,6 +85,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
   const fixturesDir = path.join(__dirname, 'fixtures');
 
   beforeEach(() => {
+    playwrightAgent = new DataExtractionAgent();
     vi.clearAllMocks();
 
     // Mock axios.isAxiosError for error handling tests
@@ -120,7 +124,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Sample Widget Pro 2024');
         expect(data.price).toBe(29.99);
         expect(data.currency).toBe('USD');
@@ -157,7 +161,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Generic Product Name');
         expect(data.price).toBe(49.99);
         expect(data.availability).toBe('in_stock');
@@ -196,7 +200,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
         expect(result.success).toBe(true);
         if (result.success) {
-          const data = result.data as ExtractedProductData;
+          const data = result.data;
           expect(data.price).toBe(testCase.expected);
         }
       }
@@ -227,7 +231,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.availability).toBe('in_stock');
       }
     });
@@ -257,7 +261,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.availability).toBe('out_of_stock');
       }
     });
@@ -287,7 +291,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.availability).toBe('limited_stock');
       }
     });
@@ -320,7 +324,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Product With Extra Spaces');
         expect(data.description).toContain('Description with newlines and extra spaces');
         // Verify no excessive whitespace
@@ -384,7 +388,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Minimal Product');
         expect(data.price).toBe(29.99);
         expect(data.imageUrl).toBeUndefined();
@@ -420,7 +424,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBeTruthy();
         expect(data.price).toBe(19.99);
       }
@@ -449,7 +453,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('');
       }
     });
@@ -479,7 +483,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title.length).toBeLessThanOrEqual(1000);
       }
     });
@@ -597,7 +601,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Amazon Product');
         expect(data.price).toBe(99);
         expect(data.rating).toBe(4.3);
@@ -631,7 +635,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Walmart Product');
         expect(data.price).toBe(49.99);
         expect(data.brand).toBe('WalmartBrand');
@@ -665,7 +669,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Target Product');
         expect(data.price).toBe(39.99);
         expect(data.brand).toBe('TargetBrand');
@@ -700,7 +704,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.imageUrl).toBe('https://example.com/image.jpg');
       }
     });
@@ -730,7 +734,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.imageUrl).toBe('https://example.com/lazy-image.jpg');
       }
     });
@@ -760,7 +764,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.imageUrl).toBeUndefined();
       }
     });
@@ -800,7 +804,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
         expect(result.success).toBe(true);
         if (result.success) {
-          const data = result.data as ExtractedProductData;
+          const data = result.data;
           expect(data.rating).toBe(testCase.expected);
         }
       }
@@ -831,7 +835,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.rating).toBe(5);
       }
     });
@@ -941,7 +945,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('Product Title Via Class');
       }
     });
@@ -972,7 +976,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const data = result.data as ExtractedProductData;
+        const data = result.data;
         expect(data.title).toBe('H1 Title');
       }
     });
@@ -1584,7 +1588,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
       }
     });
 
-    it('uses same processTask interface', async () => {
+    it('uses same processTask interface', () => {
       // Verify method signature matches
       expect(typeof playwrightAgent.processTask).toBe('function');
 

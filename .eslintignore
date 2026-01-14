@@ -74,3 +74,6 @@ extensions/chrome/
 
 # Archive directories (code removed from project)
 todos/archive/
+
+# Manual test scripts (deprecated, not part of automated test suite)
+server/agents/test-*.ts

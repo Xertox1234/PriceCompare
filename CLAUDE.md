@@ -8,6 +8,162 @@ PriceCompare is a full-stack price comparison platform with AI-powered product d
 
 **Tech Stack**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Playwright (Chromium)
 
+---
+
+## 🔒 ARCHITECTURE FREEZE & DEPENDENCY POLICY
+
+**Effective Date**: 2026-01-13
+**Reason**: Architecture violation (axios+cheerio) revealed governance gap
+**Status**: **STRICT ENFORCEMENT ACTIVE**
+
+### ❌ FORBIDDEN WITHOUT EXPLICIT APPROVAL
+
+**No new dependencies** may be added without written justification and approval:
+- ❌ No new npm packages (`npm install <package>`)
+- ❌ No new dev dependencies (`npm install -D <package>`)
+- ❌ No dependency version major upgrades without approval
+- ❌ No architectural changes (new layers, patterns, frameworks)
+
+**Pre-commit hook BLOCKS commits that modify**:
+- `package.json` (dependencies/devDependencies)
+- Core architecture files (middleware pipeline, storage layer, etc.)
+
+### ✅ APPROVAL PROCESS (Required for ALL Changes)
+
+**To add a dependency or change architecture**:
+
+1. **Document Justification** in `docs/architecture/DEPENDENCY_PROPOSALS.md`:
+   ```markdown
+   ## Proposal: Add [package-name]
+
+   **Proposed by**: [Your name]
+   **Date**: YYYY-MM-DD
+   **Type**: dependency | devDependency | architecture-change
+
+   ### Problem Statement
+   [What problem does this solve? Why can't existing dependencies solve it?]
+
+   ### Alternatives Considered
+   - Option 1: [Existing solution] - [Why insufficient]
+   - Option 2: [Different package] - [Why not chosen]
+   - Option 3: [Build in-house] - [Why not feasible]
+
+   ### Proposed Solution
+   **Package**: [package-name@version]
+   **Bundle size**: [KB] (check bundlephobia.com)
+   **Weekly downloads**: [count] (npm trends)
+   **Last published**: [date]
+   **License**: [license type]
+   **Security audit**: [npm audit result]
+
+   ### Impact Assessment
+   - Bundle size impact: +[KB]
+   - Security vulnerabilities: [count]
+   - Maintenance burden: [Low/Medium/High]
+   - Breaking changes risk: [Low/Medium/High]
+
+   ### Justification
+   [Why this is NECESSARY, not just convenient]
+
+   ### Approval
+   - [ ] Reviewed by project owner
+   - [ ] Approved on [date]
+   ```
+
+2. **Get Written Approval** (comment in proposal file or GitHub issue)
+
+3. **Update Pre-Commit Exception** (add to bypass list with reference)
+
+4. **Add Dependency** with commit message referencing approval:
+   ```bash
+   git commit -m "deps: add [package] per DEPENDENCY_PROPOSALS.md#proposal-name
+
+   Approved: [date]
+   Justification: [one-line summary]
+
+   See: docs/architecture/DEPENDENCY_PROPOSALS.md"
+   ```
+
+### 🚫 ARCHITECTURAL CHANGES - STRICTLY FORBIDDEN
+
+**No changes** to core architecture without written approval:
+
+**Protected Architecture** (no modifications allowed):
+- ❌ Middleware pipeline order (`server/index.ts` middleware registration)
+- ❌ Storage layer pattern (`server/storage.ts` as single DB access point)
+- ❌ Dual Redis client architecture (ioredis + redis package)
+- ❌ API response standardization (`sendSuccess/sendError/sendErrorFromException`)
+- ❌ CSRF protection per-route pattern (not global)
+- ❌ Foreign key cascade strategy (all FKs have explicit cascade rules)
+- ❌ Multi-level caching strategy (`storageCache` wrapper)
+- ❌ Playwright EXCLUSIVELY for browser automation
+
+**What constitutes an architectural change**:
+- New abstraction layers (e.g., new service layer, new repository pattern)
+- Changing core patterns (e.g., replacing storage layer with ORM directly)
+- New middleware frameworks or request handling patterns
+- New state management approaches (frontend)
+- New database access patterns
+- New authentication/authorization mechanisms
+
+**Allowed without approval** (implementation details):
+- Bug fixes within existing architecture
+- Performance optimizations preserving patterns
+- Adding routes following existing patterns
+- Adding database queries through storage layer
+- New React components following design system
+- Test coverage improvements
+
+### 📋 Pre-Commit Enforcement
+
+**Automated checks block**:
+```bash
+# Check 1: package.json modification
+if [ -n "$(git diff --cached package.json)" ]; then
+  echo "❌ BLOCKER: package.json modified (dependency freeze active)"
+  echo "   Required: Document in docs/architecture/DEPENDENCY_PROPOSALS.md"
+  echo "   Required: Get written approval"
+  echo "   See: CLAUDE.md#architecture-freeze--dependency-policy"
+  exit 1
+fi
+
+# Check 2: Core architecture file modification
+PROTECTED_FILES="server/index.ts server/storage.ts server/utils/api-response.ts"
+for file in $PROTECTED_FILES; do
+  if [ -n "$(git diff --cached $file | grep -E '^[+-]' | grep -v '^[+-]{3}')" ]; then
+    echo "❌ BLOCKER: Protected architecture file modified: $file"
+    echo "   Required: Architectural change approval"
+    exit 1
+  fi
+done
+```
+
+### 🎯 Rationale
+
+**Why this policy exists**:
+
+1. **axios+cheerio violation** - Added without approval, violated Playwright mandate, 0% success rate
+2. **Technical debt prevention** - Unnecessary dependencies accumulate over time
+3. **Bundle size control** - Each dependency adds KB to production bundle
+4. **Security surface reduction** - Fewer dependencies = fewer vulnerabilities
+5. **Maintenance burden** - Each dependency requires updates, security patches
+6. **Architectural coherence** - Prevents drift from established patterns
+
+**Philosophy**: **"The best dependency is no dependency."**
+
+Only add dependencies when:
+- ✅ Problem cannot be solved with existing dependencies
+- ✅ Building in-house is prohibitively expensive
+- ✅ Package is well-maintained, secure, and lightweight
+- ✅ Benefits clearly outweigh costs
+
+**Exceptions** (allowed without approval):
+- Security patches (`npm audit fix`)
+- Patch version updates (`1.2.3` → `1.2.4`)
+- Removing dependencies
+
+---
+
 ## Browser Automation - MANDATORY REQUIREMENT
 
 **⚠️ CRITICAL: This project uses Playwright EXCLUSIVELY for all browser automation and testing.**
